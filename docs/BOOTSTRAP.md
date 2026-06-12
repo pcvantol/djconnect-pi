@@ -44,6 +44,9 @@ Use Raspberry Pi Imager:
 3. Configure hostname, Wi-Fi, SSH and locale before flashing.
 4. Boot the Pi and SSH into it.
 
+DJConnect does not provision Wi-Fi. Network, hostname, SSH and locale should be
+configured with Raspberry Pi Imager before first boot.
+
 Update the base system:
 
 ```sh
@@ -122,9 +125,9 @@ require access to the private source repository:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.14.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.15.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.14
+cd djconnect-pi-3.1.15
 sudo ./scripts/install_raspberry_pi.sh
 ```
 
@@ -145,9 +148,9 @@ development checkout:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.14.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.15.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.14
+cd djconnect-pi-3.1.15
 sudo ./scripts/install_raspberry_pi.sh
 ```
 

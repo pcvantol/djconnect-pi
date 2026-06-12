@@ -100,6 +100,16 @@ def test_install_script_uses_modern_hyperpixel_overlay_and_dark_mode() -> None:
     assert "gtk-application-prefer-dark-theme=true" in script
 
 
+def test_install_script_does_not_provision_wifi() -> None:
+    script = ROOT.joinpath("scripts/install_raspberry_pi.sh").read_text(encoding="utf-8")
+
+    assert "DJCONNECT_WIFI" not in script
+    assert "configure_wifi" not in script
+    assert "wpa_supplicant" not in script
+    assert "nmcli" not in script
+    assert "wpa_passphrase" not in script
+
+
 def test_install_script_reports_version_in_help_and_runtime() -> None:
     script = ROOT.joinpath("scripts/install_raspberry_pi.sh").read_text(encoding="utf-8")
 

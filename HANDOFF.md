@@ -55,6 +55,8 @@ Implemented:
 - Install script targets Raspberry Pi OS Desktop/GUI 64-bit, switches boot to
   console, starts the local API daemon, and starts the Qt frontend automatically
   through `xinit`.
+- Install script does not provision Wi-Fi. Hostname, Wi-Fi, SSH and locale are
+  expected to be configured with Raspberry Pi Imager before first boot.
 - Install script configures HyperPixel 4 through the modern KMS DPI overlay
   (`vc4-kms-dpi-hyperpixel4sq` by default), disables conflicting I2C/SPI and
   legacy `hyperpixel4-init.service`.
@@ -98,6 +100,8 @@ Not implemented by design:
   `audio_played:false` unless real Pi audio support is explicitly added later.
 - Keep logs free of bearer tokens, HA tokens, Spotify secrets and Wi-Fi
   passwords. `logging_config.py` redacts obviously sensitive messages.
+- Do not reintroduce Wi-Fi provisioning into the DJConnect installer; that
+  belongs in Raspberry Pi Imager setup.
 - Keep language client-owned for Raspberry Pi, just like iOS/macOS. Only ESP
   should consume HA language provisioning.
 - When adding user-facing text, add both Dutch and English translations and

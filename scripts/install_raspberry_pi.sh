@@ -1,12 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DJCONNECT_VERSION="${DJCONNECT_VERSION:-3.1.14}"
+DJCONNECT_VERSION="${DJCONNECT_VERSION:-3.1.15}"
 DJCONNECT_REPO="${DJCONNECT_REPO:-pcvantol/djconnect-pi-releases}"
 DJCONNECT_HA_URL="${DJCONNECT_HA_URL:-http://homeassistant.local:8123}"
-DJCONNECT_WIFI_SSID="${DJCONNECT_WIFI_SSID:-}"
-DJCONNECT_WIFI_PASSWORD="${DJCONNECT_WIFI_PASSWORD:-}"
-DJCONNECT_WIFI_COUNTRY="${DJCONNECT_WIFI_COUNTRY:-NL}"
 DJCONNECT_TIMEZONE="${DJCONNECT_TIMEZONE:-Europe/Amsterdam}"
 DJCONNECT_INSTALL_HYPERPIXEL="${DJCONNECT_INSTALL_HYPERPIXEL:-1}"
 DJCONNECT_HYPERPIXEL_MODEL="${DJCONNECT_HYPERPIXEL_MODEL:-square}"
@@ -29,9 +26,6 @@ Environment:
   DJCONNECT_VERSION=${DJCONNECT_VERSION}
   DJCONNECT_REPO=pcvantol/djconnect-pi-releases
   DJCONNECT_HA_URL=http://homeassistant.local:8123
-  DJCONNECT_WIFI_SSID="My WiFi"
-  DJCONNECT_WIFI_PASSWORD="wifi-password"
-  DJCONNECT_WIFI_COUNTRY=NL
   DJCONNECT_TIMEZONE=Europe/Amsterdam
   DJCONNECT_INSTALL_HYPERPIXEL=1
   DJCONNECT_HYPERPIXEL_MODEL=square
@@ -45,7 +39,6 @@ This installs a dedicated wall-mounted DJConnect Pi client:
 - configures boot to console
 - starts the DJConnect Qt frontend automatically after boot through xinit
 - timezone Europe/Amsterdam
-- optional Wi-Fi provisioning
 - SSH enabled
 - Raspberry Pi Connect enabled when available
 - Raspberry Pi OS desktop dark mode for debug/VNC fallback sessions
@@ -102,31 +95,6 @@ enable_ssh() {
     raspi-config nonint do_ssh 0 || true
   fi
   systemctl enable --now ssh || systemctl enable --now ssh.service
-}
-
-configure_wifi() {
-  if [[ -z "$DJCONNECT_WIFI_SSID" ]]; then
-    log "Skipping Wi-Fi provisioning; DJCONNECT_WIFI_SSID is empty"
-    return
-  fi
-
-  log "Provisioning Wi-Fi network ${DJCONNECT_WIFI_SSID}"
-  raspi-config nonint do_wifi_country "$DJCONNECT_WIFI_COUNTRY" || true
-
-  if command -v nmcli >/dev/null 2>&1; then
-    nmcli radio wifi on
-    nmcli dev wifi connect "$DJCONNECT_WIFI_SSID" password "$DJCONNECT_WIFI_PASSWORD"
-    return
-  fi
-
-  install -m 600 /dev/null /etc/wpa_supplicant/wpa_supplicant.conf
-  {
-    printf 'country=%s\n' "$DJCONNECT_WIFI_COUNTRY"
-    printf 'ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev\n'
-    printf 'update_config=1\n\n'
-    wpa_passphrase "$DJCONNECT_WIFI_SSID" "$DJCONNECT_WIFI_PASSWORD"
-  } > /etc/wpa_supplicant/wpa_supplicant.conf
-  systemctl restart wpa_supplicant || true
 }
 
 install_hyperpixel() {
@@ -365,7 +333,7 @@ payload = {
     "device_name": "DJConnect Pi",
     "device_token": "",
     "paired": False,
-    "version": "3.1.14",
+    "version": "3.1.15",
     "update_repo": "pcvantol/djconnect-pi-releases",
     "update_channel": "stable",
     "screen_timeout_seconds": 120,
@@ -406,7 +374,6 @@ main() {
   check_os_baseline
   configure_timezone
   configure_console_boot
-  configure_wifi
   enable_ssh
   install_base_packages
   install_rpi_connect

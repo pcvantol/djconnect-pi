@@ -1,6 +1,6 @@
 # Changelog
 
-## 3.1.14
+## 3.1.15
 
 - Initial Raspberry Pi display-remote scaffold with Qt Quick/QML, fullscreen
   720x720 touch UI, playback controls and app-like DJConnect pairing, status
@@ -39,3 +39,5 @@
   the installer restart API/UI services when rerun over an existing install.
 - Reviewed Dutch/English translations, moved game titles behind i18n keys and
   fixed the playback fallback so "nothing playing" is translated by the UI.
+- Removed Wi-Fi provisioning from the installer; Wi-Fi/hostname/SSH/locale are
+  handled by Raspberry Pi Imager before first boot.
