@@ -67,6 +67,10 @@ The source repo publishes release assets to the public distribution repo through
 `DJCONNECT_PI_RELEASES_TOKEN` secret with release-write access to
 `pcvantol/djconnect-pi-releases`.
 
+Release bundles include the runtime package plus `docs/`, `scripts/` and
+`systemd/`, so a fresh Raspberry Pi can bootstrap from the public release
+tarball without cloning the private source repository.
+
 ## Maintenance
 
 `djconnect-pi-maintenance` performs OS package maintenance. It can run:
@@ -88,7 +92,7 @@ The Pi client is an app-like DJConnect client.
   "device_id": "djconnect-raspberry-pi-XXXXXXXXXXXX",
   "device_name": "DJConnect Pi",
   "client_type": "raspberry_pi",
-  "version": "3.1.9",
+  "version": "3.1.10",
   "capabilities": {
     "touch": true,
     "voice": false,

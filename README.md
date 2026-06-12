@@ -1,6 +1,6 @@
 # DJConnect Pi
 
-Version: `3.1.9`
+Version: `3.1.10`
 
 Raspberry Pi Zero 2 W touch-display client for DJConnect. This client uses
 Qt Quick/QML with a PySide6 backend and is meant for a Pimoroni HyperPixel 4.0
@@ -77,6 +77,20 @@ only ESP clients use HA language provisioning.
 
 ## Quick Start
 
+Production install on a Pi uses the public distribution release, not a private
+source clone:
+
+```sh
+mkdir -p ~/djconnect-install
+cd ~/djconnect-install
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.9.tar.gz -o djconnect-pi.tar.gz
+tar -xzf djconnect-pi.tar.gz
+cd djconnect-pi-3.1.9
+sudo ./scripts/install_raspberry_pi.sh
+```
+
+Development install from a checkout:
+
 ```sh
 python3 -m venv .venv
 . .venv/bin/activate
@@ -125,6 +139,9 @@ Release assets are published from this source repository to
 `pcvantol/djconnect-pi-releases` by `.github/workflows/publish-release.yml` on
 `vX.Y.Z` tags. Configure the source repo secret `DJCONNECT_PI_RELEASES_TOKEN` with
 permission to create releases in the public distribution repo.
+
+Release bundles include `docs/`, `scripts/`, `src/` and `systemd/` so the Pi can
+install from the public tarball without cloning the private source repo.
 
 OS maintenance is also separate. The maintenance command can run apt update,
 upgrade and reboot only when `/var/run/reboot-required` exists, optionally

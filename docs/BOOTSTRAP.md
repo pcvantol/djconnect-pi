@@ -122,9 +122,16 @@ require access to the private source repository:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.8.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.10.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.8
+cd djconnect-pi-3.1.10
+sudo ./scripts/install_raspberry_pi.sh
+```
+
+The installer prints its DJConnect Pi target version in `--help` and at startup:
+
+```sh
+./scripts/install_raspberry_pi.sh --help
 sudo ./scripts/install_raspberry_pi.sh
 ```
 

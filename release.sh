@@ -81,6 +81,10 @@ replacements = {
     "README.md": [(r"^Version: `[^`]+`$", f"Version: `{version}`")],
     "CHANGELOG.md": [(r"^## .+$", f"## {version}")],
     "docs/ARCHITECTURE.md": [(r'"version": "[^"]+"', f'"version": "{version}"')],
+    "docs/BOOTSTRAP.md": [
+        (r"djconnect-pi-[0-9]+\.[0-9]+\.[0-9]+\.tar\.gz", f"djconnect-pi-{version}.tar.gz"),
+        (r"cd djconnect-pi-[0-9]+\.[0-9]+\.[0-9]+", f"cd djconnect-pi-{version}"),
+    ],
 }
 
 for file_name, rules in replacements.items():

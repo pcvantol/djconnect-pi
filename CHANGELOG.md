@@ -1,6 +1,6 @@
 # Changelog
 
-## 3.1.9
+## 3.1.10
 
 - Initial Raspberry Pi display-remote scaffold with Qt Quick/QML, fullscreen
   720x720 touch UI, playback controls and app-like DJConnect pairing, status
@@ -28,3 +28,10 @@
   installer contract and QML tests.
 - Switched unattended app updates to the public release repository
   `pcvantol/djconnect-pi-releases` and added a GitHub Actions publish workflow.
+- Added complete release bundles with `docs/`, `scripts/`, `src/` and
+  `systemd/` so production Pi installs can run from the public release tarball.
+- Added modern HyperPixel 4 KMS DPI overlay setup, Raspberry Pi OS desktop
+  dark-mode fallback configuration and installer version output.
+- Added dark DJConnect blue/purple gradient styling across the touch UI.
+- Updated the cross-repo sync prompt with full HA-side Raspberry Pi mDNS
+  autodiscovery requirements.

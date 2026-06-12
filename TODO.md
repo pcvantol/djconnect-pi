@@ -3,7 +3,9 @@
 - Add local album art download/cache/scaling.
 - Add vertical edge swipe for volume.
 - Polish the pairing/settings screen with an on-screen keyboard strategy.
-- Add backend-unavailable and version-mismatch UI states.
+- Add a richer backend-unavailable UI state.
+- Implement full HA-side Raspberry Pi mDNS autodiscovery in `pcvantol/djconnect`
+  according to `SYNC_PROMPTS.md`.
 - Validate the separate API daemon and DJ-response event bridge on real Pi
   hardware with Home Assistant.
 - Validate HyperPixel rotation/touch mapping on hardware.
