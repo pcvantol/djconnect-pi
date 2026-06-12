@@ -47,21 +47,22 @@ Implemented:
 - GitHub Actions workflow publishes tagged release assets from this source repo
   to the public distribution repo. It requires the source repo secret
   `DJCONNECT_PI_RELEASES_TOKEN`.
-- Release bundles include `docs/`, `scripts/`, `src/` and `systemd/`, so a Pi
-  can install from the public distribution tarball without cloning the private
-  source repo.
+- Release bundles include `docs/`, `src/`, `systemd/` and only
+  `scripts/install_raspberry_pi.sh`, so a Pi can install the DJConnect app from
+  the public distribution tarball without cloning the private source repo.
+- Repo-only OS bootstrap helper `scripts/bootstrap_raspberry_pi_os.sh` handles
+  timezone Amsterdam, SSH, apt full-upgrade, glances, Raspberry Pi Connect,
+  Raspberry Pi OS dark-mode fallback, console boot and HyperPixel setup. It is
+  intentionally excluded from release tarballs and from the app release cycle.
 - systemd unit/timer templates
 - release and cleanup scripts
-- Install script targets Raspberry Pi OS Desktop/GUI 64-bit, switches boot to
-  console, starts the local API daemon, and starts the Qt frontend automatically
-  through `xinit`.
-- Install script does not provision Wi-Fi. Hostname, Wi-Fi, SSH and locale are
-  expected to be configured with Raspberry Pi Imager before first boot.
-- Install script configures HyperPixel 4 through the modern KMS DPI overlay
-  (`vc4-kms-dpi-hyperpixel4sq` by default), disables conflicting I2C/SPI and
-  legacy `hyperpixel4-init.service`.
-- Install script configures Raspberry Pi OS desktop dark mode best-effort for
-  debug/VNC fallback sessions.
+- Install script targets a prepared Raspberry Pi OS 64-bit image, creates the
+  runtime user, downloads the public release, installs dependencies inside the
+  release venv, starts the local API daemon, and starts the Qt frontend
+  automatically through `xinit`.
+- Install script does not provision Wi-Fi or run OS bootstrap tasks. Hostname,
+  Wi-Fi and locale are expected to be configured with Raspberry Pi Imager before
+  first boot; the repo-only bootstrap helper covers the remaining OS setup.
 - Install script is intended to be re-runnable for manual software updates. It
   keeps existing config, refreshes release files and systemd units, and restarts
   `djconnect-api.service` plus `djconnect-client.service`.
@@ -102,6 +103,10 @@ Not implemented by design:
   passwords. `logging_config.py` redacts obviously sensitive messages.
 - Do not reintroduce Wi-Fi provisioning into the DJConnect installer; that
   belongs in Raspberry Pi Imager setup.
+- Do not reintroduce OS bootstrap into the DJConnect app installer or release
+  tarball. Keep timezone, SSH, apt full-upgrade, glances, Raspberry Pi Connect,
+  Raspberry Pi OS dark-mode fallback and HyperPixel setup in
+  `scripts/bootstrap_raspberry_pi_os.sh`.
 - Keep language client-owned for Raspberry Pi, just like iOS/macOS. Only ESP
   should consume HA language provisioning.
 - When adding user-facing text, add both Dutch and English translations and
@@ -118,12 +123,11 @@ Not implemented by design:
 ## Verification So Far
 
 - `python3 -m compileall src tests` passes.
-- `bash -n scripts/install_raspberry_pi.sh cleanup_old_releases.sh release.sh`
+- `bash -n scripts/install_raspberry_pi.sh scripts/bootstrap_raspberry_pi_os.sh cleanup_old_releases.sh release.sh`
   passes.
 - Installer/release contract tests cover public release tarball examples,
-  service restarts on rerun, complete release bundle contents, HyperPixel KMS
-  overlay configuration, desktop dark-mode fallback and cleanup of old Actions
-  runs.
+  service restarts on rerun, release bundle contents, repo-only OS bootstrap
+  separation and cleanup of old Actions runs.
 - `QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms 1500`
   loads the QML scene and exits cleanly.
 - `python3 -m pytest` passes with the expanded suite; socket-bound Client API

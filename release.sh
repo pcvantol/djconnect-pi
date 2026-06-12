@@ -78,6 +78,9 @@ replacements = {
         (r'  DJCONNECT_VERSION=[0-9]+\.[0-9]+\.[0-9]+', f'  DJCONNECT_VERSION={version}'),
         (r'"version": "[^"]+"', f'"version": "{version}"'),
     ],
+    "scripts/bootstrap_raspberry_pi_os.sh": [
+        (r'^DJCONNECT_BOOTSTRAP_VERSION="\$\{DJCONNECT_BOOTSTRAP_VERSION:-[^}]+\}"$', f'DJCONNECT_BOOTSTRAP_VERSION="${{DJCONNECT_BOOTSTRAP_VERSION:-{version}}}"'),
+    ],
     "README.md": [
         (r"^Version: `[^`]+`$", f"Version: `{version}`"),
         (r"djconnect-pi-[0-9]+\.[0-9]+\.[0-9]+\.tar\.gz", f"djconnect-pi-{version}.tar.gz"),
@@ -111,7 +114,9 @@ build_assets() {
   local dist="dist/djconnect-pi-${VERSION}"
   run rm -rf "$dist" "dist/djconnect-pi-${VERSION}.tar.gz" "dist/djconnect-pi-${VERSION}.sha256"
   run mkdir -p "$dist"
-  run cp -R pyproject.toml README.md CHANGELOG.md docs scripts src systemd "$dist/"
+  run cp -R pyproject.toml README.md CHANGELOG.md docs src systemd "$dist/"
+  run mkdir -p "$dist/scripts"
+  run cp scripts/install_raspberry_pi.sh "$dist/scripts/"
   if [[ "$DRY_RUN" == false ]]; then
     printf '%s\n' "$VERSION" > "$dist/VERSION"
   else

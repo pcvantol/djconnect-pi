@@ -3,6 +3,7 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 import tomllib
+import os
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -33,6 +34,13 @@ def test_install_script_is_executable_in_git() -> None:
     )
 
     assert result.stdout.startswith("100755 ")
+
+
+def test_os_bootstrap_script_is_executable_in_git() -> None:
+    script = ROOT.joinpath("scripts/bootstrap_raspberry_pi_os.sh")
+
+    assert script.exists()
+    assert os.access(script, os.X_OK)
 
 
 def test_systemd_runs_api_separately_from_touch_ui() -> None:
@@ -83,12 +91,14 @@ def test_release_assets_include_installation_materials() -> None:
     workflow = ROOT.joinpath(".github/workflows/publish-release.yml").read_text(encoding="utf-8")
 
     for text in (release_script, workflow):
-        assert "docs scripts src systemd" in text
-        assert "scripts/install_raspberry_pi.sh" in text or "scripts" in text
+        assert "docs src systemd" in text
+        assert 'mkdir -p "$dist/scripts"' in text or 'mkdir -p "${dist}/scripts"' in text
+        assert "cp scripts/install_raspberry_pi.sh" in text
+        assert "cp scripts/bootstrap_raspberry_pi_os.sh" not in text
 
 
-def test_install_script_uses_modern_hyperpixel_overlay_and_dark_mode() -> None:
-    script = ROOT.joinpath("scripts/install_raspberry_pi.sh").read_text(encoding="utf-8")
+def test_repo_only_os_bootstrap_uses_modern_hyperpixel_overlay_and_dark_mode() -> None:
+    script = ROOT.joinpath("scripts/bootstrap_raspberry_pi_os.sh").read_text(encoding="utf-8")
 
     assert "DJCONNECT_HYPERPIXEL_MODEL" in script
     assert "vc4-kms-dpi-hyperpixel4sq" in script
@@ -98,6 +108,29 @@ def test_install_script_uses_modern_hyperpixel_overlay_and_dark_mode() -> None:
     assert "raspi-config nonint do_spi 1" in script
     assert "DJCONNECT_CONFIGURE_DARK_MODE" in script
     assert "gtk-application-prefer-dark-theme=true" in script
+    assert "DJCONNECT_TIMEZONE" in script
+    assert "Europe/Amsterdam" in script
+    assert "raspi-config nonint do_ssh 0" in script
+    assert "apt-get -y full-upgrade" in script
+    assert "glances" in script
+    assert "rpi-connect" in script
+
+
+def test_install_script_excludes_repo_only_os_bootstrap_tasks() -> None:
+    script = ROOT.joinpath("scripts/install_raspberry_pi.sh").read_text(encoding="utf-8")
+
+    assert "DJCONNECT_TIMEZONE" not in script
+    assert "DJCONNECT_FULL_UPGRADE" not in script
+    assert "DJCONNECT_ENABLE_RPI_CONNECT" not in script
+    assert "DJCONNECT_INSTALL_HYPERPIXEL" not in script
+    assert "DJCONNECT_CONFIGURE_DARK_MODE" not in script
+    assert "timedatectl set-timezone" not in script
+    assert "raspi-config nonint do_ssh" not in script
+    assert "apt-get -y full-upgrade" not in script
+    assert "apt-get install -y" not in script
+    assert "systemctl enable --now rpi-connect" not in script
+    assert "hyperpixel4-init.service" not in script
+    assert "gtk-application-prefer-dark-theme=true" not in script
 
 
 def test_install_script_does_not_provision_wifi() -> None:

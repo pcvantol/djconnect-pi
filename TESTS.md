@@ -28,10 +28,12 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
   TXT properties
 - separate Client API daemon event bridge for DJ responses
 - installer/systemd contract for separate API and touch UI services
-- release bundle contract for including install scripts, docs, source and
-  systemd units
-- installer contract for modern HyperPixel KMS DPI overlay setup and
-  Raspberry Pi OS dark-mode fallback configuration
+- release bundle contract for including docs, source, systemd units and only
+  the app installer script
+- repo-only OS bootstrap contract for modern HyperPixel KMS DPI overlay setup,
+  Raspberry Pi OS dark-mode fallback, timezone, SSH, apt full-upgrade, glances
+  and Raspberry Pi Connect
+- installer contract that OS bootstrap tasks stay out of the app release cycle
 - installer contract for rerunnable manual updates: existing config is kept,
   systemd units are refreshed, and API/UI services are restarted
 - bootstrap/README contract that public release download examples match the

@@ -47,16 +47,22 @@ Use Raspberry Pi Imager:
 DJConnect does not provision Wi-Fi. Network, hostname, SSH and locale should be
 configured with Raspberry Pi Imager before first boot.
 
-Update the base system:
+Run the repo-only OS bootstrap helper from a source checkout when you are
+preparing the Pi as maintainer/admin:
 
 ```sh
-sudo apt-get update
-sudo apt-get -y upgrade
+sudo ./scripts/bootstrap_raspberry_pi_os.sh
 sudo reboot
 ```
 
-The installer configures the running system to boot to console
-(`multi-user.target`) and starts the DJConnect Qt frontend automatically through
+The bootstrap helper configures the running system to boot to console
+(`multi-user.target`), sets timezone to `Europe/Amsterdam`, enables SSH, runs an
+optional apt full-upgrade, installs `glances`, attempts Raspberry Pi Connect,
+configures Raspberry Pi OS desktop dark mode and configures HyperPixel. It is
+intentionally not included in DJConnect Pi release tarballs and is not part of
+the app release cycle.
+
+The DJConnect app installer starts the Qt frontend automatically through
 `djconnect-client.service` using `xinit`. A full desktop session is not started
 after boot.
 
@@ -91,12 +97,12 @@ the same line:
 dtoverlay=vc4-kms-dpi-hyperpixel4sq,rotate=90
 ```
 
-The DJConnect installer performs this configuration automatically by default
-with `DJCONNECT_HYPERPIXEL_MODEL=square`. For the rectangular display, run it
-with:
+The repo-only OS bootstrap helper performs this configuration automatically by
+default with `DJCONNECT_HYPERPIXEL_MODEL=square`. For the rectangular display,
+run it with:
 
 ```sh
-sudo DJCONNECT_HYPERPIXEL_MODEL=rectangular ./scripts/install_raspberry_pi.sh
+sudo DJCONNECT_HYPERPIXEL_MODEL=rectangular ./scripts/bootstrap_raspberry_pi_os.sh
 ```
 
 After reboot, confirm:
@@ -120,14 +126,15 @@ sudo chown -R djconnect:djconnect /opt/djconnect
 ## Install the Client Manually
 
 For a production Pi, install from the public release bundle. This does not
-require access to the private source repository:
+require access to the private source repository once the OS bootstrap has been
+completed:
 
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.15.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.16.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.15
+cd djconnect-pi-3.1.16
 sudo ./scripts/install_raspberry_pi.sh
 ```
 
@@ -148,9 +155,9 @@ development checkout:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.15.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.16.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.15
+cd djconnect-pi-3.1.16
 sudo ./scripts/install_raspberry_pi.sh
 ```
 
@@ -163,13 +170,17 @@ The installer is safe to run over an earlier DJConnect install:
 - updates systemd unit files
 - restarts `djconnect-api.service` and `djconnect-client.service`
 - leaves updater, maintenance and screen timers enabled
+- does not run OS bootstrap tasks such as timezone, SSH, apt full-upgrade,
+  glances, Raspberry Pi Connect or HyperPixel setup
 
 For a development checkout on the Pi, update the checkout first and then run the
-installer from that checkout:
+installer from that checkout. If you need to re-apply OS bootstrap work, run the
+repo-only bootstrap helper separately:
 
 ```sh
 cd ~/djconnect-pi
 git pull --ff-only
+sudo ./scripts/bootstrap_raspberry_pi_os.sh
 sudo ./scripts/install_raspberry_pi.sh
 ```
 

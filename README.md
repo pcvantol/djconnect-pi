@@ -1,6 +1,6 @@
 # DJConnect Pi
 
-Version: `3.1.15`
+Version: `3.1.16`
 
 Raspberry Pi Zero 2 W touch-display client for DJConnect. This client uses
 Qt Quick/QML with a PySide6 backend and is meant for a Pimoroni HyperPixel 4.0
@@ -79,15 +79,23 @@ only ESP clients use HA language provisioning.
 
 ## Quick Start
 
-Production install on a Pi uses the public distribution release, not a private
-source clone:
+Fresh Pi setup is split into two steps. General Raspberry Pi OS preparation is
+repo-only maintainer bootstrap work and is not part of the DJConnect app release
+tarball:
+
+```sh
+sudo ./scripts/bootstrap_raspberry_pi_os.sh
+```
+
+Production app install on a prepared Pi uses the public distribution release,
+not a private source clone:
 
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.15.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.16.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.15
+cd djconnect-pi-3.1.16
 sudo ./scripts/install_raspberry_pi.sh
 ```
 
@@ -142,8 +150,11 @@ Release assets are published from this source repository to
 `vX.Y.Z` tags. Configure the source repo secret `DJCONNECT_PI_RELEASES_TOKEN` with
 permission to create releases in the public distribution repo.
 
-Release bundles include `docs/`, `scripts/`, `src/` and `systemd/` so the Pi can
-install from the public tarball without cloning the private source repo.
+Release bundles include `docs/`, `src/`, `systemd/` and only
+`scripts/install_raspberry_pi.sh` so the Pi can install the app from the public
+tarball without cloning the private source repo. Repo-only OS bootstrap helpers,
+including `scripts/bootstrap_raspberry_pi_os.sh`, are excluded from release
+tarballs by design.
 
 OS maintenance is also separate. The maintenance command can run apt update,
 upgrade and reboot only when `/var/run/reboot-required` exists, optionally
@@ -160,16 +171,18 @@ installer:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.15.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.16.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.15
+cd djconnect-pi-3.1.16
 sudo ./scripts/install_raspberry_pi.sh
 ```
 
 The installer preserves existing config, updates `/opt/djconnect/current`,
 refreshes systemd units, and restarts `djconnect-api.service` and
-`djconnect-client.service`. Use `git pull --ff-only` first only when the Pi is
-running from a development checkout.
+`djconnect-client.service`. It does not run OS bootstrap tasks such as timezone,
+SSH, apt full-upgrade, glances, Raspberry Pi Connect or HyperPixel setup. Use
+`git pull --ff-only` first only when the Pi is running from a development
+checkout.
 
 ## Documentation
 

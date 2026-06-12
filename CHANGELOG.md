@@ -1,6 +1,6 @@
 # Changelog
 
-## 3.1.15
+## 3.1.16
 
 - Initial Raspberry Pi display-remote scaffold with Qt Quick/QML, fullscreen
   720x720 touch UI, playback controls and app-like DJConnect pairing, status
@@ -41,3 +41,8 @@
   fixed the playback fallback so "nothing playing" is translated by the UI.
 - Removed Wi-Fi provisioning from the installer; Wi-Fi/hostname/SSH/locale are
   handled by Raspberry Pi Imager before first boot.
+- Split general Raspberry Pi OS bootstrap into repo-only
+  `scripts/bootstrap_raspberry_pi_os.sh` and excluded it from release tarballs.
+  The DJConnect app installer no longer performs timezone, SSH, apt
+  full-upgrade, glances, Raspberry Pi Connect, desktop dark-mode or HyperPixel
+  setup.
