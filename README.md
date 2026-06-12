@@ -1,8 +1,11 @@
 # DJConnect Pi
 
-Raspberry Pi Zero 2 W touch-display client for DJConnect. This client is meant
-for a Pimoroni HyperPixel 4.0 Square Touch style kiosk remote: pairing, status,
-now playing and playback controls only.
+Version: `3.1.0`
+
+Raspberry Pi Zero 2 W touch-display client for DJConnect. This client uses
+Qt Quick/QML with a PySide6 backend and is meant for a Pimoroni HyperPixel 4.0
+Square Touch style kiosk remote: pairing, status, now playing and playback
+controls only.
 
 It intentionally does not implement PTT, microphone upload, local DJ response
 audio, ESP firmware OTA, ESP battery sensors, Wi-Fi RSSI sensors or a local
@@ -46,6 +49,14 @@ pip install -e .
 djconnect-pi-client --ha-url http://homeassistant.local:8123
 ```
 
+Use `--windowed` during desktop development.
+
+For a headless smoke test:
+
+```sh
+QT_QPA_PLATFORM=offscreen djconnect-pi-client --windowed --exit-after-ms 1500
+```
+
 On first launch, enter the pairing code shown by Home Assistant. The client
 stores config under `~/.config/djconnect-pi/config.json` unless `--config` is
 provided.
@@ -69,3 +80,12 @@ inside a configured maintenance window.
 
 See `systemd/` for service and timer templates.
 
+## Documentation
+
+- [Architecture](docs/ARCHITECTURE.md)
+- [Bootstrap a Pi Zero 2 W + HyperPixel](docs/BOOTSTRAP.md)
+- [Handoff](HANDOFF.md)
+- [Changelog](CHANGELOG.md)
+- [Issues](ISSUES.md)
+- [Todo](TODO.md)
+- [Tests](TESTS.md)
