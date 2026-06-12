@@ -54,6 +54,10 @@ Implemented:
   timezone Amsterdam, SSH, apt full-upgrade, glances, Raspberry Pi Connect,
   Raspberry Pi OS dark-mode fallback, console boot and HyperPixel setup. It is
   intentionally excluded from release tarballs and from the app release cycle.
+- The bootstrap helper configures Glances as a boot-started web UI on port
+  `61208` using a dedicated `/opt/djconnect-glances` venv and
+  `glances-web.service`. Do not use the distro `glances.service` for web mode;
+  some Raspberry Pi OS package variants miss the required static web assets.
 - systemd unit/timer templates
 - release and cleanup scripts
 - Install script targets a prepared Raspberry Pi OS 64-bit image, creates the

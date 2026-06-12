@@ -32,7 +32,7 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
   the app installer script
 - repo-only OS bootstrap contract for modern HyperPixel KMS DPI overlay setup,
   Raspberry Pi OS dark-mode fallback, timezone, SSH, apt full-upgrade, glances
-  and Raspberry Pi Connect
+  web UI startup and Raspberry Pi Connect
 - installer contract that OS bootstrap tasks stay out of the app release cycle
 - installer contract for rerunnable manual updates: existing config is kept,
   systemd units are refreshed, and API/UI services are restarted

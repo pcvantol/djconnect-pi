@@ -114,6 +114,10 @@ def test_repo_only_os_bootstrap_uses_modern_hyperpixel_overlay_and_dark_mode() -
     assert "raspi-config nonint do_ssh 0" in script
     assert "apt-get -y full-upgrade" in script
     assert "glances" in script
+    assert 'pip" install --upgrade "glances[web]"' in script
+    assert "glances-web.service" in script
+    assert "/opt/djconnect-glances" in script
+    assert "systemctl disable --now glances.service" in script
     assert "rpi-connect" in script
     assert "systemctl enable --now rpi-connect || true" not in script
     assert "systemctl list-unit-files rpi-connect.service" in script

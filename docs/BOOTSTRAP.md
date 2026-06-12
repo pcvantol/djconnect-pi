@@ -71,6 +71,21 @@ configures Raspberry Pi OS desktop dark mode and configures HyperPixel. It is
 intentionally not included in DJConnect Pi release tarballs and is not part of
 the app release cycle.
 
+Glances is configured in `/opt/djconnect-glances` with the Python
+`glances[web]` package and starts as `glances-web.service` on boot. This avoids
+Raspberry Pi OS package variants where Glances is installed without its web
+static assets.
+
+```text
+http://<pi-hostname-or-ip>:61208
+```
+
+For example:
+
+```text
+http://rbpi-djconnect.local:61208
+```
+
 If an earlier bootstrap attempt failed with a `raspberrypi-ui-mods` /
 `pi-greeter` dpkg overwrite conflict, repair the package state once and rerun
 the bootstrap:
