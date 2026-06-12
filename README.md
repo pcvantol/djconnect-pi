@@ -1,6 +1,6 @@
 # DJConnect Pi
 
-Version: `3.1.12`
+Version: `3.1.13`
 
 Raspberry Pi Zero 2 W touch-display client for DJConnect. This client uses
 Qt Quick/QML with a PySide6 backend and is meant for a Pimoroni HyperPixel 4.0
@@ -64,6 +64,8 @@ The app is a 720x720 fullscreen touch remote:
 - settings for screen blanking, brightness, language and stable/beta update channel
 - default screen blanking after 2 minutes, with tap-to-wake
 - touch-only local games: Paddle Rally, Meteor Run, Sky Dash and Maze Chase
+- Dutch/English user-facing text, including game labels and fallback playback
+  text
 - visible Client API URL for Home Assistant pairing
 - DJ response text overlay
 - logs viewer
@@ -83,9 +85,9 @@ source clone:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.12.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.13.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.12
+cd djconnect-pi-3.1.13
 sudo ./scripts/install_raspberry_pi.sh
 ```
 
@@ -157,10 +159,10 @@ installer:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-rm -rf djconnect-pi-3.1.10 djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.12.tar.gz -o djconnect-pi.tar.gz
+rm -rf djconnect-pi-* djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.13.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.12
+cd djconnect-pi-3.1.13
 sudo ./scripts/install_raspberry_pi.sh
 ```
 

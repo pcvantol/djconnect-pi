@@ -122,9 +122,9 @@ require access to the private source repository:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.12.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.13.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.12
+cd djconnect-pi-3.1.13
 sudo ./scripts/install_raspberry_pi.sh
 ```
 
@@ -144,10 +144,10 @@ development checkout:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-rm -rf djconnect-pi-3.1.10 djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.12.tar.gz -o djconnect-pi.tar.gz
+rm -rf djconnect-pi-* djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.13.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.12
+cd djconnect-pi-3.1.13
 sudo ./scripts/install_raspberry_pi.sh
 ```
 

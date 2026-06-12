@@ -25,14 +25,14 @@ Rectangle {
     signal closeRequested()
 
     property var games: [
-        { id: "pong", title: "Paddle Rally", tint: "#ff9f43" },
-        { id: "asteroids", title: "Meteor Run", tint: "#4aa3ff" },
-        { id: "fly", title: "Sky Dash", tint: "#48d8ff" },
-        { id: "pacman", title: "Maze Chase", tint: "#ffe35a" }
+        { id: "pong", titleKey: "game_pong", tint: "#ff9f43" },
+        { id: "asteroids", titleKey: "game_asteroids", tint: "#4aa3ff" },
+        { id: "fly", titleKey: "game_fly", tint: "#48d8ff" },
+        { id: "pacman", titleKey: "game_pacman", tint: "#ffe35a" }
     ]
     property int gameIndex: 0
     property string gameId: games[gameIndex].id
-    property string gameTitle: games[gameIndex].title
+    property string gameTitle: djconnect.t(games[gameIndex].titleKey)
     property color gameTint: games[gameIndex].tint
     property bool playing: false
     property int score: 0

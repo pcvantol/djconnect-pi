@@ -36,6 +36,9 @@ Implemented:
 - Configurable app-level brightness from the touch settings panel
 - Local language setting. First value comes from Raspberry Pi OS locale, not
   Home Assistant pairing provisioning.
+- Dutch/English translations are kept in `src/djconnect_pi/i18n.py`; tests
+  assert key parity. QML game titles use translation keys, not hardcoded
+  display strings.
 - Local demo mode before pairing. It must not store a bearer token or send HA
   traffic.
 - Stable/beta client update channel setting
@@ -97,6 +100,9 @@ Not implemented by design:
   passwords. `logging_config.py` redacts obviously sensitive messages.
 - Keep language client-owned for Raspberry Pi, just like iOS/macOS. Only ESP
   should consume HA language provisioning.
+- When adding user-facing text, add both Dutch and English translations and
+  avoid hardcoded display strings in QML except brand names and icon-like
+  controls such as `x`.
 - Keep local games client-only. They must not require HA pairing, keyboard input
   or backend traffic.
 - Screen blanking is implemented in the QML layer as a black wake-on-tap

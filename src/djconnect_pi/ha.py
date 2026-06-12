@@ -95,7 +95,7 @@ class HAClient:
     def playback_from_status(self, data: dict[str, Any]) -> Playback:
         playback = data.get("playback") if isinstance(data.get("playback"), dict) else data
         return Playback(
-            title=str(playback.get("title") or playback.get("track") or playback.get("last_track") or "Nothing playing"),
+            title=str(playback.get("title") or playback.get("track") or playback.get("last_track") or ""),
             artist=str(playback.get("artist") or playback.get("artists") or ""),
             image_url=str(playback.get("image_url") or playback.get("album_image_url") or ""),
             is_playing=bool(playback.get("is_playing") or playback.get("playing")),

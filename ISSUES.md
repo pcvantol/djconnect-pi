@@ -25,3 +25,4 @@
 - Home Assistant request payload tests added.
 - HyperPixel boot/display configuration validated on the Pi Zero 2 W with the
   modern `vc4-kms-dpi-hyperpixel4sq` overlay.
+- Dutch/English translation parity reviewed and covered by tests.

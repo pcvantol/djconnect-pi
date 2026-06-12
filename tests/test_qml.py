@@ -37,6 +37,8 @@ def test_qml_has_touch_games_panel() -> None:
     assert 'id: "asteroids"' in games_qml
     assert 'id: "fly"' in games_qml
     assert 'id: "pacman"' in games_qml
+    assert 'titleKey: "game_pong"' in games_qml
+    assert "property string gameTitle: djconnect.t(games[gameIndex].titleKey)" in games_qml
     assert "MouseArea" in games_qml
     assert "handleTouch" in games_qml
 

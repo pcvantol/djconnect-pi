@@ -22,6 +22,7 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 ## Coverage Areas
 
 - config creation, persistence and device ID backfill
+- Dutch/English translation key parity and selected user-facing copy checks
 - Home Assistant pairing/status/command payloads
 - local Client API info, pairing-info, pair, command, DJ response auth and mDNS
   TXT properties
@@ -48,6 +49,7 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 - startup splash, blocking pairing screen, tap-to-wake blanking and toast QML
   contract checks
 - dark DJConnect blue/purple gradient QML theme contract checks
+- game title QML contract checks ensuring titles come from translation keys
 - blocking version-mismatch QML contract checks
 - touch-only games panel packaging and four-game QML contract checks
 - updater release asset selection, SHA256 verification and atomic install

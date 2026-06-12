@@ -1,6 +1,6 @@
 # Changelog
 
-## 3.1.12
+## 3.1.13
 
 - Initial Raspberry Pi display-remote scaffold with Qt Quick/QML, fullscreen
   720x720 touch UI, playback controls and app-like DJConnect pairing, status
@@ -12,7 +12,7 @@
 - Added Home Assistant version compatibility guard. A `3.1.z` Pi client accepts
   HA `>=3.1.0` and `<3.2.0`; mismatches show a blocking screen and trigger
   `djconnect-updater.service`.
-- Added local demo mode before pairing and a "Demo modus stoppen" action that
+- Added local demo mode before pairing and a "Demomodus stoppen" action that
   returns to the blocking pairing flow.
 - Added touch-only local games matching the Apple app set: Paddle Rally, Meteor
   Run, Sky Dash and Maze Chase.
@@ -37,3 +37,5 @@
   autodiscovery requirements.
 - Documented manual production updates from the public release tarball and made
   the installer restart API/UI services when rerun over an existing install.
+- Reviewed Dutch/English translations, moved game titles behind i18n keys and
+  fixed the playback fallback so "nothing playing" is translated by the UI.
