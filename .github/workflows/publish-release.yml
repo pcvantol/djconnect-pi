@@ -90,9 +90,14 @@ jobs:
 
       - name: Publish to public release repository
         env:
-          GH_TOKEN: ${{ secrets.DJCONNECT_RELEASES_TOKEN }}
+          GH_TOKEN: ${{ secrets.DJCONNECT_PI_RELEASES_TOKEN }}
         shell: bash
         run: |
+          if [[ -z "${GH_TOKEN}" ]]; then
+            echo "Missing DJCONNECT_PI_RELEASES_TOKEN repository secret." >&2
+            echo "Create it in pcvantol/djconnect-pi with Contents read/write access to pcvantol/djconnect-pi-releases." >&2
+            exit 4
+          fi
           version="${{ steps.meta.outputs.version }}"
           tag="${{ steps.meta.outputs.tag }}"
           prerelease="${{ steps.meta.outputs.prerelease }}"

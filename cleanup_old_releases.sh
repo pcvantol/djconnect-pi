@@ -4,20 +4,21 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  ./cleanup_old_releases.sh [--keep N] [--execute]
+  ./cleanup_old_releases.sh [--keep N] [--execute] [--skip-actions]
 
 Examples:
   ./cleanup_old_releases.sh
   ./cleanup_old_releases.sh --keep 2 --execute
 
 By default this is a dry-run. It keeps the newest semantic-version tags/releases
-and deletes older matching vX.Y.Z GitHub releases, remote tags and local tags
-only when --execute is passed.
+and deletes older matching vX.Y.Z GitHub releases, remote tags, local tags and
+completed GitHub Actions runs for those tags only when --execute is passed.
 EOF
 }
 
 KEEP=1
 EXECUTE=false
+CLEAN_ACTIONS=true
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -31,6 +32,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --execute)
       EXECUTE=true
+      shift
+      ;;
+    --skip-actions)
+      CLEAN_ACTIONS=false
       shift
       ;;
     -h|--help)
@@ -66,6 +71,32 @@ run() {
   fi
 }
 
+delete_action_runs_for_tag() {
+  local tag="$1"
+
+  if [[ "$CLEAN_ACTIONS" != true ]]; then
+    return
+  fi
+
+  mapfile -t run_ids < <(
+    gh run list \
+      --branch "$tag" \
+      --status completed \
+      --limit 100 \
+      --json databaseId \
+      --jq '.[].databaseId'
+  )
+
+  if [[ "${#run_ids[@]}" -eq 0 ]]; then
+    echo "+ skip missing completed GitHub Actions runs for $tag"
+    return
+  fi
+
+  for run_id in "${run_ids[@]}"; do
+    run gh run delete "$run_id"
+  done
+}
+
 mapfile -t TAGS < <(
   git ls-remote --tags --refs origin 'v*' \
     | awk '{print $2}' \
@@ -91,14 +122,15 @@ DELETE_TAGS=("${TAGS[@]:KEEP}")
 
 echo
 if [[ "$EXECUTE" == true ]]; then
-  echo "Deleting old releases/tags:"
+  echo "Deleting old releases/tags and completed Actions runs:"
 else
-  echo "Dry-run. Would delete old releases/tags:"
+  echo "Dry-run. Would delete old releases/tags and completed Actions runs:"
 fi
 printf '  %s\n' "${DELETE_TAGS[@]}"
 echo
 
 for tag in "${DELETE_TAGS[@]}"; do
+  delete_action_runs_for_tag "$tag"
   if gh release view "$tag" >/dev/null 2>&1; then
     run gh release delete "$tag" --yes
   else
@@ -114,6 +146,5 @@ done
 
 if [[ "$EXECUTE" == false ]]; then
   echo
-  echo "Dry-run complete. Re-run with --execute to delete the old releases/tags."
+  echo "Dry-run complete. Re-run with --execute to delete the old releases/tags and completed Actions runs."
 fi
-

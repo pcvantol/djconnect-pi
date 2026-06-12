@@ -42,6 +42,16 @@ def test_release_workflow_publishes_to_public_distribution_repo() -> None:
     workflow = ROOT.joinpath(".github/workflows/publish-release.yml").read_text(encoding="utf-8")
 
     assert "pcvantol/djconnect-pi-releases" in workflow
-    assert "DJCONNECT_RELEASES_TOKEN" in workflow
+    assert "DJCONNECT_PI_RELEASES_TOKEN" in workflow
     assert 'tags:' in workflow
     assert '"v*.*.*"' in workflow
+
+
+def test_cleanup_script_removes_completed_actions_runs_for_deleted_tags() -> None:
+    script = ROOT.joinpath("cleanup_old_releases.sh").read_text(encoding="utf-8")
+
+    assert "--skip-actions" in script
+    assert 'gh run list' in script
+    assert '--branch "$tag"' in script
+    assert "--status completed" in script
+    assert 'gh run delete "$run_id"' in script
