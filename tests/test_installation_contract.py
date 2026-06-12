@@ -157,6 +157,15 @@ def test_install_script_reports_version_in_help_and_runtime() -> None:
     assert 'log "DJConnect Pi installer ${DJCONNECT_VERSION}"' in script
 
 
+def test_install_script_verifies_release_checksum_independent_of_sha_filename() -> None:
+    script = ROOT.joinpath("scripts/install_raspberry_pi.sh").read_text(encoding="utf-8")
+
+    assert "shasum -a 256 -c release.sha256" not in script
+    assert "expected_hash=" in script
+    assert "actual_hash=" in script
+    assert "Release checksum mismatch" in script
+
+
 def test_bootstrap_release_download_matches_project_version() -> None:
     bootstrap = ROOT.joinpath("docs/BOOTSTRAP.md").read_text(encoding="utf-8")
     readme = ROOT.joinpath("README.md").read_text(encoding="utf-8")

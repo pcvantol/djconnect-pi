@@ -1,6 +1,6 @@
 # Changelog
 
-## 3.1.17
+## 3.1.18
 
 - Initial Raspberry Pi display-remote scaffold with Qt Quick/QML, fullscreen
   720x720 touch UI, playback controls and app-like DJConnect pairing, status

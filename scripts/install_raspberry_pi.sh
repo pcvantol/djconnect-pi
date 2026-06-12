@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DJCONNECT_VERSION="${DJCONNECT_VERSION:-3.1.17}"
+DJCONNECT_VERSION="${DJCONNECT_VERSION:-3.1.18}"
 DJCONNECT_REPO="${DJCONNECT_REPO:-pcvantol/djconnect-pi-releases}"
 DJCONNECT_HA_URL="${DJCONNECT_HA_URL:-http://homeassistant.local:8123}"
 DJCONNECT_RUNTIME_USER="${DJCONNECT_RUNTIME_USER:-djconnect}"
@@ -100,7 +100,16 @@ download_release() {
   log "Downloading DJConnect Pi ${tag}"
   curl -fsSL "https://github.com/${DJCONNECT_REPO}/releases/download/${tag}/djconnect-pi-${version}.tar.gz" -o "${tmp}/release.tar.gz"
   curl -fsSL "https://github.com/${DJCONNECT_REPO}/releases/download/${tag}/djconnect-pi-${version}.sha256" -o "${tmp}/release.sha256"
-  (cd "$tmp" && shasum -a 256 -c release.sha256)
+  local expected_hash
+  local actual_hash
+  expected_hash="$(awk '{print $1; exit}' "${tmp}/release.sha256")"
+  actual_hash="$(shasum -a 256 "${tmp}/release.tar.gz" | awk '{print $1; exit}')"
+  if [[ -z "$expected_hash" || "$actual_hash" != "$expected_hash" ]]; then
+    echo "Release checksum mismatch for ${tag}" >&2
+    echo "Expected: ${expected_hash:-<empty>}" >&2
+    echo "Actual:   ${actual_hash}" >&2
+    exit 1
+  fi
 
   rm -rf "${DJCONNECT_ROOT}/releases/${version}" "${DJCONNECT_ROOT}/releases/.${version}.tmp"
   mkdir -p "${DJCONNECT_ROOT}/releases/.${version}.tmp"
@@ -139,7 +148,7 @@ payload = {
     "device_name": "DJConnect Pi",
     "device_token": "",
     "paired": False,
-    "version": "3.1.17",
+    "version": "3.1.18",
     "update_repo": "pcvantol/djconnect-pi-releases",
     "update_channel": "stable",
     "screen_timeout_seconds": 120,
