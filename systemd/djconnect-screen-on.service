@@ -1,0 +1,10 @@
+[Unit]
+Description=Turn DJConnect Pi display on after night schedule
+After=graphical.target
+
+[Service]
+Type=oneshot
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=/home/djconnect/.Xauthority
+ExecStart=/usr/bin/xset dpms force on
+

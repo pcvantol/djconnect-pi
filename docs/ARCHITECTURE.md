@@ -1,11 +1,12 @@
 # Architecture
 
-DJConnect Pi has three intentionally separate parts.
+DJConnect Pi has four intentionally separate parts.
 
 ## Touch Client
 
 `djconnect-pi-client` is the fullscreen Qt Quick/QML UI. It runs without root
-privileges and talks only to Home Assistant through a PySide6 backend object.
+privileges and talks to Home Assistant through a PySide6 backend object. It does
+not host the local Client API.
 
 Responsibilities:
 
@@ -15,16 +16,34 @@ Responsibilities:
 - send playback commands
 - render now-playing and connection state
 - handle touch gestures and animated control states
-
-It does not expose local HTTP endpoints in the initial product shape.
+- display DJ response text pushed by Home Assistant
+- show startup splash, blocking pairing and local demo mode
+- blank the rendered screen after the configured timeout and wake on tap
 
 The app split is:
 
 ```text
 src/djconnect_pi/app.py       PySide6 backend, properties, slots, polling
-src/djconnect_pi/ha.py        Home Assistant HTTP contract
+src/djconnect_pi/ha.py        Home Assistant outbound HTTP contract
 src/djconnect_pi/qml/*.qml    touch UI, gestures and animations
 ```
+
+## Local Client API
+
+`djconnect-pi-api` is a separate daemon process installed as
+`djconnect-api.service`. It is the only owner of the local HTTP API port and the
+`_djconnect._tcp` mDNS advertisement.
+
+Responsibilities:
+
+- expose `GET /api/device/info`
+- expose `GET /api/device/pairing-info`
+- accept HA initiated pairing at `POST /api/device/pair`
+- reset pairing at `POST /api/device/forget`
+- authenticate protected requests with the stored bearer token
+- advertise `device_id`, `client_type=raspberry_pi`, `version`,
+  `device_name` and `local_url` through mDNS
+- reject oversized HTTP request bodies
 
 ## Updater
 
@@ -38,7 +57,8 @@ The active release is selected by atomically replacing:
 /opt/djconnect/current -> /opt/djconnect/releases/<version>
 ```
 
-After install, the updater restarts `djconnect-client.service`.
+After install, the updater restarts `djconnect-api.service` and
+`djconnect-client.service`.
 
 ## Maintenance
 
@@ -61,12 +81,12 @@ The Pi client is an app-like DJConnect client.
   "device_id": "djconnect-raspberry-pi-XXXXXXXXXXXX",
   "device_name": "DJConnect Pi",
   "client_type": "raspberry_pi",
-  "version": "3.1.17",
+  "version": "3.1.2",
   "capabilities": {
     "touch": true,
     "voice": false,
     "local_audio": false,
-    "local_dj_response_endpoint": false
+    "local_dj_response_endpoint": true
   }
 }
 ```
@@ -76,5 +96,17 @@ Runtime traffic uses:
 - `POST /api/djconnect/pair`
 - `POST /api/djconnect/status`
 - `POST /api/djconnect/command`
+
+The local Client API uses:
+
+- `GET /api/device/info`
+- `GET /api/device/pairing-info`
+- `POST /api/device/pair`
+- `POST /api/device/command`
+- `POST /api/device/dj_response`
+- `POST /api/device/forget`
+
+The Pi advertises `_djconnect._tcp` on the local Client API port. DJ responses
+are displayed as text on the wall screen and report `audio_played:false`.
 
 Spotify credentials remain in Home Assistant.

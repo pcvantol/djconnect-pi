@@ -109,3 +109,19 @@ def test_run_skips_when_current_version_matches(tmp_path: Path) -> None:
 
     with patch("djconnect_pi.updater.github_latest_release", return_value=make_release()):
         assert updater.run(cfg) == "Already on 0.2.0"
+
+
+def test_run_restarts_api_and_client_services_after_install(tmp_path: Path) -> None:
+    cfg = updater.UpdaterConfig(repo="pcvantol/djconnect-pi", install_root=tmp_path)
+
+    with (
+        patch("djconnect_pi.updater.github_latest_release", return_value=make_release()),
+        patch("djconnect_pi.updater.asset_url", side_effect=["bundle-url", "checksum-url"]),
+        patch("djconnect_pi.updater.download"),
+        patch("djconnect_pi.updater.verify_sha256"),
+        patch("djconnect_pi.updater.install_release"),
+        patch("djconnect_pi.updater.restart_services") as restart_services,
+    ):
+        assert updater.run(cfg) == "Installed 0.2.0"
+
+    restart_services.assert_called_once_with(("djconnect-api.service", "djconnect-client.service"))

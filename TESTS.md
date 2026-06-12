@@ -23,11 +23,21 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 
 - config creation, persistence and device ID backfill
 - Home Assistant pairing/status/command payloads
+- local Client API info, pairing-info, pair, command, DJ response auth and mDNS
+  TXT properties
+- separate Client API daemon event bridge for DJ responses
+- installer/systemd contract for separate API and touch UI services
+- config private permissions and atomic-write behavior
+- Raspberry Pi system-info logging
+- debug logging paths for invalid HA JSON and local API request limits
+- backend notification toast state
 - playback response alias parsing
 - protocol mismatch error handling
 - PySide backend properties and command dispatch
 - persistent logging and redaction
 - bundled QML files and offscreen QML load
+- startup splash, blocking pairing screen, tap-to-wake blanking and toast QML
+  contract checks
 - updater release asset selection, SHA256 verification and atomic install
 - updater stable/beta prerelease channel handling
 - apt maintenance windows, upgrade command flow and reboot gating

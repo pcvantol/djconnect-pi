@@ -13,13 +13,15 @@ Window {
     visibility: startWindowed ? Window.Windowed : Window.FullScreen
 
     property real edge: 28
-    property bool settingsOpen: !djconnect.paired || djconnect.haUrl.length === 0
+    property bool splashVisible: true
+    property bool settingsOpen: false
     property bool screenBlanked: djconnect.screenTimeoutSeconds > 0 && !idleTimer.running
+    property real brightnessOverlayOpacity: root.screenBlanked ? 0 : 1 - (djconnect.screenBrightnessPercent / 100.0)
 
     function repeatLabel(value) {
-        if (value === "track") return "Repeat 1"
-        if (value === "context") return "Repeat"
-        return "Repeat off"
+        if (value === "track") return djconnect.t("repeat_one")
+        if (value === "context") return djconnect.t("repeat")
+        return djconnect.t("repeat_off")
     }
 
     Timer {
@@ -27,6 +29,13 @@ Window {
         interval: Math.max(1000, djconnect.screenTimeoutSeconds * 1000)
         running: djconnect.screenTimeoutSeconds > 0
         repeat: false
+    }
+
+    Timer {
+        interval: 1400
+        running: true
+        repeat: false
+        onTriggered: root.splashVisible = false
     }
 
     MouseArea {
@@ -88,8 +97,17 @@ Window {
                 }
 
                 Button {
-                    text: "Setup"
+                    text: djconnect.t("setup")
                     onClicked: settingsOpen = true
+                }
+
+                Button {
+                    text: "x"
+                    implicitWidth: 34
+                    implicitHeight: 34
+                    font.pixelSize: 18
+                    font.bold: true
+                    onClicked: djconnect.quitApp()
                 }
             }
 
@@ -196,19 +214,19 @@ Window {
                 spacing: 18
 
                 ControlButton {
-                    label: "Prev"
+                    label: djconnect.t("previous")
                     onClicked: djconnect.previous()
                 }
 
                 ControlButton {
                     Layout.preferredWidth: 172
-                    label: djconnect.playing ? "Pause" : "Play"
+                    label: djconnect.playing ? djconnect.t("pause") : djconnect.t("play")
                     primary: true
                     onClicked: djconnect.togglePlay()
                 }
 
                 ControlButton {
-                    label: "Next"
+                    label: djconnect.t("next")
                     onClicked: djconnect.next()
                 }
             }
@@ -219,7 +237,7 @@ Window {
                 spacing: 14
 
                 Text {
-                    text: "Vol"
+                    text: djconnect.t("vol")
                     color: "#c6d3d6"
                     font.pixelSize: 16
                     Layout.preferredWidth: 38
@@ -250,7 +268,7 @@ Window {
                 spacing: 16
 
                 TogglePill {
-                    label: "Shuffle"
+                    label: djconnect.t("shuffle")
                     active: djconnect.shuffle
                     onClicked: djconnect.toggleShuffle()
                 }
@@ -266,7 +284,7 @@ Window {
         Rectangle {
             anchors.fill: parent
             color: "#000000"
-            opacity: root.screenBlanked ? 1 : 0
+            opacity: root.screenBlanked ? 1 : root.brightnessOverlayOpacity
             visible: opacity > 0
 
             Behavior on opacity { NumberAnimation { duration: 450 } }
@@ -275,13 +293,51 @@ Window {
                 onTapped: idleTimer.restart()
             }
         }
+
+        Rectangle {
+            anchors.fill: parent
+            color: "#dd0b1012"
+            visible: djconnect.djResponseVisible
+            z: 8
+
+            ColumnLayout {
+                anchors.centerIn: parent
+                width: 600
+                spacing: 18
+
+                Text {
+                    text: djconnect.t("dj_response")
+                    color: "#f4f8f8"
+                    font.pixelSize: 24
+                    font.bold: true
+                    horizontalAlignment: Text.AlignHCenter
+                    Layout.fillWidth: true
+                }
+
+                Text {
+                    text: djconnect.djResponseText
+                    color: "#d7e2e4"
+                    font.pixelSize: 22
+                    wrapMode: Text.WordWrap
+                    horizontalAlignment: Text.AlignHCenter
+                    Layout.fillWidth: true
+                }
+
+                Button {
+                    text: djconnect.t("dismiss")
+                    font.pixelSize: 18
+                    Layout.alignment: Qt.AlignHCenter
+                    onClicked: djconnect.clearDjResponse()
+                }
+            }
+        }
     }
 
     Rectangle {
         id: settingsPanel
         anchors.fill: parent
         color: "#ee0b1012"
-        visible: settingsOpen
+        visible: settingsOpen && (djconnect.paired || djconnect.demoMode)
         z: 10
 
         ColumnLayout {
@@ -290,7 +346,7 @@ Window {
             spacing: 18
 
             Text {
-                text: "DJConnect Setup"
+                text: djconnect.t("setup_title")
                 color: "#f4f8f8"
                 font.pixelSize: 34
                 font.bold: true
@@ -305,17 +361,41 @@ Window {
                 Layout.fillWidth: true
             }
 
+            Button {
+                visible: !djconnect.paired
+                text: djconnect.demoMode ? djconnect.t("exit_demo") : djconnect.t("demo_mode")
+                font.pixelSize: 18
+                Layout.fillWidth: true
+                onClicked: {
+                    if (djconnect.demoMode) {
+                        djconnect.exitDemoMode()
+                        settingsOpen = false
+                    } else {
+                        djconnect.enterDemoMode()
+                        settingsOpen = false
+                    }
+                }
+            }
+
+            Text {
+                text: djconnect.t("client_api_url") + ": " + djconnect.localApiUrl
+                color: "#9fb4b8"
+                font.pixelSize: 14
+                elide: Text.ElideMiddle
+                Layout.fillWidth: true
+            }
+
             TextField {
                 id: haUrlField
                 text: djconnect.haUrl.length ? djconnect.haUrl : "http://homeassistant.local:8123"
-                placeholderText: "Home Assistant URL"
+                placeholderText: djconnect.t("ha_url")
                 font.pixelSize: 20
                 Layout.fillWidth: true
             }
 
             TextField {
                 id: pairCodeField
-                placeholderText: "Pairing code"
+                placeholderText: djconnect.t("pairing_code")
                 font.pixelSize: 26
                 horizontalAlignment: TextInput.AlignHCenter
                 Layout.fillWidth: true
@@ -326,7 +406,7 @@ Window {
                 spacing: 14
 
                 Text {
-                    text: "Screen off"
+                    text: djconnect.t("screen_off")
                     color: "#d7e2e4"
                     font.pixelSize: 18
                     Layout.preferredWidth: 130
@@ -344,7 +424,7 @@ Window {
                 }
 
                 Text {
-                    text: screenTimeoutBox.value === 0 ? "off" : "sec"
+                    text: screenTimeoutBox.value === 0 ? djconnect.t("off") : djconnect.t("sec")
                     color: "#9fb4b8"
                     font.pixelSize: 16
                     Layout.preferredWidth: 38
@@ -356,7 +436,37 @@ Window {
                 spacing: 14
 
                 Text {
-                    text: "Updates"
+                    text: djconnect.t("brightness")
+                    color: "#d7e2e4"
+                    font.pixelSize: 18
+                    Layout.preferredWidth: 130
+                }
+
+                Slider {
+                    id: brightnessSlider
+                    from: 10
+                    to: 100
+                    stepSize: 1
+                    value: djconnect.screenBrightnessPercent
+                    Layout.fillWidth: true
+                    onMoved: djconnect.setScreenBrightnessPercent(Math.round(value))
+                }
+
+                Text {
+                    text: Math.round(brightnessSlider.value) + "%"
+                    color: "#f4f8f8"
+                    font.pixelSize: 16
+                    horizontalAlignment: Text.AlignRight
+                    Layout.preferredWidth: 48
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 14
+
+                Text {
+                    text: djconnect.t("updates")
                     color: "#d7e2e4"
                     font.pixelSize: 18
                     Layout.preferredWidth: 130
@@ -371,8 +481,33 @@ Window {
                 }
             }
 
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 14
+
+                Text {
+                    text: djconnect.t("language")
+                    color: "#d7e2e4"
+                    font.pixelSize: 18
+                    Layout.preferredWidth: 130
+                }
+
+                ComboBox {
+                    id: languageBox
+                    model: [
+                        { code: "nl", label: "Nederlands" },
+                        { code: "en", label: "English" }
+                    ]
+                    textRole: "label"
+                    valueRole: "code"
+                    currentIndex: djconnect.language === "en" ? 1 : 0
+                    Layout.fillWidth: true
+                    onActivated: djconnect.setLanguage(currentValue)
+                }
+            }
+
             Text {
-                text: "Log: " + djconnect.logFile
+                text: djconnect.t("log") + ": " + djconnect.logFile
                 color: "#91a3a7"
                 font.pixelSize: 13
                 elide: Text.ElideMiddle
@@ -380,7 +515,7 @@ Window {
             }
 
             Button {
-                text: djconnect.paired ? "Save" : "Pair"
+                text: djconnect.paired ? djconnect.t("save") : djconnect.t("pair")
                 font.pixelSize: 22
                 Layout.fillWidth: true
                 Layout.preferredHeight: 62
@@ -392,7 +527,7 @@ Window {
             }
 
             Button {
-                text: "Close"
+                text: djconnect.t("close")
                 enabled: djconnect.paired
                 font.pixelSize: 20
                 Layout.fillWidth: true
@@ -400,14 +535,305 @@ Window {
                 onClicked: settingsOpen = false
             }
 
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 12
+
+                Button {
+                    text: djconnect.t("view_logs")
+                    Layout.fillWidth: true
+                    onClicked: djconnect.showLogs()
+                }
+
+                Button {
+                    text: djconnect.t("reset_pairing")
+                    Layout.fillWidth: true
+                    onClicked: djconnect.resetPairing()
+                }
+            }
+
+            Button {
+                text: djconnect.t("reboot_device")
+                Layout.fillWidth: true
+                onClicked: djconnect.rebootDevice()
+            }
+
             Item { Layout.fillHeight: true }
 
             Text {
-                text: "No voice, microphone, or local DJ response playback on this client."
+                text: djconnect.t("no_voice")
                 color: "#91a3a7"
                 font.pixelSize: 15
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
+            }
+        }
+    }
+
+    Rectangle {
+        id: pairingPanel
+        anchors.fill: parent
+        color: "#f20b1012"
+        visible: !root.splashVisible && !djconnect.paired && !djconnect.demoMode
+        z: 30
+
+        ColumnLayout {
+            anchors.centerIn: parent
+            width: Math.min(parent.width - 72, 560)
+            spacing: 18
+
+            Text {
+                text: "DJConnect Pi"
+                color: "#f4f8f8"
+                font.pixelSize: 46
+                font.bold: true
+                horizontalAlignment: Text.AlignHCenter
+                Layout.fillWidth: true
+            }
+
+            Text {
+                text: djconnect.t("pairing_title")
+                color: "#d7e2e4"
+                font.pixelSize: 28
+                font.bold: true
+                horizontalAlignment: Text.AlignHCenter
+                Layout.fillWidth: true
+            }
+
+            Text {
+                text: djconnect.t("pairing_hint")
+                color: "#9fb4b8"
+                font.pixelSize: 17
+                wrapMode: Text.WordWrap
+                horizontalAlignment: Text.AlignHCenter
+                Layout.fillWidth: true
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 82
+                radius: 8
+                color: "#10181c"
+                border.color: "#314449"
+                border.width: 1
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: 12
+                    spacing: 4
+
+                    Text {
+                        text: djconnect.t("client_api_url")
+                        color: "#9fb4b8"
+                        font.pixelSize: 14
+                        Layout.fillWidth: true
+                    }
+
+                    Text {
+                        text: djconnect.localApiUrl
+                        color: "#f4f8f8"
+                        font.pixelSize: 20
+                        font.bold: true
+                        elide: Text.ElideMiddle
+                        Layout.fillWidth: true
+                    }
+                }
+            }
+
+            TextField {
+                id: blockingPairCodeField
+                placeholderText: djconnect.t("pairing_code")
+                font.pixelSize: 28
+                horizontalAlignment: TextInput.AlignHCenter
+                Layout.fillWidth: true
+                Layout.preferredHeight: 66
+                onAccepted: {
+                    djconnect.pair(text)
+                    text = ""
+                }
+            }
+
+            Button {
+                text: djconnect.t("pair")
+                font.pixelSize: 22
+                Layout.fillWidth: true
+                Layout.preferredHeight: 62
+                onClicked: {
+                    djconnect.pair(blockingPairCodeField.text)
+                    blockingPairCodeField.text = ""
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 12
+
+                Button {
+                    text: djconnect.t("demo_mode")
+                    font.pixelSize: 18
+                    Layout.fillWidth: true
+                    onClicked: djconnect.enterDemoMode()
+                }
+
+                Button {
+                    text: djconnect.t("view_logs")
+                    font.pixelSize: 18
+                    Layout.fillWidth: true
+                    onClicked: djconnect.showLogs()
+                }
+            }
+
+            Text {
+                text: djconnect.t("pairing_blocked")
+                color: "#91a3a7"
+                font.pixelSize: 15
+                wrapMode: Text.WordWrap
+                horizontalAlignment: Text.AlignHCenter
+                Layout.fillWidth: true
+            }
+        }
+
+        Button {
+            text: "x"
+            anchors.top: parent.top
+            anchors.right: parent.right
+            anchors.margins: 18
+            implicitWidth: 34
+            implicitHeight: 34
+            font.pixelSize: 18
+            font.bold: true
+            onClicked: djconnect.quitApp()
+        }
+    }
+
+    Rectangle {
+        id: splashPanel
+        anchors.fill: parent
+        color: "#0b1012"
+        visible: root.splashVisible
+        z: 40
+
+        Rectangle {
+            anchors.centerIn: parent
+            width: Math.min(parent.width - 64, 560)
+            height: 190
+            radius: 8
+            color: "#10181c"
+            border.color: "#314449"
+            border.width: 1
+
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: 24
+                spacing: 14
+
+                Text {
+                    text: "DJConnect"
+                    color: "#f4f8f8"
+                    font.pixelSize: 48
+                    font.bold: true
+                    horizontalAlignment: Text.AlignHCenter
+                    Layout.fillWidth: true
+                }
+
+                Text {
+                    text: djconnect.t("startup_message")
+                    color: "#9fb4b8"
+                    font.pixelSize: 18
+                    horizontalAlignment: Text.AlignHCenter
+                    Layout.fillWidth: true
+                }
+
+                BusyIndicator {
+                    running: splashPanel.visible
+                    implicitWidth: 46
+                    implicitHeight: 46
+                    Layout.alignment: Qt.AlignHCenter
+                }
+            }
+        }
+    }
+
+    Rectangle {
+        id: toast
+        anchors.top: parent.top
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.topMargin: 22
+        width: Math.min(parent.width - 64, Math.max(220, toastText.implicitWidth + 58))
+        height: 48
+        radius: 24
+        color: "#d92f8cff"
+        border.color: "#80ffffff"
+        border.width: 1
+        opacity: djconnect.toastVisible ? 1 : 0
+        visible: opacity > 0
+        z: 70
+        y: djconnect.toastVisible ? 0 : -16
+
+        Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+        Behavior on y { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+
+        Text {
+            id: toastText
+            anchors.centerIn: parent
+            width: parent.width - 34
+            text: djconnect.toastText
+            color: "#ffffff"
+            font.pixelSize: 17
+            font.bold: true
+            horizontalAlignment: Text.AlignHCenter
+            elide: Text.ElideRight
+            maximumLineCount: 1
+        }
+    }
+
+    Rectangle {
+        anchors.fill: parent
+        color: "#f20b1012"
+        visible: djconnect.logsVisible
+        z: 50
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 28
+            spacing: 12
+
+            RowLayout {
+                Layout.fillWidth: true
+                Text {
+                    text: djconnect.t("logs")
+                    color: "#f4f8f8"
+                    font.pixelSize: 30
+                    font.bold: true
+                    Layout.fillWidth: true
+                }
+                Button {
+                    text: djconnect.t("refresh")
+                    onClicked: djconnect.showLogs()
+                }
+                Button {
+                    text: djconnect.t("close")
+                    onClicked: djconnect.hideLogs()
+                }
+            }
+
+            ScrollView {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+
+                TextArea {
+                    text: djconnect.logsText
+                    readOnly: true
+                    wrapMode: TextEdit.NoWrap
+                    color: "#d7e2e4"
+                    font.family: "monospace"
+                    font.pixelSize: 12
+                    background: Rectangle {
+                        color: "#10181c"
+                        radius: 8
+                        border.color: "#314449"
+                    }
+                }
             }
         }
     }

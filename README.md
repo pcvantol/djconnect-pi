@@ -1,6 +1,6 @@
 # DJConnect Pi
 
-Version: `3.1.1`
+Version: `3.1.2`
 
 Raspberry Pi Zero 2 W touch-display client for DJConnect. This client uses
 Qt Quick/QML with a PySide6 backend and is meant for a Pimoroni HyperPixel 4.0
@@ -8,8 +8,9 @@ Square Touch style kiosk remote: pairing, status, now playing and playback
 controls only.
 
 It intentionally does not implement PTT, microphone upload, local DJ response
-audio, ESP firmware OTA, ESP battery sensors, Wi-Fi RSSI sensors or a local
-`/api/device/dj_response` endpoint.
+audio, ESP firmware OTA, ESP battery sensors or Wi-Fi RSSI sensors. It does
+run a small local Client API daemon plus `_djconnect._tcp` mDNS for Home
+Assistant pairing/discovery and text-only DJ responses.
 
 ## Client Contract
 
@@ -19,6 +20,16 @@ audio, ESP firmware OTA, ESP battery sensors, Wi-Fi RSSI sensors or a local
   - `POST /api/djconnect/pair`
   - `POST /api/djconnect/status`
   - `POST /api/djconnect/command`
+- Local Client API endpoints:
+  - `GET /api/device/info`
+  - `GET /api/device/pairing-info`
+  - `POST /api/device/pair`
+  - `POST /api/device/command`
+  - `POST /api/device/dj_response`
+  - `POST /api/device/forget`
+- mDNS service:
+  - `_djconnect._tcp`
+  - TXT: `device_id`, `client_type=raspberry_pi`, `version`, `device_name`, `local_url`
 - Supported commands:
   - `status`
   - `play`
@@ -33,14 +44,27 @@ audio, ESP firmware OTA, ESP battery sensors, Wi-Fi RSSI sensors or a local
 
 The app is a 720x720 fullscreen touch remote:
 
+- full-screen DJConnect startup splash with spinner
+- blocking first-run pairing screen until the client is paired
+- pairing screen shows the local Client API URL and pairing code input
 - album art area / status area in the center
 - large play/pause button
 - previous/next buttons left and right
 - bottom volume slider
 - shuffle and repeat toggles
 - compact HA/pairing/backend status
-- settings for screen blanking and stable/beta update channel
+- settings for screen blanking, brightness, language and stable/beta update channel
+- default screen blanking after 2 minutes, with tap-to-wake
+- visible Client API URL for Home Assistant pairing
+- DJ response text overlay
+- logs viewer
+- local demo mode before pairing
 - persistent rotating client log
+- small top-corner close button for maintenance sessions
+
+The initial language is detected from the Raspberry Pi OS locale and then stored
+locally. Home Assistant does not provision UI language for Raspberry Pi clients;
+only ESP clients use HA language provisioning.
 
 ## Quick Start
 
@@ -59,13 +83,18 @@ For a headless smoke test:
 QT_QPA_PLATFORM=offscreen djconnect-pi-client --windowed --exit-after-ms 1500
 ```
 
-On first launch, enter the pairing code shown by Home Assistant. The client
-stores config under `~/.config/djconnect-pi/config.json` unless `--config` is
-provided.
+On first launch, the app blocks normal playback controls until pairing is done.
+Use the Client API URL shown on the Pi in the Home Assistant pairing flow, then
+enter the pairing code on the Pi. The client stores config under
+`~/.config/djconnect-pi/config.json` unless `--config` is provided.
 
 ## Unattended Updates
 
-The updater is a separate process from the UI app. It checks GitHub Releases,
+The local Client API, updater and OS maintenance are separate processes from the
+UI app. The Client API runs as `djconnect-api.service`; the touch UI runs as
+`djconnect-client.service`.
+
+The updater checks GitHub Releases,
 downloads a tarball asset and optional `.sha256`, installs into:
 
 ```text

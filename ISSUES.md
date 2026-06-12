@@ -14,6 +14,8 @@
   Pi Zero 2 W.
 - Screen blanking currently hides the UI with a black overlay. It reduces burn-in
   risk but is not yet verified as a true panel/backlight power-off.
+- Brightness currently dims the rendered UI in QML. It does not yet control the
+  HyperPixel backlight at the hardware level.
 - Persistent logs rotate locally, but log retention has not yet been tuned on
   the wall device's SD card.
 

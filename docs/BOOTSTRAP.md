@@ -17,7 +17,7 @@ Hardware:
 
 Software:
 
-- Raspberry Pi OS Lite or Desktop, Bookworm recommended
+- Raspberry Pi OS Desktop/GUI 64-bit, Bookworm recommended
 - Python 3.11 or newer
 - PySide6 / Qt Quick runtime
 - Git
@@ -40,7 +40,7 @@ Network:
 Use Raspberry Pi Imager:
 
 1. Choose Raspberry Pi Zero 2 W.
-2. Choose Raspberry Pi OS Bookworm.
+2. Choose Raspberry Pi OS Desktop/GUI 64-bit Bookworm.
 3. Configure hostname, Wi-Fi, SSH and locale before flashing.
 4. Boot the Pi and SSH into it.
 
@@ -51,6 +51,11 @@ sudo apt-get update
 sudo apt-get -y upgrade
 sudo reboot
 ```
+
+The installer configures the running system to boot to console
+(`multi-user.target`) and starts the DJConnect Qt frontend automatically through
+`djconnect-client.service` using `xinit`. A full desktop session is not started
+after boot.
 
 ## Install HyperPixel Support
 
@@ -113,20 +118,23 @@ Copy units:
 ```sh
 sudo cp systemd/djconnect-*.service systemd/djconnect-*.timer /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable djconnect-client.service
+sudo systemctl enable --now djconnect-api.service
+sudo systemctl enable --now djconnect-client.service
 sudo systemctl enable --now djconnect-updater.timer
 sudo systemctl enable --now djconnect-maintenance.timer
 ```
 
-Start the UI:
+Start the local API and UI:
 
 ```sh
+sudo systemctl start djconnect-api.service
 sudo systemctl start djconnect-client.service
 ```
 
 Check logs:
 
 ```sh
+journalctl -u djconnect-api.service -f
 journalctl -u djconnect-client.service -f
 ```
 
@@ -145,8 +153,13 @@ The Pi should then show now-playing status and basic playback controls.
 Open `Setup` on the touch screen and configure:
 
 - `Screen off`: seconds of inactivity before the UI blanks to black. Use `0` to
-  disable blanking.
+  disable blanking. The default is 120 seconds; tap the screen to wake it.
+- `Brightness`: app-level visual brightness from 10% to 100%.
+- `Language`: Nederlands or English. The first value is read from Raspberry Pi
+  OS locale and is not provisioned by Home Assistant.
 - `Updates`: `stable` for normal GitHub releases, `beta` to allow prereleases.
+- `Client API URL`: enter this in the Home Assistant pairing flow when HA asks
+  for it. HA may also discover the Pi through `_djconnect._tcp` mDNS.
 - `Log`: read-only path to the persistent rotating client log.
 
 ## Operational Notes

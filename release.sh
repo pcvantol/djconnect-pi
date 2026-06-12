@@ -72,8 +72,15 @@ dry_run = os.environ["DRY_RUN"] == "true"
 replacements = {
     "pyproject.toml": [(r'^version = "[^"]+"$', f'version = "{version}"')],
     "src/djconnect_pi/__init__.py": [(r'^__version__ = "[^"]+"$', f'__version__ = "{version}"')],
+    "src/djconnect_pi/config.py": [(r'^PROTOCOL_VERSION = "[^"]+"$', f'PROTOCOL_VERSION = "{version}"')],
+    "scripts/install_raspberry_pi.sh": [
+        (r'^DJCONNECT_VERSION="\$\{DJCONNECT_VERSION:-[^}]+\}"$', f'DJCONNECT_VERSION="${{DJCONNECT_VERSION:-{version}}}"'),
+        (r'  DJCONNECT_VERSION=[0-9]+\.[0-9]+\.[0-9]+', f'  DJCONNECT_VERSION={version}'),
+        (r'"version": "[^"]+"', f'"version": "{version}"'),
+    ],
     "README.md": [(r"^Version: `[^`]+`$", f"Version: `{version}`")],
     "CHANGELOG.md": [(r"^## .+$", f"## {version}")],
+    "docs/ARCHITECTURE.md": [(r'"version": "[^"]+"', f'"version": "{version}"')],
 }
 
 for file_name, rules in replacements.items():
@@ -125,4 +132,3 @@ run gh release create "$TAG" \
   "dist/djconnect-pi-${VERSION}.sha256"
 
 echo "Release ${TAG} complete."
-

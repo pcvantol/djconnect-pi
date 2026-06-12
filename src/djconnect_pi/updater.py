@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Sequence
 import argparse
 import hashlib
 import json
@@ -19,7 +20,7 @@ class UpdaterConfig:
     repo: str
     channel: str = "stable"
     install_root: Path = Path("/opt/djconnect")
-    service_name: str = "djconnect-client.service"
+    service_names: Sequence[str] = ("djconnect-api.service", "djconnect-client.service")
 
 
 def include_prerelease(channel: str) -> bool:
@@ -93,8 +94,9 @@ def install_release(bundle: Path, version: str, root: Path) -> Path:
     return target
 
 
-def restart_service(service_name: str) -> None:
-    subprocess.run(["systemctl", "restart", service_name], check=True)
+def restart_services(service_names: Sequence[str]) -> None:
+    for service_name in service_names:
+        subprocess.run(["systemctl", "restart", service_name], check=True)
 
 
 def current_version(root: Path) -> str:
@@ -124,7 +126,7 @@ def run(cfg: UpdaterConfig, dry_run: bool = False) -> str:
         download(checksum_url, checksum)
         verify_sha256(bundle, checksum)
         install_release(bundle, version, cfg.install_root)
-    restart_service(cfg.service_name)
+    restart_services(cfg.service_names)
     return f"Installed {version}"
 
 
@@ -133,10 +135,16 @@ def main() -> None:
     parser.add_argument("--repo", default="pcvantol/djconnect-pi")
     parser.add_argument("--channel", choices=["stable", "beta"], default="stable")
     parser.add_argument("--install-root", type=Path, default=Path("/opt/djconnect"))
-    parser.add_argument("--service-name", default="djconnect-client.service")
+    parser.add_argument(
+        "--service-name",
+        action="append",
+        dest="service_names",
+        help="systemd service to restart after install. May be supplied more than once.",
+    )
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
-    print(run(UpdaterConfig(args.repo, args.channel, args.install_root, args.service_name), args.dry_run))
+    service_names = tuple(args.service_names or ("djconnect-api.service", "djconnect-client.service"))
+    print(run(UpdaterConfig(args.repo, args.channel, args.install_root, service_names), args.dry_run))
 
 
 if __name__ == "__main__":

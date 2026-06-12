@@ -15,12 +15,15 @@ class FakeResponse:
     status_code: int
     payload: dict[str, Any] | None = None
     text: str = ""
+    json_error: Exception | None = None
 
     @property
     def content(self) -> bytes:
         return b"{}" if self.payload is not None else b""
 
     def json(self) -> dict[str, Any]:
+        if self.json_error is not None:
+            raise self.json_error
         return self.payload or {}
 
 
@@ -42,7 +45,7 @@ def test_pair_sends_raspberry_pi_identity_and_stores_token() -> None:
     assert captured["json"]["device_id"] == "djconnect-raspberry-pi-ABCDEF123456"
     assert captured["json"]["pair_code"] == "123456"
     assert captured["json"]["capabilities"]["voice"] is False
-    assert captured["json"]["capabilities"]["local_dj_response_endpoint"] is False
+    assert captured["json"]["capabilities"]["local_dj_response_endpoint"] is True
     assert cfg.device_token == "token-1"
     assert cfg.paired is True
 
@@ -120,3 +123,14 @@ def test_protocol_mismatch_raises_djconnect_error() -> None:
 
     with pytest.raises(DJConnectError, match="Protocol version mismatch"):
         client._json(FakeResponse(426, {"error": "version_mismatch"}, "version_mismatch"))
+
+
+def test_invalid_ha_json_is_logged(caplog) -> None:
+    client = HAClient(Config(ha_url="http://ha"))
+    caplog.set_level("WARNING")
+
+    with pytest.raises(DJConnectError, match="invalid JSON"):
+        client._json(FakeResponse(200, {}, json_error=ValueError("bad json")))
+
+    assert "Home Assistant returned invalid JSON" in caplog.text
+    assert "bad json" in caplog.text

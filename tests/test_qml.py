@@ -14,6 +14,41 @@ def test_qml_files_are_packaged() -> None:
     assert qml_root.joinpath("TogglePill.qml").is_file()
 
 
+def test_qml_has_blocking_pairing_and_splash_views() -> None:
+    main_qml = files("djconnect_pi.qml").joinpath("Main.qml").read_text(encoding="utf-8")
+
+    assert "id: pairingPanel" in main_qml
+    assert "id: splashPanel" in main_qml
+    assert "!djconnect.paired && !djconnect.demoMode" in main_qml
+    assert 'djconnect.t("client_api_url")' in main_qml
+    assert 'djconnect.t("startup_message")' in main_qml
+
+
+def test_qml_stop_demo_button_returns_to_pairing_flow() -> None:
+    main_qml = files("djconnect_pi.qml").joinpath("Main.qml").read_text(encoding="utf-8")
+
+    assert 'text: djconnect.demoMode ? djconnect.t("exit_demo") : djconnect.t("demo_mode")' in main_qml
+    assert "djconnect.exitDemoMode()" in main_qml
+    assert "settingsOpen = false" in main_qml
+
+
+def test_qml_screen_blanking_wakes_on_tap() -> None:
+    main_qml = files("djconnect_pi.qml").joinpath("Main.qml").read_text(encoding="utf-8")
+
+    assert "property bool screenBlanked: djconnect.screenTimeoutSeconds > 0 && !idleTimer.running" in main_qml
+    assert "onTapped: idleTimer.restart()" in main_qml
+    assert "opacity: root.screenBlanked ? 1 : root.brightnessOverlayOpacity" in main_qml
+
+
+def test_qml_has_backend_toast_overlay() -> None:
+    main_qml = files("djconnect_pi.qml").joinpath("Main.qml").read_text(encoding="utf-8")
+
+    assert "id: toast" in main_qml
+    assert "djconnect.toastVisible" in main_qml
+    assert "djconnect.toastText" in main_qml
+    assert "Behavior on opacity" in main_qml
+
+
 def test_qml_offscreen_smoke_loads() -> None:
     env = {**os.environ, "QT_QPA_PLATFORM": "offscreen"}
     result = subprocess.run(

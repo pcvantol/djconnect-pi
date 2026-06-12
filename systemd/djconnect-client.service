@@ -1,17 +1,18 @@
 [Unit]
 Description=DJConnect Raspberry Pi touch client
-After=network-online.target graphical.target
+After=network-online.target systemd-user-sessions.service
 Wants=network-online.target
 
 [Service]
 Type=simple
 User=djconnect
 Group=djconnect
-Environment=DISPLAY=:0
-ExecStart=/opt/djconnect/current/bin/djconnect-pi-client --config /opt/djconnect/config/client.json
+WorkingDirectory=/opt/djconnect
+Environment=HOME=/home/djconnect
+Environment=XDG_RUNTIME_DIR=/run/user/%U
+ExecStart=/usr/bin/xinit /opt/djconnect/current/bin/djconnect-pi-client --config /opt/djconnect/config/client.json -- :0 -nolisten tcp -nocursor
 Restart=on-failure
 RestartSec=5
 
 [Install]
-WantedBy=graphical.target
-
+WantedBy=multi-user.target
