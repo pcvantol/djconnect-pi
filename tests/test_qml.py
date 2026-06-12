@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import tempfile
 from importlib.resources import files
 
 
@@ -88,6 +89,7 @@ def test_qml_has_blocking_version_mismatch_view() -> None:
 
 def test_qml_offscreen_smoke_loads() -> None:
     env = {**os.environ, "QT_QPA_PLATFORM": "offscreen"}
+    tmpdir = tempfile.gettempdir()
     result = subprocess.run(
         [
             sys.executable,
@@ -97,9 +99,9 @@ def test_qml_offscreen_smoke_loads() -> None:
             "--exit-after-ms",
             "250",
             "--config",
-            "/private/tmp/djconnect-pi-qml-test.json",
+            os.path.join(tmpdir, "djconnect-pi-qml-test.json"),
             "--log-file",
-            "/private/tmp/djconnect-pi-qml-test.log",
+            os.path.join(tmpdir, "djconnect-pi-qml-test.log"),
         ],
         env=env,
         text=True,
