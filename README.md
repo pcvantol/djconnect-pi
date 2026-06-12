@@ -1,6 +1,6 @@
 # DJConnect Pi
 
-Version: `3.1.5`
+Version: `3.1.6`
 
 Raspberry Pi Zero 2 W touch-display client for DJConnect. This client uses
 Qt Quick/QML with a PySide6 backend and is meant for a Pimoroni HyperPixel 4.0
