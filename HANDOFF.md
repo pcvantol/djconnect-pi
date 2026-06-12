@@ -57,6 +57,9 @@ Implemented:
   legacy `hyperpixel4-init.service`.
 - Install script configures Raspberry Pi OS desktop dark mode best-effort for
   debug/VNC fallback sessions.
+- Install script is intended to be re-runnable for manual software updates. It
+  keeps existing config, refreshes release files and systemd units, and restarts
+  `djconnect-api.service` plus `djconnect-client.service`.
 
 Not implemented by design:
 
@@ -77,6 +80,8 @@ Not implemented by design:
 - Keep the local Client API separate from the UI process. The UI must not host
   the HTTP API or mDNS service; `djconnect-api.service` owns that.
 - Keep unattended updates atomic under `/opt/djconnect/releases`.
+- Manual production updates should use the public release tarball and rerun the
+  installer; use `git pull --ff-only` only on development checkouts.
 - Keep source and distribution repos separate unless the product decision
   changes: source is `pcvantol/djconnect-pi`, public release assets are in
   `pcvantol/djconnect-pi-releases`.

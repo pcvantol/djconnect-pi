@@ -1,6 +1,6 @@
 # Changelog
 
-## 3.1.10
+## 3.1.11
 
 - Initial Raspberry Pi display-remote scaffold with Qt Quick/QML, fullscreen
   720x720 touch UI, playback controls and app-like DJConnect pairing, status
@@ -35,3 +35,5 @@
 - Added dark DJConnect blue/purple gradient styling across the touch UI.
 - Updated the cross-repo sync prompt with full HA-side Raspberry Pi mDNS
   autodiscovery requirements.
+- Documented manual production updates from the public release tarball and made
+  the installer restart API/UI services when rerun over an existing install.

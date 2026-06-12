@@ -122,9 +122,9 @@ require access to the private source repository:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.10.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.11.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.10
+cd djconnect-pi-3.1.11
 sudo ./scripts/install_raspberry_pi.sh
 ```
 
@@ -134,6 +134,45 @@ The installer prints its DJConnect Pi target version in `--help` and at startup:
 ./scripts/install_raspberry_pi.sh --help
 sudo ./scripts/install_raspberry_pi.sh
 ```
+
+## Manual Software Update
+
+For a wall-mounted production Pi, update from the public release tarball. You do
+not need `git pull` on the Pi unless you are intentionally running from a
+development checkout:
+
+```sh
+mkdir -p ~/djconnect-install
+cd ~/djconnect-install
+rm -rf djconnect-pi-3.1.10 djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.11.tar.gz -o djconnect-pi.tar.gz
+tar -xzf djconnect-pi.tar.gz
+cd djconnect-pi-3.1.11
+sudo ./scripts/install_raspberry_pi.sh
+```
+
+The installer is safe to run over an earlier DJConnect install:
+
+- keeps an existing `/opt/djconnect/config/client.json`
+- downloads and verifies the selected public release
+- replaces `/opt/djconnect/releases/<version>` for that version
+- repoints `/opt/djconnect/current`
+- updates systemd unit files
+- restarts `djconnect-api.service` and `djconnect-client.service`
+- leaves updater, maintenance and screen timers enabled
+
+For a development checkout on the Pi, update the checkout first and then run the
+installer from that checkout:
+
+```sh
+cd ~/djconnect-pi
+git pull --ff-only
+sudo ./scripts/install_raspberry_pi.sh
+```
+
+The unattended app updater uses the same release layout under
+`/opt/djconnect/releases` and is still the preferred normal update path once the
+device is installed.
 
 From a development checkout:
 

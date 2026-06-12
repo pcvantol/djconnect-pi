@@ -15,8 +15,10 @@ def _project_version() -> str:
 def test_install_script_enables_local_api_service() -> None:
     script = ROOT.joinpath("scripts/install_raspberry_pi.sh").read_text(encoding="utf-8")
 
-    assert "systemctl enable --now djconnect-api.service" in script
-    assert "systemctl enable --now djconnect-client.service" in script
+    assert "systemctl enable djconnect-api.service" in script
+    assert "systemctl enable djconnect-client.service" in script
+    assert "systemctl restart djconnect-api.service" in script
+    assert "systemctl restart djconnect-client.service" in script
     assert "Local Client API starts automatically via djconnect-api.service." in script
 
 

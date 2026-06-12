@@ -1,6 +1,6 @@
 # DJConnect Pi
 
-Version: `3.1.10`
+Version: `3.1.11`
 
 Raspberry Pi Zero 2 W touch-display client for DJConnect. This client uses
 Qt Quick/QML with a PySide6 backend and is meant for a Pimoroni HyperPixel 4.0
@@ -148,6 +148,26 @@ upgrade and reboot only when `/var/run/reboot-required` exists, optionally
 inside a configured maintenance window.
 
 See `systemd/` for service and timer templates.
+
+## Manual Pi Software Update
+
+For a production Pi, update from the public release tarball and rerun the
+installer:
+
+```sh
+mkdir -p ~/djconnect-install
+cd ~/djconnect-install
+rm -rf djconnect-pi-3.1.10 djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.10.tar.gz -o djconnect-pi.tar.gz
+tar -xzf djconnect-pi.tar.gz
+cd djconnect-pi-3.1.10
+sudo ./scripts/install_raspberry_pi.sh
+```
+
+The installer preserves existing config, updates `/opt/djconnect/current`,
+refreshes systemd units, and restarts `djconnect-api.service` and
+`djconnect-client.service`. Use `git pull --ff-only` first only when the Pi is
+running from a development checkout.
 
 ## Documentation
 
