@@ -15,6 +15,7 @@ Responsibilities:
 - send periodic status
 - send playback commands
 - render now-playing and connection state
+- render a dark DJConnect blue/purple gradient theme across touch screens
 - handle touch gestures and animated control states
 - display DJ response text pushed by Home Assistant
 - show startup splash, blocking pairing and local demo mode
@@ -63,7 +64,7 @@ After install, the updater restarts `djconnect-api.service` and
 
 The source repo publishes release assets to the public distribution repo through
 `.github/workflows/publish-release.yml` on `vX.Y.Z` tags. The workflow needs a
-`DJCONNECT_RELEASES_TOKEN` secret with release-write access to
+`DJCONNECT_PI_RELEASES_TOKEN` secret with release-write access to
 `pcvantol/djconnect-pi-releases`.
 
 ## Maintenance
@@ -87,7 +88,7 @@ The Pi client is an app-like DJConnect client.
   "device_id": "djconnect-raspberry-pi-XXXXXXXXXXXX",
   "device_name": "DJConnect Pi",
   "client_type": "raspberry_pi",
-  "version": "3.1.8",
+  "version": "3.1.9",
   "capabilities": {
     "touch": true,
     "voice": false,

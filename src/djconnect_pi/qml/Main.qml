@@ -8,7 +8,7 @@ Window {
     width: 720
     height: 720
     visible: true
-    color: "#0b1012"
+    color: "#080b18"
     title: "DJConnect Pi"
     visibility: startWindowed ? Window.Windowed : Window.FullScreen
 
@@ -49,7 +49,23 @@ Window {
 
     Rectangle {
         anchors.fill: parent
-        color: "#0b1012"
+        gradient: Gradient {
+            orientation: Gradient.Vertical
+            GradientStop { position: 0.0; color: "#1b0f45" }
+            GradientStop { position: 0.42; color: "#0b1d4f" }
+            GradientStop { position: 1.0; color: "#070b16" }
+        }
+
+        Rectangle {
+            anchors.fill: parent
+            opacity: 0.36
+            gradient: Gradient {
+                orientation: Gradient.Horizontal
+                GradientStop { position: 0.0; color: "#2f8cff" }
+                GradientStop { position: 0.48; color: "#00000000" }
+                GradientStop { position: 1.0; color: "#8b5cf6" }
+            }
+        }
 
         Rectangle {
             id: ambient
@@ -57,8 +73,8 @@ Window {
             width: 680
             height: 680
             radius: 340
-            color: djconnect.playing ? "#183927" : "#18252b"
-            opacity: 0.34
+            color: djconnect.playing ? "#2f8cff" : "#8b5cf6"
+            opacity: djconnect.playing ? 0.22 : 0.16
             scale: djconnect.playing ? 1.03 : 0.94
 
             Behavior on scale { NumberAnimation { duration: 600; easing.type: Easing.OutCubic } }
@@ -335,7 +351,7 @@ Window {
     Rectangle {
         id: settingsPanel
         anchors.fill: parent
-        color: "#ee0b1012"
+        color: "#d9070b16"
         visible: settingsOpen && (djconnect.paired || djconnect.demoMode)
         z: 10
 
@@ -583,8 +599,8 @@ Window {
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         height: 78
-        color: "#ee10181c"
-        border.color: "#26383d"
+        color: "#dd0b1024"
+        border.color: "#33406b"
         border.width: 1
         visible: !root.splashVisible && (djconnect.paired || djconnect.demoMode) && !djconnect.logsVisible && !djconnect.versionMismatchVisible
         z: 25
@@ -626,7 +642,7 @@ Window {
     Rectangle {
         id: pairingPanel
         anchors.fill: parent
-        color: "#f20b1012"
+        color: "#e6070b16"
         visible: !root.splashVisible && !djconnect.paired && !djconnect.demoMode
         z: 30
 
@@ -762,7 +778,12 @@ Window {
     Rectangle {
         id: splashPanel
         anchors.fill: parent
-        color: "#0b1012"
+        gradient: Gradient {
+            orientation: Gradient.Vertical
+            GradientStop { position: 0.0; color: "#24105c" }
+            GradientStop { position: 0.5; color: "#0f2b68" }
+            GradientStop { position: 1.0; color: "#070b16" }
+        }
         visible: root.splashVisible
         z: 40
 
@@ -771,8 +792,8 @@ Window {
             width: Math.min(parent.width - 64, 560)
             height: 190
             radius: 8
-            color: "#10181c"
-            border.color: "#314449"
+            color: "#cc0b1024"
+            border.color: "#4050a8"
             border.width: 1
 
             ColumnLayout {
@@ -843,7 +864,7 @@ Window {
     Rectangle {
         id: versionMismatchPanel
         anchors.fill: parent
-        color: "#f50b1012"
+        color: "#f2070b16"
         visible: !root.splashVisible && djconnect.versionMismatchVisible
         z: 60
 
@@ -911,7 +932,7 @@ Window {
 
     Rectangle {
         anchors.fill: parent
-        color: "#f20b1012"
+        color: "#f2070b16"
         visible: djconnect.logsVisible
         z: 80
 

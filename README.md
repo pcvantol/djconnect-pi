@@ -1,6 +1,6 @@
 # DJConnect Pi
 
-Version: `3.1.8`
+Version: `3.1.9`
 
 Raspberry Pi Zero 2 W touch-display client for DJConnect. This client uses
 Qt Quick/QML with a PySide6 backend and is meant for a Pimoroni HyperPixel 4.0
@@ -50,6 +50,7 @@ Assistant pairing/discovery and text-only DJ responses.
 The app is a 720x720 fullscreen touch remote:
 
 - full-screen DJConnect startup splash with spinner
+- dark DJConnect visual theme with blue/purple gradient backgrounds
 - blocking first-run pairing screen until the client is paired
 - blocking version-mismatch screen when HA and Pi versions are incompatible
 - pairing screen shows the local Client API URL and pairing code input
@@ -122,7 +123,7 @@ unattended update channel.
 
 Release assets are published from this source repository to
 `pcvantol/djconnect-pi-releases` by `.github/workflows/publish-release.yml` on
-`vX.Y.Z` tags. Configure the source repo secret `DJCONNECT_RELEASES_TOKEN` with
+`vX.Y.Z` tags. Configure the source repo secret `DJCONNECT_PI_RELEASES_TOKEN` with
 permission to create releases in the public distribution repo.
 
 OS maintenance is also separate. The maintenance command can run apt update,

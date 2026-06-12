@@ -9,6 +9,8 @@ Implemented:
 
 - Python package `djconnect-pi`
 - Qt Quick/QML fullscreen 720x720 kiosk UI with PySide6 backend
+- Dark DJConnect touch UI with blue/purple gradient backgrounds across the main
+  screens, splash, games, logs and blocking overlays
 - `client_type: raspberry_pi`
 - Stable device ID prefix `djconnect-raspberry-pi-`
 - Pair/status/command calls to the Home Assistant DJConnect API
@@ -41,12 +43,20 @@ Implemented:
   `pcvantol/djconnect-pi-releases`.
 - GitHub Actions workflow publishes tagged release assets from this source repo
   to the public distribution repo. It requires the source repo secret
-  `DJCONNECT_RELEASES_TOKEN`.
+  `DJCONNECT_PI_RELEASES_TOKEN`.
+- Release bundles include `docs/`, `scripts/`, `src/` and `systemd/`, so a Pi
+  can install from the public distribution tarball without cloning the private
+  source repo.
 - systemd unit/timer templates
 - release and cleanup scripts
 - Install script targets Raspberry Pi OS Desktop/GUI 64-bit, switches boot to
   console, starts the local API daemon, and starts the Qt frontend automatically
   through `xinit`.
+- Install script configures HyperPixel 4 through the modern KMS DPI overlay
+  (`vc4-kms-dpi-hyperpixel4sq` by default), disables conflicting I2C/SPI and
+  legacy `hyperpixel4-init.service`.
+- Install script configures Raspberry Pi OS desktop dark mode best-effort for
+  debug/VNC fallback sessions.
 
 Not implemented by design:
 
@@ -89,6 +99,8 @@ Not implemented by design:
 ## Verification So Far
 
 - `python3 -m compileall src tests` passes.
+- `bash -n scripts/install_raspberry_pi.sh cleanup_old_releases.sh release.sh`
+  passes.
 - `QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms 1500`
   loads the QML scene and exits cleanly.
 - `python3 -m pytest` passes with the expanded suite; socket-bound Client API

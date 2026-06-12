@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DJCONNECT_VERSION="${DJCONNECT_VERSION:-3.1.8}"
+DJCONNECT_VERSION="${DJCONNECT_VERSION:-3.1.9}"
 DJCONNECT_REPO="${DJCONNECT_REPO:-pcvantol/djconnect-pi-releases}"
 DJCONNECT_HA_URL="${DJCONNECT_HA_URL:-http://homeassistant.local:8123}"
 DJCONNECT_WIFI_SSID="${DJCONNECT_WIFI_SSID:-}"
@@ -9,18 +9,24 @@ DJCONNECT_WIFI_PASSWORD="${DJCONNECT_WIFI_PASSWORD:-}"
 DJCONNECT_WIFI_COUNTRY="${DJCONNECT_WIFI_COUNTRY:-NL}"
 DJCONNECT_TIMEZONE="${DJCONNECT_TIMEZONE:-Europe/Amsterdam}"
 DJCONNECT_INSTALL_HYPERPIXEL="${DJCONNECT_INSTALL_HYPERPIXEL:-1}"
+DJCONNECT_HYPERPIXEL_MODEL="${DJCONNECT_HYPERPIXEL_MODEL:-square}"
+DJCONNECT_HYPERPIXEL_ROTATE="${DJCONNECT_HYPERPIXEL_ROTATE:-}"
 DJCONNECT_ENABLE_RPI_CONNECT="${DJCONNECT_ENABLE_RPI_CONNECT:-1}"
 DJCONNECT_FULL_UPGRADE="${DJCONNECT_FULL_UPGRADE:-1}"
+DJCONNECT_CONFIGURE_DARK_MODE="${DJCONNECT_CONFIGURE_DARK_MODE:-1}"
 DJCONNECT_RUNTIME_USER="${DJCONNECT_RUNTIME_USER:-djconnect}"
 DJCONNECT_ROOT="${DJCONNECT_ROOT:-/opt/djconnect}"
 
 usage() {
-  cat <<'EOF'
+  cat <<EOF
 Usage:
   sudo ./scripts/install_raspberry_pi.sh
 
+Version:
+  DJConnect Pi installer for client ${DJCONNECT_VERSION}
+
 Environment:
-  DJCONNECT_VERSION=3.1.8
+  DJCONNECT_VERSION=${DJCONNECT_VERSION}
   DJCONNECT_REPO=pcvantol/djconnect-pi-releases
   DJCONNECT_HA_URL=http://homeassistant.local:8123
   DJCONNECT_WIFI_SSID="My WiFi"
@@ -28,8 +34,11 @@ Environment:
   DJCONNECT_WIFI_COUNTRY=NL
   DJCONNECT_TIMEZONE=Europe/Amsterdam
   DJCONNECT_INSTALL_HYPERPIXEL=1
+  DJCONNECT_HYPERPIXEL_MODEL=square
+  DJCONNECT_HYPERPIXEL_ROTATE=
   DJCONNECT_ENABLE_RPI_CONNECT=1
   DJCONNECT_FULL_UPGRADE=1
+  DJCONNECT_CONFIGURE_DARK_MODE=1
 
 This installs a dedicated wall-mounted DJConnect Pi client:
 - checks for Raspberry Pi OS Desktop/GUI 64-bit baseline
@@ -39,6 +48,7 @@ This installs a dedicated wall-mounted DJConnect Pi client:
 - optional Wi-Fi provisioning
 - SSH enabled
 - Raspberry Pi Connect enabled when available
+- Raspberry Pi OS desktop dark mode for debug/VNC fallback sessions
 - apt full-upgrade
 - glances
 - HyperPixel support hook
@@ -121,21 +131,67 @@ configure_wifi() {
 
 install_hyperpixel() {
   if [[ "$DJCONNECT_INSTALL_HYPERPIXEL" != "1" ]]; then
-    log "Skipping HyperPixel driver install"
+    log "Skipping HyperPixel configuration"
     return
   fi
 
-  log "Installing HyperPixel support"
-  apt-get install -y git curl
-  if curl -fsSL https://get.pimoroni.com/hyperpixel4 -o /tmp/hyperpixel4-install.sh; then
-    bash /tmp/hyperpixel4-install.sh || {
-      echo "HyperPixel installer failed; check Pimoroni docs for your display revision." >&2
-      return 1
-    }
-  else
-    echo "Could not download Pimoroni HyperPixel installer; install drivers manually." >&2
+  log "Configuring HyperPixel 4 KMS DPI overlay"
+  local boot_config="/boot/firmware/config.txt"
+  local overlay
+  local overlay_line
+
+  if [[ ! -f "$boot_config" ]]; then
+    boot_config="/boot/config.txt"
+  fi
+  if [[ ! -f "$boot_config" ]]; then
+    echo "Could not find Raspberry Pi boot config at /boot/firmware/config.txt or /boot/config.txt." >&2
     return 1
   fi
+
+  case "$DJCONNECT_HYPERPIXEL_MODEL" in
+    square|sq)
+      overlay="vc4-kms-dpi-hyperpixel4sq"
+      ;;
+    rectangular|rect)
+      overlay="vc4-kms-dpi-hyperpixel4"
+      ;;
+    *)
+      echo "DJCONNECT_HYPERPIXEL_MODEL must be square or rectangular." >&2
+      return 1
+      ;;
+  esac
+
+  overlay_line="dtoverlay=${overlay}"
+  if [[ -n "$DJCONNECT_HYPERPIXEL_ROTATE" ]]; then
+    case "$DJCONNECT_HYPERPIXEL_ROTATE" in
+      0)
+        ;;
+      90|180|270)
+        overlay_line="${overlay_line},rotate=${DJCONNECT_HYPERPIXEL_ROTATE}"
+        ;;
+      *)
+        echo "DJCONNECT_HYPERPIXEL_ROTATE must be empty, 0, 90, 180 or 270." >&2
+        return 1
+        ;;
+    esac
+  fi
+
+  if command -v raspi-config >/dev/null 2>&1; then
+    raspi-config nonint do_i2c 1 || true
+    raspi-config nonint do_spi 1 || true
+  fi
+
+  systemctl disable --now hyperpixel4-init.service >/dev/null 2>&1 || true
+
+  sed -i.bak \
+    -e '/^dtoverlay=vc4-kms-dpi-hyperpixel4/d' \
+    -e '/^dtoverlay=hyperpixel4/d' \
+    -e '/^dtoverlay=hyperpixel4sq/d' \
+    "$boot_config"
+
+  printf '\n# DJConnect Pi HyperPixel 4 display\n%s\n' "$overlay_line" >> "$boot_config"
+  echo "Configured ${overlay_line} in ${boot_config}."
+  echo "Reboot is required before HyperPixel display output appears."
 }
 
 install_rpi_connect() {
@@ -190,6 +246,77 @@ create_runtime_user() {
   install -d -o "$DJCONNECT_RUNTIME_USER" -g "$DJCONNECT_RUNTIME_USER" "$DJCONNECT_ROOT/config" "$DJCONNECT_ROOT/releases"
 }
 
+configure_gui_dark_mode_for_user() {
+  local user="$1"
+  local home="$2"
+  local uid
+  local gtk_theme="PiXflat"
+  local icon_theme="PiXflat"
+  local color_scheme="prefer-dark"
+
+  if [[ -z "$home" || ! -d "$home" ]]; then
+    return
+  fi
+
+  uid="$(id -u "$user" 2>/dev/null || true)"
+
+  install -d -o "$user" -g "$user" \
+    "$home/.config/gtk-3.0" \
+    "$home/.config/gtk-4.0" \
+    "$home/.config/openbox"
+
+  cat > "$home/.config/gtk-3.0/settings.ini" <<EOF
+[Settings]
+gtk-theme-name=${gtk_theme}
+gtk-icon-theme-name=${icon_theme}
+gtk-application-prefer-dark-theme=true
+EOF
+
+  cat > "$home/.config/gtk-4.0/settings.ini" <<EOF
+[Settings]
+gtk-theme-name=${gtk_theme}
+gtk-icon-theme-name=${icon_theme}
+gtk-application-prefer-dark-theme=true
+EOF
+
+  cat > "$home/.config/openbox/lxde-pi-rc.xml" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<openbox_config xmlns="http://openbox.org/3.4/rc">
+  <theme>
+    <name>${gtk_theme}</name>
+  </theme>
+</openbox_config>
+EOF
+
+  chown -R "$user:$user" "$home/.config/gtk-3.0" "$home/.config/gtk-4.0" "$home/.config/openbox"
+
+  if [[ -n "$uid" && -S "/run/user/${uid}/bus" ]] && command -v gsettings >/dev/null 2>&1; then
+    sudo -u "$user" \
+      XDG_RUNTIME_DIR="/run/user/${uid}" \
+      DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/${uid}/bus" \
+      gsettings set org.gnome.desktop.interface color-scheme "$color_scheme" || true
+    sudo -u "$user" \
+      XDG_RUNTIME_DIR="/run/user/${uid}" \
+      DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/${uid}/bus" \
+      gsettings set org.gnome.desktop.interface gtk-theme "$gtk_theme" || true
+  fi
+}
+
+configure_gui_dark_mode() {
+  if [[ "$DJCONNECT_CONFIGURE_DARK_MODE" != "1" ]]; then
+    log "Skipping Raspberry Pi OS desktop dark mode"
+    return
+  fi
+
+  log "Configuring Raspberry Pi OS desktop dark mode"
+  if id pi >/dev/null 2>&1; then
+    configure_gui_dark_mode_for_user pi "$(getent passwd pi | cut -d: -f6)"
+  fi
+  if [[ "$DJCONNECT_RUNTIME_USER" != "pi" ]] && id "$DJCONNECT_RUNTIME_USER" >/dev/null 2>&1; then
+    configure_gui_dark_mode_for_user "$DJCONNECT_RUNTIME_USER" "$(getent passwd "$DJCONNECT_RUNTIME_USER" | cut -d: -f6)"
+  fi
+}
+
 download_release() {
   local tag="v${DJCONNECT_VERSION#v}"
   local version="${DJCONNECT_VERSION#v}"
@@ -238,7 +365,7 @@ payload = {
     "device_name": "DJConnect Pi",
     "device_token": "",
     "paired": False,
-    "version": "3.1.8",
+    "version": "3.1.9",
     "update_repo": "pcvantol/djconnect-pi-releases",
     "update_channel": "stable",
     "screen_timeout_seconds": 120,
@@ -273,6 +400,7 @@ configure_timezone() {
 }
 
 main() {
+  log "DJConnect Pi installer ${DJCONNECT_VERSION}"
   check_os_baseline
   configure_timezone
   configure_console_boot
@@ -281,6 +409,7 @@ main() {
   install_base_packages
   install_rpi_connect
   create_runtime_user
+  configure_gui_dark_mode
   install_hyperpixel
   download_release
   write_initial_config

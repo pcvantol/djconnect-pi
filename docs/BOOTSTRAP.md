@@ -59,23 +59,52 @@ after boot.
 
 ## Install HyperPixel Support
 
-Follow Pimoroni's current HyperPixel setup instructions for the exact display
-revision. For a typical Bookworm install, start with:
+Modern Raspberry Pi OS 64-bit images should use the KMS DPI overlay method from
+Pimoroni's HyperPixel 4 notice instead of the legacy installer. HyperPixel uses
+the GPIO header directly, so disable I2C and SPI before enabling the overlay:
 
 ```sh
 sudo apt-get update
-sudo apt-get install -y git curl python3-venv python3-pip xserver-xorg xinit openbox
+sudo raspi-config nonint do_i2c 1
+sudo raspi-config nonint do_spi 1
+sudo systemctl disable --now hyperpixel4-init.service 2>/dev/null || true
 ```
 
-Then install the HyperPixel overlay/support package from Pimoroni's documented
-source for your model. After reboot, confirm:
+Edit `/boot/firmware/config.txt` on Bookworm, or `/boot/config.txt` on older
+images, and add exactly one overlay line:
+
+```ini
+# HyperPixel 4 Square
+dtoverlay=vc4-kms-dpi-hyperpixel4sq
+
+# HyperPixel 4 Rectangular, use this instead for the rectangular display
+# dtoverlay=vc4-kms-dpi-hyperpixel4
+```
+
+For fixed boot-time rotation, add `rotate=90`, `rotate=180` or `rotate=270` to
+the same line:
+
+```ini
+dtoverlay=vc4-kms-dpi-hyperpixel4sq,rotate=90
+```
+
+The DJConnect installer performs this configuration automatically by default
+with `DJCONNECT_HYPERPIXEL_MODEL=square`. For the rectangular display, run it
+with:
+
+```sh
+sudo DJCONNECT_HYPERPIXEL_MODEL=rectangular ./scripts/install_raspberry_pi.sh
+```
+
+After reboot, confirm:
 
 - display output is 720x720
 - touch input follows the display rotation
 - the desktop or X session starts on the HyperPixel
 
 If touch is rotated or mirrored, fix rotation at the OS/display layer before
-debugging DJConnect.
+debugging DJConnect. For HyperPixel 4 Square, Pimoroni notes that touch rotation
+may need Xorg transformation settings for some orientations.
 
 ## Create the Runtime User
 
@@ -87,7 +116,19 @@ sudo chown -R djconnect:djconnect /opt/djconnect
 
 ## Install the Client Manually
 
-From a checkout:
+For a production Pi, install from the public release bundle. This does not
+require access to the private source repository:
+
+```sh
+mkdir -p ~/djconnect-install
+cd ~/djconnect-install
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.8.tar.gz -o djconnect-pi.tar.gz
+tar -xzf djconnect-pi.tar.gz
+cd djconnect-pi-3.1.8
+sudo ./scripts/install_raspberry_pi.sh
+```
+
+From a development checkout:
 
 ```sh
 python3 -m venv .venv
@@ -101,15 +142,6 @@ For a local window during development, use:
 ```sh
 djconnect-pi-client --windowed --ha-url http://homeassistant.local:8123
 ```
-
-For `/opt/djconnect` style installs, build a release bundle:
-
-```sh
-./scripts/build_release.sh 0.1.0
-```
-
-Extract it into `/opt/djconnect/releases/0.1.0`, create the `current` symlink
-and install the systemd unit files.
 
 ## Enable systemd Services
 

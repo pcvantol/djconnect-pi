@@ -4,7 +4,23 @@ import QtQuick.Layouts
 
 Rectangle {
     id: root
-    color: "#f20b1012"
+    gradient: Gradient {
+        orientation: Gradient.Vertical
+        GradientStop { position: 0.0; color: "#1b0f45" }
+        GradientStop { position: 0.42; color: "#0b1d4f" }
+        GradientStop { position: 1.0; color: "#070b16" }
+    }
+
+    Rectangle {
+        anchors.fill: parent
+        opacity: 0.28
+        gradient: Gradient {
+            orientation: Gradient.Horizontal
+            GradientStop { position: 0.0; color: "#2f8cff" }
+            GradientStop { position: 0.5; color: "#00000000" }
+            GradientStop { position: 1.0; color: "#8b5cf6" }
+        }
+    }
 
     signal closeRequested()
 

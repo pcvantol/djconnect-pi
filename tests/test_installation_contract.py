@@ -55,3 +55,33 @@ def test_cleanup_script_removes_completed_actions_runs_for_deleted_tags() -> Non
     assert '--branch "$tag"' in script
     assert "--status completed" in script
     assert 'gh run delete "$run_id"' in script
+
+
+def test_release_assets_include_installation_materials() -> None:
+    release_script = ROOT.joinpath("release.sh").read_text(encoding="utf-8")
+    workflow = ROOT.joinpath(".github/workflows/publish-release.yml").read_text(encoding="utf-8")
+
+    for text in (release_script, workflow):
+        assert "docs scripts src systemd" in text
+        assert "scripts/install_raspberry_pi.sh" in text or "scripts" in text
+
+
+def test_install_script_uses_modern_hyperpixel_overlay_and_dark_mode() -> None:
+    script = ROOT.joinpath("scripts/install_raspberry_pi.sh").read_text(encoding="utf-8")
+
+    assert "DJCONNECT_HYPERPIXEL_MODEL" in script
+    assert "vc4-kms-dpi-hyperpixel4sq" in script
+    assert "vc4-kms-dpi-hyperpixel4" in script
+    assert "hyperpixel4-init.service" in script
+    assert "raspi-config nonint do_i2c 1" in script
+    assert "raspi-config nonint do_spi 1" in script
+    assert "DJCONNECT_CONFIGURE_DARK_MODE" in script
+    assert "gtk-application-prefer-dark-theme=true" in script
+
+
+def test_install_script_reports_version_in_help_and_runtime() -> None:
+    script = ROOT.joinpath("scripts/install_raspberry_pi.sh").read_text(encoding="utf-8")
+
+    assert "Version:" in script
+    assert "DJConnect Pi installer for client ${DJCONNECT_VERSION}" in script
+    assert 'log "DJConnect Pi installer ${DJCONNECT_VERSION}"' in script

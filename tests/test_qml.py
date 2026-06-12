@@ -87,6 +87,20 @@ def test_qml_has_blocking_version_mismatch_view() -> None:
     assert 'djconnect.t("update_trying")' in main_qml
 
 
+def test_qml_uses_dark_djconnect_gradient_theme() -> None:
+    qml_root = files("djconnect_pi.qml")
+    main_qml = qml_root.joinpath("Main.qml").read_text(encoding="utf-8")
+    games_qml = qml_root.joinpath("GamesPanel.qml").read_text(encoding="utf-8")
+
+    for text in (main_qml, games_qml):
+        assert "Gradient" in text
+        assert "#2f8cff" in text
+        assert "#8b5cf6" in text
+        assert "#070b16" in text
+    assert "id: splashPanel" in main_qml
+    assert "#24105c" in main_qml
+
+
 def test_qml_offscreen_smoke_loads() -> None:
     env = {**os.environ, "QT_QPA_PLATFORM": "offscreen"}
     tmpdir = tempfile.gettempdir()

@@ -103,7 +103,7 @@ build_assets() {
   local dist="dist/djconnect-pi-${VERSION}"
   run rm -rf "$dist" "dist/djconnect-pi-${VERSION}.tar.gz" "dist/djconnect-pi-${VERSION}.sha256"
   run mkdir -p "$dist"
-  run cp -R pyproject.toml README.md CHANGELOG.md src systemd "$dist/"
+  run cp -R pyproject.toml README.md CHANGELOG.md docs scripts src systemd "$dist/"
   if [[ "$DRY_RUN" == false ]]; then
     printf '%s\n' "$VERSION" > "$dist/VERSION"
   else

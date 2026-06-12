@@ -10,8 +10,8 @@
   be stronger for unattended installs.
 - The systemd service assumes an X11 session on `DISPLAY=:0`; Wayland/Labwc
   Raspberry Pi OS images may need a compositor-specific wrapper.
-- HyperPixel boot/display configuration needs hardware validation on the actual
-  Pi Zero 2 W.
+- HyperPixel rotation/touch mapping still needs validation for the final
+  wall-mount orientation.
 - Screen blanking currently hides the UI with a black overlay. It reduces burn-in
   risk but is not yet verified as a true panel/backlight power-off.
 - Brightness currently dims the rendered UI in QML. It does not yet control the
@@ -23,3 +23,5 @@
 
 - Initial repo scaffold created.
 - Home Assistant request payload tests added.
+- HyperPixel boot/display configuration validated on the Pi Zero 2 W with the
+  modern `vc4-kms-dpi-hyperpixel4sq` overlay.
