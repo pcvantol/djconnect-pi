@@ -60,6 +60,10 @@ Implemented:
 - Install script is intended to be re-runnable for manual software updates. It
   keeps existing config, refreshes release files and systemd units, and restarts
   `djconnect-api.service` plus `djconnect-client.service`.
+- Manual production update path is: download the current public
+  `djconnect-pi-<version>.tar.gz`, extract it, run
+  `sudo ./scripts/install_raspberry_pi.sh`. `git pull --ff-only` is only for
+  development checkouts on the Pi.
 
 Not implemented by design:
 
@@ -106,6 +110,10 @@ Not implemented by design:
 - `python3 -m compileall src tests` passes.
 - `bash -n scripts/install_raspberry_pi.sh cleanup_old_releases.sh release.sh`
   passes.
+- Installer/release contract tests cover public release tarball examples,
+  service restarts on rerun, complete release bundle contents, HyperPixel KMS
+  overlay configuration, desktop dark-mode fallback and cleanup of old Actions
+  runs.
 - `QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms 1500`
   loads the QML scene and exits cleanly.
 - `python3 -m pytest` passes with the expanded suite; socket-bound Client API

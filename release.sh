@@ -78,7 +78,11 @@ replacements = {
         (r'  DJCONNECT_VERSION=[0-9]+\.[0-9]+\.[0-9]+', f'  DJCONNECT_VERSION={version}'),
         (r'"version": "[^"]+"', f'"version": "{version}"'),
     ],
-    "README.md": [(r"^Version: `[^`]+`$", f"Version: `{version}`")],
+    "README.md": [
+        (r"^Version: `[^`]+`$", f"Version: `{version}`"),
+        (r"djconnect-pi-[0-9]+\.[0-9]+\.[0-9]+\.tar\.gz", f"djconnect-pi-{version}.tar.gz"),
+        (r"cd djconnect-pi-[0-9]+\.[0-9]+\.[0-9]+", f"cd djconnect-pi-{version}"),
+    ],
     "CHANGELOG.md": [(r"^## .+$", f"## {version}")],
     "docs/ARCHITECTURE.md": [(r'"version": "[^"]+"', f'"version": "{version}"')],
     "docs/BOOTSTRAP.md": [

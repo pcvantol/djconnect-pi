@@ -31,6 +31,10 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
   systemd units
 - installer contract for modern HyperPixel KMS DPI overlay setup and
   Raspberry Pi OS dark-mode fallback configuration
+- installer contract for rerunnable manual updates: existing config is kept,
+  systemd units are refreshed, and API/UI services are restarted
+- bootstrap/README contract that public release download examples match the
+  current project version
 - config private permissions and atomic-write behavior
 - Raspberry Pi system-info logging
 - debug logging paths for invalid HA JSON and local API request limits

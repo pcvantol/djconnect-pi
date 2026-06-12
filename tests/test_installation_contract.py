@@ -104,3 +104,16 @@ def test_bootstrap_release_download_matches_project_version() -> None:
     assert f"cd djconnect-pi-{version}" in bootstrap
     assert f"djconnect-pi-{version}.tar.gz" in readme
     assert f"cd djconnect-pi-{version}" in readme
+
+
+def test_manual_update_documentation_describes_public_release_and_dev_checkout_paths() -> None:
+    bootstrap = ROOT.joinpath("docs/BOOTSTRAP.md").read_text(encoding="utf-8")
+    readme = ROOT.joinpath("README.md").read_text(encoding="utf-8")
+
+    assert "Manual Software Update" in bootstrap
+    assert "Manual Pi Software Update" in readme
+    assert "public release tarball" in bootstrap
+    assert "git pull --ff-only" in bootstrap
+    assert "git pull --ff-only" in readme
+    assert "keeps an existing `/opt/djconnect/config/client.json`" in bootstrap
+    assert "restarts `djconnect-api.service` and `djconnect-client.service`" in readme
