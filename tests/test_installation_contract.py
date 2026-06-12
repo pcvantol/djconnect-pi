@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 import tomllib
 
@@ -20,6 +21,18 @@ def test_install_script_enables_local_api_service() -> None:
     assert "systemctl restart djconnect-api.service" in script
     assert "systemctl restart djconnect-client.service" in script
     assert "Local Client API starts automatically via djconnect-api.service." in script
+
+
+def test_install_script_is_executable_in_git() -> None:
+    result = subprocess.run(
+        ["git", "ls-files", "-s", "scripts/install_raspberry_pi.sh"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+
+    assert result.stdout.startswith("100755 ")
 
 
 def test_systemd_runs_api_separately_from_touch_ui() -> None:
