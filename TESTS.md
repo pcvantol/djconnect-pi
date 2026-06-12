@@ -40,6 +40,7 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 - startup splash, blocking pairing screen, tap-to-wake blanking and toast QML
   contract checks
 - blocking version-mismatch QML contract checks
+- touch-only games panel packaging and four-game QML contract checks
 - updater release asset selection, SHA256 verification and atomic install
 - updater stable/beta prerelease channel handling
 - apt maintenance windows, upgrade command flow and reboot gating

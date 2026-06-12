@@ -1,12 +1,14 @@
 # Changelog
 
-## 3.1.3
+## 3.1.4
 
 - Added Home Assistant version compatibility guard. A `3.1.z` Pi client accepts
   HA `>=3.1.0` and `<3.2.0`; mismatches show a blocking screen and trigger
   `djconnect-updater.service`.
+- Added touch-only local games matching the Apple app set: Paddle Rally, Meteor
+  Run, Sky Dash and Maze Chase.
 
-## 3.1.3
+## 3.1.4
 
 - Split the local Client API into `djconnect-pi-api` and
   `djconnect-api.service`; the Qt touch UI no longer hosts the API itself.
@@ -23,7 +25,7 @@
 - Switched unattended app updates to the public release repository
   `pcvantol/djconnect-pi-releases` and added a GitHub Actions publish workflow.
 
-## 3.1.3
+## 3.1.4
 
 - Initial Raspberry Pi display-remote scaffold.
 - Added app-like DJConnect pairing/status/command client contract.

@@ -12,6 +12,7 @@ def test_qml_files_are_packaged() -> None:
     assert qml_root.joinpath("Main.qml").is_file()
     assert qml_root.joinpath("ControlButton.qml").is_file()
     assert qml_root.joinpath("TogglePill.qml").is_file()
+    assert qml_root.joinpath("GamesPanel.qml").is_file()
 
 
 def test_qml_has_blocking_pairing_and_splash_views() -> None:
@@ -24,12 +25,39 @@ def test_qml_has_blocking_pairing_and_splash_views() -> None:
     assert 'djconnect.t("startup_message")' in main_qml
 
 
+def test_qml_has_touch_games_panel() -> None:
+    qml_root = files("djconnect_pi.qml")
+    main_qml = qml_root.joinpath("Main.qml").read_text(encoding="utf-8")
+    games_qml = qml_root.joinpath("GamesPanel.qml").read_text(encoding="utf-8")
+
+    assert "GamesPanel" in main_qml
+    assert 'djconnect.t("games")' in main_qml
+    assert 'id: "pong"' in games_qml
+    assert 'id: "asteroids"' in games_qml
+    assert 'id: "fly"' in games_qml
+    assert 'id: "pacman"' in games_qml
+    assert "MouseArea" in games_qml
+    assert "handleTouch" in games_qml
+
+
+def test_qml_has_bottom_navigation_bar() -> None:
+    main_qml = files("djconnect_pi.qml").joinpath("Main.qml").read_text(encoding="utf-8")
+
+    assert "id: bottomNav" in main_qml
+    assert 'djconnect.t("now_playing")' in main_qml
+    assert 'djconnect.t("games")' in main_qml
+    assert 'djconnect.t("setup")' in main_qml
+    assert 'root.activeScreen = "now"' in main_qml
+    assert 'root.activeScreen = "games"' in main_qml
+    assert 'root.activeScreen = "settings"' in main_qml
+
+
 def test_qml_stop_demo_button_returns_to_pairing_flow() -> None:
     main_qml = files("djconnect_pi.qml").joinpath("Main.qml").read_text(encoding="utf-8")
 
     assert 'text: djconnect.demoMode ? djconnect.t("exit_demo") : djconnect.t("demo_mode")' in main_qml
     assert "djconnect.exitDemoMode()" in main_qml
-    assert "settingsOpen = false" in main_qml
+    assert 'root.activeScreen = "now"' in main_qml
 
 
 def test_qml_screen_blanking_wakes_on_tap() -> None:

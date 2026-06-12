@@ -21,6 +21,8 @@ Implemented:
   accepts HA `>=3.1.0` and `<3.2.0`; mismatch triggers
   `djconnect-updater.service` once.
 - Backend-driven notification toast for short user/action feedback
+- Touch-only local games matching the Apple app set: Paddle Rally, Meteor Run,
+  Sky Dash and Maze Chase.
 - Separate GitHub release updater
 - Separate apt maintenance command
 - Persistent rotating file logging with sensitive-message redaction
@@ -76,6 +78,8 @@ Not implemented by design:
   passwords. `logging_config.py` redacts obviously sensitive messages.
 - Keep language client-owned for Raspberry Pi, just like iOS/macOS. Only ESP
   should consume HA language provisioning.
+- Keep local games client-only. They must not require HA pairing, keyboard input
+  or backend traffic.
 - Screen blanking is implemented in the QML layer as a black wake-on-tap
   overlay; OS-level DPMS control is not yet wired.
 - Brightness is implemented as QML dimming; hardware backlight control still

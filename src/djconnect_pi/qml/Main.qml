@@ -14,7 +14,9 @@ Window {
 
     property real edge: 28
     property bool splashVisible: true
-    property bool settingsOpen: false
+    property string activeScreen: "now"
+    property bool settingsOpen: activeScreen === "settings"
+    property bool gamesOpen: activeScreen === "games"
     property bool screenBlanked: djconnect.screenTimeoutSeconds > 0 && !idleTimer.running
     property real brightnessOverlayOpacity: root.screenBlanked ? 0 : 1 - (djconnect.screenBrightnessPercent / 100.0)
 
@@ -66,6 +68,7 @@ Window {
         ColumnLayout {
             anchors.fill: parent
             anchors.margins: root.edge
+            anchors.bottomMargin: root.edge + 84
             spacing: 12
 
             RowLayout {
@@ -94,11 +97,6 @@ Window {
                     visible: djconnect.busy
                     implicitWidth: 28
                     implicitHeight: 28
-                }
-
-                Button {
-                    text: djconnect.t("setup")
-                    onClicked: settingsOpen = true
                 }
 
                 Button {
@@ -279,6 +277,7 @@ Window {
                     onClicked: djconnect.cycleRepeat()
                 }
             }
+
         }
 
         Rectangle {
@@ -343,6 +342,7 @@ Window {
         ColumnLayout {
             anchors.fill: parent
             anchors.margins: 42
+            anchors.bottomMargin: 126
             spacing: 18
 
             Text {
@@ -369,10 +369,10 @@ Window {
                 onClicked: {
                     if (djconnect.demoMode) {
                         djconnect.exitDemoMode()
-                        settingsOpen = false
+                        root.activeScreen = "now"
                     } else {
                         djconnect.enterDemoMode()
-                        settingsOpen = false
+                        root.activeScreen = "now"
                     }
                 }
             }
@@ -522,7 +522,7 @@ Window {
                 onClicked: {
                     djconnect.setHaUrl(haUrlField.text)
                     if (!djconnect.paired) djconnect.pair(pairCodeField.text)
-                    if (djconnect.paired) settingsOpen = false
+                    if (djconnect.paired) root.activeScreen = "now"
                 }
             }
 
@@ -532,7 +532,7 @@ Window {
                 font.pixelSize: 20
                 Layout.fillWidth: true
                 Layout.preferredHeight: 56
-                onClicked: settingsOpen = false
+                onClicked: root.activeScreen = "now"
             }
 
             RowLayout {
@@ -566,6 +566,59 @@ Window {
                 font.pixelSize: 15
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
+            }
+        }
+    }
+
+    GamesPanel {
+        anchors.fill: parent
+        visible: gamesOpen
+        z: 18
+        onCloseRequested: root.activeScreen = "now"
+    }
+
+    Rectangle {
+        id: bottomNav
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        height: 78
+        color: "#ee10181c"
+        border.color: "#26383d"
+        border.width: 1
+        visible: !root.splashVisible && (djconnect.paired || djconnect.demoMode) && !djconnect.logsVisible && !djconnect.versionMismatchVisible
+        z: 25
+
+        RowLayout {
+            anchors.fill: parent
+            anchors.margins: 10
+            spacing: 8
+
+            Button {
+                text: djconnect.t("now_playing")
+                checkable: true
+                checked: root.activeScreen === "now"
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                onClicked: root.activeScreen = "now"
+            }
+
+            Button {
+                text: djconnect.t("games")
+                checkable: true
+                checked: root.activeScreen === "games"
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                onClicked: root.activeScreen = "games"
+            }
+
+            Button {
+                text: djconnect.t("setup")
+                checkable: true
+                checked: root.activeScreen === "settings"
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                onClicked: root.activeScreen = "settings"
             }
         }
     }

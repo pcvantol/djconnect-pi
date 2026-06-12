@@ -1,6 +1,6 @@
 # DJConnect Pi
 
-Version: `3.1.3`
+Version: `3.1.4`
 
 Raspberry Pi Zero 2 W touch-display client for DJConnect. This client uses
 Qt Quick/QML with a PySide6 backend and is meant for a Pimoroni HyperPixel 4.0
@@ -58,9 +58,11 @@ The app is a 720x720 fullscreen touch remote:
 - previous/next buttons left and right
 - bottom volume slider
 - shuffle and repeat toggles
+- fixed bottom menu bar for Now Playing, Games and Settings
 - compact HA/pairing/backend status
 - settings for screen blanking, brightness, language and stable/beta update channel
 - default screen blanking after 2 minutes, with tap-to-wake
+- touch-only local games: Paddle Rally, Meteor Run, Sky Dash and Maze Chase
 - visible Client API URL for Home Assistant pairing
 - DJ response text overlay
 - logs viewer
