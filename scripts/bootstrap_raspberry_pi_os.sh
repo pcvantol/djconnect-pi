@@ -93,13 +93,29 @@ enable_ssh() {
   systemctl enable --now ssh || systemctl enable --now ssh.service
 }
 
+repair_package_state() {
+  if ! dpkg --audit | grep -q .; then
+    return
+  fi
+
+  log "Repairing interrupted apt/dpkg state"
+  if dpkg --audit | grep -q "raspberrypi-ui-mods" && dpkg -s pi-greeter >/dev/null 2>&1; then
+    echo "Detected raspberrypi-ui-mods/pi-greeter file conflict; removing pi-greeter because this device boots to console." >&2
+    apt-get remove -y pi-greeter || dpkg --remove --force-depends pi-greeter || true
+  fi
+
+  DEBIAN_FRONTEND=noninteractive apt-get -f install -y
+}
+
 install_base_packages() {
   log "Updating apt metadata"
   apt-get update
+  repair_package_state
 
   if [[ "$DJCONNECT_FULL_UPGRADE" == "1" ]]; then
     log "Running apt full-upgrade"
     DEBIAN_FRONTEND=noninteractive apt-get -y full-upgrade
+    repair_package_state
   fi
 
   log "Installing Raspberry Pi OS bootstrap packages"
@@ -112,7 +128,6 @@ install_base_packages() {
     openbox \
     python3-pip \
     python3-venv \
-    raspberrypi-ui-mods \
     ssh \
     unzip \
     x11-xserver-utils \

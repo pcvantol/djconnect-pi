@@ -4,6 +4,7 @@ import subprocess
 from pathlib import Path
 import tomllib
 import os
+import re
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -114,6 +115,8 @@ def test_repo_only_os_bootstrap_uses_modern_hyperpixel_overlay_and_dark_mode() -
     assert "apt-get -y full-upgrade" in script
     assert "glances" in script
     assert "rpi-connect" in script
+    assert re.search(r"^\s+raspberrypi-ui-mods\s*\\?$", script, re.MULTILINE) is None
+    assert "pi-greeter" in script
 
 
 def test_install_script_excludes_repo_only_os_bootstrap_tasks() -> None:
@@ -173,3 +176,14 @@ def test_manual_update_documentation_describes_public_release_and_dev_checkout_p
     assert "git pull --ff-only" in readme
     assert "keeps an existing `/opt/djconnect/config/client.json`" in bootstrap
     assert "restarts `djconnect-api.service` and `djconnect-client.service`" in readme
+
+
+def test_os_bootstrap_documentation_uses_idempotent_checkout_flow() -> None:
+    bootstrap = ROOT.joinpath("docs/BOOTSTRAP.md").read_text(encoding="utf-8")
+    readme = ROOT.joinpath("README.md").read_text(encoding="utf-8")
+
+    for text in (bootstrap, readme):
+        assert 'if [ -d "$HOME/djconnect-pi/.git" ]; then' in text
+        assert "git pull --ff-only" in text
+        assert 'git clone https://github.com/pcvantol/djconnect-pi.git "$HOME/djconnect-pi"' in text
+        assert "sudo ./scripts/bootstrap_raspberry_pi_os.sh" in text

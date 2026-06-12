@@ -51,6 +51,15 @@ Run the repo-only OS bootstrap helper from a source checkout when you are
 preparing the Pi as maintainer/admin:
 
 ```sh
+sudo apt-get update
+sudo apt-get install -y git
+if [ -d "$HOME/djconnect-pi/.git" ]; then
+  cd "$HOME/djconnect-pi"
+  git pull --ff-only
+else
+  git clone https://github.com/pcvantol/djconnect-pi.git "$HOME/djconnect-pi"
+  cd "$HOME/djconnect-pi"
+fi
 sudo ./scripts/bootstrap_raspberry_pi_os.sh
 sudo reboot
 ```
@@ -61,6 +70,18 @@ optional apt full-upgrade, installs `glances`, attempts Raspberry Pi Connect,
 configures Raspberry Pi OS desktop dark mode and configures HyperPixel. It is
 intentionally not included in DJConnect Pi release tarballs and is not part of
 the app release cycle.
+
+If an earlier bootstrap attempt failed with a `raspberrypi-ui-mods` /
+`pi-greeter` dpkg overwrite conflict, repair the package state once and rerun
+the bootstrap:
+
+```sh
+sudo apt-get remove -y pi-greeter || sudo dpkg --remove --force-depends pi-greeter
+sudo apt-get -f install -y
+cd "$HOME/djconnect-pi"
+git pull --ff-only
+sudo ./scripts/bootstrap_raspberry_pi_os.sh
+```
 
 The DJConnect app installer starts the Qt frontend automatically through
 `djconnect-client.service` using `xinit`. A full desktop session is not started

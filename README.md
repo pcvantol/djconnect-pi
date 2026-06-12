@@ -84,6 +84,15 @@ repo-only maintainer bootstrap work and is not part of the DJConnect app release
 tarball:
 
 ```sh
+sudo apt-get update
+sudo apt-get install -y git
+if [ -d "$HOME/djconnect-pi/.git" ]; then
+  cd "$HOME/djconnect-pi"
+  git pull --ff-only
+else
+  git clone https://github.com/pcvantol/djconnect-pi.git "$HOME/djconnect-pi"
+  cd "$HOME/djconnect-pi"
+fi
 sudo ./scripts/bootstrap_raspberry_pi_os.sh
 ```
 
