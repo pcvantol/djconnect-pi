@@ -15,7 +15,7 @@ from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
 
 from .config import CLIENT_TYPE, DEFAULT_CONFIG_PATH, Config, load_config, save_config
-from .ha import DJConnectError, HAClient, Playback
+from .ha import DJConnectError, HAClient, Playback, ProtocolVersionMismatch
 from .i18n import LANGUAGES, normalize_language, translate
 from .logging_config import setup_logging
 from .system_info import log_raspberry_pi_system_info
@@ -38,6 +38,7 @@ class DJConnectBackend(QObject):
     localApiUrlChanged = Signal()
     djResponseChanged = Signal()
     toastChanged = Signal()
+    versionMismatchChanged = Signal()
     logsChanged = Signal()
     demoModeChanged = Signal()
     screenTimeoutChanged = Signal()
@@ -51,6 +52,7 @@ class DJConnectBackend(QObject):
     _statusReady = Signal(str)
     _pairingReady = Signal(bool, str)
     _busyReady = Signal(bool)
+    _versionMismatchReady = Signal(str, str)
 
     def __init__(self, config_path: Path) -> None:
         super().__init__()
@@ -62,6 +64,9 @@ class DJConnectBackend(QObject):
         self._dj_response_visible = False
         self._toast_text = ""
         self._toast_visible = False
+        self._version_mismatch_visible = False
+        self._version_mismatch_text = ""
+        self._update_service_triggered = False
         self._toast_timer = QTimer(self)
         self._toast_timer.setInterval(2000)
         self._toast_timer.setSingleShot(True)
@@ -84,6 +89,7 @@ class DJConnectBackend(QObject):
         self._statusReady.connect(self._set_status_text)
         self._pairingReady.connect(self._apply_pairing)
         self._busyReady.connect(self._set_busy)
+        self._versionMismatchReady.connect(self._apply_version_mismatch)
         QTimer.singleShot(250, self.refresh)
         _LOGGER.info("DJConnect Pi client backend started for %s", self.cfg.device_id)
 
@@ -182,6 +188,14 @@ class DJConnectBackend(QObject):
     @Property(bool, notify=toastChanged)
     def toastVisible(self) -> bool:
         return self._toast_visible
+
+    @Property(bool, notify=versionMismatchChanged)
+    def versionMismatchVisible(self) -> bool:
+        return self._version_mismatch_visible
+
+    @Property(str, notify=versionMismatchChanged)
+    def versionMismatchText(self) -> str:
+        return self._version_mismatch_text
 
     @Property(str, notify=logsChanged)
     def logsText(self) -> str:
@@ -518,6 +532,10 @@ class DJConnectBackend(QObject):
         def execute() -> None:
             try:
                 worker()
+            except ProtocolVersionMismatch as exc:
+                _LOGGER.warning("%s blocked by version mismatch: %s", label, exc)
+                self._versionMismatchReady.emit(exc.client_version, exc.ha_version)
+                self._statusReady.emit(str(exc))
             except DJConnectError as exc:
                 _LOGGER.warning("%s failed: %s", label, exc)
                 self._statusReady.emit(str(exc))
@@ -531,6 +549,10 @@ class DJConnectBackend(QObject):
 
     @Slot(object)
     def _apply_playback(self, playback: Playback) -> None:
+        if self._version_mismatch_visible:
+            self._version_mismatch_visible = False
+            self._version_mismatch_text = ""
+            self.versionMismatchChanged.emit()
         old = self.playback
         self.playback = playback
         if old.title != playback.title:
@@ -551,6 +573,10 @@ class DJConnectBackend(QObject):
 
     @Slot(bool, str)
     def _apply_pairing(self, paired: bool, message: str) -> None:
+        if self._version_mismatch_visible:
+            self._version_mismatch_visible = False
+            self._version_mismatch_text = ""
+            self.versionMismatchChanged.emit()
         if paired:
             self.pairedChanged.emit()
             self.settingsChanged.emit()
@@ -569,6 +595,29 @@ class DJConnectBackend(QObject):
             return
         self._busy = value
         self.busyChanged.emit()
+
+    @Slot(str, str)
+    def _apply_version_mismatch(self, client_version: str, ha_version: str) -> None:
+        self._version_mismatch_text = self.tr_key(
+            "version_mismatch_message",
+            client=client_version,
+            ha=ha_version,
+            required=f"{client_version.rsplit('.', 1)[0]}.x",
+        )
+        self._version_mismatch_visible = True
+        self.versionMismatchChanged.emit()
+        self.showToast(self.tr_key("version_mismatch_title"))
+        self._trigger_update_service()
+
+    def _trigger_update_service(self) -> None:
+        if self._update_service_triggered:
+            return
+        self._update_service_triggered = True
+        try:
+            _LOGGER.info("Triggering djconnect-updater.service after version mismatch")
+            subprocess.Popen(["systemctl", "start", "djconnect-updater.service"])
+        except Exception as exc:
+            _LOGGER.warning("Could not trigger updater service after version mismatch: %s", exc)
 
     @Slot()
     def shutdown(self) -> None:

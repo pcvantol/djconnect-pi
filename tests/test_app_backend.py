@@ -211,6 +211,20 @@ def test_backend_toast_can_be_shown_and_hidden(tmp_path: Path) -> None:
     assert backend.toastText == ""
 
 
+def test_backend_version_mismatch_blocks_ui_and_triggers_update(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+
+    with patch("djconnect_pi.app.subprocess.Popen") as popen:
+        backend._apply_version_mismatch("3.1.2", "3.2.0")
+        backend._apply_version_mismatch("3.1.2", "3.2.0")
+
+    assert backend.versionMismatchVisible is True
+    assert "3.1.2" in backend.versionMismatchText
+    assert "3.2.0" in backend.versionMismatchText
+    popen.assert_called_once_with(["systemctl", "start", "djconnect-updater.service"])
+
+
 def test_backend_volume_clamps_and_dispatches_command(tmp_path: Path) -> None:
     ensure_app()
     backend = DJConnectBackend(tmp_path / "config.json")

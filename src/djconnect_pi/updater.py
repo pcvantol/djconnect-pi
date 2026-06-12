@@ -14,6 +14,8 @@ import tempfile
 
 import requests
 
+from .config import DEFAULT_CONFIG_PATH, load_config
+
 
 @dataclass
 class UpdaterConfig:
@@ -130,10 +132,25 @@ def run(cfg: UpdaterConfig, dry_run: bool = False) -> str:
     return f"Installed {version}"
 
 
+def config_from_file(
+    config_path: Path,
+    *,
+    repo_override: str = "",
+    channel_override: str = "",
+    install_root: Path = Path("/opt/djconnect"),
+    service_names: Sequence[str] = ("djconnect-api.service", "djconnect-client.service"),
+) -> UpdaterConfig:
+    app_cfg = load_config(config_path)
+    repo = repo_override or app_cfg.update_repo
+    channel = channel_override or app_cfg.update_channel
+    return UpdaterConfig(repo=repo, channel=channel, install_root=install_root, service_names=service_names)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--repo", default="pcvantol/djconnect-pi")
-    parser.add_argument("--channel", choices=["stable", "beta"], default="stable")
+    parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG_PATH)
+    parser.add_argument("--repo", default="")
+    parser.add_argument("--channel", choices=["stable", "beta"], default="")
     parser.add_argument("--install-root", type=Path, default=Path("/opt/djconnect"))
     parser.add_argument(
         "--service-name",
@@ -144,7 +161,14 @@ def main() -> None:
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
     service_names = tuple(args.service_names or ("djconnect-api.service", "djconnect-client.service"))
-    print(run(UpdaterConfig(args.repo, args.channel, args.install_root, service_names), args.dry_run))
+    cfg = config_from_file(
+        args.config,
+        repo_override=args.repo,
+        channel_override=args.channel,
+        install_root=args.install_root,
+        service_names=service_names,
+    )
+    print(run(cfg, args.dry_run))
 
 
 if __name__ == "__main__":

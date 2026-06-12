@@ -17,6 +17,9 @@ Implemented:
 - `_djconnect._tcp` mDNS advertisement from `djconnect-api.service`
 - Full-screen startup splash with DJConnect banner and spinner
 - Blocking first-run pairing screen with Client API URL and pairing code input
+- Blocking Home Assistant version-mismatch screen. For example, client `3.1.z`
+  accepts HA `>=3.1.0` and `<3.2.0`; mismatch triggers
+  `djconnect-updater.service` once.
 - Backend-driven notification toast for short user/action feedback
 - Separate GitHub release updater
 - Separate apt maintenance command
@@ -32,6 +35,11 @@ Implemented:
 - Local demo mode before pairing. It must not store a bearer token or send HA
   traffic.
 - Stable/beta client update channel setting
+- App updates default to the public distribution repo
+  `pcvantol/djconnect-pi-releases`.
+- GitHub Actions workflow publishes tagged release assets from this source repo
+  to the public distribution repo. It requires the source repo secret
+  `DJCONNECT_RELEASES_TOKEN`.
 - systemd unit/timer templates
 - release and cleanup scripts
 - Install script targets Raspberry Pi OS Desktop/GUI 64-bit, switches boot to
@@ -50,11 +58,16 @@ Not implemented by design:
 
 - Keep the Pi client app-like, closer to iOS/macOS than ESP firmware.
 - Preserve `client_type: raspberry_pi` in pairing and status payloads.
+- Preserve HA/client major-minor version compatibility checks. Do not silently
+  ignore explicit `ha_version` or `ha_major_minor` mismatches.
 - Do not add voice/audio response features unless the product decision changes.
 - Keep updater and OS maintenance separate from the UI process.
 - Keep the local Client API separate from the UI process. The UI must not host
   the HTTP API or mDNS service; `djconnect-api.service` owns that.
 - Keep unattended updates atomic under `/opt/djconnect/releases`.
+- Keep source and distribution repos separate unless the product decision
+  changes: source is `pcvantol/djconnect-pi`, public release assets are in
+  `pcvantol/djconnect-pi-releases`.
 - Keep the Client API app-like. Do not add ESP OTA routes.
 - `POST /api/device/dj_response` is accepted by the API daemon, written to the
   local DJ-response event file, displayed by the UI, and reports

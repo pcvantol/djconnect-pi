@@ -1,6 +1,6 @@
 # DJConnect Pi
 
-Version: `3.1.2`
+Version: `3.1.3`
 
 Raspberry Pi Zero 2 W touch-display client for DJConnect. This client uses
 Qt Quick/QML with a PySide6 backend and is meant for a Pimoroni HyperPixel 4.0
@@ -39,6 +39,11 @@ Assistant pairing/discovery and text-only DJ responses.
   - `set_volume`
   - `set_shuffle`
   - `set_repeat`
+- Version compatibility:
+  - client `3.1.z` works with DJConnect HA `>=3.1.0` and `<3.2.0`
+  - HA responses may include `ha_version` or `ha_major_minor`
+  - incompatible HA versions show a blocking screen and trigger
+    `djconnect-updater.service`
 
 ## UI Shape
 
@@ -46,6 +51,7 @@ The app is a 720x720 fullscreen touch remote:
 
 - full-screen DJConnect startup splash with spinner
 - blocking first-run pairing screen until the client is paired
+- blocking version-mismatch screen when HA and Pi versions are incompatible
 - pairing screen shows the local Client API URL and pairing code input
 - album art area / status area in the center
 - large play/pause button
@@ -94,7 +100,8 @@ The local Client API, updater and OS maintenance are separate processes from the
 UI app. The Client API runs as `djconnect-api.service`; the touch UI runs as
 `djconnect-client.service`.
 
-The updater checks GitHub Releases,
+The updater checks GitHub Releases in the public distribution repository
+`pcvantol/djconnect-pi-releases`,
 downloads a tarball asset and optional `.sha256`, installs into:
 
 ```text
@@ -102,11 +109,19 @@ downloads a tarball asset and optional `.sha256`, installs into:
 /opt/djconnect/current -> /opt/djconnect/releases/<version>
 ```
 
-It then restarts `djconnect-client.service`. App updates are atomic at the
-symlink level and preserve config outside the release directory.
+It then restarts `djconnect-api.service` and `djconnect-client.service`. App
+updates are atomic at the symlink level and preserve config outside the release
+directory.
 
-Set the updater channel to `stable` for normal releases or `beta` to allow
-GitHub prereleases.
+Set the updater channel in the touch settings to `stable` for normal releases
+or `beta` to allow GitHub prereleases. The systemd updater reads
+`/opt/djconnect/config/client.json`, so the touchscreen setting controls the
+unattended update channel.
+
+Release assets are published from this source repository to
+`pcvantol/djconnect-pi-releases` by `.github/workflows/publish-release.yml` on
+`vX.Y.Z` tags. Configure the source repo secret `DJCONNECT_RELEASES_TOKEN` with
+permission to create releases in the public distribution repo.
 
 OS maintenance is also separate. The maintenance command can run apt update,
 upgrade and reboot only when `/var/run/reboot-required` exists, optionally

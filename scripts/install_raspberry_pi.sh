@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DJCONNECT_VERSION="${DJCONNECT_VERSION:-3.1.2}"
-DJCONNECT_REPO="${DJCONNECT_REPO:-pcvantol/djconnect-pi}"
+DJCONNECT_VERSION="${DJCONNECT_VERSION:-3.1.3}"
+DJCONNECT_REPO="${DJCONNECT_REPO:-pcvantol/djconnect-pi-releases}"
 DJCONNECT_HA_URL="${DJCONNECT_HA_URL:-http://homeassistant.local:8123}"
 DJCONNECT_WIFI_SSID="${DJCONNECT_WIFI_SSID:-}"
 DJCONNECT_WIFI_PASSWORD="${DJCONNECT_WIFI_PASSWORD:-}"
@@ -20,8 +20,8 @@ Usage:
   sudo ./scripts/install_raspberry_pi.sh
 
 Environment:
-  DJCONNECT_VERSION=3.1.2
-  DJCONNECT_REPO=pcvantol/djconnect-pi
+  DJCONNECT_VERSION=3.1.3
+  DJCONNECT_REPO=pcvantol/djconnect-pi-releases
   DJCONNECT_HA_URL=http://homeassistant.local:8123
   DJCONNECT_WIFI_SSID="My WiFi"
   DJCONNECT_WIFI_PASSWORD="wifi-password"
@@ -238,8 +238,8 @@ payload = {
     "device_name": "DJConnect Pi",
     "device_token": "",
     "paired": False,
-    "version": "3.1.2",
-    "update_repo": "pcvantol/djconnect-pi",
+    "version": "3.1.3",
+    "update_repo": "pcvantol/djconnect-pi-releases",
     "update_channel": "stable",
     "screen_timeout_seconds": 120,
     "screen_brightness_percent": 100,

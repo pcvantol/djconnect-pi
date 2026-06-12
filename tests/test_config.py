@@ -11,6 +11,7 @@ def test_default_config_uses_raspberry_pi_client_type(tmp_path: Path) -> None:
     assert CLIENT_TYPE == "raspberry_pi"
     assert cfg.device_id.startswith("djconnect-raspberry-pi-")
     assert cfg.screen_timeout_seconds == 120
+    assert cfg.update_repo == "pcvantol/djconnect-pi-releases"
 
 
 def test_save_and_load_config_roundtrip(tmp_path: Path) -> None:

@@ -788,10 +788,79 @@ Window {
     }
 
     Rectangle {
+        id: versionMismatchPanel
+        anchors.fill: parent
+        color: "#f50b1012"
+        visible: !root.splashVisible && djconnect.versionMismatchVisible
+        z: 60
+
+        ColumnLayout {
+            anchors.centerIn: parent
+            width: Math.min(parent.width - 72, 560)
+            spacing: 18
+
+            Text {
+                text: djconnect.t("version_mismatch_title")
+                color: "#f4f8f8"
+                font.pixelSize: 40
+                font.bold: true
+                horizontalAlignment: Text.AlignHCenter
+                Layout.fillWidth: true
+            }
+
+            Text {
+                text: djconnect.versionMismatchText
+                color: "#d7e2e4"
+                font.pixelSize: 20
+                wrapMode: Text.WordWrap
+                horizontalAlignment: Text.AlignHCenter
+                Layout.fillWidth: true
+            }
+
+            RowLayout {
+                Layout.alignment: Qt.AlignHCenter
+                spacing: 12
+
+                BusyIndicator {
+                    running: versionMismatchPanel.visible
+                    implicitWidth: 34
+                    implicitHeight: 34
+                }
+
+                Text {
+                    text: djconnect.t("update_trying")
+                    color: "#9fb4b8"
+                    font.pixelSize: 17
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 12
+
+                Button {
+                    text: djconnect.t("view_logs")
+                    font.pixelSize: 18
+                    Layout.fillWidth: true
+                    onClicked: djconnect.showLogs()
+                }
+
+                Button {
+                    text: "x"
+                    font.pixelSize: 18
+                    font.bold: true
+                    Layout.preferredWidth: 58
+                    onClicked: djconnect.quitApp()
+                }
+            }
+        }
+    }
+
+    Rectangle {
         anchors.fill: parent
         color: "#f20b1012"
         visible: djconnect.logsVisible
-        z: 50
+        z: 80
 
         ColumnLayout {
             anchors.fill: parent

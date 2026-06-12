@@ -28,3 +28,20 @@ def test_pyproject_exposes_client_api_daemon_entrypoint() -> None:
     pyproject = ROOT.joinpath("pyproject.toml").read_text(encoding="utf-8")
 
     assert 'djconnect-pi-api = "djconnect_pi.client_api_daemon:main"' in pyproject
+
+
+def test_updater_service_reads_touchscreen_config() -> None:
+    service = ROOT.joinpath("systemd/djconnect-updater.service").read_text(encoding="utf-8")
+
+    assert "--config /opt/djconnect/config/client.json" in service
+    assert "--channel stable" not in service
+    assert "--repo pcvantol/djconnect-pi" not in service
+
+
+def test_release_workflow_publishes_to_public_distribution_repo() -> None:
+    workflow = ROOT.joinpath(".github/workflows/publish-release.yml").read_text(encoding="utf-8")
+
+    assert "pcvantol/djconnect-pi-releases" in workflow
+    assert "DJCONNECT_RELEASES_TOKEN" in workflow
+    assert 'tags:' in workflow
+    assert '"v*.*.*"' in workflow

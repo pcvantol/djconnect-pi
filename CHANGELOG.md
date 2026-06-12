@@ -1,6 +1,12 @@
 # Changelog
 
-## 3.1.2
+## 3.1.3
+
+- Added Home Assistant version compatibility guard. A `3.1.z` Pi client accepts
+  HA `>=3.1.0` and `<3.2.0`; mismatches show a blocking screen and trigger
+  `djconnect-updater.service`.
+
+## 3.1.3
 
 - Split the local Client API into `djconnect-pi-api` and
   `djconnect-api.service`; the Qt touch UI no longer hosts the API itself.
@@ -14,8 +20,10 @@
 - Hardened config writes with private file permissions and atomic replacement.
 - Added Client API request size limiting and expanded regression, monkey,
   installer contract and QML tests.
+- Switched unattended app updates to the public release repository
+  `pcvantol/djconnect-pi-releases` and added a GitHub Actions publish workflow.
 
-## 3.1.2
+## 3.1.3
 
 - Initial Raspberry Pi display-remote scaffold.
 - Added app-like DJConnect pairing/status/command client contract.

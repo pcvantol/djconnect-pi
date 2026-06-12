@@ -49,6 +49,15 @@ def test_qml_has_backend_toast_overlay() -> None:
     assert "Behavior on opacity" in main_qml
 
 
+def test_qml_has_blocking_version_mismatch_view() -> None:
+    main_qml = files("djconnect_pi.qml").joinpath("Main.qml").read_text(encoding="utf-8")
+
+    assert "id: versionMismatchPanel" in main_qml
+    assert "djconnect.versionMismatchVisible" in main_qml
+    assert "djconnect.versionMismatchText" in main_qml
+    assert 'djconnect.t("update_trying")' in main_qml
+
+
 def test_qml_offscreen_smoke_loads() -> None:
     env = {**os.environ, "QT_QPA_PLATFORM": "offscreen"}
     result = subprocess.run(

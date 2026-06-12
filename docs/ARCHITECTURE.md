@@ -47,7 +47,8 @@ Responsibilities:
 
 ## Updater
 
-`djconnect-pi-updater` checks GitHub Releases for `pcvantol/djconnect-pi`.
+`djconnect-pi-updater` checks GitHub Releases for the configured distribution
+repo, default `pcvantol/djconnect-pi-releases`.
 It downloads a `.tar.gz` release asset and matching `.sha256`, verifies the
 checksum and installs the release under `/opt/djconnect/releases/<version>`.
 
@@ -59,6 +60,11 @@ The active release is selected by atomically replacing:
 
 After install, the updater restarts `djconnect-api.service` and
 `djconnect-client.service`.
+
+The source repo publishes release assets to the public distribution repo through
+`.github/workflows/publish-release.yml` on `vX.Y.Z` tags. The workflow needs a
+`DJCONNECT_RELEASES_TOKEN` secret with release-write access to
+`pcvantol/djconnect-pi-releases`.
 
 ## Maintenance
 
@@ -81,7 +87,7 @@ The Pi client is an app-like DJConnect client.
   "device_id": "djconnect-raspberry-pi-XXXXXXXXXXXX",
   "device_name": "DJConnect Pi",
   "client_type": "raspberry_pi",
-  "version": "3.1.2",
+  "version": "3.1.3",
   "capabilities": {
     "touch": true,
     "voice": false,
@@ -96,6 +102,12 @@ Runtime traffic uses:
 - `POST /api/djconnect/pair`
 - `POST /api/djconnect/status`
 - `POST /api/djconnect/command`
+
+HA responses may include `ha_version` or `ha_major_minor`. The Pi enforces
+major/minor compatibility: client `3.1.z` accepts HA `>=3.1.0` and `<3.2.0`.
+When HA reports an incompatible version, the touch UI shows a blocking
+version-mismatch screen and starts `djconnect-updater.service` once in the
+background to try downloading a compatible client release.
 
 The local Client API uses:
 

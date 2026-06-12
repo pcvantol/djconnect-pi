@@ -14,6 +14,13 @@ class DJConnectError(RuntimeError):
     pass
 
 
+class ProtocolVersionMismatch(DJConnectError):
+    def __init__(self, client_version: str, ha_version: str, message: str = "") -> None:
+        self.client_version = client_version
+        self.ha_version = ha_version
+        super().__init__(message or f"DJConnect version mismatch: client {client_version}, Home Assistant {ha_version}")
+
+
 @dataclass
 class Playback:
     title: str = ""
@@ -37,6 +44,7 @@ class HAClient:
         response = requests.post(url, json=payload, timeout=self.timeout)
         _LOGGER.debug("POST %s returned HTTP %s", url, response.status_code)
         data = self._json(response)
+        self._validate_ha_version(data)
         token = data.get("device_token") or data.get("token")
         if token:
             self.cfg.device_token = str(token)
@@ -65,7 +73,9 @@ class HAClient:
             timeout=self.timeout,
         )
         _LOGGER.debug("POST %s returned HTTP %s", url, response.status_code)
-        return self._json(response)
+        data = self._json(response)
+        self._validate_ha_version(data)
+        return data
 
     def command(self, command: str, **payload: Any) -> dict[str, Any]:
         body = {"command": command, **payload}
@@ -78,7 +88,9 @@ class HAClient:
             timeout=self.timeout,
         )
         _LOGGER.debug("POST %s command=%s returned HTTP %s", url, command, response.status_code)
-        return self._json(response)
+        data = self._json(response)
+        self._validate_ha_version(data)
+        return data
 
     def playback_from_status(self, data: dict[str, Any]) -> Playback:
         playback = data.get("playback") if isinstance(data.get("playback"), dict) else data
@@ -126,7 +138,7 @@ class HAClient:
     def _json(self, response: requests.Response) -> dict[str, Any]:
         if response.status_code == 426:
             _LOGGER.warning("Home Assistant protocol mismatch HTTP 426")
-            raise DJConnectError(f"Protocol version mismatch: {response.text}")
+            raise ProtocolVersionMismatch(self.cfg.version, "unknown", f"Protocol version mismatch: {response.text}")
         if response.status_code >= 400:
             _LOGGER.warning("Home Assistant returned HTTP %s", response.status_code)
             raise DJConnectError(f"Home Assistant returned {response.status_code}: {response.text}")
@@ -148,3 +160,30 @@ class HAClient:
             raise DJConnectError("Home Assistant returned non-object JSON")
         _LOGGER.debug("Home Assistant JSON response keys=%s", sorted(data))
         return data
+
+    def _validate_ha_version(self, data: dict[str, Any]) -> None:
+        ha_version = str(data.get("ha_version") or data.get("ha_major_minor") or "").strip()
+        if not ha_version:
+            return
+        if _compatible_ha_version(self.cfg.version, ha_version):
+            return
+        _LOGGER.warning("Home Assistant version %s is incompatible with client %s", ha_version, self.cfg.version)
+        raise ProtocolVersionMismatch(self.cfg.version, ha_version)
+
+
+def _major_minor(version: str) -> tuple[int, int] | None:
+    parts = version.strip().removeprefix("v").split(".")
+    if len(parts) < 2:
+        return None
+    try:
+        return int(parts[0]), int(parts[1])
+    except ValueError:
+        return None
+
+
+def _compatible_ha_version(client_version: str, ha_version: str) -> bool:
+    client_major_minor = _major_minor(client_version)
+    ha_major_minor = _major_minor(ha_version)
+    if client_major_minor is None or ha_major_minor is None:
+        return False
+    return client_major_minor == ha_major_minor

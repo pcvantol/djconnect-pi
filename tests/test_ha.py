@@ -7,7 +7,7 @@ from unittest.mock import patch
 import pytest
 
 from djconnect_pi.config import Config
-from djconnect_pi.ha import DJConnectError, HAClient, Playback
+from djconnect_pi.ha import DJConnectError, HAClient, Playback, ProtocolVersionMismatch, _compatible_ha_version
 
 
 @dataclass
@@ -134,3 +134,26 @@ def test_invalid_ha_json_is_logged(caplog) -> None:
 
     assert "Home Assistant returned invalid JSON" in caplog.text
     assert "bad json" in caplog.text
+
+
+def test_ha_version_compatibility_uses_major_minor_range() -> None:
+    assert _compatible_ha_version("3.1.2", "3.1.0") is True
+    assert _compatible_ha_version("3.1.2", "3.1.99") is True
+    assert _compatible_ha_version("3.1.2", "3.2.0") is False
+    assert _compatible_ha_version("3.1.2", "3.0.9") is False
+
+
+def test_ha_version_mismatch_raises_protocol_error() -> None:
+    client = HAClient(Config(version="3.1.2"))
+
+    with pytest.raises(ProtocolVersionMismatch) as exc:
+        client._validate_ha_version({"ha_version": "3.2.0"})
+
+    assert exc.value.client_version == "3.1.2"
+    assert exc.value.ha_version == "3.2.0"
+
+
+def test_ha_major_minor_response_is_accepted() -> None:
+    client = HAClient(Config(version="3.1.2"))
+
+    client._validate_ha_version({"ha_major_minor": "3.1"})

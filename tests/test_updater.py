@@ -10,6 +10,7 @@ from unittest.mock import patch
 import pytest
 
 from djconnect_pi import updater
+from djconnect_pi.config import Config, save_config
 
 
 def make_release() -> dict[str, Any]:
@@ -79,7 +80,7 @@ def test_install_release_extracts_and_switches_current_symlink(tmp_path: Path) -
 
 
 def test_run_dry_run_returns_selected_assets(tmp_path: Path) -> None:
-    cfg = updater.UpdaterConfig(repo="pcvantol/djconnect-pi", install_root=tmp_path)
+    cfg = updater.UpdaterConfig(repo="pcvantol/djconnect-pi-releases", install_root=tmp_path)
 
     with patch("djconnect_pi.updater.github_latest_release", return_value=make_release()):
         result = json.loads(updater.run(cfg, dry_run=True))
@@ -92,12 +93,38 @@ def test_run_dry_run_returns_selected_assets(tmp_path: Path) -> None:
 
 
 def test_run_passes_prerelease_flag_for_beta_channel(tmp_path: Path) -> None:
-    cfg = updater.UpdaterConfig(repo="pcvantol/djconnect-pi", channel="beta", install_root=tmp_path)
+    cfg = updater.UpdaterConfig(repo="pcvantol/djconnect-pi-releases", channel="beta", install_root=tmp_path)
 
     with patch("djconnect_pi.updater.github_latest_release", return_value=make_release()) as latest:
         updater.run(cfg, dry_run=True)
 
-    latest.assert_called_once_with("pcvantol/djconnect-pi", True)
+    latest.assert_called_once_with("pcvantol/djconnect-pi-releases", True)
+
+
+def test_config_from_file_uses_touchscreen_update_settings(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.json"
+    save_config(config_path, Config(update_repo="pcvantol/custom-pi", update_channel="beta"))
+
+    cfg = updater.config_from_file(config_path, install_root=tmp_path)
+
+    assert cfg.repo == "pcvantol/custom-pi"
+    assert cfg.channel == "beta"
+    assert cfg.install_root == tmp_path
+
+
+def test_config_from_file_allows_cli_overrides(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.json"
+    save_config(config_path, Config(update_repo="pcvantol/custom-pi", update_channel="beta"))
+
+    cfg = updater.config_from_file(
+        config_path,
+        repo_override="pcvantol/djconnect-pi-releases",
+        channel_override="stable",
+        install_root=tmp_path,
+    )
+
+    assert cfg.repo == "pcvantol/djconnect-pi-releases"
+    assert cfg.channel == "stable"
 
 
 def test_run_skips_when_current_version_matches(tmp_path: Path) -> None:
@@ -105,14 +132,14 @@ def test_run_skips_when_current_version_matches(tmp_path: Path) -> None:
     current.mkdir()
     (current / "VERSION").write_text("0.2.0", encoding="utf-8")
 
-    cfg = updater.UpdaterConfig(repo="pcvantol/djconnect-pi", install_root=tmp_path)
+    cfg = updater.UpdaterConfig(repo="pcvantol/djconnect-pi-releases", install_root=tmp_path)
 
     with patch("djconnect_pi.updater.github_latest_release", return_value=make_release()):
         assert updater.run(cfg) == "Already on 0.2.0"
 
 
 def test_run_restarts_api_and_client_services_after_install(tmp_path: Path) -> None:
-    cfg = updater.UpdaterConfig(repo="pcvantol/djconnect-pi", install_root=tmp_path)
+    cfg = updater.UpdaterConfig(repo="pcvantol/djconnect-pi-releases", install_root=tmp_path)
 
     with (
         patch("djconnect_pi.updater.github_latest_release", return_value=make_release()),

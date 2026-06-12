@@ -4,7 +4,6 @@
 - Add vertical edge swipe for volume.
 - Polish the pairing/settings screen with an on-screen keyboard strategy.
 - Add backend-unavailable and version-mismatch UI states.
-- Add release workflow once GitHub Actions policy is decided.
 - Validate the separate API daemon and DJ-response event bridge on real Pi
   hardware with Home Assistant.
 - Validate HyperPixel rotation/touch mapping on hardware.

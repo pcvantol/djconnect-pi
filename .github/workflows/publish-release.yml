@@ -1,0 +1,95 @@
+name: Publish Pi Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish, for example 3.1.2"
+        required: true
+        type: string
+      prerelease:
+        description: "Publish as GitHub prerelease"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set release metadata
+        id: meta
+        shell: bash
+        run: |
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            version="${{ inputs.version }}"
+            prerelease="${{ inputs.prerelease }}"
+          else
+            version="${GITHUB_REF_NAME#v}"
+            prerelease="false"
+          fi
+          if [[ ! "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid version: ${version}" >&2
+            exit 64
+          fi
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          echo "tag=v${version}" >> "${GITHUB_OUTPUT}"
+          echo "prerelease=${prerelease}" >> "${GITHUB_OUTPUT}"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test dependencies
+        run: python -m pip install -e ".[dev]"
+
+      - name: Run tests
+        run: python -m pytest
+
+      - name: Compile Python
+        run: python -m compileall src tests
+
+      - name: Build release assets
+        shell: bash
+        run: |
+          version="${{ steps.meta.outputs.version }}"
+          dist="dist/djconnect-pi-${version}"
+          rm -rf "${dist}" "dist/djconnect-pi-${version}.tar.gz" "dist/djconnect-pi-${version}.sha256"
+          mkdir -p "${dist}"
+          cp -R pyproject.toml README.md CHANGELOG.md src systemd "${dist}/"
+          printf '%s\n' "${version}" > "${dist}/VERSION"
+          tar -C dist -czf "dist/djconnect-pi-${version}.tar.gz" "djconnect-pi-${version}"
+          shasum -a 256 "dist/djconnect-pi-${version}.tar.gz" > "dist/djconnect-pi-${version}.sha256"
+
+      - name: Publish to public release repository
+        env:
+          GH_TOKEN: ${{ secrets.DJCONNECT_RELEASES_TOKEN }}
+        shell: bash
+        run: |
+          version="${{ steps.meta.outputs.version }}"
+          tag="${{ steps.meta.outputs.tag }}"
+          prerelease="${{ steps.meta.outputs.prerelease }}"
+          args=(
+            release create "${tag}"
+            --repo pcvantol/djconnect-pi-releases
+            --title "DJConnect Pi ${tag}"
+            --notes-file CHANGELOG.md
+          )
+          if [[ "${prerelease}" == "true" ]]; then
+            args+=(--prerelease)
+          fi
+          args+=(
+            "dist/djconnect-pi-${version}.tar.gz"
+            "dist/djconnect-pi-${version}.sha256"
+          )
+          gh "${args[@]}"

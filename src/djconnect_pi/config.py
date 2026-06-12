@@ -11,7 +11,7 @@ import uuid
 from .i18n import normalize_language
 
 CLIENT_TYPE = "raspberry_pi"
-PROTOCOL_VERSION = "3.1.2"
+PROTOCOL_VERSION = "3.1.3"
 DEFAULT_CONFIG_PATH = Path.home() / ".config" / "djconnect-pi" / "config.json"
 DEFAULT_LOG_PATH = Path.home() / ".local" / "state" / "djconnect-pi" / "client.log"
 
@@ -24,7 +24,7 @@ class Config:
     device_token: str = ""
     paired: bool = False
     version: str = PROTOCOL_VERSION
-    update_repo: str = "pcvantol/djconnect-pi"
+    update_repo: str = "pcvantol/djconnect-pi-releases"
     update_channel: str = "stable"
     local_url: str = ""
     local_api_host: str = "0.0.0.0"

@@ -32,12 +32,14 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 - debug logging paths for invalid HA JSON and local API request limits
 - backend notification toast state
 - playback response alias parsing
+- HA major/minor version compatibility checks and blocking mismatch behavior
 - protocol mismatch error handling
 - PySide backend properties and command dispatch
 - persistent logging and redaction
 - bundled QML files and offscreen QML load
 - startup splash, blocking pairing screen, tap-to-wake blanking and toast QML
   contract checks
+- blocking version-mismatch QML contract checks
 - updater release asset selection, SHA256 verification and atomic install
 - updater stable/beta prerelease channel handling
 - apt maintenance windows, upgrade command flow and reboot gating
