@@ -22,6 +22,10 @@ class UpdaterConfig:
     service_name: str = "djconnect-client.service"
 
 
+def include_prerelease(channel: str) -> bool:
+    return channel == "beta"
+
+
 def github_latest_release(repo: str, include_prerelease: bool) -> dict:
     response = requests.get(f"https://api.github.com/repos/{repo}/releases", timeout=20)
     response.raise_for_status()
@@ -101,7 +105,7 @@ def current_version(root: Path) -> str:
 
 
 def run(cfg: UpdaterConfig, dry_run: bool = False) -> str:
-    release = github_latest_release(cfg.repo, cfg.channel == "beta")
+    release = github_latest_release(cfg.repo, include_prerelease(cfg.channel))
     version = str(release.get("tag_name") or "").removeprefix("v")
     if not version:
         raise RuntimeError("Release has no tag name")
@@ -137,4 +141,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

@@ -33,6 +33,30 @@ def test_backend_set_ha_url_persists_value(tmp_path: Path) -> None:
     assert reloaded.haUrl == "http://homeassistant.local:8123"
 
 
+def test_backend_persists_screen_timeout_and_update_channel(tmp_path: Path) -> None:
+    ensure_app()
+    config_path = tmp_path / "config.json"
+    backend = DJConnectBackend(config_path)
+
+    backend.setScreenTimeoutSeconds(120)
+    backend.setUpdateChannel("beta")
+    reloaded = DJConnectBackend(config_path)
+
+    assert backend.screenTimeoutSeconds == 120
+    assert backend.updateChannel == "beta"
+    assert reloaded.screenTimeoutSeconds == 120
+    assert reloaded.updateChannel == "beta"
+
+
+def test_backend_rejects_unknown_update_channel(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+
+    backend.setUpdateChannel("nightly")
+
+    assert backend.updateChannel == "stable"
+
+
 def test_backend_volume_clamps_and_dispatches_command(tmp_path: Path) -> None:
     ensure_app()
     backend = DJConnectBackend(tmp_path / "config.json")

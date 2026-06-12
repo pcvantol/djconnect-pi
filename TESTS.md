@@ -26,7 +26,8 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 - playback response alias parsing
 - protocol mismatch error handling
 - PySide backend properties and command dispatch
+- persistent logging and redaction
 - bundled QML files and offscreen QML load
 - updater release asset selection, SHA256 verification and atomic install
+- updater stable/beta prerelease channel handling
 - apt maintenance windows, upgrade command flow and reboot gating
-

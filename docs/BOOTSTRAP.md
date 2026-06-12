@@ -32,6 +32,8 @@ Network:
 - Home Assistant must be able to pair a `raspberry_pi` client.
 - Internet access is required for unattended GitHub release updates and apt
   maintenance.
+- The Pi should have enough free disk space for logs, release bundles and one
+  rollback release. A 32 GB or larger SD card is strongly preferred.
 
 ## Flash Raspberry Pi OS
 
@@ -138,11 +140,22 @@ journalctl -u djconnect-client.service -f
 
 The Pi should then show now-playing status and basic playback controls.
 
+## Wall-Mount Settings
+
+Open `Setup` on the touch screen and configure:
+
+- `Screen off`: seconds of inactivity before the UI blanks to black. Use `0` to
+  disable blanking.
+- `Updates`: `stable` for normal GitHub releases, `beta` to allow prereleases.
+- `Log`: read-only path to the persistent rotating client log.
+
 ## Operational Notes
 
 - Do not power-cut the Pi during apt upgrades or app updates.
 - Prefer a read-quality SD card; unattended updates create regular writes.
 - Keep OS maintenance in a quiet window, for example `03:00-04:00`.
+- Keep the client update channel on `stable` unless you are actively testing a
+  prerelease.
 - If a release fails to start, repoint `/opt/djconnect/current` to the previous
   directory in `/opt/djconnect/releases`.
 - This client has no microphone or local DJ audio response path by design.

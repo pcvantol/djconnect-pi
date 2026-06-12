@@ -59,11 +59,15 @@ client contracts.
 
 Requirements:
 - Treat iOS/macOS/Raspberry Pi as app-like clients, not ESP hardware devices.
-- Pair app clients through POST /api/djconnect/pair.
+- Pair app-like clients through POST /api/djconnect/pair. For Raspberry Pi, this is
+  the primary pairing path; do not try to call a Pi-local /api/device/pair
+  endpoint during initial pairing.
 - Pair ESP clients through their local /api/device/pair flow after resolving
   /api/device/pairing-info and verifying the visible pair_code.
 - Accept stable device_id, device_name, client_type, firmware, app_version,
-  platform.
+  platform and optional capabilities. Raspberry Pi status/pairing payloads may
+  advertise capabilities such as touch=true, voice=false, local_audio=false and
+  local_dj_response_endpoint=false.
 - Accept the app-generated code as pair_code, pairing_code, or pairing_token.
 - Return a DJConnect bearer token on success. The current compatible field is
   device_token; bearer_token and token may also be returned.
@@ -72,9 +76,12 @@ Requirements:
   clients determine their UI language locally.
 - Keep cloud/remote URLs out of Apple app runtime traffic; cloud URLs are only
   needed by Home Assistant-owned Spotify OAuth config flows.
-- When pairing an app-like client, ask for or use the Client API url shown in
-  the client pairing sheet; do not assume a changing Bonjour hostname remains the
-  canonical callback target after pairing.
+- When pairing an Apple app-like client, ask for or use the Client API url shown
+  in the client pairing sheet; do not assume a changing Bonjour hostname remains
+  the canonical callback target after pairing. Raspberry Pi display clients may
+  be outbound-only and may not provide a Client API URL; HA must still be able
+  to complete pairing, issue a device_token, and rely on Pi -> HA status and
+  command traffic.
 - Return ha_version or ha_major_minor on status/command responses so Apple
   clients can enforce the matching major.minor contract.
 - Apple clients host local /api/device/* endpoints for HA -> client traffic,
@@ -93,12 +100,16 @@ Requirements:
   model-specific ids such as djconnect-lilygo-t-embed-s3-*.
 - During app pairing, 401/403 code mismatch responses stop polling, keep the
   visible app code, and do not rotate device_id automatically.
-- Create native HA entities for paired app clients when status is received.
+- Create native HA entities for paired app-like clients when status is
+  received, including outbound-only Raspberry Pi clients that never expose
+  /api/device/* endpoints.
 - Create only client/runtime and backend/playback entities for ios, macos, and
   raspberry_pi clients; do not create ESP-only battery, Wi-Fi RSSI, screen
   state, LED state, screen brightness/timeout, speaker volume, device language,
   auto-off, theme/log-level, firmware OTA, or reboot entities for app-like
-  clients.
+  clients. Raspberry Pi local settings such as screen blanking, logging and
+  update channel are client-owned and should not be modeled as ESP hardware
+  entities unless a future Pi-specific HA entity design is explicitly added.
 - Support App Store review by allowing Apple clients to enter local Demo Mode
   without HA; Demo Mode must not create HA devices/entities, tokens, or backend
   traffic. Local sample DJ announcement audio/text in Demo Mode is app-local and
@@ -1537,11 +1548,15 @@ client contracts.
 
 Requirements:
 - Treat iOS/macOS/Raspberry Pi as app-like clients, not ESP hardware devices.
-- Pair app clients through POST /api/djconnect/pair.
+- Pair app-like clients through POST /api/djconnect/pair. For Raspberry Pi, this is
+  the primary pairing path; do not try to call a Pi-local /api/device/pair
+  endpoint during initial pairing.
 - Pair ESP clients through their local /api/device/pair flow after resolving
   /api/device/pairing-info and verifying the visible pair_code.
 - Accept stable device_id, device_name, client_type, firmware, app_version,
-  platform.
+  platform and optional capabilities. Raspberry Pi status/pairing payloads may
+  advertise capabilities such as touch=true, voice=false, local_audio=false and
+  local_dj_response_endpoint=false.
 - Accept the app-generated code as pair_code, pairing_code, or pairing_token.
 - Return a DJConnect bearer token on success. The current compatible field is
   device_token; bearer_token and token may also be returned.
@@ -1550,9 +1565,12 @@ Requirements:
   clients determine their UI language locally.
 - Keep cloud/remote URLs out of Apple app runtime traffic; cloud URLs are only
   needed by Home Assistant-owned Spotify OAuth config flows.
-- When pairing an app-like client, ask for or use the Client API url shown in
-  the client pairing sheet; do not assume a changing Bonjour hostname remains the
-  canonical callback target after pairing.
+- When pairing an Apple app-like client, ask for or use the Client API url shown
+  in the client pairing sheet; do not assume a changing Bonjour hostname remains
+  the canonical callback target after pairing. Raspberry Pi display clients may
+  be outbound-only and may not provide a Client API URL; HA must still be able
+  to complete pairing, issue a device_token, and rely on Pi -> HA status and
+  command traffic.
 - Return ha_version or ha_major_minor on status/command responses so Apple
   clients can enforce the matching major.minor contract.
 - Apple clients host local /api/device/* endpoints for HA -> client traffic,
@@ -1568,12 +1586,16 @@ Requirements:
   model-specific ids such as djconnect-lilygo-t-embed-s3-*.
 - During app pairing, 401/403 code mismatch responses stop polling, keep the
   visible app code, and do not rotate device_id automatically.
-- Create native HA entities for paired app clients when status is received.
+- Create native HA entities for paired app-like clients when status is
+  received, including outbound-only Raspberry Pi clients that never expose
+  /api/device/* endpoints.
 - Create only client/runtime and backend/playback entities for ios, macos, and
   raspberry_pi clients; do not create ESP-only battery, Wi-Fi RSSI, screen
   state, LED state, screen brightness/timeout, speaker volume, device language,
   auto-off, theme/log-level, firmware OTA, or reboot entities for app-like
-  clients.
+  clients. Raspberry Pi local settings such as screen blanking, logging and
+  update channel are client-owned and should not be modeled as ESP hardware
+  entities unless a future Pi-specific HA entity design is explicitly added.
 - Support App Store review by allowing Apple clients to enter local Demo Mode
   without HA; Demo Mode must not create HA devices/entities, tokens, or backend
   traffic. Local sample DJ announcement audio/text in Demo Mode is app-local and

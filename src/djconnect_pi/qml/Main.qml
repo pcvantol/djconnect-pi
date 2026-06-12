@@ -14,7 +14,7 @@ Window {
 
     property real edge: 28
     property bool settingsOpen: !djconnect.paired || djconnect.haUrl.length === 0
-    property int dimLevel: idleTimer.running ? 0 : 1
+    property bool screenBlanked: djconnect.screenTimeoutSeconds > 0 && !idleTimer.running
 
     function repeatLabel(value) {
         if (value === "track") return "Repeat 1"
@@ -24,8 +24,8 @@ Window {
 
     Timer {
         id: idleTimer
-        interval: 90000
-        running: true
+        interval: Math.max(1000, djconnect.screenTimeoutSeconds * 1000)
+        running: djconnect.screenTimeoutSeconds > 0
         repeat: false
     }
 
@@ -266,10 +266,10 @@ Window {
         Rectangle {
             anchors.fill: parent
             color: "#000000"
-            opacity: root.dimLevel ? 0.55 : 0
+            opacity: root.screenBlanked ? 1 : 0
             visible: opacity > 0
 
-            Behavior on opacity { NumberAnimation { duration: 700 } }
+            Behavior on opacity { NumberAnimation { duration: 450 } }
 
             TapHandler {
                 onTapped: idleTimer.restart()
@@ -318,6 +318,64 @@ Window {
                 placeholderText: "Pairing code"
                 font.pixelSize: 26
                 horizontalAlignment: TextInput.AlignHCenter
+                Layout.fillWidth: true
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 14
+
+                Text {
+                    text: "Screen off"
+                    color: "#d7e2e4"
+                    font.pixelSize: 18
+                    Layout.preferredWidth: 130
+                }
+
+                SpinBox {
+                    id: screenTimeoutBox
+                    from: 0
+                    to: 3600
+                    stepSize: 30
+                    value: djconnect.screenTimeoutSeconds
+                    editable: true
+                    Layout.fillWidth: true
+                    onValueModified: djconnect.setScreenTimeoutSeconds(value)
+                }
+
+                Text {
+                    text: screenTimeoutBox.value === 0 ? "off" : "sec"
+                    color: "#9fb4b8"
+                    font.pixelSize: 16
+                    Layout.preferredWidth: 38
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 14
+
+                Text {
+                    text: "Updates"
+                    color: "#d7e2e4"
+                    font.pixelSize: 18
+                    Layout.preferredWidth: 130
+                }
+
+                ComboBox {
+                    id: updateChannelBox
+                    model: ["stable", "beta"]
+                    currentIndex: djconnect.updateChannel === "beta" ? 1 : 0
+                    Layout.fillWidth: true
+                    onActivated: djconnect.setUpdateChannel(currentText)
+                }
+            }
+
+            Text {
+                text: "Log: " + djconnect.logFile
+                color: "#91a3a7"
+                font.pixelSize: 13
+                elide: Text.ElideMiddle
                 Layout.fillWidth: true
             }
 

@@ -1,6 +1,6 @@
 # DJConnect Pi
 
-Version: `3.1.0`
+Version: `3.1.1`
 
 Raspberry Pi Zero 2 W touch-display client for DJConnect. This client uses
 Qt Quick/QML with a PySide6 backend and is meant for a Pimoroni HyperPixel 4.0
@@ -39,6 +39,8 @@ The app is a 720x720 fullscreen touch remote:
 - bottom volume slider
 - shuffle and repeat toggles
 - compact HA/pairing/backend status
+- settings for screen blanking and stable/beta update channel
+- persistent rotating client log
 
 ## Quick Start
 
@@ -74,6 +76,9 @@ downloads a tarball asset and optional `.sha256`, installs into:
 It then restarts `djconnect-client.service`. App updates are atomic at the
 symlink level and preserve config outside the release directory.
 
+Set the updater channel to `stable` for normal releases or `beta` to allow
+GitHub prereleases.
+
 OS maintenance is also separate. The maintenance command can run apt update,
 upgrade and reboot only when `/var/run/reboot-required` exists, optionally
 inside a configured maintenance window.
@@ -84,6 +89,7 @@ See `systemd/` for service and timer templates.
 
 - [Architecture](docs/ARCHITECTURE.md)
 - [Bootstrap a Pi Zero 2 W + HyperPixel](docs/BOOTSTRAP.md)
+- [Performance and Security Review](docs/PERFORMANCE_SECURITY.md)
 - [Handoff](HANDOFF.md)
 - [Changelog](CHANGELOG.md)
 - [Issues](ISSUES.md)

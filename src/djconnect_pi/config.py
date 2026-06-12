@@ -9,6 +9,7 @@ import uuid
 CLIENT_TYPE = "raspberry_pi"
 PROTOCOL_VERSION = "3.1.17"
 DEFAULT_CONFIG_PATH = Path.home() / ".config" / "djconnect-pi" / "config.json"
+DEFAULT_LOG_PATH = Path.home() / ".local" / "state" / "djconnect-pi" / "client.log"
 
 
 @dataclass
@@ -21,6 +22,9 @@ class Config:
     version: str = PROTOCOL_VERSION
     update_repo: str = "pcvantol/djconnect-pi"
     update_channel: str = "stable"
+    screen_timeout_seconds: int = 300
+    log_file: str = str(DEFAULT_LOG_PATH)
+    log_level: str = "INFO"
 
 
 def stable_device_id() -> str:
@@ -38,10 +42,12 @@ def load_config(path: Path) -> Config:
     cfg = Config(**{**asdict(Config()), **data})
     if not cfg.device_id:
         cfg.device_id = stable_device_id()
+    cfg.screen_timeout_seconds = max(0, int(cfg.screen_timeout_seconds))
+    if cfg.update_channel not in {"stable", "beta"}:
+        cfg.update_channel = "stable"
     return cfg
 
 
 def save_config(path: Path, cfg: Config) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(asdict(cfg), indent=2, sort_keys=True) + "\n", encoding="utf-8")
-

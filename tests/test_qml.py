@@ -26,6 +26,8 @@ def test_qml_offscreen_smoke_loads() -> None:
             "250",
             "--config",
             "/private/tmp/djconnect-pi-qml-test.json",
+            "--log-file",
+            "/private/tmp/djconnect-pi-qml-test.log",
         ],
         env=env,
         text=True,

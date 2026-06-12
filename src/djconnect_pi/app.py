@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from importlib.resources import files
 from pathlib import Path
 import argparse
+import logging
 import sys
 
 from PySide6.QtCore import QObject, Property, QTimer, Signal, Slot
@@ -13,6 +14,9 @@ from PySide6.QtQuickControls2 import QQuickStyle
 
 from .config import DEFAULT_CONFIG_PATH, Config, load_config, save_config
 from .ha import DJConnectError, HAClient, Playback
+from .logging_config import setup_logging
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class DJConnectBackend(QObject):
@@ -27,6 +31,9 @@ class DJConnectBackend(QObject):
     pairedChanged = Signal()
     busyChanged = Signal()
     settingsChanged = Signal()
+    screenTimeoutChanged = Signal()
+    updateChannelChanged = Signal()
+    logFileChanged = Signal()
 
     _playbackReady = Signal(object)
     _statusReady = Signal(str)
@@ -51,6 +58,7 @@ class DJConnectBackend(QObject):
         self._pairingReady.connect(self._apply_pairing)
         self._busyReady.connect(self._set_busy)
         QTimer.singleShot(250, self.refresh)
+        _LOGGER.info("DJConnect Pi client backend started for %s", self.cfg.device_id)
 
     @Property(str, notify=statusTextChanged)
     def statusText(self) -> str:
@@ -100,12 +108,48 @@ class DJConnectBackend(QObject):
     def deviceId(self) -> str:
         return self.cfg.device_id
 
+    @Property(int, notify=screenTimeoutChanged)
+    def screenTimeoutSeconds(self) -> int:
+        return self.cfg.screen_timeout_seconds
+
+    @Property(str, notify=updateChannelChanged)
+    def updateChannel(self) -> str:
+        return self.cfg.update_channel
+
+    @Property(str, notify=logFileChanged)
+    def logFile(self) -> str:
+        return self.cfg.log_file
+
     @Slot(str)
     def setHaUrl(self, value: str) -> None:
         self.cfg.ha_url = value.strip()
         save_config(self.config_path, self.cfg)
         self.settingsChanged.emit()
         self._set_status_text("Home Assistant URL saved")
+
+    @Slot(int)
+    def setScreenTimeoutSeconds(self, value: int) -> None:
+        value = max(0, int(value))
+        if self.cfg.screen_timeout_seconds == value:
+            return
+        self.cfg.screen_timeout_seconds = value
+        save_config(self.config_path, self.cfg)
+        self.screenTimeoutChanged.emit()
+        self.settingsChanged.emit()
+        self._set_status_text("Screen timeout saved")
+
+    @Slot(str)
+    def setUpdateChannel(self, value: str) -> None:
+        channel = value.strip().lower()
+        if channel not in {"stable", "beta"}:
+            channel = "stable"
+        if self.cfg.update_channel == channel:
+            return
+        self.cfg.update_channel = channel
+        save_config(self.config_path, self.cfg)
+        self.updateChannelChanged.emit()
+        self.settingsChanged.emit()
+        self._set_status_text(f"Update channel: {channel}")
 
     @Slot(str)
     def pair(self, pair_code: str) -> None:
@@ -159,11 +203,13 @@ class DJConnectBackend(QObject):
         self._run(command, lambda: self._command_worker(command, **payload))
 
     def _pair_worker(self, code: str) -> None:
+        _LOGGER.info("Pairing DJConnect Pi client")
         self.client.pair(code)
         save_config(self.config_path, self.cfg)
         self._pairingReady.emit(True, "Paired")
 
     def _refresh_worker(self) -> None:
+        _LOGGER.debug("Refreshing playback status")
         data = self.client.command("status") if self.paired else self.client.status()
         playback = self.client.playback_from_status(data)
         if self.paired:
@@ -171,6 +217,7 @@ class DJConnectBackend(QObject):
         self._playbackReady.emit(playback)
 
     def _command_worker(self, command: str, **payload: object) -> None:
+        _LOGGER.info("Sending playback command: %s", command)
         data = self.client.command(command, **payload)
         self._playbackReady.emit(self.client.playback_from_status(data))
 
@@ -182,8 +229,10 @@ class DJConnectBackend(QObject):
             try:
                 worker()
             except DJConnectError as exc:
+                _LOGGER.warning("%s failed: %s", label, exc)
                 self._statusReady.emit(str(exc))
             except Exception as exc:
+                _LOGGER.exception("%s failed unexpectedly", label)
                 self._statusReady.emit(f"Offline: {exc}")
             finally:
                 self._busyReady.emit(False)
@@ -231,6 +280,12 @@ class DJConnectBackend(QObject):
         self._busy = value
         self.busyChanged.emit()
 
+    @Slot()
+    def shutdown(self) -> None:
+        _LOGGER.info("Stopping DJConnect Pi client backend")
+        self._poll_timer.stop()
+        self._executor.shutdown(wait=False, cancel_futures=True)
+
 
 def main() -> None:
     parser = argparse.ArgumentParser()
@@ -238,17 +293,29 @@ def main() -> None:
     parser.add_argument("--ha-url", default="")
     parser.add_argument("--windowed", action="store_true")
     parser.add_argument("--exit-after-ms", type=int, default=0)
+    parser.add_argument("--log-file", default="")
+    parser.add_argument("--log-level", default="")
     args = parser.parse_args()
 
     cfg = load_config(args.config)
     if args.ha_url:
         cfg.ha_url = args.ha_url
         save_config(args.config, cfg)
+    if args.log_file:
+        cfg.log_file = args.log_file
+        save_config(args.config, cfg)
+    if args.log_level:
+        cfg.log_level = args.log_level.upper()
+        save_config(args.config, cfg)
+
+    setup_logging(cfg.log_file, cfg.log_level)
+    _LOGGER.info("Starting DJConnect Pi client")
 
     QQuickStyle.setStyle("Basic")
     app = QGuiApplication(sys.argv)
     engine = QQmlApplicationEngine()
     backend = DJConnectBackend(args.config)
+    app.aboutToQuit.connect(backend.shutdown)
     engine.rootContext().setContextProperty("djconnect", backend)
     engine.rootContext().setContextProperty("startWindowed", args.windowed)
     qml_path = files("djconnect_pi.qml").joinpath("Main.qml")

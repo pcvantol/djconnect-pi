@@ -36,6 +36,11 @@ def test_asset_url_finds_suffix() -> None:
     assert updater.asset_url(make_release(), ".sha256") == "https://example/bundle.sha256"
 
 
+def test_include_prerelease_only_for_beta_channel() -> None:
+    assert updater.include_prerelease("stable") is False
+    assert updater.include_prerelease("beta") is True
+
+
 def test_asset_url_raises_for_missing_suffix() -> None:
     with pytest.raises(RuntimeError, match="No release asset"):
         updater.asset_url(make_release(), ".zip")
@@ -84,6 +89,15 @@ def test_run_dry_run_returns_selected_assets(tmp_path: Path) -> None:
         "bundle": "https://example/bundle.tar.gz",
         "checksum": "https://example/bundle.sha256",
     }
+
+
+def test_run_passes_prerelease_flag_for_beta_channel(tmp_path: Path) -> None:
+    cfg = updater.UpdaterConfig(repo="pcvantol/djconnect-pi", channel="beta", install_root=tmp_path)
+
+    with patch("djconnect_pi.updater.github_latest_release", return_value=make_release()) as latest:
+        updater.run(cfg, dry_run=True)
+
+    latest.assert_called_once_with("pcvantol/djconnect-pi", True)
 
 
 def test_run_skips_when_current_version_matches(tmp_path: Path) -> None:

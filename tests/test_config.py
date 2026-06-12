@@ -37,3 +37,21 @@ def test_load_config_backfills_missing_device_id(tmp_path: Path) -> None:
     loaded = load_config(path)
 
     assert loaded.device_id.startswith("djconnect-raspberry-pi-")
+
+
+def test_load_config_normalizes_runtime_settings(tmp_path: Path) -> None:
+    path = tmp_path / "config.json"
+    path.write_text(
+        json.dumps(
+            {
+                "screen_timeout_seconds": -5,
+                "update_channel": "nightly",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    loaded = load_config(path)
+
+    assert loaded.screen_timeout_seconds == 0
+    assert loaded.update_channel == "stable"
