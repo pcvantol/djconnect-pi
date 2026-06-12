@@ -1,6 +1,6 @@
 # Changelog
 
-## 3.1.18
+## 3.1.19
 
 - Initial Raspberry Pi display-remote scaffold with Qt Quick/QML, fullscreen
   720x720 touch UI, playback controls and app-like DJConnect pairing, status
@@ -46,3 +46,11 @@
   The DJConnect app installer no longer performs timezone, SSH, apt
   full-upgrade, glances, Raspberry Pi Connect, desktop dark-mode or HyperPixel
   setup.
+- Fixed public release install checksum verification so the installer compares
+  SHA256 hash values instead of relying on the filename stored in the `.sha256`
+  asset.
+- Changed repo-only Raspberry Pi bootstrap to install Glances web mode in a
+  dedicated `/opt/djconnect-glances` virtualenv and start it on boot through
+  `glances-web.service` at port `61208`; the distro `glances.service` is
+  disabled for web mode because some Raspberry Pi OS packages miss the web
+  static assets.

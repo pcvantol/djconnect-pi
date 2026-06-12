@@ -203,3 +203,17 @@ def test_os_bootstrap_documentation_uses_idempotent_checkout_flow() -> None:
         assert "git pull --ff-only" in text
         assert 'git clone https://github.com/pcvantol/djconnect-pi.git "$HOME/djconnect-pi"' in text
         assert "sudo ./scripts/bootstrap_raspberry_pi_os.sh" in text
+
+
+def test_glances_web_bootstrap_is_documented_and_synced() -> None:
+    bootstrap = ROOT.joinpath("docs/BOOTSTRAP.md").read_text(encoding="utf-8")
+    readme = ROOT.joinpath("README.md").read_text(encoding="utf-8")
+    sync_prompt = ROOT.joinpath("SYNC_PROMPTS.md").read_text(encoding="utf-8")
+
+    for text in (bootstrap, readme, sync_prompt):
+        assert "61208" in text
+    assert "/opt/djconnect-glances" in bootstrap
+    assert "/opt/djconnect-glances" in sync_prompt
+    assert "glances-web.service" in bootstrap
+    assert "glances-web.service" in sync_prompt
+    assert "distro `glances.service`" in sync_prompt

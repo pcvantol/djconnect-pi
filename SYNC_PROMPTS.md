@@ -32,7 +32,7 @@ commit the updated `SYNC_PROMPTS.md` there.
 ## Current Protocol Line
 
 The current shared protocol/release line is `3.1.x`; this bundle was last
-aligned after Apple app release `v3.1.13`. DJConnect clients on the `3.1.x`
+aligned after Raspberry Pi client release `v3.1.19`. DJConnect clients on the `3.1.x`
 line are compatible with Home Assistant integration versions `>=3.1.0` and
 `<3.2.0`.
 
@@ -226,6 +226,11 @@ Requirements:
   screen timeout, speaker volume, LED, log-level or firmware entities.
 - Keep the updater and OS maintenance daemon separate from the touch UI and
   keep the touch UI runnable without root privileges.
+- Keep general Raspberry Pi OS bootstrap separate from the app release tarball.
+  Repo-only bootstrap may configure timezone, SSH, apt full-upgrade, HyperPixel
+  and Glances web monitoring; Glances web should run from a dedicated
+  `/opt/djconnect-glances` virtualenv through `glances-web.service` on port
+  `61208` instead of the distro `glances.service`.
 - Use unattended GitHub release updates only after verifying release assets with
   SHA256 at minimum; prefer signed manifests when available.
 - Treat backend_unavailable and version_mismatch as recoverable without
@@ -1737,6 +1742,11 @@ Requirements:
   screen timeout, speaker volume, LED, log-level or firmware entities.
 - Keep the updater and OS maintenance daemon separate from the touch UI and
   keep the touch UI runnable without root privileges.
+- Keep general Raspberry Pi OS bootstrap separate from the app release tarball.
+  Repo-only bootstrap may configure timezone, SSH, apt full-upgrade, HyperPixel
+  and Glances web monitoring; Glances web should run from a dedicated
+  `/opt/djconnect-glances` virtualenv through `glances-web.service` on port
+  `61208` instead of the distro `glances.service`.
 - Use unattended GitHub release updates only after verifying release assets with
   SHA256 at minimum; prefer signed manifests when available.
 - Treat backend_unavailable and version_mismatch as recoverable without
