@@ -115,6 +115,9 @@ def test_repo_only_os_bootstrap_uses_modern_hyperpixel_overlay_and_dark_mode() -
     assert "apt-get -y full-upgrade" in script
     assert "glances" in script
     assert "rpi-connect" in script
+    assert "systemctl enable --now rpi-connect || true" not in script
+    assert "systemctl list-unit-files rpi-connect.service" in script
+    assert "systemctl list-unit-files rpi-connect-wayvnc.service" in script
     assert re.search(r"^\s+raspberrypi-ui-mods\s*\\?$", script, re.MULTILINE) is None
     assert "pi-greeter" in script
 

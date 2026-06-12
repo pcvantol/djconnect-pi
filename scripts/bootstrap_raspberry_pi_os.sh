@@ -146,7 +146,15 @@ install_rpi_connect() {
     echo "rpi-connect package was not available on this image; continuing." >&2
     return 0
   }
-  systemctl enable --now rpi-connect || true
+
+  if systemctl list-unit-files rpi-connect.service --no-legend 2>/dev/null | grep -q '^rpi-connect\.service'; then
+    systemctl enable --now rpi-connect.service || true
+  elif systemctl list-unit-files rpi-connect-wayvnc.service --no-legend 2>/dev/null | grep -q '^rpi-connect-wayvnc\.service'; then
+    systemctl enable --now rpi-connect-wayvnc.service || true
+  else
+    echo "rpi-connect installed, but no system service was found; continuing." >&2
+  fi
+
   if command -v rpi-connect >/dev/null 2>&1; then
     echo "Run 'rpi-connect signin' on the Pi to link it to your Raspberry Pi account."
   fi
