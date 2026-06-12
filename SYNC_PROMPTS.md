@@ -11,8 +11,6 @@ Canonical repo locations:
 - ESP firmware: `pcvantol/djconnect-esp32`
 - Website/docs: `pcvantol/djconnect-website`
 - Raspberry Pi client: `pcvantol/djconnect-pi`
-- Raspberry Pi public release distribution: `pcvantol/djconnect-pi-releases`
-- Raspberry Pi public release distribution: `pcvantol/djconnect-pi-releases`
 
 ## How To Sync This File
 
@@ -38,9 +36,6 @@ aligned after Apple app release `v3.1.13`. DJConnect clients on the `3.1.x`
 line are compatible with Home Assistant integration versions `>=3.1.0` and
 `<3.2.0`.
 
-Raspberry Pi source lives in `pcvantol/djconnect-pi`, but unattended Pi clients
-download release assets from public repo `pcvantol/djconnect-pi-releases`.
-
 ---
 
 ## Cross-Repo Quick Prompts
@@ -55,7 +50,6 @@ Canonical repo locations:
 - ESP firmware: `pcvantol/djconnect-esp32`
 - Website/docs: `pcvantol/djconnect-website`
 - Raspberry Pi client: `pcvantol/djconnect-pi`
-- Raspberry Pi public release distribution: `pcvantol/djconnect-pi-releases`
 
 ## Home Assistant Integration
 
@@ -73,7 +67,7 @@ Requirements:
 - Accept stable device_id, device_name, client_type, firmware, app_version,
   platform and optional capabilities. Raspberry Pi status/pairing payloads may
   advertise capabilities such as touch=true, voice=false, local_audio=false and
-  local_dj_response_endpoint=true.
+  local_dj_response_endpoint=false.
 - Accept the app-generated code as pair_code, pairing_code, or pairing_token.
 - Return a DJConnect bearer token on success. The current compatible field is
   device_token; bearer_token and token may also be returned.
@@ -84,15 +78,23 @@ Requirements:
   needed by Home Assistant-owned Spotify OAuth config flows.
 - When pairing an Apple app-like client, ask for or use the Client API url shown
   in the client pairing sheet; do not assume a changing Bonjour hostname remains
-  the canonical callback target after pairing. Raspberry Pi display clients show
-  a Client API URL on their blocking pairing screen and advertise it through
-  `_djconnect._tcp`; use it for HA -> Pi pairing when reachable.
+  the canonical callback target after pairing. Raspberry Pi display clients may
+  be outbound-only and may not provide a Client API URL; HA must still be able
+  to complete pairing, issue a device_token, and rely on Pi -> HA status and
+  command traffic.
+- Discover visible DJConnect clients through Bonjour/mDNS service
+  `_djconnect._tcp`. TXT records must include device_id, client_type,
+  device_name, version, paired and api=/api/device where available. Validate
+  client_type against the device_id prefix, optionally probe
+  GET /api/device/pairing-info, and use pairing-info as authoritative metadata
+  for Client API URL, client_type, device_name and pair_code prefill. Discovery
+  is convenience only and must never mark a device paired.
 - Return ha_version or ha_major_minor on status/command responses so Apple
-  and Raspberry Pi clients can enforce the matching major.minor contract.
+  clients can enforce the matching major.minor contract.
 - Apple clients host local /api/device/* endpoints for HA -> client traffic,
   but must not implement ESP-only reboot or OTA routes. Raspberry Pi display
-  clients run a separate local Client API daemon for HA -> Pi traffic and must
-  not expose ESP-only OTA routes.
+  clients may be outbound-only and must advertise capabilities so HA does not
+  require local voice, audio, or dj_response endpoints.
 - Persist client_type as ios, macos, raspberry_pi, or esp32. Do not
   reintroduce device_type.
 - Authenticated status/command/voice routes must accept Authorization: Bearer
@@ -121,9 +123,6 @@ Requirements:
   is not proof of HA voice validation.
 - Return HTTP 426 version_mismatch when client and HA major.minor protocol
   versions do not match; do not treat this as stale auth.
-- For Pi/Apple 3.1.z clients, HA 3.1.x is compatible. HA 3.0.x and 3.2.x are
-  incompatible and should be reported through ha_version/ha_major_minor or
-  HTTP 426 version_mismatch.
 - Return backend_unavailable as HTTP 200 success:false with
   backend_available:false, not as HTTP 503.
 ```
@@ -192,22 +191,12 @@ Requirements:
   djconnect-raspberry-pi-XXXXXXXXXXXX.
 - Treat the Pi as an app-like display remote, not ESP firmware.
 - Support both outbound POST /api/djconnect/pair and the app-like local Client
-  API URL flow. The Pi exposes these through a separate `djconnect-pi-api`
-  daemon, not from the Qt/QML UI process: GET /api/device/info,
-  GET /api/device/pairing-info, POST /api/device/pair,
-  POST /api/device/command, POST /api/device/dj_response and
-  POST /api/device/forget.
+  API URL flow. The Pi exposes GET /api/device/info, GET /api/device/pairing-info,
+  POST /api/device/pair, POST /api/device/command, POST /api/device/dj_response
+  and POST /api/device/forget.
 - Advertise `_djconnect._tcp` mDNS on the local Client API port with TXT records
   including device_id, client_type=raspberry_pi, version, device_name and
   local_url.
-- Show a full-screen startup splash, then a blocking pairing screen until
-  paired. The pairing screen shows the Client API URL and pairing code input.
-- Offer local Demo Mode while unpaired. Demo Mode must not store a bearer token
-  or send HA traffic. Settings must include a "Demo modus stoppen" action that
-  returns to Now Playing and exposes the blocking pairing screen again.
-- Provide touch-only local games matching the Apple app set: Paddle Rally,
-  Meteor Run, Sky Dash and Maze Chase. Games are client-only, must work without
-  keyboard input, and must not require pairing or backend traffic.
 - Store only the returned DJConnect bearer token plus ha_local_url.
 - Send status to POST /api/djconnect/status with device_id, device_name,
   client_type, version, firmware, ha_pairing_status and display-remote
@@ -217,35 +206,13 @@ Requirements:
   set_shuffle and set_repeat.
 - Do not implement PTT, microphone capture, POST /api/djconnect/voice or local
   DJ response audio playback. POST /api/device/dj_response displays text on
-  screen through the API-daemon-to-UI event bridge and reports
-  audio_played:false.
+  screen and may report audio_played:false when no audio device is configured.
 - Do not expose ESP-only reboot, OTA, battery, Wi-Fi RSSI, screen brightness,
   screen timeout, speaker volume, LED, log-level or firmware entities.
 - Keep the updater and OS maintenance daemon separate from the touch UI and
   keep the touch UI runnable without root privileges.
-- The Qt/QML UI must not host the local HTTP API or mDNS service. The
-  `djconnect-api.service` daemon owns API/mDNS. The UI may consume local event
-  files from the daemon for DJ response display.
 - Use unattended GitHub release updates only after verifying release assets with
   SHA256 at minimum; prefer signed manifests when available.
-- Pi unattended app updates default to public release repo
-  `pcvantol/djconnect-pi-releases`. The source repo is `pcvantol/djconnect-pi`.
-  The source GitHub Actions workflow publishes `djconnect-pi-<version>.tar.gz`
-  and `.sha256` assets to the public release repo on `vX.Y.Z` tags.
-- The Pi updater reads update_repo and update_channel from
-  `/opt/djconnect/config/client.json`; the touch settings stable/beta selection
-  must control unattended updates. `stable` excludes prereleases, `beta`
-  includes prereleases.
-- Enforce HA/client major.minor compatibility. Example: Pi client 3.1.z works
-  with HA >=3.1.0 and <3.2.0. If HA returns ha_version/ha_major_minor outside
-  that range, or HTTP 426 version_mismatch, show a blocking version mismatch
-  screen and trigger `djconnect-updater.service` once in the background to try
-  downloading a compatible Pi release.
-- Default touch screen blanking is 120 seconds, configurable in Settings, and
-  tap wakes the rendered screen.
-- Log Raspberry Pi system info at startup and add debug logging around HA/API
-  calls, HTTP status codes, JSON parse errors, exceptions and touch user
-  actions without logging secrets.
 - Treat backend_unavailable and version_mismatch as recoverable without
   clearing pairing.
 - Never log bearer tokens, HA tokens, Spotify secrets, Wi-Fi passwords or
@@ -1602,7 +1569,7 @@ Requirements:
 - Accept stable device_id, device_name, client_type, firmware, app_version,
   platform and optional capabilities. Raspberry Pi status/pairing payloads may
   advertise capabilities such as touch=true, voice=false, local_audio=false and
-  local_dj_response_endpoint=true.
+  local_dj_response_endpoint=false.
 - Accept the app-generated code as pair_code, pairing_code, or pairing_token.
 - Return a DJConnect bearer token on success. The current compatible field is
   device_token; bearer_token and token may also be returned.
@@ -1613,15 +1580,23 @@ Requirements:
   needed by Home Assistant-owned Spotify OAuth config flows.
 - When pairing an Apple app-like client, ask for or use the Client API url shown
   in the client pairing sheet; do not assume a changing Bonjour hostname remains
-  the canonical callback target after pairing. Raspberry Pi display clients show
-  a Client API URL on their blocking pairing screen and advertise it through
-  `_djconnect._tcp`; use it for HA -> Pi pairing when reachable.
+  the canonical callback target after pairing. Raspberry Pi display clients may
+  be outbound-only and may not provide a Client API URL; HA must still be able
+  to complete pairing, issue a device_token, and rely on Pi -> HA status and
+  command traffic.
+- Discover visible DJConnect clients through Bonjour/mDNS service
+  `_djconnect._tcp`. TXT records must include device_id, client_type,
+  device_name, version, paired and api=/api/device where available. Validate
+  client_type against the device_id prefix, optionally probe
+  GET /api/device/pairing-info, and use pairing-info as authoritative metadata
+  for Client API URL, client_type, device_name and pair_code prefill. Discovery
+  is convenience only and must never mark a device paired.
 - Return ha_version or ha_major_minor on status/command responses so Apple
-  and Raspberry Pi clients can enforce the matching major.minor contract.
+  clients can enforce the matching major.minor contract.
 - Apple clients host local /api/device/* endpoints for HA -> client traffic,
   but must not implement ESP-only reboot or OTA routes. Raspberry Pi display
-  clients run a separate local Client API daemon for HA -> Pi traffic and must
-  not expose ESP-only OTA routes.
+  clients may be outbound-only and must advertise capabilities so HA does not
+  require local voice, audio, or dj_response endpoints.
 - Persist client_type as ios, macos, raspberry_pi, or esp32. Do not
   reintroduce device_type.
 - Authenticated status/command/voice routes must accept Authorization: Bearer
@@ -1647,9 +1622,6 @@ Requirements:
   is not proof of HA voice validation.
 - Return HTTP 426 version_mismatch when client and HA major.minor protocol
   versions do not match; do not treat this as stale auth.
-- For Pi/Apple 3.1.z clients, HA 3.1.x is compatible. HA 3.0.x and 3.2.x are
-  incompatible and should be reported through ha_version/ha_major_minor or
-  HTTP 426 version_mismatch.
 - Return backend_unavailable as HTTP 200 success:false with
   backend_available:false, not as HTTP 503.
 ```
@@ -1714,61 +1686,23 @@ Requirements:
 - Use client_type raspberry_pi and device IDs shaped like
   djconnect-raspberry-pi-XXXXXXXXXXXX.
 - Treat the Pi as an app-like display remote, not ESP firmware.
-- Support both outbound POST /api/djconnect/pair and the app-like local Client
-  API URL flow. The Pi exposes these through a separate `djconnect-pi-api`
-  daemon, not from the Qt/QML UI process: GET /api/device/info,
-  GET /api/device/pairing-info, POST /api/device/pair,
-  POST /api/device/command, POST /api/device/dj_response and
-  POST /api/device/forget.
-- Advertise `_djconnect._tcp` mDNS on the local Client API port with TXT records
-  including device_id, client_type=raspberry_pi, version, device_name and
-  local_url.
-- Show a full-screen startup splash, then a blocking pairing screen until
-  paired. The pairing screen shows the Client API URL and pairing code input.
-- Offer local Demo Mode while unpaired. Demo Mode must not store a bearer token
-  or send HA traffic. Settings must include a "Demo modus stoppen" action that
-  returns to Now Playing and exposes the blocking pairing screen again.
-- Provide touch-only local games matching the Apple app set: Paddle Rally,
-  Meteor Run, Sky Dash and Maze Chase. Games are client-only, must work without
-  keyboard input, and must not require pairing or backend traffic.
-- Store only the returned DJConnect bearer token plus ha_local_url.
+- Pair through POST /api/djconnect/pair and store only the returned
+  DJConnect bearer token plus ha_local_url.
 - Send status to POST /api/djconnect/status with device_id, device_name,
   client_type, version, firmware, ha_pairing_status and display-remote
   capabilities.
 - Send playback commands to POST /api/djconnect/command. Supported first
   version commands are status, play, pause, next, previous, set_volume,
   set_shuffle and set_repeat.
-- Do not implement PTT, microphone capture, POST /api/djconnect/voice or local
-  DJ response audio playback. POST /api/device/dj_response displays text on
-  screen through the API-daemon-to-UI event bridge and reports
-  audio_played:false.
+- Do not implement PTT, microphone capture, POST /api/djconnect/voice, local
+  DJ response audio playback, or local /api/device/dj_response in the initial
+  Pi client.
 - Do not expose ESP-only reboot, OTA, battery, Wi-Fi RSSI, screen brightness,
   screen timeout, speaker volume, LED, log-level or firmware entities.
 - Keep the updater and OS maintenance daemon separate from the touch UI and
   keep the touch UI runnable without root privileges.
-- The Qt/QML UI must not host the local HTTP API or mDNS service. The
-  `djconnect-api.service` daemon owns API/mDNS. The UI may consume local event
-  files from the daemon for DJ response display.
 - Use unattended GitHub release updates only after verifying release assets with
   SHA256 at minimum; prefer signed manifests when available.
-- Pi unattended app updates default to public release repo
-  `pcvantol/djconnect-pi-releases`. The source repo is `pcvantol/djconnect-pi`.
-  The source GitHub Actions workflow publishes `djconnect-pi-<version>.tar.gz`
-  and `.sha256` assets to the public release repo on `vX.Y.Z` tags.
-- The Pi updater reads update_repo and update_channel from
-  `/opt/djconnect/config/client.json`; the touch settings stable/beta selection
-  must control unattended updates. `stable` excludes prereleases, `beta`
-  includes prereleases.
-- Enforce HA/client major.minor compatibility. Example: Pi client 3.1.z works
-  with HA >=3.1.0 and <3.2.0. If HA returns ha_version/ha_major_minor outside
-  that range, or HTTP 426 version_mismatch, show a blocking version mismatch
-  screen and trigger `djconnect-updater.service` once in the background to try
-  downloading a compatible Pi release.
-- Default touch screen blanking is 120 seconds, configurable in Settings, and
-  tap wakes the rendered screen.
-- Log Raspberry Pi system info at startup and add debug logging around HA/API
-  calls, HTTP status codes, JSON parse errors, exceptions and touch user
-  actions without logging secrets.
 - Treat backend_unavailable and version_mismatch as recoverable without
   clearing pairing.
 - Never log bearer tokens, HA tokens, Spotify secrets, Wi-Fi passwords or
