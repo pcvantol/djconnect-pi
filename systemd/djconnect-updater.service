@@ -1,0 +1,9 @@
+[Unit]
+Description=DJConnect Raspberry Pi updater
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/djconnect/current/bin/djconnect-pi-updater --repo pcvantol/djconnect-pi --channel stable --install-root /opt/djconnect
+

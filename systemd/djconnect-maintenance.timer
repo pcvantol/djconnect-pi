@@ -1,0 +1,10 @@
+[Unit]
+Description=Run DJConnect Raspberry Pi OS maintenance
+
+[Timer]
+OnCalendar=*-*-* 03:15:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+
