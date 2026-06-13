@@ -1,6 +1,6 @@
 # Changelog
 
-## 3.1.34
+## 3.1.35
 
 - Updated the touch UI kiosk branding to show `DJConnect` everywhere, use the
   real bundled app icon, remove visible close buttons and ignore stale persisted
