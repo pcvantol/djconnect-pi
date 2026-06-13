@@ -2,11 +2,14 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
+import json
+import logging
 
 import requests
 import pytest
 
 from djconnect_pi.client_api import ClientAPI, ClientAPIState, MAX_REQUEST_BYTES, _mdns_properties
+from djconnect_pi.client_api import ClientAPIHandler
 from djconnect_pi.config import Config
 
 
@@ -50,6 +53,27 @@ def test_client_api_info_and_pairing_info(tmp_path: Path) -> None:
     assert pairing["pair_code"] == "123456"
     assert pairing["pairing_code"] == "123456"
     assert pairing["pairing_token"] == "123456"
+
+
+def test_client_api_log_message_formats_http_server_args(caplog) -> None:
+    caplog.set_level(logging.INFO)
+
+    ClientAPIHandler.log_message(object(), '"%s" %s %s', "GET /api/device/pairing-info HTTP/1.1", "200", "-")
+
+    assert "GET /api/device/pairing-info" in caplog.text
+
+
+def test_postman_collection_documents_local_api_endpoints() -> None:
+    path = Path("docs/postman/DJConnect Pi Local Client API.postman_collection.json")
+    collection = json.loads(path.read_text(encoding="utf-8"))
+    urls = {item["request"]["url"]["raw"] for item in collection["item"]}
+
+    assert "{{client_api_url}}/api/device/info" in urls
+    assert "{{client_api_url}}/api/device/pairing-info" in urls
+    assert "{{client_api_url}}/api/device/pair" in urls
+    assert "{{client_api_url}}/api/device/command" in urls
+    assert "{{client_api_url}}/api/device/dj_response" in urls
+    assert "{{client_api_url}}/api/device/forget" in urls
 
 
 def test_mdns_properties_include_ha_discovery_fields() -> None:

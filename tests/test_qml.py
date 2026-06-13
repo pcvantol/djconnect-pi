@@ -21,6 +21,7 @@ def test_qml_has_blocking_pairing_and_splash_views() -> None:
     main_qml = files("djconnect_pi.qml").joinpath("Main.qml").read_text(encoding="utf-8")
 
     assert "id: pairingPanel" in main_qml
+    assert "id: pairingSuccessPanel" in main_qml
     assert "id: splashPanel" in main_qml
     assert 'source: "app-icon.png"' in main_qml
     assert 'text: "v" + djconnect.version' in main_qml
@@ -28,7 +29,12 @@ def test_qml_has_blocking_pairing_and_splash_views() -> None:
     assert 'djconnect.t("client_api_url")' in main_qml
     assert "djconnect.pairingCode" in main_qml
     assert "blockingPairCodeField" not in main_qml
-    assert "djconnect.pair(djconnect.pairingCode)" in main_qml
+    assert "djconnect.pair(djconnect.pairingCode)" not in main_qml
+    assert 'djconnect.t("waiting_for_ha")' in main_qml
+    assert 'djconnect.t("start_demo_mode")' in main_qml
+    assert "djconnect.pairingSuccessVisible" in main_qml
+    assert 'djconnect.t("pairing_success_title")' in main_qml
+    assert "djconnect.startAfterPairing()" in main_qml
     assert 'djconnect.t("startup_message")' in main_qml
 
 
@@ -48,6 +54,8 @@ def test_qml_has_touch_games_panel() -> None:
     assert "djconnect.t(modelData.titleKey)" in games_qml
     assert "MouseArea" in games_qml
     assert "handleTouch" in games_qml
+    assert "mouthOpen" in games_qml
+    assert "ghostX - 4" in games_qml
 
 
 def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None:
@@ -57,6 +65,7 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
 
     assert "component PurpleButton" in main_qml
     assert "component PlaybackButton" in main_qml
+    assert "component IconButton" in main_qml
     assert "component MediaListPanel" in main_qml
     assert "component GlassButton" in games_qml
     assert "#3324145f" in main_qml
@@ -75,12 +84,22 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "djconnect.loadQueue()" in main_qml
     assert "djconnect.loadPlaylists()" in main_qml
     assert "djconnect.cachedImageUrl(modelData.imageUrl)" in main_qml
-    assert "Layout.minimumWidth: 92" in main_qml
-    assert "Layout.maximumWidth: 92" in main_qml
+    assert "Layout.minimumWidth: 68" in main_qml
+    assert "Layout.maximumWidth: 68" in main_qml
+    assert "djconnect.trackProgress" in main_qml
+    assert "djconnect.progressLabel" in main_qml
+    assert 'iconName: djconnect.playing ? "pause" : "play"' in main_qml
+    assert 'iconName: "previous"' in main_qml
+    assert 'iconName: "next"' in main_qml
+    assert 'iconName: "shuffle"' in main_qml
+    assert "repeatOne" in main_qml
+    assert "repeatOff" in main_qml
+    assert "logsArea.cursorPosition = logsArea.length" in main_qml
     assert "djconnect.copyLogs()" in main_qml
     assert "djconnect.clearLogs()" in main_qml
     assert "pairCodeField" not in main_qml
     assert "djconnect.pair(pairCodeField.text)" not in main_qml
+    assert 'djconnect.t("pairing_blocked")' not in main_qml
     assert 'text: "DJConnect Pi"' not in main_qml
     assert 'text: "DJ"' not in main_qml
     assert "djconnect.quitApp()" not in main_qml

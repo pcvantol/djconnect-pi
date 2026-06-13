@@ -105,6 +105,8 @@ def test_playback_from_status_accepts_aliases() -> None:
                 "volume_percent": 66,
                 "repeat": "track",
                 "shuffle": True,
+                "progress_ms": 138000,
+                "duration_ms": 210000,
             }
         }
     )
@@ -116,6 +118,8 @@ def test_playback_from_status_accepts_aliases() -> None:
     assert playback.volume == 66
     assert playback.repeat == "track"
     assert playback.shuffle is True
+    assert playback.position_seconds == 138
+    assert playback.duration_seconds == 210
 
 
 def test_protocol_mismatch_raises_djconnect_error() -> None:

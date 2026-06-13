@@ -462,13 +462,44 @@ Rectangle {
                             ctx.arc(rx(48 + col * 28), ry(52 + row * 28), Math.max(rx(2), ry(2)), 0, Math.PI * 2)
                             ctx.fill()
                         }
+                        var pacRadius = Math.max(rx(10), ry(10))
+                        var mouthCenter = root.pacmanDX < 0 ? Math.PI
+                            : root.pacmanDY < 0 ? Math.PI * 1.5
+                            : root.pacmanDY > 0 ? Math.PI / 2
+                            : 0
+                        var mouthOpen = Math.PI / 5
                         ctx.fillStyle = "#ffe35a"
                         ctx.beginPath()
-                        ctx.arc(rx(root.pacmanX), ry(root.pacmanY), Math.max(rx(8), ry(8)), 0, Math.PI * 2)
+                        ctx.moveTo(rx(root.pacmanX), ry(root.pacmanY))
+                        ctx.arc(
+                            rx(root.pacmanX),
+                            ry(root.pacmanY),
+                            pacRadius,
+                            mouthCenter + mouthOpen,
+                            mouthCenter + Math.PI * 2 - mouthOpen,
+                            false
+                        )
+                        ctx.closePath()
                         ctx.fill()
                         ctx.fillStyle = "#ff6fb3"
                         ctx.beginPath()
-                        ctx.arc(rx(root.ghostX), ry(root.ghostY), Math.max(rx(8), ry(8)), 0, Math.PI * 2)
+                        ctx.arc(rx(root.ghostX), ry(root.ghostY - 2), Math.max(rx(9), ry(9)), Math.PI, 0)
+                        ctx.lineTo(rx(root.ghostX + 9), ry(root.ghostY + 9))
+                        ctx.lineTo(rx(root.ghostX + 4), ry(root.ghostY + 5))
+                        ctx.lineTo(rx(root.ghostX), ry(root.ghostY + 9))
+                        ctx.lineTo(rx(root.ghostX - 4), ry(root.ghostY + 5))
+                        ctx.lineTo(rx(root.ghostX - 9), ry(root.ghostY + 9))
+                        ctx.closePath()
+                        ctx.fill()
+                        ctx.fillStyle = "#ffffff"
+                        ctx.beginPath()
+                        ctx.arc(rx(root.ghostX - 4), ry(root.ghostY - 2), Math.max(rx(2.6), ry(2.6)), 0, Math.PI * 2)
+                        ctx.arc(rx(root.ghostX + 4), ry(root.ghostY - 2), Math.max(rx(2.6), ry(2.6)), 0, Math.PI * 2)
+                        ctx.fill()
+                        ctx.fillStyle = "#1d2bff"
+                        ctx.beginPath()
+                        ctx.arc(rx(root.ghostX - 3), ry(root.ghostY - 2), Math.max(rx(1.2), ry(1.2)), 0, Math.PI * 2)
+                        ctx.arc(rx(root.ghostX + 5), ry(root.ghostY - 2), Math.max(rx(1.2), ry(1.2)), 0, Math.PI * 2)
                         ctx.fill()
                     }
 

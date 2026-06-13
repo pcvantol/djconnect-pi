@@ -1,6 +1,6 @@
 # Changelog
 
-## 3.1.35
+## 3.1.36
 
 - Updated the touch UI kiosk branding to show `DJConnect` everywhere, use the
   real bundled app icon, remove visible close buttons and ignore stale persisted
@@ -106,3 +106,13 @@
   screen, and queue/playlist screens.
 - Fixed the games selector labels by translating each game `titleKey` instead
   of reading a missing `title` field.
+- Fixed local Client API request logging so `GET /api/device/pairing-info`
+  returns JSON instead of an empty reply, allowing HA mDNS discovery to prefill
+  the Pi pairing code.
+- Aligned the Pi pairing screen order and labels with the macOS pairing screen,
+  removed the logs button from that first-run flow and kept demo mode as the
+  only local action.
+- Added a Postman collection for the local Pi Client API under `docs/postman/`.
+- Added now-playing track progress, font-independent playback icons, larger
+  full-width settings controls, logs autoscroll on refresh and richer Maze
+  Chase Pac-Man/ghost rendering.

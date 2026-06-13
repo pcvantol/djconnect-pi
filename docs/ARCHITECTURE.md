@@ -102,7 +102,7 @@ The Pi client is an app-like DJConnect client.
   "device_id": "djconnect-raspberry-pi-XXXXXXXXXXXX",
   "device_name": "DJConnect Pi",
   "client_type": "raspberry_pi",
-  "version": "3.1.35",
+  "version": "3.1.36",
   "capabilities": {
     "touch": true,
     "voice": false,
@@ -132,6 +132,10 @@ The local Client API uses:
 - `POST /api/device/command`
 - `POST /api/device/dj_response`
 - `POST /api/device/forget`
+
+The Postman collection in
+`docs/postman/DJConnect Pi Local Client API.postman_collection.json` covers the
+same local API plus diagnostic DJ response testing.
 
 The Pi advertises `_djconnect._tcp` on the local Client API port. DJ responses
 are displayed as text on the wall screen and report `audio_played:false`.

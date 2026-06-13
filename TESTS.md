@@ -65,6 +65,8 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 - compact touch log formatting and 24-hour album-art cache behavior
 - HA queue/playlist media parser coverage for artwork aliases from the shared
   contract
+- local Client API pairing-info and logging regression coverage, plus Postman
+  collection endpoint contract checks
 - game title QML contract checks ensuring titles come from translation keys
 - blocking version-mismatch QML contract checks
 - touch-only games panel packaging and four-game QML contract checks

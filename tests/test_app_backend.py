@@ -6,7 +6,7 @@ from unittest.mock import Mock, patch
 
 from PySide6.QtCore import QCoreApplication
 
-from djconnect_pi.app import DJConnectBackend, _format_logs_for_display, cached_image_url, parse_playlist_items, parse_queue_items
+from djconnect_pi.app import DJConnectBackend, _format_duration, _format_logs_for_display, cached_image_url, parse_playlist_items, parse_queue_items
 
 
 def ensure_app() -> QCoreApplication:
@@ -37,6 +37,12 @@ def test_log_display_uses_compact_touch_prefix() -> None:
     assert "17:53:51 DBG djconnect_pi.ha: Payload" in text
     assert "17:53:52 ERR djconnect_pi.ha: Failed" in text
     assert "2026-06-13" not in text
+
+
+def test_duration_format_for_now_playing_progress() -> None:
+    assert _format_duration(0) == "0:00"
+    assert _format_duration(138) == "2:18"
+    assert _format_duration(210) == "3:30"
 
 
 def test_cached_image_url_reuses_24_hour_cache(tmp_path: Path, monkeypatch) -> None:

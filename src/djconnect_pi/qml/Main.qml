@@ -86,6 +86,141 @@ Window {
         }
     }
 
+    component IconButton: Button {
+        id: control
+        property string iconName: "play"
+        property bool primary: false
+        property bool active: false
+
+        Layout.fillWidth: true
+        Layout.fillHeight: true
+        contentItem: Canvas {
+            id: iconCanvas
+            anchors.fill: parent
+            antialiasing: true
+            onPaint: {
+                var ctx = getContext("2d")
+                ctx.clearRect(0, 0, width, height)
+                var w = width
+                var h = height
+                var cx = w / 2
+                var cy = h / 2
+                var s = Math.min(w, h)
+                ctx.strokeStyle = "#ffffff"
+                ctx.fillStyle = "#ffffff"
+                ctx.lineWidth = Math.max(4, s * 0.08)
+                ctx.lineCap = "round"
+                ctx.lineJoin = "round"
+
+                function triangle(dir, x) {
+                    ctx.beginPath()
+                    if (dir > 0) {
+                        ctx.moveTo(x - s * 0.12, cy - s * 0.20)
+                        ctx.lineTo(x - s * 0.12, cy + s * 0.20)
+                        ctx.lineTo(x + s * 0.18, cy)
+                    } else {
+                        ctx.moveTo(x + s * 0.12, cy - s * 0.20)
+                        ctx.lineTo(x + s * 0.12, cy + s * 0.20)
+                        ctx.lineTo(x - s * 0.18, cy)
+                    }
+                    ctx.closePath()
+                    ctx.fill()
+                }
+
+                if (control.iconName === "pause") {
+                    ctx.fillRect(cx - s * 0.18, cy - s * 0.22, s * 0.11, s * 0.44)
+                    ctx.fillRect(cx + s * 0.07, cy - s * 0.22, s * 0.11, s * 0.44)
+                } else if (control.iconName === "previous") {
+                    triangle(-1, cx - s * 0.05)
+                    triangle(-1, cx + s * 0.17)
+                    ctx.fillRect(cx - s * 0.30, cy - s * 0.24, s * 0.07, s * 0.48)
+                } else if (control.iconName === "next") {
+                    triangle(1, cx + s * 0.05)
+                    triangle(1, cx - s * 0.17)
+                    ctx.fillRect(cx + s * 0.23, cy - s * 0.24, s * 0.07, s * 0.48)
+                } else if (control.iconName === "shuffle") {
+                    ctx.beginPath()
+                    ctx.moveTo(cx - s * 0.32, cy - s * 0.16)
+                    ctx.bezierCurveTo(cx - s * 0.08, cy - s * 0.16, cx + s * 0.02, cy + s * 0.16, cx + s * 0.26, cy + s * 0.16)
+                    ctx.stroke()
+                    ctx.beginPath()
+                    ctx.moveTo(cx - s * 0.32, cy + s * 0.16)
+                    ctx.bezierCurveTo(cx - s * 0.08, cy + s * 0.16, cx + s * 0.02, cy - s * 0.16, cx + s * 0.26, cy - s * 0.16)
+                    ctx.stroke()
+                    triangle(1, cx + s * 0.33)
+                    triangle(1, cx + s * 0.33)
+                    if (!control.active) {
+                        ctx.strokeStyle = "#ff9bb8"
+                        ctx.beginPath()
+                        ctx.moveTo(cx - s * 0.34, cy + s * 0.30)
+                        ctx.lineTo(cx + s * 0.34, cy - s * 0.30)
+                        ctx.stroke()
+                    }
+                } else if (control.iconName === "repeat" || control.iconName === "repeatOne" || control.iconName === "repeatOff") {
+                    ctx.beginPath()
+                    ctx.moveTo(cx - s * 0.24, cy - s * 0.17)
+                    ctx.lineTo(cx + s * 0.20, cy - s * 0.17)
+                    ctx.lineTo(cx + s * 0.20, cy - s * 0.28)
+                    ctx.stroke()
+                    ctx.beginPath()
+                    ctx.moveTo(cx + s * 0.30, cy - s * 0.17)
+                    ctx.lineTo(cx + s * 0.18, cy - s * 0.29)
+                    ctx.lineTo(cx + s * 0.18, cy - s * 0.05)
+                    ctx.closePath()
+                    ctx.fill()
+                    ctx.beginPath()
+                    ctx.moveTo(cx + s * 0.24, cy + s * 0.17)
+                    ctx.lineTo(cx - s * 0.20, cy + s * 0.17)
+                    ctx.lineTo(cx - s * 0.20, cy + s * 0.28)
+                    ctx.stroke()
+                    ctx.beginPath()
+                    ctx.moveTo(cx - s * 0.30, cy + s * 0.17)
+                    ctx.lineTo(cx - s * 0.18, cy + s * 0.29)
+                    ctx.lineTo(cx - s * 0.18, cy + s * 0.05)
+                    ctx.closePath()
+                    ctx.fill()
+                    if (control.iconName === "repeatOne") {
+                        ctx.font = "bold " + Math.max(14, s * 0.24) + "px sans-serif"
+                        ctx.textAlign = "center"
+                        ctx.textBaseline = "middle"
+                        ctx.fillText("1", cx, cy)
+                    }
+                    if (control.iconName === "repeatOff") {
+                        ctx.strokeStyle = "#ff9bb8"
+                        ctx.beginPath()
+                        ctx.moveTo(cx - s * 0.34, cy + s * 0.30)
+                        ctx.lineTo(cx + s * 0.34, cy - s * 0.30)
+                        ctx.stroke()
+                    }
+                } else {
+                    triangle(1, cx)
+                }
+            }
+            Component.onCompleted: requestPaint()
+            Connections {
+                target: control
+                function onIconNameChanged() { iconCanvas.requestPaint() }
+                function onActiveChanged() { iconCanvas.requestPaint() }
+                function onDownChanged() { iconCanvas.requestPaint() }
+            }
+        }
+        background: Rectangle {
+            radius: control.primary ? height / 2 : 8
+            color: control.active ? "#8836f6" : "#3324145f"
+            border.color: control.down || control.active || control.primary ? "#d9ccff" : "#7f67ff"
+            border.width: 1
+            gradient: Gradient {
+                orientation: Gradient.Horizontal
+                GradientStop { position: 0.0; color: control.primary || control.active ? "#c026d3" : "#5524145f" }
+                GradientStop { position: 0.55; color: control.primary || control.active ? "#bf36f6" : "#448b5cf6" }
+                GradientStop { position: 1.0; color: control.primary || control.active ? "#7c3aed" : "#332563eb" }
+            }
+            opacity: control.down ? 0.78 : 1.0
+            scale: control.down ? 0.96 : 1.0
+            Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutCubic } }
+        }
+    }
+
     component MediaListPanel: Rectangle {
         id: panel
         property string heading: ""
@@ -187,14 +322,14 @@ Window {
                                     }
                                 }
 
-                                PlaybackButton {
-                                    text: "PLAY"
+                                IconButton {
+                                    iconName: "play"
                                     primary: true
                                     Layout.fillWidth: false
                                     Layout.fillHeight: false
-                                    Layout.preferredWidth: 92
-                                    Layout.minimumWidth: 92
-                                    Layout.maximumWidth: 92
+                                    Layout.preferredWidth: 68
+                                    Layout.minimumWidth: 68
+                                    Layout.maximumWidth: 68
                                     Layout.preferredHeight: 58
                                     Layout.minimumHeight: 58
                                     Layout.maximumHeight: 58
@@ -233,8 +368,8 @@ Window {
         anchors.fill: parent
         gradient: Gradient {
             orientation: Gradient.Vertical
-            GradientStop { position: 0.0; color: "#1b0f45" }
-            GradientStop { position: 0.42; color: "#0b1d4f" }
+            GradientStop { position: 0.0; color: "#2b0a5f" }
+            GradientStop { position: 0.42; color: "#21105c" }
             GradientStop { position: 1.0; color: "#070b16" }
         }
 
@@ -401,21 +536,57 @@ Window {
                 Layout.preferredHeight: 72
                 spacing: 22
 
-                PlaybackButton {
-                    text: "<<"
+                IconButton {
+                    iconName: "previous"
                     onClicked: djconnect.previous()
                 }
 
-                PlaybackButton {
+                IconButton {
                     Layout.preferredWidth: 180
-                    text: djconnect.playing ? "PAUSE" : "PLAY"
+                    iconName: djconnect.playing ? "pause" : "play"
                     primary: true
                     onClicked: djconnect.togglePlay()
                 }
 
-                PlaybackButton {
-                    text: ">>"
+                IconButton {
+                    iconName: "next"
                     onClicked: djconnect.next()
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 32
+                spacing: 12
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 10
+                    Layout.alignment: Qt.AlignVCenter
+                    radius: 5
+                    color: "#5524145f"
+                    border.color: "#33406b"
+                    border.width: 1
+
+                    Rectangle {
+                        width: parent.width * djconnect.trackProgress
+                        height: parent.height
+                        radius: parent.radius
+                        gradient: Gradient {
+                            orientation: Gradient.Horizontal
+                            GradientStop { position: 0.0; color: "#c026d3" }
+                            GradientStop { position: 1.0; color: "#8b5cf6" }
+                        }
+                    }
+                }
+
+                Text {
+                    text: djconnect.progressLabel
+                    color: "#f4f8f8"
+                    font.pixelSize: 18
+                    font.bold: true
+                    horizontalAlignment: Text.AlignRight
+                    Layout.preferredWidth: 102
                 }
             }
 
@@ -455,14 +626,14 @@ Window {
                 Layout.preferredHeight: 54
                 spacing: 18
 
-                TogglePill {
-                    label: djconnect.t("shuffle")
+                IconButton {
+                    iconName: "shuffle"
                     active: djconnect.shuffle
                     onClicked: djconnect.toggleShuffle()
                 }
 
-                TogglePill {
-                    label: repeatLabel(djconnect.repeat)
+                IconButton {
+                    iconName: djconnect.repeat === "track" ? "repeatOne" : djconnect.repeat === "context" ? "repeat" : "repeatOff"
                     active: djconnect.repeat !== "off"
                     onClicked: djconnect.cycleRepeat()
                 }
@@ -531,18 +702,18 @@ Window {
 
         ScrollView {
             anchors.fill: parent
-            anchors.margins: 42
+            anchors.margins: 22
             anchors.bottomMargin: 126
             clip: true
 
             ColumnLayout {
-                width: parent.width
-                spacing: 18
+                width: settingsPanel.width - 44
+                spacing: 20
 
                 Text {
                     text: djconnect.t("setup_title")
                     color: "#f4f8f8"
-                    font.pixelSize: 34
+                    font.pixelSize: 38
                     font.bold: true
                     Layout.fillWidth: true
                 }
@@ -550,7 +721,7 @@ Window {
                 Text {
                     text: djconnect.deviceId
                     color: "#9fb4b8"
-                    font.pixelSize: 14
+                    font.pixelSize: 18
                     elide: Text.ElideMiddle
                     Layout.fillWidth: true
                 }
@@ -558,7 +729,7 @@ Window {
                 PurpleButton {
                     visible: !djconnect.paired
                     text: djconnect.demoMode ? djconnect.t("exit_demo") : djconnect.t("demo_mode")
-                    font.pixelSize: 18
+                    font.pixelSize: 24
                     Layout.fillWidth: true
                     onClicked: {
                         if (djconnect.demoMode) {
@@ -575,7 +746,7 @@ Window {
                 id: haUrlField
                 text: djconnect.haUrl.length ? djconnect.haUrl : "http://homeassistant.local:8123"
                 placeholderText: djconnect.t("ha_url")
-                font.pixelSize: 20
+                font.pixelSize: 24
                 Layout.fillWidth: true
             }
 
@@ -586,8 +757,8 @@ Window {
                 Text {
                     text: djconnect.t("screen_off")
                     color: "#d7e2e4"
-                    font.pixelSize: 18
-                    Layout.preferredWidth: 130
+                    font.pixelSize: 22
+                    Layout.preferredWidth: 176
                 }
 
                 SpinBox {
@@ -597,6 +768,7 @@ Window {
                     stepSize: 30
                     value: djconnect.screenTimeoutSeconds
                     editable: true
+                    font.pixelSize: 22
                     Layout.fillWidth: true
                     onValueModified: djconnect.setScreenTimeoutSeconds(value)
                 }
@@ -604,7 +776,7 @@ Window {
                 Text {
                     text: screenTimeoutBox.value === 0 ? djconnect.t("off") : djconnect.t("sec")
                     color: "#9fb4b8"
-                    font.pixelSize: 16
+                    font.pixelSize: 20
                     Layout.preferredWidth: 38
                 }
             }
@@ -616,8 +788,8 @@ Window {
                 Text {
                     text: djconnect.t("brightness")
                     color: "#d7e2e4"
-                    font.pixelSize: 18
-                    Layout.preferredWidth: 130
+                    font.pixelSize: 22
+                    Layout.preferredWidth: 176
                 }
 
                 Slider {
@@ -633,7 +805,7 @@ Window {
                 Text {
                     text: Math.round(brightnessSlider.value) + "%"
                     color: "#f4f8f8"
-                    font.pixelSize: 16
+                    font.pixelSize: 20
                     horizontalAlignment: Text.AlignRight
                     Layout.preferredWidth: 48
                 }
@@ -646,12 +818,13 @@ Window {
                 Text {
                     text: djconnect.t("updates")
                     color: "#d7e2e4"
-                    font.pixelSize: 18
-                    Layout.preferredWidth: 130
+                    font.pixelSize: 22
+                    Layout.preferredWidth: 176
                 }
 
                 ComboBox {
                     id: updateChannelBox
+                    font.pixelSize: 22
                     model: ["stable", "beta"]
                     currentIndex: djconnect.updateChannel === "beta" ? 1 : 0
                     Layout.fillWidth: true
@@ -666,12 +839,13 @@ Window {
                 Text {
                     text: djconnect.t("language")
                     color: "#d7e2e4"
-                    font.pixelSize: 18
-                    Layout.preferredWidth: 130
+                    font.pixelSize: 22
+                    Layout.preferredWidth: 176
                 }
 
                 ComboBox {
                     id: languageBox
+                    font.pixelSize: 22
                     model: [
                         { code: "nl", label: "Nederlands" },
                         { code: "en", label: "English" }
@@ -691,12 +865,13 @@ Window {
                 Text {
                     text: djconnect.t("log_level")
                     color: "#d7e2e4"
-                    font.pixelSize: 18
-                    Layout.preferredWidth: 130
+                    font.pixelSize: 22
+                    Layout.preferredWidth: 176
                 }
 
                 ComboBox {
                     id: logLevelBox
+                    font.pixelSize: 22
                     model: ["DEBUG", "INFO", "WARNING", "ERROR"]
                     currentIndex: model.indexOf(djconnect.logLevel)
                     Layout.fillWidth: true
@@ -707,7 +882,7 @@ Window {
             Text {
                 text: djconnect.t("log") + ": " + djconnect.logFile
                 color: "#91a3a7"
-                font.pixelSize: 13
+                font.pixelSize: 17
                 elide: Text.ElideMiddle
                 Layout.fillWidth: true
             }
@@ -725,7 +900,7 @@ Window {
 
             PurpleButton {
                 text: djconnect.t("close")
-                font.pixelSize: 20
+                font.pixelSize: 24
                 Layout.fillWidth: true
                 Layout.preferredHeight: 56
                 onClicked: root.activeScreen = "now"
@@ -881,31 +1056,58 @@ Window {
 
         ColumnLayout {
             anchors.centerIn: parent
-            width: Math.min(parent.width - 72, 560)
-            spacing: 18
+            width: Math.min(parent.width - 40, 640)
+            spacing: 14
 
-            Text {
-                text: "DJConnect"
-                color: "#f4f8f8"
-                font.pixelSize: 46
-                font.bold: true
-                horizontalAlignment: Text.AlignHCenter
+            Rectangle {
                 Layout.fillWidth: true
+                Layout.preferredHeight: 132
+                radius: 8
+                color: "#dd151020"
+                border.color: "#3f2f70"
+                border.width: 1
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.margins: 18
+                    spacing: 18
+
+                    Image {
+                        source: "app-icon.png"
+                        Layout.preferredWidth: 84
+                        Layout.preferredHeight: 84
+                        fillMode: Image.PreserveAspectFit
+                        smooth: true
+                        mipmap: true
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 6
+
+                        Text {
+                            text: "DJConnect"
+                            color: "#ffffff"
+                            font.pixelSize: 38
+                            font.bold: true
+                            Layout.fillWidth: true
+                        }
+
+                        Text {
+                            text: djconnect.t("tagline")
+                            color: "#c9c3d8"
+                            font.pixelSize: 20
+                            font.bold: true
+                            Layout.fillWidth: true
+                        }
+                    }
+                }
             }
 
             Text {
-                text: "v" + djconnect.version
-                color: "#d946ef"
-                font.pixelSize: 20
-                font.bold: true
-                horizontalAlignment: Text.AlignHCenter
-                Layout.fillWidth: true
-            }
-
-            Text {
-                text: djconnect.t("pairing_title")
+                text: djconnect.t("pairing_screen_title")
                 color: "#d7e2e4"
-                font.pixelSize: 28
+                font.pixelSize: 38
                 font.bold: true
                 horizontalAlignment: Text.AlignHCenter
                 Layout.fillWidth: true
@@ -913,8 +1115,9 @@ Window {
 
             Text {
                 text: djconnect.t("pairing_hint")
-                color: "#9fb4b8"
-                font.pixelSize: 17
+                color: "#b7a8c8"
+                font.pixelSize: 20
+                font.bold: true
                 wrapMode: Text.WordWrap
                 horizontalAlignment: Text.AlignHCenter
                 Layout.fillWidth: true
@@ -922,29 +1125,58 @@ Window {
 
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 82
+                Layout.preferredHeight: 98
                 radius: 8
-                color: "#10181c"
-                border.color: "#314449"
-                border.width: 1
+                color: "#5524145f"
 
                 ColumnLayout {
                     anchors.fill: parent
-                    anchors.margins: 12
+                    anchors.margins: 16
+                    spacing: 4
+
+                    Text {
+                        text: djconnect.t("pairing_code")
+                        color: "#b7a8c8"
+                        font.pixelSize: 18
+                        font.bold: true
+                        Layout.fillWidth: true
+                    }
+
+                    Text {
+                        text: djconnect.pairingCode
+                        color: "#ffffff"
+                        font.pixelSize: 36
+                        font.bold: true
+                        Layout.fillWidth: true
+                    }
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 88
+                radius: 8
+                color: "#5524145f"
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: 16
                     spacing: 4
 
                     Text {
                         text: djconnect.t("client_api_url")
-                        color: "#9fb4b8"
-                        font.pixelSize: 14
+                        color: "#b7a8c8"
+                        font.pixelSize: 18
+                        font.bold: true
                         Layout.fillWidth: true
                     }
 
                     Text {
                         text: djconnect.localApiUrl
-                        color: "#f4f8f8"
-                        font.pixelSize: 20
+                        color: "#ffffff"
+                        font.pixelSize: 24
                         font.bold: true
+                        font.family: "monospace"
                         elide: Text.ElideMiddle
                         Layout.fillWidth: true
                     }
@@ -953,71 +1185,157 @@ Window {
 
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 104
+                Layout.preferredHeight: 72
                 radius: 8
-                color: "#151020"
-                border.color: "#8b5cf6"
-                border.width: 1
+                color: "#3324145f"
 
-                ColumnLayout {
+                RowLayout {
                     anchors.fill: parent
-                    anchors.margins: 12
-                    spacing: 2
+                    anchors.margins: 18
+                    spacing: 18
 
-                    Text {
-                        text: djconnect.t("pairing_code")
-                        color: "#d9ccff"
-                        font.pixelSize: 18
-                        font.bold: true
-                        horizontalAlignment: Text.AlignHCenter
-                        Layout.fillWidth: true
+                    BusyIndicator {
+                        running: pairingPanel.visible
+                        implicitWidth: 38
+                        implicitHeight: 38
                     }
 
                     Text {
-                        text: djconnect.pairingCode
+                        text: djconnect.t("waiting_for_ha")
                         color: "#ffffff"
-                        font.pixelSize: 46
+                        font.pixelSize: 22
                         font.bold: true
-                        horizontalAlignment: Text.AlignHCenter
                         Layout.fillWidth: true
                     }
                 }
             }
 
             PurpleButton {
-                text: djconnect.t("pair")
+                text: djconnect.t("start_demo_mode")
                 font.pixelSize: 22
                 Layout.fillWidth: true
-                Layout.preferredHeight: 62
-                onClicked: djconnect.pair(djconnect.pairingCode)
+                Layout.preferredHeight: 54
+                onClicked: djconnect.enterDemoMode()
             }
 
-            RowLayout {
+        }
+    }
+
+    Rectangle {
+        id: pairingSuccessPanel
+        anchors.fill: parent
+        color: "#e6070b16"
+        visible: !root.splashVisible && djconnect.pairingSuccessVisible
+        z: 34
+
+        ColumnLayout {
+            anchors.centerIn: parent
+            width: Math.min(parent.width - 40, 640)
+            spacing: 28
+
+            Rectangle {
                 Layout.fillWidth: true
-                spacing: 12
+                Layout.preferredHeight: 132
+                radius: 8
+                color: "#dd151020"
+                border.color: "#3f2f70"
+                border.width: 1
 
-                PurpleButton {
-                    text: djconnect.t("demo_mode")
-                    font.pixelSize: 18
-                    Layout.fillWidth: true
-                    onClicked: djconnect.enterDemoMode()
-                }
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.margins: 18
+                    spacing: 18
 
-                PurpleButton {
-                    text: djconnect.t("view_logs")
-                    font.pixelSize: 18
-                    Layout.fillWidth: true
-                    onClicked: djconnect.showLogs()
+                    Image {
+                        source: "app-icon.png"
+                        Layout.preferredWidth: 84
+                        Layout.preferredHeight: 84
+                        fillMode: Image.PreserveAspectFit
+                        smooth: true
+                        mipmap: true
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 6
+
+                        Text {
+                            text: "DJConnect"
+                            color: "#ffffff"
+                            font.pixelSize: 38
+                            font.bold: true
+                            Layout.fillWidth: true
+                        }
+
+                        Text {
+                            text: djconnect.t("tagline")
+                            color: "#c9c3d8"
+                            font.pixelSize: 20
+                            font.bold: true
+                            Layout.fillWidth: true
+                        }
+                    }
                 }
             }
 
-            Text {
-                text: djconnect.t("pairing_blocked")
-                color: "#91a3a7"
-                font.pixelSize: 15
-                wrapMode: Text.WordWrap
-                horizontalAlignment: Text.AlignHCenter
+            Rectangle {
+                Layout.alignment: Qt.AlignHCenter
+                Layout.preferredWidth: 132
+                Layout.preferredHeight: 132
+                radius: 66
+                color: "#31d65a"
+
+                Canvas {
+                    anchors.fill: parent
+                    antialiasing: true
+                    onPaint: {
+                        var ctx = getContext("2d")
+                        ctx.clearRect(0, 0, width, height)
+                        ctx.strokeStyle = "#2b1767"
+                        ctx.lineWidth = 14
+                        ctx.lineCap = "round"
+                        ctx.lineJoin = "round"
+                        ctx.beginPath()
+                        ctx.moveTo(width * 0.28, height * 0.52)
+                        ctx.lineTo(width * 0.44, height * 0.68)
+                        ctx.lineTo(width * 0.72, height * 0.32)
+                        ctx.stroke()
+                    }
+                }
+            }
+
+            ColumnLayout {
                 Layout.fillWidth: true
+                spacing: 10
+
+                Text {
+                    text: djconnect.t("pairing_success_title")
+                    color: "#f4f0ff"
+                    font.pixelSize: 38
+                    font.bold: true
+                    horizontalAlignment: Text.AlignHCenter
+                    Layout.fillWidth: true
+                }
+
+                Text {
+                    text: djconnect.t("pairing_success_message")
+                    color: "#c9c3d8"
+                    font.pixelSize: 20
+                    font.bold: true
+                    horizontalAlignment: Text.AlignHCenter
+                    Layout.fillWidth: true
+                }
+            }
+
+            PurpleButton {
+                text: djconnect.t("start")
+                font.pixelSize: 24
+                Layout.fillWidth: true
+                Layout.preferredHeight: 58
+                onClicked: {
+                    root.activeScreen = "now"
+                    djconnect.startAfterPairing()
+                }
             }
         }
     }
@@ -1226,15 +1544,24 @@ Window {
                     font.bold: true
                     Layout.fillWidth: true
                 }
-                PurpleButton { text: djconnect.t("refresh"); font.pixelSize: 24; onClicked: djconnect.showLogs() }
+                PurpleButton {
+                    text: djconnect.t("refresh")
+                    font.pixelSize: 24
+                    onClicked: {
+                        djconnect.showLogs()
+                        Qt.callLater(function() { logsArea.cursorPosition = logsArea.length })
+                    }
+                }
                 PurpleButton { text: djconnect.t("close"); font.pixelSize: 24; onClicked: djconnect.hideLogs() }
             }
 
             ScrollView {
+                id: logsScroll
                 Layout.fillWidth: true
                 Layout.fillHeight: true
 
                 TextArea {
+                    id: logsArea
                     text: djconnect.logsText
                     readOnly: true
                     wrapMode: TextEdit.NoWrap
@@ -1246,6 +1573,7 @@ Window {
                         radius: 8
                         border.color: "#314449"
                     }
+                    onTextChanged: Qt.callLater(function() { logsArea.cursorPosition = logsArea.length })
                 }
             }
         }

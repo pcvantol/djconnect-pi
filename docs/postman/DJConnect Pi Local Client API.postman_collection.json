@@ -1,0 +1,169 @@
+{
+  "info": {
+    "_postman_id": "8c8a6d7a-9a79-4a9b-b49d-djconnectpi",
+    "name": "DJConnect Pi Local Client API",
+    "description": "Local HTTP API exposed by the DJConnect Raspberry Pi client for Home Assistant pairing, discovery diagnostics and backend interaction tests.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "client_api_url",
+      "value": "http://192.168.1.115:18080"
+    },
+    {
+      "key": "device_token",
+      "value": ""
+    },
+    {
+      "key": "ha_url",
+      "value": "http://homeassistant.local:8123"
+    }
+  ],
+  "item": [
+    {
+      "name": "Device Info",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{client_api_url}}/api/device/info",
+          "host": ["{{client_api_url}}"],
+          "path": ["api", "device", "info"]
+        }
+      }
+    },
+    {
+      "name": "Pairing Info",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{client_api_url}}/api/device/pairing-info",
+          "host": ["{{client_api_url}}"],
+          "path": ["api", "device", "pairing-info"]
+        }
+      }
+    },
+    {
+      "name": "Pair Device",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"device_token\": \"{{device_token}}\",\n  \"ha_local_url\": \"{{ha_url}}\"\n}"
+        },
+        "url": {
+          "raw": "{{client_api_url}}/api/device/pair",
+          "host": ["{{client_api_url}}"],
+          "path": ["api", "device", "pair"]
+        }
+      }
+    },
+    {
+      "name": "Command: Toggle Play",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{device_token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"command\": \"toggle_play\"\n}"
+        },
+        "url": {
+          "raw": "{{client_api_url}}/api/device/command",
+          "host": ["{{client_api_url}}"],
+          "path": ["api", "device", "command"]
+        }
+      }
+    },
+    {
+      "name": "Command: Set Volume",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{device_token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"command\": \"set_volume\",\n  \"value\": 35\n}"
+        },
+        "url": {
+          "raw": "{{client_api_url}}/api/device/command",
+          "host": ["{{client_api_url}}"],
+          "path": ["api", "device", "command"]
+        }
+      }
+    },
+    {
+      "name": "DJ Response",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{device_token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"text\": \"Testbericht voor het DJConnect scherm\"\n}"
+        },
+        "url": {
+          "raw": "{{client_api_url}}/api/device/dj_response",
+          "host": ["{{client_api_url}}"],
+          "path": ["api", "device", "dj_response"]
+        }
+      }
+    },
+    {
+      "name": "Forget Pairing",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{device_token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "url": {
+          "raw": "{{client_api_url}}/api/device/forget",
+          "host": ["{{client_api_url}}"],
+          "path": ["api", "device", "forget"]
+        }
+      }
+    }
+  ]
+}

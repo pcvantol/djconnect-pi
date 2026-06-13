@@ -45,7 +45,7 @@ class ClientAPIHandler(BaseHTTPRequestHandler):
     server: "ClientAPIServer"
 
     def log_message(self, fmt: str, *args: object) -> None:
-        _LOGGER.info("Client API %s", fmt, *args)
+        _LOGGER.info("Client API " + fmt, *args)
 
     def do_GET(self) -> None:
         _LOGGER.debug("Client API GET %s", self.path)

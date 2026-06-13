@@ -41,11 +41,13 @@ class DJConnectBackend(QObject):
     volumeChanged = Signal()
     shuffleChanged = Signal()
     repeatChanged = Signal()
+    progressChanged = Signal()
     pairedChanged = Signal()
     busyChanged = Signal()
     settingsChanged = Signal()
     localApiUrlChanged = Signal()
     pairingCodeChanged = Signal()
+    pairingSuccessChanged = Signal()
     djResponseChanged = Signal()
     toastChanged = Signal()
     versionMismatchChanged = Signal()
@@ -79,6 +81,7 @@ class DJConnectBackend(QObject):
         self._toast_visible = False
         self._version_mismatch_visible = False
         self._version_mismatch_text = ""
+        self._pairing_success_visible = False
         self._update_service_triggered = False
         self._toast_timer = QTimer(self)
         self._toast_timer.setInterval(2000)
@@ -149,9 +152,31 @@ class DJConnectBackend(QObject):
     def repeat(self) -> str:
         return self.playback.repeat
 
+    @Property(int, notify=progressChanged)
+    def positionSeconds(self) -> int:
+        return self.playback.position_seconds
+
+    @Property(int, notify=progressChanged)
+    def durationSeconds(self) -> int:
+        return self.playback.duration_seconds
+
+    @Property(float, notify=progressChanged)
+    def trackProgress(self) -> float:
+        if self.playback.duration_seconds <= 0:
+            return 0.0
+        return max(0.0, min(1.0, self.playback.position_seconds / self.playback.duration_seconds))
+
+    @Property(str, notify=progressChanged)
+    def progressLabel(self) -> str:
+        return f"{_format_duration(self.playback.position_seconds)}/{_format_duration(self.playback.duration_seconds)}"
+
     @Property(bool, notify=pairedChanged)
     def paired(self) -> bool:
         return bool(self.cfg.paired and self.cfg.device_token)
+
+    @Property(bool, notify=pairingSuccessChanged)
+    def pairingSuccessVisible(self) -> bool:
+        return self._pairing_success_visible
 
     @Property(bool, notify=demoModeChanged)
     def demoMode(self) -> bool:
@@ -347,10 +372,27 @@ class DJConnectBackend(QObject):
             return
         if self._busy:
             return
+        if not self.paired:
+            latest = load_config(self.config_path)
+            if latest.paired and latest.device_token:
+                self.cfg = latest
+                self.client.cfg = self.cfg
+                self._pairing_success_visible = True
+                self.pairedChanged.emit()
+                self.settingsChanged.emit()
+                self.pairingSuccessChanged.emit()
+                self._set_status_text(self.tr_key("paired"))
+                return
         if not self.paired and not self.cfg.ha_url:
             self._set_status_text(self.tr_key("ready_to_pair"))
             return
         self._run(self.tr_key("refreshing"), self._refresh_worker)
+
+    @Slot()
+    def startAfterPairing(self) -> None:
+        self._pairing_success_visible = False
+        self.pairingSuccessChanged.emit()
+        self.refresh()
 
     @Slot()
     def togglePlay(self) -> None:
@@ -695,6 +737,8 @@ class DJConnectBackend(QObject):
             self.shuffleChanged.emit()
         if old.repeat != playback.repeat:
             self.repeatChanged.emit()
+        if old.position_seconds != playback.position_seconds or old.duration_seconds != playback.duration_seconds:
+            self.progressChanged.emit()
         self._set_status_text(self.tr_key("connected" if self.paired else "ready_to_pair"))
 
     @Slot(str, object)
@@ -716,10 +760,11 @@ class DJConnectBackend(QObject):
             self._version_mismatch_text = ""
             self.versionMismatchChanged.emit()
         if paired:
+            self._pairing_success_visible = True
             self.pairedChanged.emit()
             self.settingsChanged.emit()
+            self.pairingSuccessChanged.emit()
         self._set_status_text(message)
-        self.refresh()
 
     @Slot(str)
     def _set_status_text(self, value: str) -> None:
@@ -833,6 +878,11 @@ def _format_logs_for_display(data: str, max_chars: int = 12000) -> str:
         formatted.append(f"{match.group('time')} {level} {match.group('rest')}")
     result = "\n".join(formatted)
     return result[-max_chars:] if len(result) > max_chars else result
+
+
+def _format_duration(seconds: int) -> str:
+    seconds = max(0, int(seconds))
+    return f"{seconds // 60}:{seconds % 60:02d}"
 
 
 def cached_image_url(url: str, ttl_seconds: int = 24 * 60 * 60) -> str:

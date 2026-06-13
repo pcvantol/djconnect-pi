@@ -30,6 +30,8 @@ class Playback:
     volume: int = 50
     shuffle: bool = False
     repeat: str = "off"
+    position_seconds: int = 0
+    duration_seconds: int = 0
 
 
 class HAClient:
@@ -62,6 +64,8 @@ class HAClient:
                     "shuffle": playback.shuffle,
                     "repeat_state": playback.repeat,
                     "spotify_status": "playing" if playback.is_playing else "paused",
+                    "position": playback.position_seconds,
+                    "duration": playback.duration_seconds,
                 }
             )
         url = self._url("/api/djconnect/status")
@@ -102,6 +106,24 @@ class HAClient:
             volume=int(playback.get("volume") or playback.get("volume_percent") or 50),
             shuffle=bool(playback.get("shuffle")),
             repeat=str(playback.get("repeat_state") or playback.get("repeat") or "off"),
+            position_seconds=_seconds_from_playback(
+                playback,
+                "position",
+                "position_seconds",
+                "progress",
+                "progress_seconds",
+                "elapsed",
+                "elapsed_seconds",
+            ),
+            duration_seconds=_seconds_from_playback(
+                playback,
+                "duration",
+                "duration_seconds",
+                "length",
+                "length_seconds",
+                "track_duration",
+                "track_duration_seconds",
+            ),
         )
 
     def _base_payload(self, **extra: Any) -> dict[str, Any]:
@@ -179,6 +201,18 @@ def _major_minor(version: str) -> tuple[int, int] | None:
         return int(parts[0]), int(parts[1])
     except ValueError:
         return None
+
+
+def _seconds_from_playback(playback: dict[str, Any], *keys: str) -> int:
+    for key in keys:
+        value = playback.get(key)
+        if value is None or value == "":
+            value = playback.get(f"{key}_ms")
+            if value is not None and value != "":
+                return max(0, int(float(value) / 1000))
+            continue
+        return max(0, int(float(value)))
+    return 0
 
 
 def _compatible_ha_version(client_version: str, ha_version: str) -> bool:
