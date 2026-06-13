@@ -31,11 +31,12 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 - release bundle contract for including docs, source, systemd units and only
   the app installer script
 - repo-only OS bootstrap contract for Raspberry Pi OS Lite 64-bit, modern
-  HyperPixel KMS DPI overlay setup, timezone, SSH, apt full-upgrade, minimal
-  X11/Qt runtime dependencies and Raspberry Pi Connect
+  HyperPixel KMS DPI overlay setup, root filesystem expansion, timezone, SSH,
+  apt full-upgrade, minimal X11/Qt runtime dependencies and Raspberry Pi Connect
 - installer contract that OS bootstrap tasks stay out of the app release cycle
 - installer contract for rerunnable manual updates: existing config is kept,
   systemd units are refreshed, and API/UI services are restarted
+- installer contract for early free-space checks before large PySide6 downloads
 - bootstrap/README contract that public release download examples match the
   current project version
 - config private permissions and atomic-write behavior

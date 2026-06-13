@@ -51,9 +51,10 @@ Implemented:
   `scripts/install_raspberry_pi.sh`, so a Pi can install the DJConnect app from
   the public distribution tarball without cloning the private source repo.
 - Repo-only OS bootstrap helper `scripts/bootstrap_raspberry_pi_os.sh` handles
-  timezone Amsterdam, SSH, apt full-upgrade, Raspberry Pi Connect,
-  console boot, minimal X11/Qt runtime dependencies and HyperPixel setup. It is
-  intentionally excluded from release tarballs and from the app release cycle.
+  root filesystem expansion, timezone Amsterdam, SSH, apt full-upgrade,
+  Raspberry Pi Connect, console boot, minimal X11/Qt runtime dependencies and
+  HyperPixel setup. It is intentionally excluded from release tarballs and from
+  the app release cycle.
 - systemd unit/timer templates
 - release and cleanup scripts
 - Install script targets a prepared Raspberry Pi OS 64-bit image, creates the
@@ -68,7 +69,7 @@ Implemented:
   `djconnect-api.service` plus `djconnect-client.service`.
 - Install script is resumable across reboot/interruption. It stores markers in
   `/opt/djconnect/install-state/<version>/` for `release_unpacked` and
-  `venv_ready`, and uses `/opt/djconnect/pip-cache` so large PySide6 downloads
+  `venv_ready`, and uses `/var/cache/djconnect-pip` so large PySide6 downloads
   do not have to restart from zero.
 - Manual production update path is: download the current public
   `djconnect-pi-<version>.tar.gz`, extract it, run
@@ -98,7 +99,10 @@ Not implemented by design:
   installer; use `git pull --ff-only` only on development checkouts.
 - If the Pi overheats/freezes during dependency install, reboot and rerun the
   same release installer command; do not delete `/opt/djconnect/install-state`
-  or `/opt/djconnect/pip-cache`.
+  or `/var/cache/djconnect-pip`.
+- If dependency install fails with no space left, rerun the repo-only bootstrap
+  so `raspi-config nonint do_expand_rootfs` can grow the root filesystem, reboot
+  if needed, and rerun the same release installer command.
 - Keep source and distribution repos separate unless the product decision
   changes: source is `pcvantol/djconnect-pi`, public release assets are in
   `pcvantol/djconnect-pi-releases`.

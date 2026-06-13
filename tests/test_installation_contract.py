@@ -110,6 +110,7 @@ def test_repo_only_os_bootstrap_targets_lite_with_minimal_kiosk_runtime() -> Non
     assert "raspi-config nonint do_spi 1" in script
     assert "DJCONNECT_TIMEZONE" in script
     assert "Europe/Amsterdam" in script
+    assert "raspi-config nonint do_expand_rootfs" in script
     assert "raspi-config nonint do_ssh 0" in script
     assert "apt-get -y full-upgrade" in script
     assert "locales" in script
@@ -187,6 +188,7 @@ def test_install_script_can_resume_after_reboot_or_interruption() -> None:
 
     assert "DJCONNECT_INSTALL_STATE" in script
     assert "DJCONNECT_PIP_CACHE" in script
+    assert 'DJCONNECT_PIP_CACHE="${DJCONNECT_PIP_CACHE:-/var/cache/djconnect-pip}"' in script
     assert 'marker_done "release_unpacked"' in script
     assert 'mark_done "release_unpacked"' in script
     assert 'marker_done "venv_ready"' in script
@@ -195,7 +197,20 @@ def test_install_script_can_resume_after_reboot_or_interruption() -> None:
     assert "activate_release" in script
     assert "PIP_CACHE_DIR=\"$DJCONNECT_PIP_CACHE\"" in script
     assert "install --prefer-binary" in script
+    assert 'install -d -o root -g root "$DJCONNECT_PIP_CACHE"' in script
+    assert "/opt/djconnect/pip-cache" not in script
     assert "resumes completed install steps after an interrupted run or reboot" in script
+
+
+def test_install_script_checks_free_space_before_large_dependency_downloads() -> None:
+    script = ROOT.joinpath("scripts/install_raspberry_pi.sh").read_text(encoding="utf-8")
+
+    assert "DJCONNECT_MIN_FREE_MB" in script
+    assert "check_free_space" in script
+    assert "df -Pm" in script
+    assert "Not enough free disk space" in script
+    assert "Run the repo bootstrap to expand the root filesystem" in script
+    assert "check_free_space" in script.split("download_release", 1)[0]
 
 
 def test_bootstrap_release_download_matches_project_version() -> None:

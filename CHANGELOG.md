@@ -1,6 +1,6 @@
 # Changelog
 
-## 3.1.21
+## 3.1.22
 
 - Initial Raspberry Pi display-remote scaffold with Qt Quick/QML, fullscreen
   720x720 touch UI, playback controls and app-like DJConnect pairing, status
@@ -55,4 +55,9 @@
 - Made the public release installer resumable across reboot, power loss or
   thermal freezes. Release unpack and Python dependency install steps now use
   markers under `/opt/djconnect/install-state/<version>/`, and pip downloads
-  are cached under `/opt/djconnect/pip-cache`.
+  are cached under `/var/cache/djconnect-pip`.
+- Moved the pip cache outside `/opt/djconnect` so pip can use it while the
+  installer runs as root without ownership warnings.
+- Added root filesystem expansion to the repo-only Raspberry Pi bootstrap and
+  an early free-space check to the release installer so large PySide6 downloads
+  fail with a clear recovery message instead of filling the SD card mid-install.

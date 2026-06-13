@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DJCONNECT_VERSION="${DJCONNECT_VERSION:-3.1.21}"
+DJCONNECT_VERSION="${DJCONNECT_VERSION:-3.1.22}"
 DJCONNECT_REPO="${DJCONNECT_REPO:-pcvantol/djconnect-pi-releases}"
 DJCONNECT_HA_URL="${DJCONNECT_HA_URL:-http://homeassistant.local:8123}"
 DJCONNECT_RUNTIME_USER="${DJCONNECT_RUNTIME_USER:-djconnect}"
 DJCONNECT_ROOT="${DJCONNECT_ROOT:-/opt/djconnect}"
 DJCONNECT_INSTALL_STATE="${DJCONNECT_INSTALL_STATE:-${DJCONNECT_ROOT}/install-state}"
-DJCONNECT_PIP_CACHE="${DJCONNECT_PIP_CACHE:-${DJCONNECT_ROOT}/pip-cache}"
+DJCONNECT_PIP_CACHE="${DJCONNECT_PIP_CACHE:-/var/cache/djconnect-pip}"
+DJCONNECT_MIN_FREE_MB="${DJCONNECT_MIN_FREE_MB:-1800}"
 
 if [[ -f /etc/default/locale ]]; then
   # shellcheck disable=SC1091
@@ -31,7 +32,8 @@ Environment:
   DJCONNECT_RUNTIME_USER=djconnect
   DJCONNECT_ROOT=/opt/djconnect
   DJCONNECT_INSTALL_STATE=/opt/djconnect/install-state
-  DJCONNECT_PIP_CACHE=/opt/djconnect/pip-cache
+  DJCONNECT_PIP_CACHE=/var/cache/djconnect-pip
+  DJCONNECT_MIN_FREE_MB=1800
 
 This installs or updates the DJConnect Pi application only:
 - creates/updates the dedicated runtime user and /opt/djconnect layout
@@ -100,6 +102,31 @@ check_runtime_dependencies() {
   fi
 }
 
+check_free_space() {
+  log "Checking free disk space"
+  local required="$DJCONNECT_MIN_FREE_MB"
+  local opt_free
+  local cache_parent
+  local cache_free
+
+  opt_free="$(df -Pm "$DJCONNECT_ROOT" 2>/dev/null | awk 'NR==2 {print $4}')"
+  cache_parent="$(dirname "$DJCONNECT_PIP_CACHE")"
+  install -d "$cache_parent"
+  cache_free="$(df -Pm "$cache_parent" 2>/dev/null | awk 'NR==2 {print $4}')"
+
+  if [[ -n "$opt_free" && "$opt_free" -lt "$required" ]]; then
+    echo "Not enough free disk space for DJConnect install on ${DJCONNECT_ROOT}: ${opt_free} MB available, ${required} MB required." >&2
+    echo "Run the repo bootstrap to expand the root filesystem, reboot if requested, then rerun this installer." >&2
+    exit 1
+  fi
+
+  if [[ -n "$cache_free" && "$cache_free" -lt "$required" ]]; then
+    echo "Not enough free disk space for pip cache at ${DJCONNECT_PIP_CACHE}: ${cache_free} MB available, ${required} MB required." >&2
+    echo "Run the repo bootstrap to expand the root filesystem, reboot if requested, then rerun this installer." >&2
+    exit 1
+  fi
+}
+
 check_os_baseline() {
   log "Checking Raspberry Pi OS 64-bit baseline"
   if [[ "$(getconf LONG_BIT)" != "64" ]]; then
@@ -120,8 +147,8 @@ create_runtime_user() {
   install -d -o "$DJCONNECT_RUNTIME_USER" -g "$DJCONNECT_RUNTIME_USER" \
     "$DJCONNECT_ROOT/config" \
     "$DJCONNECT_ROOT/releases" \
-    "$DJCONNECT_INSTALL_STATE" \
-    "$DJCONNECT_PIP_CACHE"
+    "$DJCONNECT_INSTALL_STATE"
+  install -d -o root -g root "$DJCONNECT_PIP_CACHE"
 }
 
 download_release() {
@@ -210,7 +237,7 @@ payload = {
     "device_name": "DJConnect Pi",
     "device_token": "",
     "paired": False,
-    "version": "3.1.21",
+    "version": "3.1.22",
     "update_repo": "pcvantol/djconnect-pi-releases",
     "update_channel": "stable",
     "screen_timeout_seconds": 120,
@@ -246,6 +273,7 @@ main() {
   check_runtime_dependencies
   check_os_baseline
   create_runtime_user
+  check_free_space
   download_release
   install_python_dependencies
   activate_release

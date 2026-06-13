@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DJCONNECT_BOOTSTRAP_VERSION="${DJCONNECT_BOOTSTRAP_VERSION:-3.1.21}"
+DJCONNECT_BOOTSTRAP_VERSION="${DJCONNECT_BOOTSTRAP_VERSION:-3.1.22}"
 DJCONNECT_TIMEZONE="${DJCONNECT_TIMEZONE:-Europe/Amsterdam}"
 DJCONNECT_INSTALL_HYPERPIXEL="${DJCONNECT_INSTALL_HYPERPIXEL:-1}"
 DJCONNECT_HYPERPIXEL_MODEL="${DJCONNECT_HYPERPIXEL_MODEL:-square}"
@@ -30,6 +30,7 @@ Environment:
 This prepares a Raspberry Pi OS Lite 64-bit image for a wall-mounted
 DJConnect Pi:
 - validates the Raspberry Pi OS 64-bit baseline
+- expands the root filesystem to fill the SD card
 - configures boot to console
 - sets timezone to Europe/Amsterdam by default
 - configures UTF-8 locales
@@ -73,6 +74,15 @@ check_os_baseline() {
 configure_timezone() {
   log "Configuring timezone ${DJCONNECT_TIMEZONE}"
   timedatectl set-timezone "$DJCONNECT_TIMEZONE"
+}
+
+expand_rootfs() {
+  log "Expanding root filesystem"
+  if command -v raspi-config >/dev/null 2>&1; then
+    raspi-config nonint do_expand_rootfs || true
+  else
+    echo "raspi-config not found; skipping automatic root filesystem resize." >&2
+  fi
 }
 
 configure_locale() {
@@ -247,6 +257,7 @@ install_hyperpixel() {
 main() {
   log "DJConnect Pi OS bootstrap ${DJCONNECT_BOOTSTRAP_VERSION}"
   check_os_baseline
+  expand_rootfs
   configure_timezone
   configure_console_boot
   enable_ssh
