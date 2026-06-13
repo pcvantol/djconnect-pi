@@ -74,7 +74,9 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "#3324145f" in games_qml
     assert 'color: "#ffffff"' in main_qml
     assert "id: settingsPanel" in main_qml
+    assert "id: settingsScroll" in main_qml
     assert "ScrollView" in main_qml
+    assert "ScrollBar.horizontal.policy: ScrollBar.AlwaysOff" in main_qml
     assert "font.pixelSize: 24" in main_qml
     assert "root.brightnessOverlayOpacity" in main_qml
     assert "z: 200" in main_qml
@@ -86,12 +88,20 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert 'djconnect.t("cancel")' in main_qml
     assert "root.resetPairingConfirmOpen = true" in main_qml
     assert "ModalBlocker {}" in main_qml
+    assert "onClicked: function(mouse)" in main_qml
+    assert "onWheel: function(wheel)" in main_qml
     assert 'djconnect.t("queue")' in main_qml
     assert 'djconnect.t("playlists")' in main_qml
     assert "djconnect.queueItems" in main_qml
     assert "djconnect.playlistItems" in main_qml
     assert "djconnect.loadQueue()" in main_qml
     assert "djconnect.loadPlaylists()" in main_qml
+    assert "onRefreshRequested: djconnect.loadQueue()" in main_qml
+    assert "onRefreshRequested: djconnect.loadPlaylists()" in main_qml
+    assert "djconnect.manualRefresh()" in main_qml
+    assert 'djconnect.t("output_device")' in main_qml
+    assert "djconnect.outputDevices" in main_qml
+    assert "djconnect.setOutputDevice" in main_qml
     assert "djconnect.cachedImageUrl(modelData.imageUrl)" in main_qml
     assert "Layout.minimumWidth: 68" in main_qml
     assert "Layout.maximumWidth: 68" in main_qml
@@ -109,6 +119,7 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "pairCodeField" not in main_qml
     assert "djconnect.pair(pairCodeField.text)" not in main_qml
     assert 'djconnect.t("pairing_blocked")' not in main_qml
+    assert 'djconnect.t("dismiss")' not in main_qml
     assert 'text: "DJConnect Pi"' not in main_qml
     assert 'text: "DJ"' not in main_qml
     assert "djconnect.quitApp()" not in main_qml

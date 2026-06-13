@@ -41,6 +41,7 @@ class DJConnectBackend(QObject):
     volumeChanged = Signal()
     shuffleChanged = Signal()
     repeatChanged = Signal()
+    outputDeviceChanged = Signal()
     progressChanged = Signal()
     pairedChanged = Signal()
     busyChanged = Signal()
@@ -169,6 +170,14 @@ class DJConnectBackend(QObject):
     @Property(str, notify=progressChanged)
     def progressLabel(self) -> str:
         return f"{_format_duration(self.playback.position_seconds)}/{_format_duration(self.playback.duration_seconds)}"
+
+    @Property(str, notify=outputDeviceChanged)
+    def outputDevice(self) -> str:
+        return self.playback.output_device
+
+    @Property("QVariantList", notify=outputDeviceChanged)
+    def outputDevices(self) -> list[str]:
+        return list(self.playback.output_devices)
 
     @Property(bool, notify=pairedChanged)
     def paired(self) -> bool:
@@ -371,6 +380,7 @@ class DJConnectBackend(QObject):
         if self._demo_mode:
             return
         if self._busy:
+            _LOGGER.debug("Refresh skipped because another task is active")
             return
         if not self.paired:
             latest = load_config(self.config_path)
@@ -382,11 +392,21 @@ class DJConnectBackend(QObject):
                 self.settingsChanged.emit()
                 self.pairingSuccessChanged.emit()
                 self._set_status_text(self.tr_key("paired"))
+                self._run(self.tr_key("refreshing"), self._refresh_worker)
                 return
         if not self.paired and not self.cfg.ha_url:
             self._set_status_text(self.tr_key("ready_to_pair"))
             return
         self._run(self.tr_key("refreshing"), self._refresh_worker)
+
+    def _sync_config_from_disk(self) -> None:
+        latest = load_config(self.config_path)
+        if latest.device_token == self.cfg.device_token and latest.paired == self.cfg.paired and latest.ha_url == self.cfg.ha_url:
+            return
+        self.cfg = latest
+        self.client.cfg = self.cfg
+        self.pairedChanged.emit()
+        self.settingsChanged.emit()
 
     @Slot()
     def startAfterPairing(self) -> None:
@@ -462,6 +482,19 @@ class DJConnectBackend(QObject):
             return
         self.command("set_repeat", value=next_value)
 
+    @Slot(str)
+    def setOutputDevice(self, value: str) -> None:
+        value = value.strip()
+        if not value:
+            return
+        self.playback.output_device = value
+        self.outputDeviceChanged.emit()
+        _LOGGER.info("User selected output device: %s", value)
+        self.showToast(value)
+        if self._demo_mode:
+            return
+        self.command("set_output", value=value)
+
     @Slot()
     def enterDemoMode(self) -> None:
         if self.paired:
@@ -493,6 +526,7 @@ class DJConnectBackend(QObject):
         self.volumeChanged.emit()
         self.shuffleChanged.emit()
         self.repeatChanged.emit()
+        self.outputDeviceChanged.emit()
         _LOGGER.info("User exited local demo mode")
         self.showToast(self.tr_key("exit_demo"))
         self._set_status_text(self.tr_key("ready_to_pair"))
@@ -511,6 +545,11 @@ class DJConnectBackend(QObject):
         self._dj_response_text = ""
         self._dj_response_visible = False
         self.djResponseChanged.emit()
+
+    @Slot()
+    def manualRefresh(self) -> None:
+        _LOGGER.info("User requested manual refresh")
+        self.refresh()
 
     @Slot()
     def resetPairing(self) -> None:
@@ -577,12 +616,16 @@ class DJConnectBackend(QObject):
 
     @Slot(str)
     def showToast(self, text: str) -> None:
+        self._show_toast(text, 2000)
+
+    def _show_toast(self, text: str, duration_ms: int = 2000) -> None:
         text = text.strip()
         if not text:
             return
         self._toast_text = text
         self._toast_visible = True
         self.toastChanged.emit()
+        self._toast_timer.setInterval(duration_ms)
         self._toast_timer.start()
 
     @Slot()
@@ -613,6 +656,7 @@ class DJConnectBackend(QObject):
             self._queue_items = demo_queue_items()
             self.mediaListsChanged.emit()
             return
+        self._sync_config_from_disk()
         if not self.paired:
             return
         _LOGGER.info("User requested queue from touch UI")
@@ -624,6 +668,7 @@ class DJConnectBackend(QObject):
             self._playlist_items = demo_playlist_items()
             self.mediaListsChanged.emit()
             return
+        self._sync_config_from_disk()
         if not self.paired:
             return
         _LOGGER.info("User requested playlists from touch UI")
@@ -653,20 +698,27 @@ class DJConnectBackend(QObject):
         self._playbackReady.emit(self.client.playback_from_status(data))
 
     def _load_queue_worker(self) -> None:
+        _LOGGER.info("Loading queue from Home Assistant")
         data = self.client.command("queue", limit=100)
-        self._mediaListReady.emit("queue", parse_queue_items(data))
+        items = parse_queue_items(data)
+        _LOGGER.info("Loaded %s queue items from Home Assistant", len(items))
+        self._mediaListReady.emit("queue", items)
 
     def _load_playlists_worker(self) -> None:
+        _LOGGER.info("Loading playlists from Home Assistant")
         data = self.client.command("playlists")
-        self._mediaListReady.emit("playlists", parse_playlist_items(data))
+        items = parse_playlist_items(data)
+        _LOGGER.info("Loaded %s playlists from Home Assistant", len(items))
+        self._mediaListReady.emit("playlists", items)
 
     def _show_dj_response(self, payload: dict[str, object]) -> dict[str, object]:
         text = str(payload.get("dj_text") or payload.get("text") or payload.get("message") or "").strip()
         if not text:
             return {"success": False, "error": "missing_text"}
         self._dj_response_text = text
-        self._dj_response_visible = True
+        self._dj_response_visible = False
         self.djResponseChanged.emit()
+        self._show_toast(text, 10000)
         return {
             "success": True,
             "displayed": True,
@@ -744,6 +796,8 @@ class DJConnectBackend(QObject):
             self.shuffleChanged.emit()
         if old.repeat != playback.repeat:
             self.repeatChanged.emit()
+        if old.output_device != playback.output_device or old.output_devices != playback.output_devices:
+            self.outputDeviceChanged.emit()
         if old.position_seconds != playback.position_seconds or old.duration_seconds != playback.duration_seconds:
             self.progressChanged.emit()
         self._set_status_text(self.tr_key("connected" if self.paired else "ready_to_pair"))
@@ -818,6 +872,10 @@ class DJConnectBackend(QObject):
 
     @Slot()
     def _poll_local_events(self) -> None:
+        self._poll_dj_response_event()
+        self._poll_command_event()
+
+    def _poll_dj_response_event(self) -> None:
         path = Path(self.cfg.dj_response_file)
         if not path.exists():
             return
@@ -830,6 +888,28 @@ class DJConnectBackend(QObject):
         if isinstance(data, dict):
             _LOGGER.info("Displaying DJ response from local API daemon event")
             self._show_dj_response(data)
+
+    def _poll_command_event(self) -> None:
+        path = Path(self.cfg.command_event_file)
+        if not path.exists():
+            return
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            path.unlink(missing_ok=True)
+        except (OSError, json.JSONDecodeError) as exc:
+            _LOGGER.warning("Failed to read local command event file: %s", exc)
+            return
+        raw_events = data.get("events") if isinstance(data.get("events"), list) else [data]
+        self._sync_config_from_disk()
+        for event in raw_events:
+            if not isinstance(event, dict):
+                continue
+            command = str(event.get("command") or "").strip()
+            payload = event.get("payload") if isinstance(event.get("payload"), dict) else {}
+            if not command:
+                continue
+            _LOGGER.info("Executing Client API command event from Home Assistant: %s", command)
+            self.command(command, **{k: v for k, v in payload.items() if k not in {"command", "device_id", "client_type", "version", "firmware", "local_url", "capabilities"}})
 
 
 def main() -> None:

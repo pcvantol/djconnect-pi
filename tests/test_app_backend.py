@@ -265,8 +265,31 @@ def test_backend_displays_local_dj_response_event_file(tmp_path: Path) -> None:
 
     backend._poll_local_events()
 
-    assert backend.djResponseVisible is True
+    assert backend.djResponseVisible is False
     assert backend.djResponseText == "Hallo vanaf HA"
+    assert backend.toastVisible is True
+    assert backend.toastText == "Hallo vanaf HA"
+    assert not event_file.exists()
+
+
+def test_backend_executes_local_command_event_file(tmp_path: Path) -> None:
+    ensure_app()
+    config_path = tmp_path / "config.json"
+    backend = DJConnectBackend(config_path)
+    event_file = tmp_path / "command-event.json"
+    backend.cfg.command_event_file = str(event_file)
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token"
+    calls: list[tuple[str, dict[str, object]]] = []
+    backend.command = lambda command, **payload: calls.append((command, payload))  # type: ignore[method-assign]
+    event_file.write_text(
+        json.dumps({"events": [{"command": "next", "payload": {"command": "next", "client_type": "raspberry_pi"}}]}),
+        encoding="utf-8",
+    )
+
+    backend._poll_local_events()
+
+    assert calls == [("next", {})]
     assert not event_file.exists()
 
 
@@ -325,6 +348,18 @@ def test_backend_volume_clamps_and_dispatches_command(tmp_path: Path) -> None:
 
     assert backend.volume == 100
     assert calls == [("set_volume", {"value": 100})]
+
+
+def test_backend_output_device_dispatches_command(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    calls: list[tuple[str, dict[str, object]]] = []
+    backend.command = lambda command, **payload: calls.append((command, payload))  # type: ignore[method-assign]
+
+    backend.setOutputDevice(" Slaapkamer ")
+
+    assert backend.outputDevice == "Slaapkamer"
+    assert calls == [("set_output", {"value": "Slaapkamer"})]
 
 
 def test_backend_shuffle_and_repeat_dispatch_commands(tmp_path: Path) -> None:

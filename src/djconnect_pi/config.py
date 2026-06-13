@@ -12,7 +12,7 @@ import uuid
 from .i18n import normalize_language
 
 CLIENT_TYPE = "raspberry_pi"
-PROTOCOL_VERSION = "3.1.37"
+PROTOCOL_VERSION = "3.1.38"
 DEFAULT_CONFIG_PATH = Path.home() / ".config" / "djconnect-pi" / "config.json"
 DEFAULT_LOG_PATH = Path.home() / ".local" / "state" / "djconnect-pi" / "client.log"
 
@@ -36,6 +36,7 @@ class Config:
     language: str = field(default_factory=lambda: default_language_from_system())
     log_file: str = str(DEFAULT_LOG_PATH)
     dj_response_file: str = str(DEFAULT_LOG_PATH.parent / "dj-response.json")
+    command_event_file: str = str(DEFAULT_LOG_PATH.parent / "command-event.json")
     log_level: str = "INFO"
 
 

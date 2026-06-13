@@ -32,6 +32,8 @@ class Playback:
     repeat: str = "off"
     position_seconds: int = 0
     duration_seconds: int = 0
+    output_device: str = ""
+    output_devices: tuple[str, ...] = ()
 
 
 class HAClient:
@@ -98,10 +100,25 @@ class HAClient:
 
     def playback_from_status(self, data: dict[str, Any]) -> Playback:
         playback = data.get("playback") if isinstance(data.get("playback"), dict) else data
+        output_devices = _string_list(
+            playback.get("output_devices")
+            or playback.get("devices")
+            or playback.get("available_devices")
+            or data.get("output_devices")
+            or data.get("devices")
+            or data.get("available_devices")
+        )
         return Playback(
             title=str(playback.get("title") or playback.get("track") or playback.get("last_track") or ""),
             artist=str(playback.get("artist") or playback.get("artists") or ""),
-            image_url=str(playback.get("image_url") or playback.get("album_image_url") or ""),
+            image_url=str(
+                playback.get("image_url")
+                or playback.get("album_image_url")
+                or playback.get("album_art_url")
+                or playback.get("media_image_url")
+                or playback.get("entity_picture")
+                or ""
+            ),
             is_playing=bool(playback.get("is_playing") or playback.get("playing")),
             volume=int(playback.get("volume") or playback.get("volume_percent") or 50),
             shuffle=bool(playback.get("shuffle")),
@@ -124,6 +141,14 @@ class HAClient:
                 "track_duration",
                 "track_duration_seconds",
             ),
+            output_device=str(
+                playback.get("output_device")
+                or playback.get("device_name")
+                or playback.get("active_device")
+                or playback.get("source")
+                or (output_devices[0] if output_devices else "")
+            ),
+            output_devices=tuple(output_devices),
         )
 
     def _base_payload(self, **extra: Any) -> dict[str, Any]:
@@ -213,6 +238,24 @@ def _seconds_from_playback(playback: dict[str, Any], *keys: str) -> int:
             continue
         return max(0, int(float(value)))
     return 0
+
+
+def _string_list(value: Any) -> list[str]:
+    if isinstance(value, list):
+        result: list[str] = []
+        for item in value:
+            if isinstance(item, dict):
+                name = item.get("name") or item.get("device_name") or item.get("label") or item.get("id")
+                if name:
+                    result.append(str(name))
+            elif item:
+                result.append(str(item))
+        return result
+    if isinstance(value, dict):
+        return _string_list(list(value.values()))
+    if value:
+        return [str(value)]
+    return []
 
 
 def _compatible_ha_version(client_version: str, ha_version: str) -> bool:

@@ -110,6 +110,8 @@ def test_playback_from_status_accepts_aliases() -> None:
                 "shuffle": True,
                 "progress_ms": 138000,
                 "duration_ms": 210000,
+                "output_devices": [{"name": "Slaapkamer R + Slaapkamer L"}],
+                "output_device": "Slaapkamer R + Slaapkamer L",
             }
         }
     )
@@ -123,6 +125,8 @@ def test_playback_from_status_accepts_aliases() -> None:
     assert playback.shuffle is True
     assert playback.position_seconds == 138
     assert playback.duration_seconds == 210
+    assert playback.output_device == "Slaapkamer R + Slaapkamer L"
+    assert playback.output_devices == ("Slaapkamer R + Slaapkamer L",)
 
 
 def test_protocol_mismatch_raises_djconnect_error() -> None:

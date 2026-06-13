@@ -28,7 +28,8 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
   `client_type=raspberry_pi`
 - local Client API info, pairing-info, pair, command, DJ response auth and mDNS
   TXT properties
-- separate Client API daemon event bridge for DJ responses
+- separate Client API daemon event bridges for queued HA commands and DJ
+  response toasts
 - installer/systemd contract for separate API and touch UI services
 - installer contract for the narrow reboot sudoers rule used by the touch UI
 - release bundle contract for including docs, systemd units, `scripts/install.sh`
@@ -51,6 +52,7 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 - debug logging paths for invalid HA JSON and local API request limits
 - backend notification toast state
 - playback response alias parsing
+- playback output-device response parsing and `set_output` command dispatch
 - HA major/minor version compatibility checks and blocking mismatch behavior
 - protocol mismatch error handling
 - PySide backend properties and command dispatch
@@ -70,6 +72,8 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 - compact touch log formatting and 24-hour album-art cache behavior
 - HA queue/playlist media parser coverage for artwork aliases from the shared
   contract
+- opaque queue/playlist main screens, manual refresh controls and no
+  DJ-response dismiss dialog in QML
 - local Client API pairing-info and logging regression coverage, plus Postman
   collection endpoint contract checks
 - game title QML contract checks ensuring titles come from translation keys

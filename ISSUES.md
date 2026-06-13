@@ -2,8 +2,6 @@
 
 ## Open
 
-- The Qt Quick UI can render album art from `image_url`, but it does not yet
-  cache artwork locally for offline/repeated playback.
 - Pairing response shapes should be validated against the current Home
   Assistant integration once the Pi client is tested against a live instance.
 - Release signing currently supports SHA256 assets only; signed manifests would
@@ -34,3 +32,7 @@
 - Stale mDNS pairing code after reset fixed by reloading shared config in the
   local API daemon before pairing-info and local pair requests.
 - Full-screen overlay tap-through fixed by adding modal touch blockers.
+- Album art rendering and 24-hour local artwork caching added for Speelt nu,
+  Wachtrij and Afspeellijsten.
+- HA initiated `/api/device/command` calls are bridged from the API daemon to
+  the UI process through a local command-event queue.

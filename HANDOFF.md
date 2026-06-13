@@ -19,6 +19,10 @@ Implemented:
   client family.
 - Separate `djconnect-pi-api` daemon for HA -> Pi pairing, command, forget and
   text DJ response
+- HA initiated `/api/device/command` calls are queued by the API daemon in a
+  local command-event file and executed by the UI process. This keeps the API
+  daemon responsive while allowing playback commands such as previous/next to
+  affect the live touch client.
 - The local API daemon reloads shared config before serving info/pairing-info
   and before local pairing, so reset-pairing code rotation is immediately
   visible to HA mDNS discovery/config-flow.
@@ -28,7 +32,9 @@ Implemented:
 - Blocking Home Assistant version-mismatch screen. For example, client `3.1.z`
   accepts HA `>=3.1.0` and `<3.2.0`; mismatch triggers
   `djconnect-updater.service` once.
-- Backend-driven notification toast for short user/action feedback
+- Backend-driven notification toast for short user/action feedback. Textual DJ
+  responses from HA are shown as an auto-dismissing 10-second toast, not as a
+  blocking dialog.
 - Touch-only local games matching the Apple app set: Paddle Rally, Meteor Run,
   Sky Dash and Maze Chase.
 - Separate GitHub release updater
@@ -45,6 +51,10 @@ Implemented:
   button.
 - Full-screen QML overlays consume touch input so underlying controls cannot be
   activated through logs/about/pairing/version/confirmation screens.
+- Queue and playlist screens are opaque full main screens, not translucent
+  overlays over Speelt nu.
+- Speelt nu exposes the HA-provided playback output-device list and dispatches
+  output selection with `command:"set_output"`.
 - Local language setting. First value comes from Raspberry Pi OS locale, not
   Home Assistant pairing provisioning.
 - Dutch/English translations are kept in `src/djconnect_pi/i18n.py`; tests
@@ -125,6 +135,9 @@ Not implemented by design:
   unless the user explicitly asks to keep old releases.
 - Keep the local Client API separate from the UI process. The UI must not host
   the HTTP API or mDNS service; `djconnect-api.service` owns that.
+- Keep HA initiated `/api/device/command` execution bridged through the local
+  command-event queue so the UI process, not the API daemon, applies playback
+  actions.
 - Keep unattended updates atomic under `/opt/djconnect/releases`.
 - Manual production updates should use the public release tarball and rerun the
   installer; use `git pull --ff-only` only on development checkouts.

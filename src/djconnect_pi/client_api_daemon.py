@@ -61,11 +61,11 @@ class ClientAPIDaemon:
             return {"success": True, "playback": self._playback()}
         if command == "dj_response":
             return self._dj_response(payload)
-        return {
-            "success": False,
-            "error": "ui_process_required",
-            "message": "Playback commands are handled by the touch UI process.",
-        }
+        if not command:
+            return {"success": False, "error": "missing_command"}
+        self._write_command_event({"command": command, "payload": payload})
+        _LOGGER.info("Queued Client API command for touch UI: %s", command)
+        return {"success": True, "queued": True, "command": command}
 
     def _dj_response(self, payload: dict[str, object]) -> dict[str, object]:
         text = str(payload.get("dj_text") or payload.get("text") or payload.get("message") or "").strip()
@@ -85,6 +85,25 @@ class ClientAPIDaemon:
 
     def _write_dj_response_event(self, payload: dict[str, object]) -> None:
         path = Path(self.cfg.dj_response_file)
+        self._write_event_file(path, payload)
+
+    def _write_command_event(self, payload: dict[str, object]) -> None:
+        path = Path(self.cfg.command_event_file)
+        events: list[object] = []
+        if path.exists():
+            try:
+                existing = json.loads(path.read_text(encoding="utf-8"))
+                if isinstance(existing, dict) and isinstance(existing.get("events"), list):
+                    events = existing["events"]
+                else:
+                    events = existing if isinstance(existing, list) else [existing]
+            except (OSError, json.JSONDecodeError):
+                events = []
+        events.append(payload)
+        self._write_event_file(path, {"events": events[-20:]})
+
+    @staticmethod
+    def _write_event_file(path: Path, payload: dict[str, object]) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp_path = path.with_name(f".{path.name}.tmp")
         tmp_path.write_text(json.dumps(payload, sort_keys=True) + "\n", encoding="utf-8")

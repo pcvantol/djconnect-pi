@@ -1,6 +1,26 @@
 # Changelog
 
-## 3.1.37
+## 3.1.38
+
+- Routed Home Assistant initiated `/api/device/command` calls from the separate
+  local API daemon to the touch UI through a small persisted command-event
+  queue, so HA entity actions such as previous/next are actually executed by
+  the UI process.
+- Added an output-device selector to the Speelt nu screen. It reads device
+  lists from HA status/command responses and sends `command:"set_output"` with
+  the selected value.
+- Added manual refresh buttons to Speelt nu, Wachtrij and Afspeellijsten.
+- Made Wachtrij and Afspeellijsten opaque full main screens so Speelt nu no
+  longer shows through.
+- Changed incoming textual DJ responses to a toast that disappears after 10
+  seconds instead of a blocking overlay with a Close button.
+- Disabled horizontal scrolling in Over and Instellingen and kept destructive
+  reset-pairing buttons visually consistent with the other square Pi buttons.
+- Fixed QML modal-handler warnings by using explicit signal parameters.
+- Expanded tests for command-event routing, output-device parsing/dispatch,
+  DJ-response toast behavior and the updated QML kiosk layout.
+
+## 3.1.38
 
 - Fixed Home Assistant command payloads to always include the stable
   `device_id` and `client_type=raspberry_pi`, resolving HA `invalid_client_type`

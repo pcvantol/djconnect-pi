@@ -14,10 +14,13 @@ Responsibilities:
 - pair with Home Assistant
 - send periodic status
 - send playback commands
+- execute HA initiated playback commands received through the local
+  command-event queue
 - render now-playing and connection state
+- render HA-provided output-device choices and dispatch `command:"set_output"`
 - render a dark DJConnect blue/purple gradient theme across touch screens
 - handle touch gestures and animated control states
-- display DJ response text pushed by Home Assistant
+- display DJ response text pushed by Home Assistant as a 10-second toast
 - show startup splash, blocking pairing and local demo mode
 - blank the rendered screen after the configured timeout and wake on tap
 - consume touch input on modal overlays so underlying settings controls cannot
@@ -45,6 +48,8 @@ Responsibilities:
 - accept HA initiated pairing at `POST /api/device/pair`
 - reset pairing at `POST /api/device/forget`
 - authenticate protected requests with the stored bearer token
+- queue HA initiated playback commands for the UI process through a local
+  command-event file
 - advertise `device_id`, `client_type=raspberry_pi`, `version`,
   `device_name` and `local_url` through mDNS
 - reject oversized HTTP request bodies
@@ -110,9 +115,9 @@ The Pi client is an app-like DJConnect client.
 ```json
 {
   "device_id": "djconnect-raspberry-pi-XXXXXXXXXXXX",
-  "device_name": "DJConnect Pi",
+  "device_name": "DJConnect",
   "client_type": "raspberry_pi",
-  "version": "3.1.37",
+  "version": "3.1.38",
   "capabilities": {
     "touch": true,
     "voice": false,

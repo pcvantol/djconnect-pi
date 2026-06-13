@@ -101,8 +101,10 @@ Window {
             elide: Text.ElideRight
         }
         background: Rectangle {
-            radius: 28
+            radius: 8
             color: control.down ? "#8d2a35" : "#682632"
+            border.color: control.down ? "#ff8a80" : "#a43b49"
+            border.width: 1
             opacity: control.down ? 0.82 : 1.0
         }
     }
@@ -113,10 +115,10 @@ Window {
         hoverEnabled: true
         preventStealing: true
         propagateComposedEvents: false
-        onClicked: mouse.accepted = true
-        onPressed: mouse.accepted = true
-        onReleased: mouse.accepted = true
-        onWheel: wheel.accepted = true
+        onClicked: function(mouse) { mouse.accepted = true }
+        onPressed: function(mouse) { mouse.accepted = true }
+        onReleased: function(mouse) { mouse.accepted = true }
+        onWheel: function(wheel) { wheel.accepted = true }
     }
 
     component IconButton: Button {
@@ -258,12 +260,20 @@ Window {
         id: panel
         property string heading: ""
         property var items: []
+        signal refreshRequested()
 
         anchors.fill: parent
-        color: "#e6070b16"
+        color: "#070b16"
         z: 16
 
         ModalBlocker {}
+
+        gradient: Gradient {
+            orientation: Gradient.Vertical
+            GradientStop { position: 0.0; color: "#2b0a5f" }
+            GradientStop { position: 0.48; color: "#191053" }
+            GradientStop { position: 1.0; color: "#070b16" }
+        }
 
         ColumnLayout {
             anchors.fill: parent
@@ -271,12 +281,24 @@ Window {
             anchors.bottomMargin: 104
             spacing: 12
 
-            Text {
-                text: panel.heading
-                color: "#ffffff"
-                font.pixelSize: 34
-                font.bold: true
+            RowLayout {
                 Layout.fillWidth: true
+
+                Text {
+                    text: panel.heading
+                    color: "#ffffff"
+                    font.pixelSize: 34
+                    font.bold: true
+                    Layout.fillWidth: true
+                }
+
+                PurpleButton {
+                    text: djconnect.t("refresh")
+                    font.pixelSize: 18
+                    Layout.preferredWidth: 142
+                    Layout.preferredHeight: 48
+                    onClicked: panel.refreshRequested()
+                }
             }
 
             ScrollView {
@@ -465,6 +487,14 @@ Window {
                     visible: djconnect.busy
                     implicitWidth: 28
                     implicitHeight: 28
+                }
+
+                PurpleButton {
+                    text: djconnect.t("refresh")
+                    font.pixelSize: 16
+                    Layout.preferredWidth: 132
+                    Layout.preferredHeight: 40
+                    onClicked: djconnect.manualRefresh()
                 }
 
             }
@@ -656,6 +686,45 @@ Window {
                 }
             }
 
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 6
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 10
+
+                    Text {
+                        text: djconnect.t("output_device")
+                        color: "#f4f8f8"
+                        font.pixelSize: 20
+                        font.bold: true
+                        Layout.fillWidth: true
+                    }
+
+                    Text {
+                        text: djconnect.outputDevice
+                        color: "#b7c2d8"
+                        font.pixelSize: 16
+                        elide: Text.ElideRight
+                        horizontalAlignment: Text.AlignRight
+                        visible: djconnect.outputDevice.length > 0
+                        Layout.preferredWidth: 220
+                    }
+                }
+
+                ComboBox {
+                    id: outputDeviceCombo
+                    model: djconnect.outputDevices
+                    visible: djconnect.outputDevices.length > 0
+                    currentIndex: Math.max(0, djconnect.outputDevices.indexOf(djconnect.outputDevice))
+                    font.pixelSize: 20
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 50
+                    onActivated: function(index) { djconnect.setOutputDevice(outputDeviceCombo.textAt(index)) }
+                }
+            }
+
             RowLayout {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 54
@@ -689,43 +758,6 @@ Window {
             }
         }
 
-        Rectangle {
-            anchors.fill: parent
-            color: "#dd0b1012"
-            visible: djconnect.djResponseVisible
-            z: 8
-
-            ColumnLayout {
-                anchors.centerIn: parent
-                width: 600
-                spacing: 18
-
-                Text {
-                    text: djconnect.t("dj_response")
-                    color: "#f4f8f8"
-                    font.pixelSize: 24
-                    font.bold: true
-                    horizontalAlignment: Text.AlignHCenter
-                    Layout.fillWidth: true
-                }
-
-                Text {
-                    text: djconnect.djResponseText
-                    color: "#d7e2e4"
-                    font.pixelSize: 22
-                    wrapMode: Text.WordWrap
-                    horizontalAlignment: Text.AlignHCenter
-                    Layout.fillWidth: true
-                }
-
-                PurpleButton {
-                    text: djconnect.t("dismiss")
-                    font.pixelSize: 18
-                    Layout.alignment: Qt.AlignHCenter
-                    onClicked: djconnect.clearDjResponse()
-                }
-            }
-        }
     }
 
     Rectangle {
@@ -736,13 +768,15 @@ Window {
         z: 10
 
         ScrollView {
+            id: settingsScroll
             anchors.fill: parent
             anchors.margins: 22
             anchors.bottomMargin: 126
             clip: true
+            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
 
             ColumnLayout {
-                width: settingsPanel.width - 44
+                width: Math.max(0, settingsScroll.availableWidth)
                 spacing: 20
 
                 Text {
@@ -985,12 +1019,14 @@ Window {
         visible: root.activeScreen === "queue"
         heading: djconnect.t("queue")
         items: djconnect.queueItems
+        onRefreshRequested: djconnect.loadQueue()
     }
 
     MediaListPanel {
         visible: root.activeScreen === "playlists"
         heading: djconnect.t("playlists")
         items: djconnect.playlistItems
+        onRefreshRequested: djconnect.loadPlaylists()
     }
 
     GamesPanel {
@@ -1451,9 +1487,9 @@ Window {
         anchors.top: parent.top
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.topMargin: 22
-        width: Math.min(parent.width - 64, Math.max(220, toastText.implicitWidth + 58))
-        height: 48
-        radius: 24
+        width: Math.min(parent.width - 44, Math.max(240, toastText.implicitWidth + 58))
+        height: Math.max(50, toastText.implicitHeight + 22)
+        radius: 8
         color: "#d92f8cff"
         border.color: "#80ffffff"
         border.width: 1
@@ -1471,11 +1507,12 @@ Window {
             width: parent.width - 34
             text: djconnect.toastText
             color: "#ffffff"
-            font.pixelSize: 17
+            font.pixelSize: 18
             font.bold: true
+            wrapMode: Text.WordWrap
             horizontalAlignment: Text.AlignHCenter
             elide: Text.ElideRight
-            maximumLineCount: 1
+            maximumLineCount: 4
         }
     }
 
@@ -1695,6 +1732,7 @@ Window {
             anchors.fill: parent
             anchors.margins: 22
             clip: true
+            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
 
             ColumnLayout {
                 width: Math.max(0, aboutScroll.availableWidth)
