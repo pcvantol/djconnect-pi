@@ -228,6 +228,7 @@ def test_install_script_configures_xwrapper_for_systemd_kiosk_start() -> None:
     assert "configure_xwrapper" in script
     assert "/etc/X11/Xwrapper.config" in script
     assert "allowed_users=anybody" in script
+    assert "needs_root_rights=yes" in script
     assert "sed -i" in script
     assert "configure_xwrapper" in script.split("cp \"${DJCONNECT_ROOT}/current/systemd/\"", 1)[0]
     assert "install --prefer-binary" in script

@@ -155,9 +155,9 @@ completed:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.27.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.28.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.27
+cd djconnect-pi-3.1.28
 sudo ./scripts/install.sh
 ```
 
@@ -181,9 +181,9 @@ development checkout:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.27.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.28.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.27
+cd djconnect-pi-3.1.28
 sudo ./scripts/install.sh
 ```
 
@@ -194,8 +194,9 @@ The installer is safe to run over an earlier DJConnect install:
 - replaces `/opt/djconnect/releases/<version>` for that version
 - repoints `/opt/djconnect/current`
 - updates systemd unit files
-- configures `/etc/X11/Xwrapper.config` so the systemd-managed touch client can
-  start Xorg on Raspberry Pi OS Lite
+- configures `/etc/X11/Xwrapper.config` with `allowed_users=anybody` and
+  `needs_root_rights=yes` so the systemd-managed touch client can start Xorg on
+  Raspberry Pi OS Lite
 - restarts `djconnect-api.service` and `djconnect-client.service`
 - leaves updater, maintenance and screen timers enabled
 - does not run OS bootstrap tasks such as timezone, SSH, apt full-upgrade,
@@ -217,9 +218,10 @@ If logs show `Unable to locate executable
 The installer verifies all DJConnect console entrypoints before it considers the
 Python venv complete.
 
-If logs show `Only console users are allowed to run the X server`, rerun the
-latest public installer. It updates `/etc/X11/Xwrapper.config` for the
-systemd-managed kiosk service.
+If logs show `Only console users are allowed to run the X server` or
+`parse_vt_settings: Cannot open /dev/tty0 (Permission denied)`, rerun the latest
+public installer. It updates `/etc/X11/Xwrapper.config` for the systemd-managed
+kiosk service.
 
 If the installer reports `No space left on device` or stops with a free-space
 message, check `df -h /` and rerun the repo-only bootstrap, reboot if root

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DJCONNECT_VERSION="${DJCONNECT_VERSION:-3.1.27}"
+DJCONNECT_VERSION="${DJCONNECT_VERSION:-3.1.28}"
 DJCONNECT_REPO="${DJCONNECT_REPO:-pcvantol/djconnect-pi-releases}"
 DJCONNECT_HA_URL="${DJCONNECT_HA_URL:-http://homeassistant.local:8123}"
 DJCONNECT_RUNTIME_USER="${DJCONNECT_RUNTIME_USER:-djconnect}"
@@ -385,7 +385,7 @@ payload = {
     "device_name": "DJConnect Pi",
     "device_token": "",
     "paired": False,
-    "version": "3.1.27",
+    "version": "3.1.28",
     "update_repo": "pcvantol/djconnect-pi-releases",
     "update_channel": "stable",
     "screen_timeout_seconds": 120,
@@ -432,6 +432,12 @@ configure_xwrapper() {
     sed -i 's/^allowed_users=.*/allowed_users=anybody/' "$config"
   else
     printf 'allowed_users=anybody\n' >> "$config"
+  fi
+
+  if grep -q '^needs_root_rights=' "$config"; then
+    sed -i 's/^needs_root_rights=.*/needs_root_rights=yes/' "$config"
+  else
+    printf 'needs_root_rights=yes\n' >> "$config"
   fi
 }
 

@@ -1,6 +1,6 @@
 # Changelog
 
-## 3.1.27
+## 3.1.28
 
 - Initial Raspberry Pi display-remote scaffold with Qt Quick/QML, fullscreen
   720x720 touch UI, playback controls and app-like DJConnect pairing, status
@@ -77,3 +77,5 @@
 - Configured `/etc/X11/Xwrapper.config` with `allowed_users=anybody` during
   install so the systemd-managed touch client can start Xorg on Raspberry Pi OS
   Lite.
+- Added `needs_root_rights=yes` to the Xwrapper install step so Xorg can open
+  `/dev/tty0` when launched by the systemd-managed touch client.
