@@ -155,9 +155,9 @@ completed:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.26.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.27.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.26
+cd djconnect-pi-3.1.27
 sudo ./scripts/install.sh
 ```
 
@@ -181,9 +181,9 @@ development checkout:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.26.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.27.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.26
+cd djconnect-pi-3.1.27
 sudo ./scripts/install.sh
 ```
 
@@ -194,6 +194,8 @@ The installer is safe to run over an earlier DJConnect install:
 - replaces `/opt/djconnect/releases/<version>` for that version
 - repoints `/opt/djconnect/current`
 - updates systemd unit files
+- configures `/etc/X11/Xwrapper.config` so the systemd-managed touch client can
+  start Xorg on Raspberry Pi OS Lite
 - restarts `djconnect-api.service` and `djconnect-client.service`
 - leaves updater, maintenance and screen timers enabled
 - does not run OS bootstrap tasks such as timezone, SSH, apt full-upgrade,
@@ -209,6 +211,15 @@ Python/PySide6 dependency install step, wait for it to boot and run the same
 public release install command again. The installer skips the completed release
 unpack step, removes the incomplete `.venv`, and continues the
 dependency/systemd steps.
+
+If logs show `Unable to locate executable
+/opt/djconnect/current/bin/djconnect-pi-api`, rerun the latest public installer.
+The installer verifies all DJConnect console entrypoints before it considers the
+Python venv complete.
+
+If logs show `Only console users are allowed to run the X server`, rerun the
+latest public installer. It updates `/etc/X11/Xwrapper.config` for the
+systemd-managed kiosk service.
 
 If the installer reports `No space left on device` or stops with a free-space
 message, check `df -h /` and rerun the repo-only bootstrap, reboot if root

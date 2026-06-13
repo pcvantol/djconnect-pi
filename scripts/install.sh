@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DJCONNECT_VERSION="${DJCONNECT_VERSION:-3.1.26}"
+DJCONNECT_VERSION="${DJCONNECT_VERSION:-3.1.27}"
 DJCONNECT_REPO="${DJCONNECT_REPO:-pcvantol/djconnect-pi-releases}"
 DJCONNECT_HA_URL="${DJCONNECT_HA_URL:-http://homeassistant.local:8123}"
 DJCONNECT_RUNTIME_USER="${DJCONNECT_RUNTIME_USER:-djconnect}"
@@ -319,7 +319,11 @@ install_python_dependencies() {
   wheel_path="$(find "$release_dir/wheels" -maxdepth 1 -type f -name "djconnect_pi-${version}-*.whl" 2>/dev/null | head -n 1 || true)"
   pip_tmp="${DJCONNECT_PIP_CACHE}/tmp"
 
-  if marker_done "venv_ready" && [[ -x "${release_dir}/.venv/bin/djconnect-pi-client" ]]; then
+  if marker_done "venv_ready" \
+    && [[ -x "${release_dir}/.venv/bin/djconnect-pi-client" ]] \
+    && [[ -x "${release_dir}/.venv/bin/djconnect-pi-api" ]] \
+    && [[ -x "${release_dir}/.venv/bin/djconnect-pi-updater" ]] \
+    && [[ -x "${release_dir}/.venv/bin/djconnect-pi-maintenance" ]]; then
     log "DJConnect Python dependencies already installed; resuming"
     print_resources "dependencies already installed"
     return
@@ -381,7 +385,7 @@ payload = {
     "device_name": "DJConnect Pi",
     "device_token": "",
     "paired": False,
-    "version": "3.1.26",
+    "version": "3.1.27",
     "update_repo": "pcvantol/djconnect-pi-releases",
     "update_channel": "stable",
     "screen_timeout_seconds": 120,
@@ -401,6 +405,7 @@ PY
 install_systemd_units() {
   log "Installing systemd units"
   print_resources "before systemd install"
+  configure_xwrapper
   cp "${DJCONNECT_ROOT}/current/systemd/"*.service /etc/systemd/system/
   cp "${DJCONNECT_ROOT}/current/systemd/"*.timer /etc/systemd/system/
   systemctl daemon-reload
@@ -413,6 +418,21 @@ install_systemd_units() {
   systemctl enable --now djconnect-screen-off.timer
   systemctl enable --now djconnect-screen-on.timer
   print_resources "after systemd install"
+}
+
+configure_xwrapper() {
+  local config="/etc/X11/Xwrapper.config"
+
+  if [[ ! -d "/etc/X11" ]]; then
+    echo "Warning: /etc/X11 does not exist yet; skipping Xwrapper configuration." >&2
+    return
+  fi
+
+  if [[ -f "$config" ]] && grep -q '^allowed_users=' "$config"; then
+    sed -i 's/^allowed_users=.*/allowed_users=anybody/' "$config"
+  else
+    printf 'allowed_users=anybody\n' >> "$config"
+  fi
 }
 
 main() {

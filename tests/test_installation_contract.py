@@ -204,6 +204,10 @@ def test_install_script_can_resume_after_reboot_or_interruption() -> None:
     assert 'mark_done "release_unpacked"' in script
     assert 'marker_done "venv_ready"' in script
     assert 'mark_done "venv_ready"' in script
+    assert 'djconnect-pi-client' in script
+    assert 'djconnect-pi-api' in script
+    assert 'djconnect-pi-updater' in script
+    assert 'djconnect-pi-maintenance' in script
     assert "install_python_dependencies" in script
     assert "activate_release" in script
     assert "PIP_CACHE_DIR=\"$DJCONNECT_PIP_CACHE\"" in script
@@ -216,6 +220,16 @@ def test_install_script_can_resume_after_reboot_or_interruption() -> None:
     assert 'install --prefer-binary "$wheel_path"' in script
     assert 'install --prefer-binary "$release_dir"' not in script
     assert "DJConnect Pi wheel not found" in script
+
+
+def test_install_script_configures_xwrapper_for_systemd_kiosk_start() -> None:
+    script = ROOT.joinpath("scripts/install.sh").read_text(encoding="utf-8")
+
+    assert "configure_xwrapper" in script
+    assert "/etc/X11/Xwrapper.config" in script
+    assert "allowed_users=anybody" in script
+    assert "sed -i" in script
+    assert "configure_xwrapper" in script.split("cp \"${DJCONNECT_ROOT}/current/systemd/\"", 1)[0]
     assert "install --prefer-binary" in script
     assert 'install -d -o root -g root "$DJCONNECT_PIP_CACHE"' in script
     assert "/opt/djconnect/pip-cache" not in script

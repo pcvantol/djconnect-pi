@@ -1,6 +1,6 @@
 # Changelog
 
-## 3.1.26
+## 3.1.27
 
 - Initial Raspberry Pi display-remote scaffold with Qt Quick/QML, fullscreen
   720x720 touch UI, playback controls and app-like DJConnect pairing, status
@@ -72,3 +72,8 @@
 - Increased the installer free-space requirement to 3GB, added inode reporting,
   cleaned incomplete `.venv` directories before dependency retries, and moved
   pip temporary files under `/var/cache/djconnect-pip/tmp`.
+- Hardened installer recovery for partial venv installs by requiring all
+  DJConnect console entrypoints before marking dependencies complete.
+- Configured `/etc/X11/Xwrapper.config` with `allowed_users=anybody` during
+  install so the systemd-managed touch client can start Xorg on Raspberry Pi OS
+  Lite.
