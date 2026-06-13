@@ -207,6 +207,10 @@ def test_install_script_can_resume_after_reboot_or_interruption() -> None:
     assert "install_python_dependencies" in script
     assert "activate_release" in script
     assert "PIP_CACHE_DIR=\"$DJCONNECT_PIP_CACHE\"" in script
+    assert "TMPDIR=\"$pip_tmp\"" in script
+    assert "${DJCONNECT_PIP_CACHE}/tmp" in script
+    assert "Removing incomplete Python virtualenv before retry" in script
+    assert 'rm -rf "${release_dir}/.venv" "${release_dir}/bin"' in script
     assert "wheel_path=" in script
     assert "djconnect_pi-${version}-*.whl" in script
     assert 'install --prefer-binary "$wheel_path"' in script
@@ -222,8 +226,10 @@ def test_install_script_checks_free_space_before_large_dependency_downloads() ->
     script = ROOT.joinpath("scripts/install.sh").read_text(encoding="utf-8")
 
     assert "DJCONNECT_MIN_FREE_MB" in script
+    assert 'DJCONNECT_MIN_FREE_MB="${DJCONNECT_MIN_FREE_MB:-3000}"' in script
     assert "check_free_space" in script
     assert "df -Pm" in script
+    assert "df -ih" in script
     assert "Not enough free disk space" in script
     assert "Run the repo bootstrap to expand the root filesystem" in script
     assert "check_free_space" in script.split("download_release", 1)[0]

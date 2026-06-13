@@ -155,9 +155,9 @@ completed:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.24.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.25.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.24
+cd djconnect-pi-3.1.25
 sudo ./scripts/install.sh
 ```
 
@@ -181,9 +181,9 @@ development checkout:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.24.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.25.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.24
+cd djconnect-pi-3.1.25
 sudo ./scripts/install.sh
 ```
 
@@ -201,15 +201,20 @@ The installer is safe to run over an earlier DJConnect install:
 - resumes completed install steps after interruption or reboot using markers in
   `/opt/djconnect/install-state/<version>/`
 - reuses Python package downloads from `/var/cache/djconnect-pip`
+- removes an incomplete `.venv` automatically before retrying the Python
+  dependency step
 
 If the Pi freezes, overheats, loses power or is rebooted during the heavy
 Python/PySide6 dependency install step, wait for it to boot and run the same
 public release install command again. The installer skips the completed release
-unpack step and continues the dependency/systemd steps.
+unpack step, removes the incomplete `.venv`, and continues the
+dependency/systemd steps.
 
 If the installer reports `No space left on device` or stops with a free-space
-message, rerun the repo-only bootstrap, reboot if root filesystem expansion asks
-for it, and then rerun the same public release install command.
+message, check `df -h /` and rerun the repo-only bootstrap, reboot if root
+filesystem expansion asks for it, and then rerun the same public release
+install command. The release installer requires at least 3GB free space before
+the PySide6 dependency step starts.
 
 If the installer stops with a swap requirement message, rerun the repo-only
 bootstrap so it can create and activate `/swapfile`, then rerun the same public

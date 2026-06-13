@@ -1,6 +1,6 @@
 # Changelog
 
-## 3.1.24
+## 3.1.25
 
 - Initial Raspberry Pi display-remote scaffold with Qt Quick/QML, fullscreen
   720x720 touch UI, playback controls and app-like DJConnect pairing, status
@@ -69,3 +69,6 @@
   Raspberry Pi thermal/throttling status.
 - Changed public release tarballs to install from a bundled wheel under
   `wheels/` and stop shipping the loose `src/` app source tree.
+- Increased the installer free-space requirement to 3GB, added inode reporting,
+  cleaned incomplete `.venv` directories before dependency retries, and moved
+  pip temporary files under `/var/cache/djconnect-pip/tmp`.

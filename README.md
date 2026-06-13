@@ -1,6 +1,6 @@
 # DJConnect Pi
 
-Version: `3.1.24`
+Version: `3.1.25`
 
 Raspberry Pi Zero 2 W touch-display client for DJConnect. This client uses
 Qt Quick/QML with a PySide6 backend and is meant for a Pimoroni HyperPixel 4.0
@@ -104,9 +104,9 @@ not a private source clone:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.24.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.25.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.24
+cd djconnect-pi-3.1.25
 sudo ./scripts/install.sh
 ```
 
@@ -183,9 +183,9 @@ installer:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.24.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.25.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.24
+cd djconnect-pi-3.1.25
 sudo ./scripts/install.sh
 ```
 
@@ -203,17 +203,20 @@ The installer is resumable. If the Pi freezes, overheats, loses power or is
 rebooted during the heavy Python/PySide6 dependency step, run the same public
 release install command again. Completed steps are tracked under
 `/opt/djconnect/install-state/<version>/`, and Python downloads are cached under
-`/var/cache/djconnect-pip`.
+`/var/cache/djconnect-pip`. If the venv step did not complete, the next run
+removes the incomplete `.venv` before retrying.
 
 The repo-only bootstrap expands the root filesystem to fill the SD card. The
 bootstrap also configures a persistent 1GB swapfile. The app installer checks
-free space and active swap before downloading PySide6 so a too-small root
-partition or missing swap fails early with a clear message.
+free space and active swap before downloading PySide6. It requires 3GB free
+space so a too-small root partition or missing swap fails early with a clear
+message.
 
 During install, the script prints resource snapshots around major steps:
-available memory, swap and disk usage. It also checks CPU architecture, Python
-version, writable install paths, GitHub release reachability and Raspberry Pi
-thermal/throttling status when `vcgencmd` is available.
+available memory, swap, disk usage and inode usage. It also checks CPU
+architecture, Python version, writable install paths, GitHub release
+reachability and Raspberry Pi thermal/throttling status when `vcgencmd` is
+available.
 
 ## Documentation
 

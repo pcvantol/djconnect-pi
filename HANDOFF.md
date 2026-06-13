@@ -70,8 +70,9 @@ Implemented:
   `djconnect-api.service` plus `djconnect-client.service`.
 - Install script is resumable across reboot/interruption. It stores markers in
   `/opt/djconnect/install-state/<version>/` for `release_unpacked` and
-  `venv_ready`, and uses `/var/cache/djconnect-pip` so large PySide6 downloads
-  do not have to restart from zero.
+  `venv_ready`, uses `/var/cache/djconnect-pip` so large PySide6 downloads do
+  not have to restart from zero, removes incomplete `.venv` directories before
+  retrying, and uses a cache-local pip temp directory.
 - Manual production update path is: download the current public
   `djconnect-pi-<version>.tar.gz`, extract it, run
   `sudo ./scripts/install.sh`. `git pull --ff-only` is only for

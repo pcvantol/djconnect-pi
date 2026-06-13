@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DJCONNECT_VERSION="${DJCONNECT_VERSION:-3.1.24}"
+DJCONNECT_VERSION="${DJCONNECT_VERSION:-3.1.25}"
 DJCONNECT_REPO="${DJCONNECT_REPO:-pcvantol/djconnect-pi-releases}"
 DJCONNECT_HA_URL="${DJCONNECT_HA_URL:-http://homeassistant.local:8123}"
 DJCONNECT_RUNTIME_USER="${DJCONNECT_RUNTIME_USER:-djconnect}"
 DJCONNECT_ROOT="${DJCONNECT_ROOT:-/opt/djconnect}"
 DJCONNECT_INSTALL_STATE="${DJCONNECT_INSTALL_STATE:-${DJCONNECT_ROOT}/install-state}"
 DJCONNECT_PIP_CACHE="${DJCONNECT_PIP_CACHE:-/var/cache/djconnect-pip}"
-DJCONNECT_MIN_FREE_MB="${DJCONNECT_MIN_FREE_MB:-1800}"
+DJCONNECT_MIN_FREE_MB="${DJCONNECT_MIN_FREE_MB:-3000}"
 DJCONNECT_MIN_SWAP_MB="${DJCONNECT_MIN_SWAP_MB:-1000}"
 
 if [[ -f /etc/default/locale ]]; then
@@ -34,7 +34,7 @@ Environment:
   DJCONNECT_ROOT=/opt/djconnect
   DJCONNECT_INSTALL_STATE=/opt/djconnect/install-state
   DJCONNECT_PIP_CACHE=/var/cache/djconnect-pip
-  DJCONNECT_MIN_FREE_MB=1800
+  DJCONNECT_MIN_FREE_MB=3000
   DJCONNECT_MIN_SWAP_MB=1000
 
 This installs or updates the DJConnect Pi application only:
@@ -88,6 +88,7 @@ print_resources() {
   printf 'Memory: %s MB available / %s MB total\n' "$mem_available_mb" "$mem_total_mb"
   printf 'Swap:   %s MB free / %s MB total\n' "$swap_free_mb" "$swap_total_mb"
   df -h / "$DJCONNECT_ROOT" "$(dirname "$DJCONNECT_PIP_CACHE")" 2>/dev/null | awk 'NR==1 || !seen[$1]++'
+  df -ih / "$DJCONNECT_ROOT" "$(dirname "$DJCONNECT_PIP_CACHE")" 2>/dev/null | awk 'NR==1 || !seen[$1]++'
 }
 
 print_thermal_status() {
@@ -312,9 +313,11 @@ install_python_dependencies() {
   local version
   local release_dir
   local wheel_path
+  local pip_tmp
   version="$(version)"
   release_dir="${DJCONNECT_ROOT}/releases/${version}"
   wheel_path="$(find "$release_dir/wheels" -maxdepth 1 -type f -name "djconnect_pi-${version}-*.whl" 2>/dev/null | head -n 1 || true)"
+  pip_tmp="${DJCONNECT_PIP_CACHE}/tmp"
 
   if marker_done "venv_ready" && [[ -x "${release_dir}/.venv/bin/djconnect-pi-client" ]]; then
     log "DJConnect Python dependencies already installed; resuming"
@@ -328,10 +331,16 @@ install_python_dependencies() {
   fi
 
   log "Installing DJConnect Python dependencies"
+  if [[ -d "${release_dir}/.venv" ]]; then
+    echo "Removing incomplete Python virtualenv before retry: ${release_dir}/.venv"
+    rm -rf "${release_dir}/.venv" "${release_dir}/bin"
+  fi
+  install -d -o root -g root "$DJCONNECT_PIP_CACHE" "$pip_tmp"
+  check_free_space
   print_resources "before Python dependency install"
   python3 -m venv "${release_dir}/.venv"
-  PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --upgrade pip
-  PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/pip" install --prefer-binary "$wheel_path"
+  TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --upgrade pip
+  TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/pip" install --prefer-binary "$wheel_path"
   ln -sfn ".venv/bin" "${release_dir}/bin"
   mark_done "venv_ready"
   print_resources "after Python dependency install"
@@ -372,7 +381,7 @@ payload = {
     "device_name": "DJConnect Pi",
     "device_token": "",
     "paired": False,
-    "version": "3.1.24",
+    "version": "3.1.25",
     "update_repo": "pcvantol/djconnect-pi-releases",
     "update_channel": "stable",
     "screen_timeout_seconds": 120,
