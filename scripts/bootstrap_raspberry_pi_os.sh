@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DJCONNECT_BOOTSTRAP_VERSION="${DJCONNECT_BOOTSTRAP_VERSION:-3.1.22}"
+DJCONNECT_BOOTSTRAP_VERSION="${DJCONNECT_BOOTSTRAP_VERSION:-3.1.23}"
 DJCONNECT_TIMEZONE="${DJCONNECT_TIMEZONE:-Europe/Amsterdam}"
 DJCONNECT_INSTALL_HYPERPIXEL="${DJCONNECT_INSTALL_HYPERPIXEL:-1}"
 DJCONNECT_HYPERPIXEL_MODEL="${DJCONNECT_HYPERPIXEL_MODEL:-square}"
@@ -9,6 +9,8 @@ DJCONNECT_HYPERPIXEL_ROTATE="${DJCONNECT_HYPERPIXEL_ROTATE:-}"
 DJCONNECT_ENABLE_RPI_CONNECT="${DJCONNECT_ENABLE_RPI_CONNECT:-1}"
 DJCONNECT_FULL_UPGRADE="${DJCONNECT_FULL_UPGRADE:-1}"
 DJCONNECT_RUNTIME_USER="${DJCONNECT_RUNTIME_USER:-djconnect}"
+DJCONNECT_SWAPFILE="${DJCONNECT_SWAPFILE:-/swapfile}"
+DJCONNECT_SWAP_MB="${DJCONNECT_SWAP_MB:-1024}"
 
 usage() {
   cat <<EOF
@@ -26,11 +28,14 @@ Environment:
   DJCONNECT_ENABLE_RPI_CONNECT=1
   DJCONNECT_FULL_UPGRADE=1
   DJCONNECT_RUNTIME_USER=djconnect
+  DJCONNECT_SWAPFILE=/swapfile
+  DJCONNECT_SWAP_MB=1024
 
 This prepares a Raspberry Pi OS Lite 64-bit image for a wall-mounted
 DJConnect Pi:
 - validates the Raspberry Pi OS 64-bit baseline
 - expands the root filesystem to fill the SD card
+- configures a persistent 1GB swapfile
 - configures boot to console
 - sets timezone to Europe/Amsterdam by default
 - configures UTF-8 locales
@@ -83,6 +88,45 @@ expand_rootfs() {
   else
     echo "raspi-config not found; skipping automatic root filesystem resize." >&2
   fi
+}
+
+configure_swapfile() {
+  log "Configuring ${DJCONNECT_SWAP_MB}MB swapfile at ${DJCONNECT_SWAPFILE}"
+  local current_size_mb=0
+  local desired_bytes
+  desired_bytes=$((DJCONNECT_SWAP_MB * 1024 * 1024))
+
+  if [[ -f "$DJCONNECT_SWAPFILE" ]]; then
+    current_size_mb="$(du -m "$DJCONNECT_SWAPFILE" | awk '{print $1}')"
+  fi
+
+  if swapon --show=NAME --noheadings | grep -Fxq "$DJCONNECT_SWAPFILE"; then
+    if [[ "$current_size_mb" -ge "$DJCONNECT_SWAP_MB" ]]; then
+      echo "Swapfile already active."
+    else
+      swapoff "$DJCONNECT_SWAPFILE"
+    fi
+  fi
+
+  if [[ ! -f "$DJCONNECT_SWAPFILE" || "$current_size_mb" -lt "$DJCONNECT_SWAP_MB" ]]; then
+    rm -f "$DJCONNECT_SWAPFILE"
+    if command -v fallocate >/dev/null 2>&1; then
+      fallocate -l "$desired_bytes" "$DJCONNECT_SWAPFILE"
+    else
+      dd if=/dev/zero of="$DJCONNECT_SWAPFILE" bs=1M count="$DJCONNECT_SWAP_MB" status=progress
+    fi
+    chmod 600 "$DJCONNECT_SWAPFILE"
+    mkswap "$DJCONNECT_SWAPFILE"
+  fi
+
+  if ! grep -Eq "^[^#[:space:]]+[[:space:]]+none[[:space:]]+swap[[:space:]]" /etc/fstab; then
+    printf '%s none swap sw 0 0\n' "$DJCONNECT_SWAPFILE" >> /etc/fstab
+  elif ! grep -Eq "^${DJCONNECT_SWAPFILE//\//\\/}[[:space:]]+none[[:space:]]+swap[[:space:]]" /etc/fstab; then
+    printf '%s none swap sw 0 0\n' "$DJCONNECT_SWAPFILE" >> /etc/fstab
+  fi
+
+  swapon "$DJCONNECT_SWAPFILE" 2>/dev/null || true
+  swapon --show
 }
 
 configure_locale() {
@@ -258,6 +302,7 @@ main() {
   log "DJConnect Pi OS bootstrap ${DJCONNECT_BOOTSTRAP_VERSION}"
   check_os_baseline
   expand_rootfs
+  configure_swapfile
   configure_timezone
   configure_console_boot
   enable_ssh

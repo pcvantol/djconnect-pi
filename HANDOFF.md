@@ -51,10 +51,10 @@ Implemented:
   `scripts/install_raspberry_pi.sh`, so a Pi can install the DJConnect app from
   the public distribution tarball without cloning the private source repo.
 - Repo-only OS bootstrap helper `scripts/bootstrap_raspberry_pi_os.sh` handles
-  root filesystem expansion, timezone Amsterdam, SSH, apt full-upgrade,
-  Raspberry Pi Connect, console boot, minimal X11/Qt runtime dependencies and
-  HyperPixel setup. It is intentionally excluded from release tarballs and from
-  the app release cycle.
+  root filesystem expansion, persistent 1GB swapfile setup, timezone Amsterdam,
+  SSH, apt full-upgrade, Raspberry Pi Connect, console boot, minimal X11/Qt
+  runtime dependencies and HyperPixel setup. It is intentionally excluded from
+  release tarballs and from the app release cycle.
 - systemd unit/timer templates
 - release and cleanup scripts
 - Install script targets a prepared Raspberry Pi OS 64-bit image, creates the
@@ -103,6 +103,9 @@ Not implemented by design:
 - If dependency install fails with no space left, rerun the repo-only bootstrap
   so `raspi-config nonint do_expand_rootfs` can grow the root filesystem, reboot
   if needed, and rerun the same release installer command.
+- If dependency install fails with missing/low swap, rerun the repo-only
+  bootstrap so it can create and activate `/swapfile`, then rerun the same
+  release installer command.
 - Keep source and distribution repos separate unless the product decision
   changes: source is `pcvantol/djconnect-pi`, public release assets are in
   `pcvantol/djconnect-pi-releases`.

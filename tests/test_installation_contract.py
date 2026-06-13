@@ -111,6 +111,12 @@ def test_repo_only_os_bootstrap_targets_lite_with_minimal_kiosk_runtime() -> Non
     assert "DJCONNECT_TIMEZONE" in script
     assert "Europe/Amsterdam" in script
     assert "raspi-config nonint do_expand_rootfs" in script
+    assert "DJCONNECT_SWAPFILE" in script
+    assert "DJCONNECT_SWAP_MB" in script
+    assert "mkswap" in script
+    assert "swapon" in script
+    assert "/etc/fstab" in script
+    assert "/swapfile" in script
     assert "raspi-config nonint do_ssh 0" in script
     assert "apt-get -y full-upgrade" in script
     assert "locales" in script
@@ -211,6 +217,17 @@ def test_install_script_checks_free_space_before_large_dependency_downloads() ->
     assert "Not enough free disk space" in script
     assert "Run the repo bootstrap to expand the root filesystem" in script
     assert "check_free_space" in script.split("download_release", 1)[0]
+
+
+def test_install_script_checks_active_swap_before_large_dependency_downloads() -> None:
+    script = ROOT.joinpath("scripts/install_raspberry_pi.sh").read_text(encoding="utf-8")
+
+    assert "DJCONNECT_MIN_SWAP_MB" in script
+    assert "check_swap" in script
+    assert "SwapTotal" in script
+    assert "Not enough active swap" in script
+    assert "Run the repo bootstrap to configure the 1GB swapfile" in script
+    assert "check_swap" in script.split("download_release", 1)[0]
 
 
 def test_bootstrap_release_download_matches_project_version() -> None:

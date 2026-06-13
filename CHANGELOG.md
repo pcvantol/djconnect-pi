@@ -1,6 +1,6 @@
 # Changelog
 
-## 3.1.22
+## 3.1.23
 
 - Initial Raspberry Pi display-remote scaffold with Qt Quick/QML, fullscreen
   720x720 touch UI, playback controls and app-like DJConnect pairing, status
@@ -61,3 +61,5 @@
 - Added root filesystem expansion to the repo-only Raspberry Pi bootstrap and
   an early free-space check to the release installer so large PySide6 downloads
   fail with a clear recovery message instead of filling the SD card mid-install.
+- Added persistent 1GB swapfile setup to the repo-only bootstrap and an early
+  active-swap requirement check to the release installer.

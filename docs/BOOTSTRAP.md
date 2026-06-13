@@ -25,6 +25,7 @@ Software:
 - systemd
 - Minimal X11/kiosk runtime installed by the bootstrap script; no desktop/GUI
   image is required
+- 1GB active swapfile configured by the bootstrap script
 
 Network:
 
@@ -67,11 +68,12 @@ sudo reboot
 
 The bootstrap helper configures the running system to boot to console
 (`multi-user.target`), expands the root filesystem to fill the SD card, sets
-timezone to `Europe/Amsterdam`, enables SSH, runs an optional apt full-upgrade,
-installs minimal X11/kiosk dependencies, Qt runtime libraries, generates
-`en_GB.UTF-8` and `nl_NL.UTF-8` locales, attempts Raspberry Pi Connect and
-configures HyperPixel. It is intentionally not included in DJConnect Pi release
-tarballs and is not part of the app release cycle.
+timezone to `Europe/Amsterdam`, configures a persistent 1GB swapfile at
+`/swapfile`, enables SSH, runs an optional apt full-upgrade, installs minimal
+X11/kiosk dependencies, Qt runtime libraries, generates `en_GB.UTF-8` and
+`nl_NL.UTF-8` locales, attempts Raspberry Pi Connect and configures HyperPixel.
+It is intentionally not included in DJConnect Pi release tarballs and is not
+part of the app release cycle.
 
 If an earlier bootstrap attempt left apt/dpkg half-configured, repair the
 package state once and rerun the bootstrap:
@@ -153,9 +155,9 @@ completed:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.22.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.23.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.22
+cd djconnect-pi-3.1.23
 sudo ./scripts/install_raspberry_pi.sh
 ```
 
@@ -176,9 +178,9 @@ development checkout:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.22.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.23.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.22
+cd djconnect-pi-3.1.23
 sudo ./scripts/install_raspberry_pi.sh
 ```
 
@@ -205,6 +207,10 @@ unpack step and continues the dependency/systemd steps.
 If the installer reports `No space left on device` or stops with a free-space
 message, rerun the repo-only bootstrap, reboot if root filesystem expansion asks
 for it, and then rerun the same public release install command.
+
+If the installer stops with a swap requirement message, rerun the repo-only
+bootstrap so it can create and activate `/swapfile`, then rerun the same public
+release install command.
 
 For a development checkout on the Pi, update the checkout first and then run the
 installer from that checkout. If you need to re-apply OS bootstrap work, run the

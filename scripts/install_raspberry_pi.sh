@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DJCONNECT_VERSION="${DJCONNECT_VERSION:-3.1.22}"
+DJCONNECT_VERSION="${DJCONNECT_VERSION:-3.1.23}"
 DJCONNECT_REPO="${DJCONNECT_REPO:-pcvantol/djconnect-pi-releases}"
 DJCONNECT_HA_URL="${DJCONNECT_HA_URL:-http://homeassistant.local:8123}"
 DJCONNECT_RUNTIME_USER="${DJCONNECT_RUNTIME_USER:-djconnect}"
@@ -9,6 +9,7 @@ DJCONNECT_ROOT="${DJCONNECT_ROOT:-/opt/djconnect}"
 DJCONNECT_INSTALL_STATE="${DJCONNECT_INSTALL_STATE:-${DJCONNECT_ROOT}/install-state}"
 DJCONNECT_PIP_CACHE="${DJCONNECT_PIP_CACHE:-/var/cache/djconnect-pip}"
 DJCONNECT_MIN_FREE_MB="${DJCONNECT_MIN_FREE_MB:-1800}"
+DJCONNECT_MIN_SWAP_MB="${DJCONNECT_MIN_SWAP_MB:-1000}"
 
 if [[ -f /etc/default/locale ]]; then
   # shellcheck disable=SC1091
@@ -34,11 +35,13 @@ Environment:
   DJCONNECT_INSTALL_STATE=/opt/djconnect/install-state
   DJCONNECT_PIP_CACHE=/var/cache/djconnect-pip
   DJCONNECT_MIN_FREE_MB=1800
+  DJCONNECT_MIN_SWAP_MB=1000
 
 This installs or updates the DJConnect Pi application only:
 - creates/updates the dedicated runtime user and /opt/djconnect layout
 - downloads and verifies the selected public DJConnect Pi release
 - resumes completed install steps after an interrupted run or reboot
+- checks disk and swap requirements before large PySide6 downloads
 - preserves existing pairing/configuration
 - installs/refreshes the local Client API, frontend, updater, maintenance and
   night screen schedule systemd units
@@ -123,6 +126,19 @@ check_free_space() {
   if [[ -n "$cache_free" && "$cache_free" -lt "$required" ]]; then
     echo "Not enough free disk space for pip cache at ${DJCONNECT_PIP_CACHE}: ${cache_free} MB available, ${required} MB required." >&2
     echo "Run the repo bootstrap to expand the root filesystem, reboot if requested, then rerun this installer." >&2
+    exit 1
+  fi
+}
+
+check_swap() {
+  log "Checking active swap"
+  local required_kb=$((DJCONNECT_MIN_SWAP_MB * 1024))
+  local swap_total_kb
+  swap_total_kb="$(awk '/^SwapTotal:/ {print $2}' /proc/meminfo)"
+
+  if [[ -z "$swap_total_kb" || "$swap_total_kb" -lt "$required_kb" ]]; then
+    echo "Not enough active swap for DJConnect install: $((swap_total_kb / 1024)) MB available, ${DJCONNECT_MIN_SWAP_MB} MB required." >&2
+    echo "Run the repo bootstrap to configure the 1GB swapfile, reboot if requested, then rerun this installer." >&2
     exit 1
   fi
 }
@@ -237,7 +253,7 @@ payload = {
     "device_name": "DJConnect Pi",
     "device_token": "",
     "paired": False,
-    "version": "3.1.22",
+    "version": "3.1.23",
     "update_repo": "pcvantol/djconnect-pi-releases",
     "update_channel": "stable",
     "screen_timeout_seconds": 120,
@@ -274,6 +290,7 @@ main() {
   check_os_baseline
   create_runtime_user
   check_free_space
+  check_swap
   download_release
   install_python_dependencies
   activate_release
