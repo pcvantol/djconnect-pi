@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DJCONNECT_VERSION="${DJCONNECT_VERSION:-3.1.36}"
+DJCONNECT_VERSION="${DJCONNECT_VERSION:-3.1.37}"
 DJCONNECT_REPO="${DJCONNECT_REPO:-pcvantol/djconnect-pi-releases}"
 DJCONNECT_HA_URL="${DJCONNECT_HA_URL:-http://homeassistant.local:8123}"
 DJCONNECT_RUNTIME_USER="${DJCONNECT_RUNTIME_USER:-djconnect}"
@@ -385,7 +385,7 @@ payload = {
     "device_name": "DJConnect Pi",
     "device_token": "",
     "paired": False,
-    "version": "3.1.36",
+    "version": "3.1.37",
     "update_repo": "pcvantol/djconnect-pi-releases",
     "update_channel": "stable",
     "screen_timeout_seconds": 120,
@@ -406,6 +406,7 @@ install_systemd_units() {
   log "Installing systemd units"
   print_resources "before systemd install"
   configure_xwrapper
+  configure_reboot_sudoers
   cp "${DJCONNECT_ROOT}/current/systemd/"*.service /etc/systemd/system/
   cp "${DJCONNECT_ROOT}/current/systemd/"*.timer /etc/systemd/system/
   systemctl daemon-reload
@@ -418,6 +419,21 @@ install_systemd_units() {
   systemctl enable --now djconnect-screen-off.timer
   systemctl enable --now djconnect-screen-on.timer
   print_resources "after systemd install"
+}
+
+configure_reboot_sudoers() {
+  local sudoers_dir="/etc/sudoers.d"
+  local sudoers_file="${sudoers_dir}/djconnect-reboot"
+
+  if [[ ! -d "$sudoers_dir" ]]; then
+    echo "Warning: ${sudoers_dir} does not exist; reboot button may require system policy configuration." >&2
+    return
+  fi
+
+  cat >"$sudoers_file" <<EOF
+${DJCONNECT_RUNTIME_USER} ALL=(root) NOPASSWD: /usr/bin/systemctl reboot, /bin/systemctl reboot
+EOF
+  chmod 0440 "$sudoers_file"
 }
 
 configure_xwrapper() {

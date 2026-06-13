@@ -58,9 +58,9 @@ def test_backend_monkey_reboot_and_quit_are_safe(tmp_path: Path, monkeypatch) ->
     ensure_app()
     backend = DJConnectBackend(tmp_path / "config.json")
 
-    with patch("djconnect_pi.app.subprocess.Popen") as popen:
+    with patch("djconnect_pi.app.subprocess.run") as run:
         backend.rebootDevice()
-    popen.assert_called_once_with(["systemctl", "reboot"])
+    run.assert_called_once_with(["systemctl", "reboot"], check=True, timeout=5)
 
     app = Mock()
     with patch("djconnect_pi.app.QCoreApplication.instance", return_value=app):

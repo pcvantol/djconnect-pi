@@ -20,6 +20,9 @@ Responsibilities:
 - display DJ response text pushed by Home Assistant
 - show startup splash, blocking pairing and local demo mode
 - blank the rendered screen after the configured timeout and wake on tap
+- consume touch input on modal overlays so underlying settings controls cannot
+  receive taps while logs, about, pairing, version mismatch or confirmation
+  screens are visible
 
 The app split is:
 
@@ -45,6 +48,8 @@ Responsibilities:
 - advertise `device_id`, `client_type=raspberry_pi`, `version`,
   `device_name` and `local_url` through mDNS
 - reject oversized HTTP request bodies
+- reload the shared config before serving info/pairing-info or accepting local
+  pairing so reset-pairing code rotation is reflected immediately
 
 ## Updater
 
@@ -68,6 +73,11 @@ deleted.
 Python dependencies are installed from the bundled wheel using pip cache and
 temporary files under `/var/cache/djconnect-pip`, matching the manual installer
 so large wheels do not consume the default temporary filesystem.
+
+The normal release closeout is to run `./cleanup_old_releases.sh --keep 1
+--public --execute` after the source and public distribution releases have been
+published. That removes old private releases/tags, old public distribution
+releases/tags and completed tag workflow runs.
 
 The source repo publishes release assets to the public distribution repo through
 `.github/workflows/publish-release.yml` on `vX.Y.Z` tags. The workflow needs a
@@ -102,7 +112,7 @@ The Pi client is an app-like DJConnect client.
   "device_id": "djconnect-raspberry-pi-XXXXXXXXXXXX",
   "device_name": "DJConnect Pi",
   "client_type": "raspberry_pi",
-  "version": "3.1.36",
+  "version": "3.1.37",
   "capabilities": {
     "touch": true,
     "voice": false,
@@ -117,6 +127,10 @@ Runtime traffic uses:
 - `POST /api/djconnect/pair`
 - `POST /api/djconnect/status`
 - `POST /api/djconnect/command`
+
+Pairing, status and command payloads all include the stable `device_id` and
+`client_type=raspberry_pi`. Command payloads also include the command name and
+any command-specific value fields.
 
 HA responses may include `ha_version` or `ha_major_minor`. The Pi enforces
 major/minor compatibility: client `3.1.z` accepts HA `>=3.1.0` and `<3.2.0`.

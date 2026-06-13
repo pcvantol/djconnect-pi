@@ -14,8 +14,14 @@ Implemented:
 - `client_type: raspberry_pi`
 - Stable device ID prefix `djconnect-raspberry-pi-`
 - Pair/status/command calls to the Home Assistant DJConnect API
+- Pair/status/command payloads include `client_type: raspberry_pi`; command
+  payloads must not regress to command-only bodies because HA validates the
+  client family.
 - Separate `djconnect-pi-api` daemon for HA -> Pi pairing, command, forget and
   text DJ response
+- The local API daemon reloads shared config before serving info/pairing-info
+  and before local pairing, so reset-pairing code rotation is immediately
+  visible to HA mDNS discovery/config-flow.
 - `_djconnect._tcp` mDNS advertisement from `djconnect-api.service`
 - Full-screen startup splash with DJConnect banner and spinner
 - Blocking first-run pairing screen with Client API URL and pairing code input
@@ -34,6 +40,11 @@ Implemented:
 - Configurable screen blanking from the touch settings panel. Default is 120
   seconds and tap wakes the rendered screen.
 - Configurable app-level brightness from the touch settings panel
+- Settings shows "Instellingen", has a red "Opnieuw koppelen" action with a
+  confirmation screen, a "Logs" button, no local Close button and a reboot
+  button.
+- Full-screen QML overlays consume touch input so underlying controls cannot be
+  activated through logs/about/pairing/version/confirmation screens.
 - Local language setting. First value comes from Raspberry Pi OS locale, not
   Home Assistant pairing provisioning.
 - Dutch/English translations are kept in `src/djconnect_pi/i18n.py`; tests
@@ -58,6 +69,9 @@ Implemented:
   release tarballs and from the app release cycle.
 - systemd unit/timer templates
 - release and cleanup scripts
+- Standard release closeout should also run
+  `./cleanup_old_releases.sh --keep 1 --public --execute` to clean old private
+  and public releases/tags plus completed tag workflow runs.
 - Install script targets a prepared Raspberry Pi OS 64-bit image, creates the
   runtime user, downloads the public release, installs the bundled wheel and
   dependencies inside the release venv, starts the local API daemon, and starts
@@ -68,6 +82,9 @@ Implemented:
 - Install script is intended to be re-runnable for manual software updates. It
   keeps existing config, refreshes release files and systemd units, and restarts
   `djconnect-api.service` plus `djconnect-client.service`.
+- Install script writes `/etc/sudoers.d/djconnect-reboot` with a narrow
+  passwordless rule for the runtime user to run only `systemctl reboot`, used by
+  the touch UI reboot button.
 - The unattended updater now mirrors the release installer path for public
   tarballs: it strips the top-level archive directory, installs the bundled
   wheel into `.venv`, validates all `djconnect-pi-*` console entrypoints and
@@ -104,6 +121,8 @@ Not implemented by design:
   ignore explicit `ha_version` or `ha_major_minor` mismatches.
 - Do not add voice/audio response features unless the product decision changes.
 - Keep updater and OS maintenance separate from the UI process.
+- Keep release cleanup as a default post-release action, not an optional extra,
+  unless the user explicitly asks to keep old releases.
 - Keep the local Client API separate from the UI process. The UI must not host
   the HTTP API or mDNS service; `djconnect-api.service` owns that.
 - Keep unattended updates atomic under `/opt/djconnect/releases`.
@@ -145,6 +164,9 @@ Not implemented by design:
   overlay; OS-level DPMS control is not yet wired.
 - Brightness is implemented as QML dimming; hardware backlight control still
   needs HyperPixel validation before using sysfs or DRM controls.
+- Performance follow-up candidates: reduce HA polling when idle, avoid
+  unnecessary Canvas repaints, keep album art cache bounded, cap log rendering
+  size for the touch viewer, and profile PySide6 memory/CPU on the Pi Zero 2 W.
 - When changing protocol behavior, sync `SYNC_PROMPTS.md` across all five repos.
 
 ## Verification So Far

@@ -82,7 +82,7 @@ class HAClient:
         return data
 
     def command(self, command: str, **payload: Any) -> dict[str, Any]:
-        body = {"command": command, **payload}
+        body = self._base_payload(command=command, **payload)
         url = self._url("/api/djconnect/command")
         _LOGGER.debug("POST %s command=%s payload_keys=%s", url, command, sorted(payload))
         response = requests.post(

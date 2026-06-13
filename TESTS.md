@@ -24,10 +24,13 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 - config creation, persistence and device ID backfill
 - Dutch/English translation key parity and selected user-facing copy checks
 - Home Assistant pairing/status/command payloads
+- Home Assistant command payloads include `device_id` and
+  `client_type=raspberry_pi`
 - local Client API info, pairing-info, pair, command, DJ response auth and mDNS
   TXT properties
 - separate Client API daemon event bridge for DJ responses
 - installer/systemd contract for separate API and touch UI services
+- installer contract for the narrow reboot sudoers rule used by the touch UI
 - release bundle contract for including docs, systemd units, `scripts/install.sh`
   and a bundled wheel without the loose `src/` app source tree
 - repo-only OS bootstrap contract for Raspberry Pi OS Lite 64-bit, modern
@@ -55,6 +58,8 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 - bundled QML files and offscreen QML load
 - startup splash, blocking pairing screen, tap-to-wake blanking and toast QML
   contract checks
+- modal overlay touch-blocking, settings reset-pairing confirmation and About
+  full-width website contract checks
 - generated six-digit pairing code persistence and `/api/device/pairing-info`
   aliases
 - dark DJConnect blue/purple gradient QML theme contract checks

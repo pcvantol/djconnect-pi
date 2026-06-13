@@ -22,6 +22,8 @@ def test_install_script_enables_local_api_service() -> None:
     assert "systemctl enable djconnect-client.service" in script
     assert "systemctl restart djconnect-api.service" in script
     assert "systemctl restart djconnect-client.service" in script
+    assert "djconnect-reboot" in script
+    assert "NOPASSWD: /usr/bin/systemctl reboot, /bin/systemctl reboot" in script
     assert "Local Client API starts automatically via djconnect-api.service." in script
 
 
@@ -81,10 +83,13 @@ def test_cleanup_script_removes_completed_actions_runs_for_deleted_tags() -> Non
     script = ROOT.joinpath("cleanup_old_releases.sh").read_text(encoding="utf-8")
 
     assert "--skip-actions" in script
+    assert "--public" in script
+    assert "pcvantol/djconnect-pi-releases" in script
     assert 'gh run list' in script
     assert '--branch "$tag"' in script
     assert "--status completed" in script
     assert 'gh run delete "$run_id"' in script
+    assert 'gh release delete "$tag" --repo "$PUBLIC_REPO" --yes' in script
 
 
 def test_release_assets_include_installation_materials() -> None:

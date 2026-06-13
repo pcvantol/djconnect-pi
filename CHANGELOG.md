@@ -1,7 +1,26 @@
 # Changelog
 
-## 3.1.36
+## 3.1.37
 
+- Fixed Home Assistant command payloads to always include the stable
+  `device_id` and `client_type=raspberry_pi`, resolving HA `invalid_client_type`
+  responses during refresh/status commands.
+- Fixed stale pairing-code behavior after "Opnieuw koppelen" by making the
+  local API daemon reload shared config before info/pairing-info and local
+  pairing requests.
+- Added a macOS-style confirmation screen for "Opnieuw koppelen" and made the
+  settings reset-pairing action red.
+- Renamed the settings title to "Instellingen", renamed "Logs bekijken" to
+  "Logs" and removed the settings Close button.
+- Made full-screen overlays consume touch input so controls on underlying
+  screens cannot be tapped through logs, about, pairing, version mismatch or
+  confirmation screens.
+- Made the touch reboot action fall back to `sudo -n systemctl reboot` and made
+  the installer write a narrow sudoers rule for only `systemctl reboot`.
+- Updated the About screen to use the full available width and show
+  `https://djconnect.dev` in white.
+- Extended release cleanup tooling so normal release closeout can also clean
+  old public distribution releases/tags with `--public`.
 - Updated the touch UI kiosk branding to show `DJConnect` everywhere, use the
   real bundled app icon, remove visible close buttons and ignore stale persisted
   config versions in favor of the runtime package version.

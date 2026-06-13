@@ -521,12 +521,19 @@ class DJConnectBackend(QObject):
 
     @Slot()
     def rebootDevice(self) -> None:
+        _LOGGER.info("User requested device reboot from touch UI")
         self._set_status_text(self.tr_key("rebooting"))
-        try:
-            subprocess.Popen(["systemctl", "reboot"])
-        except Exception as exc:
-            _LOGGER.warning("Reboot request failed: %s", exc)
-            self._set_status_text(self.tr_key("reboot_failed", error=exc))
+        commands = (["systemctl", "reboot"], ["sudo", "-n", "systemctl", "reboot"])
+        last_error: Exception | None = None
+        for command in commands:
+            try:
+                _LOGGER.info("Starting reboot command: %s", " ".join(command))
+                subprocess.run(command, check=True, timeout=5)
+                return
+            except Exception as exc:
+                last_error = exc
+                _LOGGER.warning("Reboot command failed: %s: %s", " ".join(command), exc)
+        self._set_status_text(self.tr_key("reboot_failed", error=last_error))
 
     @Slot()
     def showLogs(self) -> None:

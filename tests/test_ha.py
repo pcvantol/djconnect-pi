@@ -90,7 +90,10 @@ def test_command_posts_generic_command_payload() -> None:
         result = client.command("set_volume", value=42)
 
     assert captured["url"] == "http://ha/api/djconnect/command"
-    assert captured["json"] == {"command": "set_volume", "value": 42}
+    assert captured["json"]["command"] == "set_volume"
+    assert captured["json"]["value"] == 42
+    assert captured["json"]["device_id"] == "djconnect-raspberry-pi-ABCDEF123456"
+    assert captured["json"]["client_type"] == "raspberry_pi"
     assert result["playback"]["title"] == "Song"
 
 

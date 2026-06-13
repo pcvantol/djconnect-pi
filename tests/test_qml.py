@@ -64,6 +64,8 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     games_qml = qml_root.joinpath("GamesPanel.qml").read_text(encoding="utf-8")
 
     assert "component PurpleButton" in main_qml
+    assert "component DangerButton" in main_qml
+    assert "component ModalBlocker" in main_qml
     assert "component PlaybackButton" in main_qml
     assert "component IconButton" in main_qml
     assert "component MediaListPanel" in main_qml
@@ -77,6 +79,13 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "root.brightnessOverlayOpacity" in main_qml
     assert "z: 200" in main_qml
     assert 'djconnect.t("about")' in main_qml
+    assert "aboutScroll.availableWidth" in main_qml
+    assert 'text: "https://djconnect.dev"' in main_qml
+    assert 'djconnect.t("reset_pairing_confirm_title")' in main_qml
+    assert 'djconnect.t("reset_pairing_confirm_message")' in main_qml
+    assert 'djconnect.t("cancel")' in main_qml
+    assert "root.resetPairingConfirmOpen = true" in main_qml
+    assert "ModalBlocker {}" in main_qml
     assert 'djconnect.t("queue")' in main_qml
     assert 'djconnect.t("playlists")' in main_qml
     assert "djconnect.queueItems" in main_qml

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import json
+import subprocess
 from unittest.mock import Mock, patch
 
 from PySide6.QtCore import QCoreApplication
@@ -282,6 +283,22 @@ def test_backend_toast_can_be_shown_and_hidden(tmp_path: Path) -> None:
 
     assert backend.toastVisible is False
     assert backend.toastText == ""
+
+
+def test_backend_reboot_falls_back_to_passwordless_sudo(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    calls: list[list[str]] = []
+
+    def fake_run(command: list[str], **_kwargs: object) -> None:
+        calls.append(command)
+        if command == ["systemctl", "reboot"]:
+            raise subprocess.CalledProcessError(1, command)
+
+    with patch("djconnect_pi.app.subprocess.run", side_effect=fake_run):
+        backend.rebootDevice()
+
+    assert calls == [["systemctl", "reboot"], ["sudo", "-n", "systemctl", "reboot"]]
 
 
 def test_backend_version_mismatch_blocks_ui_and_triggers_update(tmp_path: Path) -> None:

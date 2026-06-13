@@ -18,6 +18,7 @@ Window {
     property bool settingsOpen: activeScreen === "settings"
     property bool gamesOpen: activeScreen === "games"
     property bool aboutOpen: false
+    property bool resetPairingConfirmOpen: false
     property bool screenBlanked: djconnect.screenTimeoutSeconds > 0 && !idleTimer.running
     property real brightnessOverlayOpacity: root.screenBlanked ? 0 : 1 - (djconnect.screenBrightnessPercent / 100.0)
 
@@ -84,6 +85,38 @@ Window {
             scale: control.down ? 0.96 : 1.0
             Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutCubic } }
         }
+    }
+
+    component DangerButton: Button {
+        id: control
+
+        font.pixelSize: 24
+        font.bold: true
+        contentItem: Text {
+            text: control.text
+            font: control.font
+            color: "#ff3128"
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+            elide: Text.ElideRight
+        }
+        background: Rectangle {
+            radius: 28
+            color: control.down ? "#8d2a35" : "#682632"
+            opacity: control.down ? 0.82 : 1.0
+        }
+    }
+
+    component ModalBlocker: MouseArea {
+        anchors.fill: parent
+        acceptedButtons: Qt.AllButtons
+        hoverEnabled: true
+        preventStealing: true
+        propagateComposedEvents: false
+        onClicked: mouse.accepted = true
+        onPressed: mouse.accepted = true
+        onReleased: mouse.accepted = true
+        onWheel: wheel.accepted = true
     }
 
     component IconButton: Button {
@@ -229,6 +262,8 @@ Window {
         anchors.fill: parent
         color: "#e6070b16"
         z: 16
+
+        ModalBlocker {}
 
         ColumnLayout {
             anchors.fill: parent
@@ -899,44 +934,37 @@ Window {
             }
 
             PurpleButton {
-                text: djconnect.t("close")
+                text: djconnect.t("view_logs")
                 font.pixelSize: 24
                 Layout.fillWidth: true
-                Layout.preferredHeight: 56
-                onClicked: root.activeScreen = "now"
+                Layout.preferredHeight: 58
+                onClicked: djconnect.showLogs()
             }
 
             RowLayout {
                 Layout.fillWidth: true
                 spacing: 12
 
-                PurpleButton {
-                    text: djconnect.t("view_logs")
+                DangerButton {
+                    text: djconnect.t("reset_pairing")
                     Layout.fillWidth: true
-                    onClicked: djconnect.showLogs()
+                    Layout.preferredHeight: 58
+                    onClicked: root.resetPairingConfirmOpen = true
                 }
 
                 PurpleButton {
                     text: djconnect.t("about")
                     Layout.fillWidth: true
+                    Layout.preferredHeight: 58
                     onClicked: root.aboutOpen = true
-                }
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 12
-
-                PurpleButton {
-                    text: djconnect.t("reset_pairing")
-                    Layout.fillWidth: true
-                    onClicked: djconnect.resetPairing()
                 }
             }
 
             PurpleButton {
                 text: djconnect.t("reboot_device")
+                font.pixelSize: 24
                 Layout.fillWidth: true
+                Layout.preferredHeight: 58
                 onClicked: djconnect.rebootDevice()
             }
 
@@ -1053,6 +1081,8 @@ Window {
         color: "#e6070b16"
         visible: !root.splashVisible && !djconnect.paired && !djconnect.demoMode
         z: 30
+
+        ModalBlocker {}
 
         ColumnLayout {
             anchors.centerIn: parent
@@ -1228,6 +1258,8 @@ Window {
         visible: !root.splashVisible && djconnect.pairingSuccessVisible
         z: 34
 
+        ModalBlocker {}
+
         ColumnLayout {
             anchors.centerIn: parent
             width: Math.min(parent.width - 40, 640)
@@ -1352,6 +1384,8 @@ Window {
         visible: root.splashVisible
         z: 40
 
+        ModalBlocker {}
+
         Rectangle {
             anchors.centerIn: parent
             width: Math.min(parent.width - 64, 560)
@@ -1452,6 +1486,8 @@ Window {
         visible: !root.splashVisible && djconnect.versionMismatchVisible
         z: 60
 
+        ModalBlocker {}
+
         ColumnLayout {
             anchors.centerIn: parent
             width: Math.min(parent.width - 72, 560)
@@ -1511,6 +1547,8 @@ Window {
         color: "#f2070b16"
         visible: djconnect.logsVisible
         z: 80
+
+        ModalBlocker {}
 
         ColumnLayout {
             anchors.fill: parent
@@ -1580,18 +1618,86 @@ Window {
     }
 
     Rectangle {
+        id: resetPairingConfirmPanel
+        anchors.fill: parent
+        color: "#cc070b16"
+        visible: root.resetPairingConfirmOpen
+        z: 84
+
+        ModalBlocker {}
+
+        Rectangle {
+            anchors.centerIn: parent
+            width: Math.min(parent.width - 48, 520)
+            radius: 8
+            color: "#f0151020"
+            border.color: "#47345d"
+            border.width: 1
+
+            implicitHeight: confirmContent.implicitHeight + 44
+
+            ColumnLayout {
+                id: confirmContent
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.margins: 22
+                spacing: 18
+
+                Text {
+                    text: djconnect.t("reset_pairing_confirm_title")
+                    color: "#ffffff"
+                    font.pixelSize: 28
+                    font.bold: true
+                    Layout.fillWidth: true
+                }
+
+                Text {
+                    text: djconnect.t("reset_pairing_confirm_message")
+                    color: "#f4f0ff"
+                    font.pixelSize: 24
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+
+                DangerButton {
+                    text: djconnect.t("reset_pairing")
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 56
+                    onClicked: {
+                        root.resetPairingConfirmOpen = false
+                        djconnect.resetPairing()
+                        root.activeScreen = "now"
+                    }
+                }
+
+                PurpleButton {
+                    text: djconnect.t("cancel")
+                    font.pixelSize: 24
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 56
+                    onClicked: root.resetPairingConfirmOpen = false
+                }
+            }
+        }
+    }
+
+    Rectangle {
         anchors.fill: parent
         color: "#f2070b16"
         visible: root.aboutOpen
         z: 82
 
+        ModalBlocker {}
+
         ScrollView {
+            id: aboutScroll
             anchors.fill: parent
             anchors.margins: 22
             clip: true
 
             ColumnLayout {
-                width: parent.width
+                width: Math.max(0, aboutScroll.availableWidth)
                 spacing: 18
 
                 Rectangle {
@@ -1658,7 +1764,7 @@ Window {
                     Text { text: djconnect.t("device_name"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
                     Text { text: "DJConnect"; color: "#ffffff"; font.pixelSize: 20; Layout.fillWidth: true }
                     Text { text: djconnect.t("website"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
-                    Text { text: "https://djconnect.pages.dev"; color: "#f044ff"; font.pixelSize: 20; Layout.fillWidth: true; elide: Text.ElideRight }
+                    Text { text: "https://djconnect.dev"; color: "#ffffff"; font.pixelSize: 20; Layout.fillWidth: true; elide: Text.ElideRight }
                     Text { text: djconnect.t("device_id"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
                     Text { text: djconnect.deviceId; color: "#ffffff"; font.pixelSize: 18; Layout.fillWidth: true; elide: Text.ElideMiddle }
                 }

@@ -4,7 +4,7 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  ./cleanup_old_releases.sh [--keep N] [--execute] [--skip-actions]
+  ./cleanup_old_releases.sh [--keep N] [--execute] [--skip-actions] [--public]
 
 Examples:
   ./cleanup_old_releases.sh
@@ -13,12 +13,15 @@ Examples:
 By default this is a dry-run. It keeps the newest semantic-version tags/releases
 and deletes older matching vX.Y.Z GitHub releases, remote tags, local tags and
 completed GitHub Actions runs for those tags only when --execute is passed.
+Use --public to also clean pcvantol/djconnect-pi-releases releases/tags.
 EOF
 }
 
 KEEP=1
 EXECUTE=false
 CLEAN_ACTIONS=true
+CLEAN_PUBLIC=false
+PUBLIC_REPO="pcvantol/djconnect-pi-releases"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -36,6 +39,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --skip-actions)
       CLEAN_ACTIONS=false
+      shift
+      ;;
+    --public)
+      CLEAN_PUBLIC=true
       shift
       ;;
     -h|--help)
@@ -97,6 +104,42 @@ delete_action_runs_for_tag() {
   done
 }
 
+cleanup_public_repo() {
+  if [[ "$CLEAN_PUBLIC" != true ]]; then
+    return
+  fi
+
+  mapfile -t public_tags < <(
+    gh release list \
+      --repo "$PUBLIC_REPO" \
+      --limit 100 \
+      --json tagName \
+      --jq '.[].tagName' \
+      | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+      | sort -V -r
+  )
+
+  if [[ "${#public_tags[@]}" -le "$KEEP" ]]; then
+    echo "Public distribution repo has nothing to delete."
+    return
+  fi
+
+  local delete_public_tags=("${public_tags[@]:KEEP}")
+  echo
+  if [[ "$EXECUTE" == true ]]; then
+    echo "Deleting old public distribution releases/tags:"
+  else
+    echo "Dry-run. Would delete old public distribution releases/tags:"
+  fi
+  printf '  %s\n' "${delete_public_tags[@]}"
+  echo
+
+  for tag in "${delete_public_tags[@]}"; do
+    run gh release delete "$tag" --repo "$PUBLIC_REPO" --yes
+    run git push "https://github.com/${PUBLIC_REPO}.git" --delete "$tag"
+  done
+}
+
 mapfile -t TAGS < <(
   git ls-remote --tags --refs origin 'v*' \
     | awk '{print $2}' \
@@ -143,6 +186,8 @@ for tag in "${DELETE_TAGS[@]}"; do
     echo "+ skip missing local tag $tag"
   fi
 done
+
+cleanup_public_repo
 
 if [[ "$EXECUTE" == false ]]; then
   echo

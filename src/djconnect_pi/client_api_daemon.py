@@ -76,7 +76,7 @@ class ClientAPIDaemon:
         return {"success": True, "displayed": True, "audio_played": False, "text": text}
 
     def _paired(self) -> None:
-        save_config(self.config_path, self.cfg)
+        self.cfg = load_config(self.config_path)
         _LOGGER.info("Client API pairing stored for %s", self.cfg.device_id)
 
     def _forgotten(self) -> None:

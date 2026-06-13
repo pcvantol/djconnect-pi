@@ -18,6 +18,9 @@
   HyperPixel backlight at the hardware level.
 - Persistent logs rotate locally, but log retention has not yet been tuned on
   the wall device's SD card.
+- Raspberry Pi Zero 2 W performance still needs a dedicated hardware profiling
+  pass for polling cadence, QML Canvas repaints, log viewer size, album-art
+  cache pressure and PySide6 memory/CPU usage.
 
 ## Closed
 
@@ -26,3 +29,8 @@
 - HyperPixel boot/display configuration validated on the Pi Zero 2 W with the
   modern `vc4-kms-dpi-hyperpixel4sq` overlay.
 - Dutch/English translation parity reviewed and covered by tests.
+- HA `invalid_client_type` during refresh fixed by including
+  `client_type=raspberry_pi` and the stable device ID in command payloads.
+- Stale mDNS pairing code after reset fixed by reloading shared config in the
+  local API daemon before pairing-info and local pair requests.
+- Full-screen overlay tap-through fixed by adding modal touch blockers.

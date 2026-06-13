@@ -10,7 +10,7 @@ import pytest
 
 from djconnect_pi.client_api import ClientAPI, ClientAPIState, MAX_REQUEST_BYTES, _mdns_properties
 from djconnect_pi.client_api import ClientAPIHandler
-from djconnect_pi.config import Config
+from djconnect_pi.config import Config, load_config, save_config
 
 
 def start_api(tmp_path: Path) -> tuple[ClientAPI, Config, list[str]]:
@@ -92,6 +92,7 @@ def test_mdns_properties_include_ha_discovery_fields() -> None:
 
 def test_client_api_pair_stores_token_and_ha_url(tmp_path: Path) -> None:
     api, cfg, events = start_api(tmp_path)
+    config_path = tmp_path / "config.json"
     try:
         response = requests.post(
             f"{cfg.local_url}/api/device/pair",
@@ -101,11 +102,28 @@ def test_client_api_pair_stores_token_and_ha_url(tmp_path: Path) -> None:
     finally:
         api.stop()
 
+    saved = load_config(config_path)
     assert response.status_code == 200
-    assert cfg.device_token == "token-1"
-    assert cfg.ha_url == "http://ha:8123"
-    assert cfg.paired is True
+    assert saved.device_token == "token-1"
+    assert saved.ha_url == "http://ha:8123"
+    assert saved.paired is True
     assert "paired" in events
+
+
+def test_client_api_pairing_info_reloads_rotated_pairing_code(tmp_path: Path) -> None:
+    api, cfg, _events = start_api(tmp_path)
+    config_path = tmp_path / "config.json"
+    updated = load_config(config_path)
+    updated.pairing_code = "654321"
+    save_config(config_path, updated)
+    try:
+        pairing = requests.get(f"{cfg.local_url}/api/device/pairing-info", timeout=3).json()
+    finally:
+        api.stop()
+
+    assert pairing["pair_code"] == "654321"
+    assert pairing["pairing_code"] == "654321"
+    assert pairing["pairing_token"] == "654321"
 
 
 def test_client_api_requires_auth_for_dj_response(tmp_path: Path) -> None:

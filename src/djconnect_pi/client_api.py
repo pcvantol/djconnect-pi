@@ -8,7 +8,7 @@ import logging
 import socket
 import threading
 
-from .config import CLIENT_TYPE, Config, save_config
+from .config import CLIENT_TYPE, Config, load_config, save_config
 
 try:
     from zeroconf import ServiceInfo, Zeroconf
@@ -39,6 +39,9 @@ class ClientAPIState:
         self.dj_response_handler = dj_response_handler
         self.pair_handler = pair_handler
         self.forget_handler = forget_handler
+
+    def reload_config(self) -> None:
+        self.cfg = load_config(self.config_path)
 
 
 class ClientAPIHandler(BaseHTTPRequestHandler):
@@ -95,6 +98,7 @@ class ClientAPIHandler(BaseHTTPRequestHandler):
         self._write_json({"success": False, "error": "not_found"}, HTTPStatus.NOT_FOUND)
 
     def _handle_pair(self, payload: dict[str, Any]) -> None:
+        self.server.state.reload_config()
         token = str(payload.get("device_token") or payload.get("token") or payload.get("bearer_token") or "").strip()
         ha_url = str(payload.get("ha_local_url") or payload.get("ha_url") or "").strip()
         if not token or not ha_url:
@@ -111,6 +115,7 @@ class ClientAPIHandler(BaseHTTPRequestHandler):
         self._write_json({"success": True, "device_id": cfg.device_id, "client_type": CLIENT_TYPE})
 
     def _info(self) -> dict[str, Any]:
+        self.server.state.reload_config()
         cfg = self.server.state.cfg
         playback = self.server.state.playback_provider()
         return {

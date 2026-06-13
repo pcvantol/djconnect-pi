@@ -1,6 +1,6 @@
 # DJConnect Pi
 
-Version: `3.1.36`
+Version: `3.1.37`
 
 Raspberry Pi Zero 2 W touch-display client for DJConnect. This client uses
 Qt Quick/QML with a PySide6 backend and is meant for a Pimoroni HyperPixel 4.0
@@ -55,7 +55,7 @@ The app is a 720x720 fullscreen touch remote:
 - dark DJConnect visual theme with blue/purple gradient backgrounds
 - blocking first-run pairing screen until the client is paired
 - blocking version-mismatch screen when HA and Pi versions are incompatible
-- pairing screen shows the local Client API URL and pairing code input
+- pairing screen shows the local Client API URL and pairing code
 - album art area / status area in the center
 - large play/pause button
 - previous/next buttons left and right
@@ -63,7 +63,8 @@ The app is a 720x720 fullscreen touch remote:
 - shuffle and repeat toggles
 - fixed bottom menu bar for Now Playing, Games and Settings
 - compact HA/pairing/backend status
-- settings for screen blanking, brightness, language and stable/beta update channel
+- settings for screen blanking, brightness, language, logs, pairing reset,
+  reboot and stable/beta update channel
 - default screen blanking after 2 minutes, with tap-to-wake
 - touch-only local games: Paddle Rally, Meteor Run, Sky Dash and Maze Chase
 - Dutch/English user-facing text, including game labels and fallback playback
@@ -73,7 +74,8 @@ The app is a 720x720 fullscreen touch remote:
 - logs viewer
 - local demo mode before pairing
 - persistent rotating client log
-- small top-corner close button for maintenance sessions
+- full-screen overlays consume touch input so controls behind logs, about,
+  pairing and confirmation screens cannot be accidentally activated
 
 The initial language is detected from the Raspberry Pi OS locale and then stored
 locally. Home Assistant does not provision UI language for Raspberry Pi clients;
@@ -106,9 +108,9 @@ not a private source clone:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.36.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.37.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.36
+cd djconnect-pi-3.1.37
 sudo ./scripts/install.sh
 ```
 
@@ -174,6 +176,17 @@ OS maintenance is also separate. The maintenance command can run apt update,
 upgrade and reboot only when `/var/run/reboot-required` exists, optionally
 inside a configured maintenance window.
 
+The touch UI reboot button uses `systemctl reboot` and falls back to
+`sudo -n systemctl reboot`. The installer writes a narrow sudoers rule for the
+dedicated `djconnect` runtime user that only permits `systemctl reboot`.
+
+After each release, clean old source and public distribution releases/tags plus
+completed tag workflow runs:
+
+```sh
+./cleanup_old_releases.sh --keep 1 --public --execute
+```
+
 See `systemd/` for service and timer templates.
 
 ## Manual Pi Software Update
@@ -185,9 +198,9 @@ installer:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.36.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.37.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.36
+cd djconnect-pi-3.1.37
 sudo ./scripts/install.sh
 ```
 
