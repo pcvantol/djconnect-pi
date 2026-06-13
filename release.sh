@@ -10,8 +10,8 @@ Examples:
   ./release.sh 0.1.0
   ./release.sh v0.1.0 --dry-run
 
-The script updates version metadata, builds a release tarball and sha256 file,
-commits, tags, pushes main and creates a GitHub release.
+The script updates version metadata, builds a wheel-based release tarball and
+sha256 file, commits, tags, pushes main and creates a GitHub release.
 EOF
 }
 
@@ -73,7 +73,7 @@ replacements = {
     "pyproject.toml": [(r'^version = "[^"]+"$', f'version = "{version}"')],
     "src/djconnect_pi/__init__.py": [(r'^__version__ = "[^"]+"$', f'__version__ = "{version}"')],
     "src/djconnect_pi/config.py": [(r'^PROTOCOL_VERSION = "[^"]+"$', f'PROTOCOL_VERSION = "{version}"')],
-    "scripts/install_raspberry_pi.sh": [
+    "scripts/install.sh": [
         (r'^DJCONNECT_VERSION="\$\{DJCONNECT_VERSION:-[^}]+\}"$', f'DJCONNECT_VERSION="${{DJCONNECT_VERSION:-{version}}}"'),
         (r'  DJCONNECT_VERSION=[0-9]+\.[0-9]+\.[0-9]+', f'  DJCONNECT_VERSION={version}'),
         (r'"version": "[^"]+"', f'"version": "{version}"'),
@@ -114,9 +114,11 @@ build_assets() {
   local dist="dist/djconnect-pi-${VERSION}"
   run rm -rf "$dist" "dist/djconnect-pi-${VERSION}.tar.gz" "dist/djconnect-pi-${VERSION}.sha256"
   run mkdir -p "$dist"
-  run cp -R pyproject.toml README.md CHANGELOG.md docs src systemd "$dist/"
+  run cp -R README.md CHANGELOG.md docs systemd "$dist/"
   run mkdir -p "$dist/scripts"
-  run cp scripts/install_raspberry_pi.sh "$dist/scripts/"
+  run cp scripts/install.sh "$dist/scripts/"
+  run mkdir -p "$dist/wheels"
+  run python3 -m pip wheel --no-deps --wheel-dir "$dist/wheels" .
   if [[ "$DRY_RUN" == false ]]; then
     printf '%s\n' "$VERSION" > "$dist/VERSION"
   else

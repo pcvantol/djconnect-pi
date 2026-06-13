@@ -1,6 +1,6 @@
 # Changelog
 
-## 3.1.23
+## 3.1.24
 
 - Initial Raspberry Pi display-remote scaffold with Qt Quick/QML, fullscreen
   720x720 touch UI, playback controls and app-like DJConnect pairing, status
@@ -63,3 +63,9 @@
   fail with a clear recovery message instead of filling the SD card mid-install.
 - Added persistent 1GB swapfile setup to the repo-only bootstrap and an early
   active-swap requirement check to the release installer.
+- Renamed the public app installer to `scripts/install.sh`, added resource
+  snapshots around major install steps, and added prerequisite checks for
+  architecture, Python version, writable paths, GitHub release access and
+  Raspberry Pi thermal/throttling status.
+- Changed public release tarballs to install from a bundled wheel under
+  `wheels/` and stop shipping the loose `src/` app source tree.

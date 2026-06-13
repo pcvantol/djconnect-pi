@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DJCONNECT_VERSION="${DJCONNECT_VERSION:-3.1.23}"
+DJCONNECT_VERSION="${DJCONNECT_VERSION:-3.1.24}"
 DJCONNECT_REPO="${DJCONNECT_REPO:-pcvantol/djconnect-pi-releases}"
 DJCONNECT_HA_URL="${DJCONNECT_HA_URL:-http://homeassistant.local:8123}"
 DJCONNECT_RUNTIME_USER="${DJCONNECT_RUNTIME_USER:-djconnect}"
@@ -21,7 +21,7 @@ export LC_CTYPE="${LC_CTYPE:-${LANG}}"
 usage() {
   cat <<EOF
 Usage:
-  sudo ./scripts/install_raspberry_pi.sh
+  sudo ./scripts/install.sh
 
 Version:
   DJConnect Pi installer for client ${DJCONNECT_VERSION}
@@ -68,6 +68,48 @@ log() {
   printf '\n==> %s\n' "$*"
 }
 
+print_resources() {
+  local label="$1"
+  local mem_available_mb
+  local mem_total_mb
+  local swap_free_mb
+  local swap_total_mb
+
+  mem_available_mb="$(awk '/^MemAvailable:/ {printf "%d", $2 / 1024}' /proc/meminfo 2>/dev/null || true)"
+  mem_total_mb="$(awk '/^MemTotal:/ {printf "%d", $2 / 1024}' /proc/meminfo 2>/dev/null || true)"
+  swap_free_mb="$(awk '/^SwapFree:/ {printf "%d", $2 / 1024}' /proc/meminfo 2>/dev/null || true)"
+  swap_total_mb="$(awk '/^SwapTotal:/ {printf "%d", $2 / 1024}' /proc/meminfo 2>/dev/null || true)"
+  mem_available_mb="${mem_available_mb:-0}"
+  mem_total_mb="${mem_total_mb:-0}"
+  swap_free_mb="${swap_free_mb:-0}"
+  swap_total_mb="${swap_total_mb:-0}"
+
+  printf '\n-- Resources: %s --\n' "$label"
+  printf 'Memory: %s MB available / %s MB total\n' "$mem_available_mb" "$mem_total_mb"
+  printf 'Swap:   %s MB free / %s MB total\n' "$swap_free_mb" "$swap_total_mb"
+  df -h / "$DJCONNECT_ROOT" "$(dirname "$DJCONNECT_PIP_CACHE")" 2>/dev/null | awk 'NR==1 || !seen[$1]++'
+}
+
+print_thermal_status() {
+  if ! command -v vcgencmd >/dev/null 2>&1; then
+    return
+  fi
+
+  local temp
+  local throttled
+  temp="$(vcgencmd measure_temp 2>/dev/null || true)"
+  throttled="$(vcgencmd get_throttled 2>/dev/null || true)"
+  if [[ -n "$temp" ]]; then
+    echo "Thermal: ${temp}"
+  fi
+  if [[ -n "$throttled" ]]; then
+    echo "Throttle: ${throttled}"
+    if [[ "$throttled" != "throttled=0x0" ]]; then
+      echo "Warning: Raspberry Pi reports throttling/undervoltage history; cool the Pi and check power before heavy installs." >&2
+    fi
+  fi
+}
+
 version() {
   printf '%s\n' "${DJCONNECT_VERSION#v}"
 }
@@ -87,8 +129,10 @@ mark_done() {
 
 check_runtime_dependencies() {
   log "Checking DJConnect installer dependencies"
+  print_resources "before dependency check"
+  print_thermal_status
   local missing=()
-  for command_name in curl shasum tar python3 systemctl useradd install; do
+  for command_name in curl find shasum tar python3 systemctl useradd install; do
     if ! command -v "$command_name" >/dev/null 2>&1; then
       missing+=("$command_name")
     fi
@@ -105,8 +149,61 @@ check_runtime_dependencies() {
   fi
 }
 
+check_cpu_architecture() {
+  log "Checking CPU architecture"
+  print_resources "before architecture check"
+  local machine
+  machine="$(uname -m)"
+  case "$machine" in
+    aarch64|arm64)
+      ;;
+    *)
+      echo "Unsupported CPU architecture: ${machine}. DJConnect Pi requires Raspberry Pi OS Lite 64-bit on arm64/aarch64." >&2
+      exit 1
+      ;;
+  esac
+}
+
+check_python_version() {
+  log "Checking Python version"
+  print_resources "before Python version check"
+  python3 - <<'PY'
+import sys
+if sys.version_info < (3, 11):
+    raise SystemExit(f"Python 3.11 or newer is required, found {sys.version.split()[0]}")
+PY
+}
+
+check_writable_paths() {
+  log "Checking writable install paths"
+  print_resources "before writable path check"
+  local path
+  for path in "$DJCONNECT_ROOT" "$DJCONNECT_INSTALL_STATE" "$DJCONNECT_PIP_CACHE"; do
+    install -d "$path"
+    if [[ ! -w "$path" ]]; then
+      echo "Install path is not writable: ${path}" >&2
+      exit 1
+    fi
+  done
+}
+
+check_github_reachable() {
+  log "Checking GitHub release access"
+  print_resources "before GitHub access check"
+  local tag="v${DJCONNECT_VERSION#v}"
+  local version="${DJCONNECT_VERSION#v}"
+  local url="https://github.com/${DJCONNECT_REPO}/releases/download/${tag}/djconnect-pi-${version}.sha256"
+
+  if ! curl -fsSIL --connect-timeout 15 --max-time 30 "$url" >/dev/null; then
+    echo "Cannot reach DJConnect Pi release asset: ${url}" >&2
+    echo "Check network/DNS from the Pi and verify that release ${tag} exists in ${DJCONNECT_REPO}." >&2
+    exit 1
+  fi
+}
+
 check_free_space() {
   log "Checking free disk space"
+  print_resources "before disk check"
   local required="$DJCONNECT_MIN_FREE_MB"
   local opt_free
   local cache_parent
@@ -132,6 +229,7 @@ check_free_space() {
 
 check_swap() {
   log "Checking active swap"
+  print_resources "before swap check"
   local required_kb=$((DJCONNECT_MIN_SWAP_MB * 1024))
   local swap_total_kb
   swap_total_kb="$(awk '/^SwapTotal:/ {print $2}' /proc/meminfo)"
@@ -145,6 +243,7 @@ check_swap() {
 
 check_os_baseline() {
   log "Checking Raspberry Pi OS 64-bit baseline"
+  print_resources "before OS baseline check"
   if [[ "$(getconf LONG_BIT)" != "64" ]]; then
     echo "This client is intended for Raspberry Pi OS Lite 64-bit or another Raspberry Pi OS 64-bit image." >&2
     exit 1
@@ -157,6 +256,7 @@ check_os_baseline() {
 
 create_runtime_user() {
   log "Creating runtime user ${DJCONNECT_RUNTIME_USER}"
+  print_resources "before runtime user setup"
   if ! id "$DJCONNECT_RUNTIME_USER" >/dev/null 2>&1; then
     useradd --system --create-home --groups video,input,render,netdev "$DJCONNECT_RUNTIME_USER"
   fi
@@ -177,14 +277,17 @@ download_release() {
 
   if marker_done "release_unpacked" && [[ -d "$release_dir" ]]; then
     log "Release ${tag} already unpacked; resuming"
+    print_resources "release already unpacked"
     return
   fi
 
   tmp="$(mktemp -d)"
 
   log "Downloading DJConnect Pi ${tag}"
+  print_resources "before release download"
   curl -fsSL "https://github.com/${DJCONNECT_REPO}/releases/download/${tag}/djconnect-pi-${version}.tar.gz" -o "${tmp}/release.tar.gz"
   curl -fsSL "https://github.com/${DJCONNECT_REPO}/releases/download/${tag}/djconnect-pi-${version}.sha256" -o "${tmp}/release.sha256"
+  print_resources "after release download"
   local expected_hash
   local actual_hash
   expected_hash="$(awk '{print $1; exit}' "${tmp}/release.sha256")"
@@ -198,46 +301,62 @@ download_release() {
 
   rm -rf "$release_dir" "${DJCONNECT_ROOT}/releases/.${version}.tmp"
   mkdir -p "${DJCONNECT_ROOT}/releases/.${version}.tmp"
+  print_resources "before release unpack"
   tar -xzf "${tmp}/release.tar.gz" -C "${DJCONNECT_ROOT}/releases/.${version}.tmp" --strip-components=1
   mv "${DJCONNECT_ROOT}/releases/.${version}.tmp" "$release_dir"
   mark_done "release_unpacked"
+  print_resources "after release unpack"
 }
 
 install_python_dependencies() {
   local version
   local release_dir
+  local wheel_path
   version="$(version)"
   release_dir="${DJCONNECT_ROOT}/releases/${version}"
+  wheel_path="$(find "$release_dir/wheels" -maxdepth 1 -type f -name "djconnect_pi-${version}-*.whl" 2>/dev/null | head -n 1 || true)"
 
   if marker_done "venv_ready" && [[ -x "${release_dir}/.venv/bin/djconnect-pi-client" ]]; then
     log "DJConnect Python dependencies already installed; resuming"
+    print_resources "dependencies already installed"
     return
   fi
 
+  if [[ -z "$wheel_path" || ! -f "$wheel_path" ]]; then
+    echo "DJConnect Pi wheel not found in release bundle: ${release_dir}/wheels/djconnect_pi-${version}-*.whl" >&2
+    exit 1
+  fi
+
   log "Installing DJConnect Python dependencies"
+  print_resources "before Python dependency install"
   python3 -m venv "${release_dir}/.venv"
   PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --upgrade pip
-  PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/pip" install --prefer-binary "$release_dir"
+  PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/pip" install --prefer-binary "$wheel_path"
   ln -sfn ".venv/bin" "${release_dir}/bin"
   mark_done "venv_ready"
+  print_resources "after Python dependency install"
 }
 
 activate_release() {
   local version
   version="$(version)"
   log "Activating DJConnect Pi v${version}"
+  print_resources "before release activation"
   ln -sfn "${DJCONNECT_ROOT}/releases/${version}" "${DJCONNECT_ROOT}/current"
   chown -R "$DJCONNECT_RUNTIME_USER:$DJCONNECT_RUNTIME_USER" "$DJCONNECT_ROOT"
+  print_resources "after release activation"
 }
 
 write_initial_config() {
   local config="${DJCONNECT_ROOT}/config/client.json"
   if [[ -f "$config" ]]; then
     log "Keeping existing DJConnect config at ${config}"
+    print_resources "config already present"
     return
   fi
 
   log "Writing initial DJConnect config"
+  print_resources "before config write"
   python3 - "$config" "$DJCONNECT_HA_URL" <<'PY'
 from pathlib import Path
 import json
@@ -253,7 +372,7 @@ payload = {
     "device_name": "DJConnect Pi",
     "device_token": "",
     "paired": False,
-    "version": "3.1.23",
+    "version": "3.1.24",
     "update_repo": "pcvantol/djconnect-pi-releases",
     "update_channel": "stable",
     "screen_timeout_seconds": 120,
@@ -267,10 +386,12 @@ config.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding
 PY
   install -d -o "$DJCONNECT_RUNTIME_USER" -g "$DJCONNECT_RUNTIME_USER" "$DJCONNECT_ROOT/logs"
   chown "$DJCONNECT_RUNTIME_USER:$DJCONNECT_RUNTIME_USER" "$config"
+  print_resources "after config write"
 }
 
 install_systemd_units() {
   log "Installing systemd units"
+  print_resources "before systemd install"
   cp "${DJCONNECT_ROOT}/current/systemd/"*.service /etc/systemd/system/
   cp "${DJCONNECT_ROOT}/current/systemd/"*.timer /etc/systemd/system/
   systemctl daemon-reload
@@ -282,15 +403,22 @@ install_systemd_units() {
   systemctl enable --now djconnect-maintenance.timer
   systemctl enable --now djconnect-screen-off.timer
   systemctl enable --now djconnect-screen-on.timer
+  print_resources "after systemd install"
 }
 
 main() {
   log "DJConnect Pi installer ${DJCONNECT_VERSION}"
+  print_resources "installer start"
+  print_thermal_status
   check_runtime_dependencies
+  check_cpu_architecture
+  check_python_version
   check_os_baseline
   create_runtime_user
+  check_writable_paths
   check_free_space
   check_swap
+  check_github_reachable
   download_release
   install_python_dependencies
   activate_release
@@ -298,6 +426,8 @@ main() {
   install_systemd_units
 
   log "DJConnect Pi installation complete"
+  print_resources "installer complete"
+  print_thermal_status
   echo "Local Client API starts automatically via djconnect-api.service."
   echo "DJConnect frontend starts automatically after boot via djconnect-client.service."
   echo "Night screen schedule: off at 23:00, on at 07:00"

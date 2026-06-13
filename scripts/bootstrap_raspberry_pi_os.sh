@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DJCONNECT_BOOTSTRAP_VERSION="${DJCONNECT_BOOTSTRAP_VERSION:-3.1.23}"
+DJCONNECT_BOOTSTRAP_VERSION="${DJCONNECT_BOOTSTRAP_VERSION:-3.1.24}"
 DJCONNECT_TIMEZONE="${DJCONNECT_TIMEZONE:-Europe/Amsterdam}"
 DJCONNECT_INSTALL_HYPERPIXEL="${DJCONNECT_INSTALL_HYPERPIXEL:-1}"
 DJCONNECT_HYPERPIXEL_MODEL="${DJCONNECT_HYPERPIXEL_MODEL:-square}"
@@ -313,7 +313,7 @@ main() {
 
   log "Raspberry Pi OS bootstrap complete"
   echo "Wi-Fi provisioning is intentionally not handled here; configure it with Raspberry Pi Imager."
-  echo "Run 'sudo ./scripts/install_raspberry_pi.sh' from a DJConnect Pi release bundle to install the app."
+  echo "Run 'sudo ./scripts/install.sh' from a DJConnect Pi release bundle to install the app."
   echo "Reboot is recommended after OS, HyperPixel and full-upgrade changes."
 }
 

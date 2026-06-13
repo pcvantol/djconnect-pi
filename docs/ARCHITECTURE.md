@@ -67,11 +67,12 @@ The source repo publishes release assets to the public distribution repo through
 `DJCONNECT_PI_RELEASES_TOKEN` secret with release-write access to
 `pcvantol/djconnect-pi-releases`.
 
-Release bundles include the runtime package plus `docs/`, `src/`, `systemd/`
-and only `scripts/install_raspberry_pi.sh`, so a prepared Raspberry Pi can
-install the app from the public release tarball without cloning the private
-source repository. Repo-only OS bootstrap helpers, including
-`scripts/bootstrap_raspberry_pi_os.sh`, are excluded from release tarballs.
+Release bundles include `docs/`, `systemd/`, `scripts/install.sh` and a
+prebuilt wheel under `wheels/`. They do not include the loose app source tree,
+so a prepared Raspberry Pi can install the app from the public release tarball
+without cloning the private source repository. Repo-only OS bootstrap helpers,
+including `scripts/bootstrap_raspberry_pi_os.sh`, are excluded from release
+tarballs.
 
 ## Maintenance
 
@@ -94,7 +95,7 @@ The Pi client is an app-like DJConnect client.
   "device_id": "djconnect-raspberry-pi-XXXXXXXXXXXX",
   "device_name": "DJConnect Pi",
   "client_type": "raspberry_pi",
-  "version": "3.1.23",
+  "version": "3.1.24",
   "capabilities": {
     "touch": true,
     "voice": false,

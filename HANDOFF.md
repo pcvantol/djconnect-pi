@@ -47,9 +47,10 @@ Implemented:
 - GitHub Actions workflow publishes tagged release assets from this source repo
   to the public distribution repo. It requires the source repo secret
   `DJCONNECT_PI_RELEASES_TOKEN`.
-- Release bundles include `docs/`, `src/`, `systemd/` and only
-  `scripts/install_raspberry_pi.sh`, so a Pi can install the DJConnect app from
-  the public distribution tarball without cloning the private source repo.
+- Release bundles include `docs/`, `systemd/`, `scripts/install.sh` and a
+  prebuilt wheel under `wheels/`. They do not include the loose app source tree,
+  so a Pi can install the DJConnect app from the public distribution tarball
+  without cloning the private source repo.
 - Repo-only OS bootstrap helper `scripts/bootstrap_raspberry_pi_os.sh` handles
   root filesystem expansion, persistent 1GB swapfile setup, timezone Amsterdam,
   SSH, apt full-upgrade, Raspberry Pi Connect, console boot, minimal X11/Qt
@@ -58,9 +59,9 @@ Implemented:
 - systemd unit/timer templates
 - release and cleanup scripts
 - Install script targets a prepared Raspberry Pi OS 64-bit image, creates the
-  runtime user, downloads the public release, installs dependencies inside the
-  release venv, starts the local API daemon, and starts the Qt frontend
-  automatically through `xinit`.
+  runtime user, downloads the public release, installs the bundled wheel and
+  dependencies inside the release venv, starts the local API daemon, and starts
+  the Qt frontend automatically through `xinit`.
 - Install script does not provision Wi-Fi or run OS bootstrap tasks. Hostname,
   Wi-Fi and locale are expected to be configured with Raspberry Pi Imager before
   first boot; the repo-only bootstrap helper covers the remaining OS setup.
@@ -73,7 +74,7 @@ Implemented:
   do not have to restart from zero.
 - Manual production update path is: download the current public
   `djconnect-pi-<version>.tar.gz`, extract it, run
-  `sudo ./scripts/install_raspberry_pi.sh`. `git pull --ff-only` is only for
+  `sudo ./scripts/install.sh`. `git pull --ff-only` is only for
   development checkouts on the Pi.
 
 Not implemented by design:
@@ -138,7 +139,7 @@ Not implemented by design:
 ## Verification So Far
 
 - `python3 -m compileall src tests` passes.
-- `bash -n scripts/install_raspberry_pi.sh scripts/bootstrap_raspberry_pi_os.sh cleanup_old_releases.sh release.sh`
+- `bash -n scripts/install.sh scripts/bootstrap_raspberry_pi_os.sh cleanup_old_releases.sh release.sh`
   passes.
 - Installer/release contract tests cover public release tarball examples,
   service restarts on rerun, release bundle contents, repo-only OS bootstrap

@@ -16,7 +16,7 @@ def _project_version() -> str:
 
 
 def test_install_script_enables_local_api_service() -> None:
-    script = ROOT.joinpath("scripts/install_raspberry_pi.sh").read_text(encoding="utf-8")
+    script = ROOT.joinpath("scripts/install.sh").read_text(encoding="utf-8")
 
     assert "systemctl enable djconnect-api.service" in script
     assert "systemctl enable djconnect-client.service" in script
@@ -27,7 +27,7 @@ def test_install_script_enables_local_api_service() -> None:
 
 def test_install_script_is_executable_in_git() -> None:
     result = subprocess.run(
-        ["git", "ls-files", "-s", "scripts/install_raspberry_pi.sh"],
+        ["git", "ls-files", "-s", "scripts/install.sh"],
         cwd=ROOT,
         text=True,
         capture_output=True,
@@ -92,9 +92,14 @@ def test_release_assets_include_installation_materials() -> None:
     workflow = ROOT.joinpath(".github/workflows/publish-release.yml").read_text(encoding="utf-8")
 
     for text in (release_script, workflow):
-        assert "docs src systemd" in text
+        assert "README.md CHANGELOG.md docs systemd" in text
+        assert "docs src systemd" not in text
+        assert "cp -R pyproject.toml" not in text
+        assert "python" in text
+        assert "pip wheel --no-deps" in text
+        assert "wheels" in text
         assert 'mkdir -p "$dist/scripts"' in text or 'mkdir -p "${dist}/scripts"' in text
-        assert "cp scripts/install_raspberry_pi.sh" in text
+        assert "cp scripts/install.sh" in text
         assert "cp scripts/bootstrap_raspberry_pi_os.sh" not in text
 
 
@@ -138,7 +143,7 @@ def test_repo_only_os_bootstrap_targets_lite_with_minimal_kiosk_runtime() -> Non
 
 
 def test_install_script_excludes_repo_only_os_bootstrap_tasks() -> None:
-    script = ROOT.joinpath("scripts/install_raspberry_pi.sh").read_text(encoding="utf-8")
+    script = ROOT.joinpath("scripts/install.sh").read_text(encoding="utf-8")
 
     assert "DJCONNECT_TIMEZONE" not in script
     assert "DJCONNECT_FULL_UPGRADE" not in script
@@ -155,7 +160,7 @@ def test_install_script_excludes_repo_only_os_bootstrap_tasks() -> None:
 
 
 def test_install_script_sets_locale_fallback_for_lite_images() -> None:
-    script = ROOT.joinpath("scripts/install_raspberry_pi.sh").read_text(encoding="utf-8")
+    script = ROOT.joinpath("scripts/install.sh").read_text(encoding="utf-8")
 
     assert "/etc/default/locale" in script
     assert 'export LANG="${LANG:-C.UTF-8}"' in script
@@ -163,7 +168,7 @@ def test_install_script_sets_locale_fallback_for_lite_images() -> None:
 
 
 def test_install_script_does_not_provision_wifi() -> None:
-    script = ROOT.joinpath("scripts/install_raspberry_pi.sh").read_text(encoding="utf-8")
+    script = ROOT.joinpath("scripts/install.sh").read_text(encoding="utf-8")
 
     assert "DJCONNECT_WIFI" not in script
     assert "configure_wifi" not in script
@@ -173,7 +178,7 @@ def test_install_script_does_not_provision_wifi() -> None:
 
 
 def test_install_script_reports_version_in_help_and_runtime() -> None:
-    script = ROOT.joinpath("scripts/install_raspberry_pi.sh").read_text(encoding="utf-8")
+    script = ROOT.joinpath("scripts/install.sh").read_text(encoding="utf-8")
 
     assert "Version:" in script
     assert "DJConnect Pi installer for client ${DJCONNECT_VERSION}" in script
@@ -181,7 +186,7 @@ def test_install_script_reports_version_in_help_and_runtime() -> None:
 
 
 def test_install_script_verifies_release_checksum_independent_of_sha_filename() -> None:
-    script = ROOT.joinpath("scripts/install_raspberry_pi.sh").read_text(encoding="utf-8")
+    script = ROOT.joinpath("scripts/install.sh").read_text(encoding="utf-8")
 
     assert "shasum -a 256 -c release.sha256" not in script
     assert "expected_hash=" in script
@@ -190,7 +195,7 @@ def test_install_script_verifies_release_checksum_independent_of_sha_filename() 
 
 
 def test_install_script_can_resume_after_reboot_or_interruption() -> None:
-    script = ROOT.joinpath("scripts/install_raspberry_pi.sh").read_text(encoding="utf-8")
+    script = ROOT.joinpath("scripts/install.sh").read_text(encoding="utf-8")
 
     assert "DJCONNECT_INSTALL_STATE" in script
     assert "DJCONNECT_PIP_CACHE" in script
@@ -202,6 +207,11 @@ def test_install_script_can_resume_after_reboot_or_interruption() -> None:
     assert "install_python_dependencies" in script
     assert "activate_release" in script
     assert "PIP_CACHE_DIR=\"$DJCONNECT_PIP_CACHE\"" in script
+    assert "wheel_path=" in script
+    assert "djconnect_pi-${version}-*.whl" in script
+    assert 'install --prefer-binary "$wheel_path"' in script
+    assert 'install --prefer-binary "$release_dir"' not in script
+    assert "DJConnect Pi wheel not found" in script
     assert "install --prefer-binary" in script
     assert 'install -d -o root -g root "$DJCONNECT_PIP_CACHE"' in script
     assert "/opt/djconnect/pip-cache" not in script
@@ -209,7 +219,7 @@ def test_install_script_can_resume_after_reboot_or_interruption() -> None:
 
 
 def test_install_script_checks_free_space_before_large_dependency_downloads() -> None:
-    script = ROOT.joinpath("scripts/install_raspberry_pi.sh").read_text(encoding="utf-8")
+    script = ROOT.joinpath("scripts/install.sh").read_text(encoding="utf-8")
 
     assert "DJCONNECT_MIN_FREE_MB" in script
     assert "check_free_space" in script
@@ -220,7 +230,7 @@ def test_install_script_checks_free_space_before_large_dependency_downloads() ->
 
 
 def test_install_script_checks_active_swap_before_large_dependency_downloads() -> None:
-    script = ROOT.joinpath("scripts/install_raspberry_pi.sh").read_text(encoding="utf-8")
+    script = ROOT.joinpath("scripts/install.sh").read_text(encoding="utf-8")
 
     assert "DJCONNECT_MIN_SWAP_MB" in script
     assert "check_swap" in script
@@ -228,6 +238,28 @@ def test_install_script_checks_active_swap_before_large_dependency_downloads() -
     assert "Not enough active swap" in script
     assert "Run the repo bootstrap to configure the 1GB swapfile" in script
     assert "check_swap" in script.split("download_release", 1)[0]
+
+
+def test_install_script_outputs_resources_and_extra_prerequisite_checks() -> None:
+    script = ROOT.joinpath("scripts/install.sh").read_text(encoding="utf-8")
+
+    assert "print_resources" in script
+    assert "installer start" in script
+    assert "installer complete" in script
+    assert "MemAvailable" in script
+    assert "SwapTotal" in script
+    assert "df -h" in script
+    assert "print_thermal_status" in script
+    assert "vcgencmd measure_temp" in script
+    assert "vcgencmd get_throttled" in script
+    assert "check_cpu_architecture" in script
+    assert "aarch64|arm64" in script
+    assert "check_python_version" in script
+    assert "Python 3.11 or newer is required" in script
+    assert "check_writable_paths" in script
+    assert "check_github_reachable" in script
+    assert "curl -fsSIL" in script
+    assert "Cannot reach DJConnect Pi release asset" in script
 
 
 def test_bootstrap_release_download_matches_project_version() -> None:

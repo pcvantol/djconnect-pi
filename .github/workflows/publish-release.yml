@@ -83,9 +83,11 @@ jobs:
           dist="dist/djconnect-pi-${version}"
           rm -rf "${dist}" "dist/djconnect-pi-${version}.tar.gz" "dist/djconnect-pi-${version}.sha256"
           mkdir -p "${dist}"
-          cp -R pyproject.toml README.md CHANGELOG.md docs src systemd "${dist}/"
+          cp -R README.md CHANGELOG.md docs systemd "${dist}/"
           mkdir -p "${dist}/scripts"
-          cp scripts/install_raspberry_pi.sh "${dist}/scripts/"
+          cp scripts/install.sh "${dist}/scripts/"
+          mkdir -p "${dist}/wheels"
+          python -m pip wheel --no-deps --wheel-dir "${dist}/wheels" .
           printf '%s\n' "${version}" > "${dist}/VERSION"
           tar -C dist -czf "dist/djconnect-pi-${version}.tar.gz" "djconnect-pi-${version}"
           shasum -a 256 "dist/djconnect-pi-${version}.tar.gz" > "dist/djconnect-pi-${version}.sha256"

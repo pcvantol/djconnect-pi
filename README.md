@@ -1,6 +1,6 @@
 # DJConnect Pi
 
-Version: `3.1.23`
+Version: `3.1.24`
 
 Raspberry Pi Zero 2 W touch-display client for DJConnect. This client uses
 Qt Quick/QML with a PySide6 backend and is meant for a Pimoroni HyperPixel 4.0
@@ -104,10 +104,10 @@ not a private source clone:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.23.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.24.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.23
-sudo ./scripts/install_raspberry_pi.sh
+cd djconnect-pi-3.1.24
+sudo ./scripts/install.sh
 ```
 
 Development install from a checkout:
@@ -161,11 +161,12 @@ Release assets are published from this source repository to
 `vX.Y.Z` tags. Configure the source repo secret `DJCONNECT_PI_RELEASES_TOKEN` with
 permission to create releases in the public distribution repo.
 
-Release bundles include `docs/`, `src/`, `systemd/` and only
-`scripts/install_raspberry_pi.sh` so the Pi can install the app from the public
-tarball without cloning the private source repo. Repo-only OS bootstrap helpers,
-including `scripts/bootstrap_raspberry_pi_os.sh`, are excluded from release
-tarballs by design.
+Release bundles include `docs/`, `systemd/`, `scripts/install.sh` and a
+prebuilt wheel under `wheels/`. They do not include the loose app source tree,
+so the Pi can install the app from the public tarball without cloning the
+private source repo. Repo-only OS bootstrap helpers, including
+`scripts/bootstrap_raspberry_pi_os.sh`, are excluded from release tarballs by
+design.
 
 OS maintenance is also separate. The maintenance command can run apt update,
 upgrade and reboot only when `/var/run/reboot-required` exists, optionally
@@ -182,10 +183,10 @@ installer:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.23.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.24.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.23
-sudo ./scripts/install_raspberry_pi.sh
+cd djconnect-pi-3.1.24
+sudo ./scripts/install.sh
 ```
 
 The installer preserves existing config, updates `/opt/djconnect/current`,
@@ -194,6 +195,9 @@ refreshes systemd units, and restarts `djconnect-api.service` and
 SSH, apt full-upgrade, Raspberry Pi Connect or HyperPixel setup. Use
 `git pull --ff-only` first only when the Pi is running from a development
 checkout.
+
+The public release tarball installs from its bundled wheel in `wheels/`; it does
+not contain the loose `src/` app source tree.
 
 The installer is resumable. If the Pi freezes, overheats, loses power or is
 rebooted during the heavy Python/PySide6 dependency step, run the same public
@@ -205,6 +209,11 @@ The repo-only bootstrap expands the root filesystem to fill the SD card. The
 bootstrap also configures a persistent 1GB swapfile. The app installer checks
 free space and active swap before downloading PySide6 so a too-small root
 partition or missing swap fails early with a clear message.
+
+During install, the script prints resource snapshots around major steps:
+available memory, swap and disk usage. It also checks CPU architecture, Python
+version, writable install paths, GitHub release reachability and Raspberry Pi
+thermal/throttling status when `vcgencmd` is available.
 
 ## Documentation
 

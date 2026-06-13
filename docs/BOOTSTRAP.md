@@ -155,18 +155,21 @@ completed:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.23.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.24.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.23
-sudo ./scripts/install_raspberry_pi.sh
+cd djconnect-pi-3.1.24
+sudo ./scripts/install.sh
 ```
 
 The installer prints its DJConnect Pi target version in `--help` and at startup:
 
 ```sh
-./scripts/install_raspberry_pi.sh --help
-sudo ./scripts/install_raspberry_pi.sh
+./scripts/install.sh --help
+sudo ./scripts/install.sh
 ```
+
+The public release bundle installs from its bundled wheel in `wheels/`. It does
+not contain the loose `src/` app source tree from the private source repository.
 
 ## Manual Software Update
 
@@ -178,10 +181,10 @@ development checkout:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.23.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.24.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.23
-sudo ./scripts/install_raspberry_pi.sh
+cd djconnect-pi-3.1.24
+sudo ./scripts/install.sh
 ```
 
 The installer is safe to run over an earlier DJConnect install:
@@ -220,7 +223,7 @@ repo-only bootstrap helper separately:
 cd ~/djconnect-pi
 git pull --ff-only
 sudo ./scripts/bootstrap_raspberry_pi_os.sh
-sudo ./scripts/install_raspberry_pi.sh
+sudo ./scripts/install.sh
 ```
 
 The unattended app updater uses the same release layout under
