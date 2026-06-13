@@ -1,6 +1,6 @@
 # Changelog
 
-## 3.1.20
+## 3.1.21
 
 - Initial Raspberry Pi display-remote scaffold with Qt Quick/QML, fullscreen
   720x720 touch UI, playback controls and app-like DJConnect pairing, status
@@ -52,3 +52,7 @@
   asset.
 - Removed third-party system monitoring setup from all bootstrap scripts and
   documentation; monitoring is no longer installed or managed by DJConnect Pi.
+- Made the public release installer resumable across reboot, power loss or
+  thermal freezes. Release unpack and Python dependency install steps now use
+  markers under `/opt/djconnect/install-state/<version>/`, and pip downloads
+  are cached under `/opt/djconnect/pip-cache`.

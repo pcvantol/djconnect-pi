@@ -1,6 +1,6 @@
 # DJConnect Pi
 
-Version: `3.1.20`
+Version: `3.1.21`
 
 Raspberry Pi Zero 2 W touch-display client for DJConnect. This client uses
 Qt Quick/QML with a PySide6 backend and is meant for a Pimoroni HyperPixel 4.0
@@ -104,9 +104,9 @@ not a private source clone:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.20.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.21.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.20
+cd djconnect-pi-3.1.21
 sudo ./scripts/install_raspberry_pi.sh
 ```
 
@@ -182,9 +182,9 @@ installer:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.20.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.21.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.20
+cd djconnect-pi-3.1.21
 sudo ./scripts/install_raspberry_pi.sh
 ```
 
@@ -194,6 +194,12 @@ refreshes systemd units, and restarts `djconnect-api.service` and
 SSH, apt full-upgrade, Raspberry Pi Connect or HyperPixel setup. Use
 `git pull --ff-only` first only when the Pi is running from a development
 checkout.
+
+The installer is resumable. If the Pi freezes, overheats, loses power or is
+rebooted during the heavy Python/PySide6 dependency step, run the same public
+release install command again. Completed steps are tracked under
+`/opt/djconnect/install-state/<version>/`, and Python downloads are cached under
+`/opt/djconnect/pip-cache`.
 
 ## Documentation
 

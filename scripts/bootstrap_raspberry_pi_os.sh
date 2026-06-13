@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DJCONNECT_BOOTSTRAP_VERSION="${DJCONNECT_BOOTSTRAP_VERSION:-3.1.20}"
+DJCONNECT_BOOTSTRAP_VERSION="${DJCONNECT_BOOTSTRAP_VERSION:-3.1.21}"
 DJCONNECT_TIMEZONE="${DJCONNECT_TIMEZONE:-Europe/Amsterdam}"
 DJCONNECT_INSTALL_HYPERPIXEL="${DJCONNECT_INSTALL_HYPERPIXEL:-1}"
 DJCONNECT_HYPERPIXEL_MODEL="${DJCONNECT_HYPERPIXEL_MODEL:-square}"
@@ -32,6 +32,7 @@ DJConnect Pi:
 - validates the Raspberry Pi OS 64-bit baseline
 - configures boot to console
 - sets timezone to Europe/Amsterdam by default
+- configures UTF-8 locales
 - enables SSH
 - runs apt update and optional apt full-upgrade
 - installs OS packages including minimal X11/kiosk, Qt runtime and Python
@@ -72,6 +73,19 @@ check_os_baseline() {
 configure_timezone() {
   log "Configuring timezone ${DJCONNECT_TIMEZONE}"
   timedatectl set-timezone "$DJCONNECT_TIMEZONE"
+}
+
+configure_locale() {
+  log "Configuring UTF-8 locale"
+  if [[ -f /etc/locale.gen ]]; then
+    sed -i \
+      -e 's/^# *en_GB.UTF-8 UTF-8/en_GB.UTF-8 UTF-8/' \
+      -e 's/^# *nl_NL.UTF-8 UTF-8/nl_NL.UTF-8 UTF-8/' \
+      /etc/locale.gen
+    locale-gen en_GB.UTF-8 nl_NL.UTF-8
+  fi
+
+  update-locale LANG=en_GB.UTF-8 LC_CTYPE=en_GB.UTF-8
 }
 
 configure_console_boot() {
@@ -128,6 +142,7 @@ install_base_packages() {
     libxcb-shape0 \
     libxcb-xinerama0 \
     libxcb-xinput0 \
+    locales \
     python3-pip \
     python3-venv \
     ssh \
@@ -236,6 +251,7 @@ main() {
   configure_console_boot
   enable_ssh
   install_base_packages
+  configure_locale
   install_rpi_connect
   install_hyperpixel
 

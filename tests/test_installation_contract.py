@@ -112,6 +112,9 @@ def test_repo_only_os_bootstrap_targets_lite_with_minimal_kiosk_runtime() -> Non
     assert "Europe/Amsterdam" in script
     assert "raspi-config nonint do_ssh 0" in script
     assert "apt-get -y full-upgrade" in script
+    assert "locales" in script
+    assert "locale-gen en_GB.UTF-8 nl_NL.UTF-8" in script
+    assert "update-locale LANG=en_GB.UTF-8 LC_CTYPE=en_GB.UTF-8" in script
     assert "xinit" in script
     assert "xserver-xorg" in script
     assert "libxkbcommon-x11-0" in script
@@ -144,6 +147,14 @@ def test_install_script_excludes_repo_only_os_bootstrap_tasks() -> None:
     assert "gtk-application-prefer-dark-theme=true" not in script
 
 
+def test_install_script_sets_locale_fallback_for_lite_images() -> None:
+    script = ROOT.joinpath("scripts/install_raspberry_pi.sh").read_text(encoding="utf-8")
+
+    assert "/etc/default/locale" in script
+    assert 'export LANG="${LANG:-C.UTF-8}"' in script
+    assert 'export LC_CTYPE="${LC_CTYPE:-${LANG}}"' in script
+
+
 def test_install_script_does_not_provision_wifi() -> None:
     script = ROOT.joinpath("scripts/install_raspberry_pi.sh").read_text(encoding="utf-8")
 
@@ -169,6 +180,22 @@ def test_install_script_verifies_release_checksum_independent_of_sha_filename() 
     assert "expected_hash=" in script
     assert "actual_hash=" in script
     assert "Release checksum mismatch" in script
+
+
+def test_install_script_can_resume_after_reboot_or_interruption() -> None:
+    script = ROOT.joinpath("scripts/install_raspberry_pi.sh").read_text(encoding="utf-8")
+
+    assert "DJCONNECT_INSTALL_STATE" in script
+    assert "DJCONNECT_PIP_CACHE" in script
+    assert 'marker_done "release_unpacked"' in script
+    assert 'mark_done "release_unpacked"' in script
+    assert 'marker_done "venv_ready"' in script
+    assert 'mark_done "venv_ready"' in script
+    assert "install_python_dependencies" in script
+    assert "activate_release" in script
+    assert "PIP_CACHE_DIR=\"$DJCONNECT_PIP_CACHE\"" in script
+    assert "install --prefer-binary" in script
+    assert "resumes completed install steps after an interrupted run or reboot" in script
 
 
 def test_bootstrap_release_download_matches_project_version() -> None:

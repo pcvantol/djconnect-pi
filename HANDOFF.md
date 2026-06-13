@@ -66,6 +66,10 @@ Implemented:
 - Install script is intended to be re-runnable for manual software updates. It
   keeps existing config, refreshes release files and systemd units, and restarts
   `djconnect-api.service` plus `djconnect-client.service`.
+- Install script is resumable across reboot/interruption. It stores markers in
+  `/opt/djconnect/install-state/<version>/` for `release_unpacked` and
+  `venv_ready`, and uses `/opt/djconnect/pip-cache` so large PySide6 downloads
+  do not have to restart from zero.
 - Manual production update path is: download the current public
   `djconnect-pi-<version>.tar.gz`, extract it, run
   `sudo ./scripts/install_raspberry_pi.sh`. `git pull --ff-only` is only for
@@ -92,6 +96,9 @@ Not implemented by design:
 - Keep unattended updates atomic under `/opt/djconnect/releases`.
 - Manual production updates should use the public release tarball and rerun the
   installer; use `git pull --ff-only` only on development checkouts.
+- If the Pi overheats/freezes during dependency install, reboot and rerun the
+  same release installer command; do not delete `/opt/djconnect/install-state`
+  or `/opt/djconnect/pip-cache`.
 - Keep source and distribution repos separate unless the product decision
   changes: source is `pcvantol/djconnect-pi`, public release assets are in
   `pcvantol/djconnect-pi-releases`.

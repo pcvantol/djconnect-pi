@@ -1,11 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DJCONNECT_VERSION="${DJCONNECT_VERSION:-3.1.20}"
+DJCONNECT_VERSION="${DJCONNECT_VERSION:-3.1.21}"
 DJCONNECT_REPO="${DJCONNECT_REPO:-pcvantol/djconnect-pi-releases}"
 DJCONNECT_HA_URL="${DJCONNECT_HA_URL:-http://homeassistant.local:8123}"
 DJCONNECT_RUNTIME_USER="${DJCONNECT_RUNTIME_USER:-djconnect}"
 DJCONNECT_ROOT="${DJCONNECT_ROOT:-/opt/djconnect}"
+DJCONNECT_INSTALL_STATE="${DJCONNECT_INSTALL_STATE:-${DJCONNECT_ROOT}/install-state}"
+DJCONNECT_PIP_CACHE="${DJCONNECT_PIP_CACHE:-${DJCONNECT_ROOT}/pip-cache}"
+
+if [[ -f /etc/default/locale ]]; then
+  # shellcheck disable=SC1091
+  . /etc/default/locale
+fi
+export LANG="${LANG:-C.UTF-8}"
+export LC_CTYPE="${LC_CTYPE:-${LANG}}"
 
 usage() {
   cat <<EOF
@@ -21,10 +30,13 @@ Environment:
   DJCONNECT_HA_URL=http://homeassistant.local:8123
   DJCONNECT_RUNTIME_USER=djconnect
   DJCONNECT_ROOT=/opt/djconnect
+  DJCONNECT_INSTALL_STATE=/opt/djconnect/install-state
+  DJCONNECT_PIP_CACHE=/opt/djconnect/pip-cache
 
 This installs or updates the DJConnect Pi application only:
 - creates/updates the dedicated runtime user and /opt/djconnect layout
 - downloads and verifies the selected public DJConnect Pi release
+- resumes completed install steps after an interrupted run or reboot
 - preserves existing pairing/configuration
 - installs/refreshes the local Client API, frontend, updater, maintenance and
   night screen schedule systemd units
@@ -49,6 +61,23 @@ fi
 
 log() {
   printf '\n==> %s\n' "$*"
+}
+
+version() {
+  printf '%s\n' "${DJCONNECT_VERSION#v}"
+}
+
+state_dir() {
+  printf '%s\n' "${DJCONNECT_INSTALL_STATE}/$(version)"
+}
+
+marker_done() {
+  [[ -f "$(state_dir)/$1.done" ]]
+}
+
+mark_done() {
+  install -d "$(state_dir)"
+  touch "$(state_dir)/$1.done"
 }
 
 check_runtime_dependencies() {
@@ -88,13 +117,26 @@ create_runtime_user() {
   if ! id "$DJCONNECT_RUNTIME_USER" >/dev/null 2>&1; then
     useradd --system --create-home --groups video,input,render,netdev "$DJCONNECT_RUNTIME_USER"
   fi
-  install -d -o "$DJCONNECT_RUNTIME_USER" -g "$DJCONNECT_RUNTIME_USER" "$DJCONNECT_ROOT/config" "$DJCONNECT_ROOT/releases"
+  install -d -o "$DJCONNECT_RUNTIME_USER" -g "$DJCONNECT_RUNTIME_USER" \
+    "$DJCONNECT_ROOT/config" \
+    "$DJCONNECT_ROOT/releases" \
+    "$DJCONNECT_INSTALL_STATE" \
+    "$DJCONNECT_PIP_CACHE"
 }
 
 download_release() {
   local tag="v${DJCONNECT_VERSION#v}"
-  local version="${DJCONNECT_VERSION#v}"
+  local version
   local tmp
+  local release_dir
+  version="$(version)"
+  release_dir="${DJCONNECT_ROOT}/releases/${version}"
+
+  if marker_done "release_unpacked" && [[ -d "$release_dir" ]]; then
+    log "Release ${tag} already unpacked; resuming"
+    return
+  fi
+
   tmp="$(mktemp -d)"
 
   log "Downloading DJConnect Pi ${tag}"
@@ -111,16 +153,36 @@ download_release() {
     exit 1
   fi
 
-  rm -rf "${DJCONNECT_ROOT}/releases/${version}" "${DJCONNECT_ROOT}/releases/.${version}.tmp"
+  rm -rf "$release_dir" "${DJCONNECT_ROOT}/releases/.${version}.tmp"
   mkdir -p "${DJCONNECT_ROOT}/releases/.${version}.tmp"
   tar -xzf "${tmp}/release.tar.gz" -C "${DJCONNECT_ROOT}/releases/.${version}.tmp" --strip-components=1
-  mv "${DJCONNECT_ROOT}/releases/.${version}.tmp" "${DJCONNECT_ROOT}/releases/${version}"
+  mv "${DJCONNECT_ROOT}/releases/.${version}.tmp" "$release_dir"
+  mark_done "release_unpacked"
+}
+
+install_python_dependencies() {
+  local version
+  local release_dir
+  version="$(version)"
+  release_dir="${DJCONNECT_ROOT}/releases/${version}"
+
+  if marker_done "venv_ready" && [[ -x "${release_dir}/.venv/bin/djconnect-pi-client" ]]; then
+    log "DJConnect Python dependencies already installed; resuming"
+    return
+  fi
 
   log "Installing DJConnect Python dependencies"
-  python3 -m venv "${DJCONNECT_ROOT}/releases/${version}/.venv"
-  "${DJCONNECT_ROOT}/releases/${version}/.venv/bin/python" -m pip install --upgrade pip
-  "${DJCONNECT_ROOT}/releases/${version}/.venv/bin/pip" install "${DJCONNECT_ROOT}/releases/${version}"
-  ln -sfn ".venv/bin" "${DJCONNECT_ROOT}/releases/${version}/bin"
+  python3 -m venv "${release_dir}/.venv"
+  PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --upgrade pip
+  PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/pip" install --prefer-binary "$release_dir"
+  ln -sfn ".venv/bin" "${release_dir}/bin"
+  mark_done "venv_ready"
+}
+
+activate_release() {
+  local version
+  version="$(version)"
+  log "Activating DJConnect Pi v${version}"
   ln -sfn "${DJCONNECT_ROOT}/releases/${version}" "${DJCONNECT_ROOT}/current"
   chown -R "$DJCONNECT_RUNTIME_USER:$DJCONNECT_RUNTIME_USER" "$DJCONNECT_ROOT"
 }
@@ -148,7 +210,7 @@ payload = {
     "device_name": "DJConnect Pi",
     "device_token": "",
     "paired": False,
-    "version": "3.1.20",
+    "version": "3.1.21",
     "update_repo": "pcvantol/djconnect-pi-releases",
     "update_channel": "stable",
     "screen_timeout_seconds": 120,
@@ -185,6 +247,8 @@ main() {
   check_os_baseline
   create_runtime_user
   download_release
+  install_python_dependencies
+  activate_release
   write_initial_config
   install_systemd_units
 
