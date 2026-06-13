@@ -1,6 +1,6 @@
 # Changelog
 
-## 3.1.31
+## 3.1.32
 
 - Fixed unattended updater installs from public tarballs by stripping the
   top-level bundle directory, installing the bundled wheel into the release
