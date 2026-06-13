@@ -16,6 +16,8 @@ import requests
 
 from .config import DEFAULT_CONFIG_PATH, load_config
 
+PIP_CACHE_DIR = Path("/var/cache/djconnect-pip")
+
 
 @dataclass
 class UpdaterConfig:
@@ -23,6 +25,7 @@ class UpdaterConfig:
     channel: str = "stable"
     install_root: Path = Path("/opt/djconnect")
     service_names: Sequence[str] = ("djconnect-api.service", "djconnect-client.service")
+    keep_releases: int = 2
 
 
 def include_prerelease(channel: str) -> bool:
@@ -120,6 +123,16 @@ def wheel_for_release(release_dir: Path, version: str) -> Path:
     return matches[0]
 
 
+def pip_environment(cache_dir: Path = PIP_CACHE_DIR) -> dict[str, str]:
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    pip_tmp = cache_dir / "tmp"
+    pip_tmp.mkdir(parents=True, exist_ok=True)
+    env = os.environ.copy()
+    env["PIP_CACHE_DIR"] = str(cache_dir)
+    env["TMPDIR"] = str(pip_tmp)
+    return env
+
+
 def install_python_dependencies(release_dir: Path, version: str) -> None:
     wheel_path = wheel_for_release(release_dir, version)
     venv_dir = release_dir / ".venv"
@@ -132,10 +145,15 @@ def install_python_dependencies(release_dir: Path, version: str) -> None:
         else:
             bin_link.unlink()
 
+    pip_env = pip_environment()
     subprocess.run(["python3", "-m", "venv", str(venv_dir)], check=True)
     python = venv_dir / "bin" / "python"
-    subprocess.run([str(python), "-m", "pip", "install", "--upgrade", "pip"], check=True)
-    subprocess.run([str(python), "-m", "pip", "install", "--prefer-binary", str(wheel_path)], check=True)
+    subprocess.run([str(python), "-m", "pip", "install", "--upgrade", "pip"], check=True, env=pip_env)
+    subprocess.run(
+        [str(python), "-m", "pip", "install", "--prefer-binary", str(wheel_path)],
+        check=True,
+        env=pip_env,
+    )
     bin_link.symlink_to(".venv/bin")
     validate_release_entrypoints(release_dir)
 
@@ -166,6 +184,29 @@ def install_release(bundle: Path, version: str, root: Path) -> Path:
     install_python_dependencies(target, version)
     activate_release(target, root)
     return target
+
+
+def cleanup_old_releases(root: Path, keep: int = 2) -> list[Path]:
+    releases = root / "releases"
+    if not releases.exists():
+        return []
+    current = (root / "current").resolve() if (root / "current").exists() else None
+    candidates = [
+        path
+        for path in releases.iterdir()
+        if path.is_dir() and not path.name.startswith(".") and path.resolve() != current
+    ]
+    keep_previous = max(0, keep - 1)
+    candidates.sort(key=lambda path: path.stat().st_mtime, reverse=True)
+    removed: list[Path] = []
+    for path in candidates[keep_previous:]:
+        shutil.rmtree(path)
+        removed.append(path)
+    for path in releases.glob(".*.tmp"):
+        if path.is_dir():
+            shutil.rmtree(path)
+            removed.append(path)
+    return removed
 
 
 def restart_services(service_names: Sequence[str]) -> None:
@@ -200,6 +241,7 @@ def run(cfg: UpdaterConfig, dry_run: bool = False) -> str:
         download(checksum_url, checksum)
         verify_sha256(bundle, checksum)
         install_release(bundle, version, cfg.install_root)
+    cleanup_old_releases(cfg.install_root, cfg.keep_releases)
     restart_services(cfg.service_names)
     return f"Installed {version}"
 
@@ -211,11 +253,18 @@ def config_from_file(
     channel_override: str = "",
     install_root: Path = Path("/opt/djconnect"),
     service_names: Sequence[str] = ("djconnect-api.service", "djconnect-client.service"),
+    keep_releases: int = 2,
 ) -> UpdaterConfig:
     app_cfg = load_config(config_path)
     repo = repo_override or app_cfg.update_repo
     channel = channel_override or app_cfg.update_channel
-    return UpdaterConfig(repo=repo, channel=channel, install_root=install_root, service_names=service_names)
+    return UpdaterConfig(
+        repo=repo,
+        channel=channel,
+        install_root=install_root,
+        service_names=service_names,
+        keep_releases=keep_releases,
+    )
 
 
 def main() -> None:
@@ -231,6 +280,7 @@ def main() -> None:
         help="systemd service to restart after install. May be supplied more than once.",
     )
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--keep-releases", type=int, default=2)
     args = parser.parse_args()
     service_names = tuple(args.service_names or ("djconnect-api.service", "djconnect-client.service"))
     cfg = config_from_file(
@@ -239,6 +289,7 @@ def main() -> None:
         channel_override=args.channel,
         install_root=args.install_root,
         service_names=service_names,
+        keep_releases=max(1, args.keep_releases),
     )
     print(run(cfg, args.dry_run))
 

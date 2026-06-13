@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import tarfile
 from pathlib import Path
 from typing import Any
@@ -120,9 +121,60 @@ def test_wheel_for_release_finds_bundled_wheel(tmp_path: Path) -> None:
     assert updater.wheel_for_release(release_dir, "0.2.0") == wheel
 
 
+def test_pip_environment_uses_cache_local_tmp(tmp_path: Path) -> None:
+    env = updater.pip_environment(tmp_path / "pip-cache")
+
+    assert env["PIP_CACHE_DIR"] == str(tmp_path / "pip-cache")
+    assert env["TMPDIR"] == str(tmp_path / "pip-cache" / "tmp")
+    assert (tmp_path / "pip-cache" / "tmp").is_dir()
+
+
+def test_install_python_dependencies_uses_pip_cache_env(tmp_path: Path) -> None:
+    release_dir = tmp_path / "release"
+    wheels_dir = release_dir / "wheels"
+    wheels_dir.mkdir(parents=True)
+    (wheels_dir / "djconnect_pi-0.2.0-py3-none-any.whl").write_bytes(b"wheel")
+
+    with (
+        patch("djconnect_pi.updater.pip_environment", return_value={"PIP_CACHE_DIR": "/cache", "TMPDIR": "/cache/tmp"}),
+        patch("djconnect_pi.updater.validate_release_entrypoints"),
+        patch("djconnect_pi.updater.subprocess.run") as run,
+    ):
+        updater.install_python_dependencies(release_dir, "0.2.0")
+
+    assert run.call_args_list[1].kwargs["env"] == {"PIP_CACHE_DIR": "/cache", "TMPDIR": "/cache/tmp"}
+    assert run.call_args_list[2].kwargs["env"] == {"PIP_CACHE_DIR": "/cache", "TMPDIR": "/cache/tmp"}
+
+
 def test_validate_release_entrypoints_rejects_missing_wrappers(tmp_path: Path) -> None:
     with pytest.raises(RuntimeError, match="missing executable"):
         updater.validate_release_entrypoints(tmp_path)
+
+
+def test_cleanup_old_releases_keeps_current_and_previous(tmp_path: Path) -> None:
+    root = tmp_path / "root"
+    releases = root / "releases"
+    releases.mkdir(parents=True)
+    current = releases / "0.4.0"
+    previous = releases / "0.3.0"
+    old = releases / "0.2.0"
+    tmp = releases / ".0.5.0.tmp"
+    for index, path in enumerate((old, previous, current, tmp), start=1):
+        path.mkdir()
+        (path / "VERSION").write_text(path.name.strip(".tmp"), encoding="utf-8")
+        timestamp = 1_700_000_000 + index
+        path.touch()
+        path.chmod(0o755)
+        os.utime(path, (timestamp, timestamp))
+    (root / "current").symlink_to(current)
+
+    removed = updater.cleanup_old_releases(root, keep=2)
+
+    assert current.exists()
+    assert previous.exists()
+    assert not old.exists()
+    assert not tmp.exists()
+    assert old in removed
 
 
 def test_run_dry_run_returns_selected_assets(tmp_path: Path) -> None:
@@ -193,8 +245,10 @@ def test_run_restarts_api_and_client_services_after_install(tmp_path: Path) -> N
         patch("djconnect_pi.updater.download"),
         patch("djconnect_pi.updater.verify_sha256"),
         patch("djconnect_pi.updater.install_release"),
+        patch("djconnect_pi.updater.cleanup_old_releases") as cleanup_old_releases,
         patch("djconnect_pi.updater.restart_services") as restart_services,
     ):
         assert updater.run(cfg) == "Installed 0.2.0"
 
+    cleanup_old_releases.assert_called_once_with(tmp_path, 2)
     restart_services.assert_called_once_with(("djconnect-api.service", "djconnect-client.service"))

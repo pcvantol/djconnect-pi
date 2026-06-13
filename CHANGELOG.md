@@ -1,6 +1,6 @@
 # Changelog
 
-## 3.1.33
+## 3.1.34
 
 - Updated the touch UI kiosk branding to show `DJConnect` everywhere, use the
   real bundled app icon, remove visible close buttons and ignore stale persisted
@@ -13,6 +13,12 @@
   top-level bundle directory, installing the bundled wheel into the release
   venv, validating all console entrypoints and only then switching
   `/opt/djconnect/current`.
+- Made the unattended updater clean old Pi release directories after a
+  successful install, keeping the active release plus one rollback release and
+  removing stale temporary unpack directories.
+- Made unattended updater dependency installs use the same cache-local pip
+  temp directory as the installer, avoiding `/tmp` pressure during large
+  PySide6 wheel installs on Raspberry Pi Zero 2 W.
 - Initial Raspberry Pi display-remote scaffold with Qt Quick/QML, fullscreen
   720x720 touch UI, playback controls and app-like DJConnect pairing, status
   and command client contract.

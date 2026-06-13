@@ -70,5 +70,9 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 - touch-only games panel packaging and four-game QML contract checks
 - updater release asset selection, SHA256 verification, top-level tarball
   directory stripping, bundled-wheel venv installation and atomic activation
+- updater post-install cleanup of old release directories while keeping the
+  active release and one rollback release
+- updater pip install environment coverage for cache-local temp files under
+  `/var/cache/djconnect-pip`
 - updater stable/beta prerelease channel handling
 - apt maintenance windows, upgrade command flow and reboot gating

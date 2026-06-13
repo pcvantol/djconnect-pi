@@ -72,6 +72,12 @@ Implemented:
   tarballs: it strips the top-level archive directory, installs the bundled
   wheel into `.venv`, validates all `djconnect-pi-*` console entrypoints and
   only then repoints `/opt/djconnect/current`.
+- After a successful unattended install, the updater cleans
+  `/opt/djconnect/releases` and keeps only the active release plus one rollback
+  release. Hidden temporary unpack directories are removed as well.
+- The unattended updater now also uses `/var/cache/djconnect-pip` and
+  `/var/cache/djconnect-pip/tmp` for pip cache and temporary files, matching the
+  public installer behavior during large PySide6 dependency installs.
 - Install script is resumable across reboot/interruption. It stores markers in
   `/opt/djconnect/install-state/<version>/` for `release_unpacked` and
   `venv_ready`, uses `/var/cache/djconnect-pip` so large PySide6 downloads do

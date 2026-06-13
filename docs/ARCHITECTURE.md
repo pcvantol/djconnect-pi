@@ -61,6 +61,13 @@ The active release is selected by atomically replacing:
 
 After install, the updater restarts `djconnect-api.service` and
 `djconnect-client.service`.
+It also removes stale release directories after a successful install. The
+default retention is the active `/opt/djconnect/current` release plus one
+previous rollback release; leftover hidden `.tmp` unpack directories are always
+deleted.
+Python dependencies are installed from the bundled wheel using pip cache and
+temporary files under `/var/cache/djconnect-pip`, matching the manual installer
+so large wheels do not consume the default temporary filesystem.
 
 The source repo publishes release assets to the public distribution repo through
 `.github/workflows/publish-release.yml` on `vX.Y.Z` tags. The workflow needs a
@@ -95,7 +102,7 @@ The Pi client is an app-like DJConnect client.
   "device_id": "djconnect-raspberry-pi-XXXXXXXXXXXX",
   "device_name": "DJConnect Pi",
   "client_type": "raspberry_pi",
-  "version": "3.1.33",
+  "version": "3.1.34",
   "capabilities": {
     "touch": true,
     "voice": false,
