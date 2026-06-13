@@ -34,8 +34,7 @@ DJConnect Pi:
 - sets timezone to Europe/Amsterdam by default
 - enables SSH
 - runs apt update and optional apt full-upgrade
-- installs OS packages including Glances, minimal X11/kiosk, Qt runtime and Python
-- enables Glances web UI on port 61208 at boot
+- installs OS packages including minimal X11/kiosk, Qt runtime and Python
 - attempts to install and enable Raspberry Pi Connect
 - configures the modern HyperPixel 4 KMS DPI overlay
 
@@ -116,7 +115,6 @@ install_base_packages() {
     ca-certificates \
     curl \
     git \
-    glances \
     jq \
     libegl1 \
     libgl1 \
@@ -139,36 +137,6 @@ install_base_packages() {
     xserver-xorg \
     xserver-xorg-video-fbdev \
     xserver-xorg-input-libinput
-}
-
-configure_glances_web() {
-  log "Configuring Glances web UI on port 61208"
-  local glances_root="/opt/djconnect-glances"
-  python3 -m venv "$glances_root"
-  "${glances_root}/bin/python" -m pip install --upgrade pip
-  "${glances_root}/bin/pip" install --upgrade "glances[web]"
-
-  cat > /etc/systemd/system/glances-web.service <<EOF
-[Unit]
-Description=Glances Web UI
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=simple
-ExecStart=${glances_root}/bin/glances -w --bind 0.0.0.0 --port 61208 --disable-plugin docker
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-  systemctl daemon-reload
-  systemctl disable --now glances.service >/dev/null 2>&1 || true
-  systemctl enable --now glances-web.service
-  systemctl restart glances-web.service
-  echo "Glances web UI: http://<pi-hostname-or-ip>:61208"
 }
 
 install_rpi_connect() {
@@ -268,7 +236,6 @@ main() {
   configure_console_boot
   enable_ssh
   install_base_packages
-  configure_glances_web
   install_rpi_connect
   install_hyperpixel
 

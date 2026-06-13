@@ -98,12 +98,6 @@ fi
 sudo ./scripts/bootstrap_raspberry_pi_os.sh
 ```
 
-The bootstrap helper also enables Glances web monitoring on:
-
-```text
-http://<pi-hostname-or-ip>:61208
-```
-
 Production app install on a prepared Pi uses the public distribution release,
 not a private source clone:
 
@@ -197,7 +191,7 @@ sudo ./scripts/install_raspberry_pi.sh
 The installer preserves existing config, updates `/opt/djconnect/current`,
 refreshes systemd units, and restarts `djconnect-api.service` and
 `djconnect-client.service`. It does not run OS bootstrap tasks such as timezone,
-SSH, apt full-upgrade, glances, Raspberry Pi Connect or HyperPixel setup. Use
+SSH, apt full-upgrade, Raspberry Pi Connect or HyperPixel setup. Use
 `git pull --ff-only` first only when the Pi is running from a development
 checkout.
 

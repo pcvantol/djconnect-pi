@@ -8,8 +8,6 @@
   according to `SYNC_PROMPTS.md`.
 - Validate the separate API daemon and DJ-response event bridge on real Pi
   hardware with Home Assistant.
-- Validate Glances web monitoring from another LAN device after bootstrap on
-  the wall-mounted Pi image.
 - Validate HyperPixel rotation/touch mapping on hardware.
 - Wire QML screen blanking to OS-level display power management if HyperPixel
   supports it reliably on the target image.

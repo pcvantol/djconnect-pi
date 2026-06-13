@@ -18,9 +18,6 @@
   HyperPixel backlight at the hardware level.
 - Persistent logs rotate locally, but log retention has not yet been tuned on
   the wall device's SD card.
-- Glances web monitoring is configured through `/opt/djconnect-glances`, but
-  LAN reachability on the final wall-mounted network still needs hardware
-  validation.
 
 ## Closed
 
@@ -29,5 +26,3 @@
 - HyperPixel boot/display configuration validated on the Pi Zero 2 W with the
   modern `vc4-kms-dpi-hyperpixel4sq` overlay.
 - Dutch/English translation parity reviewed and covered by tests.
-- Glances web mode no longer relies on the distro `glances.service`, because
-  Raspberry Pi OS package variants can miss the required web static assets.

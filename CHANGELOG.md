@@ -45,13 +45,10 @@
 - Split general Raspberry Pi OS bootstrap into repo-only
   `scripts/bootstrap_raspberry_pi_os.sh` and excluded it from release tarballs.
   The DJConnect app installer no longer performs timezone, SSH, apt
-  full-upgrade, glances, Raspberry Pi Connect, minimal X11/Qt runtime or
+  full-upgrade, Raspberry Pi Connect, minimal X11/Qt runtime or
   HyperPixel setup.
 - Fixed public release install checksum verification so the installer compares
   SHA256 hash values instead of relying on the filename stored in the `.sha256`
   asset.
-- Changed repo-only Raspberry Pi bootstrap to install Glances web mode in a
-  dedicated `/opt/djconnect-glances` virtualenv and start it on boot through
-  `glances-web.service` at port `61208`; the distro `glances.service` is
-  disabled for web mode because some Raspberry Pi OS packages miss the web
-  static assets.
+- Removed third-party system monitoring setup from all bootstrap scripts and
+  documentation; monitoring is no longer installed or managed by DJConnect Pi.

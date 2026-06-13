@@ -118,11 +118,7 @@ def test_repo_only_os_bootstrap_targets_lite_with_minimal_kiosk_runtime() -> Non
     assert "libxcb-cursor0" in script
     assert "openbox" not in script
     assert "gtk-application-prefer-dark-theme=true" not in script
-    assert "glances" in script
-    assert 'pip" install --upgrade "glances[web]"' in script
-    assert "glances-web.service" in script
-    assert "/opt/djconnect-glances" in script
-    assert "systemctl disable --now glances.service" in script
+    assert "glances" not in script.lower()
     assert "rpi-connect" in script
     assert "systemctl enable --now rpi-connect || true" not in script
     assert "systemctl list-unit-files rpi-connect.service" in script
@@ -221,15 +217,15 @@ def test_bootstrap_documentation_targets_raspberry_pi_os_lite() -> None:
     assert "Desktop/GUI image" not in readme
 
 
-def test_glances_web_bootstrap_is_documented_and_synced() -> None:
+def test_glances_is_not_installed_or_documented() -> None:
+    script = ROOT.joinpath("scripts/bootstrap_raspberry_pi_os.sh").read_text(encoding="utf-8")
     bootstrap = ROOT.joinpath("docs/BOOTSTRAP.md").read_text(encoding="utf-8")
     readme = ROOT.joinpath("README.md").read_text(encoding="utf-8")
     sync_prompt = ROOT.joinpath("SYNC_PROMPTS.md").read_text(encoding="utf-8")
 
-    for text in (bootstrap, readme, sync_prompt):
-        assert "61208" in text
-    assert "/opt/djconnect-glances" in bootstrap
-    assert "/opt/djconnect-glances" in sync_prompt
-    assert "glances-web.service" in bootstrap
-    assert "glances-web.service" in sync_prompt
-    assert "distro `glances.service`" in sync_prompt
+    for text in (script, bootstrap, readme):
+        assert "glances" not in text.lower()
+        assert "61208" not in text
+        assert "djconnect-glances" not in text
+        assert "glances-web.service" not in text
+    assert "must not install or manage\n  Glances" in sync_prompt

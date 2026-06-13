@@ -31,7 +31,7 @@ This installs or updates the DJConnect Pi application only:
 - restarts the DJConnect API and touch UI services
 
 General Raspberry Pi OS bootstrap tasks, such as timezone, SSH, apt full-upgrade,
-glances, Raspberry Pi Connect and HyperPixel display setup, are intentionally
+Raspberry Pi Connect and HyperPixel display setup, are intentionally
 handled by scripts/bootstrap_raspberry_pi_os.sh from a source checkout. That
 bootstrap script is not shipped in release tarballs.
 EOF

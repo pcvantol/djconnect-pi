@@ -67,25 +67,10 @@ sudo reboot
 
 The bootstrap helper configures the running system to boot to console
 (`multi-user.target`), sets timezone to `Europe/Amsterdam`, enables SSH, runs an
-optional apt full-upgrade, installs Glances, minimal X11/kiosk dependencies,
-Qt runtime libraries, attempts Raspberry Pi Connect and configures HyperPixel.
-It is intentionally not included in DJConnect Pi release tarballs and is not
-part of the app release cycle.
-
-Glances is configured in `/opt/djconnect-glances` with the Python
-`glances[web]` package and starts as `glances-web.service` on boot. This avoids
-Raspberry Pi OS package variants where Glances is installed without its web
-static assets.
-
-```text
-http://<pi-hostname-or-ip>:61208
-```
-
-For example:
-
-```text
-http://rbpi-djconnect.local:61208
-```
+optional apt full-upgrade, installs minimal X11/kiosk dependencies, Qt runtime
+libraries, attempts Raspberry Pi Connect and configures HyperPixel. It is
+intentionally not included in DJConnect Pi release tarballs and is not part of
+the app release cycle.
 
 If an earlier bootstrap attempt left apt/dpkg half-configured, repair the
 package state once and rerun the bootstrap:
@@ -206,7 +191,7 @@ The installer is safe to run over an earlier DJConnect install:
 - restarts `djconnect-api.service` and `djconnect-client.service`
 - leaves updater, maintenance and screen timers enabled
 - does not run OS bootstrap tasks such as timezone, SSH, apt full-upgrade,
-  glances, Raspberry Pi Connect or HyperPixel setup
+  Raspberry Pi Connect or HyperPixel setup
 
 For a development checkout on the Pi, update the checkout first and then run the
 installer from that checkout. If you need to re-apply OS bootstrap work, run the

@@ -51,13 +51,9 @@ Implemented:
   `scripts/install_raspberry_pi.sh`, so a Pi can install the DJConnect app from
   the public distribution tarball without cloning the private source repo.
 - Repo-only OS bootstrap helper `scripts/bootstrap_raspberry_pi_os.sh` handles
-  timezone Amsterdam, SSH, apt full-upgrade, glances, Raspberry Pi Connect,
+  timezone Amsterdam, SSH, apt full-upgrade, Raspberry Pi Connect,
   console boot, minimal X11/Qt runtime dependencies and HyperPixel setup. It is
   intentionally excluded from release tarballs and from the app release cycle.
-- The bootstrap helper configures Glances as a boot-started web UI on port
-  `61208` using a dedicated `/opt/djconnect-glances` venv and
-  `glances-web.service`. Do not use the distro `glances.service` for web mode;
-  some Raspberry Pi OS package variants miss the required static web assets.
 - systemd unit/timer templates
 - release and cleanup scripts
 - Install script targets a prepared Raspberry Pi OS 64-bit image, creates the
@@ -108,7 +104,7 @@ Not implemented by design:
 - Do not reintroduce Wi-Fi provisioning into the DJConnect installer; that
   belongs in Raspberry Pi Imager setup.
 - Do not reintroduce OS bootstrap into the DJConnect app installer or release
-  tarball. Keep timezone, SSH, apt full-upgrade, glances, Raspberry Pi Connect,
+  tarball. Keep timezone, SSH, apt full-upgrade, Raspberry Pi Connect,
   minimal X11/Qt runtime dependencies and HyperPixel setup in
   `scripts/bootstrap_raspberry_pi_os.sh`. Target Raspberry Pi OS Lite 64-bit,
   not the Desktop/GUI image.
