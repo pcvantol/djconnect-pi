@@ -3,7 +3,7 @@ import stat
 from pathlib import Path
 from unittest.mock import patch
 
-from djconnect_pi.config import CLIENT_TYPE, Config, default_language_from_system, generate_pairing_code, load_config, save_config
+from djconnect_pi.config import CLIENT_TYPE, PROTOCOL_VERSION, Config, default_language_from_system, generate_pairing_code, load_config, save_config
 
 
 def test_default_config_uses_raspberry_pi_client_type(tmp_path: Path) -> None:
@@ -14,6 +14,7 @@ def test_default_config_uses_raspberry_pi_client_type(tmp_path: Path) -> None:
     assert cfg.pairing_code.isdigit()
     assert cfg.screen_timeout_seconds == 120
     assert cfg.update_repo == "pcvantol/djconnect-pi-releases"
+    assert cfg.device_name == "DJConnect"
 
 
 def test_save_and_load_config_roundtrip(tmp_path: Path) -> None:
@@ -69,6 +70,8 @@ def test_load_config_normalizes_runtime_settings(tmp_path: Path) -> None:
     path.write_text(
         json.dumps(
             {
+                "device_name": "DJConnect Pi",
+                "version": "3.1.25",
                 "screen_timeout_seconds": -5,
                 "screen_brightness_percent": 900,
                 "update_channel": "nightly",
@@ -84,6 +87,8 @@ def test_load_config_normalizes_runtime_settings(tmp_path: Path) -> None:
     assert loaded.screen_brightness_percent == 100
     assert loaded.update_channel == "stable"
     assert loaded.language == "nl"
+    assert loaded.device_name == "DJConnect"
+    assert loaded.version == PROTOCOL_VERSION
 
 
 def test_default_language_uses_raspberry_pi_locale() -> None:

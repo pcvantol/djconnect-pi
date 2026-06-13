@@ -9,7 +9,7 @@ Window {
     height: 720
     visible: true
     color: "#080b18"
-    title: "DJConnect Pi"
+    title: "DJConnect"
     visibility: startWindowed ? Window.Windowed : Window.FullScreen
 
     property real edge: 28
@@ -18,22 +18,6 @@ Window {
     property bool settingsOpen: activeScreen === "settings"
     property bool gamesOpen: activeScreen === "games"
     property bool aboutOpen: false
-    property var queueItems: [
-        { title: "Murder On The Dancefloor", subtitle: "Sophie Ellis-Bextor", uri: "spotify:track:murder", tint: "#d946ef" },
-        { title: "SOS", subtitle: "ABBA", uri: "spotify:track:sos", tint: "#a78bfa" },
-        { title: "All I Want Is You", subtitle: "", uri: "spotify:track:all-i-want", tint: "#38bdf8" },
-        { title: "Around the World (La La La La La)", subtitle: "ATC", uri: "spotify:track:around-the-world", tint: "#8b5cf6" },
-        { title: "Smells Like Teen Spirit - Live", subtitle: "", uri: "spotify:track:teen-spirit", tint: "#64748b" },
-        { title: "Summer Of 69", subtitle: "Bryan Adams", uri: "spotify:track:summer-69", tint: "#f97316" }
-    ]
-    property var playlistItems: [
-        { title: "DJConnect", subtitle: "", uri: "spotify:playlist:djconnect", tint: "#d946ef" },
-        { title: "HAEVN - Songs of Solitude", subtitle: "", uri: "spotify:playlist:haevn", tint: "#64748b" },
-        { title: "Acid Trip", subtitle: "", uri: "spotify:playlist:acid-trip", tint: "#fb7185" },
-        { title: "LSD TRIP 26", subtitle: "", uri: "spotify:playlist:lsd-trip", tint: "#facc15" },
-        { title: "Lucy", subtitle: "", uri: "spotify:playlist:lucy", tint: "#38bdf8" },
-        { title: "HAEVN Wide Awake Tour Setlist", subtitle: "", uri: "spotify:playlist:haevn-wide-awake", tint: "#8b5cf6" }
-    ]
     property bool screenBlanked: djconnect.screenTimeoutSeconds > 0 && !idleTimer.running
     property real brightnessOverlayOpacity: root.screenBlanked ? 0 : 1 - (djconnect.screenBrightnessPercent / 100.0)
 
@@ -74,7 +58,7 @@ Window {
         id: control
         property bool primary: false
 
-        font.pixelSize: primary ? 42 : 34
+        font.pixelSize: primary ? 24 : 22
         font.bold: true
         Layout.fillWidth: true
         Layout.fillHeight: true
@@ -160,13 +144,23 @@ Window {
                                     Layout.preferredHeight: 68
                                     radius: 8
                                     color: modelData.tint
+                                    clip: true
+
+                                    Image {
+                                        anchors.fill: parent
+                                        source: modelData.imageUrl && modelData.imageUrl.length > 0 ? djconnect.cachedImageUrl(modelData.imageUrl) : ""
+                                        fillMode: Image.PreserveAspectCrop
+                                        asynchronous: true
+                                        opacity: status === Image.Ready ? 1 : 0
+                                    }
 
                                     Text {
                                         anchors.centerIn: parent
-                                        text: "♪"
+                                        text: "DC"
                                         color: "#ffffff"
-                                        font.pixelSize: 28
+                                        font.pixelSize: 20
                                         font.bold: true
+                                        visible: !modelData.imageUrl || modelData.imageUrl.length === 0
                                     }
                                 }
 
@@ -194,10 +188,16 @@ Window {
                                 }
 
                                 PlaybackButton {
-                                    text: "▶"
+                                    text: "PLAY"
                                     primary: true
-                                    Layout.preferredWidth: 68
-                                    Layout.preferredHeight: 68
+                                    Layout.fillWidth: false
+                                    Layout.fillHeight: false
+                                    Layout.preferredWidth: 92
+                                    Layout.minimumWidth: 92
+                                    Layout.maximumWidth: 92
+                                    Layout.preferredHeight: 58
+                                    Layout.minimumHeight: 58
+                                    Layout.maximumHeight: 58
                                     onClicked: djconnect.playUri(modelData.uri)
                                 }
                             }
@@ -266,8 +266,8 @@ Window {
         ColumnLayout {
             anchors.fill: parent
             anchors.margins: root.edge
-            anchors.bottomMargin: root.edge + 84
-            spacing: 12
+            anchors.bottomMargin: root.edge + 104
+            spacing: 8
 
             RowLayout {
                 Layout.fillWidth: true
@@ -297,26 +297,18 @@ Window {
                     implicitHeight: 28
                 }
 
-                PurpleButton {
-                    text: "x"
-                    implicitWidth: 34
-                    implicitHeight: 34
-                    font.pixelSize: 18
-                    font.bold: true
-                    onClicked: djconnect.quitApp()
-                }
             }
 
             Item {
                 id: artShell
                 Layout.fillWidth: true
-                Layout.preferredHeight: 388
+                Layout.preferredHeight: 250
 
                 Rectangle {
                     id: artFrame
                     anchors.centerIn: parent
-                    width: 366
-                    height: 366
+                    width: 250
+                    height: 250
                     radius: 8
                     color: "#172024"
                     border.color: "#314449"
@@ -406,30 +398,30 @@ Window {
 
             RowLayout {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 112
+                Layout.preferredHeight: 72
                 spacing: 22
 
                 PlaybackButton {
-                    text: "⏮"
+                    text: "<<"
                     onClicked: djconnect.previous()
                 }
 
                 PlaybackButton {
                     Layout.preferredWidth: 180
-                    text: djconnect.playing ? "⏸" : "▶"
+                    text: djconnect.playing ? "PAUSE" : "PLAY"
                     primary: true
                     onClicked: djconnect.togglePlay()
                 }
 
                 PlaybackButton {
-                    text: "⏭"
+                    text: ">>"
                     onClicked: djconnect.next()
                 }
             }
 
             RowLayout {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 54
+                Layout.preferredHeight: 44
                 spacing: 14
 
                 Text {
@@ -460,7 +452,7 @@ Window {
 
             RowLayout {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 74
+                Layout.preferredHeight: 54
                 spacing: 18
 
                 TogglePill {
@@ -579,35 +571,11 @@ Window {
                     }
                 }
 
-            Text {
-                text: djconnect.t("client_api_url") + ": " + djconnect.localApiUrl
-                color: "#9fb4b8"
-                font.pixelSize: 14
-                elide: Text.ElideMiddle
-                Layout.fillWidth: true
-            }
-
-            Text {
-                text: djconnect.t("pairing_code") + ": " + djconnect.pairingCode
-                color: "#f4f8f8"
-                font.pixelSize: 24
-                font.bold: true
-                Layout.fillWidth: true
-            }
-
             TextField {
                 id: haUrlField
                 text: djconnect.haUrl.length ? djconnect.haUrl : "http://homeassistant.local:8123"
                 placeholderText: djconnect.t("ha_url")
                 font.pixelSize: 20
-                Layout.fillWidth: true
-            }
-
-            TextField {
-                id: pairCodeField
-                placeholderText: djconnect.t("pairing_code")
-                font.pixelSize: 26
-                horizontalAlignment: TextInput.AlignHCenter
                 Layout.fillWidth: true
             }
 
@@ -745,20 +713,18 @@ Window {
             }
 
             PurpleButton {
-                text: djconnect.paired ? djconnect.t("save") : djconnect.t("pair")
+                text: djconnect.t("save")
                 font.pixelSize: 22
                 Layout.fillWidth: true
                 Layout.preferredHeight: 62
                 onClicked: {
                     djconnect.setHaUrl(haUrlField.text)
-                    if (!djconnect.paired) djconnect.pair(pairCodeField.text)
                     if (djconnect.paired) root.activeScreen = "now"
                 }
             }
 
             PurpleButton {
                 text: djconnect.t("close")
-                enabled: djconnect.paired
                 font.pixelSize: 20
                 Layout.fillWidth: true
                 Layout.preferredHeight: 56
@@ -815,13 +781,13 @@ Window {
     MediaListPanel {
         visible: root.activeScreen === "queue"
         heading: djconnect.t("queue")
-        items: root.queueItems
+        items: djconnect.queueItems
     }
 
     MediaListPanel {
         visible: root.activeScreen === "playlists"
         heading: djconnect.t("playlists")
-        items: root.playlistItems
+        items: djconnect.playlistItems
     }
 
     GamesPanel {
@@ -875,7 +841,10 @@ Window {
                 checked: root.activeScreen === "queue"
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                onClicked: root.activeScreen = "queue"
+                onClicked: {
+                    root.activeScreen = "queue"
+                    djconnect.loadQueue()
+                }
             }
 
             PurpleButton {
@@ -885,7 +854,10 @@ Window {
                 checked: root.activeScreen === "playlists"
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                onClicked: root.activeScreen = "playlists"
+                onClicked: {
+                    root.activeScreen = "playlists"
+                    djconnect.loadPlaylists()
+                }
             }
 
             PurpleButton {
@@ -913,9 +885,18 @@ Window {
             spacing: 18
 
             Text {
-                text: "DJConnect Pi"
+                text: "DJConnect"
                 color: "#f4f8f8"
                 font.pixelSize: 46
+                font.bold: true
+                horizontalAlignment: Text.AlignHCenter
+                Layout.fillWidth: true
+            }
+
+            Text {
+                text: "v" + djconnect.version
+                color: "#d946ef"
+                font.pixelSize: 20
                 font.bold: true
                 horizontalAlignment: Text.AlignHCenter
                 Layout.fillWidth: true
@@ -1003,28 +984,12 @@ Window {
                 }
             }
 
-            TextField {
-                id: blockingPairCodeField
-                placeholderText: djconnect.t("pairing_code")
-                font.pixelSize: 28
-                horizontalAlignment: TextInput.AlignHCenter
-                Layout.fillWidth: true
-                Layout.preferredHeight: 66
-                onAccepted: {
-                    djconnect.pair(text)
-                    text = ""
-                }
-            }
-
             PurpleButton {
                 text: djconnect.t("pair")
                 font.pixelSize: 22
                 Layout.fillWidth: true
                 Layout.preferredHeight: 62
-                onClicked: {
-                    djconnect.pair(blockingPairCodeField.text.length ? blockingPairCodeField.text : djconnect.pairingCode)
-                    blockingPairCodeField.text = ""
-                }
+                onClicked: djconnect.pair(djconnect.pairingCode)
             }
 
             RowLayout {
@@ -1055,18 +1020,6 @@ Window {
                 Layout.fillWidth: true
             }
         }
-
-        PurpleButton {
-            text: "x"
-            anchors.top: parent.top
-            anchors.right: parent.right
-            anchors.margins: 18
-            implicitWidth: 34
-            implicitHeight: 34
-            font.pixelSize: 18
-            font.bold: true
-            onClicked: djconnect.quitApp()
-        }
     }
 
     Rectangle {
@@ -1084,7 +1037,7 @@ Window {
         Rectangle {
             anchors.centerIn: parent
             width: Math.min(parent.width - 64, 560)
-            height: 190
+            height: 300
             radius: 8
             color: "#cc0b1024"
             border.color: "#4050a8"
@@ -1092,13 +1045,32 @@ Window {
 
             ColumnLayout {
                 anchors.fill: parent
-                anchors.margins: 24
-                spacing: 14
+                anchors.margins: 26
+                spacing: 10
+
+                Image {
+                    source: "app-icon.png"
+                    Layout.alignment: Qt.AlignHCenter
+                    Layout.preferredWidth: 92
+                    Layout.preferredHeight: 92
+                    fillMode: Image.PreserveAspectFit
+                    smooth: true
+                    mipmap: true
+                }
 
                 Text {
                     text: "DJConnect"
                     color: "#f4f8f8"
-                    font.pixelSize: 48
+                    font.pixelSize: 46
+                    font.bold: true
+                    horizontalAlignment: Text.AlignHCenter
+                    Layout.fillWidth: true
+                }
+
+                Text {
+                    text: "v" + djconnect.version
+                    color: "#d946ef"
+                    font.pixelSize: 20
                     font.bold: true
                     horizontalAlignment: Text.AlignHCenter
                     Layout.fillWidth: true
@@ -1114,8 +1086,8 @@ Window {
 
                 BusyIndicator {
                     running: splashPanel.visible
-                    implicitWidth: 46
-                    implicitHeight: 46
+                    implicitWidth: 42
+                    implicitHeight: 42
                     Layout.alignment: Qt.AlignHCenter
                 }
             }
@@ -1212,14 +1184,6 @@ Window {
                     Layout.fillWidth: true
                     onClicked: djconnect.showLogs()
                 }
-
-                PurpleButton {
-                    text: "x"
-                    font.pixelSize: 18
-                    font.bold: true
-                    Layout.preferredWidth: 58
-                    onClicked: djconnect.quitApp()
-                }
             }
         }
     }
@@ -1315,23 +1279,13 @@ Window {
                         anchors.margins: 18
                         spacing: 18
 
-                        Rectangle {
+                        Image {
                             Layout.preferredWidth: 82
                             Layout.preferredHeight: 82
-                            radius: 8
-                            gradient: Gradient {
-                                orientation: Gradient.Vertical
-                                GradientStop { position: 0.0; color: "#8b5cf6" }
-                                GradientStop { position: 1.0; color: "#0b1d4f" }
-                            }
-
-                            Text {
-                                anchors.centerIn: parent
-                                text: "DJ"
-                                color: "#ffffff"
-                                font.pixelSize: 32
-                                font.bold: true
-                            }
+                            source: "app-icon.png"
+                            fillMode: Image.PreserveAspectFit
+                            smooth: true
+                            mipmap: true
                         }
 
                         ColumnLayout {
@@ -1339,7 +1293,7 @@ Window {
                             spacing: 4
 
                             Text {
-                                text: "DJConnect Pi"
+                                text: "DJConnect"
                                 color: "#ffffff"
                                 font.pixelSize: 38
                                 font.bold: true
@@ -1374,7 +1328,7 @@ Window {
                     Text { text: djconnect.t("version"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
                     Text { text: djconnect.version; color: "#ffffff"; font.pixelSize: 20; Layout.fillWidth: true }
                     Text { text: djconnect.t("device_name"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
-                    Text { text: "DJConnect Pi"; color: "#ffffff"; font.pixelSize: 20; Layout.fillWidth: true }
+                    Text { text: "DJConnect"; color: "#ffffff"; font.pixelSize: 20; Layout.fillWidth: true }
                     Text { text: djconnect.t("website"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
                     Text { text: "https://djconnect.pages.dev"; color: "#f044ff"; font.pixelSize: 20; Layout.fillWidth: true; elide: Text.ElideRight }
                     Text { text: djconnect.t("device_id"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }

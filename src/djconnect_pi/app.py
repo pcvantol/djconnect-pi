@@ -4,23 +4,32 @@ from concurrent.futures import ThreadPoolExecutor
 from importlib.resources import files
 from pathlib import Path
 import argparse
+import hashlib
 import json
 import logging
+import re
 import subprocess
 import sys
+import time
+from urllib.parse import urlparse
 
 from PySide6.QtCore import QCoreApplication, QObject, Property, QTimer, Signal, Slot
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
+import requests
 
-from .config import CLIENT_TYPE, DEFAULT_CONFIG_PATH, Config, load_config, save_config
+from .config import CLIENT_TYPE, DEFAULT_CONFIG_PATH, DEFAULT_LOG_PATH, Config, load_config, save_config
 from .ha import DJConnectError, HAClient, Playback, ProtocolVersionMismatch
 from .i18n import LANGUAGES, normalize_language, translate
 from .logging_config import setup_logging
 from .system_info import log_raspberry_pi_system_info
 
 _LOGGER = logging.getLogger(__name__)
+LOG_LINE_RE = re.compile(
+    r"^\d{4}-\d{2}-\d{2}\s+(?P<time>\d{2}:\d{2}:\d{2})(?:[,.]\d+)?\s+(?P<level>[A-Z]+)\s+(?P<rest>.*)$"
+)
+LOG_LEVEL_SHORT = {"DEBUG": "DBG", "INFO": "INF", "WARNING": "WRN", "ERROR": "ERR", "CRITICAL": "ERR"}
 
 
 class DJConnectBackend(QObject):
@@ -41,6 +50,7 @@ class DJConnectBackend(QObject):
     toastChanged = Signal()
     versionMismatchChanged = Signal()
     logsChanged = Signal()
+    mediaListsChanged = Signal()
     demoModeChanged = Signal()
     screenTimeoutChanged = Signal()
     screenBrightnessChanged = Signal()
@@ -55,6 +65,7 @@ class DJConnectBackend(QObject):
     _pairingReady = Signal(bool, str)
     _busyReady = Signal(bool)
     _versionMismatchReady = Signal(str, str)
+    _mediaListReady = Signal(str, object)
 
     def __init__(self, config_path: Path) -> None:
         super().__init__()
@@ -76,6 +87,8 @@ class DJConnectBackend(QObject):
         self._logs_text = ""
         self._logs_visible = False
         self._demo_mode = False
+        self._queue_items = demo_queue_items()
+        self._playlist_items = demo_playlist_items()
         self._status_text = self.tr_key("paired" if self.cfg.paired else "not_paired")
         self._busy = False
         self._executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="djconnect")
@@ -92,6 +105,7 @@ class DJConnectBackend(QObject):
         self._pairingReady.connect(self._apply_pairing)
         self._busyReady.connect(self._set_busy)
         self._versionMismatchReady.connect(self._apply_version_mismatch)
+        self._mediaListReady.connect(self._apply_media_list)
         QTimer.singleShot(250, self.refresh)
         _LOGGER.info("DJConnect Pi client backend started for %s", self.cfg.device_id)
 
@@ -110,6 +124,14 @@ class DJConnectBackend(QObject):
     @Property(str, notify=imageUrlChanged)
     def imageUrl(self) -> str:
         return self.playback.image_url
+
+    @Property("QVariantList", notify=mediaListsChanged)
+    def queueItems(self) -> list[dict[str, object]]:
+        return self._queue_items
+
+    @Property("QVariantList", notify=mediaListsChanged)
+    def playlistItems(self) -> list[dict[str, object]]:
+        return self._playlist_items
 
     @Property(bool, notify=playingChanged)
     def playing(self) -> bool:
@@ -403,8 +425,11 @@ class DJConnectBackend(QObject):
         if self.paired:
             return
         self._demo_mode = True
+        self._queue_items = demo_queue_items()
+        self._playlist_items = demo_playlist_items()
         self.demoModeChanged.emit()
-        self._apply_demo_track("Sweet Dreams", "Eurythmics")
+        self.mediaListsChanged.emit()
+        self._apply_demo_track("Midnight City", "M83")
         _LOGGER.info("User entered local demo mode")
         self.showToast(self.tr_key("demo_active"))
         self._set_status_text(self.tr_key("demo_active"))
@@ -414,7 +439,10 @@ class DJConnectBackend(QObject):
         if not self._demo_mode:
             return
         self._demo_mode = False
+        self._queue_items = []
+        self._playlist_items = []
         self.demoModeChanged.emit()
+        self.mediaListsChanged.emit()
         self.playback = Playback()
         self.titleChanged.emit()
         self.artistChanged.emit()
@@ -466,7 +494,7 @@ class DJConnectBackend(QObject):
         try:
             if path.exists():
                 data = path.read_text(encoding="utf-8", errors="replace")
-                self._logs_text = data[-12000:] if len(data) > 12000 else data
+                self._logs_text = _format_logs_for_display(data)
             else:
                 self._logs_text = self.tr_key("logs_missing")
         except Exception as exc:
@@ -530,6 +558,32 @@ class DJConnectBackend(QObject):
         self.showToast(self.tr_key("play"))
         self.command("play_uri", uri=uri)
 
+    @Slot()
+    def loadQueue(self) -> None:
+        if self._demo_mode:
+            self._queue_items = demo_queue_items()
+            self.mediaListsChanged.emit()
+            return
+        if not self.paired:
+            return
+        _LOGGER.info("User requested queue from touch UI")
+        self._run(self.tr_key("queue"), self._load_queue_worker)
+
+    @Slot()
+    def loadPlaylists(self) -> None:
+        if self._demo_mode:
+            self._playlist_items = demo_playlist_items()
+            self.mediaListsChanged.emit()
+            return
+        if not self.paired:
+            return
+        _LOGGER.info("User requested playlists from touch UI")
+        self._run(self.tr_key("playlists"), self._load_playlists_worker)
+
+    @Slot(str, result=str)
+    def cachedImageUrl(self, url: str) -> str:
+        return cached_image_url(url)
+
     def _pair_worker(self, code: str) -> None:
         _LOGGER.info("Pairing DJConnect Pi client")
         self.client.pair(code)
@@ -548,6 +602,14 @@ class DJConnectBackend(QObject):
         _LOGGER.info("Sending playback command: %s", command)
         data = self.client.command(command, **payload)
         self._playbackReady.emit(self.client.playback_from_status(data))
+
+    def _load_queue_worker(self) -> None:
+        data = self.client.command("queue", limit=100)
+        self._mediaListReady.emit("queue", parse_queue_items(data))
+
+    def _load_playlists_worker(self) -> None:
+        data = self.client.command("playlists")
+        self._mediaListReady.emit("playlists", parse_playlist_items(data))
 
     def _show_dj_response(self, payload: dict[str, object]) -> dict[str, object]:
         text = str(payload.get("dj_text") or payload.get("text") or payload.get("message") or "").strip()
@@ -568,6 +630,8 @@ class DJConnectBackend(QObject):
             self.exitDemoMode()
         self.cfg.device_token = ""
         self.cfg.paired = False
+        self._queue_items = []
+        self._playlist_items = []
         from .config import generate_pairing_code
 
         self.cfg.pairing_code = generate_pairing_code()
@@ -575,6 +639,7 @@ class DJConnectBackend(QObject):
         self.pairedChanged.emit()
         self.pairingCodeChanged.emit()
         self.settingsChanged.emit()
+        self.mediaListsChanged.emit()
 
     def _apply_demo_track(self, title: str, artist: str) -> None:
         self.playback.title = title
@@ -631,6 +696,18 @@ class DJConnectBackend(QObject):
         if old.repeat != playback.repeat:
             self.repeatChanged.emit()
         self._set_status_text(self.tr_key("connected" if self.paired else "ready_to_pair"))
+
+    @Slot(str, object)
+    def _apply_media_list(self, kind: str, items: object) -> None:
+        if not isinstance(items, list):
+            return
+        if kind == "queue":
+            self._queue_items = items
+        elif kind == "playlists":
+            self._playlist_items = items
+        else:
+            return
+        self.mediaListsChanged.emit()
 
     @Slot(bool, str)
     def _apply_pairing(self, paired: bool, message: str) -> None:
@@ -742,6 +819,119 @@ def main() -> None:
     if args.exit_after_ms > 0:
         QTimer.singleShot(args.exit_after_ms, app.quit)
     raise SystemExit(app.exec())
+
+
+def _format_logs_for_display(data: str, max_chars: int = 12000) -> str:
+    lines = data.splitlines()[-220:]
+    formatted: list[str] = []
+    for line in lines:
+        match = LOG_LINE_RE.match(line)
+        if not match:
+            formatted.append(line)
+            continue
+        level = LOG_LEVEL_SHORT.get(match.group("level"), match.group("level")[:3])
+        formatted.append(f"{match.group('time')} {level} {match.group('rest')}")
+    result = "\n".join(formatted)
+    return result[-max_chars:] if len(result) > max_chars else result
+
+
+def cached_image_url(url: str, ttl_seconds: int = 24 * 60 * 60) -> str:
+    url = str(url or "").strip()
+    if not url:
+        return ""
+    parsed = urlparse(url)
+    if parsed.scheme not in {"http", "https"}:
+        return url
+
+    cache_dir = DEFAULT_LOG_PATH.parent.parent / "cache" / "album-art"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    suffix = Path(parsed.path).suffix.lower()
+    if suffix not in {".jpg", ".jpeg", ".png", ".webp"}:
+        suffix = ".img"
+    target = cache_dir / f"{hashlib.sha256(url.encode('utf-8')).hexdigest()}{suffix}"
+    if target.exists() and time.time() - target.stat().st_mtime < ttl_seconds:
+        return target.as_uri()
+
+    try:
+        response = requests.get(url, timeout=8)
+        response.raise_for_status()
+        target.write_bytes(response.content)
+        return target.as_uri()
+    except Exception as exc:
+        _LOGGER.debug("Album art cache fallback for %s: %s", url, exc)
+        return url
+
+
+def demo_queue_items() -> list[dict[str, object]]:
+    return [
+        {
+            "title": "Midnight City",
+            "subtitle": "M83",
+            "uri": "spotify:track:demo-0",
+            "imageUrl": "",
+            "tint": "#d946ef",
+        },
+        {
+            "title": "Sweet Disposition",
+            "subtitle": "The Temper Trap",
+            "uri": "spotify:track:demo-1",
+            "imageUrl": "",
+            "tint": "#a78bfa",
+        },
+        {
+            "title": "Electric Feel",
+            "subtitle": "MGMT",
+            "uri": "spotify:track:demo-2",
+            "imageUrl": "",
+            "tint": "#38bdf8",
+        },
+    ]
+
+
+def demo_playlist_items() -> list[dict[str, object]]:
+    return [
+        {"title": "Friday Night", "subtitle": "", "uri": "spotify:playlist:djconnect-demo", "imageUrl": "", "tint": "#d946ef"},
+        {"title": "Dinner Vibes", "subtitle": "", "uri": "spotify:playlist:djconnect-dinner", "imageUrl": "", "tint": "#64748b"},
+        {"title": "DJConnect", "subtitle": "", "uri": "spotify:playlist:djconnect", "imageUrl": "", "tint": "#8b5cf6"},
+    ]
+
+
+def parse_queue_items(data: dict[str, object]) -> list[dict[str, object]]:
+    raw_queue = data.get("queue")
+    if isinstance(raw_queue, dict):
+        raw_items = raw_queue.get("items")
+    elif isinstance(raw_queue, list):
+        raw_items = raw_queue
+    else:
+        raw_items = data.get("items")
+    return [_media_item(item) for item in raw_items if isinstance(item, dict)] if isinstance(raw_items, list) else []
+
+
+def parse_playlist_items(data: dict[str, object]) -> list[dict[str, object]]:
+    raw_items = data.get("playlists") or data.get("items")
+    return [_media_item(item, playlist=True) for item in raw_items if isinstance(item, dict)] if isinstance(raw_items, list) else []
+
+
+def _media_item(item: dict[str, object], playlist: bool = False) -> dict[str, object]:
+    title = str(item.get("name") or item.get("title") or item.get("display_title") or "")
+    subtitle = str(item.get("artist") or item.get("artists") or item.get("subtitle") or item.get("album") or "")
+    uri = str(item.get("uri") or item.get("id") or item.get("value") or "")
+    image_url = str(
+        item.get("image_url")
+        or item.get("album_image_url")
+        or item.get("media_image_url")
+        or item.get("entity_picture")
+        or ""
+    )
+    if playlist:
+        subtitle = str(item.get("owner") or item.get("description") or subtitle)
+    return {
+        "title": title,
+        "subtitle": subtitle,
+        "uri": uri,
+        "imageUrl": image_url,
+        "tint": "#8b5cf6" if playlist else "#38bdf8",
+    }
 
 
 if __name__ == "__main__":

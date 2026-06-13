@@ -60,6 +60,11 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 - dark DJConnect blue/purple gradient QML theme contract checks
 - transparent rounded touch button, readable logs, scrollable settings, About,
   queue and playlist QML contract checks
+- kiosk branding contract checks for the bundled app icon, no visible quit
+  action, fixed-size media play buttons and settings without pairing controls
+- compact touch log formatting and 24-hour album-art cache behavior
+- HA queue/playlist media parser coverage for artwork aliases from the shared
+  contract
 - game title QML contract checks ensuring titles come from translation keys
 - blocking version-mismatch QML contract checks
 - touch-only games panel packaging and four-game QML contract checks

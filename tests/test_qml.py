@@ -14,6 +14,7 @@ def test_qml_files_are_packaged() -> None:
     assert qml_root.joinpath("ControlButton.qml").is_file()
     assert qml_root.joinpath("TogglePill.qml").is_file()
     assert qml_root.joinpath("GamesPanel.qml").is_file()
+    assert qml_root.joinpath("app-icon.png").is_file()
 
 
 def test_qml_has_blocking_pairing_and_splash_views() -> None:
@@ -21,9 +22,13 @@ def test_qml_has_blocking_pairing_and_splash_views() -> None:
 
     assert "id: pairingPanel" in main_qml
     assert "id: splashPanel" in main_qml
+    assert 'source: "app-icon.png"' in main_qml
+    assert 'text: "v" + djconnect.version' in main_qml
     assert "!djconnect.paired && !djconnect.demoMode" in main_qml
     assert 'djconnect.t("client_api_url")' in main_qml
     assert "djconnect.pairingCode" in main_qml
+    assert "blockingPairCodeField" not in main_qml
+    assert "djconnect.pair(djconnect.pairingCode)" in main_qml
     assert 'djconnect.t("startup_message")' in main_qml
 
 
@@ -65,10 +70,20 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert 'djconnect.t("about")' in main_qml
     assert 'djconnect.t("queue")' in main_qml
     assert 'djconnect.t("playlists")' in main_qml
-    assert "root.queueItems" in main_qml
-    assert "root.playlistItems" in main_qml
+    assert "djconnect.queueItems" in main_qml
+    assert "djconnect.playlistItems" in main_qml
+    assert "djconnect.loadQueue()" in main_qml
+    assert "djconnect.loadPlaylists()" in main_qml
+    assert "djconnect.cachedImageUrl(modelData.imageUrl)" in main_qml
+    assert "Layout.minimumWidth: 92" in main_qml
+    assert "Layout.maximumWidth: 92" in main_qml
     assert "djconnect.copyLogs()" in main_qml
     assert "djconnect.clearLogs()" in main_qml
+    assert "pairCodeField" not in main_qml
+    assert "djconnect.pair(pairCodeField.text)" not in main_qml
+    assert 'text: "DJConnect Pi"' not in main_qml
+    assert 'text: "DJ"' not in main_qml
+    assert "djconnect.quitApp()" not in main_qml
 
 
 def test_qml_has_bottom_navigation_bar() -> None:

@@ -1,7 +1,14 @@
 # Changelog
 
-## 3.1.32
+## 3.1.33
 
+- Updated the touch UI kiosk branding to show `DJConnect` everywhere, use the
+  real bundled app icon, remove visible close buttons and ignore stale persisted
+  config versions in favor of the runtime package version.
+- Tightened the Pi media screens with fixed-size play buttons, compact
+  `HH:MM:SS INF/WRN/DBG/ERR` log prefixes, Apple-aligned demo queue/playlist
+  samples and HA queue/playlist artwork alias support with a 24-hour local
+  image cache.
 - Fixed unattended updater installs from public tarballs by stripping the
   top-level bundle directory, installing the bundled wheel into the release
   venv, validating all console entrypoints and only then switching

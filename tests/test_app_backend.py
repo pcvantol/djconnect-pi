@@ -6,7 +6,7 @@ from unittest.mock import Mock, patch
 
 from PySide6.QtCore import QCoreApplication
 
-from djconnect_pi.app import DJConnectBackend
+from djconnect_pi.app import DJConnectBackend, _format_logs_for_display, cached_image_url, parse_playlist_items, parse_queue_items
 
 
 def ensure_app() -> QCoreApplication:
@@ -22,6 +22,71 @@ def test_backend_exposes_initial_config(tmp_path: Path) -> None:
     assert backend.paired is False
     assert backend.busy is False
     assert backend.title == "Niets speelt af"
+
+
+def test_log_display_uses_compact_touch_prefix() -> None:
+    text = _format_logs_for_display(
+        "2026-06-13 17:53:49,528 INFO djconnect_pi.app: Started\n"
+        "2026-06-13 17:53:50,100 WARNING djconnect_pi.ha: Slow\n"
+        "2026-06-13 17:53:51,200 DEBUG djconnect_pi.ha: Payload\n"
+        "2026-06-13 17:53:52,300 ERROR djconnect_pi.ha: Failed\n"
+    )
+
+    assert "17:53:49 INF djconnect_pi.app: Started" in text
+    assert "17:53:50 WRN djconnect_pi.ha: Slow" in text
+    assert "17:53:51 DBG djconnect_pi.ha: Payload" in text
+    assert "17:53:52 ERR djconnect_pi.ha: Failed" in text
+    assert "2026-06-13" not in text
+
+
+def test_cached_image_url_reuses_24_hour_cache(tmp_path: Path, monkeypatch) -> None:
+    cache_root = tmp_path / "state" / "client.log"
+    monkeypatch.setattr("djconnect_pi.app.DEFAULT_LOG_PATH", cache_root)
+    response = Mock()
+    response.content = b"image"
+    response.raise_for_status.return_value = None
+
+    with patch("djconnect_pi.app.requests.get", return_value=response) as get:
+        first = cached_image_url("https://example.test/art.jpg")
+        second = cached_image_url("https://example.test/art.jpg")
+
+    assert first == second
+    assert first.startswith("file://")
+    get.assert_called_once()
+
+
+def test_media_list_parsers_accept_ha_artwork_aliases() -> None:
+    queue = parse_queue_items(
+        {
+            "queue": {
+                "items": [
+                    {
+                        "title": "Track One",
+                        "artist": "Artist One",
+                        "uri": "spotify:track:1",
+                        "album_image_url": "https://example.test/track.jpg",
+                    }
+                ]
+            }
+        }
+    )
+    playlists = parse_playlist_items(
+        {
+            "playlists": [
+                {
+                    "name": "Friday Night",
+                    "uri": "spotify:playlist:1",
+                    "entity_picture": "https://example.test/playlist.jpg",
+                }
+            ]
+        }
+    )
+
+    assert queue[0]["title"] == "Track One"
+    assert queue[0]["subtitle"] == "Artist One"
+    assert queue[0]["imageUrl"] == "https://example.test/track.jpg"
+    assert playlists[0]["title"] == "Friday Night"
+    assert playlists[0]["imageUrl"] == "https://example.test/playlist.jpg"
 
 
 def test_backend_set_ha_url_persists_value(tmp_path: Path) -> None:
@@ -134,6 +199,8 @@ def test_backend_demo_mode_is_local_only(tmp_path: Path) -> None:
     assert backend.demoMode is True
     assert backend.title == "Around the World"
     assert backend.volume == 33
+    assert [item["title"] for item in backend.queueItems] == ["Midnight City", "Sweet Disposition", "Electric Feel"]
+    assert [item["title"] for item in backend.playlistItems] == ["Friday Night", "Dinner Vibes", "DJConnect"]
     assert calls == []
 
     backend.exitDemoMode()
