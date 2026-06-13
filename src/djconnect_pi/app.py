@@ -36,6 +36,7 @@ class DJConnectBackend(QObject):
     busyChanged = Signal()
     settingsChanged = Signal()
     localApiUrlChanged = Signal()
+    pairingCodeChanged = Signal()
     djResponseChanged = Signal()
     toastChanged = Signal()
     versionMismatchChanged = Signal()
@@ -45,6 +46,7 @@ class DJConnectBackend(QObject):
     screenBrightnessChanged = Signal()
     updateChannelChanged = Signal()
     logFileChanged = Signal()
+    logLevelChanged = Signal()
     languageChanged = Signal()
     translationsChanged = Signal()
 
@@ -149,6 +151,14 @@ class DJConnectBackend(QObject):
     def deviceId(self) -> str:
         return self.cfg.device_id
 
+    @Property(str, notify=pairingCodeChanged)
+    def pairingCode(self) -> str:
+        return self.cfg.pairing_code
+
+    @Property(str, constant=True)
+    def version(self) -> str:
+        return self.cfg.version
+
     @Property(int, notify=screenTimeoutChanged)
     def screenTimeoutSeconds(self) -> int:
         return self.cfg.screen_timeout_seconds
@@ -164,6 +174,10 @@ class DJConnectBackend(QObject):
     @Property(str, notify=logFileChanged)
     def logFile(self) -> str:
         return self.cfg.log_file
+
+    @Property(str, notify=logLevelChanged)
+    def logLevel(self) -> str:
+        return self.cfg.log_level
 
     @Property(str, notify=languageChanged)
     def language(self) -> str:
@@ -276,6 +290,21 @@ class DJConnectBackend(QObject):
         _LOGGER.info("User changed update channel to %s", channel)
         self.showToast(self.tr_key("update_channel", channel=channel))
         self._set_status_text(self.tr_key("update_channel", channel=channel))
+
+    @Slot(str)
+    def setLogLevel(self, value: str) -> None:
+        level = value.strip().upper()
+        if level not in {"DEBUG", "INFO", "WARNING", "ERROR"}:
+            level = "INFO"
+        if self.cfg.log_level == level:
+            return
+        self.cfg.log_level = level
+        logging.getLogger().setLevel(getattr(logging, level, logging.INFO))
+        save_config(self.config_path, self.cfg)
+        self.logLevelChanged.emit()
+        self.settingsChanged.emit()
+        _LOGGER.info("User changed log level to %s", level)
+        self.showToast(self.tr_key("log_level_saved", level=level))
 
     @Slot(str)
     def pair(self, pair_code: str) -> None:
@@ -446,6 +475,25 @@ class DJConnectBackend(QObject):
         self.logsChanged.emit()
 
     @Slot()
+    def copyLogs(self) -> None:
+        _LOGGER.info("User copied logs from touch UI")
+        QGuiApplication.clipboard().setText(self._logs_text)
+        self.showToast(self.tr_key("logs_copied"))
+
+    @Slot()
+    def clearLogs(self) -> None:
+        _LOGGER.info("User cleared logs from touch UI")
+        path = Path(self.cfg.log_file)
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("", encoding="utf-8")
+            self._logs_text = self.tr_key("logs_cleared")
+            self.showToast(self.tr_key("logs_cleared"))
+        except Exception as exc:
+            self._logs_text = self.tr_key("logs_failed", error=exc)
+        self.logsChanged.emit()
+
+    @Slot()
     def hideLogs(self) -> None:
         self._logs_visible = False
         self.logsChanged.emit()
@@ -472,6 +520,15 @@ class DJConnectBackend(QObject):
         if self._demo_mode:
             return
         self._run(command, lambda: self._command_worker(command, **payload))
+
+    @Slot(str)
+    def playUri(self, uri: str) -> None:
+        uri = uri.strip()
+        if not uri:
+            return
+        _LOGGER.info("User requested play_uri from touch UI")
+        self.showToast(self.tr_key("play"))
+        self.command("play_uri", uri=uri)
 
     def _pair_worker(self, code: str) -> None:
         _LOGGER.info("Pairing DJConnect Pi client")
@@ -511,8 +568,12 @@ class DJConnectBackend(QObject):
             self.exitDemoMode()
         self.cfg.device_token = ""
         self.cfg.paired = False
+        from .config import generate_pairing_code
+
+        self.cfg.pairing_code = generate_pairing_code()
         save_config(self.config_path, self.cfg)
         self.pairedChanged.emit()
+        self.pairingCodeChanged.emit()
         self.settingsChanged.emit()
 
     def _apply_demo_track(self, title: str, artist: str) -> None:

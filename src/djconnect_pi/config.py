@@ -6,12 +6,13 @@ import json
 import locale
 import os
 import re
+import secrets
 import uuid
 
 from .i18n import normalize_language
 
 CLIENT_TYPE = "raspberry_pi"
-PROTOCOL_VERSION = "3.1.29"
+PROTOCOL_VERSION = "3.1.30"
 DEFAULT_CONFIG_PATH = Path.home() / ".config" / "djconnect-pi" / "config.json"
 DEFAULT_LOG_PATH = Path.home() / ".local" / "state" / "djconnect-pi" / "client.log"
 
@@ -23,6 +24,7 @@ class Config:
     device_name: str = "DJConnect Pi"
     device_token: str = ""
     paired: bool = False
+    pairing_code: str = field(default_factory=lambda: generate_pairing_code())
     version: str = PROTOCOL_VERSION
     update_repo: str = "pcvantol/djconnect-pi-releases"
     update_channel: str = "stable"
@@ -41,6 +43,10 @@ def stable_device_id() -> str:
     raw = uuid.getnode().to_bytes(6, "big").hex().upper()
     suffix = re.sub(r"[^A-Z0-9]", "", raw)[:12].ljust(12, "0")
     return f"djconnect-raspberry-pi-{suffix}"
+
+
+def generate_pairing_code() -> str:
+    return f"{secrets.randbelow(1_000_000):06d}"
 
 
 def default_language_from_system() -> str:
@@ -71,6 +77,8 @@ def load_config(path: Path) -> Config:
     cfg = Config(**{**asdict(Config()), **data})
     if not cfg.device_id:
         cfg.device_id = stable_device_id()
+    if not re.fullmatch(r"\d{6}", str(cfg.pairing_code)):
+        cfg.pairing_code = generate_pairing_code()
     cfg.screen_timeout_seconds = max(0, int(cfg.screen_timeout_seconds))
     cfg.screen_brightness_percent = max(10, min(100, int(cfg.screen_brightness_percent)))
     cfg.local_api_port = max(1, min(65535, int(cfg.local_api_port)))

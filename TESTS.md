@@ -55,7 +55,11 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 - bundled QML files and offscreen QML load
 - startup splash, blocking pairing screen, tap-to-wake blanking and toast QML
   contract checks
+- generated six-digit pairing code persistence and `/api/device/pairing-info`
+  aliases
 - dark DJConnect blue/purple gradient QML theme contract checks
+- transparent rounded touch button, readable logs, scrollable settings, About,
+  queue and playlist QML contract checks
 - game title QML contract checks ensuring titles come from translation keys
 - blocking version-mismatch QML contract checks
 - touch-only games panel packaging and four-game QML contract checks

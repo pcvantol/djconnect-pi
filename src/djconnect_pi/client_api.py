@@ -131,7 +131,9 @@ class ClientAPIHandler(BaseHTTPRequestHandler):
 
     def _pairing_info(self) -> dict[str, Any]:
         info = self._info()
-        info["pair_code"] = self.server.state.cfg.device_id.rsplit("-", 1)[-1]
+        info["pair_code"] = self.server.state.cfg.pairing_code
+        info["pairing_code"] = self.server.state.cfg.pairing_code
+        info["pairing_token"] = self.server.state.cfg.pairing_code
         return info
 
     def _authorized(self) -> bool:

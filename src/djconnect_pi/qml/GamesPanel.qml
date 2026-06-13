@@ -24,6 +24,32 @@ Rectangle {
 
     signal closeRequested()
 
+    component GlassButton: Button {
+        id: control
+        font.pixelSize: 22
+        font.bold: true
+        contentItem: Text {
+            text: control.text
+            font: control.font
+            color: control.enabled ? "#ffffff" : "#94a0b8"
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+            elide: Text.ElideRight
+        }
+        background: Rectangle {
+            radius: 8
+            color: control.checked ? "#668b5cf6" : "#3324145f"
+            border.color: control.down || control.checked ? "#d9ccff" : "#7f67ff"
+            border.width: 1
+            gradient: Gradient {
+                orientation: Gradient.Horizontal
+                GradientStop { position: 0.0; color: control.enabled ? "#556d28d9" : "#25293d" }
+                GradientStop { position: 0.55; color: control.enabled ? "#448b5cf6" : "#2c3048" }
+                GradientStop { position: 1.0; color: control.enabled ? "#332563eb" : "#25293d" }
+            }
+        }
+    }
+
     property var games: [
         { id: "pong", titleKey: "game_pong", tint: "#ff9f43" },
         { id: "asteroids", titleKey: "game_asteroids", tint: "#4aa3ff" },
@@ -309,10 +335,6 @@ Rectangle {
                 Layout.fillWidth: true
             }
 
-            Button {
-                text: djconnect.t("close")
-                onClicked: root.closeRequested()
-            }
         }
 
         RowLayout {
@@ -321,8 +343,8 @@ Rectangle {
 
             Repeater {
                 model: root.games
-                Button {
-                    text: modelData.title
+                GlassButton {
+                    text: djconnect.t(modelData.titleKey)
                     checkable: true
                     checked: index === root.gameIndex
                     Layout.fillWidth: true
@@ -465,7 +487,7 @@ Rectangle {
                 }
             }
 
-            Button {
+            GlassButton {
                 anchors.centerIn: parent
                 visible: !root.playing
                 text: djconnect.t("tap_to_play")
@@ -479,21 +501,21 @@ Rectangle {
             Layout.preferredHeight: 66
             spacing: 10
 
-            Button {
+            GlassButton {
                 text: root.gameId === "asteroids" ? djconnect.t("left") : djconnect.t("up")
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 onClicked: root.gameId === "asteroids" ? root.moveHorizontal(-1) : root.move(-1)
             }
 
-            Button {
+            GlassButton {
                 text: root.gameId === "asteroids" ? djconnect.t("right") : djconnect.t("down")
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 onClicked: root.gameId === "asteroids" ? root.moveHorizontal(1) : root.move(1)
             }
 
-            Button {
+            GlassButton {
                 visible: root.gameId === "asteroids" || root.gameId === "fly"
                 text: djconnect.t("fire")
                 Layout.fillWidth: true
@@ -501,7 +523,7 @@ Rectangle {
                 onClicked: root.fire()
             }
 
-            Button {
+            GlassButton {
                 text: djconnect.t("reset")
                 Layout.fillWidth: true
                 Layout.fillHeight: true

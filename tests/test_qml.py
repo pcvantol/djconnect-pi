@@ -23,6 +23,7 @@ def test_qml_has_blocking_pairing_and_splash_views() -> None:
     assert "id: splashPanel" in main_qml
     assert "!djconnect.paired && !djconnect.demoMode" in main_qml
     assert 'djconnect.t("client_api_url")' in main_qml
+    assert "djconnect.pairingCode" in main_qml
     assert 'djconnect.t("startup_message")' in main_qml
 
 
@@ -39,8 +40,35 @@ def test_qml_has_touch_games_panel() -> None:
     assert 'id: "pacman"' in games_qml
     assert 'titleKey: "game_pong"' in games_qml
     assert "property string gameTitle: djconnect.t(games[gameIndex].titleKey)" in games_qml
+    assert "djconnect.t(modelData.titleKey)" in games_qml
     assert "MouseArea" in games_qml
     assert "handleTouch" in games_qml
+
+
+def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None:
+    qml_root = files("djconnect_pi.qml")
+    main_qml = qml_root.joinpath("Main.qml").read_text(encoding="utf-8")
+    games_qml = qml_root.joinpath("GamesPanel.qml").read_text(encoding="utf-8")
+
+    assert "component PurpleButton" in main_qml
+    assert "component PlaybackButton" in main_qml
+    assert "component MediaListPanel" in main_qml
+    assert "component GlassButton" in games_qml
+    assert "#3324145f" in main_qml
+    assert "#3324145f" in games_qml
+    assert 'color: "#ffffff"' in main_qml
+    assert "id: settingsPanel" in main_qml
+    assert "ScrollView" in main_qml
+    assert "font.pixelSize: 24" in main_qml
+    assert "root.brightnessOverlayOpacity" in main_qml
+    assert "z: 200" in main_qml
+    assert 'djconnect.t("about")' in main_qml
+    assert 'djconnect.t("queue")' in main_qml
+    assert 'djconnect.t("playlists")' in main_qml
+    assert "root.queueItems" in main_qml
+    assert "root.playlistItems" in main_qml
+    assert "djconnect.copyLogs()" in main_qml
+    assert "djconnect.clearLogs()" in main_qml
 
 
 def test_qml_has_bottom_navigation_bar() -> None:

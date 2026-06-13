@@ -1,6 +1,6 @@
 # Changelog
 
-## 3.1.29
+## 3.1.30
 
 - Initial Raspberry Pi display-remote scaffold with Qt Quick/QML, fullscreen
   720x720 touch UI, playback controls and app-like DJConnect pairing, status
@@ -82,3 +82,10 @@
 - Changed installer dependency installation to invoke pip through
   `.venv/bin/python -m pip` so a broken generated `pip` wrapper cannot abort
   recovery installs.
+- Added a generated six-digit Pi pairing code, exposed it on the blocking
+  pairing screen and `/api/device/pairing-info`, and rotate it on pairing reset.
+- Refined touch UI controls with transparent rounded purple/blue buttons,
+  larger readable logs, copy/clear log actions, scrollable settings, an About
+  screen, and queue/playlist screens.
+- Fixed the games selector labels by translating each game `titleKey` instead
+  of reading a missing `title` field.

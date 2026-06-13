@@ -3,13 +3,15 @@ import stat
 from pathlib import Path
 from unittest.mock import patch
 
-from djconnect_pi.config import CLIENT_TYPE, Config, default_language_from_system, load_config, save_config
+from djconnect_pi.config import CLIENT_TYPE, Config, default_language_from_system, generate_pairing_code, load_config, save_config
 
 
 def test_default_config_uses_raspberry_pi_client_type(tmp_path: Path) -> None:
     cfg = load_config(tmp_path / "config.json")
     assert CLIENT_TYPE == "raspberry_pi"
     assert cfg.device_id.startswith("djconnect-raspberry-pi-")
+    assert len(cfg.pairing_code) == 6
+    assert cfg.pairing_code.isdigit()
     assert cfg.screen_timeout_seconds == 120
     assert cfg.update_repo == "pcvantol/djconnect-pi-releases"
 
@@ -32,6 +34,15 @@ def test_save_and_load_config_roundtrip(tmp_path: Path) -> None:
     assert loaded.device_id == "djconnect-raspberry-pi-ABCDEF123456"
     assert loaded.device_token == "secret"
     assert loaded.paired is True
+    assert len(loaded.pairing_code) == 6
+    assert loaded.pairing_code.isdigit()
+
+
+def test_generate_pairing_code_returns_six_digits() -> None:
+    code = generate_pairing_code()
+
+    assert len(code) == 6
+    assert code.isdigit()
 
 
 def test_save_config_writes_private_file_permissions(tmp_path: Path) -> None:
@@ -49,6 +60,8 @@ def test_load_config_backfills_missing_device_id(tmp_path: Path) -> None:
     loaded = load_config(path)
 
     assert loaded.device_id.startswith("djconnect-raspberry-pi-")
+    assert len(loaded.pairing_code) == 6
+    assert loaded.pairing_code.isdigit()
 
 
 def test_load_config_normalizes_runtime_settings(tmp_path: Path) -> None:

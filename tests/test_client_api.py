@@ -13,6 +13,7 @@ from djconnect_pi.config import Config
 def start_api(tmp_path: Path) -> tuple[ClientAPI, Config, list[str]]:
     cfg = Config(
         device_id="djconnect-raspberry-pi-ABCDEF123456",
+        pairing_code="123456",
         local_api_host="127.0.0.1",
         local_api_port=0,
     )
@@ -46,7 +47,9 @@ def test_client_api_info_and_pairing_info(tmp_path: Path) -> None:
     assert info["client_type"] == "raspberry_pi"
     assert info["local_url"] == cfg.local_url
     assert info["capabilities"]["local_dj_response_endpoint"] is True
-    assert pairing["pair_code"] == "ABCDEF123456"
+    assert pairing["pair_code"] == "123456"
+    assert pairing["pairing_code"] == "123456"
+    assert pairing["pairing_token"] == "123456"
 
 
 def test_mdns_properties_include_ha_discovery_fields() -> None:
