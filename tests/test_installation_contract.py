@@ -213,6 +213,9 @@ def test_install_script_can_resume_after_reboot_or_interruption() -> None:
     assert "PIP_CACHE_DIR=\"$DJCONNECT_PIP_CACHE\"" in script
     assert "TMPDIR=\"$pip_tmp\"" in script
     assert "${DJCONNECT_PIP_CACHE}/tmp" in script
+    assert '${release_dir}/.venv/bin/python" -m pip install --upgrade pip' in script
+    assert '${release_dir}/.venv/bin/python" -m pip install --prefer-binary "$wheel_path"' in script
+    assert '".venv/bin/pip" install' not in script
     assert "Removing incomplete Python virtualenv before retry" in script
     assert 'rm -rf "${release_dir}/.venv" "${release_dir}/bin"' in script
     assert "wheel_path=" in script

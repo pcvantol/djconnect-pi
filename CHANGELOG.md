@@ -1,6 +1,6 @@
 # Changelog
 
-## 3.1.28
+## 3.1.29
 
 - Initial Raspberry Pi display-remote scaffold with Qt Quick/QML, fullscreen
   720x720 touch UI, playback controls and app-like DJConnect pairing, status
@@ -79,3 +79,6 @@
   Lite.
 - Added `needs_root_rights=yes` to the Xwrapper install step so Xorg can open
   `/dev/tty0` when launched by the systemd-managed touch client.
+- Changed installer dependency installation to invoke pip through
+  `.venv/bin/python -m pip` so a broken generated `pip` wrapper cannot abort
+  recovery installs.
