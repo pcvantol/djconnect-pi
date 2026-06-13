@@ -155,9 +155,9 @@ completed:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.30.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.31.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.30
+cd djconnect-pi-3.1.31
 sudo ./scripts/install.sh
 ```
 
@@ -181,9 +181,9 @@ development checkout:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.30.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.31.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.30
+cd djconnect-pi-3.1.31
 sudo ./scripts/install.sh
 ```
 
@@ -217,6 +217,25 @@ If logs show `Unable to locate executable
 /opt/djconnect/current/bin/djconnect-pi-api`, rerun the latest public installer.
 The installer verifies all DJConnect console entrypoints before it considers the
 Python venv complete.
+
+If this started immediately after an unattended update and
+`readlink -f /opt/djconnect/current` points at a release directory that has no
+`VERSION` file or no `bin/` directory, remove that broken release and rerun the
+latest public installer:
+
+```sh
+version="$(basename "$(readlink -f /opt/djconnect/current)")"
+sudo systemctl stop djconnect-api.service djconnect-client.service djconnect-updater.service
+sudo rm -rf "/opt/djconnect/releases/${version}"
+sudo rm -f "/opt/djconnect/install-state/${version}/release_unpacked.done" \
+  "/opt/djconnect/install-state/${version}/venv_ready.done"
+cd ~/djconnect-install/djconnect-pi-${version}
+sudo ./scripts/install.sh
+```
+
+Newer updater versions install the bundled wheel and validate all console
+entrypoints before switching `/opt/djconnect/current`, so the same failure
+should not repeat after the fixed release is installed.
 
 If logs show `Only console users are allowed to run the X server` or
 `parse_vt_settings: Cannot open /dev/tty0 (Permission denied)`, rerun the latest

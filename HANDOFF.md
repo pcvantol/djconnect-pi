@@ -68,6 +68,10 @@ Implemented:
 - Install script is intended to be re-runnable for manual software updates. It
   keeps existing config, refreshes release files and systemd units, and restarts
   `djconnect-api.service` plus `djconnect-client.service`.
+- The unattended updater now mirrors the release installer path for public
+  tarballs: it strips the top-level archive directory, installs the bundled
+  wheel into `.venv`, validates all `djconnect-pi-*` console entrypoints and
+  only then repoints `/opt/djconnect/current`.
 - Install script is resumable across reboot/interruption. It stores markers in
   `/opt/djconnect/install-state/<version>/` for `release_unpacked` and
   `venv_ready`, uses `/var/cache/djconnect-pip` so large PySide6 downloads do

@@ -74,7 +74,29 @@ def verify_sha256(bundle: Path, checksum_file: Path) -> None:
         raise RuntimeError(f"SHA256 mismatch for {bundle.name}")
 
 
-def install_release(bundle: Path, version: str, root: Path) -> Path:
+def _safe_members_without_bundle_root(tar: tarfile.TarFile) -> list[tarfile.TarInfo]:
+    members = tar.getmembers()
+    if not members:
+        raise RuntimeError("Release bundle is empty")
+
+    first_parts = [Path(member.name).parts[0] for member in members if Path(member.name).parts]
+    if not first_parts:
+        raise RuntimeError("Release bundle contains no files")
+    strip_root = first_parts[0] if all(part == first_parts[0] for part in first_parts) else ""
+
+    stripped_members: list[tarfile.TarInfo] = []
+    for member in members:
+        parts = Path(member.name).parts
+        if strip_root and parts and parts[0] == strip_root:
+            parts = parts[1:]
+        if not parts:
+            continue
+        member.name = str(Path(*parts))
+        stripped_members.append(member)
+    return stripped_members
+
+
+def unpack_release(bundle: Path, version: str, root: Path) -> Path:
     releases = root / "releases"
     target = releases / version
     tmp_target = releases / f".{version}.tmp"
@@ -83,16 +105,66 @@ def install_release(bundle: Path, version: str, root: Path) -> Path:
         shutil.rmtree(tmp_target)
     tmp_target.mkdir()
     with tarfile.open(bundle, "r:gz") as tar:
-        tar.extractall(tmp_target, filter="data")
+        tar.extractall(tmp_target, members=_safe_members_without_bundle_root(tar), filter="data")
     if target.exists():
         shutil.rmtree(target)
     tmp_target.rename(target)
+    return target
+
+
+def wheel_for_release(release_dir: Path, version: str) -> Path:
+    wheels_dir = release_dir / "wheels"
+    matches = sorted(wheels_dir.glob(f"djconnect_pi-{version}-*.whl"))
+    if not matches:
+        raise RuntimeError(f"DJConnect Pi wheel not found in release bundle: {wheels_dir}")
+    return matches[0]
+
+
+def install_python_dependencies(release_dir: Path, version: str) -> None:
+    wheel_path = wheel_for_release(release_dir, version)
+    venv_dir = release_dir / ".venv"
+    bin_link = release_dir / "bin"
+    if venv_dir.exists():
+        shutil.rmtree(venv_dir)
+    if bin_link.exists() or bin_link.is_symlink():
+        if bin_link.is_dir() and not bin_link.is_symlink():
+            shutil.rmtree(bin_link)
+        else:
+            bin_link.unlink()
+
+    subprocess.run(["python3", "-m", "venv", str(venv_dir)], check=True)
+    python = venv_dir / "bin" / "python"
+    subprocess.run([str(python), "-m", "pip", "install", "--upgrade", "pip"], check=True)
+    subprocess.run([str(python), "-m", "pip", "install", "--prefer-binary", str(wheel_path)], check=True)
+    bin_link.symlink_to(".venv/bin")
+    validate_release_entrypoints(release_dir)
+
+
+def validate_release_entrypoints(release_dir: Path) -> None:
+    required = (
+        "djconnect-pi-client",
+        "djconnect-pi-api",
+        "djconnect-pi-updater",
+        "djconnect-pi-maintenance",
+    )
+    missing = [name for name in required if not os.access(release_dir / "bin" / name, os.X_OK)]
+    if missing:
+        raise RuntimeError(f"Release is missing executable entrypoint(s): {', '.join(missing)}")
+
+
+def activate_release(release_dir: Path, root: Path) -> None:
     current = root / "current"
     new_link = root / ".current.new"
     if new_link.exists() or new_link.is_symlink():
         new_link.unlink()
-    new_link.symlink_to(target)
+    new_link.symlink_to(release_dir)
     os.replace(new_link, current)
+
+
+def install_release(bundle: Path, version: str, root: Path) -> Path:
+    target = unpack_release(bundle, version, root)
+    install_python_dependencies(target, version)
+    activate_release(target, root)
     return target
 
 

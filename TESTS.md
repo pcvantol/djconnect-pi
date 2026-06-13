@@ -63,6 +63,7 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 - game title QML contract checks ensuring titles come from translation keys
 - blocking version-mismatch QML contract checks
 - touch-only games panel packaging and four-game QML contract checks
-- updater release asset selection, SHA256 verification and atomic install
+- updater release asset selection, SHA256 verification, top-level tarball
+  directory stripping, bundled-wheel venv installation and atomic activation
 - updater stable/beta prerelease channel handling
 - apt maintenance windows, upgrade command flow and reboot gating

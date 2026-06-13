@@ -27,10 +27,14 @@ def make_release() -> dict[str, Any]:
 
 def write_tar(path: Path, version: str = "0.2.0") -> None:
     data = version.encode()
-    info = tarfile.TarInfo("VERSION")
+    info = tarfile.TarInfo(f"djconnect-pi-{version}/VERSION")
     info.size = len(data)
+    wheel_data = b"wheel"
+    wheel_info = tarfile.TarInfo(f"djconnect-pi-{version}/wheels/djconnect_pi-{version}-py3-none-any.whl")
+    wheel_info.size = len(wheel_data)
     with tarfile.open(path, "w:gz") as tar:
         tar.addfile(info, io.BytesIO(data))
+        tar.addfile(wheel_info, io.BytesIO(wheel_data))
 
 
 def test_asset_url_finds_suffix() -> None:
@@ -66,17 +70,59 @@ def test_verify_sha256_rejects_mismatch(tmp_path: Path) -> None:
         updater.verify_sha256(bundle, checksum)
 
 
-def test_install_release_extracts_and_switches_current_symlink(tmp_path: Path) -> None:
+def test_unpack_release_strips_bundle_root_directory(tmp_path: Path) -> None:
     bundle = tmp_path / "release.tar.gz"
     root = tmp_path / "root"
     write_tar(bundle)
 
-    target = updater.install_release(bundle, "0.2.0", root)
+    target = updater.unpack_release(bundle, "0.2.0", root)
 
     assert target == root / "releases" / "0.2.0"
     assert (target / "VERSION").read_text(encoding="utf-8") == "0.2.0"
+    assert (target / "wheels" / "djconnect_pi-0.2.0-py3-none-any.whl").read_bytes() == b"wheel"
+    assert not (target / "djconnect-pi-0.2.0").exists()
+
+
+def test_install_release_installs_dependencies_before_activation(tmp_path: Path) -> None:
+    bundle = tmp_path / "release.tar.gz"
+    root = tmp_path / "root"
+    write_tar(bundle)
+
+    with (
+        patch("djconnect_pi.updater.install_python_dependencies") as install_python_dependencies,
+        patch("djconnect_pi.updater.activate_release") as activate_release,
+    ):
+        target = updater.install_release(bundle, "0.2.0", root)
+
+    install_python_dependencies.assert_called_once_with(target, "0.2.0")
+    activate_release.assert_called_once_with(target, root)
+
+
+def test_activate_release_switches_current_symlink(tmp_path: Path) -> None:
+    root = tmp_path / "root"
+    target = root / "releases" / "0.2.0"
+    target.mkdir(parents=True)
+    (target / "VERSION").write_text("0.2.0", encoding="utf-8")
+
+    updater.activate_release(target, root)
+
     assert (root / "current").is_symlink()
     assert (root / "current" / "VERSION").read_text(encoding="utf-8") == "0.2.0"
+
+
+def test_wheel_for_release_finds_bundled_wheel(tmp_path: Path) -> None:
+    release_dir = tmp_path / "release"
+    wheels_dir = release_dir / "wheels"
+    wheels_dir.mkdir(parents=True)
+    wheel = wheels_dir / "djconnect_pi-0.2.0-py3-none-any.whl"
+    wheel.write_bytes(b"wheel")
+
+    assert updater.wheel_for_release(release_dir, "0.2.0") == wheel
+
+
+def test_validate_release_entrypoints_rejects_missing_wrappers(tmp_path: Path) -> None:
+    with pytest.raises(RuntimeError, match="missing executable"):
+        updater.validate_release_entrypoints(tmp_path)
 
 
 def test_run_dry_run_returns_selected_assets(tmp_path: Path) -> None:

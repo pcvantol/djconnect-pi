@@ -1,7 +1,11 @@
 # Changelog
 
-## 3.1.30
+## 3.1.31
 
+- Fixed unattended updater installs from public tarballs by stripping the
+  top-level bundle directory, installing the bundled wheel into the release
+  venv, validating all console entrypoints and only then switching
+  `/opt/djconnect/current`.
 - Initial Raspberry Pi display-remote scaffold with Qt Quick/QML, fullscreen
   720x720 touch UI, playback controls and app-like DJConnect pairing, status
   and command client contract.
