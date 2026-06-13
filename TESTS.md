@@ -28,8 +28,8 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
   TXT properties
 - separate Client API daemon event bridge for DJ responses
 - installer/systemd contract for separate API and touch UI services
-- release bundle contract for including docs, source, systemd units and only
-  the app installer script
+- release bundle contract for including docs, systemd units, `scripts/install.sh`
+  and a bundled wheel without the loose `src/` app source tree
 - repo-only OS bootstrap contract for Raspberry Pi OS Lite 64-bit, modern
   HyperPixel KMS DPI overlay setup, root filesystem expansion, persistent 1GB
   swapfile, timezone, SSH, apt full-upgrade, minimal X11/Qt runtime dependencies
@@ -39,6 +39,8 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
   systemd units are refreshed, and API/UI services are restarted
 - installer contract for early free-space and active-swap checks before large
   PySide6 downloads
+- installer contract for resource snapshots, inode reporting, CPU/Python/path/
+  GitHub/thermal checks and incomplete `.venv` cleanup before dependency retry
 - bootstrap/README contract that public release download examples match the
   current project version
 - config private permissions and atomic-write behavior
