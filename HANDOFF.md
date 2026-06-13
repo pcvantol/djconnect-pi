@@ -52,7 +52,7 @@ Implemented:
   the public distribution tarball without cloning the private source repo.
 - Repo-only OS bootstrap helper `scripts/bootstrap_raspberry_pi_os.sh` handles
   timezone Amsterdam, SSH, apt full-upgrade, glances, Raspberry Pi Connect,
-  Raspberry Pi OS dark-mode fallback, console boot and HyperPixel setup. It is
+  console boot, minimal X11/Qt runtime dependencies and HyperPixel setup. It is
   intentionally excluded from release tarballs and from the app release cycle.
 - The bootstrap helper configures Glances as a boot-started web UI on port
   `61208` using a dedicated `/opt/djconnect-glances` venv and
@@ -109,8 +109,9 @@ Not implemented by design:
   belongs in Raspberry Pi Imager setup.
 - Do not reintroduce OS bootstrap into the DJConnect app installer or release
   tarball. Keep timezone, SSH, apt full-upgrade, glances, Raspberry Pi Connect,
-  Raspberry Pi OS dark-mode fallback and HyperPixel setup in
-  `scripts/bootstrap_raspberry_pi_os.sh`.
+  minimal X11/Qt runtime dependencies and HyperPixel setup in
+  `scripts/bootstrap_raspberry_pi_os.sh`. Target Raspberry Pi OS Lite 64-bit,
+  not the Desktop/GUI image.
 - Keep language client-owned for Raspberry Pi, just like iOS/macOS. Only ESP
   should consume HA language provisioning.
 - When adding user-facing text, add both Dutch and English translations and

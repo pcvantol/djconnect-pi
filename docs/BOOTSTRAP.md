@@ -17,13 +17,14 @@ Hardware:
 
 Software:
 
-- Raspberry Pi OS Desktop/GUI 64-bit, Bookworm recommended
+- Raspberry Pi OS Lite 64-bit, Bookworm recommended
 - Python 3.11 or newer
 - PySide6 / Qt Quick runtime
 - Git
 - GitHub CLI only if releases are managed from the Pi itself
 - systemd
-- X11 or another kiosk-compatible graphical session for the first UI version
+- Minimal X11/kiosk runtime installed by the bootstrap script; no desktop/GUI
+  image is required
 
 Network:
 
@@ -40,7 +41,7 @@ Network:
 Use Raspberry Pi Imager:
 
 1. Choose Raspberry Pi Zero 2 W.
-2. Choose Raspberry Pi OS Desktop/GUI 64-bit Bookworm.
+2. Choose Raspberry Pi OS Lite 64-bit Bookworm.
 3. Configure hostname, Wi-Fi, SSH and locale before flashing.
 4. Boot the Pi and SSH into it.
 
@@ -66,10 +67,10 @@ sudo reboot
 
 The bootstrap helper configures the running system to boot to console
 (`multi-user.target`), sets timezone to `Europe/Amsterdam`, enables SSH, runs an
-optional apt full-upgrade, installs `glances`, attempts Raspberry Pi Connect,
-configures Raspberry Pi OS desktop dark mode and configures HyperPixel. It is
-intentionally not included in DJConnect Pi release tarballs and is not part of
-the app release cycle.
+optional apt full-upgrade, installs Glances, minimal X11/kiosk dependencies,
+Qt runtime libraries, attempts Raspberry Pi Connect and configures HyperPixel.
+It is intentionally not included in DJConnect Pi release tarballs and is not
+part of the app release cycle.
 
 Glances is configured in `/opt/djconnect-glances` with the Python
 `glances[web]` package and starts as `glances-web.service` on boot. This avoids
@@ -86,12 +87,10 @@ For example:
 http://rbpi-djconnect.local:61208
 ```
 
-If an earlier bootstrap attempt failed with a `raspberrypi-ui-mods` /
-`pi-greeter` dpkg overwrite conflict, repair the package state once and rerun
-the bootstrap:
+If an earlier bootstrap attempt left apt/dpkg half-configured, repair the
+package state once and rerun the bootstrap:
 
 ```sh
-sudo apt-get remove -y pi-greeter || sudo dpkg --remove --force-depends pi-greeter
 sudo apt-get -f install -y
 cd "$HOME/djconnect-pi"
 git pull --ff-only

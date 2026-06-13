@@ -74,7 +74,7 @@ check_runtime_dependencies() {
 check_os_baseline() {
   log "Checking Raspberry Pi OS 64-bit baseline"
   if [[ "$(getconf LONG_BIT)" != "64" ]]; then
-    echo "This client is intended for Raspberry Pi OS 64-bit. Reflash with the 64-bit GUI image." >&2
+    echo "This client is intended for Raspberry Pi OS Lite 64-bit or another Raspberry Pi OS 64-bit image." >&2
     exit 1
   fi
 

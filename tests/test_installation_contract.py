@@ -98,21 +98,26 @@ def test_release_assets_include_installation_materials() -> None:
         assert "cp scripts/bootstrap_raspberry_pi_os.sh" not in text
 
 
-def test_repo_only_os_bootstrap_uses_modern_hyperpixel_overlay_and_dark_mode() -> None:
+def test_repo_only_os_bootstrap_targets_lite_with_minimal_kiosk_runtime() -> None:
     script = ROOT.joinpath("scripts/bootstrap_raspberry_pi_os.sh").read_text(encoding="utf-8")
 
+    assert "Raspberry Pi OS Lite 64-bit" in script
     assert "DJCONNECT_HYPERPIXEL_MODEL" in script
     assert "vc4-kms-dpi-hyperpixel4sq" in script
     assert "vc4-kms-dpi-hyperpixel4" in script
     assert "hyperpixel4-init.service" in script
     assert "raspi-config nonint do_i2c 1" in script
     assert "raspi-config nonint do_spi 1" in script
-    assert "DJCONNECT_CONFIGURE_DARK_MODE" in script
-    assert "gtk-application-prefer-dark-theme=true" in script
     assert "DJCONNECT_TIMEZONE" in script
     assert "Europe/Amsterdam" in script
     assert "raspi-config nonint do_ssh 0" in script
     assert "apt-get -y full-upgrade" in script
+    assert "xinit" in script
+    assert "xserver-xorg" in script
+    assert "libxkbcommon-x11-0" in script
+    assert "libxcb-cursor0" in script
+    assert "openbox" not in script
+    assert "gtk-application-prefer-dark-theme=true" not in script
     assert "glances" in script
     assert 'pip" install --upgrade "glances[web]"' in script
     assert "glances-web.service" in script
@@ -123,7 +128,7 @@ def test_repo_only_os_bootstrap_uses_modern_hyperpixel_overlay_and_dark_mode() -
     assert "systemctl list-unit-files rpi-connect.service" in script
     assert "systemctl list-unit-files rpi-connect-wayvnc.service" in script
     assert re.search(r"^\s+raspberrypi-ui-mods\s*\\?$", script, re.MULTILINE) is None
-    assert "pi-greeter" in script
+    assert "pi-greeter" not in script
 
 
 def test_install_script_excludes_repo_only_os_bootstrap_tasks() -> None:
@@ -203,6 +208,17 @@ def test_os_bootstrap_documentation_uses_idempotent_checkout_flow() -> None:
         assert "git pull --ff-only" in text
         assert 'git clone https://github.com/pcvantol/djconnect-pi.git "$HOME/djconnect-pi"' in text
         assert "sudo ./scripts/bootstrap_raspberry_pi_os.sh" in text
+
+
+def test_bootstrap_documentation_targets_raspberry_pi_os_lite() -> None:
+    bootstrap = ROOT.joinpath("docs/BOOTSTRAP.md").read_text(encoding="utf-8")
+    readme = ROOT.joinpath("README.md").read_text(encoding="utf-8")
+
+    for text in (bootstrap, readme):
+        assert "Raspberry Pi OS Lite 64-bit" in text
+    assert "Choose Raspberry Pi OS Lite 64-bit Bookworm" in bootstrap
+    assert "Raspberry Pi OS Desktop/GUI" not in bootstrap
+    assert "Desktop/GUI image" not in readme
 
 
 def test_glances_web_bootstrap_is_documented_and_synced() -> None:

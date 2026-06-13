@@ -30,8 +30,9 @@
   `pcvantol/djconnect-pi-releases` and added a GitHub Actions publish workflow.
 - Added complete release bundles with `docs/`, `scripts/`, `src/` and
   `systemd/` so production Pi installs can run from the public release tarball.
-- Added modern HyperPixel 4 KMS DPI overlay setup, Raspberry Pi OS desktop
-  dark-mode fallback configuration and installer version output.
+- Added modern HyperPixel 4 KMS DPI overlay setup, Raspberry Pi OS Lite 64-bit
+  bootstrap with minimal X11/Qt runtime dependencies and installer version
+  output.
 - Added dark DJConnect blue/purple gradient styling across the touch UI.
 - Updated the cross-repo sync prompt with full HA-side Raspberry Pi mDNS
   autodiscovery requirements.
@@ -44,8 +45,8 @@
 - Split general Raspberry Pi OS bootstrap into repo-only
   `scripts/bootstrap_raspberry_pi_os.sh` and excluded it from release tarballs.
   The DJConnect app installer no longer performs timezone, SSH, apt
-  full-upgrade, glances, Raspberry Pi Connect, desktop dark-mode or HyperPixel
-  setup.
+  full-upgrade, glances, Raspberry Pi Connect, minimal X11/Qt runtime or
+  HyperPixel setup.
 - Fixed public release install checksum verification so the installer compares
   SHA256 hash values instead of relying on the filename stored in the `.sha256`
   asset.

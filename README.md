@@ -81,7 +81,9 @@ only ESP clients use HA language provisioning.
 
 Fresh Pi setup is split into two steps. General Raspberry Pi OS preparation is
 repo-only maintainer bootstrap work and is not part of the DJConnect app release
-tarball:
+tarball. Flash **Raspberry Pi OS Lite 64-bit** with Raspberry Pi Imager; the
+bootstrap installs only the minimal X11/Qt runtime required for the fullscreen
+touch UI:
 
 ```sh
 sudo apt-get update
