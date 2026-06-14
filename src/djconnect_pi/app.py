@@ -63,6 +63,7 @@ class DJConnectBackend(QObject):
     languageChanged = Signal()
     translationsChanged = Signal()
     wakeScreenRequested = Signal()
+    screenshotRequested = Signal()
 
     _playbackReady = Signal(object)
     _statusReady = Signal(str)
@@ -94,6 +95,7 @@ class DJConnectBackend(QObject):
         self._demo_mode = False
         self._queue_items: list[dict[str, object]] = []
         self._playlist_items: list[dict[str, object]] = []
+        self._media_loads_in_flight: set[str] = set()
         self._status_text = self.tr_key("paired" if self.cfg.paired else "not_paired")
         self._busy = False
         self._executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="djconnect")
@@ -215,6 +217,10 @@ class DJConnectBackend(QObject):
     @Property(str, constant=True)
     def version(self) -> str:
         return self.cfg.version
+
+    @Property(str, notify=settingsChanged)
+    def screenshotFile(self) -> str:
+        return self.cfg.screenshot_file
 
     @Property(int, notify=screenTimeoutChanged)
     def screenTimeoutSeconds(self) -> int:
@@ -662,8 +668,12 @@ class DJConnectBackend(QObject):
         self._sync_config_from_disk()
         if not self.paired:
             return
+        if "queue" in self._media_loads_in_flight:
+            _LOGGER.debug("Queue load skipped because a queue load is already active")
+            return
+        self._media_loads_in_flight.add("queue")
         _LOGGER.info("User requested queue from touch UI")
-        self._run(self.tr_key("queue"), self._load_queue_worker)
+        self._run(self.tr_key("queue"), self._load_queue_worker, done=lambda: self._media_loads_in_flight.discard("queue"))
 
     @Slot()
     def loadPlaylists(self) -> None:
@@ -674,8 +684,12 @@ class DJConnectBackend(QObject):
         self._sync_config_from_disk()
         if not self.paired:
             return
+        if "playlists" in self._media_loads_in_flight:
+            _LOGGER.debug("Playlist load skipped because a playlist load is already active")
+            return
+        self._media_loads_in_flight.add("playlists")
         _LOGGER.info("User requested playlists from touch UI")
-        self._run(self.tr_key("playlists"), self._load_playlists_worker)
+        self._run(self.tr_key("playlists"), self._load_playlists_worker, done=lambda: self._media_loads_in_flight.discard("playlists"))
 
     @Slot(str, result=str)
     def cachedImageUrl(self, url: str) -> str:
@@ -704,6 +718,7 @@ class DJConnectBackend(QObject):
         _LOGGER.info("Loading queue from Home Assistant")
         data = self.client.command("queue", limit=100)
         items = parse_queue_items(data)
+        prepare_media_artwork(items)
         _LOGGER.info("Loaded %s queue items from Home Assistant", len(items))
         self._mediaListReady.emit("queue", items)
 
@@ -711,6 +726,7 @@ class DJConnectBackend(QObject):
         _LOGGER.info("Loading playlists from Home Assistant")
         data = self.client.command("playlists")
         items = parse_playlist_items(data)
+        prepare_media_artwork(items)
         _LOGGER.info("Loaded %s playlists from Home Assistant", len(items))
         self._mediaListReady.emit("playlists", items)
 
@@ -755,7 +771,7 @@ class DJConnectBackend(QObject):
         self.imageUrlChanged.emit()
         self.playingChanged.emit()
 
-    def _run(self, label: str, worker) -> None:
+    def _run(self, label: str, worker, done=None) -> None:
         self._set_busy(True)
         self._set_status_text(label)
 
@@ -773,6 +789,8 @@ class DJConnectBackend(QObject):
                 _LOGGER.exception("%s failed unexpectedly", label)
                 self._statusReady.emit(self.tr_key("offline", error=exc))
             finally:
+                if done is not None:
+                    done()
                 self._busyReady.emit(False)
 
         self._executor.submit(execute)
@@ -877,6 +895,7 @@ class DJConnectBackend(QObject):
     def _poll_local_events(self) -> None:
         self._poll_dj_response_event()
         self._poll_command_event()
+        self._poll_screenshot_event()
 
     def _poll_dj_response_event(self) -> None:
         path = Path(self.cfg.dj_response_file)
@@ -915,6 +934,27 @@ class DJConnectBackend(QObject):
             if command in {"previous", "next"}:
                 self.wakeScreenRequested.emit()
             self.command(command, **{k: v for k, v in payload.items() if k not in {"command", "device_id", "client_type", "version", "firmware", "local_url", "capabilities"}})
+
+    def _poll_screenshot_event(self) -> None:
+        path = Path(self.cfg.screenshot_event_file)
+        if not path.exists():
+            return
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            path.unlink(missing_ok=True)
+        except (OSError, json.JSONDecodeError) as exc:
+            _LOGGER.warning("Failed to read local screenshot event file: %s", exc)
+            return
+        target = Path(str(data.get("target") or self.cfg.screenshot_file)) if isinstance(data, dict) else Path(self.cfg.screenshot_file)
+        try:
+            target.parent.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            _LOGGER.warning("Failed to prepare screenshot directory: %s", exc)
+            return
+        _LOGGER.info("Capturing debug screenshot to %s", target)
+        self.cfg.screenshot_file = str(target)
+        self.wakeScreenRequested.emit()
+        self.screenshotRequested.emit()
 
 
 def main() -> None:
@@ -1002,6 +1042,14 @@ def cached_image_url(url: str, ttl_seconds: int = 24 * 60 * 60) -> str:
     except Exception as exc:
         _LOGGER.debug("Album art cache fallback for %s: %s", url, exc)
         return url
+
+
+def prepare_media_artwork(items: list[dict[str, object]]) -> list[dict[str, object]]:
+    for item in items:
+        image_url = str(item.get("imageUrl") or "")
+        if image_url:
+            item["imageUrl"] = cached_image_url(image_url)
+    return items
 
 
 def demo_queue_items() -> list[dict[str, object]]:

@@ -141,6 +141,23 @@
       }
     },
     {
+      "name": "Debug Screenshot",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{device_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{client_api_url}}/api/debug/screenshot",
+          "host": ["{{client_api_url}}"],
+          "path": ["api", "debug", "screenshot"]
+        }
+      }
+    },
+    {
       "name": "Forget Pairing",
       "request": {
         "method": "POST",

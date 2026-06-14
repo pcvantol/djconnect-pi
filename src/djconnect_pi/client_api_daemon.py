@@ -7,6 +7,7 @@ import logging
 import signal
 import sys
 import threading
+import time
 
 from .client_api import ClientAPI, ClientAPIState
 from .config import DEFAULT_CONFIG_PATH, Config, load_config, save_config
@@ -14,6 +15,7 @@ from .logging_config import setup_logging
 from .system_info import log_raspberry_pi_system_info
 
 _LOGGER = logging.getLogger(__name__)
+SCREENSHOT_TIMEOUT_SECONDS = 8.0
 
 
 class ClientAPIDaemon:
@@ -28,6 +30,7 @@ class ClientAPIDaemon:
                 playback_provider=self._playback,
                 command_handler=self._command,
                 dj_response_handler=self._dj_response,
+                screenshot_handler=self._screenshot,
                 pair_handler=self._paired,
                 forget_handler=self._forgotten,
             )
@@ -74,6 +77,29 @@ class ClientAPIDaemon:
         self._write_dj_response_event({"text": text})
         _LOGGER.info("Received DJ response text through Client API daemon")
         return {"success": True, "displayed": True, "audio_played": False, "text": text}
+
+    def _screenshot(self) -> dict[str, object]:
+        self.cfg = load_config(self.config_path)
+        target = Path(self.cfg.screenshot_file)
+        request_time = time.time()
+        if target.exists():
+            target.unlink(missing_ok=True)
+        self._write_event_file(
+            Path(self.cfg.screenshot_event_file),
+            {"requested_at": request_time, "target": str(target)},
+        )
+        _LOGGER.info("Requested touch UI debug screenshot at %s", target)
+        deadline = request_time + SCREENSHOT_TIMEOUT_SECONDS
+        while time.time() < deadline:
+            if target.exists() and target.stat().st_size > 0 and target.stat().st_mtime >= request_time:
+                return {
+                    "success": True,
+                    "path": str(target),
+                    "content_type": "image/png",
+                    "size": target.stat().st_size,
+                }
+            time.sleep(0.2)
+        return {"success": False, "error": "screenshot_timeout", "path": str(target)}
 
     def _paired(self) -> None:
         self.cfg = load_config(self.config_path)

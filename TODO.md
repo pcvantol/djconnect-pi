@@ -3,8 +3,9 @@
 - Add vertical edge swipe for volume.
 - Polish the pairing/settings screen with an on-screen keyboard strategy.
 - Add a richer backend-unavailable UI state.
-- Profile polling, QML repaint behavior, log rendering, album-art cache size
-  and PySide6 memory/CPU on the Raspberry Pi Zero 2 W.
+- Profile polling, QML repaint behavior, log rendering, album-art cache size,
+  media-list artwork pre-cache latency and PySide6 memory/CPU on the Raspberry
+  Pi Zero 2 W.
 - Reduce Home Assistant polling and UI refresh work when playback is idle or
   the screen is blanked.
 - Cap the on-screen log viewer to the newest lines while keeping full persisted

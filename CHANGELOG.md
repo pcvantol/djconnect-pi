@@ -1,5 +1,25 @@
 # Changelog
 
+## 3.1.42
+
+- Added a local debug screenshot flow for the HyperPixel UI:
+  `GET /api/debug/screenshot` asks the QML UI process to capture the live
+  scenegraph with `grabToImage` and save it to the configured screenshot path.
+- Documented the screenshot endpoint in the local API/Postman docs and added
+  API, daemon and QML contract tests for the request/event/capture path.
+- Kept the endpoint protected with the device bearer token once the client is
+  paired, while still allowing bring-up diagnostics before pairing.
+- Fixed a queue/playlist responsiveness regression by moving album-art caching
+  into the backend worker path instead of QML row delegates.
+- Restored visible cached artwork in Queue and Playlists and replaced the
+  malformed row play canvas with a fixed-size media play icon button.
+- Made the selected bottom navigation item more obvious with a stronger
+  gradient, thicker border and top active indicator.
+- Removed the dark lower overlay from the Now Playing album art, replaced the
+  separate output-device label with a compact selector row and gave playback
+  controls more vertical space.
+- Expanded Maze Chase to four vertical rows of white pellets.
+
 ## 3.1.41
 
 - Made the bottom navigation bar one-third taller and added simple tab icons

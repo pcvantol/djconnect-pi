@@ -63,6 +63,8 @@ def test_qml_has_touch_games_panel() -> None:
     assert "property int powerPellet" in games_qml
     assert "property int ghostVulnerableTicks" in games_qml
     assert "ghostVulnerableTicks = 210" in games_qml
+    assert "for (var i = 0; i < 32; i++) pellets.push(i)" in games_qml
+    assert "powerPellet = 31" in games_qml
     assert "setScore(score + 5)" in games_qml
     assert 'root.ghostVulnerableTicks > 0 ? (ghostBlink ? "#e0f2fe" : "#3b82f6")' in games_qml
 
@@ -77,6 +79,7 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "component ModalBlocker" in main_qml
     assert "component PlaybackButton" in main_qml
     assert "component IconButton" in main_qml
+    assert "component MediaPlayButton" in main_qml
     assert "component MediaListPanel" in main_qml
     assert "component GlassButton" in games_qml
     assert "#3324145f" in main_qml
@@ -111,12 +114,18 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "onRefreshRequested: djconnect.loadQueue()" in main_qml
     assert "onRefreshRequested: djconnect.loadPlaylists()" in main_qml
     assert "djconnect.manualRefresh()" in main_qml
-    assert 'djconnect.t("output_device")' in main_qml
+    assert main_qml.count("Layout.preferredWidth: 142") >= 2
+    assert main_qml.count("Layout.preferredHeight: 48") >= 2
     assert "djconnect.outputDevices" in main_qml
     assert "djconnect.setOutputDevice" in main_qml
-    assert "djconnect.cachedImageUrl(modelData.imageUrl)" in main_qml
+    assert "djconnect.cachedImageUrl(modelData.imageUrl)" not in main_qml
+    assert "source: modelData.imageUrl && modelData.imageUrl.length > 0 ? modelData.imageUrl : \"\"" in main_qml
+    assert "height: 92" not in main_qml
+    assert "color: \"#990b1012\"" not in main_qml
+    assert "Layout.preferredHeight: 86" in main_qml
     assert "Layout.minimumWidth: 68" in main_qml
     assert "Layout.maximumWidth: 68" in main_qml
+    assert "MediaPlayButton {" in main_qml
     assert "djconnect.trackProgress" in main_qml
     assert "djconnect.progressLabel" in main_qml
     assert 'iconName: djconnect.playing ? "pause" : "play"' in main_qml
@@ -143,6 +152,8 @@ def test_qml_has_bottom_navigation_bar() -> None:
     assert "id: bottomNav" in main_qml
     assert "component NavButton" in main_qml
     assert "height: 104" in main_qml
+    assert "border.width: navControl.checked ? 3 : 1" in main_qml
+    assert "visible: navControl.checked" in main_qml
     assert 'iconSymbol: "▶"' in main_qml
     assert 'iconSymbol: "≡"' in main_qml
     assert 'iconSymbol: "▦"' in main_qml
@@ -173,6 +184,9 @@ def test_qml_screen_blanking_wakes_on_tap() -> None:
     assert "onTapped: idleTimer.restart()" in main_qml
     assert "id: forcedWakeTimer" in main_qml
     assert "interval: 10000" in main_qml
+    assert "function onScreenshotRequested()" in main_qml
+    assert "root.grabToImage" in main_qml
+    assert "result.saveToFile(djconnect.screenshotFile)" in main_qml
     assert "function onWakeScreenRequested()" in main_qml
     assert "forcedWakeTimer.restart()" in main_qml
     assert "opacity: root.screenBlanked ? 1 : root.brightnessOverlayOpacity" in main_qml

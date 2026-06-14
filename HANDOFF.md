@@ -67,6 +67,15 @@ Implemented:
   only shown while local demo mode is active.
 - Speelt nu exposes the HA-provided playback output-device list and dispatches
   output selection with `command:"set_output"`.
+- Wachtrij and Afspeellijsten load HA-provided artwork asynchronously from QML
+  and never call the Python image cache from row delegates. Blocking network
+  or disk work in media-list delegates caused touch UI hangs on Pi Zero 2 W.
+- Queue/playlist load requests are deduplicated while a matching request is in
+  flight, so repeated navigation taps cannot flood Home Assistant or the QML
+  thread.
+- `GET /api/debug/screenshot` on the local API asks the QML UI process to save
+  a PNG of the live scenegraph. Once paired, the endpoint requires the device
+  bearer token.
 - Local language setting. First value comes from Raspberry Pi OS locale, not
   Home Assistant pairing provisioning.
 - Dutch/English translations are kept in `src/djconnect_pi/i18n.py`; tests
@@ -190,8 +199,9 @@ Not implemented by design:
 - Brightness is implemented as QML dimming; hardware backlight control still
   needs HyperPixel validation before using sysfs or DRM controls.
 - Performance follow-up candidates: reduce HA polling when idle, avoid
-  unnecessary Canvas repaints, keep album art cache bounded, cap log rendering
-  size for the touch viewer, and profile PySide6 memory/CPU on the Pi Zero 2 W.
+  unnecessary Canvas repaints, add a nonblocking background artwork pre-cache,
+  cap log rendering size for the touch viewer, and profile PySide6 memory/CPU
+  on the Pi Zero 2 W.
 - When changing protocol behavior, sync `SYNC_PROMPTS.md` across all five repos.
 
 ## Verification So Far

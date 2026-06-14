@@ -17,8 +17,9 @@
 - Persistent logs rotate locally, but log retention has not yet been tuned on
   the wall device's SD card.
 - Raspberry Pi Zero 2 W performance still needs a dedicated hardware profiling
-  pass for polling cadence, QML Canvas repaints, log viewer size, album-art
-  cache pressure and PySide6 memory/CPU usage.
+  pass for polling cadence, QML Canvas repaints, log viewer size, media-list
+  artwork pre-cache latency, album-art cache pressure and PySide6 memory/CPU
+  usage.
 
 ## Closed
 
@@ -42,5 +43,7 @@
   Pac-Man-like touch game feel.
 - Album art rendering and 24-hour local artwork caching added for Speelt nu,
   Wachtrij and Afspeellijsten.
+- Queue/playlist artwork regression fixed by pre-caching art in backend workers
+  and keeping QML delegates free of blocking Python cache calls.
 - HA initiated `/api/device/command` calls are bridged from the API daemon to
   the UI process through a local command-event queue.

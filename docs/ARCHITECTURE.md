@@ -18,6 +18,8 @@ Responsibilities:
   command-event queue
 - render now-playing and connection state
 - render HA-provided output-device choices and dispatch `command:"set_output"`
+- render HA-provided album art asynchronously in Now Playing, Queue and
+  Playlists so image downloads do not block the QML UI thread
 - render a dark DJConnect blue/purple gradient theme across touch screens
 - handle touch gestures and animated control states
 - display DJ response text pushed by Home Assistant as a 10-second toast
@@ -47,9 +49,12 @@ Responsibilities:
 - expose `GET /api/device/pairing-info`
 - accept HA initiated pairing at `POST /api/device/pair`
 - reset pairing at `POST /api/device/forget`
+- expose `GET /api/debug/screenshot` for authenticated local diagnostics
 - authenticate protected requests with the stored bearer token
 - queue HA initiated playback commands for the UI process through a local
   command-event file
+- request screenshots from the UI process through a local screenshot event file
+  and return the saved PNG path once QML `grabToImage` completes
 - advertise `device_id`, `client_type=raspberry_pi`, `version`,
   `device_name` and `local_url` through mDNS
 - reject oversized HTTP request bodies
@@ -117,7 +122,7 @@ The Pi client is an app-like DJConnect client.
   "device_id": "djconnect-raspberry-pi-XXXXXXXXXXXX",
   "device_name": "DJConnect",
   "client_type": "raspberry_pi",
-  "version": "3.1.41",
+  "version": "3.1.42",
   "capabilities": {
     "touch": true,
     "voice": false,
@@ -151,10 +156,15 @@ The local Client API uses:
 - `POST /api/device/command`
 - `POST /api/device/dj_response`
 - `POST /api/device/forget`
+- `GET /api/debug/screenshot`
 
 The Postman collection in
 `docs/postman/DJConnect Pi Local Client API.postman_collection.json` covers the
-same local API plus diagnostic DJ response testing.
+same local API plus diagnostic DJ response and screenshot testing.
+
+`GET /api/debug/screenshot` requires `Authorization: Bearer <device_token>` once
+the client is paired. It is intended for local support over SSH/LAN and may
+expose the live touchscreen contents, so it should stay authenticated and local.
 
 The Pi advertises `_djconnect._tcp` on the local Client API port. DJ responses
 are displayed as text on the wall screen and report `audio_played:false`.

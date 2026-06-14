@@ -29,6 +29,7 @@ class ClientAPIState:
         playback_provider: Callable[[], dict[str, Any]],
         command_handler: Callable[[str, dict[str, Any]], dict[str, Any]],
         dj_response_handler: Callable[[dict[str, Any]], dict[str, Any]],
+        screenshot_handler: Callable[[], dict[str, Any]],
         pair_handler: Callable[[], None],
         forget_handler: Callable[[], None],
     ) -> None:
@@ -37,6 +38,7 @@ class ClientAPIState:
         self.playback_provider = playback_provider
         self.command_handler = command_handler
         self.dj_response_handler = dj_response_handler
+        self.screenshot_handler = screenshot_handler
         self.pair_handler = pair_handler
         self.forget_handler = forget_handler
 
@@ -57,6 +59,14 @@ class ClientAPIHandler(BaseHTTPRequestHandler):
             return
         if self.path == "/api/device/pairing-info":
             self._write_json(self._pairing_info())
+            return
+        if self.path == "/api/debug/screenshot":
+            if self.server.state.cfg.device_token and not self._authorized():
+                _LOGGER.warning("Client API unauthorized debug screenshot request")
+                self._write_json({"success": False, "error": "unauthorized"}, HTTPStatus.UNAUTHORIZED)
+                return
+            _LOGGER.info("Client API debug screenshot request")
+            self._write_json(self.server.state.screenshot_handler())
             return
         self._write_json({"success": False, "error": "not_found"}, HTTPStatus.NOT_FOUND)
 

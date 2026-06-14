@@ -28,6 +28,7 @@ def start_api(tmp_path: Path) -> tuple[ClientAPI, Config, list[str]]:
             playback_provider=lambda: {"title": "Alive"},
             command_handler=lambda command, payload: {"success": True, "command": command},
             dj_response_handler=lambda payload: events.append(str(payload.get("text"))) or {"success": True},
+            screenshot_handler=lambda: {"success": True, "path": "/tmp/screenshot.png"},
             pair_handler=lambda: events.append("paired"),
             forget_handler=lambda: events.append("forgotten"),
         )
@@ -73,6 +74,7 @@ def test_postman_collection_documents_local_api_endpoints() -> None:
     assert "{{client_api_url}}/api/device/pair" in urls
     assert "{{client_api_url}}/api/device/command" in urls
     assert "{{client_api_url}}/api/device/dj_response" in urls
+    assert "{{client_api_url}}/api/debug/screenshot" in urls
     assert "{{client_api_url}}/api/device/forget" in urls
 
 
@@ -143,6 +145,24 @@ def test_client_api_requires_auth_for_dj_response(tmp_path: Path) -> None:
     assert unauth.status_code == 401
     assert ok.status_code == 200
     assert "Hoi" in events
+
+
+def test_client_api_debug_screenshot_requires_auth_when_paired(tmp_path: Path) -> None:
+    api, cfg, _events = start_api(tmp_path)
+    cfg.device_token = "token-1"
+    try:
+        unauth = requests.get(f"{cfg.local_url}/api/debug/screenshot", timeout=3)
+        ok = requests.get(
+            f"{cfg.local_url}/api/debug/screenshot",
+            headers={"Authorization": "Bearer token-1"},
+            timeout=3,
+        )
+    finally:
+        api.stop()
+
+    assert unauth.status_code == 401
+    assert ok.status_code == 200
+    assert ok.json()["path"] == "/tmp/screenshot.png"
 
 
 def test_client_api_rejects_oversized_request_body(tmp_path: Path) -> None:

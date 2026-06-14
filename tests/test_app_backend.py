@@ -7,7 +7,15 @@ from unittest.mock import Mock, patch
 
 from PySide6.QtCore import QCoreApplication
 
-from djconnect_pi.app import DJConnectBackend, _format_duration, _format_logs_for_display, cached_image_url, parse_playlist_items, parse_queue_items
+from djconnect_pi.app import (
+    DJConnectBackend,
+    _format_duration,
+    _format_logs_for_display,
+    cached_image_url,
+    parse_playlist_items,
+    parse_queue_items,
+    prepare_media_artwork,
+)
 
 
 def ensure_app() -> QCoreApplication:
@@ -94,6 +102,15 @@ def test_media_list_parsers_accept_ha_artwork_aliases() -> None:
     assert queue[0]["imageUrl"] == "https://example.test/track.jpg"
     assert playlists[0]["title"] == "Friday Night"
     assert playlists[0]["imageUrl"] == "https://example.test/playlist.jpg"
+
+
+def test_prepare_media_artwork_caches_urls_before_qml_render(monkeypatch) -> None:
+    items = [{"title": "Track", "imageUrl": "https://example.test/art.jpg"}]
+
+    monkeypatch.setattr("djconnect_pi.app.cached_image_url", lambda url: f"file:///cache/{url.rsplit('/', 1)[-1]}")
+
+    assert prepare_media_artwork(items) is items
+    assert items[0]["imageUrl"] == "file:///cache/art.jpg"
 
 
 def test_backend_set_ha_url_persists_value(tmp_path: Path) -> None:
@@ -399,6 +416,35 @@ def test_backend_output_device_dispatches_command(tmp_path: Path) -> None:
 
     assert backend.outputDevice == "Slaapkamer"
     assert calls == [("set_output", {"value": "Slaapkamer"})]
+
+
+def test_backend_skips_duplicate_media_loads_while_in_flight(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token"
+    calls: list[tuple[str, object, object]] = []
+
+    def fake_run(label: str, worker, done=None) -> None:
+        calls.append((label, worker, done))
+
+    backend._run = fake_run  # type: ignore[method-assign]
+    backend._sync_config_from_disk = lambda: None  # type: ignore[method-assign]
+
+    backend.loadQueue()
+    backend.loadQueue()
+    backend.loadPlaylists()
+    backend.loadPlaylists()
+
+    assert len(calls) == 2
+    assert calls[0][0] == backend.t("queue")
+    assert calls[1][0] == backend.t("playlists")
+
+    assert calls[0][2] is not None
+    calls[0][2]()  # type: ignore[operator]
+    backend.loadQueue()
+
+    assert len(calls) == 3
 
 
 def test_backend_shuffle_and_repeat_dispatch_commands(tmp_path: Path) -> None:

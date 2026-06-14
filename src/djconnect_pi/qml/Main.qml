@@ -62,12 +62,12 @@ Window {
 
         font.pixelSize: 15
         contentItem: ColumnLayout {
-            spacing: 2
+            spacing: 3
 
             Text {
                 text: navControl.iconSymbol
-                color: navControl.enabled ? "#ffffff" : "#93a0b8"
-                font.pixelSize: 24
+                color: navControl.enabled ? (navControl.checked ? "#ffffff" : "#d8defa") : "#93a0b8"
+                font.pixelSize: navControl.checked ? 27 : 24
                 font.bold: true
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
@@ -76,7 +76,7 @@ Window {
 
             Text {
                 text: navControl.text
-                color: navControl.enabled ? "#ffffff" : "#93a0b8"
+                color: navControl.enabled ? (navControl.checked ? "#ffffff" : "#d8defa") : "#93a0b8"
                 font: navControl.font
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
@@ -84,6 +84,30 @@ Window {
                 maximumLineCount: 1
                 Layout.fillWidth: true
             }
+        }
+        background: Rectangle {
+            radius: 8
+            border.color: navControl.checked ? "#f5d0fe" : "#6b5cff"
+            border.width: navControl.checked ? 3 : 1
+            color: navControl.checked ? "#aa7c3aed" : "#3324145f"
+            gradient: Gradient {
+                orientation: Gradient.Horizontal
+                GradientStop { position: 0.0; color: navControl.checked ? "#d946ef" : "#4424145f" }
+                GradientStop { position: 0.54; color: navControl.checked ? "#8b5cf6" : "#333b2c9f" }
+                GradientStop { position: 1.0; color: navControl.checked ? "#4f46e5" : "#332563eb" }
+            }
+            Rectangle {
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.margins: 8
+                height: 5
+                radius: 2
+                visible: navControl.checked
+                color: "#ffffff"
+                opacity: 0.9
+            }
+            opacity: navControl.down ? 0.78 : 1.0
         }
     }
 
@@ -116,6 +140,39 @@ Window {
             opacity: control.down ? 0.78 : 1.0
             scale: control.down ? 0.96 : 1.0
             Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutCubic } }
+        }
+    }
+
+    component MediaPlayButton: Button {
+        id: control
+
+        Layout.fillWidth: false
+        Layout.fillHeight: false
+        Layout.preferredWidth: 68
+        Layout.minimumWidth: 68
+        Layout.maximumWidth: 68
+        Layout.preferredHeight: 58
+        Layout.minimumHeight: 58
+        Layout.maximumHeight: 58
+        contentItem: Text {
+            text: "▶"
+            color: "#ffffff"
+            font.pixelSize: 28
+            font.bold: true
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+        }
+        background: Rectangle {
+            radius: 29
+            border.color: control.down ? "#f5d0fe" : "#bda7ff"
+            border.width: 2
+            gradient: Gradient {
+                orientation: Gradient.Horizontal
+                GradientStop { position: 0.0; color: "#c026d3" }
+                GradientStop { position: 0.55; color: "#8b5cf6" }
+                GradientStop { position: 1.0; color: "#4f46e5" }
+            }
+            opacity: control.down ? 0.78 : 1.0
         }
     }
 
@@ -385,7 +442,7 @@ Window {
 
                                     Image {
                                         anchors.fill: parent
-                                        source: modelData.imageUrl && modelData.imageUrl.length > 0 ? djconnect.cachedImageUrl(modelData.imageUrl) : ""
+                                        source: modelData.imageUrl && modelData.imageUrl.length > 0 ? modelData.imageUrl : ""
                                         fillMode: Image.PreserveAspectCrop
                                         asynchronous: true
                                         opacity: status === Image.Ready ? 1 : 0
@@ -424,17 +481,7 @@ Window {
                                     }
                                 }
 
-                                IconButton {
-                                    iconName: "play"
-                                    primary: true
-                                    Layout.fillWidth: false
-                                    Layout.fillHeight: false
-                                    Layout.preferredWidth: 68
-                                    Layout.minimumWidth: 68
-                                    Layout.maximumWidth: 68
-                                    Layout.preferredHeight: 58
-                                    Layout.minimumHeight: 58
-                                    Layout.maximumHeight: 58
+                                MediaPlayButton {
                                     onClicked: djconnect.playUri(modelData.uri)
                                 }
                             }
@@ -464,6 +511,15 @@ Window {
         function onWakeScreenRequested() {
             root.forceScreenAwake = true
             forcedWakeTimer.restart()
+        }
+        function onScreenshotRequested() {
+            root.forceScreenAwake = true
+            forcedWakeTimer.restart()
+            Qt.callLater(function() {
+                root.grabToImage(function(result) {
+                    result.saveToFile(djconnect.screenshotFile)
+                })
+            })
         }
     }
 
@@ -551,9 +607,9 @@ Window {
 
                 PurpleButton {
                     text: djconnect.t("refresh")
-                    font.pixelSize: 16
-                    Layout.preferredWidth: 132
-                    Layout.preferredHeight: 40
+                    font.pixelSize: 18
+                    Layout.preferredWidth: 142
+                    Layout.preferredHeight: 48
                     onClicked: djconnect.manualRefresh()
                 }
 
@@ -603,13 +659,6 @@ Window {
                         }
                     }
 
-                    Rectangle {
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.bottom: parent.bottom
-                        height: 92
-                        color: "#990b1012"
-                    }
                 }
 
                 DragHandler {
@@ -658,7 +707,7 @@ Window {
 
             RowLayout {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 72
+                Layout.preferredHeight: 86
                 spacing: 22
 
                 IconButton {
@@ -717,7 +766,7 @@ Window {
 
             RowLayout {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 44
+                Layout.preferredHeight: 46
                 spacing: 14
 
                 Text {
@@ -746,31 +795,18 @@ Window {
                 }
             }
 
-            ColumnLayout {
+            RowLayout {
                 Layout.fillWidth: true
-                spacing: 6
+                Layout.preferredHeight: 54
+                spacing: 12
 
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 10
-
-                    Text {
-                        text: djconnect.t("output_device")
-                        color: "#f4f8f8"
-                        font.pixelSize: 20
-                        font.bold: true
-                        Layout.fillWidth: true
-                    }
-
-                    Text {
-                        text: djconnect.outputDevice
-                        color: "#b7c2d8"
-                        font.pixelSize: 16
-                        elide: Text.ElideRight
-                        horizontalAlignment: Text.AlignRight
-                        visible: djconnect.outputDevice.length > 0
-                        Layout.preferredWidth: 220
-                    }
+                Text {
+                    text: "🔊"
+                    color: "#ffffff"
+                    font.pixelSize: 24
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                    Layout.preferredWidth: 38
                 }
 
                 ComboBox {
@@ -778,16 +814,16 @@ Window {
                     model: djconnect.outputDevices
                     visible: djconnect.outputDevices.length > 0
                     currentIndex: Math.max(0, djconnect.outputDevices.indexOf(djconnect.outputDevice))
-                    font.pixelSize: 20
+                    font.pixelSize: 22
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 50
+                    Layout.fillHeight: true
                     onActivated: function(index) { djconnect.setOutputDevice(outputDeviceCombo.textAt(index)) }
                 }
             }
 
             RowLayout {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 54
+                Layout.preferredHeight: 64
                 spacing: 18
 
                 IconButton {

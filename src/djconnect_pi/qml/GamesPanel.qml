@@ -154,10 +154,10 @@ Rectangle {
         pacmanDY = 0
         ghostX = 250
         ghostY = 86
-        powerPellet = 23
+        powerPellet = 31
         ghostVulnerableTicks = 0
         pellets = []
-        for (var i = 0; i < 24; i++) pellets.push(i)
+        for (var i = 0; i < 32; i++) pellets.push(i)
     }
 
     function showFlash() {
@@ -292,7 +292,7 @@ Rectangle {
             }
         } else {
             pacmanX = Math.max(28, Math.min(292, pacmanX + pacmanDX * 4))
-            pacmanY = Math.max(44, Math.min(140, pacmanY + pacmanDY * 4))
+            pacmanY = Math.max(44, Math.min(150, pacmanY + pacmanDY * 4))
             if (ghostVulnerableTicks > 0) ghostVulnerableTicks -= 1
             var step = ghostVulnerableTicks > 0 ? 1 : 1.35 + Math.min(Math.floor(score / 14) * 0.45, 1.8)
             if (Math.abs(ghostX - pacmanX) > 2) ghostX += ghostX < pacmanX ? step : -step

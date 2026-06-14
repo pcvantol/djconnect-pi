@@ -50,6 +50,8 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 - config private permissions and atomic-write behavior
 - Raspberry Pi system-info logging
 - debug logging paths for invalid HA JSON and local API request limits
+- local Client API debug screenshot route, API-daemon screenshot event file and
+  QML `grabToImage` capture contract
 - backend notification toast state
 - playback response alias parsing
 - playback output-device response parsing and `set_output` command dispatch
@@ -71,15 +73,19 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
   queue and playlist QML contract checks
 - Games screen full-background touch blocking so Speelt nu controls cannot be
   tapped through transparent game areas
-- touch-friendly icon bottom navigation order and height checks
+- touch-friendly icon bottom navigation order, height and selected-state checks
 - Maze Chase power-pellet and vulnerable ghost QML contract checks
 - Empty queue/playlist labels and backend behavior that only loads demo media
   after explicitly entering demo mode
 - kiosk branding contract checks for the bundled app icon, no visible quit
   action, fixed-size media play buttons and settings without pairing controls
-- compact touch log formatting and 24-hour album-art cache behavior
+- compact touch log formatting and 24-hour album-art cache helper behavior
 - HA queue/playlist media parser coverage for artwork aliases from the shared
   contract
+- backend media-list artwork pre-cache coverage so Queue/Playlists keep album
+  art without blocking QML delegates
+- backend guard coverage that duplicate queue/playlist loads are skipped while
+  a matching request is already in flight
 - opaque queue/playlist main screens, manual refresh controls and no
   DJ-response dismiss dialog in QML
 - local Client API pairing-info and logging regression coverage, plus Postman
