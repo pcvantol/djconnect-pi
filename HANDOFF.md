@@ -11,6 +11,8 @@ Implemented:
 - Qt Quick/QML fullscreen 720x720 kiosk UI with PySide6 backend
 - Dark DJConnect touch UI with blue/purple gradient backgrounds across the main
   screens, splash, games, logs and blocking overlays
+- Bottom navigation is a larger touch-friendly icon+label bar ordered Speelt
+  nu, Wachtrij, Afspeellijsten, Games, Instellingen.
 - `client_type: raspberry_pi`
 - Stable device ID prefix `djconnect-raspberry-pi-`
 - Pair/status/command calls to the Home Assistant DJConnect API
@@ -37,6 +39,8 @@ Implemented:
   blocking dialog.
 - Touch-only local games matching the Apple app set: Paddle Rally, Meteor Run,
   Sky Dash and Maze Chase.
+- Maze Chase includes a slower ghost, a large power pellet and a temporary
+  blinking edible ghost state.
 - The Games main screen consumes touch input across its full background so
   underlying Speelt nu controls cannot be activated through transparent or
   empty game areas.

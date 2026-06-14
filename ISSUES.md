@@ -36,6 +36,10 @@
   reaches underlying Speelt nu controls.
 - Empty Home Assistant queue/playlist responses now show explicit empty-state
   labels instead of stale demo entries.
+- Bottom navigation made taller with tab icons for more reliable touch use on
+  the 4-inch HyperPixel screen.
+- Maze Chase ghost pacing and power-pellet behavior improved for a closer
+  Pac-Man-like touch game feel.
 - Album art rendering and 24-hour local artwork caching added for Speelt nu,
   Wachtrij and Afspeellijsten.
 - HA initiated `/api/device/command` calls are bridged from the API daemon to

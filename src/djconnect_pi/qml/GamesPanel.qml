@@ -99,6 +99,8 @@ Rectangle {
     property real pacmanDY: 0
     property real ghostX: 250
     property real ghostY: 86
+    property int powerPellet: 23
+    property int ghostVulnerableTicks: 0
     property var pellets: []
 
     function highScore() {
@@ -152,6 +154,8 @@ Rectangle {
         pacmanDY = 0
         ghostX = 250
         ghostY = 86
+        powerPellet = 23
+        ghostVulnerableTicks = 0
         pellets = []
         for (var i = 0; i < 24; i++) pellets.push(i)
     }
@@ -289,7 +293,8 @@ Rectangle {
         } else {
             pacmanX = Math.max(28, Math.min(292, pacmanX + pacmanDX * 4))
             pacmanY = Math.max(44, Math.min(140, pacmanY + pacmanDY * 4))
-            var step = 2 + Math.min(Math.floor(score / 8), 3)
+            if (ghostVulnerableTicks > 0) ghostVulnerableTicks -= 1
+            var step = ghostVulnerableTicks > 0 ? 1 : 1.35 + Math.min(Math.floor(score / 14) * 0.45, 1.8)
             if (Math.abs(ghostX - pacmanX) > 2) ghostX += ghostX < pacmanX ? step : -step
             if (Math.abs(ghostY - pacmanY) > 2) ghostY += ghostY < pacmanY ? step : -step
             for (var p = 0; p < pellets.length; p++) {
@@ -298,15 +303,27 @@ Rectangle {
                 var py = 52 + Math.floor(pellet / 8) * 28
                 if (Math.abs(px - pacmanX) < 10 && Math.abs(py - pacmanY) < 10) {
                     pellets.splice(p, 1)
-                    setScore(score + 1)
+                    if (pellet === powerPellet) {
+                        ghostVulnerableTicks = 210
+                        setScore(score + 3)
+                    } else {
+                        setScore(score + 1)
+                    }
                     break
                 }
             }
             if (pellets.length === 0) resetPacman()
             if (Math.abs(ghostX - pacmanX) < 14 && Math.abs(ghostY - pacmanY) < 14) {
-                showFlash()
-                setScore(0)
-                resetPacman()
+                if (ghostVulnerableTicks > 0) {
+                    setScore(score + 5)
+                    ghostX = 250
+                    ghostY = 86
+                    ghostVulnerableTicks = 0
+                } else {
+                    showFlash()
+                    setScore(0)
+                    resetPacman()
+                }
             }
         }
         gameCanvas.requestPaint()
@@ -332,7 +349,7 @@ Rectangle {
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 24
-        anchors.bottomMargin: 108
+        anchors.bottomMargin: 130
         spacing: 12
 
         RowLayout {
@@ -470,8 +487,15 @@ Rectangle {
                             var pellet = root.pellets[i]
                             var col = pellet % 8
                             var row = Math.floor(pellet / 8)
+                            var isPowerPellet = pellet === root.powerPellet
                             ctx.beginPath()
-                            ctx.arc(rx(48 + col * 28), ry(52 + row * 28), Math.max(rx(2), ry(2)), 0, Math.PI * 2)
+                            ctx.arc(
+                                rx(48 + col * 28),
+                                ry(52 + row * 28),
+                                isPowerPellet ? Math.max(rx(5), ry(5)) : Math.max(rx(2), ry(2)),
+                                0,
+                                Math.PI * 2
+                            )
                             ctx.fill()
                         }
                         var pacRadius = Math.max(rx(10), ry(10))
@@ -493,7 +517,8 @@ Rectangle {
                         )
                         ctx.closePath()
                         ctx.fill()
-                        ctx.fillStyle = "#ff6fb3"
+                        var ghostBlink = root.ghostVulnerableTicks > 0 && Math.floor(root.ghostVulnerableTicks / 12) % 2 === 0
+                        ctx.fillStyle = root.ghostVulnerableTicks > 0 ? (ghostBlink ? "#e0f2fe" : "#3b82f6") : "#ff6fb3"
                         ctx.beginPath()
                         ctx.arc(rx(root.ghostX), ry(root.ghostY - 2), Math.max(rx(9), ry(9)), Math.PI, 0)
                         ctx.lineTo(rx(root.ghostX + 9), ry(root.ghostY + 9))

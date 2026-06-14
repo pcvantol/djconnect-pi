@@ -1,4 +1,4 @@
 """DJConnect Raspberry Pi client."""
 
-__version__ = "3.1.40"
+__version__ = "3.1.41"
 

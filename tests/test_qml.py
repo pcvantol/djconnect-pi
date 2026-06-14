@@ -60,6 +60,11 @@ def test_qml_has_touch_games_panel() -> None:
     assert "onPressed: function(mouse) { root.handleTouch(mouse.x, mouse.y) }" in games_qml
     assert "mouthOpen" in games_qml
     assert "ghostX - 4" in games_qml
+    assert "property int powerPellet" in games_qml
+    assert "property int ghostVulnerableTicks" in games_qml
+    assert "ghostVulnerableTicks = 210" in games_qml
+    assert "setScore(score + 5)" in games_qml
+    assert 'root.ghostVulnerableTicks > 0 ? (ghostBlink ? "#e0f2fe" : "#3b82f6")' in games_qml
 
 
 def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None:
@@ -136,6 +141,13 @@ def test_qml_has_bottom_navigation_bar() -> None:
     main_qml = files("djconnect_pi.qml").joinpath("Main.qml").read_text(encoding="utf-8")
 
     assert "id: bottomNav" in main_qml
+    assert "component NavButton" in main_qml
+    assert "height: 104" in main_qml
+    assert 'iconSymbol: "▶"' in main_qml
+    assert 'iconSymbol: "≡"' in main_qml
+    assert 'iconSymbol: "▦"' in main_qml
+    assert 'iconSymbol: "◆"' in main_qml
+    assert 'iconSymbol: "⚙"' in main_qml
     assert 'djconnect.t("now_playing")' in main_qml
     assert 'djconnect.t("games")' in main_qml
     assert 'djconnect.t("setup")' in main_qml

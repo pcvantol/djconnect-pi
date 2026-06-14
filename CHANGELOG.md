@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.1.41
+
+- Made the bottom navigation bar one-third taller and added simple tab icons
+  for touch-friendly kiosk navigation.
+- Improved Maze Chase by slowing the ghost, adding a large power pellet and
+  making the ghost temporarily edible with a blinking blue/white vulnerable
+  state.
+
 ## 3.1.40
 
 - Fixed Games screen touch pass-through so empty/transparent game areas no

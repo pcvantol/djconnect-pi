@@ -71,6 +71,8 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
   queue and playlist QML contract checks
 - Games screen full-background touch blocking so Speelt nu controls cannot be
   tapped through transparent game areas
+- touch-friendly icon bottom navigation order and height checks
+- Maze Chase power-pellet and vulnerable ghost QML contract checks
 - Empty queue/playlist labels and backend behavior that only loads demo media
   after explicitly entering demo mode
 - kiosk branding contract checks for the bundled app icon, no visible quit

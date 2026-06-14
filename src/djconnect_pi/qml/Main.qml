@@ -56,6 +56,37 @@ Window {
         }
     }
 
+    component NavButton: PurpleButton {
+        id: navControl
+        property string iconSymbol: ""
+
+        font.pixelSize: 15
+        contentItem: ColumnLayout {
+            spacing: 2
+
+            Text {
+                text: navControl.iconSymbol
+                color: navControl.enabled ? "#ffffff" : "#93a0b8"
+                font.pixelSize: 24
+                font.bold: true
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+                Layout.fillWidth: true
+            }
+
+            Text {
+                text: navControl.text
+                color: navControl.enabled ? "#ffffff" : "#93a0b8"
+                font: navControl.font
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+                elide: Text.ElideRight
+                maximumLineCount: 1
+                Layout.fillWidth: true
+            }
+        }
+    }
+
     component PlaybackButton: Button {
         id: control
         property bool primary: false
@@ -280,7 +311,7 @@ Window {
         ColumnLayout {
             anchors.fill: parent
             anchors.margins: 16
-            anchors.bottomMargin: 104
+            anchors.bottomMargin: 130
             spacing: 12
 
             RowLayout {
@@ -487,7 +518,7 @@ Window {
         ColumnLayout {
             anchors.fill: parent
             anchors.margins: root.edge
-            anchors.bottomMargin: root.edge + 104
+            anchors.bottomMargin: root.edge + 130
             spacing: 8
 
             RowLayout {
@@ -800,7 +831,7 @@ Window {
             id: settingsScroll
             anchors.fill: parent
             anchors.margins: 22
-            anchors.bottomMargin: 126
+            anchors.bottomMargin: 130
             clip: true
             ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
 
@@ -1072,7 +1103,7 @@ Window {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        height: 78
+        height: 104
         color: "#dd0b1024"
         border.color: "#33406b"
         border.width: 1
@@ -1084,9 +1115,9 @@ Window {
             anchors.margins: 10
             spacing: 8
 
-            PurpleButton {
+            NavButton {
                 text: djconnect.t("now_playing")
-                font.pixelSize: 15
+                iconSymbol: "▶"
                 checkable: true
                 checked: root.activeScreen === "now"
                 Layout.fillWidth: true
@@ -1094,9 +1125,9 @@ Window {
                 onClicked: root.activeScreen = "now"
             }
 
-            PurpleButton {
+            NavButton {
                 text: djconnect.t("queue")
-                font.pixelSize: 15
+                iconSymbol: "≡"
                 checkable: true
                 checked: root.activeScreen === "queue"
                 Layout.fillWidth: true
@@ -1107,9 +1138,9 @@ Window {
                 }
             }
 
-            PurpleButton {
+            NavButton {
                 text: djconnect.t("playlists")
-                font.pixelSize: 15
+                iconSymbol: "▦"
                 checkable: true
                 checked: root.activeScreen === "playlists"
                 Layout.fillWidth: true
@@ -1120,9 +1151,9 @@ Window {
                 }
             }
 
-            PurpleButton {
+            NavButton {
                 text: djconnect.t("games")
-                font.pixelSize: 15
+                iconSymbol: "◆"
                 checkable: true
                 checked: root.activeScreen === "games"
                 Layout.fillWidth: true
@@ -1130,9 +1161,9 @@ Window {
                 onClicked: root.activeScreen = "games"
             }
 
-            PurpleButton {
+            NavButton {
                 text: djconnect.t("setup")
-                font.pixelSize: 15
+                iconSymbol: "⚙"
                 checkable: true
                 checked: root.activeScreen === "settings"
                 Layout.fillWidth: true

@@ -86,7 +86,6 @@ replacements = {
         (r"djconnect-pi-[0-9]+\.[0-9]+\.[0-9]+\.tar\.gz", f"djconnect-pi-{version}.tar.gz"),
         (r"cd djconnect-pi-[0-9]+\.[0-9]+\.[0-9]+", f"cd djconnect-pi-{version}"),
     ],
-    "CHANGELOG.md": [(r"^## .+$", f"## {version}")],
     "docs/ARCHITECTURE.md": [(r'"version": "[^"]+"', f'"version": "{version}"')],
     "docs/BOOTSTRAP.md": [
         (r"djconnect-pi-[0-9]+\.[0-9]+\.[0-9]+\.tar\.gz", f"djconnect-pi-{version}.tar.gz"),
@@ -104,6 +103,14 @@ for file_name, rules in replacements.items():
         print(f"  unchanged {file_name}")
         continue
     print(f"  update {file_name}")
+    if not dry_run:
+        path.write_text(updated)
+
+path = Path("CHANGELOG.md")
+text = path.read_text()
+updated = re.sub(r"^## .+$", f"## {version}", text, count=1, flags=re.MULTILINE)
+if updated != text:
+    print("  update CHANGELOG.md")
     if not dry_run:
         path.write_text(updated)
 PY
