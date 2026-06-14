@@ -214,6 +214,21 @@ def test_backend_demo_mode_is_local_only(tmp_path: Path) -> None:
     assert backend.demoMode is False
 
 
+def test_backend_wakes_screen_for_previous_next(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    wakes: list[bool] = []
+    calls: list[tuple[str, dict[str, object]]] = []
+    backend.wakeScreenRequested.connect(lambda: wakes.append(True))
+    backend.command = lambda command, **payload: calls.append((command, payload))  # type: ignore[method-assign]
+
+    backend.previous()
+    backend.next()
+
+    assert len(wakes) == 2
+    assert calls == [("previous", {}), ("next", {})]
+
+
 def test_backend_demo_mode_is_blocked_after_pairing(tmp_path: Path) -> None:
     ensure_app()
     backend = DJConnectBackend(tmp_path / "config.json")
@@ -291,6 +306,27 @@ def test_backend_executes_local_command_event_file(tmp_path: Path) -> None:
 
     assert calls == [("next", {})]
     assert not event_file.exists()
+
+
+def test_backend_wakes_screen_for_previous_next_command_events(tmp_path: Path) -> None:
+    ensure_app()
+    config_path = tmp_path / "config.json"
+    backend = DJConnectBackend(config_path)
+    event_file = tmp_path / "command-event.json"
+    backend.cfg.command_event_file = str(event_file)
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token"
+    wakes: list[bool] = []
+    backend.wakeScreenRequested.connect(lambda: wakes.append(True))
+    backend.command = lambda command, **payload: None  # type: ignore[method-assign]
+    event_file.write_text(
+        json.dumps({"events": [{"command": "previous", "payload": {}}, {"command": "next", "payload": {}}]}),
+        encoding="utf-8",
+    )
+
+    backend._poll_local_events()
+
+    assert len(wakes) == 2
 
 
 def test_backend_toast_can_be_shown_and_hidden(tmp_path: Path) -> None:

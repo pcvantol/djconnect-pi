@@ -1,6 +1,12 @@
 # Changelog
 
-## 3.1.38
+## 3.1.39
+
+- Keep the touch screen awake for 10 seconds when previous/next track starts,
+  including HA initiated previous/next commands received through the local
+  Client API command-event bridge.
+
+## 3.1.39
 
 - Routed Home Assistant initiated `/api/device/command` calls from the separate
   local API daemon to the touch UI through a small persisted command-event
@@ -20,7 +26,7 @@
 - Expanded tests for command-event routing, output-device parsing/dispatch,
   DJ-response toast behavior and the updated QML kiosk layout.
 
-## 3.1.38
+## 3.1.39
 
 - Fixed Home Assistant command payloads to always include the stable
   `device_id` and `client_type=raspberry_pi`, resolving HA `invalid_client_type`

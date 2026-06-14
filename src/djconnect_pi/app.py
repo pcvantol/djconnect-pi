@@ -62,6 +62,7 @@ class DJConnectBackend(QObject):
     logLevelChanged = Signal()
     languageChanged = Signal()
     translationsChanged = Signal()
+    wakeScreenRequested = Signal()
 
     _playbackReady = Signal(object)
     _statusReady = Signal(str)
@@ -428,6 +429,7 @@ class DJConnectBackend(QObject):
 
     @Slot()
     def previous(self) -> None:
+        self.wakeScreenRequested.emit()
         if self._demo_mode:
             self._apply_demo_track("Blue Monday", "New Order")
             _LOGGER.info("User selected previous demo track")
@@ -439,6 +441,7 @@ class DJConnectBackend(QObject):
 
     @Slot()
     def next(self) -> None:
+        self.wakeScreenRequested.emit()
         if self._demo_mode:
             self._apply_demo_track("Around the World", "Daft Punk")
             _LOGGER.info("User selected next demo track")
@@ -909,6 +912,8 @@ class DJConnectBackend(QObject):
             if not command:
                 continue
             _LOGGER.info("Executing Client API command event from Home Assistant: %s", command)
+            if command in {"previous", "next"}:
+                self.wakeScreenRequested.emit()
             self.command(command, **{k: v for k, v in payload.items() if k not in {"command", "device_id", "client_type", "version", "firmware", "local_url", "capabilities"}})
 
 

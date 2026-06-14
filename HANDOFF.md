@@ -45,6 +45,8 @@ Implemented:
   exceptions and touch user actions
 - Configurable screen blanking from the touch settings panel. Default is 120
   seconds and tap wakes the rendered screen.
+- Previous/next track actions wake the rendered screen for 10 seconds, also
+  when they arrive from Home Assistant through `/api/device/command`.
 - Configurable app-level brightness from the touch settings panel
 - Settings shows "Instellingen", has a red "Opnieuw koppelen" action with a
   confirmation screen, a "Logs" button, no local Close button and a reboot

@@ -60,6 +60,8 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 - bundled QML files and offscreen QML load
 - startup splash, blocking pairing screen, tap-to-wake blanking and toast QML
   contract checks
+- previous/next wake-screen signal coverage, including HA command-event
+  previous/next
 - modal overlay touch-blocking, settings reset-pairing confirmation and About
   full-width website contract checks
 - generated six-digit pairing code persistence and `/api/device/pairing-info`

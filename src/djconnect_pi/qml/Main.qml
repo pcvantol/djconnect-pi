@@ -19,7 +19,8 @@ Window {
     property bool gamesOpen: activeScreen === "games"
     property bool aboutOpen: false
     property bool resetPairingConfirmOpen: false
-    property bool screenBlanked: djconnect.screenTimeoutSeconds > 0 && !idleTimer.running
+    property bool forceScreenAwake: false
+    property bool screenBlanked: djconnect.screenTimeoutSeconds > 0 && !idleTimer.running && !root.forceScreenAwake
     property real brightnessOverlayOpacity: root.screenBlanked ? 0 : 1 - (djconnect.screenBrightnessPercent / 100.0)
 
     function repeatLabel(value) {
@@ -405,6 +406,21 @@ Window {
         interval: Math.max(1000, djconnect.screenTimeoutSeconds * 1000)
         running: djconnect.screenTimeoutSeconds > 0
         repeat: false
+    }
+
+    Timer {
+        id: forcedWakeTimer
+        interval: 10000
+        repeat: false
+        onTriggered: root.forceScreenAwake = false
+    }
+
+    Connections {
+        target: djconnect
+        function onWakeScreenRequested() {
+            root.forceScreenAwake = true
+            forcedWakeTimer.restart()
+        }
     }
 
     Timer {

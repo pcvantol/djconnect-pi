@@ -148,8 +148,13 @@ def test_qml_stop_demo_button_returns_to_pairing_flow() -> None:
 def test_qml_screen_blanking_wakes_on_tap() -> None:
     main_qml = files("djconnect_pi.qml").joinpath("Main.qml").read_text(encoding="utf-8")
 
-    assert "property bool screenBlanked: djconnect.screenTimeoutSeconds > 0 && !idleTimer.running" in main_qml
+    assert "property bool forceScreenAwake: false" in main_qml
+    assert "property bool screenBlanked: djconnect.screenTimeoutSeconds > 0 && !idleTimer.running && !root.forceScreenAwake" in main_qml
     assert "onTapped: idleTimer.restart()" in main_qml
+    assert "id: forcedWakeTimer" in main_qml
+    assert "interval: 10000" in main_qml
+    assert "function onWakeScreenRequested()" in main_qml
+    assert "forcedWakeTimer.restart()" in main_qml
     assert "opacity: root.screenBlanked ? 1 : root.brightnessOverlayOpacity" in main_qml
 
 
