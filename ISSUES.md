@@ -32,6 +32,10 @@
 - Stale mDNS pairing code after reset fixed by reloading shared config in the
   local API daemon before pairing-info and local pair requests.
 - Full-screen overlay tap-through fixed by adding modal touch blockers.
+- Games screen tap-through fixed by consuming background touch input before it
+  reaches underlying Speelt nu controls.
+- Empty Home Assistant queue/playlist responses now show explicit empty-state
+  labels instead of stale demo entries.
 - Album art rendering and 24-hour local artwork caching added for Speelt nu,
   Wachtrij and Afspeellijsten.
 - HA initiated `/api/device/command` calls are bridged from the API daemon to

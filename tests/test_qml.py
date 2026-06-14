@@ -53,7 +53,11 @@ def test_qml_has_touch_games_panel() -> None:
     assert "property string gameTitle: djconnect.t(games[gameIndex].titleKey)" in games_qml
     assert "djconnect.t(modelData.titleKey)" in games_qml
     assert "MouseArea" in games_qml
+    assert "preventStealing: true" in games_qml
+    assert "propagateComposedEvents: false" in games_qml
+    assert "onClicked: function(mouse)" in games_qml
     assert "handleTouch" in games_qml
+    assert "onPressed: function(mouse) { root.handleTouch(mouse.x, mouse.y) }" in games_qml
     assert "mouthOpen" in games_qml
     assert "ghostX - 4" in games_qml
 
@@ -94,6 +98,9 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert 'djconnect.t("playlists")' in main_qml
     assert "djconnect.queueItems" in main_qml
     assert "djconnect.playlistItems" in main_qml
+    assert 'emptyText: djconnect.t("empty_queue")' in main_qml
+    assert 'emptyText: djconnect.t("empty_playlists")' in main_qml
+    assert "visible: panel.items.length === 0" in main_qml
     assert "djconnect.loadQueue()" in main_qml
     assert "djconnect.loadPlaylists()" in main_qml
     assert "onRefreshRequested: djconnect.loadQueue()" in main_qml
@@ -132,6 +139,7 @@ def test_qml_has_bottom_navigation_bar() -> None:
     assert 'djconnect.t("now_playing")' in main_qml
     assert 'djconnect.t("games")' in main_qml
     assert 'djconnect.t("setup")' in main_qml
+    assert main_qml.index('text: djconnect.t("playlists")') < main_qml.index('text: djconnect.t("games")')
     assert 'root.activeScreen = "now"' in main_qml
     assert 'root.activeScreen = "games"' in main_qml
     assert 'root.activeScreen = "settings"' in main_qml

@@ -1,12 +1,23 @@
 # Changelog
 
-## 3.1.39
+## 3.1.40
+
+- Fixed Games screen touch pass-through so empty/transparent game areas no
+  longer activate underlying Speelt nu playback controls.
+- Moved Games to the right of Afspeellijsten in the bottom navigation bar.
+- Kept real HA empty queue/playlist responses empty and show "Geen wachtrij" or
+  "Geen afspeellijsten"; demo media is now only loaded when demo mode is
+  explicitly active.
+- Fixed remaining game-canvas QML mouse-handler warnings by using explicit
+  signal parameters.
+
+## 3.1.40
 
 - Keep the touch screen awake for 10 seconds when previous/next track starts,
   including HA initiated previous/next commands received through the local
   Client API command-event bridge.
 
-## 3.1.39
+## 3.1.40
 
 - Routed Home Assistant initiated `/api/device/command` calls from the separate
   local API daemon to the touch UI through a small persisted command-event
@@ -26,7 +37,7 @@
 - Expanded tests for command-event routing, output-device parsing/dispatch,
   DJ-response toast behavior and the updated QML kiosk layout.
 
-## 3.1.39
+## 3.1.40
 
 - Fixed Home Assistant command payloads to always include the stable
   `device_id` and `client_type=raspberry_pi`, resolving HA `invalid_client_type`

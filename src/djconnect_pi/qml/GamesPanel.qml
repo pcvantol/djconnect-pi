@@ -24,6 +24,18 @@ Rectangle {
 
     signal closeRequested()
 
+    MouseArea {
+        anchors.fill: parent
+        acceptedButtons: Qt.AllButtons
+        hoverEnabled: true
+        preventStealing: true
+        propagateComposedEvents: false
+        onClicked: function(mouse) { mouse.accepted = true }
+        onPressed: function(mouse) { mouse.accepted = true }
+        onReleased: function(mouse) { mouse.accepted = true }
+        onWheel: function(wheel) { wheel.accepted = true }
+    }
+
     component GlassButton: Button {
         id: control
         font.pixelSize: 22
@@ -512,8 +524,8 @@ Rectangle {
 
                 MouseArea {
                     anchors.fill: parent
-                    onPressed: root.handleTouch(mouse.x, mouse.y)
-                    onPositionChanged: root.handleTouch(mouse.x, mouse.y)
+                    onPressed: function(mouse) { root.handleTouch(mouse.x, mouse.y) }
+                    onPositionChanged: function(mouse) { root.handleTouch(mouse.x, mouse.y) }
                     onReleased: root.fire()
                 }
             }

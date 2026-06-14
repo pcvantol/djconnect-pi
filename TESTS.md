@@ -69,6 +69,10 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 - dark DJConnect blue/purple gradient QML theme contract checks
 - transparent rounded touch button, readable logs, scrollable settings, About,
   queue and playlist QML contract checks
+- Games screen full-background touch blocking so Speelt nu controls cannot be
+  tapped through transparent game areas
+- Empty queue/playlist labels and backend behavior that only loads demo media
+  after explicitly entering demo mode
 - kiosk branding contract checks for the bundled app icon, no visible quit
   action, fixed-size media play buttons and settings without pairing controls
 - compact touch log formatting and 24-hour album-art cache behavior

@@ -92,8 +92,8 @@ class DJConnectBackend(QObject):
         self._logs_text = ""
         self._logs_visible = False
         self._demo_mode = False
-        self._queue_items = demo_queue_items()
-        self._playlist_items = demo_playlist_items()
+        self._queue_items: list[dict[str, object]] = []
+        self._playlist_items: list[dict[str, object]] = []
         self._status_text = self.tr_key("paired" if self.cfg.paired else "not_paired")
         self._busy = False
         self._executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="djconnect")

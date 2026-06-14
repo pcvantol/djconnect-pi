@@ -260,6 +260,7 @@ Window {
     component MediaListPanel: Rectangle {
         id: panel
         property string heading: ""
+        property string emptyText: ""
         property var items: []
         signal refreshRequested()
 
@@ -310,6 +311,18 @@ Window {
                 ColumnLayout {
                     width: parent.width
                     spacing: 12
+
+                    Text {
+                        text: panel.emptyText
+                        visible: panel.items.length === 0
+                        color: "#b7c2d8"
+                        font.pixelSize: 26
+                        font.bold: true
+                        horizontalAlignment: Text.AlignHCenter
+                        wrapMode: Text.WordWrap
+                        Layout.fillWidth: true
+                        Layout.topMargin: 36
+                    }
 
                     Repeater {
                         model: panel.items
@@ -1034,6 +1047,7 @@ Window {
     MediaListPanel {
         visible: root.activeScreen === "queue"
         heading: djconnect.t("queue")
+        emptyText: djconnect.t("empty_queue")
         items: djconnect.queueItems
         onRefreshRequested: djconnect.loadQueue()
     }
@@ -1041,6 +1055,7 @@ Window {
     MediaListPanel {
         visible: root.activeScreen === "playlists"
         heading: djconnect.t("playlists")
+        emptyText: djconnect.t("empty_playlists")
         items: djconnect.playlistItems
         onRefreshRequested: djconnect.loadPlaylists()
     }
@@ -1080,16 +1095,6 @@ Window {
             }
 
             PurpleButton {
-                text: djconnect.t("games")
-                font.pixelSize: 15
-                checkable: true
-                checked: root.activeScreen === "games"
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                onClicked: root.activeScreen = "games"
-            }
-
-            PurpleButton {
                 text: djconnect.t("queue")
                 font.pixelSize: 15
                 checkable: true
@@ -1113,6 +1118,16 @@ Window {
                     root.activeScreen = "playlists"
                     djconnect.loadPlaylists()
                 }
+            }
+
+            PurpleButton {
+                text: djconnect.t("games")
+                font.pixelSize: 15
+                checkable: true
+                checked: root.activeScreen === "games"
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                onClicked: root.activeScreen = "games"
             }
 
             PurpleButton {

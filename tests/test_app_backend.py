@@ -196,6 +196,9 @@ def test_backend_demo_mode_is_local_only(tmp_path: Path) -> None:
     calls: list[tuple[str, dict[str, object]]] = []
     backend.command = lambda command, **payload: calls.append((command, payload))  # type: ignore[method-assign]
 
+    assert backend.queueItems == []
+    assert backend.playlistItems == []
+
     backend.enterDemoMode()
     backend.togglePlay()
     backend.next()

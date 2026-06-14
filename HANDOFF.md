@@ -37,6 +37,9 @@ Implemented:
   blocking dialog.
 - Touch-only local games matching the Apple app set: Paddle Rally, Meteor Run,
   Sky Dash and Maze Chase.
+- The Games main screen consumes touch input across its full background so
+  underlying Speelt nu controls cannot be activated through transparent or
+  empty game areas.
 - Separate GitHub release updater
 - Separate apt maintenance command
 - Persistent rotating file logging with sensitive-message redaction
@@ -55,6 +58,9 @@ Implemented:
   activated through logs/about/pairing/version/confirmation screens.
 - Queue and playlist screens are opaque full main screens, not translucent
   overlays over Speelt nu.
+- Real Home Assistant empty queue/playlist responses stay empty and show
+  "Geen wachtrij" or "Geen afspeellijsten"; demo queue/playlist samples are
+  only shown while local demo mode is active.
 - Speelt nu exposes the HA-provided playback output-device list and dispatches
   output selection with `command:"set_output"`.
 - Local language setting. First value comes from Raspberry Pi OS locale, not
