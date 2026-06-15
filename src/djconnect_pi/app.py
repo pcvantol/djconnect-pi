@@ -863,12 +863,20 @@ class DJConnectBackend(QObject):
                 self._backendAvailableReady.emit(False)
                 message = self.tr_key("ha_auth_failed")
                 _LOGGER.warning("%s authentication failed: %s", label, exc)
+                if not self.paired:
+                    _LOGGER.info("Suppressing authentication toast while DJConnect is waiting for pairing")
+                    self._statusReady.emit(self.tr_key("ready_to_pair"))
+                    return
                 self._statusReady.emit(message)
                 self._toastReady.emit(message, 5000)
             except BackendUnavailable as exc:
                 self._backendAvailableReady.emit(False)
                 _LOGGER.warning("%s backend unavailable: %s", label, exc)
                 message = self.tr_key("backend_unavailable")
+                if not self.paired:
+                    _LOGGER.info("Suppressing backend-unavailable toast while DJConnect is waiting for pairing")
+                    self._statusReady.emit(self.tr_key("ready_to_pair"))
+                    return
                 self._statusReady.emit(message)
                 self._toastReady.emit(message, 5000)
             except DJConnectError as exc:

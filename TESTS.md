@@ -33,6 +33,8 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 - separate Client API daemon event bridges for queued HA commands and DJ
   response toasts
 - installer/systemd contract for separate API and touch UI services
+- systemd startup contract that the touch client pulls in the updater service
+  on boot/start before the UI process starts
 - installer contract for the narrow reboot sudoers rule used by the touch UI
 - release bundle contract for including docs, systemd units, `scripts/install.sh`
   and a bundled wheel without the loose `src/` app source tree
@@ -66,6 +68,8 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 - loopback-only local Client API debug screen switching and screenshot
   response coverage
 - backend notification toast state
+- auth/backend toast suppression while the Pi is waiting on the blocking
+  pairing screen
 - playback response alias parsing
 - playback output-device response parsing, `set_output` command dispatch and
   fallback HA `devices` command loading when status omits the device list

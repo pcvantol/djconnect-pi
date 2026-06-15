@@ -1270,7 +1270,7 @@ Window {
     Rectangle {
         id: pairingPanel
         anchors.fill: parent
-        color: "#e6070b16"
+        color: "#070b16"
         visible: !root.splashVisible && !djconnect.paired && !djconnect.demoMode
         z: 30
 
@@ -1477,7 +1477,7 @@ Window {
     Rectangle {
         id: pairingSuccessPanel
         anchors.fill: parent
-        color: "#e6070b16"
+        color: "#070b16"
         visible: !root.splashVisible && djconnect.pairingSuccessVisible
         z: 34
 

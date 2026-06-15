@@ -1,7 +1,7 @@
 [Unit]
 Description=DJConnect Raspberry Pi touch client
-After=network-online.target systemd-user-sessions.service
-Wants=network-online.target
+After=network-online.target systemd-user-sessions.service djconnect-updater.service
+Wants=network-online.target djconnect-updater.service
 
 [Service]
 Type=simple

@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.1.53
+
+- Trigger `djconnect-updater.service` on every touch-client boot/start through
+  systemd ordering, so the Pi checks for a newer public release before the UI
+  starts.
+- Made the pairing and pairing-success screens fully opaque instead of
+  translucent overlays.
+- Suppressed Home Assistant auth/backend toast noise while the Pi is waiting
+  for pairing; auth failures still show a red status/toast once paired.
+
 ## 3.1.52
 
 - Fixed release cleanup so the public Raspberry Pi distribution repo is still

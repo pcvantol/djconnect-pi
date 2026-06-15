@@ -399,6 +399,8 @@ def test_backend_toast_can_be_shown_and_hidden(tmp_path: Path) -> None:
 def test_backend_auth_error_marks_backend_unavailable_and_shows_toast(tmp_path: Path) -> None:
     ensure_app()
     backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token-1"
 
     class FakeExecutor:
         def submit(self, worker):
@@ -411,6 +413,24 @@ def test_backend_auth_error_marks_backend_unavailable_and_shows_toast(tmp_path: 
     assert backend.statusText == backend.t("ha_auth_failed")
     assert backend.toastVisible is True
     assert backend.toastText == backend.t("ha_auth_failed")
+
+
+def test_backend_auth_error_does_not_toast_while_waiting_for_pairing(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+
+    class FakeExecutor:
+        def submit(self, worker):
+            worker()
+
+    backend._executor = FakeExecutor()  # type: ignore[assignment]
+    backend._run("refresh", lambda: (_ for _ in ()).throw(AuthenticationError("unauthorized")))
+
+    assert backend.paired is False
+    assert backend.backendAvailable is False
+    assert backend.statusText == backend.t("ready_to_pair")
+    assert backend.toastVisible is False
+    assert backend.toastText == ""
 
 
 def test_backend_reboot_uses_passwordless_absolute_systemctl(tmp_path: Path) -> None:

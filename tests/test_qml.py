@@ -22,6 +22,8 @@ def test_qml_has_blocking_pairing_and_splash_views() -> None:
 
     assert "id: pairingPanel" in main_qml
     assert "id: pairingSuccessPanel" in main_qml
+    assert 'id: pairingPanel\n        anchors.fill: parent\n        color: "#070b16"' in main_qml
+    assert 'id: pairingSuccessPanel\n        anchors.fill: parent\n        color: "#070b16"' in main_qml
     assert "id: splashPanel" in main_qml
     assert 'source: "app-icon.png"' in main_qml
     assert 'text: "v" + djconnect.version' in main_qml
