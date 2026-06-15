@@ -24,9 +24,12 @@ class FakeResponse:
     payload: dict[str, Any] | None = None
     text: str = ""
     json_error: Exception | None = None
+    raw_content: bytes | None = None
 
     @property
     def content(self) -> bytes:
+        if self.raw_content is not None:
+            return self.raw_content
         return b"{}" if self.payload is not None else b""
 
     def json(self) -> dict[str, Any]:
@@ -178,6 +181,21 @@ def test_backend_unavailable_response_raises_specific_error(caplog) -> None:
     assert "playback backend unavailable" in caplog.text
 
 
+def test_status_has_playback_false_decodes_without_backend_unavailable() -> None:
+    playback = HAClient(Config()).playback_from_status(
+        {
+            "success": True,
+            "backend_available": True,
+            "ha_version": "3.1.0",
+            "playback": {"has_playback": False, "is_playing": False},
+        }
+    )
+
+    assert playback.title == ""
+    assert playback.artist == ""
+    assert playback.is_playing is False
+
+
 def test_unauthorized_response_raises_authentication_error(caplog) -> None:
     client = HAClient(Config(ha_url="http://ha"))
     caplog.set_level("WARNING")
@@ -186,6 +204,30 @@ def test_unauthorized_response_raises_authentication_error(caplog) -> None:
         client._json(FakeResponse(401, {"success": False, "error": "unauthorized"}))
 
     assert "Home Assistant returned HTTP 401" in caplog.text
+
+
+@pytest.mark.parametrize("status_code", [401, 403, 404])
+def test_auth_stale_http_statuses_raise_authentication_error(status_code: int) -> None:
+    client = HAClient(Config(ha_url="http://ha"))
+
+    with pytest.raises(AuthenticationError):
+        client._json(FakeResponse(status_code, {"success": False, "error": "unauthorized"}))
+
+
+def test_empty_2xx_response_is_contract_error(caplog) -> None:
+    client = HAClient(Config(ha_url="http://ha"))
+    caplog.set_level("WARNING")
+
+    with pytest.raises(DJConnectError, match="empty JSON response"):
+        client._json(FakeResponse(200, None, raw_content=b""))
+
+    assert "violates the DJConnect JSON contract" in caplog.text
+
+
+def test_devices_accept_outputs_alias() -> None:
+    playback = HAClient(Config()).playback_from_status({"outputs": [{"name": "Woonkamer"}, {"id": "kitchen"}]})
+
+    assert playback.output_devices == ("Woonkamer", "kitchen")
 
 
 def test_ha_version_compatibility_uses_major_minor_range() -> None:

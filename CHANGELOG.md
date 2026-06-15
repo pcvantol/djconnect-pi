@@ -1,5 +1,19 @@
 # Changelog
 
+## 3.1.60
+
+- Hardened the Home Assistant playback command integration against the current
+  shared contract for `status`, `devices`, `queue` and `playlists`.
+- Added playlist parsing for `playlists`, `items`, `data.*` and `result.*`
+  response shapes, including extra title, URI, owner and artwork aliases.
+- Treat empty HTTP 2xx playback command bodies as explicit contract errors
+  instead of silently accepting `{}`.
+- Keep backend-unavailable responses separate from stale pairing/auth failures:
+  HTTP 401/403/404 now maps to authentication state, while HTTP 200
+  `success:false`/`backend_available:false` stays a playback backend issue.
+- Added regression coverage for no-active-playback status snapshots, nested
+  playlist shapes, queue limits, output aliases and empty response bodies.
+
 ## 3.1.59
 
 - Removed the extra white top indicator from the selected bottom navigation

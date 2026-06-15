@@ -97,7 +97,15 @@ class HAClient:
     def command(self, command: str, **payload: Any) -> dict[str, Any]:
         body = self._base_payload(command=command, **payload)
         url = self._url("/api/djconnect/command")
-        _LOGGER.debug("POST %s command=%s payload_keys=%s", url, command, sorted(payload))
+        _LOGGER.debug(
+            "POST %s command=%s client_type=%s device_id=%s requested_limit=%s payload_keys=%s",
+            url,
+            command,
+            CLIENT_TYPE,
+            self.cfg.device_id,
+            payload.get("limit", ""),
+            sorted(payload),
+        )
         started = time.monotonic()
         response = requests.post(
             url,
@@ -107,6 +115,7 @@ class HAClient:
         )
         _LOGGER.debug("POST %s command=%s returned HTTP %s in %.0fms", url, command, response.status_code, _elapsed_ms(started))
         data = self._json(response)
+        _LOGGER.debug("Decoded command=%s response_shape=%s", command, _response_shape(data))
         self._validate_ha_version(data)
         return data
 
@@ -116,19 +125,33 @@ class HAClient:
             playback.get("output_devices")
             or playback.get("devices")
             or playback.get("available_devices")
+            or playback.get("outputs")
             or data.get("output_devices")
             or data.get("devices")
             or data.get("available_devices")
+            or data.get("outputs")
         )
+        backend_available = data.get("backend_available")
+        if data.get("success") is False or backend_available is False:
+            _LOGGER.debug(
+                "Playback status reports backend_available=%s error=%s message=%s",
+                backend_available,
+                data.get("error", ""),
+                data.get("message", ""),
+            )
         return Playback(
-            title=str(playback.get("title") or playback.get("track") or playback.get("last_track") or ""),
-            artist=str(playback.get("artist") or playback.get("artists") or ""),
+            title=str(playback.get("title") or playback.get("track") or playback.get("track_name") or playback.get("last_track") or ""),
+            artist=str(playback.get("artist") or playback.get("artists") or playback.get("album_artist") or ""),
             image_url=str(
                 playback.get("image_url")
+                or playback.get("imageUrl")
                 or playback.get("album_image_url")
+                or playback.get("albumImageUrl")
                 or playback.get("album_art_url")
                 or playback.get("media_image_url")
                 or playback.get("entity_picture")
+                or playback.get("thumbnail_url")
+                or playback.get("artwork")
                 or ""
             ),
             is_playing=bool(playback.get("is_playing") or playback.get("playing")),
@@ -217,15 +240,16 @@ class HAClient:
         if response.status_code >= 400:
             error = str(data.get("error") or data.get("message") or response.text or f"HTTP {response.status_code}")
             _LOGGER.warning("Home Assistant returned HTTP %s: %s", response.status_code, error)
-            if response.status_code == 401:
+            if response.status_code in {401, 403, 404}:
                 raise AuthenticationError(error)
             raise DJConnectError(f"Home Assistant returned HTTP {response.status_code}: {error}")
         if not response.content:
-            _LOGGER.debug("Home Assistant returned empty response body")
-            return {}
+            _LOGGER.warning("Home Assistant returned empty HTTP %s response body; this violates the DJConnect JSON contract", response.status_code)
+            raise DJConnectError("Home Assistant returned empty JSON response")
         if data.get("success") is False and data.get("backend_available") is False:
-            error = str(data.get("error") or data.get("message") or "playback backend unavailable")
-            _LOGGER.warning("Home Assistant playback backend unavailable: %s", error)
+            error = str(data.get("error") or "playback backend unavailable")
+            message = str(data.get("message") or error)
+            _LOGGER.warning("Home Assistant playback backend unavailable: error=%s message=%s", error, message)
             raise BackendUnavailable(error)
         _LOGGER.debug("Home Assistant JSON response keys=%s", sorted(data))
         return data
@@ -282,6 +306,32 @@ def _string_list(value: Any) -> list[str]:
     if value:
         return [str(value)]
     return []
+
+
+def _response_shape(data: dict[str, Any]) -> dict[str, Any]:
+    shape: dict[str, Any] = {
+        "keys": sorted(data),
+        "success": data.get("success"),
+        "backend_available": data.get("backend_available"),
+    }
+    for key in ("playlists", "items", "queue", "devices", "outputs"):
+        value = data.get(key)
+        if isinstance(value, list):
+            shape[f"{key}_count"] = len(value)
+        elif isinstance(value, dict):
+            shape[f"{key}_keys"] = sorted(value)
+    for container_key in ("data", "result"):
+        container = data.get(container_key)
+        if isinstance(container, dict):
+            shape[f"{container_key}_keys"] = sorted(container)
+            for key in ("playlists", "items", "queue", "devices", "outputs"):
+                value = container.get(key)
+                if isinstance(value, list):
+                    shape[f"{container_key}.{key}_count"] = len(value)
+    if data.get("error") or data.get("message"):
+        shape["error"] = data.get("error", "")
+        shape["message"] = data.get("message", "")
+    return shape
 
 
 def _compatible_ha_version(client_version: str, ha_version: str) -> bool:

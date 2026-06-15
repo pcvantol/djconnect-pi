@@ -114,6 +114,63 @@ def test_media_list_parsers_accept_ha_artwork_aliases() -> None:
     assert playlists[0]["imageUrl"] == "https://example.test/playlist.jpg"
 
 
+@pytest.mark.parametrize(
+    ("payload", "expected_title"),
+    [
+        ({"playlists": [{"name": "Top Level", "uri": "spotify:playlist:1"}]}, "Top Level"),
+        ({"items": [{"title": "Items", "id": "spotify:playlist:2"}]}, "Items"),
+        ({"data": {"playlists": [{"display_title": "Data Playlists", "value": "spotify:playlist:3"}]}}, "Data Playlists"),
+        ({"data": {"items": [{"name": "Data Items", "playlist_uri": "spotify:playlist:4"}]}}, "Data Items"),
+        ({"result": {"playlists": [{"title": "Result Playlists", "uri": "spotify:playlist:5"}]}}, "Result Playlists"),
+        ({"result": {"items": [{"name": "Result Items", "id": "spotify:playlist:6"}]}}, "Result Items"),
+    ],
+)
+def test_playlist_parser_accepts_contract_container_shapes(payload: dict[str, object], expected_title: str) -> None:
+    playlists = parse_playlist_items(payload)
+
+    assert len(playlists) == 1
+    assert playlists[0]["title"] == expected_title
+
+
+def test_playlist_parser_accepts_aliases_and_ignores_unplayable_items() -> None:
+    playlists = parse_playlist_items(
+        {
+            "playlists": [
+                {
+                    "display_title": "Alias Playlist",
+                    "playlist_uri": "spotify:playlist:alias",
+                    "owner_name": "Peter",
+                    "imageUrl": "https://example.test/image-url.jpg",
+                },
+                {"name": "Missing URI"},
+                {"uri": "spotify:playlist:missing-title"},
+            ]
+        }
+    )
+
+    assert playlists == [
+        {
+            "title": "Alias Playlist",
+            "subtitle": "Peter",
+            "uri": "spotify:playlist:alias",
+            "imageUrl": "https://example.test/image-url.jpg",
+            "tint": "#8b5cf6",
+        }
+    ]
+
+
+def test_empty_playlists_response_decodes_empty_state() -> None:
+    assert parse_playlist_items({"playlists": []}) == []
+
+
+def test_queue_parser_limits_to_100_items_and_accepts_nullable_fields() -> None:
+    queue = parse_queue_items({"queue": [{"title": f"Track {index}"} for index in range(120)]})
+
+    assert len(queue) == 100
+    assert queue[0]["title"] == "Track 0"
+    assert queue[-1]["title"] == "Track 99"
+
+
 def test_prepare_media_artwork_caches_urls_before_qml_render(monkeypatch) -> None:
     items = [{"title": "Track", "imageUrl": "https://example.test/art.jpg"}]
 

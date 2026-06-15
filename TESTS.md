@@ -78,6 +78,10 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 - playback response alias parsing
 - playback output-device response parsing, `set_output` command dispatch and
   fallback HA `devices` command loading when status omits the device list
+- Home Assistant playback contract coverage for no-active-playback status
+  snapshots, empty HTTP 2xx body errors, HTTP 401/403/404 auth failures,
+  `devices`/`outputs` aliases, nested playlist response shapes and queue
+  decoding up to 100 items
 - live output-device validation and rollback coverage when HA rejects a
   selected output device
 - queue loading contract sends `command:"queue"` with `limit=100`

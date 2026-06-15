@@ -1324,34 +1324,44 @@ def demo_playlist_items() -> list[dict[str, object]]:
 
 
 def parse_queue_items(data: dict[str, object]) -> list[dict[str, object]]:
-    raw_queue = data.get("queue")
+    raw_queue = _first_present(data, ("queue",))
     if isinstance(raw_queue, dict):
         raw_items = raw_queue.get("items")
     elif isinstance(raw_queue, list):
         raw_items = raw_queue
     else:
-        raw_items = data.get("items")
-    return [_media_item(item) for item in raw_items if isinstance(item, dict)] if isinstance(raw_items, list) else []
+        raw_items = _first_present(data, ("items",))
+    if not isinstance(raw_items, list):
+        return []
+    return [parsed for item in raw_items[:100] if isinstance(item, dict) and (parsed := _media_item(item))]
 
 
 def parse_playlist_items(data: dict[str, object]) -> list[dict[str, object]]:
-    raw_items = data.get("playlists") or data.get("items")
-    return [_media_item(item, playlist=True) for item in raw_items if isinstance(item, dict)] if isinstance(raw_items, list) else []
+    raw_items = _first_present(data, ("playlists", "items"))
+    if not isinstance(raw_items, list):
+        return []
+    return [parsed for item in raw_items[:100] if isinstance(item, dict) and (parsed := _media_item(item, playlist=True))]
 
 
-def _media_item(item: dict[str, object], playlist: bool = False) -> dict[str, object]:
+def _media_item(item: dict[str, object], playlist: bool = False) -> dict[str, object] | None:
     title = str(item.get("name") or item.get("title") or item.get("display_title") or "")
     subtitle = str(item.get("artist") or item.get("artists") or item.get("subtitle") or item.get("album") or "")
-    uri = str(item.get("uri") or item.get("id") or item.get("value") or "")
+    uri = str(item.get("uri") or item.get("id") or item.get("value") or item.get("playlist_uri") or "")
     image_url = str(
         item.get("image_url")
+        or item.get("imageUrl")
         or item.get("album_image_url")
+        or item.get("albumImageUrl")
+        or item.get("album_art_url")
         or item.get("media_image_url")
         or item.get("entity_picture")
+        or item.get("thumbnail_url")
         or ""
     )
     if playlist:
-        subtitle = str(item.get("owner") or item.get("description") or subtitle)
+        subtitle = str(item.get("owner") or item.get("owner_name") or item.get("description") or subtitle)
+        if not title or not uri:
+            return None
     return {
         "title": title,
         "subtitle": subtitle,
@@ -1359,6 +1369,20 @@ def _media_item(item: dict[str, object], playlist: bool = False) -> dict[str, ob
         "imageUrl": image_url,
         "tint": "#8b5cf6" if playlist else "#38bdf8",
     }
+
+
+def _first_present(data: dict[str, object], keys: tuple[str, ...]) -> object:
+    for key in keys:
+        value = data.get(key)
+        if value is not None:
+            return value
+    for container_key in ("data", "result"):
+        container = data.get(container_key)
+        if isinstance(container, dict):
+            value = _first_present(container, keys)
+            if value is not None:
+                return value
+    return None
 
 
 if __name__ == "__main__":
