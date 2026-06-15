@@ -108,6 +108,21 @@ def test_release_assets_include_installation_materials() -> None:
         assert "cp scripts/bootstrap_raspberry_pi_os.sh" not in text
 
 
+def test_technical_design_decisions_document_is_part_of_docs() -> None:
+    readme = ROOT.joinpath("README.md").read_text(encoding="utf-8")
+    doc = ROOT.joinpath("docs/TECHNICAL_DESIGN_DECISIONS.md").read_text(encoding="utf-8")
+
+    assert "[Technical Design Decisions](docs/TECHNICAL_DESIGN_DECISIONS.md)" in readme
+    assert "## Python Design Patterns" in doc
+    assert "## QML / Qt Quick Design Patterns" in doc
+    assert "## Shell / Systemd Design Patterns" in doc
+    assert "## Dependency Inventory" in doc
+    assert "PySide6" in doc
+    assert "requests" in doc
+    assert "zeroconf" in doc
+    assert "## Release Maintenance Rule" in doc
+
+
 def test_repo_only_os_bootstrap_targets_lite_with_minimal_kiosk_runtime() -> None:
     script = ROOT.joinpath("scripts/bootstrap_raspberry_pi_os.sh").read_text(encoding="utf-8")
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.1.43
+
+- Added `docs/TECHNICAL_DESIGN_DECISIONS.md` with reverse-engineered design
+  patterns, language-specific coding conventions and dependency/license/source
+  inventory, and made it part of the release documentation checklist.
+
 ## 3.1.42
 
 - Added a local debug screenshot flow for the HyperPixel UI:

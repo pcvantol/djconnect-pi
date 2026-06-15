@@ -1,6 +1,6 @@
 # DJConnect Pi
 
-Version: `3.1.42`
+Version: `3.1.43`
 
 Raspberry Pi Zero 2 W touch-display client for DJConnect. This client uses
 Qt Quick/QML with a PySide6 backend and is meant for a Pimoroni HyperPixel 4.0
@@ -111,9 +111,9 @@ not a private source clone:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.42.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.43.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.42
+cd djconnect-pi-3.1.43
 sudo ./scripts/install.sh
 ```
 
@@ -201,9 +201,9 @@ installer:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.42.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.43.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.42
+cd djconnect-pi-3.1.43
 sudo ./scripts/install.sh
 ```
 
@@ -241,6 +241,7 @@ available.
 - [Architecture](docs/ARCHITECTURE.md)
 - [Bootstrap a Pi Zero 2 W + HyperPixel](docs/BOOTSTRAP.md)
 - [Performance and Security Review](docs/PERFORMANCE_SECURITY.md)
+- [Technical Design Decisions](docs/TECHNICAL_DESIGN_DECISIONS.md)
 - [Handoff](HANDOFF.md)
 - [Changelog](CHANGELOG.md)
 - [Issues](ISSUES.md)

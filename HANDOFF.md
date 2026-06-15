@@ -154,6 +154,9 @@ Not implemented by design:
 - Keep updater and OS maintenance separate from the UI process.
 - Keep release cleanup as a default post-release action, not an optional extra,
   unless the user explicitly asks to keep old releases.
+- Keep `docs/TECHNICAL_DESIGN_DECISIONS.md` current for every release that
+  changes code structure, design patterns, dependencies, OS packages, service
+  boundaries or release/deploy flow.
 - Keep the local Client API separate from the UI process. The UI must not host
   the HTTP API or mDNS service; `djconnect-api.service` owns that.
 - Keep HA initiated `/api/device/command` execution bridged through the local
@@ -211,7 +214,8 @@ Not implemented by design:
   passes.
 - Installer/release contract tests cover public release tarball examples,
   service restarts on rerun, release bundle contents, repo-only OS bootstrap
-  separation and cleanup of old Actions runs.
+  separation, technical design documentation presence and cleanup of old
+  Actions runs.
 - `QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms 1500`
   loads the QML scene and exits cleanly.
 - `python3 -m pytest` passes with the expanded suite; socket-bound Client API
