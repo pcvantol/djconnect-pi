@@ -446,8 +446,8 @@ Window {
 
                                 Rectangle {
                                     id: mediaArt
-                                    anchors.left: parent.left
-                                    anchors.verticalCenter: parent.verticalCenter
+                                    x: 0
+                                    y: Math.round((parent.height - height) / 2)
                                     width: 68
                                     height: 68
                                     radius: 8
@@ -473,12 +473,13 @@ Window {
                                 }
 
                                 Column {
-                                    anchors.left: mediaArt.right
-                                    anchors.leftMargin: 14
-                                    anchors.right: mediaPlay.left
-                                    anchors.rightMargin: 14
-                                    anchors.verticalCenter: parent.verticalCenter
+                                    id: mediaText
+                                    x: mediaArt.x + mediaArt.width + 14
+                                    y: Math.round((parent.height - height) / 2)
+                                    width: Math.max(0, mediaPlay.x - x - 14)
+                                    height: implicitHeight
                                     spacing: 2
+                                    clip: true
 
                                     Text {
                                         text: modelData.title
@@ -501,8 +502,8 @@ Window {
 
                                 MediaPlayButton {
                                     id: mediaPlay
-                                    anchors.right: parent.right
-                                    anchors.verticalCenter: parent.verticalCenter
+                                    x: parent.width - width
+                                    y: Math.round((parent.height - height) / 2)
                                     onClicked: djconnect.playUri(modelData.uri)
                                 }
                             }

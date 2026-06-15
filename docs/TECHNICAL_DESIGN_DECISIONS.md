@@ -68,7 +68,7 @@ mainly by tests plus `compileall`.
 | Full-screen state panels | Now Playing, Queue, Playlists, Games, Settings, logs, about and pairing overlays | Prevents background screen tap-through and matches kiosk operation. |
 | Modal touch blockers | `ModalBlocker` | Consumes pointer/wheel events while overlays are visible. |
 | Fixed touch target dimensions | bottom nav, media rows, media play buttons, playback controls | Reduces layout shift on a 720x720 4-inch touch display. |
-| Anchored media-list rows | `MediaListPanel` delegates anchor artwork left, text center and play button right | Avoids `RowLayout` placement differences on the Pi runtime that previously misplaced album art and play icons. |
+| Explicit media-list row geometry | `MediaListPanel` delegates place artwork, text and play button with x/y/width expressions | Avoids `RowLayout` and cross-item anchor ordering differences on the Pi runtime that previously misplaced or hid album art, titles and play icons. |
 | Async image rendering | `Image { asynchronous: true }` | Lets QML decode/render artwork without blocking interaction. Network/cache preparation is handled outside QML delegates. |
 | Canvas icons only where dynamic state matters | playback controls and game canvas | Avoids external icon packs while keeping touch controls scalable. |
 | Kiosk-first navigation | bottom menu bar and no visible app close button | Device is intended to be wall-mounted and dedicated. |

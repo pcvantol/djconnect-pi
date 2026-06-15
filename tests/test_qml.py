@@ -133,10 +133,11 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "color: \"#990b1012\"" not in main_qml
     assert "Layout.preferredHeight: 86" in main_qml
     assert "id: mediaArt" in main_qml
+    assert "id: mediaText" in main_qml
     assert "id: mediaPlay" in main_qml
-    assert "anchors.left: mediaArt.right" in main_qml
-    assert "anchors.right: mediaPlay.left" in main_qml
-    assert "anchors.right: parent.right" in main_qml
+    assert "x: mediaArt.x + mediaArt.width + 14" in main_qml
+    assert "width: Math.max(0, mediaPlay.x - x - 14)" in main_qml
+    assert "x: parent.width - width" in main_qml
     assert "MediaPlayButton {" in main_qml
     assert "djconnect.trackProgress" in main_qml
     assert "djconnect.progressLabel" in main_qml

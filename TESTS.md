@@ -85,8 +85,8 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 - Empty queue/playlist labels and backend behavior that only loads demo media
   after explicitly entering demo mode
 - kiosk branding contract checks for the bundled app icon, no visible quit
-  action, anchored media rows with fixed-size media play buttons and settings
-  without pairing controls
+  action, explicit media-row geometry with fixed-size media play buttons and
+  settings without pairing controls
 - compact touch log formatting and 24-hour album-art cache helper behavior
 - HA queue/playlist media parser coverage for artwork aliases from the shared
   contract

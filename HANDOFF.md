@@ -78,9 +78,9 @@ Implemented:
 - Wachtrij and Afspeellijsten load HA-provided artwork asynchronously from QML
   and never call the Python image cache from row delegates. Blocking network
   or disk work in media-list delegates caused touch UI hangs on Pi Zero 2 W.
-- Wachtrij and Afspeellijsten use explicit anchored artwork/text/play-button
-  positioning instead of a delegate `RowLayout`; this avoids misplaced album
-  art and play icons on the HyperPixel runtime.
+- Wachtrij and Afspeellijsten use explicit artwork/text/play-button geometry
+  instead of a delegate `RowLayout` or cross-item anchors; this avoids missing
+  titles, subtitles and play icons on the HyperPixel runtime.
 - Queue/playlist load requests are deduplicated while a matching request is in
   flight, so repeated navigation taps cannot flood Home Assistant or the QML
   thread.

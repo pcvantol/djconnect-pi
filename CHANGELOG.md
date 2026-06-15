@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.1.47
+
+- Fixed a HyperPixel row-rendering regression where Wachtrij/Afspeellijsten
+  could show album art but lose the title/subtitle text and play button.
+- Media rows now use explicit x/y/width geometry for artwork, text and
+  play-button columns, avoiding QML anchor ordering differences on the Pi
+  runtime.
+
 ## 3.1.46
 
 - Locked the Pi queue request to the shared HA contract limit:

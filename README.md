@@ -1,6 +1,6 @@
 # DJConnect Pi
 
-Version: `3.1.46`
+Version: `3.1.47`
 
 Raspberry Pi Zero 2 W touch-display client for DJConnect. This client uses
 Qt Quick/QML with a PySide6 backend and is meant for a Pimoroni HyperPixel 4.0
@@ -62,8 +62,8 @@ The app is a 720x720 fullscreen touch remote:
 - album art area / status area in the center
 - HA-provided album art on Now Playing, Queue and Playlists, loaded
   asynchronously so media-list navigation stays responsive on Pi Zero 2 W
-- Queue and Playlist rows use fixed anchored artwork/text/play-button
-  positioning so album art and play icons stay in the correct columns on the
+- Queue and Playlist rows use fixed explicit artwork/text/play-button geometry
+  so album art, titles and play icons stay in the correct columns on the
   HyperPixel display
 - large play/pause button
 - previous/next buttons left and right
@@ -119,9 +119,9 @@ not a private source clone:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.46.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.47.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.46
+cd djconnect-pi-3.1.47
 sudo ./scripts/install.sh
 ```
 
@@ -209,9 +209,9 @@ installer:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.46.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.47.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.46
+cd djconnect-pi-3.1.47
 sudo ./scripts/install.sh
 ```
 
