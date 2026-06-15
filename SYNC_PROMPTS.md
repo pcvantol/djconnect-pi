@@ -32,7 +32,7 @@ commit the updated `SYNC_PROMPTS.md` there.
 ## Current Protocol Line
 
 The current shared protocol/release line is `3.1.x`; this bundle was last
-aligned after Raspberry Pi client release `v3.1.25`. DJConnect clients on the
+aligned after Home Assistant integration release `v3.1.32`. DJConnect clients on the
 `3.1.x` line are compatible with Home Assistant integration versions `>=3.1.0`
 and `<3.2.0`.
 
@@ -59,6 +59,8 @@ Before publishing:
 - Update README, handoff, tests, design decisions, Postman collections,
   third-party notices and repo-specific docs when product behavior, APIs,
   release flow, dependencies or public contracts changed.
+- Review and update all user-facing translations for changed setup, options,
+  repair, entity and service strings in repos that ship localized UI.
 - Update this `SYNC_PROMPTS.md` when the cross-repo contract or release
   checklist changes.
 - Sync the updated `PRODUCT_ROADMAP.md` and `SYNC_PROMPTS.md` to all sibling
@@ -118,6 +120,10 @@ client contracts.
 
 Requirements:
 - Treat iOS/macOS/Raspberry Pi as app-like clients, not ESP hardware devices.
+- Before pairing, require that Home Assistant has the official Spotify
+  integration configured with at least one Spotify `media_player` entity; if
+  not, show a clear localized config-flow error telling the user to configure
+  Spotify first.
 - Pair app-like clients through POST /api/djconnect/pair. For Raspberry Pi, this is
   the primary pairing path; do not try to call a Pi-local /api/device/pair
   endpoint during initial pairing.
@@ -152,16 +158,17 @@ Requirements:
   default but still require user confirmation; if multiple clients are found,
   show a discovered-client selector with useful labels. Discovery is
   convenience only and must never mark a device paired by itself.
-- If Pi mDNS TXT is visible but `/api/device/pairing-info` fails, show the
-  discovered client as reachable-by-mDNS but not verified, keep manual Client
-  API URL entry available, and surface a clear pairing error instead of silently
-  falling back to `djconnect-{pair_code}`. Do not create a second HA entry when
-  the discovered Pi `device_id` is already configured; guide the user to reset
-  or re-pair that existing client.
+- If Pi mDNS TXT is visible but `/api/device/pairing-info` fails, treat it as a
+  stale/unreachable discovery record and hide it from the discovered-client
+  selector on the next scan. Keep manual Client API URL entry available and
+  surface a clear pairing error when the user-provided URL cannot be probed
+  instead of silently falling back to `djconnect-{pair_code}`. Do not create a
+  second HA entry when the discovered Pi `device_id` is already configured;
+  guide the user to reset or re-pair that existing client.
 - Add/keep HA tests for Raspberry Pi discovery: service TXT acceptance,
-  pairing-info override, config-flow prefill for one Pi, selector behavior for
-  multiple clients, duplicate `device_id` handling, pairing-info failure
-  fallback, and proof that Pi pairing uses the stable discovered
+  pairing-info override, stale/unreachable probe filtering, config-flow prefill
+  for one Pi, selector behavior for multiple clients, duplicate `device_id`
+  handling, manual Client API URL fallback, and proof that Pi pairing uses the stable discovered
   `djconnect-raspberry-pi-XXXXXXXXXXXX` instead of `djconnect-{pair_code}`.
 - Return ha_version or ha_major_minor on status/command responses so Apple
   clients can enforce the matching major.minor contract.
@@ -792,6 +799,16 @@ Command responses are transport/command success first, playback-state second.
 A command response with `success:true` and `playback.has_playback:false` is not
 an error state.
 
+`command:"playlists"` is browsing, not active playback. If Spotify credentials
+are valid and playlist browsing succeeds, HA must return HTTP 200 with
+`success:true`, `backend_available:true` and `playlists[]` items containing at
+least `name`, `uri`, `owner` and `image_url`, even when Spotify playback is
+idle. ESP32 clients may send `limit`; HA must cap the response to that limit
+and use a safe default of 20 when ESP omits it. App-like clients may request up
+to 100 playlists. Use `backend_available:false` only when the backend is
+genuinely unavailable or auth is invalid, and still return a non-empty JSON body
+with `success:false`, `error:"playback_backend_unavailable"` and `playlists:[]`.
+
 When `playback.has_playback == false`, clients must treat the playback snapshot
 as valid but empty. Playback fields may be `null` or empty strings, including
 `progress_ms`, `duration_ms`, `volume_percent`, `device.volume_percent`,
@@ -859,9 +876,16 @@ Physical PTT:
 
 ESP records WAV
 -> POST /api/djconnect/voice raw audio/wav
--> HA does STT/Assist/playback/TTS
+-> HA does STT
+-> HA may run a guarded HA Assist fuzzy-correction step on the recognized text
+-> HA does Spotify intent parsing/playback/TTS
 -> HA returns DJ text plus optional WAV/MP3 audio_url
 -> ESP displays text and plays local response audio
+The fuzzy-correction step is best-effort only: it corrects likely STT mistakes
+in artist, track, album and playlist names, never sends credentials to Assist,
+never controls Home Assistant devices, and must fall back to the original STT
+text when Assist returns a device-lookup error, prompt leak, URI/JSON or empty
+response.
 Expected HA response:
 
 {
@@ -1421,6 +1445,16 @@ Command responses are transport/command success first, playback-state second.
 A command response with `success:true` and `playback.has_playback:false` is not
 an error state.
 
+`command:"playlists"` is browsing, not active playback. If Spotify credentials
+are valid and playlist browsing succeeds, HA must return HTTP 200 with
+`success:true`, `backend_available:true` and `playlists[]` items containing at
+least `name`, `uri`, `owner` and `image_url`, even when Spotify playback is
+idle. ESP32 clients may send `limit`; HA must cap the response to that limit
+and use a safe default of 20 when ESP omits it. App-like clients may request up
+to 100 playlists. Use `backend_available:false` only when the backend is
+genuinely unavailable or auth is invalid, and still return a non-empty JSON body
+with `success:false`, `error:"playback_backend_unavailable"` and `playlists:[]`.
+
 When `playback.has_playback == false`, clients must treat the playback snapshot
 as valid but empty. Playback fields may be `null` or empty strings, including
 `progress_ms`, `duration_ms`, `volume_percent`, `device.volume_percent`,
@@ -1693,16 +1727,17 @@ Requirements:
   default but still require user confirmation; if multiple clients are found,
   show a discovered-client selector with useful labels. Discovery is
   convenience only and must never mark a device paired by itself.
-- If Pi mDNS TXT is visible but `/api/device/pairing-info` fails, show the
-  discovered client as reachable-by-mDNS but not verified, keep manual Client
-  API URL entry available, and surface a clear pairing error instead of silently
-  falling back to `djconnect-{pair_code}`. Do not create a second HA entry when
-  the discovered Pi `device_id` is already configured; guide the user to reset
-  or re-pair that existing client.
+- If Pi mDNS TXT is visible but `/api/device/pairing-info` fails, treat it as a
+  stale/unreachable discovery record and hide it from the discovered-client
+  selector on the next scan. Keep manual Client API URL entry available and
+  surface a clear pairing error when the user-provided URL cannot be probed
+  instead of silently falling back to `djconnect-{pair_code}`. Do not create a
+  second HA entry when the discovered Pi `device_id` is already configured;
+  guide the user to reset or re-pair that existing client.
 - Add/keep HA tests for Raspberry Pi discovery: service TXT acceptance,
-  pairing-info override, config-flow prefill for one Pi, selector behavior for
-  multiple clients, duplicate `device_id` handling, pairing-info failure
-  fallback, and proof that Pi pairing uses the stable discovered
+  pairing-info override, stale/unreachable probe filtering, config-flow prefill
+  for one Pi, selector behavior for multiple clients, duplicate `device_id`
+  handling, manual Client API URL fallback, and proof that Pi pairing uses the stable discovered
   `djconnect-raspberry-pi-XXXXXXXXXXXX` instead of `djconnect-{pair_code}`.
 - Return ha_version or ha_major_minor on status/command responses so Apple
   clients can enforce the matching major.minor contract.

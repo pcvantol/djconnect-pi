@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.1.51
+
+- Updated the shared sync prompt bundle in the Raspberry Pi client repo for the
+  current cross-repo release checklist and contract notes.
+
 ## 3.1.50
 
 - Fixed the local Client API auth test setup so CI starts the API with the
