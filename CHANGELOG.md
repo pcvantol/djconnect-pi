@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.1.61
+
+- Minified the built-in Raspberry Pi web portal HTML response while keeping the
+  source template readable for maintenance.
+
 ## 3.1.60
 
 - Hardened the Home Assistant playback command integration against the current

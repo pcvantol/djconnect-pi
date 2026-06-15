@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from html import escape
+import re
 
 
 def index_html(version: str) -> bytes:
     version_text = escape(version)
-    return f"""<!doctype html>
+    html = f"""<!doctype html>
 <html lang="nl">
 <head>
   <meta charset="utf-8">
@@ -236,4 +237,13 @@ setInterval(refreshAll, 15000);
 </script>
 </body>
 </html>
-""".encode("utf-8")
+"""
+    return _minify_html(html).encode("utf-8")
+
+
+def _minify_html(html: str) -> str:
+    html = re.sub(r">\s+<", "><", html)
+    html = re.sub(r"\s{2,}", " ", html)
+    html = re.sub(r"\s*([{}:;,>])\s*", r"\1", html)
+    html = re.sub(r"\s*([=])\s*", r"\1", html)
+    return html.strip()
