@@ -131,6 +131,26 @@ class ClientAPIHandler(BaseHTTPRequestHandler):
             _LOGGER.debug("Client API DJ response payload_keys=%s", sorted(payload))
             self._write_json(self.server.state.dj_response_handler(payload))
             return
+        if self.path == "/api/device/restart":
+            status = self._device_auth_status()
+            if status is not HTTPStatus.OK:
+                _LOGGER.warning("Client API unauthorized Raspberry Pi restart request")
+                self._write_json({"success": False, "error": "unauthorized"}, status)
+                return
+            _LOGGER.info("Client API Raspberry Pi restart request for device_id=%s", self.server.state.cfg.device_id)
+            self.server.state.command_handler("reboot", {"command": "reboot"})
+            self._write_json({"success": True, "message": "Restart scheduled"})
+            return
+        if self.path == "/api/device/shutdown":
+            status = self._device_auth_status()
+            if status is not HTTPStatus.OK:
+                _LOGGER.warning("Client API unauthorized Raspberry Pi shutdown request")
+                self._write_json({"success": False, "error": "unauthorized"}, status)
+                return
+            _LOGGER.info("Client API Raspberry Pi shutdown request for device_id=%s", self.server.state.cfg.device_id)
+            self.server.state.command_handler("shutdown", {"command": "shutdown"})
+            self._write_json({"success": True, "message": "Shutdown scheduled"})
+            return
         if self.path == "/api/device/forget":
             if not self._authorized():
                 _LOGGER.warning("Client API unauthorized forget request")
@@ -268,6 +288,19 @@ class ClientAPIHandler(BaseHTTPRequestHandler):
             return False
         auth = str(self.headers.get("Authorization") or "")
         return auth.strip() == f"Bearer {expected}"
+
+    def _device_auth_status(self) -> HTTPStatus:
+        self.server.state.reload_config()
+        cfg = self.server.state.cfg
+        if not cfg.device_token:
+            return HTTPStatus.UNAUTHORIZED
+        auth = str(self.headers.get("Authorization") or "")
+        if auth.strip() != f"Bearer {cfg.device_token}":
+            return HTTPStatus.UNAUTHORIZED
+        header_device_id = str(self.headers.get("X-DJConnect-Device-ID") or "").strip()
+        if header_device_id and header_device_id != cfg.device_id:
+            return HTTPStatus.FORBIDDEN
+        return HTTPStatus.OK
 
     def _loopback_request(self) -> bool:
         host = self.client_address[0]

@@ -78,6 +78,8 @@ def test_postman_collection_documents_local_api_endpoints() -> None:
     assert "{{client_api_url}}/api/device/dj_response" in urls
     assert "{{client_api_url}}/api/debug/screenshot" in urls
     assert "{{client_api_url}}/api/device/forget" in urls
+    assert "{{client_api_url}}/api/device/restart" in urls
+    assert "{{client_api_url}}/api/device/shutdown" in urls
 
 
 def test_web_portal_renders_diagnostics_block() -> None:
@@ -264,6 +266,62 @@ def test_client_api_requires_auth_for_dj_response(tmp_path: Path) -> None:
     assert unauth.status_code == 401
     assert ok.status_code == 200
     assert "Hoi" in events
+
+
+def test_client_api_restart_and_shutdown_require_device_auth(tmp_path: Path) -> None:
+    cfg = Config(
+        device_id="djconnect-raspberry-pi-ABCDEF123456",
+        pairing_code="123456",
+        local_api_host="127.0.0.1",
+        local_api_port=0,
+        device_token="token-1",
+    )
+    commands: list[str] = []
+    api = ClientAPI(
+        ClientAPIState(
+            cfg=cfg,
+            config_path=tmp_path / "config.json",
+            playback_provider=lambda: {"title": "Alive"},
+            command_handler=lambda command, payload: commands.append(command) or {"success": True, "command": command},
+            dj_response_handler=lambda payload: {"success": True},
+            screenshot_handler=lambda: {"success": True, "path": "/tmp/screenshot.png"},
+            pair_handler=lambda: None,
+            forget_handler=lambda: None,
+        )
+    )
+    try:
+        try:
+            api.start()
+        except PermissionError as exc:
+            pytest.skip(f"socket bind not permitted in this environment: {exc}")
+        unauth = requests.post(f"{cfg.local_url}/api/device/restart", timeout=3)
+        wrong_device = requests.post(
+            f"{cfg.local_url}/api/device/restart",
+            headers={"Authorization": "Bearer token-1", "X-DJConnect-Device-ID": "other-device"},
+            timeout=3,
+        )
+        restart = requests.post(
+            f"{cfg.local_url}/api/device/restart",
+            headers={"Authorization": "Bearer token-1", "X-DJConnect-Device-ID": cfg.device_id},
+            timeout=3,
+        )
+        shutdown = requests.post(
+            f"{cfg.local_url}/api/device/shutdown",
+            headers={"Authorization": "Bearer token-1", "X-DJConnect-Device-ID": cfg.device_id},
+            timeout=3,
+        )
+    finally:
+        api.stop()
+
+    assert unauth.status_code == 401
+    assert unauth.json()["success"] is False
+    assert wrong_device.status_code == 403
+    assert wrong_device.json()["error"] == "unauthorized"
+    assert restart.status_code == 200
+    assert restart.json() == {"success": True, "message": "Restart scheduled"}
+    assert shutdown.status_code == 200
+    assert shutdown.json() == {"success": True, "message": "Shutdown scheduled"}
+    assert commands == ["reboot", "shutdown"]
 
 
 def test_client_api_debug_screenshot_allows_loopback_when_paired(tmp_path: Path) -> None:

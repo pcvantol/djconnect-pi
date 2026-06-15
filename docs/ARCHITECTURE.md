@@ -131,7 +131,7 @@ The Pi client is an app-like DJConnect client.
   "device_id": "djconnect-raspberry-pi-XXXXXXXXXXXX",
   "device_name": "DJConnect",
   "client_type": "raspberry_pi",
-  "version": "3.1.56",
+  "version": "3.1.57",
   "capabilities": {
     "touch": true,
     "voice": false,
@@ -165,7 +165,15 @@ The local Client API uses:
 - `POST /api/device/command`
 - `POST /api/device/dj_response`
 - `POST /api/device/forget`
+- `POST /api/device/restart`
+- `POST /api/device/shutdown`
 - `GET /api/debug/screenshot`
+
+`POST /api/device/restart` and `POST /api/device/shutdown` are Raspberry
+Pi-specific endpoints used by Home Assistant power button entities. They use
+the same bearer-token device auth as the other local `/api/device/*` endpoints
+and also validate `X-DJConnect-Device-ID` when Home Assistant supplies it. The
+HTTP response is returned before the Pi actually restarts or powers off.
 
 The Postman collection in
 `docs/postman/DJConnect Pi Local Client API.postman_collection.json` covers the

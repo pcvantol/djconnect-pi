@@ -28,6 +28,8 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
   `client_type=raspberry_pi`
 - local Client API info, pairing-info, pair, command, DJ response auth and mDNS
   TXT properties
+- Raspberry Pi-specific local Client API restart/shutdown endpoints, including
+  bearer-token auth, optional device-id header validation and JSON responses
 - mDNS discovery is suppressed while the Pi is paired and can return after
   pairing is reset/forgotten
 - separate Client API daemon event bridges for queued HA commands and DJ

@@ -1,5 +1,19 @@
 # Changelog
 
+## 3.1.57
+
+- Added Raspberry Pi-specific local Client API power endpoints for Home
+  Assistant button entities:
+  `POST /api/device/restart` and `POST /api/device/shutdown`.
+- Kept the endpoints on the existing authenticated `/api/device/*` contract:
+  bearer token is required and `X-DJConnect-Device-ID` is validated when
+  supplied.
+- The new endpoints return JSON before scheduling the underlying restart or
+  shutdown action, so Home Assistant receives a stable response before the Pi
+  stops or restarts.
+- Updated the Postman collection and API tests for the new restart/shutdown
+  endpoint contract.
+
 ## 3.1.56
 
 - Added a touch Settings and web portal "Controleer op updates" action that

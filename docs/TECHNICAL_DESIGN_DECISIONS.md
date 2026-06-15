@@ -123,6 +123,7 @@ mainly by tests plus `compileall`.
 | mDNS type is `_djconnect._tcp` while unpaired | `client_api.py` | HA autodiscovery should help pair new clients, but already paired Pi clients should not keep appearing as pairing candidates. |
 | `GET /api/debug/screenshot` is authenticated after pairing except loopback | `client_api.py` | Screenshot may expose live screen content; LAN callers need the bearer token, while SSH diagnostics can use `127.0.0.1` without reading the token file. |
 | `GET /api/debug/screen` is loopback-only | `client_api.py`, `app.py`, `Main.qml` | Allows post-deploy screenshot automation without exposing screen-control routes on the LAN. |
+| Pi power endpoints are explicit and Pi-only | `POST /api/device/restart`, `POST /api/device/shutdown` in `client_api.py` | HA can expose Raspberry Pi restart/shutdown buttons without introducing ESP-only `/api/device/reboot` or OTA behavior. |
 | Text DJ responses are toast-only | `app.py`, `client_api_daemon.py` | Product decision: no local Pi audio/DJ response playback. |
 | HA version compatibility is major/minor bounded | `ha.py` | Client `3.1.z` accepts HA `>=3.1.0` and `<3.2.0`. |
 | Output-device selector uses status plus devices fallback | `app.py`, `ha.py` | Bediening must let users switch HA-provided playback devices even when the status response omits the device list. |

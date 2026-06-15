@@ -15,6 +15,10 @@
       "value": ""
     },
     {
+      "key": "device_id",
+      "value": "djconnect-raspberry-pi-ABCDEF123456"
+    },
+    {
       "key": "ha_url",
       "value": "http://homeassistant.local:8123"
     }
@@ -154,6 +158,56 @@
           "raw": "{{client_api_url}}/api/debug/screenshot",
           "host": ["{{client_api_url}}"],
           "path": ["api", "debug", "screenshot"]
+        }
+      }
+    },
+    {
+      "name": "Restart Raspberry Pi",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{device_token}}"
+          },
+          {
+            "key": "X-DJConnect-Device-ID",
+            "value": "{{device_id}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "url": {
+          "raw": "{{client_api_url}}/api/device/restart",
+          "host": ["{{client_api_url}}"],
+          "path": ["api", "device", "restart"]
+        }
+      }
+    },
+    {
+      "name": "Shutdown Raspberry Pi",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{device_token}}"
+          },
+          {
+            "key": "X-DJConnect-Device-ID",
+            "value": "{{device_id}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "url": {
+          "raw": "{{client_api_url}}/api/device/shutdown",
+          "host": ["{{client_api_url}}"],
+          "path": ["api", "device", "shutdown"]
         }
       }
     },
