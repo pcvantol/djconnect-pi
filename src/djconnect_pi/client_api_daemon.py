@@ -6,6 +6,7 @@ import base64
 import json
 import logging
 import signal
+import subprocess
 import sys
 import threading
 import time
@@ -18,6 +19,15 @@ from .system_info import log_raspberry_pi_system_info
 
 _LOGGER = logging.getLogger(__name__)
 SCREENSHOT_TIMEOUT_SECONDS = 8.0
+DIAGNOSTIC_UNITS = (
+    ("Client API", "djconnect-api.service"),
+    ("Touch UI", "djconnect-client.service"),
+    ("Updater", "djconnect-updater.timer"),
+    ("OS maintenance", "djconnect-maintenance.timer"),
+    ("Watchdog", "djconnect-watchdog.timer"),
+    ("Screen off", "djconnect-screen-off.timer"),
+    ("Screen on", "djconnect-screen-on.timer"),
+)
 
 
 class ClientAPIDaemon:
@@ -119,8 +129,9 @@ class ClientAPIDaemon:
                 "Device ID": self.cfg.device_id,
                 "Client API URL": self.cfg.local_url,
                 "Home Assistant": self.cfg.ha_url,
-                "Koppeling": "Gekoppeld" if self.cfg.paired else "Niet gekoppeld",
+                "Home Assistant": "Gekoppeld" if self.cfg.paired else "Niet gekoppeld",
             },
+            "diagnostics": self._diagnostics(backend_available=backend_available),
         }
 
     def _fallback_playback(self) -> dict[str, object]:
@@ -180,6 +191,27 @@ class ClientAPIDaemon:
                 }
             time.sleep(0.2)
         return {"success": False, "error": "screenshot_timeout", "path": str(target)}
+
+    def _diagnostics(self, *, backend_available: bool) -> list[dict[str, object]]:
+        diagnostics = [
+            {
+                "name": "Home Assistant API",
+                "status": "running" if backend_available else "stopped",
+                "detail": self.cfg.ha_url or "not configured",
+            },
+            {
+                "name": "Local Client API",
+                "status": "running",
+                "detail": self.cfg.local_url,
+            },
+            {
+                "name": "Pairing",
+                "status": "running" if self.cfg.paired else "stopped",
+                "detail": "paired" if self.cfg.paired else "waiting for pairing",
+            },
+        ]
+        diagnostics.extend(_systemd_unit_status(label, unit) for label, unit in DIAGNOSTIC_UNITS)
+        return diagnostics
 
     def _paired(self) -> None:
         self.cfg = load_config(self.config_path)
@@ -317,6 +349,30 @@ def _read_tail_text(path: Path, max_bytes: int) -> str:
             handle.seek(-max_bytes, 2)
         data = handle.read()
     return data.decode("utf-8", errors="replace")
+
+
+def _systemd_unit_status(label: str, unit: str) -> dict[str, object]:
+    try:
+        result = subprocess.run(
+            ["systemctl", "is-active", unit],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=1.5,
+        )
+    except FileNotFoundError:
+        return {"name": label, "status": "unknown", "detail": f"{unit}: systemctl unavailable"}
+    except subprocess.TimeoutExpired:
+        return {"name": label, "status": "unknown", "detail": f"{unit}: status timeout"}
+    status = (result.stdout or result.stderr or "unknown").strip().splitlines()[0]
+    normalized = {
+        "active": "running",
+        "inactive": "stopped",
+        "failed": "failed",
+        "activating": "starting",
+        "deactivating": "stopping",
+    }.get(status, "unknown")
+    return {"name": label, "status": normalized, "detail": f"{unit}: {status}"}
 
 
 if __name__ == "__main__":

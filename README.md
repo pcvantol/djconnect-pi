@@ -1,6 +1,6 @@
 # DJConnect Pi
 
-Version: `3.1.54`
+Version: `3.1.55`
 
 Raspberry Pi Zero 2 W touch-display client for DJConnect. This client uses
 Qt Quick/QML with a PySide6 backend and is meant for a Pimoroni HyperPixel 4.0
@@ -12,6 +12,10 @@ audio, ESP firmware OTA, ESP battery sensors or Wi-Fi RSSI sensors. It does
 run a small local Client API daemon for Home Assistant pairing, commands,
 diagnostics and text-only DJ responses. `_djconnect._tcp` mDNS discovery is
 advertised only while the Pi is not yet paired.
+
+The same local API daemon serves the Raspberry Pi web portal at the Pi web
+address, so the portal is installed with the app release and starts
+automatically on boot through `djconnect-api.service`.
 
 ## Client Contract
 
@@ -30,6 +34,8 @@ advertised only while the Pi is not yet paired.
   - `POST /api/device/forget`
   - `GET /api/debug/screenshot`
   - `GET /api/debug/screen?screen=<name>` (loopback-only diagnostic route)
+  - `GET /api/portal/state`
+  - `POST /api/portal/command`
 - Postman collection:
   - `docs/postman/DJConnect Pi Local Client API.postman_collection.json`
 - mDNS service:
@@ -68,6 +74,7 @@ The app is a 720x720 fullscreen touch remote:
   HyperPixel display
 - separate Bediening screen with enlarged previous, play/pause, next,
   progress, volume, output-device, shuffle and repeat controls
+- volume controls are capped at HA value 60 and display that as 100%
 - fixed bottom menu bar for Speelt nu, Bediening, Wachtrij, Afspeellijsten,
   Games and Instellingen
 - compact HA/pairing/backend status
@@ -82,6 +89,10 @@ The app is a 720x720 fullscreen touch remote:
 - visible Client API URL for Home Assistant pairing
 - DJ response text overlay
 - logs viewer
+- web portal with Diagnostics for Home Assistant API, local API, pairing and
+  DJConnect systemd service/timer status
+- web portal playback controls use the ESP-style large purple icon buttons
+  with visible shuffle/repeat state and volume percentage
 - local demo mode before pairing
 - persistent rotating client log
 - Logs, Over and Instellingen are opaque full-screen views; modal overlays
@@ -120,9 +131,9 @@ not a private source clone:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.54.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.55.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.54
+cd djconnect-pi-3.1.55
 sudo ./scripts/install.sh
 ```
 
@@ -210,9 +221,9 @@ installer:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.54.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.55.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.54
+cd djconnect-pi-3.1.55
 sudo ./scripts/install.sh
 ```
 

@@ -477,7 +477,7 @@ class DJConnectBackend(QObject):
 
     @Slot(int)
     def setVolume(self, value: int) -> None:
-        value = max(0, min(100, int(value)))
+        value = max(0, min(60, int(value)))
         if value == self.playback.volume:
             return
         self.playback.volume = value
@@ -594,6 +594,7 @@ class DJConnectBackend(QObject):
         commands = (
             ["sudo", "-n", "/usr/bin/systemctl", "reboot"],
             ["sudo", "-n", "/bin/systemctl", "reboot"],
+            ["sudo", "-n", "systemctl", "reboot"],
             ["/usr/bin/systemctl", "reboot"],
             ["/bin/systemctl", "reboot"],
         )
@@ -762,7 +763,9 @@ class DJConnectBackend(QObject):
             playback = self.client.playback_from_status(data)
             if playback.output_devices and value not in playback.output_devices:
                 raise DJConnectError(f"Output device not available: {value}")
-            if playback.output_device and playback.output_device != value:
+            if playback.output_devices and value in playback.output_devices:
+                playback.output_device = value
+            elif playback.output_device and playback.output_device != value:
                 raise DJConnectError(f"Output device not accepted: {value}")
             if not playback.output_device:
                 playback.output_device = value

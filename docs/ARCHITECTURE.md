@@ -46,6 +46,12 @@ src/djconnect_pi/qml/*.qml    touch UI, gestures and animations
 `_djconnect._tcp` mDNS advertisement. The HTTP API stays online after pairing,
 but the mDNS advertisement is only active while the Pi is unpaired.
 
+The same daemon serves the local Raspberry Pi web portal at `/`. Because the
+portal is embedded in the Python package and exposed by `djconnect-api.service`,
+normal install and updater flows install it and start it automatically on boot.
+The portal includes a Diagnostics section backed by `/api/portal/state` with
+Home Assistant API, local API, pairing and DJConnect systemd unit status.
+
 Responsibilities:
 
 - expose `GET /api/device/info`
@@ -125,7 +131,7 @@ The Pi client is an app-like DJConnect client.
   "device_id": "djconnect-raspberry-pi-XXXXXXXXXXXX",
   "device_name": "DJConnect",
   "client_type": "raspberry_pi",
-  "version": "3.1.54",
+  "version": "3.1.55",
   "capabilities": {
     "touch": true,
     "voice": false,

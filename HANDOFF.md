@@ -19,6 +19,10 @@ Implemented:
 - Bediening is the dedicated touch-control screen with enlarged previous,
   play/pause, next, track progress, volume, output-device, shuffle and repeat
   controls.
+- Volume control is capped at HA value 60. The UI presents value 60 as 100% so
+  the wall device cannot accidentally exceed the intended maximum loudness.
+- Screen timeout is a fixed dropdown with 30, 60, 90, 120, 180, 240, 300 and
+  600 second options.
 - `client_type: raspberry_pi`
 - Stable device ID prefix `djconnect-raspberry-pi-`
 - Pair/status/command calls to the Home Assistant DJConnect API
@@ -120,6 +124,15 @@ Implemented:
 - `GET /api/debug/screen?screen=<name>` is loopback-only and queues a local
   debug screen event so release verification can capture Now Playing, Queue,
   Playlists, Games, Settings, Logs and About after deploy.
+- The web portal is served by `djconnect-api.service`, so it is installed with
+  the normal release bundle and starts automatically on boot/update with the
+  local API daemon.
+- The web portal Diagnostics block shows live Home Assistant API, local API,
+  pairing and DJConnect systemd service/timer status as running, stopped,
+  failed or unknown.
+- The web portal playback controls follow the ESP portal style with large
+  purple icon buttons, active shuffle/repeat states and a visible volume
+  percentage.
 - Local language setting. First value comes from Raspberry Pi OS locale, not
   Home Assistant pairing provisioning.
 - Dutch/English translations are kept in `src/djconnect_pi/i18n.py`; tests

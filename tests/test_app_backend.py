@@ -474,8 +474,8 @@ def test_backend_volume_clamps_and_dispatches_command(tmp_path: Path) -> None:
 
     backend.setVolume(125)
 
-    assert backend.volume == 100
-    assert calls == [("set_volume", {"value": 100})]
+    assert backend.volume == 60
+    assert calls == [("set_volume", {"value": 60})]
 
 
 def test_backend_output_device_dispatches_command(tmp_path: Path) -> None:

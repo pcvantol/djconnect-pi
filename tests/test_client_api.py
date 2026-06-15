@@ -11,6 +11,7 @@ import pytest
 from djconnect_pi.client_api import ClientAPI, ClientAPIState, MAX_REQUEST_BYTES, _mdns_properties
 from djconnect_pi.client_api import ClientAPIHandler
 from djconnect_pi.config import Config, load_config, save_config
+from djconnect_pi.web_portal import index_html
 
 
 def start_api(tmp_path: Path, *, device_token: str = "") -> tuple[ClientAPI, Config, list[str]]:
@@ -77,6 +78,16 @@ def test_postman_collection_documents_local_api_endpoints() -> None:
     assert "{{client_api_url}}/api/device/dj_response" in urls
     assert "{{client_api_url}}/api/debug/screenshot" in urls
     assert "{{client_api_url}}/api/device/forget" in urls
+
+
+def test_web_portal_renders_diagnostics_block() -> None:
+    html = index_html("3.1.55").decode("utf-8")
+
+    assert "<h2>Diagnostics</h2>" in html
+    assert 'id="diagnostics"' in html
+    assert "diagnosticsHtml" in html
+    assert "data.diagnostics" in html
+    assert ".chip.running" in html
 
 
 def test_mdns_properties_include_ha_discovery_fields() -> None:

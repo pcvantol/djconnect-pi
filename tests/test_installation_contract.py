@@ -24,6 +24,7 @@ def test_install_script_enables_local_api_service() -> None:
     assert "systemctl restart djconnect-client.service" in script
     assert "djconnect-reboot" in script
     assert "NOPASSWD: /usr/bin/systemctl reboot, /bin/systemctl reboot" in script
+    assert "systemctl reboot" in script
     assert "Local Client API starts automatically via djconnect-api.service." in script
 
 

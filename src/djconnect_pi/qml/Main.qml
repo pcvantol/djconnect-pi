@@ -424,12 +424,15 @@ Window {
             }
 
             ScrollView {
+                id: mediaScroll
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 clip: true
+                ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                contentWidth: availableWidth
 
                 ColumnLayout {
-                    width: parent.width
+                    width: Math.max(0, mediaScroll.availableWidth)
                     spacing: 12
 
                     Text {
@@ -466,8 +469,8 @@ Window {
 
                                 Rectangle {
                                     id: mediaArt
-                                    x: 0
-                                    y: Math.round((parent.height - height) / 2)
+                                    anchors.left: parent.left
+                                    anchors.verticalCenter: parent.verticalCenter
                                     width: 68
                                     height: 68
                                     radius: 8
@@ -494,10 +497,11 @@ Window {
 
                                 Column {
                                     id: mediaText
-                                    x: mediaArt.x + mediaArt.width + 14
-                                    y: Math.round((parent.height - height) / 2)
-                                    width: Math.max(0, mediaPlay.x - x - 14)
-                                    height: implicitHeight
+                                    anchors.left: mediaArt.right
+                                    anchors.leftMargin: 14
+                                    anchors.right: mediaPlay.left
+                                    anchors.rightMargin: 14
+                                    anchors.verticalCenter: parent.verticalCenter
                                     spacing: 2
                                     clip: true
 
@@ -522,8 +526,8 @@ Window {
 
                                 MediaPlayButton {
                                     id: mediaPlay
-                                    x: parent.width - width
-                                    y: Math.round((parent.height - height) / 2)
+                                    anchors.right: parent.right
+                                    anchors.verticalCenter: parent.verticalCenter
                                     onClicked: djconnect.playUri(modelData.uri)
                                 }
                             }
@@ -853,7 +857,6 @@ Window {
                 }
 
                 IconButton {
-                    Layout.preferredWidth: 220
                     iconName: djconnect.playing ? "pause" : "play"
                     primary: true
                     onClicked: djconnect.togglePlay()
@@ -916,15 +919,15 @@ Window {
                 Slider {
                     id: controlVolumeSlider
                     from: 0
-                    to: 100
-                    value: djconnect.volume
+                    to: 60
+                    value: Math.min(60, djconnect.volume)
                     stepSize: 1
                     Layout.fillWidth: true
                     onMoved: djconnect.setVolume(Math.round(value))
                 }
 
                 Text {
-                    text: djconnect.volume
+                    text: Math.round(Math.min(60, djconnect.volume) / 60 * 100) + "%"
                     color: "#f4f8f8"
                     font.pixelSize: 26
                     font.bold: true
@@ -945,6 +948,11 @@ Window {
                     visible: count > 0
                     currentIndex: Math.max(0, deviceChoices.indexOf(djconnect.outputDevice))
                     font.pixelSize: 26
+                    delegate: ItemDelegate {
+                        width: controlOutputDeviceCombo.width
+                        text: modelData
+                        font.pixelSize: 28
+                    }
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     onActivated: function(index) { djconnect.setOutputDevice(controlOutputDeviceCombo.textAt(index)) }
@@ -1080,23 +1088,14 @@ Window {
                     Layout.preferredWidth: 176
                 }
 
-                SpinBox {
+                ComboBox {
                     id: screenTimeoutBox
-                    from: 0
-                    to: 3600
-                    stepSize: 30
-                    value: djconnect.screenTimeoutSeconds
-                    editable: true
+                    property var timeoutChoices: [30, 60, 90, 120, 180, 240, 300, 600]
+                    model: timeoutChoices
+                    currentIndex: Math.max(0, timeoutChoices.indexOf(djconnect.screenTimeoutSeconds))
                     font.pixelSize: 22
                     Layout.fillWidth: true
-                    onValueModified: djconnect.setScreenTimeoutSeconds(value)
-                }
-
-                Text {
-                    text: screenTimeoutBox.value === 0 ? djconnect.t("off") : djconnect.t("sec")
-                    color: "#9fb4b8"
-                    font.pixelSize: 20
-                    Layout.preferredWidth: 38
+                    onActivated: function(index) { djconnect.setScreenTimeoutSeconds(timeoutChoices[index]) }
                 }
             }
 
@@ -2242,10 +2241,10 @@ Window {
                     rowSpacing: 10
                     Layout.fillWidth: true
 
-                    Text { text: djconnect.t("pairing_status"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
+                    Text { text: djconnect.t("home_assistant"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
                     Text { text: djconnect.paired ? djconnect.t("paired") : djconnect.t("not_paired"); color: "#ffffff"; font.pixelSize: 20; Layout.fillWidth: true }
                     Text { text: djconnect.t("music"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
-                    Text { text: djconnect.paired ? djconnect.t("connected_value") : djconnect.t("not_connected_value"); color: "#ffffff"; font.pixelSize: 20; Layout.fillWidth: true }
+                    Text { text: djconnect.paired ? djconnect.t("connected_value") : djconnect.t("not_connected_value"); color: djconnect.paired ? "#32d35a" : "#ff3b30"; font.pixelSize: 20; font.bold: true; Layout.fillWidth: true }
                     Text { text: djconnect.t("client_api_url_label"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
                     Text { text: djconnect.localApiUrl; color: "#ffffff"; font.pixelSize: 18; Layout.fillWidth: true; elide: Text.ElideMiddle }
                     Text { text: djconnect.t("home_assistant"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }

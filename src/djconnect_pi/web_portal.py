@@ -40,7 +40,10 @@ def index_html(version: str) -> bytes:
     .status {{ display:flex; align-items:center; gap:8px; color:var(--muted); font-weight:700; min-width:0; overflow-wrap:anywhere; }}
     .dot {{ width:14px; height:14px; border-radius:50%; background:var(--red); box-shadow:0 0 14px currentColor; flex:0 0 auto; }}
     .dot.ok {{ background:var(--green); }}
-    .controls {{ display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:10px; margin-top:14px; }}
+    .controls {{ display:grid; grid-template-columns:repeat(5,92px); gap:16px; margin-top:14px; align-items:center; }}
+    .control-button {{ min-height:92px; width:92px; border-radius:14px; font-size:38px; box-shadow:inset 0 -3px 0 rgba(0,0,0,.18),0 8px 18px rgba(193,53,255,.25); }}
+    .control-button.active {{ border-color:#f5d0fe; background:linear-gradient(135deg,#f13de8,#8b5cf6); }}
+    .volume-head {{ display:flex; align-items:center; justify-content:space-between; color:#f13de8; font-size:26px; font-weight:850; margin:18px 0 6px; }}
     button, select, input {{
       min-height:48px; border-radius:8px; border:1px solid rgba(217,177,255,.48);
       background:linear-gradient(135deg,rgba(193,53,255,.88),rgba(75,125,255,.72));
@@ -59,6 +62,15 @@ def index_html(version: str) -> bytes:
     .item-title {{ font-size:18px; font-weight:850; overflow-wrap:anywhere; }}
     .item-sub {{ color:var(--muted); font-size:14px; margin-top:2px; overflow-wrap:anywhere; }}
     .play {{ border-radius:50%; min-height:54px; width:54px; padding:0; font-size:22px; }}
+    .diag-list {{ display:grid; gap:8px; }}
+    .diag {{ display:grid; grid-template-columns:1fr auto; gap:10px; align-items:center; padding:10px; border:1px solid rgba(255,255,255,.10); border-radius:8px; background:rgba(8,7,28,.34); }}
+    .diag-name {{ font-weight:850; }}
+    .diag-detail {{ color:var(--muted); font-size:13px; margin-top:2px; overflow-wrap:anywhere; }}
+    .chip {{ border-radius:999px; padding:5px 9px; font-weight:900; font-size:12px; text-transform:uppercase; letter-spacing:.02em; background:#38405f; color:#fff; }}
+    .chip.running {{ background:rgba(52,214,95,.22); color:#97ffb1; border:1px solid rgba(52,214,95,.44); }}
+    .chip.stopped {{ background:rgba(255,193,7,.18); color:#ffe08a; border:1px solid rgba(255,193,7,.42); }}
+    .chip.failed {{ background:rgba(255,91,91,.20); color:#ffb5b5; border:1px solid rgba(255,91,91,.48); }}
+    .chip.unknown {{ background:rgba(160,170,195,.18); color:#d8defa; border:1px solid rgba(160,170,195,.36); }}
     .two {{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }}
     pre {{ margin:0; min-height:260px; max-height:420px; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; background:rgba(4,3,18,.68); border:1px solid var(--line); border-radius:8px; padding:12px; font:14px/1.35 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }}
     .toast {{ position:fixed; left:16px; right:16px; bottom:16px; opacity:0; transform:translateY(16px); transition:.18s; background:rgba(20,14,45,.96); border:1px solid var(--line); border-radius:8px; padding:14px; font-weight:800; z-index:5; }}
@@ -80,16 +92,17 @@ def index_html(version: str) -> bytes:
         <div><div id="title" class="title">-</div><div id="artist" class="artist">-</div></div>
       </div>
       <div class="controls">
-        <button onclick="cmd('previous')">⏮</button>
-        <button onclick="cmd(playCommand())" id="playButton">▶</button>
-        <button onclick="cmd('next')">⏭</button>
-        <button onclick="toggleShuffle()" id="shuffleButton">Shuffle</button>
-        <button onclick="toggleRepeat()" id="repeatButton">Repeat</button>
-        <button onclick="refreshAll()">Verversen</button>
+        <button class="control-button" onclick="cmd('previous')">⏮</button>
+        <button class="control-button" onclick="cmd(playCommand())" id="playButton">▶</button>
+        <button class="control-button" onclick="cmd('next')">⏭</button>
+        <button class="control-button" onclick="toggleShuffle()" id="shuffleButton">⇄</button>
+        <button class="control-button" onclick="toggleRepeat()" id="repeatButton">↻</button>
       </div>
       <div class="grid" style="margin-top:14px">
-        <label>Volume <input id="volume" type="range" min="0" max="100" value="50" onchange="cmd('set_volume',{{value:Number(this.value)}})"></label>
+        <div class="volume-head"><span>Volume</span><span id="volumePercent">0%</span></div>
+        <input id="volume" type="range" min="0" max="60" value="30" onchange="cmd('set_volume',{{value:Number(this.value)}})">
         <label>Uitvoerapparaat <select id="outputs" onchange="this.value && cmd('set_output',{{value:this.value}})"></select></label>
+        <button onclick="refreshAll()">Verversen</button>
       </div>
     </section>
     <section>
@@ -106,7 +119,7 @@ def index_html(version: str) -> bytes:
         <label>Taal <select id="language"><option value="nl">Nederlands</option><option value="en">English</option></select></label>
         <label>Logniveau <select id="logLevel"><option>DEBUG</option><option>INFO</option><option>WARNING</option><option>ERROR</option></select></label>
         <label>Schermhelderheid <input id="brightness" type="range" min="10" max="100"></label>
-        <label>Scherm uit na seconden <input id="timeout" type="number" min="0" max="3600"></label>
+        <label>Scherm uit na seconden <select id="timeout"><option>30</option><option>60</option><option>90</option><option>120</option><option>180</option><option>240</option><option>300</option><option>600</option></select></label>
         <button onclick="saveSettings()">Instellingen opslaan</button>
         <button class="danger" onclick="confirm('Opnieuw koppelen?')&&cmd('forget_pairing')">Opnieuw koppelen</button>
         <button class="danger" onclick="confirm('Apparaat herstarten?')&&cmd('reboot')">Apparaat herstarten</button>
@@ -115,6 +128,10 @@ def index_html(version: str) -> bytes:
     <section>
       <h2>Over</h2>
       <div id="about" class="grid"></div>
+    </section>
+    <section>
+      <h2>Diagnostics</h2>
+      <div id="diagnostics" class="diag-list"></div>
     </section>
     <section class="wide">
       <h2>Logs</h2>
@@ -167,6 +184,10 @@ function itemHtml(item, command) {{
   const uri = item.uri || title;
   return `<div class="item">${{art}}<div><div class="item-title">${{title}}</div><div class="item-sub">${{sub}}</div></div><button class="play" onclick="cmd('${{command}}',{{value:${{JSON.stringify(uri)}}}})">▶</button></div>`;
 }}
+function diagnosticsHtml(item) {{
+  const status = item.status || 'unknown';
+  return `<div class="diag"><div><div class="diag-name">${{item.name || '-'}}</div><div class="diag-detail">${{item.detail || ''}}</div></div><span class="chip ${{status}}">${{status}}</span></div>`;
+}}
 function render(data) {{
   state = data;
   const playback = data.playback || {{}};
@@ -175,10 +196,12 @@ function render(data) {{
   document.getElementById('title').textContent = playback.title || 'Niets speelt af';
   document.getElementById('artist').textContent = playback.artist || '';
   document.getElementById('art').src = playback.image_url || '';
-  document.getElementById('volume').value = playback.volume ?? 50;
+  const volume = Math.min(60, playback.volume ?? 30);
+  document.getElementById('volume').value = volume;
+  document.getElementById('volumePercent').textContent = `${{Math.round(volume / 60 * 100)}}%`;
   document.getElementById('playButton').textContent = playback.is_playing ? '⏸' : '▶';
-  document.getElementById('shuffleButton').textContent = playback.shuffle ? 'Shuffle aan' : 'Shuffle uit';
-  document.getElementById('repeatButton').textContent = `Repeat ${{playback.repeat_state || 'off'}}`;
+  document.getElementById('shuffleButton').classList.toggle('active', !!playback.shuffle);
+  document.getElementById('repeatButton').classList.toggle('active', (playback.repeat_state || 'off') !== 'off');
   const outputs = document.getElementById('outputs');
   outputs.innerHTML = '';
   for (const name of (playback.output_devices || [])) {{
@@ -192,8 +215,9 @@ function render(data) {{
   document.getElementById('language').value = data.settings?.language || 'nl';
   document.getElementById('logLevel').value = data.settings?.log_level || 'INFO';
   document.getElementById('brightness').value = data.settings?.screen_brightness_percent || 100;
-  document.getElementById('timeout').value = data.settings?.screen_timeout_seconds ?? 120;
+  document.getElementById('timeout').value = String(data.settings?.screen_timeout_seconds ?? 120);
   document.getElementById('about').innerHTML = Object.entries(data.about || {{}}).map(([k,v]) => `<div class="row"><span class="key">${{k}}</span><span class="value">${{v || '-'}}</span></div>`).join('');
+  document.getElementById('diagnostics').innerHTML = (data.diagnostics || []).length ? data.diagnostics.map(diagnosticsHtml).join('') : '<div class="sub">Geen diagnostics beschikbaar</div>';
   document.getElementById('logs').textContent = data.logs || '';
 }}
 async function refreshAll() {{

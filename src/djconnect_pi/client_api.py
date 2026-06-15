@@ -206,6 +206,10 @@ class ClientAPIHandler(BaseHTTPRequestHandler):
                 "logs": "",
                 "settings": _portal_settings(cfg),
                 "about": _portal_about(cfg),
+                "diagnostics": [
+                    {"name": "Local Client API", "status": "running", "detail": cfg.local_url},
+                    {"name": "Home Assistant API", "status": "running" if cfg.paired else "stopped", "detail": cfg.ha_url},
+                ],
             }
         return self.server.state.portal_state_provider(include)
 
@@ -419,7 +423,7 @@ def _portal_about(cfg: Config) -> dict[str, str]:
         "Device ID": cfg.device_id,
         "Client API URL": cfg.local_url,
         "Home Assistant": cfg.ha_url,
-        "Koppeling": "Gekoppeld" if cfg.paired else "Niet gekoppeld",
+        "Home Assistant": "Gekoppeld" if cfg.paired else "Niet gekoppeld",
     }
 
 

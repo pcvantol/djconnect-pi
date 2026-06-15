@@ -1,5 +1,29 @@
 # Changelog
 
+## 3.1.55
+
+- Added a live Diagnostics section to the Raspberry Pi web portal. It shows
+  Home Assistant API, local Client API, pairing state and DJConnect systemd
+  service/timer health as running, stopped, failed or unknown.
+- Restyled the web portal playback buttons toward the ESP web interface:
+  large purple icon buttons, active shuffle/repeat states and a visible volume
+  percentage.
+- Capped user volume control at 60, where the UI displays 60 as 100%.
+- Changed the screen timeout setting from a free SpinBox to a fixed dropdown:
+  30, 60, 90, 120, 180, 240, 300 and 600 seconds.
+- Fixed queue/playlist rows to prevent horizontal scrolling and keep album art,
+  text and play buttons in their proper columns.
+- Kept output-device selection on the chosen device when HA accepts the target
+  device but does not echo it back as the active output immediately.
+- Updated Over so the connection label says Home Assistant and the Music state
+  is green when connected and red when not connected.
+- Broadened the installer-created reboot sudoers rule to match the systemctl
+  variants used by the touch UI.
+- Added backend and web portal tests for diagnostics rendering and systemd
+  status normalization.
+- Clarified that the web portal is served by `djconnect-api.service`, so it is
+  installed and started automatically with normal install/update flows.
+
 ## 3.1.54
 
 - Split playback controls out of Speelt nu into a new touch-friendly

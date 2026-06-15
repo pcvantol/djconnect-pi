@@ -115,6 +115,10 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
   a matching request is already in flight
 - opaque queue/playlist main screens, manual refresh controls and no
   DJ-response dismiss dialog in QML
+- web portal Diagnostics rendering plus daemon-side systemd status
+  normalization for running/stopped/failed/unknown component health
+- volume cap at 60, fixed screen-timeout dropdown, anchored media-row geometry
+  and reboot sudoers contract coverage
 - local Client API pairing-info and logging regression coverage, plus Postman
   collection endpoint contract checks
 - game title QML contract checks ensuring titles come from translation keys

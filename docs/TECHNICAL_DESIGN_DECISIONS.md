@@ -127,6 +127,9 @@ mainly by tests plus `compileall`.
 | HA version compatibility is major/minor bounded | `ha.py` | Client `3.1.z` accepts HA `>=3.1.0` and `<3.2.0`. |
 | Output-device selector uses status plus devices fallback | `app.py`, `ha.py` | Bediening must let users switch HA-provided playback devices even when the status response omits the device list. |
 | Output-device changes are optimistic but validated | `_set_output_worker` | The UI feels responsive, but if HA rejects or normalizes the selected output device the client rolls back and logs the rejection. |
+| Web portal shares the local API daemon | `client_api.py`, `web_portal.py` | Keeps browser diagnostics and controls on the same always-on Client API URL used for pairing, avoiding another supervised process. |
+| Portal stays on the Client API port by default | `Config.local_api_port` | Binding to port 80 would require root or Linux capabilities; the safer default is the existing local API port with an optional future reverse proxy if needed. |
+| Portal diagnostics normalize component health | `client_api_daemon.py` | Converts systemd service/timer states to running/stopped/failed/unknown so the browser UI can show DJConnect component health consistently. |
 | HTTP 401 is an authentication state | `AuthenticationError` in `ha.py`, `_run` in `app.py` | Prevents raw HA JSON from being shown on the kiosk and turns the connection dot red with a concise translated toast/status. |
 | Backend unavailable is not a UI crash state | `BackendUnavailable` in `ha.py`, `_run` in `app.py` | Spotify/HA backend downtime is surfaced as a short status/toast while the UI remains interactive. |
 
