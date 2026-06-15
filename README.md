@@ -1,6 +1,6 @@
 # DJConnect Pi
 
-Version: `3.1.43`
+Version: `3.1.44`
 
 Raspberry Pi Zero 2 W touch-display client for DJConnect. This client uses
 Qt Quick/QML with a PySide6 backend and is meant for a Pimoroni HyperPixel 4.0
@@ -60,6 +60,9 @@ The app is a 720x720 fullscreen touch remote:
 - album art area / status area in the center
 - HA-provided album art on Now Playing, Queue and Playlists, loaded
   asynchronously so media-list navigation stays responsive on Pi Zero 2 W
+- Queue and Playlist rows use fixed anchored artwork/text/play-button
+  positioning so album art and play icons stay in the correct columns on the
+  HyperPixel display
 - large play/pause button
 - previous/next buttons left and right
 - bottom volume slider
@@ -67,7 +70,9 @@ The app is a 720x720 fullscreen touch remote:
 - fixed bottom menu bar for Now Playing, Games and Settings
 - compact HA/pairing/backend status
 - settings for screen blanking, brightness, language, logs, pairing reset,
-  reboot and stable/beta update channel
+  reboot with confirmation and stable/beta update channel
+- output-device selector on Speelt nu that can switch HA-provided playback
+  devices with `set_output`
 - default screen blanking after 2 minutes, with tap-to-wake
 - touch-only local games: Paddle Rally, Meteor Run, Sky Dash and Maze Chase
 - Dutch/English user-facing text, including game labels and fallback playback
@@ -77,8 +82,9 @@ The app is a 720x720 fullscreen touch remote:
 - logs viewer
 - local demo mode before pairing
 - persistent rotating client log
-- full-screen overlays consume touch input so controls behind logs, about,
-  pairing and confirmation screens cannot be accidentally activated
+- Logs, Over and Instellingen are opaque full-screen views; modal overlays
+  consume touch input so controls behind logs, about, pairing and confirmation
+  screens cannot be accidentally activated
 
 The initial language is detected from the Raspberry Pi OS locale and then stored
 locally. Home Assistant does not provision UI language for Raspberry Pi clients;
@@ -111,9 +117,9 @@ not a private source clone:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.43.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.44.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.43
+cd djconnect-pi-3.1.44
 sudo ./scripts/install.sh
 ```
 
@@ -201,9 +207,9 @@ installer:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.43.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.44.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.43
+cd djconnect-pi-3.1.44
 sudo ./scripts/install.sh
 ```
 

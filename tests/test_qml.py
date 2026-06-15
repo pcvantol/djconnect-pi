@@ -89,6 +89,8 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "id: settingsScroll" in main_qml
     assert "ScrollView" in main_qml
     assert "ScrollBar.horizontal.policy: ScrollBar.AlwaysOff" in main_qml
+    assert "contentWidth: availableWidth" in main_qml
+    assert 'color: "#070b16"' in main_qml
     assert "font.pixelSize: 24" in main_qml
     assert "root.brightnessOverlayOpacity" in main_qml
     assert "z: 200" in main_qml
@@ -99,6 +101,11 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert 'djconnect.t("reset_pairing_confirm_message")' in main_qml
     assert 'djconnect.t("cancel")' in main_qml
     assert "root.resetPairingConfirmOpen = true" in main_qml
+    assert "root.rebootConfirmOpen = true" in main_qml
+    assert 'djconnect.t("reboot_confirm_title")' in main_qml
+    assert 'djconnect.t("reboot_confirm_message")' in main_qml
+    assert 'text: djconnect.t("no_voice")' not in main_qml
+    assert "placeholderText: djconnect.t(\"ha_url\")" not in main_qml
     assert "ModalBlocker {}" in main_qml
     assert "onClicked: function(mouse)" in main_qml
     assert "onWheel: function(wheel)" in main_qml
@@ -117,14 +124,19 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert main_qml.count("Layout.preferredWidth: 142") >= 2
     assert main_qml.count("Layout.preferredHeight: 48") >= 2
     assert "djconnect.outputDevices" in main_qml
+    assert "property var deviceChoices" in main_qml
     assert "djconnect.setOutputDevice" in main_qml
+    assert 'text: "🔊"' not in main_qml
     assert "djconnect.cachedImageUrl(modelData.imageUrl)" not in main_qml
     assert "source: modelData.imageUrl && modelData.imageUrl.length > 0 ? modelData.imageUrl : \"\"" in main_qml
     assert "height: 92" not in main_qml
     assert "color: \"#990b1012\"" not in main_qml
     assert "Layout.preferredHeight: 86" in main_qml
-    assert "Layout.minimumWidth: 68" in main_qml
-    assert "Layout.maximumWidth: 68" in main_qml
+    assert "id: mediaArt" in main_qml
+    assert "id: mediaPlay" in main_qml
+    assert "anchors.left: mediaArt.right" in main_qml
+    assert "anchors.right: mediaPlay.left" in main_qml
+    assert "anchors.right: parent.right" in main_qml
     assert "MediaPlayButton {" in main_qml
     assert "djconnect.trackProgress" in main_qml
     assert "djconnect.progressLabel" in main_qml
@@ -181,10 +193,13 @@ def test_qml_screen_blanking_wakes_on_tap() -> None:
 
     assert "property bool forceScreenAwake: false" in main_qml
     assert "property bool screenBlanked: djconnect.screenTimeoutSeconds > 0 && !idleTimer.running && !root.forceScreenAwake" in main_qml
-    assert "onTapped: idleTimer.restart()" in main_qml
+    assert "onTapped: root.wakeDisplay()" in main_qml
     assert "id: forcedWakeTimer" in main_qml
     assert "interval: 10000" in main_qml
     assert "function onScreenshotRequested()" in main_qml
+    assert "function wakeDisplay()" in main_qml
+    assert "root.splashVisible = true" in main_qml
+    assert "splashTimer.restart()" in main_qml
     assert "root.grabToImage" in main_qml
     assert "result.saveToFile(djconnect.screenshotFile)" in main_qml
     assert "function onWakeScreenRequested()" in main_qml

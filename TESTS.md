@@ -56,18 +56,20 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
   QML `grabToImage` capture contract
 - backend notification toast state
 - playback response alias parsing
-- playback output-device response parsing and `set_output` command dispatch
+- playback output-device response parsing, `set_output` command dispatch and
+  fallback HA `devices` command loading when status omits the device list
 - HA major/minor version compatibility checks and blocking mismatch behavior
 - protocol mismatch error handling
 - PySide backend properties and command dispatch
 - persistent logging and redaction
 - bundled QML files and offscreen QML load
-- startup splash, blocking pairing screen, tap-to-wake blanking and toast QML
-  contract checks
+- startup splash, blocking pairing screen, tap-to-wake blanking, splash-on-wake
+  and toast QML contract checks
 - previous/next wake-screen signal coverage, including HA command-event
   previous/next
-- modal overlay touch-blocking, settings reset-pairing confirmation and About
-  full-width website contract checks
+- modal overlay touch-blocking, settings reset-pairing/reboot confirmation,
+  opaque Logs/Over/Instellingen backgrounds and About full-width website
+  contract checks
 - generated six-digit pairing code persistence and `/api/device/pairing-info`
   aliases
 - dark DJConnect blue/purple gradient QML theme contract checks
@@ -80,7 +82,8 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 - Empty queue/playlist labels and backend behavior that only loads demo media
   after explicitly entering demo mode
 - kiosk branding contract checks for the bundled app icon, no visible quit
-  action, fixed-size media play buttons and settings without pairing controls
+  action, anchored media rows with fixed-size media play buttons and settings
+  without pairing controls
 - compact touch log formatting and 24-hour album-art cache helper behavior
 - HA queue/playlist media parser coverage for artwork aliases from the shared
   contract

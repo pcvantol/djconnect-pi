@@ -68,6 +68,7 @@ mainly by tests plus `compileall`.
 | Full-screen state panels | Now Playing, Queue, Playlists, Games, Settings, logs, about and pairing overlays | Prevents background screen tap-through and matches kiosk operation. |
 | Modal touch blockers | `ModalBlocker` | Consumes pointer/wheel events while overlays are visible. |
 | Fixed touch target dimensions | bottom nav, media rows, media play buttons, playback controls | Reduces layout shift on a 720x720 4-inch touch display. |
+| Anchored media-list rows | `MediaListPanel` delegates anchor artwork left, text center and play button right | Avoids `RowLayout` placement differences on the Pi runtime that previously misplaced album art and play icons. |
 | Async image rendering | `Image { asynchronous: true }` | Lets QML decode/render artwork without blocking interaction. Network/cache preparation is handled outside QML delegates. |
 | Canvas icons only where dynamic state matters | playback controls and game canvas | Avoids external icon packs while keeping touch controls scalable. |
 | Kiosk-first navigation | bottom menu bar and no visible app close button | Device is intended to be wall-mounted and dedicated. |
@@ -82,6 +83,7 @@ mainly by tests plus `compileall`.
 | Text is localized through backend | QML uses `djconnect.t("...")` for user-facing copy. |
 | Buttons use fixed radii and dimensions | Most button backgrounds use `radius: 8`; media play uses fixed 68x58. |
 | Avoid blocking Python calls from delegates | Queue/playlist rows must not call `cachedImageUrl()`; backend pre-caches artwork before updating the QML model. |
+| Opaque main screens | Logs, Over and Instellingen use fully opaque backgrounds | Prevents underlying Speelt nu controls/content from bleeding through kiosk screens. |
 
 ## Shell / Systemd Design Patterns
 
@@ -116,6 +118,7 @@ mainly by tests plus `compileall`.
 | `GET /api/debug/screenshot` is authenticated after pairing | `client_api.py` | Screenshot may expose live screen content; endpoint is local diagnostic only. |
 | Text DJ responses are toast-only | `app.py`, `client_api_daemon.py` | Product decision: no local Pi audio/DJ response playback. |
 | HA version compatibility is major/minor bounded | `ha.py` | Client `3.1.z` accepts HA `>=3.1.0` and `<3.2.0`. |
+| Output-device selector uses status plus devices fallback | `app.py`, `ha.py` | Speelt nu must let users switch HA-provided playback devices even when the status response omits the device list. |
 
 ## Dependency Inventory
 

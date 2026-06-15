@@ -20,6 +20,10 @@
   pass for polling cadence, QML Canvas repaints, log viewer size, media-list
   artwork pre-cache latency, album-art cache pressure and PySide6 memory/CPU
   usage.
+- Output-device list availability still depends on the HA contract returning a
+  usable `devices`/`output_devices` shape; the Pi now falls back to
+  `command:"devices"` when status omits it, but live HA variants should be
+  monitored.
 
 ## Closed
 
@@ -45,5 +49,9 @@
   Wachtrij and Afspeellijsten.
 - Queue/playlist artwork regression fixed by pre-caching art in backend workers
   and keeping QML delegates free of blocking Python cache calls.
+- Queue/playlist artwork/play-icon placement regression fixed by using anchored
+  media rows with fixed artwork and play-button columns.
+- Instellingen, Over and Logs no longer render as translucent overlays and
+  Instellingen/Over disable horizontal scrolling.
 - HA initiated `/api/device/command` calls are bridged from the API daemon to
   the UI process through a local command-event queue.

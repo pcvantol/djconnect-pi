@@ -1,5 +1,26 @@
 # Changelog
 
+## 3.1.44
+
+- Fixed Wachtrij/Afspeellijsten media-row rendering by replacing the delegate
+  `RowLayout` with explicit anchored artwork, text and fixed-size play button
+  positioning.
+- Removed the unsupported speaker emoji from Speelt nu and kept the
+  output-device selector functional with a fallback HA `devices` command when
+  status does not include the device list.
+- Made Instellingen, Over and Logs opaque full-screen views instead of
+  translucent overlays, and disabled horizontal scrolling in Instellingen and
+  Over.
+- Changed the Home Assistant URL in Instellingen to a label/value row, made the
+  Device ID row consistent, removed the no-voice explanatory text and changed
+  the save toast to "Instellingen opgeslagen".
+- Added an Apparaat herstarten confirmation dialog and kept the actual reboot
+  action behind the existing narrow systemctl sudoers rule.
+- Replays the DJConnect splash briefly when the screen wakes from the blanked
+  state.
+- Aligned the Speelt nu refresh button with the Wachtrij/Afspeellijsten refresh
+  buttons and expanded tests for the updated QML and HA device-list behavior.
+
 ## 3.1.43
 
 - Added `docs/TECHNICAL_DESIGN_DECISIONS.md` with reverse-engineered design

@@ -19,6 +19,7 @@ Window {
     property bool gamesOpen: activeScreen === "games"
     property bool aboutOpen: false
     property bool resetPairingConfirmOpen: false
+    property bool rebootConfirmOpen: false
     property bool forceScreenAwake: false
     property bool screenBlanked: djconnect.screenTimeoutSeconds > 0 && !idleTimer.running && !root.forceScreenAwake
     property real brightnessOverlayOpacity: root.screenBlanked ? 0 : 1 - (djconnect.screenBrightnessPercent / 100.0)
@@ -27,6 +28,15 @@ Window {
         if (value === "track") return djconnect.t("repeat_one")
         if (value === "context") return djconnect.t("repeat")
         return djconnect.t("repeat_off")
+    }
+
+    function wakeDisplay() {
+        var wasBlanked = root.screenBlanked
+        idleTimer.restart()
+        if (wasBlanked) {
+            root.splashVisible = true
+            splashTimer.restart()
+        }
     }
 
     component PurpleButton: Button {
@@ -146,6 +156,8 @@ Window {
     component MediaPlayButton: Button {
         id: control
 
+        width: 68
+        height: 58
         Layout.fillWidth: false
         Layout.fillHeight: false
         Layout.preferredWidth: 68
@@ -428,14 +440,16 @@ Window {
                                 GradientStop { position: 1.0; color: "#5524145f" }
                             }
 
-                            RowLayout {
+                            Item {
                                 anchors.fill: parent
                                 anchors.margins: 12
-                                spacing: 14
 
                                 Rectangle {
-                                    Layout.preferredWidth: 68
-                                    Layout.preferredHeight: 68
+                                    id: mediaArt
+                                    anchors.left: parent.left
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: 68
+                                    height: 68
                                     radius: 8
                                     color: modelData.tint
                                     clip: true
@@ -458,8 +472,12 @@ Window {
                                     }
                                 }
 
-                                ColumnLayout {
-                                    Layout.fillWidth: true
+                                Column {
+                                    anchors.left: mediaArt.right
+                                    anchors.leftMargin: 14
+                                    anchors.right: mediaPlay.left
+                                    anchors.rightMargin: 14
+                                    anchors.verticalCenter: parent.verticalCenter
                                     spacing: 2
 
                                     Text {
@@ -468,7 +486,7 @@ Window {
                                         font.pixelSize: 24
                                         font.bold: true
                                         elide: Text.ElideRight
-                                        Layout.fillWidth: true
+                                        width: parent.width
                                     }
 
                                     Text {
@@ -477,11 +495,14 @@ Window {
                                         color: "#b7c2d8"
                                         font.pixelSize: 17
                                         elide: Text.ElideRight
-                                        Layout.fillWidth: true
+                                        width: parent.width
                                     }
                                 }
 
                                 MediaPlayButton {
+                                    id: mediaPlay
+                                    anchors.right: parent.right
+                                    anchors.verticalCenter: parent.verticalCenter
                                     onClicked: djconnect.playUri(modelData.uri)
                                 }
                             }
@@ -524,6 +545,7 @@ Window {
     }
 
     Timer {
+        id: splashTimer
         interval: 1400
         running: true
         repeat: false
@@ -534,7 +556,7 @@ Window {
         anchors.fill: parent
         acceptedButtons: Qt.AllButtons
         propagateComposedEvents: true
-        onPressed: idleTimer.restart()
+        onPressed: root.wakeDisplay()
     }
 
     Rectangle {
@@ -573,7 +595,9 @@ Window {
 
         ColumnLayout {
             anchors.fill: parent
-            anchors.margins: root.edge
+            anchors.leftMargin: root.edge
+            anchors.topMargin: root.edge
+            anchors.rightMargin: 16
             anchors.bottomMargin: root.edge + 130
             spacing: 8
 
@@ -610,6 +634,7 @@ Window {
                     font.pixelSize: 18
                     Layout.preferredWidth: 142
                     Layout.preferredHeight: 48
+                    Layout.rightMargin: 0
                     onClicked: djconnect.manualRefresh()
                 }
 
@@ -800,20 +825,12 @@ Window {
                 Layout.preferredHeight: 54
                 spacing: 12
 
-                Text {
-                    text: "🔊"
-                    color: "#ffffff"
-                    font.pixelSize: 24
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                    Layout.preferredWidth: 38
-                }
-
                 ComboBox {
                     id: outputDeviceCombo
-                    model: djconnect.outputDevices
-                    visible: djconnect.outputDevices.length > 0
-                    currentIndex: Math.max(0, djconnect.outputDevices.indexOf(djconnect.outputDevice))
+                    property var deviceChoices: djconnect.outputDevices.length > 0 ? djconnect.outputDevices : (djconnect.outputDevice.length > 0 ? [djconnect.outputDevice] : [])
+                    model: deviceChoices
+                    visible: count > 0
+                    currentIndex: Math.max(0, deviceChoices.indexOf(djconnect.outputDevice))
                     font.pixelSize: 22
                     Layout.fillWidth: true
                     Layout.fillHeight: true
@@ -850,7 +867,7 @@ Window {
             Behavior on opacity { NumberAnimation { duration: 450 } }
 
             TapHandler {
-                onTapped: idleTimer.restart()
+                onTapped: root.wakeDisplay()
             }
         }
 
@@ -859,7 +876,7 @@ Window {
     Rectangle {
         id: settingsPanel
         anchors.fill: parent
-        color: "#d9070b16"
+        color: "#070b16"
         visible: settingsOpen && (djconnect.paired || djconnect.demoMode)
         z: 10
 
@@ -870,6 +887,7 @@ Window {
             anchors.bottomMargin: 130
             clip: true
             ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+            contentWidth: availableWidth
 
             ColumnLayout {
                 width: Math.max(0, settingsScroll.availableWidth)
@@ -883,12 +901,24 @@ Window {
                     Layout.fillWidth: true
                 }
 
-                Text {
-                    text: djconnect.deviceId
-                    color: "#9fb4b8"
-                    font.pixelSize: 18
-                    elide: Text.ElideMiddle
+                RowLayout {
                     Layout.fillWidth: true
+                    spacing: 14
+
+                    Text {
+                        text: djconnect.t("device_id")
+                        color: "#d7e2e4"
+                        font.pixelSize: 22
+                        Layout.preferredWidth: 176
+                    }
+
+                    Text {
+                        text: djconnect.deviceId
+                        color: "#f4f8f8"
+                        font.pixelSize: 20
+                        elide: Text.ElideMiddle
+                        Layout.fillWidth: true
+                    }
                 }
 
                 PurpleButton {
@@ -907,12 +937,25 @@ Window {
                     }
                 }
 
-            TextField {
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 14
+
+                Text {
+                    text: djconnect.t("ha_url")
+                    color: "#d7e2e4"
+                    font.pixelSize: 22
+                    Layout.preferredWidth: 176
+                }
+
+            Text {
                 id: haUrlField
                 text: djconnect.haUrl.length ? djconnect.haUrl : "http://homeassistant.local:8123"
-                placeholderText: djconnect.t("ha_url")
+                color: "#f4f8f8"
                 font.pixelSize: 24
                 Layout.fillWidth: true
+                elide: Text.ElideMiddle
+            }
             }
 
             RowLayout {
@@ -1095,18 +1138,10 @@ Window {
                 font.pixelSize: 24
                 Layout.fillWidth: true
                 Layout.preferredHeight: 58
-                onClicked: djconnect.rebootDevice()
+                onClicked: root.rebootConfirmOpen = true
             }
 
             Item { Layout.fillHeight: true }
-
-            Text {
-                text: djconnect.t("no_voice")
-                color: "#91a3a7"
-                font.pixelSize: 15
-                wrapMode: Text.WordWrap
-                Layout.fillWidth: true
-            }
         }
     }
     }
@@ -1679,7 +1714,7 @@ Window {
 
     Rectangle {
         anchors.fill: parent
-        color: "#f2070b16"
+        color: "#070b16"
         visible: djconnect.logsVisible
         z: 80
 
@@ -1818,8 +1853,72 @@ Window {
     }
 
     Rectangle {
+        id: rebootConfirmPanel
         anchors.fill: parent
-        color: "#f2070b16"
+        color: "#cc070b16"
+        visible: root.rebootConfirmOpen
+        z: 84
+
+        ModalBlocker {}
+
+        Rectangle {
+            anchors.centerIn: parent
+            width: Math.min(parent.width - 48, 520)
+            radius: 8
+            color: "#f0151020"
+            border.color: "#47345d"
+            border.width: 1
+
+            implicitHeight: rebootConfirmContent.implicitHeight + 44
+
+            ColumnLayout {
+                id: rebootConfirmContent
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.margins: 22
+                spacing: 18
+
+                Text {
+                    text: djconnect.t("reboot_confirm_title")
+                    color: "#ffffff"
+                    font.pixelSize: 28
+                    font.bold: true
+                    Layout.fillWidth: true
+                }
+
+                Text {
+                    text: djconnect.t("reboot_confirm_message")
+                    color: "#f4f0ff"
+                    font.pixelSize: 24
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+
+                DangerButton {
+                    text: djconnect.t("reboot_device")
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 56
+                    onClicked: {
+                        root.rebootConfirmOpen = false
+                        djconnect.rebootDevice()
+                    }
+                }
+
+                PurpleButton {
+                    text: djconnect.t("cancel")
+                    font.pixelSize: 24
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 56
+                    onClicked: root.rebootConfirmOpen = false
+                }
+            }
+        }
+    }
+
+    Rectangle {
+        anchors.fill: parent
+        color: "#070b16"
         visible: root.aboutOpen
         z: 82
 
@@ -1831,6 +1930,7 @@ Window {
             anchors.margins: 22
             clip: true
             ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+            contentWidth: availableWidth
 
             ColumnLayout {
                 width: Math.max(0, aboutScroll.availableWidth)
@@ -1974,7 +2074,7 @@ Window {
         Behavior on opacity { NumberAnimation { duration: 450 } }
 
         TapHandler {
-            onTapped: idleTimer.restart()
+            onTapped: root.wakeDisplay()
         }
     }
 }

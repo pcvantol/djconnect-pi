@@ -16,6 +16,7 @@ from djconnect_pi.app import (
     parse_queue_items,
     prepare_media_artwork,
 )
+from djconnect_pi.ha import HAClient
 
 
 def ensure_app() -> QCoreApplication:
@@ -416,6 +417,39 @@ def test_backend_output_device_dispatches_command(tmp_path: Path) -> None:
 
     assert backend.outputDevice == "Slaapkamer"
     assert calls == [("set_output", {"value": "Slaapkamer"})]
+
+
+def test_backend_refresh_loads_output_devices_when_status_omits_them(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token"
+    parser = HAClient(backend.cfg)
+    calls: list[tuple[str, dict[str, object]]] = []
+    statuses: list[object] = []
+
+    class FakeClient:
+        def command(self, command: str, **payload: object) -> dict[str, object]:
+            calls.append((command, payload))
+            if command == "status":
+                return {"playback": {"title": "Song", "artist": "Artist"}}
+            if command == "devices":
+                return {"devices": [{"name": "Slaapkamer R + Slaapkamer L"}]}
+            return {}
+
+        def playback_from_status(self, data: dict[str, object]) -> object:
+            return parser.playback_from_status(data)
+
+        def status(self, playback: object) -> dict[str, object]:
+            statuses.append(playback)
+            return {"success": True}
+
+    backend.client = FakeClient()  # type: ignore[assignment]
+    backend._refresh_worker()
+
+    assert [call[0] for call in calls] == ["status", "devices"]
+    assert statuses
+    assert statuses[0].output_devices == ("Slaapkamer R + Slaapkamer L",)
 
 
 def test_backend_skips_duplicate_media_loads_while_in_flight(tmp_path: Path) -> None:

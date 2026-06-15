@@ -52,24 +52,33 @@ Implemented:
   exceptions and touch user actions
 - Configurable screen blanking from the touch settings panel. Default is 120
   seconds and tap wakes the rendered screen.
+- When the screen wakes from the blanked state, the DJConnect startup splash is
+  shown briefly again before returning to the kiosk UI.
 - Previous/next track actions wake the rendered screen for 10 seconds, also
   when they arrive from Home Assistant through `/api/device/command`.
 - Configurable app-level brightness from the touch settings panel
-- Settings shows "Instellingen", has a red "Opnieuw koppelen" action with a
-  confirmation screen, a "Logs" button, no local Close button and a reboot
-  button.
+- Settings shows "Instellingen", uses label/value rows for read-only values
+  such as Device ID and Home Assistant URL, has a red "Opnieuw koppelen" action
+  with a confirmation screen, a "Logs" button, no local Close button and a
+  reboot button with confirmation.
 - Full-screen QML overlays consume touch input so underlying controls cannot be
   activated through logs/about/pairing/version/confirmation screens.
+- Logs, Over and Instellingen are opaque full-screen views, not translucent
+  overlays on top of Speelt nu.
 - Queue and playlist screens are opaque full main screens, not translucent
   overlays over Speelt nu.
 - Real Home Assistant empty queue/playlist responses stay empty and show
   "Geen wachtrij" or "Geen afspeellijsten"; demo queue/playlist samples are
   only shown while local demo mode is active.
 - Speelt nu exposes the HA-provided playback output-device list and dispatches
-  output selection with `command:"set_output"`.
+  output selection with `command:"set_output"`. If the HA status response omits
+  the list, the client asks HA for `command:"devices"` as a fallback.
 - Wachtrij and Afspeellijsten load HA-provided artwork asynchronously from QML
   and never call the Python image cache from row delegates. Blocking network
   or disk work in media-list delegates caused touch UI hangs on Pi Zero 2 W.
+- Wachtrij and Afspeellijsten use explicit anchored artwork/text/play-button
+  positioning instead of a delegate `RowLayout`; this avoids misplaced album
+  art and play icons on the HyperPixel runtime.
 - Queue/playlist load requests are deduplicated while a matching request is in
   flight, so repeated navigation taps cannot flood Home Assistant or the QML
   thread.
