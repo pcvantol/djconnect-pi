@@ -222,6 +222,31 @@ Window {
         onWheel: function(wheel) { wheel.accepted = true }
     }
 
+    component AppBackground: Item {
+        anchors.fill: parent
+
+        Rectangle {
+            anchors.fill: parent
+            gradient: Gradient {
+                orientation: Gradient.Vertical
+                GradientStop { position: 0.0; color: "#2b0a5f" }
+                GradientStop { position: 0.48; color: "#191053" }
+                GradientStop { position: 1.0; color: "#070b16" }
+            }
+        }
+
+        Rectangle {
+            anchors.fill: parent
+            opacity: 0.36
+            gradient: Gradient {
+                orientation: Gradient.Horizontal
+                GradientStop { position: 0.0; color: "#2f8cff" }
+                GradientStop { position: 0.48; color: "#00000000" }
+                GradientStop { position: 1.0; color: "#8b5cf6" }
+            }
+        }
+    }
+
     component IconButton: Button {
         id: control
         property string iconName: "play"
@@ -368,14 +393,8 @@ Window {
         color: "#070b16"
         z: 16
 
+        AppBackground {}
         ModalBlocker {}
-
-        gradient: Gradient {
-            orientation: Gradient.Vertical
-            GradientStop { position: 0.0; color: "#2b0a5f" }
-            GradientStop { position: 0.48; color: "#191053" }
-            GradientStop { position: 1.0; color: "#070b16" }
-        }
 
         ColumnLayout {
             anchors.fill: parent
@@ -589,47 +608,18 @@ Window {
         onPressed: root.wakeDisplay()
     }
 
-    Rectangle {
+    Item {
         anchors.fill: parent
-        gradient: Gradient {
-            orientation: Gradient.Vertical
-            GradientStop { position: 0.0; color: "#2b0a5f" }
-            GradientStop { position: 0.42; color: "#21105c" }
-            GradientStop { position: 1.0; color: "#070b16" }
-        }
 
-        Rectangle {
-            anchors.fill: parent
-            opacity: 0.36
-            gradient: Gradient {
-                orientation: Gradient.Horizontal
-                GradientStop { position: 0.0; color: "#2f8cff" }
-                GradientStop { position: 0.48; color: "#00000000" }
-                GradientStop { position: 1.0; color: "#8b5cf6" }
-            }
-        }
-
-        Rectangle {
-            id: ambient
-            anchors.centerIn: parent
-            width: 680
-            height: 680
-            radius: 340
-            color: djconnect.playing ? "#2f8cff" : "#8b5cf6"
-            opacity: djconnect.playing ? 0.22 : 0.16
-            scale: djconnect.playing ? 1.03 : 0.94
-
-            Behavior on scale { NumberAnimation { duration: 600; easing.type: Easing.OutCubic } }
-            Behavior on color { ColorAnimation { duration: 450 } }
-        }
+        AppBackground {}
 
         ColumnLayout {
             anchors.fill: parent
             anchors.leftMargin: root.edge
             anchors.topMargin: root.edge
             anchors.rightMargin: 16
-            anchors.bottomMargin: root.edge + 130
-            spacing: 8
+            anchors.bottomMargin: root.edge + 112
+            spacing: 9
 
             RowLayout {
                 Layout.fillWidth: true
@@ -637,10 +627,10 @@ Window {
                 spacing: 10
 
                 Rectangle {
-                    width: 10
-                    height: 10
-                    radius: 5
-                    color: djconnect.paired ? "#1db954" : "#e0a83a"
+                    width: 14
+                    height: 14
+                    radius: 7
+                    color: djconnect.paired ? (djconnect.backendAvailable ? "#32d35a" : "#ff3b30") : "#e0a83a"
                     Layout.alignment: Qt.AlignVCenter
                 }
 
@@ -762,7 +752,7 @@ Window {
 
             RowLayout {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 86
+                Layout.preferredHeight: 94
                 spacing: 22
 
                 IconButton {
@@ -785,12 +775,12 @@ Window {
 
             RowLayout {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 32
+                Layout.preferredHeight: 38
                 spacing: 12
 
                 Rectangle {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 10
+                    Layout.preferredHeight: 12
                     Layout.alignment: Qt.AlignVCenter
                     radius: 5
                     color: "#5524145f"
@@ -821,13 +811,13 @@ Window {
 
             RowLayout {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 46
+                Layout.preferredHeight: 56
                 spacing: 14
 
                 Text {
                     text: djconnect.t("vol")
                     color: "#c6d3d6"
-                    font.pixelSize: 16
+                    font.pixelSize: 18
                     Layout.preferredWidth: 38
                 }
 
@@ -844,7 +834,7 @@ Window {
                 Text {
                     text: djconnect.volume
                     color: "#f4f8f8"
-                    font.pixelSize: 18
+                    font.pixelSize: 20
                     horizontalAlignment: Text.AlignRight
                     Layout.preferredWidth: 42
                 }
@@ -852,7 +842,7 @@ Window {
 
             RowLayout {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 54
+                Layout.preferredHeight: 66
                 spacing: 12
 
                 ComboBox {
@@ -861,7 +851,7 @@ Window {
                     model: deviceChoices
                     visible: count > 0
                     currentIndex: Math.max(0, deviceChoices.indexOf(djconnect.outputDevice))
-                    font.pixelSize: 22
+                    font.pixelSize: 24
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     onActivated: function(index) { djconnect.setOutputDevice(outputDeviceCombo.textAt(index)) }
@@ -870,7 +860,7 @@ Window {
 
             RowLayout {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 64
+                Layout.preferredHeight: 78
                 spacing: 18
 
                 IconButton {
@@ -909,6 +899,8 @@ Window {
         color: "#070b16"
         visible: settingsOpen && (djconnect.paired || djconnect.demoMode)
         z: 10
+
+        AppBackground {}
 
         ScrollView {
             id: settingsScroll
@@ -1748,6 +1740,7 @@ Window {
         visible: djconnect.logsVisible
         z: 80
 
+        AppBackground {}
         ModalBlocker {}
 
         ColumnLayout {
@@ -1952,6 +1945,7 @@ Window {
         visible: root.aboutOpen
         z: 82
 
+        AppBackground {}
         ModalBlocker {}
 
         ScrollView {

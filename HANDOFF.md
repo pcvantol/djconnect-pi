@@ -50,6 +50,15 @@ Implemented:
 - Startup Raspberry Pi system-info logging for UI and API daemon
 - Debug logging around HA/API calls, HTTP status codes, JSON parse failures,
   exceptions and touch user actions
+- HA calls and backend workers log elapsed time for pair/status/command,
+  refresh, playback commands, queue loads, playlist loads and artwork caching
+  so Pi responsiveness regressions can be traced from persistent logs.
+- Home Assistant 401 responses are parsed as authentication failures instead of
+  showing raw JSON on the kiosk screen. The user gets a concise toast/status and
+  the connection dot turns red until a successful refresh restores backend
+  health.
+- Home Assistant `success:false` with `backend_available:false` is treated as a
+  music-backend-unavailable state and shown as a short translated status/toast.
 - Configurable screen blanking from the touch settings panel. Default is 120
   seconds and tap wakes the rendered screen.
 - When the screen wakes from the blanked state, the DJConnect startup splash is
@@ -61,6 +70,9 @@ Implemented:
   such as Device ID and Home Assistant URL, has a red "Opnieuw koppelen" action
   with a confirmation screen, a "Logs" button, no local Close button and a
   reboot button with confirmation.
+- The reboot button uses the installer-created narrow passwordless sudoers rule
+  and tries absolute `/usr/bin/systemctl reboot` and `/bin/systemctl reboot`
+  first from the `djconnect` runtime user.
 - Full-screen QML overlays consume touch input so underlying controls cannot be
   activated through logs/about/pairing/version/confirmation screens.
 - Logs, Over and Instellingen are opaque full-screen views, not translucent
@@ -75,9 +87,14 @@ Implemented:
 - Speelt nu exposes the HA-provided playback output-device list and dispatches
   output selection with `command:"set_output"`. If the HA status response omits
   the list, the client asks HA for `command:"devices"` as a fallback.
-- Wachtrij and Afspeellijsten load HA-provided artwork asynchronously from QML
-  and never call the Python image cache from row delegates. Blocking network
-  or disk work in media-list delegates caused touch UI hangs on Pi Zero 2 W.
+- Output-device changes are validated live against the HA response. Rejected
+  output selections roll back to the previous device and are logged.
+- Wachtrij and Afspeellijsten emit HA-provided row data immediately after the
+  HA response and cache album art afterward on a background worker. Blocking
+  network or disk work in media-list delegates, or before list emission, caused
+  touch UI hangs on Pi Zero 2 W.
+- The Logs screen reads a bounded tail of the persistent log file before compact
+  formatting, so a large rotated log cannot freeze the kiosk UI.
 - Wachtrij and Afspeellijsten use explicit artwork/text/play-button geometry
   instead of a delegate `RowLayout` or cross-item anchors; this avoids missing
   titles, subtitles and play icons on the HyperPixel runtime.

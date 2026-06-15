@@ -20,7 +20,7 @@ from PySide6.QtQuickControls2 import QQuickStyle
 import requests
 
 from .config import CLIENT_TYPE, DEFAULT_CONFIG_PATH, DEFAULT_LOG_PATH, Config, load_config, save_config
-from .ha import DJConnectError, HAClient, Playback, ProtocolVersionMismatch
+from .ha import AuthenticationError, BackendUnavailable, DJConnectError, HAClient, Playback, ProtocolVersionMismatch
 from .i18n import LANGUAGES, normalize_language, translate
 from .logging_config import setup_logging
 from .system_info import log_raspberry_pi_system_info
@@ -30,10 +30,12 @@ LOG_LINE_RE = re.compile(
     r"^\d{4}-\d{2}-\d{2}\s+(?P<time>\d{2}:\d{2}:\d{2})(?:[,.]\d+)?\s+(?P<level>[A-Z]+)\s+(?P<rest>.*)$"
 )
 LOG_LEVEL_SHORT = {"DEBUG": "DBG", "INFO": "INF", "WARNING": "WRN", "ERROR": "ERR", "CRITICAL": "ERR"}
+LOG_DISPLAY_MAX_BYTES = 160_000
 
 
 class DJConnectBackend(QObject):
     statusTextChanged = Signal()
+    backendAvailableChanged = Signal()
     titleChanged = Signal()
     artistChanged = Signal()
     imageUrlChanged = Signal()
@@ -72,6 +74,9 @@ class DJConnectBackend(QObject):
     _busyReady = Signal(bool)
     _versionMismatchReady = Signal(str, str)
     _mediaListReady = Signal(str, object)
+    _outputDeviceRejected = Signal(str, str)
+    _backendAvailableReady = Signal(bool)
+    _toastReady = Signal(str, int)
 
     def __init__(self, config_path: Path) -> None:
         super().__init__()
@@ -98,6 +103,7 @@ class DJConnectBackend(QObject):
         self._playlist_items: list[dict[str, object]] = []
         self._media_loads_in_flight: set[str] = set()
         self._status_text = self.tr_key("paired" if self.cfg.paired else "not_paired")
+        self._backend_available = True
         self._busy = False
         self._executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="djconnect")
         self._poll_timer = QTimer(self)
@@ -114,12 +120,19 @@ class DJConnectBackend(QObject):
         self._busyReady.connect(self._set_busy)
         self._versionMismatchReady.connect(self._apply_version_mismatch)
         self._mediaListReady.connect(self._apply_media_list)
+        self._outputDeviceRejected.connect(self._apply_output_device_rejection)
+        self._backendAvailableReady.connect(self._set_backend_available)
+        self._toastReady.connect(self._show_toast)
         QTimer.singleShot(250, self.refresh)
         _LOGGER.info("DJConnect Pi client backend started for %s", self.cfg.device_id)
 
     @Property(str, notify=statusTextChanged)
     def statusText(self) -> str:
         return self._status_text
+
+    @Property(bool, notify=backendAvailableChanged)
+    def backendAvailable(self) -> bool:
+        return self._backend_available
 
     @Property(str, notify=titleChanged)
     def title(self) -> str:
@@ -497,13 +510,14 @@ class DJConnectBackend(QObject):
         value = value.strip()
         if not value:
             return
+        previous = self.playback.output_device
         self.playback.output_device = value
         self.outputDeviceChanged.emit()
         _LOGGER.info("User selected output device: %s", value)
         self.showToast(value)
         if self._demo_mode:
             return
-        self.command("set_output", value=value)
+        self._run("set_output", lambda: self._set_output_worker(value, previous))
 
     @Slot()
     def enterDemoMode(self) -> None:
@@ -572,7 +586,13 @@ class DJConnectBackend(QObject):
     def rebootDevice(self) -> None:
         _LOGGER.info("User requested device reboot from touch UI")
         self._set_status_text(self.tr_key("rebooting"))
-        commands = (["systemctl", "reboot"], ["sudo", "-n", "systemctl", "reboot"])
+        self.showToast(self.tr_key("rebooting"))
+        commands = (
+            ["sudo", "-n", "/usr/bin/systemctl", "reboot"],
+            ["sudo", "-n", "/bin/systemctl", "reboot"],
+            ["/usr/bin/systemctl", "reboot"],
+            ["/bin/systemctl", "reboot"],
+        )
         last_error: Exception | None = None
         for command in commands:
             try:
@@ -582,7 +602,9 @@ class DJConnectBackend(QObject):
             except Exception as exc:
                 last_error = exc
                 _LOGGER.warning("Reboot command failed: %s: %s", " ".join(command), exc)
-        self._set_status_text(self.tr_key("reboot_failed", error=last_error))
+        message = self.tr_key("reboot_failed", error=last_error)
+        self._set_status_text(message)
+        self._show_toast(message, 5000)
 
     @Slot()
     def showLogs(self) -> None:
@@ -591,7 +613,7 @@ class DJConnectBackend(QObject):
         path = Path(self.cfg.log_file)
         try:
             if path.exists():
-                data = path.read_text(encoding="utf-8", errors="replace")
+                data = _read_tail_text(path, LOG_DISPLAY_MAX_BYTES)
                 self._logs_text = _format_logs_for_display(data)
             else:
                 self._logs_text = self.tr_key("logs_missing")
@@ -703,6 +725,7 @@ class DJConnectBackend(QObject):
         self._pairingReady.emit(True, self.tr_key("paired"))
 
     def _refresh_worker(self) -> None:
+        started = time.monotonic()
         _LOGGER.debug("Refreshing playback status")
         data = self.client.command("status") if self.paired else self.client.status()
         playback = self.client.playback_from_status(data)
@@ -719,27 +742,65 @@ class DJConnectBackend(QObject):
         if self.paired:
             self.client.status(playback)
         self._playbackReady.emit(playback)
+        _LOGGER.info("Refresh completed in %.0fms", _elapsed_ms(started))
 
     def _command_worker(self, command: str, **payload: object) -> None:
+        started = time.monotonic()
         _LOGGER.info("Sending playback command: %s", command)
         data = self.client.command(command, **payload)
         self._playbackReady.emit(self.client.playback_from_status(data))
+        _LOGGER.info("Playback command %s completed in %.0fms", command, _elapsed_ms(started))
+
+    def _set_output_worker(self, value: str, previous: str) -> None:
+        started = time.monotonic()
+        try:
+            data = self.client.command("set_output", value=value)
+            playback = self.client.playback_from_status(data)
+            if playback.output_devices and value not in playback.output_devices:
+                raise DJConnectError(f"Output device not available: {value}")
+            if playback.output_device and playback.output_device != value:
+                raise DJConnectError(f"Output device not accepted: {value}")
+            if not playback.output_device:
+                playback.output_device = value
+            if not playback.output_devices:
+                playback.output_devices = self.playback.output_devices or ((value,) if value else ())
+            self._playbackReady.emit(playback)
+            _LOGGER.info("Output device %s validated in %.0fms", value, _elapsed_ms(started))
+        except Exception:
+            self._outputDeviceRejected.emit(previous, value)
+            raise
 
     def _load_queue_worker(self) -> None:
+        started = time.monotonic()
         _LOGGER.info("Loading queue from Home Assistant")
         data = self.client.command("queue", limit=100)
         items = parse_queue_items(data)
-        prepare_media_artwork(items)
         _LOGGER.info("Loaded %s queue items from Home Assistant", len(items))
         self._mediaListReady.emit("queue", items)
+        _LOGGER.info("Queue list displayed in %.0fms", _elapsed_ms(started))
+        self._cache_media_artwork_async("queue", items)
 
     def _load_playlists_worker(self) -> None:
+        started = time.monotonic()
         _LOGGER.info("Loading playlists from Home Assistant")
         data = self.client.command("playlists")
         items = parse_playlist_items(data)
-        prepare_media_artwork(items)
         _LOGGER.info("Loaded %s playlists from Home Assistant", len(items))
         self._mediaListReady.emit("playlists", items)
+        _LOGGER.info("Playlist list displayed in %.0fms", _elapsed_ms(started))
+        self._cache_media_artwork_async("playlists", items)
+
+    def _cache_media_artwork_async(self, kind: str, items: list[dict[str, object]]) -> None:
+        if not items:
+            return
+
+        def worker() -> None:
+            started = time.monotonic()
+            cached = prepare_media_artwork([dict(item) for item in items])
+            _LOGGER.info("Cached %s artwork for %s items in %.0fms", kind, len(cached), _elapsed_ms(started))
+            self._mediaListReady.emit(kind, cached)
+
+        self._executor.submit(worker)
 
     def _show_dj_response(self, payload: dict[str, object]) -> dict[str, object]:
         text = str(payload.get("dj_text") or payload.get("text") or payload.get("message") or "").strip()
@@ -790,13 +851,28 @@ class DJConnectBackend(QObject):
             try:
                 worker()
             except ProtocolVersionMismatch as exc:
+                self._backendAvailableReady.emit(False)
                 _LOGGER.warning("%s blocked by version mismatch: %s", label, exc)
                 self._versionMismatchReady.emit(exc.client_version, exc.ha_version)
                 self._statusReady.emit(str(exc))
+            except AuthenticationError as exc:
+                self._backendAvailableReady.emit(False)
+                message = self.tr_key("ha_auth_failed")
+                _LOGGER.warning("%s authentication failed: %s", label, exc)
+                self._statusReady.emit(message)
+                self._toastReady.emit(message, 5000)
+            except BackendUnavailable as exc:
+                self._backendAvailableReady.emit(False)
+                _LOGGER.warning("%s backend unavailable: %s", label, exc)
+                message = self.tr_key("backend_unavailable")
+                self._statusReady.emit(message)
+                self._toastReady.emit(message, 5000)
             except DJConnectError as exc:
+                self._backendAvailableReady.emit(False)
                 _LOGGER.warning("%s failed: %s", label, exc)
                 self._statusReady.emit(str(exc))
             except Exception as exc:
+                self._backendAvailableReady.emit(False)
                 _LOGGER.exception("%s failed unexpectedly", label)
                 self._statusReady.emit(self.tr_key("offline", error=exc))
             finally:
@@ -808,6 +884,7 @@ class DJConnectBackend(QObject):
 
     @Slot(object)
     def _apply_playback(self, playback: Playback) -> None:
+        self._set_backend_available(True)
         if self._version_mismatch_visible:
             self._version_mismatch_visible = False
             self._version_mismatch_text = ""
@@ -846,8 +923,16 @@ class DJConnectBackend(QObject):
             return
         self.mediaListsChanged.emit()
 
+    @Slot(str, str)
+    def _apply_output_device_rejection(self, previous: str, attempted: str) -> None:
+        self.playback.output_device = previous
+        self.outputDeviceChanged.emit()
+        _LOGGER.warning("Output device selection rejected: %s", attempted)
+
     @Slot(bool, str)
     def _apply_pairing(self, paired: bool, message: str) -> None:
+        if paired:
+            self._set_backend_available(True)
         if self._version_mismatch_visible:
             self._version_mismatch_visible = False
             self._version_mismatch_text = ""
@@ -865,6 +950,12 @@ class DJConnectBackend(QObject):
             return
         self._status_text = value
         self.statusTextChanged.emit()
+
+    def _set_backend_available(self, value: bool) -> None:
+        if self._backend_available == value:
+            return
+        self._backend_available = value
+        self.backendAvailableChanged.emit()
 
     def _set_busy(self, value: bool) -> None:
         if self._busy == value:
@@ -1027,6 +1118,19 @@ def _format_logs_for_display(data: str, max_chars: int = 12000) -> str:
         formatted.append(f"{match.group('time')} {level} {match.group('rest')}")
     result = "\n".join(formatted)
     return result[-max_chars:] if len(result) > max_chars else result
+
+
+def _read_tail_text(path: Path, max_bytes: int) -> str:
+    size = path.stat().st_size
+    with path.open("rb") as handle:
+        if size > max_bytes:
+            handle.seek(-max_bytes, 2)
+        data = handle.read()
+    return data.decode("utf-8", errors="replace")
+
+
+def _elapsed_ms(started: float) -> float:
+    return (time.monotonic() - started) * 1000
 
 
 def _format_duration(seconds: int) -> str:

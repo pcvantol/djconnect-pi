@@ -1,5 +1,32 @@
 # Changelog
 
+## 3.1.48
+
+- Added explicit Home Assistant backend-unavailable handling so
+  `success:false` + `backend_available:false` responses become a short user
+  status instead of a hanging or incomplete UI.
+- Added 401 authentication handling for Home Assistant responses: the raw JSON
+  body is no longer shown on screen, the user sees a concise toast/status, and
+  the status dot turns red while the backend connection is unhealthy.
+- Added live output-device validation and rollback. A selected output device is
+  accepted only after HA returns it as active/available; rejected selections are
+  restored and logged.
+- Capped the on-device Logs screen to a bounded tail read before formatting so
+  large persistent log files cannot stall the touch UI.
+- Added performance timing logs around HA HTTP calls, refreshes, playback
+  commands, queue loads, playlist loads and artwork caching.
+- Queue and playlist rows are emitted immediately after the HA response; album
+  art is cached asynchronously afterward so slow image downloads no longer block
+  list rendering.
+- Fixed the touch reboot action to use the installer-created passwordless
+  absolute `systemctl reboot` sudoers rule first.
+- Reused the same DJConnect purple/blue app gradient across Speelt nu,
+  Wachtrij, Afspeellijsten, Logs, Instellingen and Over, and expanded Speelt nu
+  controls into the unused vertical space above the bottom navigation.
+- Increased the status dot size and added tests for authentication errors,
+  backend availability state, log tailing, output-device rollback, non-blocking
+  playlist rendering and QML background/control sizing.
+
 ## 3.1.47
 
 - Fixed a HyperPixel row-rendering regression where Wachtrij/Afspeellijsten

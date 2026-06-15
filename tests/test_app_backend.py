@@ -5,18 +5,20 @@ import json
 import subprocess
 from unittest.mock import Mock, patch
 
+import pytest
 from PySide6.QtCore import QCoreApplication
 
 from djconnect_pi.app import (
     DJConnectBackend,
     _format_duration,
     _format_logs_for_display,
+    _read_tail_text,
     cached_image_url,
     parse_playlist_items,
     parse_queue_items,
     prepare_media_artwork,
 )
-from djconnect_pi.ha import HAClient
+from djconnect_pi.ha import AuthenticationError, HAClient
 
 
 def ensure_app() -> QCoreApplication:
@@ -47,6 +49,13 @@ def test_log_display_uses_compact_touch_prefix() -> None:
     assert "17:53:51 DBG djconnect_pi.ha: Payload" in text
     assert "17:53:52 ERR djconnect_pi.ha: Failed" in text
     assert "2026-06-13" not in text
+
+
+def test_log_tail_reader_caps_large_files(tmp_path: Path) -> None:
+    log_file = tmp_path / "client.log"
+    log_file.write_text("A" * 200 + "TAIL", encoding="utf-8")
+
+    assert _read_tail_text(log_file, 8) == "AAAATAIL"
 
 
 def test_duration_format_for_now_playing_progress() -> None:
@@ -387,20 +396,40 @@ def test_backend_toast_can_be_shown_and_hidden(tmp_path: Path) -> None:
     assert backend.toastText == ""
 
 
-def test_backend_reboot_falls_back_to_passwordless_sudo(tmp_path: Path) -> None:
+def test_backend_auth_error_marks_backend_unavailable_and_shows_toast(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+
+    class FakeExecutor:
+        def submit(self, worker):
+            worker()
+
+    backend._executor = FakeExecutor()  # type: ignore[assignment]
+    backend._run("refresh", lambda: (_ for _ in ()).throw(AuthenticationError("unauthorized")))
+
+    assert backend.backendAvailable is False
+    assert backend.statusText == backend.t("ha_auth_failed")
+    assert backend.toastVisible is True
+    assert backend.toastText == backend.t("ha_auth_failed")
+
+
+def test_backend_reboot_uses_passwordless_absolute_systemctl(tmp_path: Path) -> None:
     ensure_app()
     backend = DJConnectBackend(tmp_path / "config.json")
     calls: list[list[str]] = []
 
     def fake_run(command: list[str], **_kwargs: object) -> None:
         calls.append(command)
-        if command == ["systemctl", "reboot"]:
+        if command == ["sudo", "-n", "/usr/bin/systemctl", "reboot"]:
             raise subprocess.CalledProcessError(1, command)
 
     with patch("djconnect_pi.app.subprocess.run", side_effect=fake_run):
         backend.rebootDevice()
 
-    assert calls == [["systemctl", "reboot"], ["sudo", "-n", "systemctl", "reboot"]]
+    assert calls == [
+        ["sudo", "-n", "/usr/bin/systemctl", "reboot"],
+        ["sudo", "-n", "/bin/systemctl", "reboot"],
+    ]
 
 
 def test_backend_version_mismatch_blocks_ui_and_triggers_update(tmp_path: Path) -> None:
@@ -432,13 +461,34 @@ def test_backend_volume_clamps_and_dispatches_command(tmp_path: Path) -> None:
 def test_backend_output_device_dispatches_command(tmp_path: Path) -> None:
     ensure_app()
     backend = DJConnectBackend(tmp_path / "config.json")
-    calls: list[tuple[str, dict[str, object]]] = []
-    backend.command = lambda command, **payload: calls.append((command, payload))  # type: ignore[method-assign]
+    calls: list[str] = []
+    backend._run = lambda label, worker: calls.append(label)  # type: ignore[method-assign]
 
     backend.setOutputDevice(" Slaapkamer ")
 
     assert backend.outputDevice == "Slaapkamer"
-    assert calls == [("set_output", {"value": "Slaapkamer"})]
+    assert calls == ["set_output"]
+
+
+def test_backend_output_device_worker_rolls_back_rejected_device(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.playback.output_device = "Woonkamer"
+    backend.playback.output_devices = ("Woonkamer", "Keuken")
+
+    class FakeClient:
+        def command(self, command: str, **payload: object) -> dict[str, object]:
+            return {"playback": {"output_device": "Badkamer", "output_devices": ["Woonkamer", "Keuken"]}}
+
+        def playback_from_status(self, data: dict[str, object]) -> object:
+            return HAClient(backend.cfg).playback_from_status(data)
+
+    backend.client = FakeClient()  # type: ignore[assignment]
+
+    with pytest.raises(Exception, match="Output device not available"):
+        backend._set_output_worker("Badkamer", "Woonkamer")
+
+    assert backend.outputDevice == "Woonkamer"
 
 
 def test_backend_refresh_loads_output_devices_when_status_omits_them(tmp_path: Path) -> None:
@@ -488,6 +538,33 @@ def test_backend_queue_request_is_limited_to_100_items(tmp_path: Path) -> None:
     backend._load_queue_worker()
 
     assert calls == [("queue", {"limit": 100})]
+
+
+def test_backend_playlists_are_emitted_before_artwork_cache(tmp_path: Path, monkeypatch) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    emitted: list[tuple[str, list[dict[str, object]]]] = []
+    submitted: list[object] = []
+    backend._mediaListReady.connect(lambda kind, items: emitted.append((kind, items)))
+    monkeypatch.setattr("djconnect_pi.app.prepare_media_artwork", lambda items: items)
+
+    class FakeExecutor:
+        def submit(self, worker):
+            submitted.append(worker)
+
+    class FakeClient:
+        def command(self, command: str, **payload: object) -> dict[str, object]:
+            return {"playlists": [{"name": "Friday Night", "uri": "spotify:playlist:1", "image_url": "https://example.test/a.jpg"}]}
+
+    backend._executor = FakeExecutor()  # type: ignore[assignment]
+    backend.client = FakeClient()  # type: ignore[assignment]
+
+    backend._load_playlists_worker()
+
+    assert emitted[0][0] == "playlists"
+    assert emitted[0][1][0]["title"] == "Friday Night"
+    assert emitted[0][1][0]["imageUrl"] == "https://example.test/a.jpg"
+    assert submitted
 
 
 def test_backend_skips_duplicate_media_loads_while_in_flight(tmp_path: Path) -> None:

@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 import logging
+import time
 import requests
 
 from .config import CLIENT_TYPE, Config
@@ -11,6 +12,14 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class DJConnectError(RuntimeError):
+    pass
+
+
+class BackendUnavailable(DJConnectError):
+    pass
+
+
+class AuthenticationError(DJConnectError):
     pass
 
 
@@ -37,7 +46,7 @@ class Playback:
 
 
 class HAClient:
-    def __init__(self, cfg: Config, timeout: float = 8.0) -> None:
+    def __init__(self, cfg: Config, timeout: float = 4.0) -> None:
         self.cfg = cfg
         self.timeout = timeout
 
@@ -45,8 +54,9 @@ class HAClient:
         payload = self._base_payload(pair_code=pair_code, ha_pairing_status="pending")
         url = self._url("/api/djconnect/pair")
         _LOGGER.debug("POST %s for device_id=%s client_type=%s", url, self.cfg.device_id, CLIENT_TYPE)
+        started = time.monotonic()
         response = requests.post(url, json=payload, timeout=self.timeout)
-        _LOGGER.debug("POST %s returned HTTP %s", url, response.status_code)
+        _LOGGER.debug("POST %s returned HTTP %s in %.0fms", url, response.status_code, _elapsed_ms(started))
         data = self._json(response)
         self._validate_ha_version(data)
         token = data.get("device_token") or data.get("token")
@@ -72,13 +82,14 @@ class HAClient:
             )
         url = self._url("/api/djconnect/status")
         _LOGGER.debug("POST %s paired=%s playback_included=%s", url, self.cfg.paired, playback is not None)
+        started = time.monotonic()
         response = requests.post(
             url,
             json=payload,
             headers=self._headers(),
             timeout=self.timeout,
         )
-        _LOGGER.debug("POST %s returned HTTP %s", url, response.status_code)
+        _LOGGER.debug("POST %s returned HTTP %s in %.0fms", url, response.status_code, _elapsed_ms(started))
         data = self._json(response)
         self._validate_ha_version(data)
         return data
@@ -87,13 +98,14 @@ class HAClient:
         body = self._base_payload(command=command, **payload)
         url = self._url("/api/djconnect/command")
         _LOGGER.debug("POST %s command=%s payload_keys=%s", url, command, sorted(payload))
+        started = time.monotonic()
         response = requests.post(
             url,
             json=body,
             headers=self._headers(),
             timeout=self.timeout,
         )
-        _LOGGER.debug("POST %s command=%s returned HTTP %s", url, command, response.status_code)
+        _LOGGER.debug("POST %s command=%s returned HTTP %s in %.0fms", url, command, response.status_code, _elapsed_ms(started))
         data = self._json(response)
         self._validate_ha_version(data)
         return data
@@ -186,25 +198,35 @@ class HAClient:
         if response.status_code == 426:
             _LOGGER.warning("Home Assistant protocol mismatch HTTP 426")
             raise ProtocolVersionMismatch(self.cfg.version, "unknown", f"Protocol version mismatch: {response.text}")
+        data: dict[str, Any] = {}
+        if response.content:
+            try:
+                parsed = response.json()
+            except ValueError as exc:
+                _LOGGER.warning(
+                    "Home Assistant returned invalid JSON: status=%s bytes=%s error=%s",
+                    response.status_code,
+                    len(response.content),
+                    exc,
+                )
+                raise DJConnectError("Home Assistant returned invalid JSON") from exc
+            if not isinstance(parsed, dict):
+                _LOGGER.warning("Home Assistant returned non-object JSON: %s", type(parsed).__name__)
+                raise DJConnectError("Home Assistant returned non-object JSON")
+            data = parsed
         if response.status_code >= 400:
-            _LOGGER.warning("Home Assistant returned HTTP %s", response.status_code)
-            raise DJConnectError(f"Home Assistant returned {response.status_code}: {response.text}")
+            error = str(data.get("error") or data.get("message") or response.text or f"HTTP {response.status_code}")
+            _LOGGER.warning("Home Assistant returned HTTP %s: %s", response.status_code, error)
+            if response.status_code == 401:
+                raise AuthenticationError(error)
+            raise DJConnectError(f"Home Assistant returned HTTP {response.status_code}: {error}")
         if not response.content:
             _LOGGER.debug("Home Assistant returned empty response body")
             return {}
-        try:
-            data = response.json()
-        except ValueError as exc:
-            _LOGGER.warning(
-                "Home Assistant returned invalid JSON: status=%s bytes=%s error=%s",
-                response.status_code,
-                len(response.content),
-                exc,
-            )
-            raise DJConnectError("Home Assistant returned invalid JSON") from exc
-        if not isinstance(data, dict):
-            _LOGGER.warning("Home Assistant returned non-object JSON: %s", type(data).__name__)
-            raise DJConnectError("Home Assistant returned non-object JSON")
+        if data.get("success") is False and data.get("backend_available") is False:
+            error = str(data.get("error") or data.get("message") or "playback backend unavailable")
+            _LOGGER.warning("Home Assistant playback backend unavailable: %s", error)
+            raise BackendUnavailable(error)
         _LOGGER.debug("Home Assistant JSON response keys=%s", sorted(data))
         return data
 
@@ -226,6 +248,10 @@ def _major_minor(version: str) -> tuple[int, int] | None:
         return int(parts[0]), int(parts[1])
     except ValueError:
         return None
+
+
+def _elapsed_ms(started: float) -> float:
+    return (time.monotonic() - started) * 1000
 
 
 def _seconds_from_playback(playback: dict[str, Any], *keys: str) -> int:

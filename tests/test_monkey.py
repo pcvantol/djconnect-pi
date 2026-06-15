@@ -60,7 +60,7 @@ def test_backend_monkey_reboot_and_quit_are_safe(tmp_path: Path, monkeypatch) ->
 
     with patch("djconnect_pi.app.subprocess.run") as run:
         backend.rebootDevice()
-    run.assert_called_once_with(["systemctl", "reboot"], check=True, timeout=5)
+    run.assert_called_once_with(["sudo", "-n", "/usr/bin/systemctl", "reboot"], check=True, timeout=5)
 
     app = Mock()
     with patch("djconnect_pi.app.QCoreApplication.instance", return_value=app):

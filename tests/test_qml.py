@@ -77,6 +77,7 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "component PurpleButton" in main_qml
     assert "component DangerButton" in main_qml
     assert "component ModalBlocker" in main_qml
+    assert "component AppBackground" in main_qml
     assert "component PlaybackButton" in main_qml
     assert "component IconButton" in main_qml
     assert "component MediaPlayButton" in main_qml
@@ -131,7 +132,14 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "source: modelData.imageUrl && modelData.imageUrl.length > 0 ? modelData.imageUrl : \"\"" in main_qml
     assert "height: 92" not in main_qml
     assert "color: \"#990b1012\"" not in main_qml
-    assert "Layout.preferredHeight: 86" in main_qml
+    assert "Layout.preferredHeight: 94" in main_qml
+    assert "Layout.preferredHeight: 78" in main_qml
+    assert "Layout.preferredHeight: 66" in main_qml
+    assert 'color: djconnect.paired ? (djconnect.backendAvailable ? "#32d35a" : "#ff3b30") : "#e0a83a"' in main_qml
+    assert "width: 14" in main_qml
+    assert "height: 14" in main_qml
+    assert "id: ambient" not in main_qml
+    assert main_qml.count("AppBackground {}") >= 4
     assert "id: mediaArt" in main_qml
     assert "id: mediaText" in main_qml
     assert "id: mediaPlay" in main_qml

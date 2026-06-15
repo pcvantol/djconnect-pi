@@ -52,6 +52,10 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 - config private permissions and atomic-write behavior
 - Raspberry Pi system-info logging
 - debug logging paths for invalid HA JSON and local API request limits
+- Home Assistant 401 authentication errors and backend-unavailable responses
+  are parsed into specific user-facing backend states instead of raw JSON/status
+  text
+- backend availability property coverage for red/green kiosk connection status
 - local Client API debug screenshot route, API-daemon screenshot event file and
   QML `grabToImage` capture contract
 - loopback-only local Client API debug screen switching and screenshot
@@ -60,6 +64,8 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 - playback response alias parsing
 - playback output-device response parsing, `set_output` command dispatch and
   fallback HA `devices` command loading when status omits the device list
+- live output-device validation and rollback coverage when HA rejects a
+  selected output device
 - queue loading contract sends `command:"queue"` with `limit=100`
 - HA major/minor version compatibility checks and blocking mismatch behavior
 - protocol mismatch error handling
@@ -81,6 +87,7 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 - Games screen full-background touch blocking so Speelt nu controls cannot be
   tapped through transparent game areas
 - touch-friendly icon bottom navigation order, height and selected-state checks
+- shared AppBackground gradient and expanded Speelt nu control sizing checks
 - Maze Chase power-pellet and vulnerable ghost QML contract checks
 - Empty queue/playlist labels and backend behavior that only loads demo media
   after explicitly entering demo mode
@@ -88,10 +95,11 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
   action, explicit media-row geometry with fixed-size media play buttons and
   settings without pairing controls
 - compact touch log formatting and 24-hour album-art cache helper behavior
+- bounded log tail reading before QML log display formatting
 - HA queue/playlist media parser coverage for artwork aliases from the shared
   contract
-- backend media-list artwork pre-cache coverage so Queue/Playlists keep album
-  art without blocking QML delegates
+- backend media-list artwork background-cache coverage so Queue/Playlists show
+  rows immediately and keep album art without blocking QML delegates
 - backend guard coverage that duplicate queue/playlist loads are skipped while
   a matching request is already in flight
 - opaque queue/playlist main screens, manual refresh controls and no

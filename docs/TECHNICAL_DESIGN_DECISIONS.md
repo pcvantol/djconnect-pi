@@ -29,6 +29,9 @@ not install apt packages.
 | Signal/slot state propagation | `DJConnectBackend` signals and `_apply_*` methods | Keeps QML declarative: QML observes backend properties and Python emits updates after HA/API work. |
 | Worker-thread offload | `ThreadPoolExecutor` in `app.py` | Prevents HA command/status calls and media-list preparation from blocking the UI thread. |
 | In-flight request guard | `loadQueue`, `loadPlaylists` | Prevents repeated touch/navigation taps from flooding Home Assistant or stacking expensive work. |
+| Immediate list emission with background artwork cache | `_load_queue_worker`, `_load_playlists_worker`, `_cache_media_artwork_async` | Shows Queue/Playlist text and play controls as soon as HA returns, while slower artwork downloads happen afterward on a worker. |
+| Backend health state | `backendAvailable`, `AuthenticationError`, `BackendUnavailable` | Keeps pairing state separate from live HA/backend reachability, letting the kiosk show red/green status and short toasts without losing pairing. |
+| Bounded log display | `_read_tail_text`, `_format_logs_for_display` | Prevents large persistent log files from freezing the UI when the user opens Logs on a Pi Zero 2 W. |
 | Event-file bridge | `client_api_daemon.py` + `app.py` local event polling | Keeps the API daemon separate from the UI process while still letting HA-triggered commands affect the live UI. |
 | Separate daemon boundary | `djconnect-pi-api`, `djconnect-pi-client`, `djconnect-pi-updater`, `djconnect-pi-maintenance` entrypoints | Avoids port ownership conflicts and keeps UI, API, updater and OS maintenance independently supervised by systemd. |
 | Dataclass config model | `src/djconnect_pi/config.py` | Provides a stable, serializable config shape with defaults and migration/backfill logic. |
@@ -50,6 +53,7 @@ not install apt packages.
 | `logging.getLogger(__name__)` per module | Used in app, HA client, API daemon, updater and system-info modules. |
 | No broad framework dependency injection container | Objects are composed explicitly from config/client classes. |
 | HTTP timeouts are mandatory on external requests | HA client and updater use `requests` with explicit timeouts. |
+| HA/UI performance paths log elapsed milliseconds | `ha.py` and `app.py` use `time.monotonic()` around HTTP calls and UI workers. |
 | User-facing strings go through translation keys | `src/djconnect_pi/i18n.py`; QML calls `djconnect.t(...)`; tests assert translation parity. |
 | Sensitive runtime state is kept outside release directories | Config/logs live under `/opt/djconnect/config` and `/opt/djconnect/logs`; releases live under `/opt/djconnect/releases/<version>`. |
 | Console entrypoints are declared in package metadata | `pyproject.toml` `[project.scripts]`. |
@@ -68,6 +72,7 @@ mainly by tests plus `compileall`.
 | Full-screen state panels | Now Playing, Queue, Playlists, Games, Settings, logs, about and pairing overlays | Prevents background screen tap-through and matches kiosk operation. |
 | Modal touch blockers | `ModalBlocker` | Consumes pointer/wheel events while overlays are visible. |
 | Fixed touch target dimensions | bottom nav, media rows, media play buttons, playback controls | Reduces layout shift on a 720x720 4-inch touch display. |
+| Shared app background component | `AppBackground` in `Main.qml` | Keeps Speelt nu, Queue, Playlists, Logs, Settings and About visually consistent and avoids one-off screen backgrounds. |
 | Explicit media-list row geometry | `MediaListPanel` delegates place artwork, text and play button with x/y/width expressions | Avoids `RowLayout` and cross-item anchor ordering differences on the Pi runtime that previously misplaced or hid album art, titles and play icons. |
 | Async image rendering | `Image { asynchronous: true }` | Lets QML decode/render artwork without blocking interaction. Network/cache preparation is handled outside QML delegates. |
 | Canvas icons only where dynamic state matters | playback controls and game canvas | Avoids external icon packs while keeping touch controls scalable. |
@@ -120,6 +125,9 @@ mainly by tests plus `compileall`.
 | Text DJ responses are toast-only | `app.py`, `client_api_daemon.py` | Product decision: no local Pi audio/DJ response playback. |
 | HA version compatibility is major/minor bounded | `ha.py` | Client `3.1.z` accepts HA `>=3.1.0` and `<3.2.0`. |
 | Output-device selector uses status plus devices fallback | `app.py`, `ha.py` | Speelt nu must let users switch HA-provided playback devices even when the status response omits the device list. |
+| Output-device changes are optimistic but validated | `_set_output_worker` | The UI feels responsive, but if HA rejects or normalizes the selected output device the client rolls back and logs the rejection. |
+| HTTP 401 is an authentication state | `AuthenticationError` in `ha.py`, `_run` in `app.py` | Prevents raw HA JSON from being shown on the kiosk and turns the connection dot red with a concise translated toast/status. |
+| Backend unavailable is not a UI crash state | `BackendUnavailable` in `ha.py`, `_run` in `app.py` | Spotify/HA backend downtime is surfaced as a short status/toast while the UI remains interactive. |
 
 ## Dependency Inventory
 

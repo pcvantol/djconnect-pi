@@ -7,7 +7,15 @@ from unittest.mock import patch
 import pytest
 
 from djconnect_pi.config import Config
-from djconnect_pi.ha import DJConnectError, HAClient, Playback, ProtocolVersionMismatch, _compatible_ha_version
+from djconnect_pi.ha import (
+    AuthenticationError,
+    BackendUnavailable,
+    DJConnectError,
+    HAClient,
+    Playback,
+    ProtocolVersionMismatch,
+    _compatible_ha_version,
+)
 
 
 @dataclass
@@ -145,6 +153,26 @@ def test_invalid_ha_json_is_logged(caplog) -> None:
 
     assert "Home Assistant returned invalid JSON" in caplog.text
     assert "bad json" in caplog.text
+
+
+def test_backend_unavailable_response_raises_specific_error(caplog) -> None:
+    client = HAClient(Config(ha_url="http://ha"))
+    caplog.set_level("WARNING")
+
+    with pytest.raises(BackendUnavailable, match="Spotify unavailable"):
+        client._json(FakeResponse(200, {"success": False, "backend_available": False, "error": "Spotify unavailable"}))
+
+    assert "playback backend unavailable" in caplog.text
+
+
+def test_unauthorized_response_raises_authentication_error(caplog) -> None:
+    client = HAClient(Config(ha_url="http://ha"))
+    caplog.set_level("WARNING")
+
+    with pytest.raises(AuthenticationError, match="unauthorized"):
+        client._json(FakeResponse(401, {"success": False, "error": "unauthorized"}))
+
+    assert "Home Assistant returned HTTP 401" in caplog.text
 
 
 def test_ha_version_compatibility_uses_major_minor_range() -> None:
