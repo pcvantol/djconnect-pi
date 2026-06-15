@@ -197,6 +197,11 @@ def test_qml_screen_blanking_wakes_on_tap() -> None:
     assert "id: forcedWakeTimer" in main_qml
     assert "interval: 10000" in main_qml
     assert "function onScreenshotRequested()" in main_qml
+    assert "function onDebugScreenRequested(screen)" in main_qml
+    assert 'screen === "queue"' in main_qml
+    assert 'screen === "playlists"' in main_qml
+    assert 'screen === "logs"' in main_qml
+    assert 'screen === "about"' in main_qml
     assert "function wakeDisplay()" in main_qml
     assert "root.splashVisible = true" in main_qml
     assert "splashTimer.restart()" in main_qml

@@ -329,6 +329,28 @@ def test_backend_executes_local_command_event_file(tmp_path: Path) -> None:
     assert not event_file.exists()
 
 
+def test_backend_debug_screen_event_emits_qml_signal(tmp_path: Path) -> None:
+    ensure_app()
+    config_path = tmp_path / "config.json"
+    backend = DJConnectBackend(config_path)
+    event_file = tmp_path / "command-event.json"
+    backend.cfg.command_event_file = str(event_file)
+    screens: list[str] = []
+    calls: list[tuple[str, dict[str, object]]] = []
+    backend.debugScreenRequested.connect(lambda screen: screens.append(screen))
+    backend.command = lambda command, **payload: calls.append((command, payload))  # type: ignore[method-assign]
+    event_file.write_text(
+        json.dumps({"events": [{"command": "debug_show_screen", "payload": {"screen": "settings"}}]}),
+        encoding="utf-8",
+    )
+
+    backend._poll_local_events()
+
+    assert screens == ["settings"]
+    assert calls == []
+    assert not event_file.exists()
+
+
 def test_backend_wakes_screen_for_previous_next_command_events(tmp_path: Path) -> None:
     ensure_app()
     config_path = tmp_path / "config.json"

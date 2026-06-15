@@ -84,7 +84,11 @@ Implemented:
   thread.
 - `GET /api/debug/screenshot` on the local API asks the QML UI process to save
   a PNG of the live scenegraph. Once paired, the endpoint requires the device
-  bearer token.
+  bearer token for LAN callers, but loopback callers are allowed for SSH-based
+  diagnostics and receive `content_base64`.
+- `GET /api/debug/screen?screen=<name>` is loopback-only and queues a local
+  debug screen event so release verification can capture Now Playing, Queue,
+  Playlists, Games, Settings, Logs and About after deploy.
 - Local language setting. First value comes from Raspberry Pi OS locale, not
   Home Assistant pairing provisioning.
 - Dutch/English translations are kept in `src/djconnect_pi/i18n.py`; tests

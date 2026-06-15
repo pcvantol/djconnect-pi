@@ -542,6 +542,35 @@ Window {
                 })
             })
         }
+        function onDebugScreenRequested(screen) {
+            root.splashVisible = false
+            root.aboutOpen = false
+            root.resetPairingConfirmOpen = false
+            root.rebootConfirmOpen = false
+            if (screen === "logs") {
+                djconnect.showLogs()
+                return
+            }
+            djconnect.hideLogs()
+            if (screen === "about") {
+                root.activeScreen = "settings"
+                root.aboutOpen = true
+                return
+            }
+            if (screen === "queue") {
+                root.activeScreen = "queue"
+                djconnect.loadQueue()
+                return
+            }
+            if (screen === "playlists") {
+                root.activeScreen = "playlists"
+                djconnect.loadPlaylists()
+                return
+            }
+            if (screen === "games" || screen === "settings" || screen === "now") {
+                root.activeScreen = screen
+            }
+        }
     }
 
     Timer {

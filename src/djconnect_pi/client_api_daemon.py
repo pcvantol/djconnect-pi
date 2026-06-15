@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import argparse
+import base64
 import json
 import logging
 import signal
@@ -92,11 +93,13 @@ class ClientAPIDaemon:
         deadline = request_time + SCREENSHOT_TIMEOUT_SECONDS
         while time.time() < deadline:
             if target.exists() and target.stat().st_size > 0 and target.stat().st_mtime >= request_time:
+                content = target.read_bytes()
                 return {
                     "success": True,
                     "path": str(target),
                     "content_type": "image/png",
-                    "size": target.stat().st_size,
+                    "size": len(content),
+                    "content_base64": base64.b64encode(content).decode("ascii"),
                 }
             time.sleep(0.2)
         return {"success": False, "error": "screenshot_timeout", "path": str(target)}

@@ -147,11 +147,11 @@ def test_client_api_requires_auth_for_dj_response(tmp_path: Path) -> None:
     assert "Hoi" in events
 
 
-def test_client_api_debug_screenshot_requires_auth_when_paired(tmp_path: Path) -> None:
+def test_client_api_debug_screenshot_allows_loopback_when_paired(tmp_path: Path) -> None:
     api, cfg, _events = start_api(tmp_path)
     cfg.device_token = "token-1"
     try:
-        unauth = requests.get(f"{cfg.local_url}/api/debug/screenshot", timeout=3)
+        unauth_loopback = requests.get(f"{cfg.local_url}/api/debug/screenshot", timeout=3)
         ok = requests.get(
             f"{cfg.local_url}/api/debug/screenshot",
             headers={"Authorization": "Bearer token-1"},
@@ -160,9 +160,22 @@ def test_client_api_debug_screenshot_requires_auth_when_paired(tmp_path: Path) -
     finally:
         api.stop()
 
-    assert unauth.status_code == 401
+    assert unauth_loopback.status_code == 200
     assert ok.status_code == 200
     assert ok.json()["path"] == "/tmp/screenshot.png"
+
+
+def test_client_api_debug_screen_is_loopback_only(tmp_path: Path) -> None:
+    api, cfg, events = start_api(tmp_path)
+    try:
+        response = requests.get(f"{cfg.local_url}/api/debug/screen?screen=settings", timeout=3)
+    finally:
+        api.stop()
+
+    assert response.status_code == 200
+    assert response.json()["command"] == "debug_show_screen"
+    assert response.json()["queued"] is True
+    assert events == []
 
 
 def test_client_api_rejects_oversized_request_body(tmp_path: Path) -> None:

@@ -64,6 +64,7 @@ class DJConnectBackend(QObject):
     translationsChanged = Signal()
     wakeScreenRequested = Signal()
     screenshotRequested = Signal()
+    debugScreenRequested = Signal(str)
 
     _playbackReady = Signal(object)
     _statusReady = Signal(str)
@@ -939,6 +940,12 @@ class DJConnectBackend(QObject):
             command = str(event.get("command") or "").strip()
             payload = event.get("payload") if isinstance(event.get("payload"), dict) else {}
             if not command:
+                continue
+            if command == "debug_show_screen":
+                screen = str(payload.get("screen") or "").strip()
+                if screen:
+                    _LOGGER.info("Executing local debug screen request: %s", screen)
+                    self.debugScreenRequested.emit(screen)
                 continue
             _LOGGER.info("Executing Client API command event from Home Assistant: %s", command)
             if command in {"previous", "next"}:

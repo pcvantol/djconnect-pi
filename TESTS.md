@@ -54,6 +54,8 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 - debug logging paths for invalid HA JSON and local API request limits
 - local Client API debug screenshot route, API-daemon screenshot event file and
   QML `grabToImage` capture contract
+- loopback-only local Client API debug screen switching and screenshot
+  response coverage
 - backend notification toast state
 - playback response alias parsing
 - playback output-device response parsing, `set_output` command dispatch and

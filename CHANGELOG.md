@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.1.45
+
+- Added loopback-only debug automation for deployed Pi screenshots:
+  `GET /api/debug/screen?screen=<name>` switches the UI screen through the
+  local command-event bridge, and `GET /api/debug/screenshot` may be called
+  from `127.0.0.1` without exposing the device bearer token over LAN.
+- The screenshot response now includes `content_base64` for SSH-based
+  diagnostic capture so release deploy verification can attach actual PNGs.
+- Added backend, local API and QML tests for the debug screen/screenshot path.
+
 ## 3.1.44
 
 - Fixed Wachtrij/Afspeellijsten media-row rendering by replacing the delegate

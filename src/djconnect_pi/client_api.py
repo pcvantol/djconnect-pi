@@ -7,6 +7,7 @@ import json
 import logging
 import socket
 import threading
+from urllib.parse import parse_qs, urlparse
 
 from .config import CLIENT_TYPE, Config, load_config, save_config
 
@@ -54,14 +55,27 @@ class ClientAPIHandler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         _LOGGER.debug("Client API GET %s", self.path)
-        if self.path == "/api/device/info":
+        parsed = urlparse(self.path)
+        if parsed.path == "/api/device/info":
             self._write_json(self._info())
             return
-        if self.path == "/api/device/pairing-info":
+        if parsed.path == "/api/device/pairing-info":
             self._write_json(self._pairing_info())
             return
-        if self.path == "/api/debug/screenshot":
-            if self.server.state.cfg.device_token and not self._authorized():
+        if parsed.path == "/api/debug/screen":
+            if not self._loopback_request():
+                _LOGGER.warning("Client API non-loopback debug screen request rejected")
+                self._write_json({"success": False, "error": "forbidden"}, HTTPStatus.FORBIDDEN)
+                return
+            screen = str(parse_qs(parsed.query).get("screen", [""])[0]).strip()
+            if not screen:
+                self._write_json({"success": False, "error": "missing_screen"}, HTTPStatus.BAD_REQUEST)
+                return
+            _LOGGER.info("Client API local debug screen request: %s", screen)
+            self._write_json(self.server.state.command_handler("debug_show_screen", {"screen": screen}))
+            return
+        if parsed.path == "/api/debug/screenshot":
+            if self.server.state.cfg.device_token and not (self._authorized() or self._loopback_request()):
                 _LOGGER.warning("Client API unauthorized debug screenshot request")
                 self._write_json({"success": False, "error": "unauthorized"}, HTTPStatus.UNAUTHORIZED)
                 return
@@ -157,6 +171,10 @@ class ClientAPIHandler(BaseHTTPRequestHandler):
             return False
         auth = str(self.headers.get("Authorization") or "")
         return auth.strip() == f"Bearer {expected}"
+
+    def _loopback_request(self) -> bool:
+        host = self.client_address[0]
+        return host in {"127.0.0.1", "::1"}
 
     def _read_json(self) -> dict[str, Any]:
         length = int(self.headers.get("Content-Length") or "0")
