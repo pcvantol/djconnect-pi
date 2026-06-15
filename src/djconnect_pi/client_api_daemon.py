@@ -86,6 +86,13 @@ class ClientAPIDaemon:
             client = HAClient(self.cfg)
             try:
                 playback = client.playback_from_status(client.command("status"))
+                if not playback.output_devices:
+                    try:
+                        devices_playback = client.playback_from_status(client.command("devices"))
+                        if devices_playback.output_devices:
+                            playback.output_devices = devices_playback.output_devices
+                    except DJConnectError as exc:
+                        _LOGGER.warning("Portal output devices refresh failed: %s", exc)
                 if "queue" in include:
                     queue = _parse_queue_items(client.command("queue", limit=100))
                 if "playlists" in include:

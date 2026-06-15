@@ -1,5 +1,16 @@
 # Changelog
 
+## 3.1.59
+
+- Removed the extra white top indicator from the selected bottom navigation
+  button; the purple gradient and selected border now carry the active state.
+- Fixed output-device selection so refreshes no longer fall back to the first
+  available output device when Home Assistant omits the active device field.
+- Aligned the web portal with the touch UI by loading output devices through
+  the `devices` command when the `status` response omits them.
+- Added regression coverage for output-device preservation and web portal
+  output-device loading.
+
 ## 3.1.58
 
 - Added Raspberry Pi-specific local Client API power endpoints for Home

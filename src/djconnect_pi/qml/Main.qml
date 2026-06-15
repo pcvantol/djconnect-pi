@@ -108,17 +108,6 @@ Window {
                 GradientStop { position: 0.54; color: navControl.checked ? "#8b5cf6" : "#333b2c9f" }
                 GradientStop { position: 1.0; color: navControl.checked ? "#4f46e5" : "#332563eb" }
             }
-            Rectangle {
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.top: parent.top
-                anchors.margins: 8
-                height: 5
-                radius: 2
-                visible: navControl.checked
-                color: "#ffffff"
-                opacity: 0.9
-            }
             opacity: navControl.down ? 0.78 : 1.0
         }
     }

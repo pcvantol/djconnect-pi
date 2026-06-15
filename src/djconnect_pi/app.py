@@ -808,13 +808,14 @@ class DJConnectBackend(QObject):
         _LOGGER.debug("Refreshing playback status")
         data = self.client.command("status") if self.paired else self.client.status()
         playback = self.client.playback_from_status(data)
+        if self.playback.output_device and not playback.output_device:
+            playback.output_device = self.playback.output_device
         if self.paired and not playback.output_devices:
             try:
                 devices_data = self.client.command("devices")
                 devices_playback = self.client.playback_from_status(devices_data)
                 if devices_playback.output_devices:
                     playback.output_devices = devices_playback.output_devices
-                    playback.output_device = playback.output_device or devices_playback.output_device
                     _LOGGER.debug("Loaded %s output devices from Home Assistant devices command", len(playback.output_devices))
             except DJConnectError as exc:
                 _LOGGER.warning("Output devices refresh failed: %s", exc)

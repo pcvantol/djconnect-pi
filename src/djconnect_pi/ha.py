@@ -158,7 +158,7 @@ class HAClient:
                 or playback.get("device_name")
                 or playback.get("active_device")
                 or playback.get("source")
-                or (output_devices[0] if output_devices else "")
+                or ""
             ),
             output_devices=tuple(output_devices),
         )

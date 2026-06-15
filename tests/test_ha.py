@@ -137,6 +137,19 @@ def test_playback_from_status_accepts_aliases() -> None:
     assert playback.output_devices == ("Slaapkamer R + Slaapkamer L",)
 
 
+def test_playback_from_status_does_not_select_first_output_device_as_fallback() -> None:
+    playback = HAClient(Config()).playback_from_status(
+        {
+            "playback": {
+                "output_devices": [{"name": "Woonkamer"}, {"name": "Keuken"}],
+            }
+        }
+    )
+
+    assert playback.output_device == ""
+    assert playback.output_devices == ("Woonkamer", "Keuken")
+
+
 def test_protocol_mismatch_raises_djconnect_error() -> None:
     client = HAClient(Config(ha_url="http://ha"))
 

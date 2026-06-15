@@ -204,7 +204,9 @@ def test_qml_has_bottom_navigation_bar() -> None:
     assert "component NavButton" in main_qml
     assert "height: 104" in main_qml
     assert "border.width: navControl.checked ? 3 : 1" in main_qml
-    assert "visible: navControl.checked" in main_qml
+    nav_button = main_qml[main_qml.index("component NavButton") : main_qml.index("component IconButton")]
+    assert "anchors.top: parent.top" not in nav_button
+    assert "visible: navControl.checked" not in nav_button
     assert 'iconSymbol: "▶"' in main_qml
     assert 'iconSymbol: "II"' in main_qml
     assert 'iconSymbol: "≡"' in main_qml

@@ -593,6 +593,38 @@ def test_backend_refresh_loads_output_devices_when_status_omits_them(tmp_path: P
     assert statuses[0].output_devices == ("Slaapkamer R + Slaapkamer L",)
 
 
+def test_backend_refresh_preserves_selected_output_device_when_status_omits_it(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token"
+    backend.playback.output_device = "Keuken"
+    parser = HAClient(backend.cfg)
+    statuses: list[object] = []
+
+    class FakeClient:
+        def command(self, command: str, **payload: object) -> dict[str, object]:
+            if command == "status":
+                return {"playback": {"title": "Song", "artist": "Artist"}}
+            if command == "devices":
+                return {"devices": [{"name": "Woonkamer"}, {"name": "Keuken"}]}
+            return {}
+
+        def playback_from_status(self, data: dict[str, object]) -> object:
+            return parser.playback_from_status(data)
+
+        def status(self, playback: object) -> dict[str, object]:
+            statuses.append(playback)
+            return {"success": True}
+
+    backend.client = FakeClient()  # type: ignore[assignment]
+    backend._refresh_worker()
+
+    assert statuses
+    assert statuses[0].output_device == "Keuken"
+    assert statuses[0].output_devices == ("Woonkamer", "Keuken")
+
+
 def test_backend_queue_request_is_limited_to_100_items(tmp_path: Path) -> None:
     ensure_app()
     backend = DJConnectBackend(tmp_path / "config.json")

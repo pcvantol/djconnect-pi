@@ -7,6 +7,7 @@ import subprocess
 import djconnect_pi.client_api_daemon as client_api_daemon
 from djconnect_pi.client_api_daemon import ClientAPIDaemon, _systemd_unit_status
 from djconnect_pi.config import Config, save_config
+from djconnect_pi.ha import HAClient
 
 
 def test_client_api_daemon_writes_dj_response_event(tmp_path: Path) -> None:
@@ -73,6 +74,43 @@ def test_client_api_daemon_portal_state_includes_diagnostics(tmp_path: Path, mon
     assert {"name": "Local Client API", "status": "running", "detail": "http://127.0.0.1:18080"} in diagnostics
     assert any(item["name"] == "Touch UI" and item["status"] == "running" for item in diagnostics)
     assert any(item["name"] == "Updater" and "djconnect-updater.timer" in item["detail"] for item in diagnostics)
+
+
+def test_client_api_daemon_portal_state_loads_output_devices_when_status_omits_them(tmp_path: Path, monkeypatch) -> None:
+    config_path = tmp_path / "config.json"
+    save_config(config_path, Config(ha_url="http://ha:8123", paired=True, device_token="token"))
+    daemon = ClientAPIDaemon(config_path)
+    parser = HAClient(Config())
+    calls: list[str] = []
+
+    class FakeHAClient:
+        def __init__(self, cfg: Config) -> None:
+            self.cfg = cfg
+
+        def command(self, command: str, **payload: object) -> dict[str, object]:
+            calls.append(command)
+            if command == "status":
+                return {"playback": {"title": "Song"}}
+            if command == "devices":
+                return {"devices": [{"name": "Woonkamer"}, {"name": "Keuken"}]}
+            return {}
+
+        def playback_from_status(self, data: dict[str, object]) -> object:
+            return parser.playback_from_status(data)
+
+    monkeypatch.setattr(client_api_daemon, "HAClient", FakeHAClient)
+    monkeypatch.setattr(
+        client_api_daemon,
+        "_systemd_unit_status",
+        lambda label, unit: {"name": label, "status": "running", "detail": f"{unit}: active"},
+    )
+
+    state = daemon._portal_state(set())
+
+    assert calls == ["status", "devices"]
+    assert state["backend_available"] is True
+    assert state["playback"]["output_devices"] == ["Woonkamer", "Keuken"]
+    assert state["playback"]["output_device"] == ""
 
 
 def test_systemd_unit_status_normalizes_systemctl_output(monkeypatch) -> None:
