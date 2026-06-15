@@ -71,8 +71,9 @@ mainly by tests plus `compileall`.
 | Local reusable components | `PurpleButton`, `NavButton`, `IconButton`, `MediaListPanel`, `MediaPlayButton` in `Main.qml`; `GamesPanel.qml` | Keeps the kiosk UI visually consistent without a separate component package. |
 | Full-screen state panels | Now Playing, Queue, Playlists, Games, Settings, logs, about and pairing overlays | Prevents background screen tap-through and matches kiosk operation. |
 | Modal touch blockers | `ModalBlocker` | Consumes pointer/wheel events while overlays are visible. |
-| Fixed touch target dimensions | bottom nav, media rows, media play buttons, playback controls | Reduces layout shift on a 720x720 4-inch touch display. |
-| Shared app background component | `AppBackground` in `Main.qml` | Keeps Speelt nu, Queue, Playlists, Logs, Settings and About visually consistent and avoids one-off screen backgrounds. |
+| Fixed touch target dimensions | bottom nav, media rows, media play buttons, Bediening controls | Reduces layout shift on a 720x720 4-inch touch display. |
+| Display/control screen split | `nowPanel`, `controlPanel` in `Main.qml` | Keeps Speelt nu readable as a large album-art status screen while Bediening can dedicate the full page to larger touch playback controls. |
+| Shared app background component | `AppBackground` in `Main.qml` | Keeps Speelt nu, Bediening, Queue, Playlists, Logs, Settings and About visually consistent and avoids one-off screen backgrounds. |
 | Explicit media-list row geometry | `MediaListPanel` delegates place artwork, text and play button with x/y/width expressions | Avoids `RowLayout` and cross-item anchor ordering differences on the Pi runtime that previously misplaced or hid album art, titles and play icons. |
 | Async image rendering | `Image { asynchronous: true }` | Lets QML decode/render artwork without blocking interaction. Network/cache preparation is handled outside QML delegates. |
 | Canvas icons only where dynamic state matters | playback controls and game canvas | Avoids external icon packs while keeping touch controls scalable. |
@@ -124,7 +125,7 @@ mainly by tests plus `compileall`.
 | `GET /api/debug/screen` is loopback-only | `client_api.py`, `app.py`, `Main.qml` | Allows post-deploy screenshot automation without exposing screen-control routes on the LAN. |
 | Text DJ responses are toast-only | `app.py`, `client_api_daemon.py` | Product decision: no local Pi audio/DJ response playback. |
 | HA version compatibility is major/minor bounded | `ha.py` | Client `3.1.z` accepts HA `>=3.1.0` and `<3.2.0`. |
-| Output-device selector uses status plus devices fallback | `app.py`, `ha.py` | Speelt nu must let users switch HA-provided playback devices even when the status response omits the device list. |
+| Output-device selector uses status plus devices fallback | `app.py`, `ha.py` | Bediening must let users switch HA-provided playback devices even when the status response omits the device list. |
 | Output-device changes are optimistic but validated | `_set_output_worker` | The UI feels responsive, but if HA rejects or normalizes the selected output device the client rolls back and logs the rejection. |
 | HTTP 401 is an authentication state | `AuthenticationError` in `ha.py`, `_run` in `app.py` | Prevents raw HA JSON from being shown on the kiosk and turns the connection dot red with a concise translated toast/status. |
 | Backend unavailable is not a UI crash state | `BackendUnavailable` in `ha.py`, `_run` in `app.py` | Spotify/HA backend downtime is surfaced as a short status/toast while the UI remains interactive. |

@@ -588,7 +588,7 @@ Window {
                 djconnect.loadPlaylists()
                 return
             }
-            if (screen === "games" || screen === "settings" || screen === "now") {
+            if (screen === "games" || screen === "settings" || screen === "now" || screen === "control") {
                 root.activeScreen = screen
             }
         }
@@ -610,7 +610,10 @@ Window {
     }
 
     Item {
+        id: nowPanel
         anchors.fill: parent
+        visible: root.activeScreen === "now"
+        z: 5
 
         AppBackground {}
 
@@ -664,13 +667,13 @@ Window {
             Item {
                 id: artShell
                 Layout.fillWidth: true
-                Layout.preferredHeight: 250
+                Layout.fillHeight: true
 
                 Rectangle {
                     id: artFrame
                     anchors.centerIn: parent
-                    width: 250
-                    height: 250
+                    width: Math.min(parent.width - 36, parent.height - 12)
+                    height: width
                     radius: 8
                     color: "#172024"
                     border.color: "#314449"
@@ -707,27 +710,115 @@ Window {
 
                 }
 
-                DragHandler {
-                    id: swipeHandler
-                    target: null
-                    xAxis.enabled: true
-                    yAxis.enabled: false
-                    onActiveChanged: {
-                        if (!active) {
-                            if (centroid.position.x - centroid.pressPosition.x > 96) djconnect.previous()
-                            if (centroid.position.x - centroid.pressPosition.x < -96) djconnect.next()
-                        }
-                    }
-                }
-
                 TapHandler {
-                    onTapped: djconnect.togglePlay()
+                    onTapped: root.activeScreen = "control"
                 }
             }
 
             ColumnLayout {
                 Layout.fillWidth: true
+                Layout.preferredHeight: 86
                 spacing: 3
+
+                Text {
+                    text: djconnect.title
+                    color: "#f4f8f8"
+                    font.pixelSize: 36
+                    font.bold: true
+                    horizontalAlignment: Text.AlignHCenter
+                    elide: Text.ElideRight
+                    maximumLineCount: 1
+                    Layout.fillWidth: true
+                }
+
+                Text {
+                    text: djconnect.artist
+                    color: "#aebfc3"
+                    font.pixelSize: 22
+                    horizontalAlignment: Text.AlignHCenter
+                    elide: Text.ElideRight
+                    maximumLineCount: 1
+                    Layout.fillWidth: true
+                }
+            }
+
+        }
+
+        Rectangle {
+            anchors.fill: parent
+            color: "#000000"
+            opacity: root.screenBlanked ? 1 : 0
+            visible: opacity > 0
+
+            Behavior on opacity { NumberAnimation { duration: 450 } }
+
+            TapHandler {
+                onTapped: root.wakeDisplay()
+            }
+        }
+
+    }
+
+    Rectangle {
+        id: controlPanel
+        anchors.fill: parent
+        color: "#070b16"
+        visible: root.activeScreen === "control"
+        z: 10
+
+        AppBackground {}
+        ModalBlocker {}
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.leftMargin: 16
+            anchors.topMargin: 16
+            anchors.rightMargin: 16
+            anchors.bottomMargin: root.edge + 112
+            spacing: 10
+
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 48
+                spacing: 10
+
+                Rectangle {
+                    width: 14
+                    height: 14
+                    radius: 7
+                    color: djconnect.paired ? (djconnect.backendAvailable ? "#32d35a" : "#ff3b30") : "#e0a83a"
+                    Layout.alignment: Qt.AlignVCenter
+                }
+
+                Text {
+                    text: djconnect.t("control")
+                    color: "#f4f8f8"
+                    font.pixelSize: 34
+                    font.bold: true
+                    elide: Text.ElideRight
+                    Layout.fillWidth: true
+                }
+
+                BusyIndicator {
+                    running: djconnect.busy
+                    visible: djconnect.busy
+                    implicitWidth: 30
+                    implicitHeight: 30
+                }
+
+                PurpleButton {
+                    text: djconnect.t("refresh")
+                    font.pixelSize: 18
+                    Layout.preferredWidth: 142
+                    Layout.preferredHeight: 48
+                    onClicked: djconnect.manualRefresh()
+                }
+            }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 72
+                spacing: 2
 
                 Text {
                     text: djconnect.title
@@ -742,8 +833,8 @@ Window {
 
                 Text {
                     text: djconnect.artist
-                    color: "#aebfc3"
-                    font.pixelSize: 18
+                    color: "#b8c5e8"
+                    font.pixelSize: 20
                     horizontalAlignment: Text.AlignHCenter
                     elide: Text.ElideRight
                     maximumLineCount: 1
@@ -753,8 +844,8 @@ Window {
 
             RowLayout {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 94
-                spacing: 22
+                Layout.preferredHeight: 178
+                spacing: 18
 
                 IconButton {
                     iconName: "previous"
@@ -762,7 +853,7 @@ Window {
                 }
 
                 IconButton {
-                    Layout.preferredWidth: 180
+                    Layout.preferredWidth: 220
                     iconName: djconnect.playing ? "pause" : "play"
                     primary: true
                     onClicked: djconnect.togglePlay()
@@ -776,14 +867,14 @@ Window {
 
             RowLayout {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 38
+                Layout.preferredHeight: 54
                 spacing: 12
 
                 Rectangle {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 12
+                    Layout.preferredHeight: 18
                     Layout.alignment: Qt.AlignVCenter
-                    radius: 5
+                    radius: 8
                     color: "#5524145f"
                     border.color: "#33406b"
                     border.width: 1
@@ -803,27 +894,27 @@ Window {
                 Text {
                     text: djconnect.progressLabel
                     color: "#f4f8f8"
-                    font.pixelSize: 18
+                    font.pixelSize: 24
                     font.bold: true
                     horizontalAlignment: Text.AlignRight
-                    Layout.preferredWidth: 102
+                    Layout.preferredWidth: 128
                 }
             }
 
             RowLayout {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 56
+                Layout.preferredHeight: 74
                 spacing: 14
 
                 Text {
                     text: djconnect.t("vol")
-                    color: "#c6d3d6"
-                    font.pixelSize: 18
-                    Layout.preferredWidth: 38
+                    color: "#d7e2e4"
+                    font.pixelSize: 24
+                    Layout.preferredWidth: 46
                 }
 
                 Slider {
-                    id: volumeSlider
+                    id: controlVolumeSlider
                     from: 0
                     to: 100
                     value: djconnect.volume
@@ -835,33 +926,45 @@ Window {
                 Text {
                     text: djconnect.volume
                     color: "#f4f8f8"
-                    font.pixelSize: 20
+                    font.pixelSize: 26
+                    font.bold: true
                     horizontalAlignment: Text.AlignRight
-                    Layout.preferredWidth: 42
+                    Layout.preferredWidth: 54
                 }
             }
 
             RowLayout {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 66
+                Layout.preferredHeight: 76
                 spacing: 12
 
                 ComboBox {
-                    id: outputDeviceCombo
+                    id: controlOutputDeviceCombo
                     property var deviceChoices: djconnect.outputDevices.length > 0 ? djconnect.outputDevices : (djconnect.outputDevice.length > 0 ? [djconnect.outputDevice] : [])
                     model: deviceChoices
                     visible: count > 0
                     currentIndex: Math.max(0, deviceChoices.indexOf(djconnect.outputDevice))
-                    font.pixelSize: 24
+                    font.pixelSize: 26
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    onActivated: function(index) { djconnect.setOutputDevice(outputDeviceCombo.textAt(index)) }
+                    onActivated: function(index) { djconnect.setOutputDevice(controlOutputDeviceCombo.textAt(index)) }
+                }
+
+                Text {
+                    text: djconnect.t("output_device")
+                    visible: controlOutputDeviceCombo.count === 0
+                    color: "#b8c5e8"
+                    font.pixelSize: 24
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
                 }
             }
 
             RowLayout {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 78
+                Layout.preferredHeight: 126
                 spacing: 18
 
                 IconButton {
@@ -876,22 +979,7 @@ Window {
                     onClicked: djconnect.cycleRepeat()
                 }
             }
-
         }
-
-        Rectangle {
-            anchors.fill: parent
-            color: "#000000"
-            opacity: root.screenBlanked ? 1 : 0
-            visible: opacity > 0
-
-            Behavior on opacity { NumberAnimation { duration: 450 } }
-
-            TapHandler {
-                onTapped: root.wakeDisplay()
-            }
-        }
-
     }
 
     Rectangle {
@@ -1217,6 +1305,16 @@ Window {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 onClicked: root.activeScreen = "now"
+            }
+
+            NavButton {
+                text: djconnect.t("control")
+                iconSymbol: "II"
+                checkable: true
+                checked: root.activeScreen === "control"
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                onClicked: root.activeScreen = "control"
             }
 
             NavButton {

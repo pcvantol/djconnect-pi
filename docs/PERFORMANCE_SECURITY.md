@@ -11,7 +11,11 @@ This file records the first pass review for the wall-mounted Pi client.
 - Polling is fixed at 5 seconds once a Home Assistant URL exists. Before
   pairing/configuration, refresh exits locally so the blocking pairing screen
   does not generate repeated network failures.
-- Album art is loaded asynchronously by QML. Local caching is still a TODO.
+- Album art is loaded asynchronously by QML and backed by the local artwork
+  cache so media-list navigation is not blocked by image downloads.
+- Playback controls live on the dedicated Bediening screen. Speelt nu only
+  renders status, refresh, album art and title text, reducing Canvas repaint
+  pressure on the default screen.
 - Screen blanking defaults to 120 seconds and wakes on tap. It reduces always-on
   visual load and burn-in risk. Hardware backlight/DPMS control still needs
   HyperPixel validation.

@@ -1,5 +1,19 @@
 # Changelog
 
+## 3.1.54
+
+- Split playback controls out of Speelt nu into a new touch-friendly
+  Bediening screen next to Speelt nu in the bottom navigation.
+- Speelt nu is now a display-focused screen with status, refresh and larger
+  album art/title content; tapping the cover opens Bediening instead of sending
+  playback commands.
+- Bediening uses the standard opaque DJConnect gradient and enlarged previous,
+  play/pause, next, progress, volume, output-device, shuffle and repeat
+  controls for the HyperPixel touch display.
+- Removed the remaining hidden album-art swipe playback actions from Speelt nu.
+- Kept the Logs screen action layout to one row with Logs wissen, Verversen
+  and Sluiten, and no on-device Logs kopieren action.
+
 ## 3.1.53
 
 - Trigger `djconnect-updater.service` on every touch-client boot/start through

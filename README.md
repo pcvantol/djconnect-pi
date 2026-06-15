@@ -1,11 +1,11 @@
 # DJConnect Pi
 
-Version: `3.1.53`
+Version: `3.1.54`
 
 Raspberry Pi Zero 2 W touch-display client for DJConnect. This client uses
 Qt Quick/QML with a PySide6 backend and is meant for a Pimoroni HyperPixel 4.0
-Square Touch style kiosk remote: pairing, status, now playing and playback
-controls only.
+Square Touch style kiosk remote: pairing, status, now playing and touch
+playback control only.
 
 It intentionally does not implement PTT, microphone upload, local DJ response
 audio, ESP firmware OTA, ESP battery sensors or Wi-Fi RSSI sensors. It does
@@ -60,21 +60,20 @@ The app is a 720x720 fullscreen touch remote:
 - blocking first-run pairing screen until the client is paired
 - blocking version-mismatch screen when HA and Pi versions are incompatible
 - pairing screen shows the local Client API URL and pairing code
-- album art area / status area in the center
+- Speelt nu display screen with status, refresh, large album art and title
 - HA-provided album art on Now Playing, Queue and Playlists, loaded
   asynchronously so media-list navigation stays responsive on Pi Zero 2 W
 - Queue and Playlist rows use fixed explicit artwork/text/play-button geometry
   so album art, titles and play icons stay in the correct columns on the
   HyperPixel display
-- large play/pause button
-- previous/next buttons left and right
-- bottom volume slider
-- shuffle and repeat toggles
-- fixed bottom menu bar for Now Playing, Games and Settings
+- separate Bediening screen with enlarged previous, play/pause, next,
+  progress, volume, output-device, shuffle and repeat controls
+- fixed bottom menu bar for Speelt nu, Bediening, Wachtrij, Afspeellijsten,
+  Games and Instellingen
 - compact HA/pairing/backend status
 - settings for screen blanking, brightness, language, logs, pairing reset,
   reboot with confirmation and stable/beta update channel
-- output-device selector on Speelt nu that can switch HA-provided playback
+- output-device selector on Bediening that can switch HA-provided playback
   devices with `set_output`
 - default screen blanking after 2 minutes, with tap-to-wake
 - touch-only local games: Paddle Rally, Meteor Run, Sky Dash and Maze Chase
@@ -121,9 +120,9 @@ not a private source clone:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.53.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.54.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.53
+cd djconnect-pi-3.1.54
 sudo ./scripts/install.sh
 ```
 
@@ -211,9 +210,9 @@ installer:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.53.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.54.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.53
+cd djconnect-pi-3.1.54
 sudo ./scripts/install.sh
 ```
 

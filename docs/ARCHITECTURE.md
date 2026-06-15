@@ -17,7 +17,9 @@ Responsibilities:
 - execute HA initiated playback commands received through the local
   command-event queue
 - render now-playing and connection state
-- render HA-provided output-device choices and dispatch `command:"set_output"`
+- keep Speelt nu focused on status, refresh, large album art and title/artist
+- render HA-provided output-device choices on Bediening and dispatch
+  `command:"set_output"`
 - render HA-provided album art asynchronously in Now Playing, Queue and
   Playlists so image downloads do not block the QML UI thread
 - render a dark DJConnect blue/purple gradient theme across touch screens
@@ -123,7 +125,7 @@ The Pi client is an app-like DJConnect client.
   "device_id": "djconnect-raspberry-pi-XXXXXXXXXXXX",
   "device_name": "DJConnect",
   "client_type": "raspberry_pi",
-  "version": "3.1.53",
+  "version": "3.1.54",
   "capabilities": {
     "touch": true,
     "voice": false,

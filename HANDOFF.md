@@ -12,7 +12,13 @@ Implemented:
 - Dark DJConnect touch UI with blue/purple gradient backgrounds across the main
   screens, splash, games, logs and blocking overlays
 - Bottom navigation is a larger touch-friendly icon+label bar ordered Speelt
-  nu, Wachtrij, Afspeellijsten, Games, Instellingen.
+  nu, Bediening, Wachtrij, Afspeellijsten, Games, Instellingen.
+- Speelt nu is display-focused: status, refresh, large album art and
+  title/artist. It no longer sends hidden playback commands from cover taps or
+  swipes.
+- Bediening is the dedicated touch-control screen with enlarged previous,
+  play/pause, next, track progress, volume, output-device, shuffle and repeat
+  controls.
 - `client_type: raspberry_pi`
 - Stable device ID prefix `djconnect-raspberry-pi-`
 - Pair/status/command calls to the Home Assistant DJConnect API
@@ -90,7 +96,7 @@ Implemented:
   only shown while local demo mode is active.
 - Queue loading follows the shared HA contract and requests at most 100 items:
   `command:"queue"` with `limit:100`.
-- Speelt nu exposes the HA-provided playback output-device list and dispatches
+- Bediening exposes the HA-provided playback output-device list and dispatches
   output selection with `command:"set_output"`. If the HA status response omits
   the list, the client asks HA for `command:"devices"` as a fallback.
 - Output-device changes are validated live against the HA response. Rejected

@@ -55,3 +55,6 @@
   Instellingen/Over disable horizontal scrolling.
 - HA initiated `/api/device/command` calls are bridged from the API daemon to
   the UI process through a local command-event queue.
+- Speelt nu playback controls moved to a dedicated Bediening screen so the
+  now-playing display can show larger album art and Bediening can use larger
+  touch targets.

@@ -131,14 +131,20 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "djconnect.outputDevices" in main_qml
     assert "property var deviceChoices" in main_qml
     assert "djconnect.setOutputDevice" in main_qml
+    assert "id: nowPanel" in main_qml
+    assert 'visible: root.activeScreen === "now"' in main_qml
+    assert "id: controlPanel" in main_qml
+    assert 'visible: root.activeScreen === "control"' in main_qml
+    assert 'djconnect.t("control")' in main_qml
+    assert "id: controlOutputDeviceCombo" in main_qml
     assert 'text: "🔊"' not in main_qml
     assert "djconnect.cachedImageUrl(modelData.imageUrl)" not in main_qml
     assert "source: modelData.imageUrl && modelData.imageUrl.length > 0 ? modelData.imageUrl : \"\"" in main_qml
     assert "height: 92" not in main_qml
     assert "color: \"#990b1012\"" not in main_qml
-    assert "Layout.preferredHeight: 94" in main_qml
-    assert "Layout.preferredHeight: 78" in main_qml
-    assert "Layout.preferredHeight: 66" in main_qml
+    assert "Layout.preferredHeight: 178" in main_qml
+    assert "Layout.preferredHeight: 126" in main_qml
+    assert "Layout.preferredHeight: 76" in main_qml
     assert 'color: djconnect.paired ? (djconnect.backendAvailable ? "#32d35a" : "#ff3b30") : "#e0a83a"' in main_qml
     assert "width: 14" in main_qml
     assert "height: 14" in main_qml
@@ -159,6 +165,7 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert 'iconName: "shuffle"' in main_qml
     assert "repeatOne" in main_qml
     assert "repeatOff" in main_qml
+    assert "Layout.preferredWidth: 220" in main_qml
     assert "logsArea.cursorPosition = logsArea.length" in main_qml
     assert "djconnect.copyLogs()" not in main_qml
     assert 'djconnect.t("copy_logs")' not in main_qml
@@ -177,6 +184,7 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
 
 def test_qml_has_bottom_navigation_bar() -> None:
     main_qml = files("djconnect_pi.qml").joinpath("Main.qml").read_text(encoding="utf-8")
+    bottom_nav = main_qml[main_qml.index("id: bottomNav") :]
 
     assert "id: bottomNav" in main_qml
     assert "component NavButton" in main_qml
@@ -184,15 +192,19 @@ def test_qml_has_bottom_navigation_bar() -> None:
     assert "border.width: navControl.checked ? 3 : 1" in main_qml
     assert "visible: navControl.checked" in main_qml
     assert 'iconSymbol: "▶"' in main_qml
+    assert 'iconSymbol: "II"' in main_qml
     assert 'iconSymbol: "≡"' in main_qml
     assert 'iconSymbol: "▦"' in main_qml
     assert 'iconSymbol: "◆"' in main_qml
     assert 'iconSymbol: "⚙"' in main_qml
     assert 'djconnect.t("now_playing")' in main_qml
+    assert 'djconnect.t("control")' in main_qml
     assert 'djconnect.t("games")' in main_qml
     assert 'djconnect.t("setup")' in main_qml
-    assert main_qml.index('text: djconnect.t("playlists")') < main_qml.index('text: djconnect.t("games")')
+    assert bottom_nav.index('text: djconnect.t("now_playing")') < bottom_nav.index('text: djconnect.t("control")')
+    assert bottom_nav.index('text: djconnect.t("playlists")') < bottom_nav.index('text: djconnect.t("games")')
     assert 'root.activeScreen = "now"' in main_qml
+    assert 'root.activeScreen = "control"' in main_qml
     assert 'root.activeScreen = "games"' in main_qml
     assert 'root.activeScreen = "settings"' in main_qml
 
