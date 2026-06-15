@@ -158,6 +158,7 @@ printf '  %s\n' "${TAGS[@]:0:KEEP}"
 
 if [[ "${#TAGS[@]}" -le "$KEEP" ]]; then
   echo "Nothing to delete."
+  cleanup_public_repo
   exit 0
 fi
 

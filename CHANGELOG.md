@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.1.52
+
+- Fixed release cleanup so the public Raspberry Pi distribution repo is still
+  cleaned when the private source repo already has only the latest release/tag.
+
 ## 3.1.51
 
 - Updated the shared sync prompt bundle in the Raspberry Pi client repo for the

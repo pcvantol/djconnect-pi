@@ -90,6 +90,7 @@ def test_cleanup_script_removes_completed_actions_runs_for_deleted_tags() -> Non
     assert "--status completed" in script
     assert 'gh run delete "$run_id"' in script
     assert 'gh release delete "$tag" --repo "$PUBLIC_REPO" --yes' in script
+    assert 'echo "Nothing to delete."\n  cleanup_public_repo\n  exit 0' in script
 
 
 def test_release_assets_include_installation_materials() -> None:
