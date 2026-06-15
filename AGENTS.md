@@ -7,10 +7,9 @@
 - Do not add PTT, microphone upload, local DJ response audio or
   `/api/device/dj_response` unless the product decision changes.
 - Keep app updates, OS maintenance and the touch UI as separate processes.
-- Sync `SYNC_PROMPTS.md` byte-for-byte across:
-  - `pcvantol/djconnect`
-  - `pcvantol/djconnect-app`
-  - `pcvantol/djconnect-esp32`
-  - `pcvantol/djconnect-website`
-  - `pcvantol/djconnect-pi`
-
+- Do not keep a local `SYNC_PROMPTS.md` in this repo. The canonical cross-repo
+  contract source is `pcvantol/djconnect/SYNC_PROMPTS.md`.
+- Do not keep a local `PRODUCT_ROADMAP.md` in this repo. The canonical product
+  roadmap source is `pcvantol/djconnect/PRODUCT_ROADMAP.md`.
+- For cross-repo contract changes originating here, make a follow-up
+  change/commit in `pcvantol/djconnect`.

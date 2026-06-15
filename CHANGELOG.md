@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Removed repo-local syncprompt and roadmap copies: this Raspberry Pi repo now
+  refers to canonical `pcvantol/djconnect/SYNC_PROMPTS.md` and
+  `pcvantol/djconnect/PRODUCT_ROADMAP.md`.
+
 ## 3.1.62
 
 - Send `command:"playlists"` with `limit:50` from the Raspberry Pi touch UI and
@@ -157,8 +163,9 @@
 - Fixed the Client API daemon forget path so it clears the stored device token,
   marks the client unpaired and rotates the pairing code before rediscovery.
 - Added shared `PRODUCT_ROADMAP.md` with feature ideas, killer features,
-  production must-haves and premium-function candidates. It must be synced
-  across DJConnect repos during release hygiene.
+  production must-haves and premium-function candidates. This local-copy model
+  was later superseded by the canonical `pcvantol/djconnect/PRODUCT_ROADMAP.md`
+  policy.
 - Extended the repo-only Raspberry Pi OS bootstrap with boot-time filesystem
   repair configuration for wall-mounted devices that may lose power: it keeps
   `fsck.repair=yes` enabled, removes `fsck.mode=skip`, sets the root fstab

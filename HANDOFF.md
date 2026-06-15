@@ -164,8 +164,10 @@ Implemented:
   `./cleanup_old_releases.sh --keep 1 --public --execute` to clean old private
   and public releases/tags plus completed tag workflow runs.
 - Product-level ideas, killer features, production must-haves and premium
-  candidates are tracked in shared `PRODUCT_ROADMAP.md`; sync that file
-  byte-for-byte across DJConnect repos during release hygiene.
+  candidates are tracked only in canonical
+  `pcvantol/djconnect/PRODUCT_ROADMAP.md`. Do not add a local copy in this
+  repo; make a follow-up change/commit in `pcvantol/djconnect` when roadmap
+  changes start from the Pi repo.
 - Install script targets a prepared Raspberry Pi OS 64-bit image, creates the
   runtime user, downloads the public release, installs the bundled wheel and
   dependencies inside the release venv, starts the local API daemon, and starts
@@ -269,7 +271,13 @@ Not implemented by design:
   unnecessary Canvas repaints, add a nonblocking background artwork pre-cache,
   cap log rendering size for the touch viewer, and profile PySide6 memory/CPU
   on the Pi Zero 2 W.
-- When changing protocol behavior, sync `SYNC_PROMPTS.md` across all five repos.
+- When changing protocol behavior, update canonical
+  `pcvantol/djconnect/SYNC_PROMPTS.md`. Do not add a local copy in this repo;
+  make a follow-up change/commit in `pcvantol/djconnect` when the change starts
+  from the Pi repo.
+- When changing product roadmap scope, update canonical
+  `pcvantol/djconnect/PRODUCT_ROADMAP.md`. Do not add a local copy in this
+  repo.
 
 ## Verification So Far
 

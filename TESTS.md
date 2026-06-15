@@ -51,8 +51,8 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 - installer contract that OS bootstrap tasks stay out of the app release cycle
 - technical design decisions documentation is linked from README and contains
   dependency/style/release-maintenance sections
-- shared product roadmap is documented in `PRODUCT_ROADMAP.md` and release
-  sync hygiene is documented in `SYNC_PROMPTS.md`
+- release hygiene points to canonical `pcvantol/djconnect/SYNC_PROMPTS.md` and
+  `pcvantol/djconnect/PRODUCT_ROADMAP.md`; local copies are forbidden
 - installer contract for rerunnable manual updates: existing config is kept,
   systemd units are refreshed, and API/UI services are restarted
 - installer contract for early free-space and active-swap checks before large

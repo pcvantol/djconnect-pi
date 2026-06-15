@@ -200,6 +200,12 @@ private source repo. Repo-only OS bootstrap helpers, including
 `scripts/bootstrap_raspberry_pi_os.sh`, are excluded from release tarballs by
 design.
 
+Cross-repo contract changes are documented only in canonical
+`pcvantol/djconnect/SYNC_PROMPTS.md`. Product roadmap changes are tracked only
+in canonical `pcvantol/djconnect/PRODUCT_ROADMAP.md`. This Raspberry Pi repo
+must not keep local copies of either file; changes that start here need a
+follow-up commit in the Home Assistant integration repo.
+
 OS maintenance is also separate. The maintenance command can run apt update,
 upgrade and reboot only when `/var/run/reboot-required` exists, optionally
 inside a configured maintenance window.

@@ -375,11 +375,31 @@ def test_glances_is_not_installed_or_documented() -> None:
     script = ROOT.joinpath("scripts/bootstrap_raspberry_pi_os.sh").read_text(encoding="utf-8")
     bootstrap = ROOT.joinpath("docs/BOOTSTRAP.md").read_text(encoding="utf-8")
     readme = ROOT.joinpath("README.md").read_text(encoding="utf-8")
-    sync_prompt = ROOT.joinpath("SYNC_PROMPTS.md").read_text(encoding="utf-8")
 
     for text in (script, bootstrap, readme):
         assert "glances" not in text.lower()
         assert "61208" not in text
         assert "djconnect-glances" not in text
         assert "glances-web.service" not in text
-    assert "must not install or manage\n  Glances" in sync_prompt
+
+
+def test_syncprompt_and_roadmap_policy_use_canonical_home_assistant_repo_only() -> None:
+    forbidden = [
+        "SYNC_PROMPTS.md",
+        "PRODUCT_ROADMAP.md",
+        "HA_SYNC_PROMPT.md",
+        "ESP_SYNC_PROMPT.md",
+        "IOS_MACOS_APP_HANDOFF.md",
+        "APPLE_APP_SYNC_PROMPTS.md",
+        "docs/SYNC_PROMPTS.md",
+    ]
+
+    for relative in forbidden:
+        assert not ROOT.joinpath(relative).exists(), f"{relative} must not exist in the Raspberry Pi repo"
+
+    agent_notes = ROOT.joinpath("AGENTS.md").read_text(encoding="utf-8")
+    handoff = ROOT.joinpath("HANDOFF.md").read_text(encoding="utf-8")
+    assert "pcvantol/djconnect/SYNC_PROMPTS.md" in agent_notes
+    assert "pcvantol/djconnect/SYNC_PROMPTS.md" in handoff
+    assert "pcvantol/djconnect/PRODUCT_ROADMAP.md" in handoff
+    assert "byte-for-byte across" not in agent_notes
