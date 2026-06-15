@@ -20,6 +20,7 @@ Window {
     property bool aboutOpen: false
     property bool resetPairingConfirmOpen: false
     property bool rebootConfirmOpen: false
+    property bool shutdownConfirmOpen: false
     property bool clearLogsConfirmOpen: false
     property bool forceScreenAwake: false
     property bool screenBlanked: djconnect.screenTimeoutSeconds > 0 && !idleTimer.running && !root.forceScreenAwake
@@ -311,13 +312,6 @@ Window {
                     ctx.stroke()
                     triangle(1, cx + s * 0.33)
                     triangle(1, cx + s * 0.33)
-                    if (!control.active) {
-                        ctx.strokeStyle = "#ff9bb8"
-                        ctx.beginPath()
-                        ctx.moveTo(cx - s * 0.34, cy + s * 0.30)
-                        ctx.lineTo(cx + s * 0.34, cy - s * 0.30)
-                        ctx.stroke()
-                    }
                 } else if (control.iconName === "repeat" || control.iconName === "repeatOne" || control.iconName === "repeatOff") {
                     ctx.beginPath()
                     ctx.moveTo(cx - s * 0.24, cy - s * 0.17)
@@ -346,13 +340,6 @@ Window {
                         ctx.textAlign = "center"
                         ctx.textBaseline = "middle"
                         ctx.fillText("1", cx, cy)
-                    }
-                    if (control.iconName === "repeatOff") {
-                        ctx.strokeStyle = "#ff9bb8"
-                        ctx.beginPath()
-                        ctx.moveTo(cx - s * 0.34, cy + s * 0.30)
-                        ctx.lineTo(cx + s * 0.34, cy - s * 0.30)
-                        ctx.stroke()
                     }
                 } else {
                     triangle(1, cx)
@@ -387,6 +374,7 @@ Window {
         id: panel
         property string heading: ""
         property string emptyText: ""
+        property string playCommand: "start_queue_item"
         property var items: []
         signal refreshRequested()
 
@@ -528,7 +516,7 @@ Window {
                                     id: mediaPlay
                                     anchors.right: parent.right
                                     anchors.verticalCenter: parent.verticalCenter
-                                    onClicked: djconnect.playUri(modelData.uri)
+                                    onClicked: djconnect.playMediaItem(panel.playCommand, modelData.uri)
                                 }
                             }
                         }
@@ -572,6 +560,7 @@ Window {
             root.aboutOpen = false
             root.resetPairingConfirmOpen = false
             root.rebootConfirmOpen = false
+            root.shutdownConfirmOpen = false
             if (screen === "logs") {
                 djconnect.showLogs()
                 return
@@ -738,7 +727,7 @@ Window {
                 Text {
                     text: djconnect.artist
                     color: "#aebfc3"
-                    font.pixelSize: 22
+                    font.pixelSize: 28
                     horizontalAlignment: Text.AlignHCenter
                     elide: Text.ElideRight
                     maximumLineCount: 1
@@ -924,6 +913,35 @@ Window {
                     stepSize: 1
                     Layout.fillWidth: true
                     onMoved: djconnect.setVolume(Math.round(value))
+                    background: Rectangle {
+                        x: controlVolumeSlider.leftPadding
+                        y: controlVolumeSlider.topPadding + controlVolumeSlider.availableHeight / 2 - height / 2
+                        width: controlVolumeSlider.availableWidth
+                        height: 10
+                        radius: 5
+                        color: "#3324145f"
+
+                        Rectangle {
+                            width: controlVolumeSlider.visualPosition * parent.width
+                            height: parent.height
+                            radius: parent.radius
+                            gradient: Gradient {
+                                orientation: Gradient.Horizontal
+                                GradientStop { position: 0.0; color: "#ec4899" }
+                                GradientStop { position: 1.0; color: "#8b5cf6" }
+                            }
+                        }
+                    }
+                    handle: Rectangle {
+                        x: controlVolumeSlider.leftPadding + controlVolumeSlider.visualPosition * (controlVolumeSlider.availableWidth - width)
+                        y: controlVolumeSlider.topPadding + controlVolumeSlider.availableHeight / 2 - height / 2
+                        width: 34
+                        height: 34
+                        radius: 17
+                        color: "#f8f4ff"
+                        border.color: "#d9ccff"
+                        border.width: 1
+                    }
                 }
 
                 Text {
@@ -943,10 +961,11 @@ Window {
 
                 ComboBox {
                     id: controlOutputDeviceCombo
-                    property var deviceChoices: djconnect.outputDevices.length > 0 ? djconnect.outputDevices : (djconnect.outputDevice.length > 0 ? [djconnect.outputDevice] : [])
+                    property string noOutputDeviceLabel: djconnect.t("none")
+                    property var deviceChoices: [noOutputDeviceLabel].concat(djconnect.outputDevices.length > 0 ? djconnect.outputDevices : (djconnect.outputDevice.length > 0 ? [djconnect.outputDevice] : []))
                     model: deviceChoices
-                    visible: count > 0
-                    currentIndex: Math.max(0, deviceChoices.indexOf(djconnect.outputDevice))
+                    visible: count > 1 || djconnect.outputDevice.length === 0
+                    currentIndex: djconnect.outputDevice.length > 0 ? Math.max(0, deviceChoices.indexOf(djconnect.outputDevice)) : 0
                     font.pixelSize: 26
                     delegate: ItemDelegate {
                         width: controlOutputDeviceCombo.width
@@ -955,12 +974,15 @@ Window {
                     }
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    onActivated: function(index) { djconnect.setOutputDevice(controlOutputDeviceCombo.textAt(index)) }
+                    onActivated: function(index) {
+                        var value = controlOutputDeviceCombo.textAt(index)
+                        djconnect.setOutputDevice(value === controlOutputDeviceCombo.noOutputDeviceLabel ? "" : value)
+                    }
                 }
 
                 Text {
                     text: djconnect.t("output_device")
-                    visible: controlOutputDeviceCombo.count === 0
+                    visible: controlOutputDeviceCombo.count <= 1 && djconnect.outputDevice.length > 0
                     color: "#b8c5e8"
                     font.pixelSize: 24
                     horizontalAlignment: Text.AlignHCenter
@@ -1150,6 +1172,14 @@ Window {
                 }
             }
 
+            PurpleButton {
+                text: djconnect.t("check_updates")
+                font.pixelSize: 24
+                Layout.fillWidth: true
+                Layout.preferredHeight: 58
+                onClicked: djconnect.checkForUpdates()
+            }
+
             RowLayout {
                 Layout.fillWidth: true
                 spacing: 14
@@ -1195,14 +1225,6 @@ Window {
                     Layout.fillWidth: true
                     onActivated: djconnect.setLogLevel(currentText)
                 }
-            }
-
-            Text {
-                text: djconnect.t("log") + ": " + djconnect.logFile
-                color: "#91a3a7"
-                font.pixelSize: 17
-                elide: Text.ElideMiddle
-                Layout.fillWidth: true
             }
 
             PurpleButton {
@@ -1251,6 +1273,14 @@ Window {
                 onClicked: root.rebootConfirmOpen = true
             }
 
+            DangerButton {
+                text: djconnect.t("shutdown_device")
+                font.pixelSize: 24
+                Layout.fillWidth: true
+                Layout.preferredHeight: 58
+                onClicked: root.shutdownConfirmOpen = true
+            }
+
             Item { Layout.fillHeight: true }
         }
     }
@@ -1260,6 +1290,7 @@ Window {
         visible: root.activeScreen === "queue"
         heading: djconnect.t("queue")
         emptyText: djconnect.t("empty_queue")
+        playCommand: "start_queue_item"
         items: djconnect.queueItems
         onRefreshRequested: djconnect.loadQueue()
     }
@@ -1268,6 +1299,7 @@ Window {
         visible: root.activeScreen === "playlists"
         heading: djconnect.t("playlists")
         emptyText: djconnect.t("empty_playlists")
+        playCommand: "start_playlist"
         items: djconnect.playlistItems
         onRefreshRequested: djconnect.loadPlaylists()
     }
@@ -1925,7 +1957,7 @@ Window {
                     id: logsArea
                     text: djconnect.logsText
                     readOnly: true
-                    wrapMode: TextEdit.NoWrap
+                    wrapMode: TextEdit.Wrap
                     color: "#d7e2e4"
                     font.family: "monospace"
                     font.pixelSize: 24
@@ -1936,6 +1968,14 @@ Window {
                     }
                     onTextChanged: Qt.callLater(function() { logsArea.cursorPosition = logsArea.length })
                 }
+            }
+
+            Text {
+                text: djconnect.t("log") + ": " + djconnect.logFile
+                color: "#91a3a7"
+                font.pixelSize: 17
+                elide: Text.ElideMiddle
+                Layout.fillWidth: true
             }
         }
     }
@@ -2128,6 +2168,70 @@ Window {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 56
                     onClicked: root.rebootConfirmOpen = false
+                }
+            }
+        }
+    }
+
+    Rectangle {
+        id: shutdownConfirmPanel
+        anchors.fill: parent
+        color: "#cc070b16"
+        visible: root.shutdownConfirmOpen
+        z: 84
+
+        ModalBlocker {}
+
+        Rectangle {
+            anchors.centerIn: parent
+            width: Math.min(parent.width - 48, 520)
+            radius: 8
+            color: "#f0151020"
+            border.color: "#47345d"
+            border.width: 1
+
+            implicitHeight: shutdownConfirmContent.implicitHeight + 44
+
+            ColumnLayout {
+                id: shutdownConfirmContent
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.margins: 22
+                spacing: 18
+
+                Text {
+                    text: djconnect.t("shutdown_confirm_title")
+                    color: "#ffffff"
+                    font.pixelSize: 28
+                    font.bold: true
+                    Layout.fillWidth: true
+                }
+
+                Text {
+                    text: djconnect.t("shutdown_confirm_message")
+                    color: "#f4f0ff"
+                    font.pixelSize: 24
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+
+                DangerButton {
+                    text: djconnect.t("shutdown_device")
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 56
+                    onClicked: {
+                        root.shutdownConfirmOpen = false
+                        djconnect.shutdownDevice()
+                    }
+                }
+
+                PurpleButton {
+                    text: djconnect.t("cancel")
+                    font.pixelSize: 24
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 56
+                    onClicked: root.shutdownConfirmOpen = false
                 }
             }
         }

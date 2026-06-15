@@ -1,6 +1,6 @@
 # DJConnect Pi
 
-Version: `3.1.55`
+Version: `3.1.56`
 
 Raspberry Pi Zero 2 W touch-display client for DJConnect. This client uses
 Qt Quick/QML with a PySide6 backend and is meant for a Pimoroni HyperPixel 4.0
@@ -79,9 +79,11 @@ The app is a 720x720 fullscreen touch remote:
   Games and Instellingen
 - compact HA/pairing/backend status
 - settings for screen blanking, brightness, language, logs, pairing reset,
-  reboot with confirmation and stable/beta update channel
+  update checks, reboot/shutdown with confirmation and stable/beta update
+  channel
 - output-device selector on Bediening that can switch HA-provided playback
-  devices with `set_output`
+  devices with `set_output`, plus a local-only "Geen" option so the UI does
+  not pick the first HA device implicitly
 - default screen blanking after 2 minutes, with tap-to-wake
 - touch-only local games: Paddle Rally, Meteor Run, Sky Dash and Maze Chase
 - Dutch/English user-facing text, including game labels and fallback playback
@@ -131,9 +133,9 @@ not a private source clone:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.55.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.56.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.55
+cd djconnect-pi-3.1.56
 sudo ./scripts/install.sh
 ```
 
@@ -199,9 +201,10 @@ OS maintenance is also separate. The maintenance command can run apt update,
 upgrade and reboot only when `/var/run/reboot-required` exists, optionally
 inside a configured maintenance window.
 
-The touch UI reboot button uses `systemctl reboot` and falls back to
-`sudo -n systemctl reboot`. The installer writes a narrow sudoers rule for the
-dedicated `djconnect` runtime user that only permits `systemctl reboot`.
+The touch UI reboot/shutdown buttons and the manual "Controleer op updates"
+action use narrow systemctl commands and sudo fallbacks. The installer writes a
+narrow sudoers rule for the dedicated `djconnect` runtime user that only
+permits reboot, poweroff and starting `djconnect-updater.service`.
 
 After each release, clean old source and public distribution releases/tags plus
 completed tag workflow runs:
@@ -221,9 +224,9 @@ installer:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.55.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.56.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.55
+cd djconnect-pi-3.1.56
 sudo ./scripts/install.sh
 ```
 

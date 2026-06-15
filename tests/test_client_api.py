@@ -88,6 +88,7 @@ def test_web_portal_renders_diagnostics_block() -> None:
     assert "diagnosticsHtml" in html
     assert "data.diagnostics" in html
     assert ".chip.running" in html
+    assert "Controleer op updates" in html
 
 
 def test_mdns_properties_include_ha_discovery_fields() -> None:

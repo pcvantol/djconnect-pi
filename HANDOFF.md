@@ -85,10 +85,12 @@ Implemented:
 - Settings shows "Instellingen", uses label/value rows for read-only values
   such as Device ID and Home Assistant URL, has a red "Opnieuw koppelen" action
   with a confirmation screen, a "Logs" button, no local Close button and a
-  reboot button with confirmation.
-- The reboot button uses the installer-created narrow passwordless sudoers rule
-  and tries absolute `/usr/bin/systemctl reboot` and `/bin/systemctl reboot`
-  first from the `djconnect` runtime user.
+  reboot/shutdown buttons with confirmation.
+- The reboot/shutdown buttons and the manual update-check action use the
+  installer-created narrow passwordless sudoers rule and try absolute systemctl
+  paths first from the `djconnect` runtime user.
+- Bediening has a local-only "Geen" output device option; it never sends that
+  placeholder to Home Assistant.
 - Full-screen QML overlays consume touch input so underlying controls cannot be
   activated through logs/about/pairing/version/confirmation screens.
 - Logs, Over and Instellingen are opaque full-screen views, not translucent
@@ -175,8 +177,9 @@ Implemented:
   keeps existing config, refreshes release files and systemd units, and restarts
   `djconnect-api.service` plus `djconnect-client.service`.
 - Install script writes `/etc/sudoers.d/djconnect-reboot` with a narrow
-  passwordless rule for the runtime user to run only `systemctl reboot`, used by
-  the touch UI reboot button.
+  passwordless rule for the runtime user to run only reboot, poweroff and
+  `systemctl start djconnect-updater.service`, used by the touch UI power and
+  update-check buttons.
 - The unattended updater now mirrors the release installer path for public
   tarballs: it strips the top-level archive directory, installs the bundled
   wheel into `.venv`, validates all `djconnect-pi-*` console entrypoints and

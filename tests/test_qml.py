@@ -107,6 +107,12 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "root.rebootConfirmOpen = true" in main_qml
     assert 'djconnect.t("reboot_confirm_title")' in main_qml
     assert 'djconnect.t("reboot_confirm_message")' in main_qml
+    assert "root.shutdownConfirmOpen = true" in main_qml
+    assert 'djconnect.t("shutdown_confirm_title")' in main_qml
+    assert 'djconnect.t("shutdown_confirm_message")' in main_qml
+    assert "djconnect.shutdownDevice()" in main_qml
+    assert "djconnect.checkForUpdates()" in main_qml
+    assert 'djconnect.t("check_updates")' in main_qml
     assert 'text: djconnect.t("no_voice")' not in main_qml
     assert "placeholderText: djconnect.t(\"ha_url\")" not in main_qml
     assert "ModalBlocker {}" in main_qml
@@ -118,6 +124,9 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "djconnect.playlistItems" in main_qml
     assert 'emptyText: djconnect.t("empty_queue")' in main_qml
     assert 'emptyText: djconnect.t("empty_playlists")' in main_qml
+    assert 'playCommand: "start_queue_item"' in main_qml
+    assert 'playCommand: "start_playlist"' in main_qml
+    assert "djconnect.playMediaItem(panel.playCommand, modelData.uri)" in main_qml
     assert "visible: panel.items.length === 0" in main_qml
     assert "djconnect.loadQueue()" in main_qml
     assert "djconnect.loadPlaylists()" in main_qml
@@ -130,6 +139,7 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert 'djconnect.haUrl.length ? djconnect.haUrl : "http://homeassistant.local:8123"' in main_qml
     assert "djconnect.outputDevices" in main_qml
     assert "property var deviceChoices" in main_qml
+    assert 'property string noOutputDeviceLabel: djconnect.t("none")' in main_qml
     assert "djconnect.setOutputDevice" in main_qml
     assert "id: nowPanel" in main_qml
     assert 'visible: root.activeScreen === "now"' in main_qml
@@ -138,6 +148,8 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert 'djconnect.t("control")' in main_qml
     assert "id: controlOutputDeviceCombo" in main_qml
     assert 'text: "🔊"' not in main_qml
+    assert "wrapMode: TextEdit.Wrap" in main_qml
+    assert 'text: djconnect.t("log") + ": " + djconnect.logFile' in main_qml
     assert "djconnect.cachedImageUrl(modelData.imageUrl)" not in main_qml
     assert "source: modelData.imageUrl && modelData.imageUrl.length > 0 ? modelData.imageUrl : \"\"" in main_qml
     assert "height: 92" not in main_qml

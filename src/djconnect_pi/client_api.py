@@ -236,7 +236,9 @@ class ClientAPIHandler(BaseHTTPRequestHandler):
             "set_output",
             "start_playlist",
             "start_queue_item",
+            "check_updates",
             "reboot",
+            "shutdown",
             "debug_show_screen",
         }
         if command not in allowed:

@@ -452,6 +452,42 @@ def test_backend_reboot_uses_passwordless_absolute_systemctl(tmp_path: Path) -> 
     ]
 
 
+def test_backend_shutdown_uses_passwordless_absolute_systemctl(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    calls: list[list[str]] = []
+
+    def fake_run(command: list[str], **_kwargs: object) -> None:
+        calls.append(command)
+        if command == ["sudo", "-n", "/usr/bin/systemctl", "poweroff"]:
+            raise subprocess.CalledProcessError(1, command, stderr="denied")
+
+    with patch("djconnect_pi.app.subprocess.run", side_effect=fake_run):
+        backend.shutdownDevice()
+
+    assert calls == [
+        ["sudo", "-n", "/usr/bin/systemctl", "poweroff"],
+        ["sudo", "-n", "/bin/systemctl", "poweroff"],
+    ]
+
+
+def test_backend_check_for_updates_triggers_updater_service(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+
+    with patch("djconnect_pi.app.subprocess.run") as run:
+        backend.checkForUpdates()
+
+    run.assert_called_once_with(
+        ["systemctl", "start", "djconnect-updater.service"],
+        check=True,
+        timeout=8,
+        capture_output=True,
+        text=True,
+    )
+    assert backend.statusText == backend.t("update_check_started")
+
+
 def test_backend_version_mismatch_blocks_ui_and_triggers_update(tmp_path: Path) -> None:
     ensure_app()
     backend = DJConnectBackend(tmp_path / "config.json")
@@ -488,6 +524,19 @@ def test_backend_output_device_dispatches_command(tmp_path: Path) -> None:
 
     assert backend.outputDevice == "Slaapkamer"
     assert calls == ["set_output"]
+
+
+def test_backend_output_device_can_be_cleared_locally(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.playback.output_device = "Slaapkamer"
+    calls: list[str] = []
+    backend._run = lambda label, worker: calls.append(label)  # type: ignore[method-assign]
+
+    backend.setOutputDevice("")
+
+    assert backend.outputDevice == ""
+    assert calls == []
 
 
 def test_backend_output_device_worker_rolls_back_rejected_device(tmp_path: Path) -> None:

@@ -152,8 +152,8 @@ class ClientAPIDaemon:
             return self._dj_response(payload)
         if not command:
             return {"success": False, "error": "missing_command"}
-        if command == "reboot":
-            self._write_command_event({"command": "reboot", "payload": payload})
+        if command in {"reboot", "shutdown", "check_updates"}:
+            self._write_command_event({"command": command, "payload": payload})
             return {"success": True, "queued": True, "command": command}
         self._write_command_event({"command": command, "payload": payload})
         _LOGGER.info("Queued Client API command for touch UI: %s", command)
@@ -196,7 +196,7 @@ class ClientAPIDaemon:
         diagnostics = [
             {
                 "name": "Home Assistant API",
-                "status": "running" if backend_available else "stopped",
+                "status": "running" if backend_available else "failed",
                 "detail": self.cfg.ha_url or "not configured",
             },
             {

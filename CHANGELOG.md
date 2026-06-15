@@ -1,5 +1,28 @@
 # Changelog
 
+## 3.1.56
+
+- Added a touch Settings and web portal "Controleer op updates" action that
+  starts `djconnect-updater.service` on demand.
+- Added a touch Settings and web portal shutdown action with confirmation on
+  the Pi.
+- Extended the installer-created narrow sudoers rule so the `djconnect` runtime
+  user can run only the required power/update service actions: reboot, poweroff
+  and `systemctl start djconnect-updater.service`.
+- Improved reboot/shutdown/update action diagnostics by logging stdout/stderr
+  from failed systemctl calls instead of only reporting exit code 1.
+- Fixed queue and playlist row taps to send `start_queue_item` and
+  `start_playlist` commands instead of generic `play_uri`.
+- Added a local-only "Geen" output-device option so the Pi no longer
+  implicitly selects the first Home Assistant output device.
+- Restyled the on-device volume slider with a purple left-to-right track.
+- Removed the inactive slash overlay from shuffle and repeat buttons.
+- Moved the log-file path from Instellingen to the bottom of Logs and wrapped
+  long log lines inside the Logs UI.
+- Made the Speelt nu artist font larger.
+- Changed web portal Diagnostics so Home Assistant API unavailability is shown
+  as failed instead of stopped, because Home Assistant is not a Pi systemd unit.
+
 ## 3.1.55
 
 - Added a live Diagnostics section to the Raspberry Pi web portal. It shows

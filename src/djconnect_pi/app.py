@@ -513,6 +513,10 @@ class DJConnectBackend(QObject):
     def setOutputDevice(self, value: str) -> None:
         value = value.strip()
         if not value:
+            self.playback.output_device = ""
+            self.outputDeviceChanged.emit()
+            _LOGGER.info("User cleared output device selection from touch UI")
+            self.showToast(self.tr_key("none"))
             return
         previous = self.playback.output_device
         self.playback.output_device = value
@@ -589,27 +593,97 @@ class DJConnectBackend(QObject):
     @Slot()
     def rebootDevice(self) -> None:
         _LOGGER.info("User requested device reboot from touch UI")
-        self._set_status_text(self.tr_key("rebooting"))
-        self.showToast(self.tr_key("rebooting"))
-        commands = (
-            ["sudo", "-n", "/usr/bin/systemctl", "reboot"],
-            ["sudo", "-n", "/bin/systemctl", "reboot"],
-            ["sudo", "-n", "systemctl", "reboot"],
-            ["/usr/bin/systemctl", "reboot"],
-            ["/bin/systemctl", "reboot"],
+        self._run_power_command(
+            action="reboot",
+            status_key="rebooting",
+            failure_key="reboot_failed",
+            commands=(
+                ["sudo", "-n", "/usr/bin/systemctl", "reboot"],
+                ["sudo", "-n", "/bin/systemctl", "reboot"],
+                ["sudo", "-n", "systemctl", "reboot"],
+                ["/usr/bin/systemctl", "reboot"],
+                ["/bin/systemctl", "reboot"],
+            ),
         )
-        last_error: Exception | None = None
+
+    @Slot()
+    def shutdownDevice(self) -> None:
+        _LOGGER.info("User requested device shutdown from touch UI")
+        self._run_power_command(
+            action="shutdown",
+            status_key="shutting_down",
+            failure_key="shutdown_failed",
+            commands=(
+                ["sudo", "-n", "/usr/bin/systemctl", "poweroff"],
+                ["sudo", "-n", "/bin/systemctl", "poweroff"],
+                ["sudo", "-n", "systemctl", "poweroff"],
+                ["/usr/bin/systemctl", "poweroff"],
+                ["/bin/systemctl", "poweroff"],
+            ),
+        )
+
+    @Slot()
+    def checkForUpdates(self) -> None:
+        _LOGGER.info("User requested update check from touch UI")
+        self._set_status_text(self.tr_key("checking_updates"))
+        self.showToast(self.tr_key("checking_updates"))
+        commands = (
+            ["systemctl", "start", "djconnect-updater.service"],
+            ["sudo", "-n", "/usr/bin/systemctl", "start", "djconnect-updater.service"],
+            ["sudo", "-n", "/bin/systemctl", "start", "djconnect-updater.service"],
+            ["sudo", "-n", "systemctl", "start", "djconnect-updater.service"],
+        )
+        last_error = "unknown error"
         for command in commands:
             try:
-                _LOGGER.info("Starting reboot command: %s", " ".join(command))
-                subprocess.run(command, check=True, timeout=5)
+                _LOGGER.info("Starting update check command: %s", " ".join(command))
+                subprocess.run(command, check=True, timeout=8, capture_output=True, text=True)
+                self._set_status_text(self.tr_key("update_check_started"))
+                self.showToast(self.tr_key("update_check_started"))
                 return
+            except subprocess.CalledProcessError as exc:
+                detail = (exc.stderr or exc.stdout or str(exc)).strip()
+                last_error = detail or str(exc)
+                _LOGGER.warning("Update check command failed: %s: %s", " ".join(command), last_error)
             except Exception as exc:
-                last_error = exc
-                _LOGGER.warning("Reboot command failed: %s: %s", " ".join(command), exc)
-        message = self.tr_key("reboot_failed", error=last_error)
+                last_error = str(exc)
+                _LOGGER.warning("Update check command failed: %s: %s", " ".join(command), exc)
+        message = self.tr_key("update_check_failed", error=last_error)
         self._set_status_text(message)
         self._show_toast(message, 5000)
+
+    def _run_power_command(self, *, action: str, status_key: str, failure_key: str, commands: tuple[list[str], ...]) -> None:
+        self._set_status_text(self.tr_key(status_key))
+        self.showToast(self.tr_key(status_key))
+        last_error: str = "unknown error"
+        for command in commands:
+            try:
+                _LOGGER.info("Starting %s command: %s", action, " ".join(command))
+                subprocess.run(command, check=True, timeout=5, capture_output=True, text=True)
+                return
+            except subprocess.CalledProcessError as exc:
+                detail = (exc.stderr or exc.stdout or str(exc)).strip()
+                last_error = detail or str(exc)
+                _LOGGER.warning("%s command failed: %s: %s", action.capitalize(), " ".join(command), last_error)
+            except Exception as exc:
+                last_error = str(exc)
+                _LOGGER.warning("%s command failed: %s: %s", action.capitalize(), " ".join(command), exc)
+        message = self.tr_key(failure_key, error=last_error)
+        self._set_status_text(message)
+        self._show_toast(message, 5000)
+
+    @Slot(str, str)
+    def playMediaItem(self, command: str, uri: str) -> None:
+        uri = uri.strip()
+        command = command.strip()
+        if not command or not uri:
+            return
+        if command not in {"start_queue_item", "start_playlist"}:
+            _LOGGER.warning("Ignoring unsupported media item command from touch UI: %s", command)
+            return
+        _LOGGER.info("User requested %s from touch UI", command)
+        self.showToast(self.tr_key("play"))
+        self.command(command, value=uri)
 
     @Slot()
     def showLogs(self) -> None:
@@ -1070,6 +1144,14 @@ class DJConnectBackend(QObject):
             if command == "reboot":
                 _LOGGER.info("Executing local web portal reboot request")
                 self.rebootDevice()
+                continue
+            if command == "shutdown":
+                _LOGGER.info("Executing local web portal shutdown request")
+                self.shutdownDevice()
+                continue
+            if command == "check_updates":
+                _LOGGER.info("Executing local web portal update check request")
+                self.checkForUpdates()
                 continue
             _LOGGER.info("Executing Client API command event from Home Assistant: %s", command)
             if command in {"previous", "next"}:

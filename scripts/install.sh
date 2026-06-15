@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DJCONNECT_VERSION="${DJCONNECT_VERSION:-3.1.55}"
+DJCONNECT_VERSION="${DJCONNECT_VERSION:-3.1.56}"
 DJCONNECT_REPO="${DJCONNECT_REPO:-pcvantol/djconnect-pi-releases}"
 DJCONNECT_HA_URL="${DJCONNECT_HA_URL:-http://homeassistant.local:8123}"
 DJCONNECT_RUNTIME_USER="${DJCONNECT_RUNTIME_USER:-djconnect}"
@@ -387,7 +387,7 @@ payload = {
     "device_name": "DJConnect Pi",
     "device_token": "",
     "paired": False,
-    "version": "3.1.55",
+    "version": "3.1.56",
     "update_repo": "pcvantol/djconnect-pi-releases",
     "update_channel": "stable",
     "screen_timeout_seconds": 120,
@@ -434,7 +434,7 @@ configure_reboot_sudoers() {
   fi
 
   cat >"$sudoers_file" <<EOF
-${DJCONNECT_RUNTIME_USER} ALL=(ALL) NOPASSWD: /usr/bin/systemctl reboot, /bin/systemctl reboot, /usr/bin/systemctl reboot -i, /bin/systemctl reboot -i, systemctl reboot
+${DJCONNECT_RUNTIME_USER} ALL=(ALL) NOPASSWD: /usr/bin/systemctl reboot, /bin/systemctl reboot, /usr/bin/systemctl reboot -i, /bin/systemctl reboot -i, systemctl reboot, /usr/bin/systemctl poweroff, /bin/systemctl poweroff, /usr/bin/systemctl poweroff -i, /bin/systemctl poweroff -i, systemctl poweroff, /usr/bin/systemctl start djconnect-updater.service, /bin/systemctl start djconnect-updater.service, systemctl start djconnect-updater.service
 EOF
   chmod 0440 "$sudoers_file"
 }

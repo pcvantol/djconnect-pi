@@ -35,7 +35,10 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 - installer/systemd contract for separate API and touch UI services
 - systemd startup contract that the touch client pulls in the updater service
   on boot/start before the UI process starts
-- installer contract for the narrow reboot sudoers rule used by the touch UI
+- installer contract for the narrow reboot, shutdown and update-check sudoers
+  rule used by the touch UI
+- touch UI contract for Settings power/update actions, output-device "Geen",
+  wrapped Logs text and queue/playlist item command routing
 - release bundle contract for including docs, systemd units, `scripts/install.sh`
   and a bundled wheel without the loose `src/` app source tree
 - repo-only OS bootstrap contract for Raspberry Pi OS Lite 64-bit, modern

@@ -121,8 +121,10 @@ def index_html(version: str) -> bytes:
         <label>Schermhelderheid <input id="brightness" type="range" min="10" max="100"></label>
         <label>Scherm uit na seconden <select id="timeout"><option>30</option><option>60</option><option>90</option><option>120</option><option>180</option><option>240</option><option>300</option><option>600</option></select></label>
         <button onclick="saveSettings()">Instellingen opslaan</button>
+        <button onclick="cmd('check_updates')">Controleer op updates</button>
         <button class="danger" onclick="confirm('Opnieuw koppelen?')&&cmd('forget_pairing')">Opnieuw koppelen</button>
         <button class="danger" onclick="confirm('Apparaat herstarten?')&&cmd('reboot')">Apparaat herstarten</button>
+        <button class="danger" onclick="confirm('Apparaat uitschakelen?')&&cmd('shutdown')">Apparaat uitschakelen</button>
       </div>
     </section>
     <section>

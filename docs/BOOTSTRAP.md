@@ -168,9 +168,9 @@ completed:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.55.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.56.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.55
+cd djconnect-pi-3.1.56
 sudo ./scripts/install.sh
 ```
 
@@ -197,9 +197,9 @@ development checkout:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.55.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.56.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.55
+cd djconnect-pi-3.1.56
 sudo ./scripts/install.sh
 ```
 
@@ -210,7 +210,8 @@ The installer is safe to run over an earlier DJConnect install:
 - replaces `/opt/djconnect/releases/<version>` for that version
 - repoints `/opt/djconnect/current`
 - updates systemd unit files
-- updates the narrow reboot sudoers rule for the touchscreen reboot action
+- updates the narrow sudoers rule for the touchscreen reboot, shutdown and
+  update-check actions
 - configures `/etc/X11/Xwrapper.config` with `allowed_users=anybody` and
   `needs_root_rights=yes` so the systemd-managed touch client can start Xorg on
   Raspberry Pi OS Lite
