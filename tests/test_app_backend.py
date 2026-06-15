@@ -701,6 +701,7 @@ def test_backend_queue_request_is_limited_to_100_items(tmp_path: Path) -> None:
 def test_backend_playlists_are_emitted_before_artwork_cache(tmp_path: Path, monkeypatch) -> None:
     ensure_app()
     backend = DJConnectBackend(tmp_path / "config.json")
+    calls: list[tuple[str, dict[str, object]]] = []
     emitted: list[tuple[str, list[dict[str, object]]]] = []
     submitted: list[object] = []
     backend._mediaListReady.connect(lambda kind, items: emitted.append((kind, items)))
@@ -712,6 +713,7 @@ def test_backend_playlists_are_emitted_before_artwork_cache(tmp_path: Path, monk
 
     class FakeClient:
         def command(self, command: str, **payload: object) -> dict[str, object]:
+            calls.append((command, payload))
             return {"playlists": [{"name": "Friday Night", "uri": "spotify:playlist:1", "image_url": "https://example.test/a.jpg"}]}
 
     backend._executor = FakeExecutor()  # type: ignore[assignment]
@@ -719,6 +721,7 @@ def test_backend_playlists_are_emitted_before_artwork_cache(tmp_path: Path, monk
 
     backend._load_playlists_worker()
 
+    assert calls == [("playlists", {"limit": 50})]
     assert emitted[0][0] == "playlists"
     assert emitted[0][1][0]["title"] == "Friday Night"
     assert emitted[0][1][0]["imageUrl"] == "https://example.test/a.jpg"

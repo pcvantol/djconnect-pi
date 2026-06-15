@@ -144,6 +144,24 @@ def test_install_python_dependencies_uses_pip_cache_env(tmp_path: Path) -> None:
 
     assert run.call_args_list[1].kwargs["env"] == {"PIP_CACHE_DIR": "/cache", "TMPDIR": "/cache/tmp"}
     assert run.call_args_list[2].kwargs["env"] == {"PIP_CACHE_DIR": "/cache", "TMPDIR": "/cache/tmp"}
+    assert run.call_args_list[1].args[0][-2:] == ["pip", "--version"]
+
+
+def test_install_python_dependencies_can_force_pip_upgrade(tmp_path: Path, monkeypatch) -> None:
+    release_dir = tmp_path / "release"
+    wheels_dir = release_dir / "wheels"
+    wheels_dir.mkdir(parents=True)
+    (wheels_dir / "djconnect_pi-0.2.0-py3-none-any.whl").write_bytes(b"wheel")
+    monkeypatch.setenv("DJCONNECT_UPGRADE_PIP", "1")
+
+    with (
+        patch("djconnect_pi.updater.pip_environment", return_value={"PIP_CACHE_DIR": "/cache", "TMPDIR": "/cache/tmp"}),
+        patch("djconnect_pi.updater.validate_release_entrypoints"),
+        patch("djconnect_pi.updater.subprocess.run") as run,
+    ):
+        updater.install_python_dependencies(release_dir, "0.2.0")
+
+    assert run.call_args_list[1].args[0][-4:] == ["pip", "install", "--upgrade", "pip"]
 
 
 def test_validate_release_entrypoints_rejects_missing_wrappers(tmp_path: Path) -> None:

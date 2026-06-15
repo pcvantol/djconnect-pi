@@ -131,7 +131,7 @@ The Pi client is an app-like DJConnect client.
   "device_id": "djconnect-raspberry-pi-XXXXXXXXXXXX",
   "device_name": "DJConnect",
   "client_type": "raspberry_pi",
-  "version": "3.1.61",
+  "version": "3.1.62",
   "capabilities": {
     "touch": true,
     "voice": false,
@@ -150,6 +150,13 @@ Runtime traffic uses:
 Pairing, status and command payloads all include the stable `device_id` and
 `client_type=raspberry_pi`. Command payloads also include the command name and
 any command-specific value fields.
+
+Media browsing commands use explicit bounded limits: `queue` sends
+`{"command":"queue","limit":100}` and `playlists` sends
+`{"command":"playlists","limit":50}`. Home Assistant must continue accepting
+older playlist requests without a limit by defaulting them internally to 50,
+and it should clamp playlist limits to the Spotify-safe maximum of 50 while
+keeping queue limits up to 100.
 
 HA responses may include `ha_version` or `ha_major_minor`. The Pi enforces
 major/minor compatibility: client `3.1.z` accepts HA `>=3.1.0` and `<3.2.0`.

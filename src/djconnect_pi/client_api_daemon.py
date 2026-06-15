@@ -96,7 +96,7 @@ class ClientAPIDaemon:
                 if "queue" in include:
                     queue = _parse_queue_items(client.command("queue", limit=100))
                 if "playlists" in include:
-                    playlists = _parse_playlist_items(client.command("playlists"))
+                    playlists = _parse_playlist_items(client.command("playlists", limit=50))
                 backend_available = True
                 status_text = "Verbonden"
             except AuthenticationError as exc:

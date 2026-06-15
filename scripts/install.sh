@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DJCONNECT_VERSION="${DJCONNECT_VERSION:-3.1.61}"
+DJCONNECT_VERSION="${DJCONNECT_VERSION:-3.1.62}"
 DJCONNECT_REPO="${DJCONNECT_REPO:-pcvantol/djconnect-pi-releases}"
 DJCONNECT_HA_URL="${DJCONNECT_HA_URL:-http://homeassistant.local:8123}"
 DJCONNECT_RUNTIME_USER="${DJCONNECT_RUNTIME_USER:-djconnect}"
 DJCONNECT_ROOT="${DJCONNECT_ROOT:-/opt/djconnect}"
 DJCONNECT_INSTALL_STATE="${DJCONNECT_INSTALL_STATE:-${DJCONNECT_ROOT}/install-state}"
 DJCONNECT_PIP_CACHE="${DJCONNECT_PIP_CACHE:-/var/cache/djconnect-pip}"
+DJCONNECT_UPGRADE_PIP="${DJCONNECT_UPGRADE_PIP:-0}"
 DJCONNECT_MIN_FREE_MB="${DJCONNECT_MIN_FREE_MB:-3000}"
 DJCONNECT_MIN_SWAP_MB="${DJCONNECT_MIN_SWAP_MB:-1000}"
 
@@ -34,6 +35,7 @@ Environment:
   DJCONNECT_ROOT=/opt/djconnect
   DJCONNECT_INSTALL_STATE=/opt/djconnect/install-state
   DJCONNECT_PIP_CACHE=/var/cache/djconnect-pip
+  DJCONNECT_UPGRADE_PIP=0
   DJCONNECT_MIN_FREE_MB=3000
   DJCONNECT_MIN_SWAP_MB=1000
 
@@ -343,7 +345,12 @@ install_python_dependencies() {
   check_free_space
   print_resources "before Python dependency install"
   python3 -m venv "${release_dir}/.venv"
-  TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --upgrade pip
+  if [[ "$DJCONNECT_UPGRADE_PIP" == "1" ]]; then
+    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --upgrade pip
+  else
+    "${release_dir}/.venv/bin/python" -m pip --version
+    echo "Skipping pip self-upgrade; set DJCONNECT_UPGRADE_PIP=1 to force it."
+  fi
   TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --upgrade setuptools wheel
   TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --upgrade --prefer-binary "PySide6>=6.7" "requests>=2.31" "zeroconf>=0.132"
   TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --prefer-binary "$wheel_path"
@@ -387,7 +394,7 @@ payload = {
     "device_name": "DJConnect Pi",
     "device_token": "",
     "paired": False,
-    "version": "3.1.61",
+    "version": "3.1.62",
     "update_repo": "pcvantol/djconnect-pi-releases",
     "update_channel": "stable",
     "screen_timeout_seconds": 120,

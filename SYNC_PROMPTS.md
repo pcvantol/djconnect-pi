@@ -757,8 +757,8 @@ Payload voorbeelden:
 
 {"device_id":"djconnect-lilygo-t-embed-s3-XXXXXXXXXXXX","client_type":"esp32","command":"status"}
 {"device_id":"djconnect-lilygo-t-embed-s3-XXXXXXXXXXXX","client_type":"esp32","command":"devices"}
-{"device_id":"djconnect-lilygo-t-embed-s3-XXXXXXXXXXXX","client_type":"esp32","command":"queue"}
-{"device_id":"djconnect-lilygo-t-embed-s3-XXXXXXXXXXXX","client_type":"esp32","command":"playlists"}
+{"device_id":"djconnect-lilygo-t-embed-s3-XXXXXXXXXXXX","client_type":"esp32","command":"queue","limit":100}
+{"device_id":"djconnect-lilygo-t-embed-s3-XXXXXXXXXXXX","client_type":"esp32","command":"playlists","limit":50}
 {"device_id":"djconnect-lilygo-t-embed-s3-XXXXXXXXXXXX","client_type":"esp32","command":"pause"}
 {"device_id":"djconnect-lilygo-t-embed-s3-XXXXXXXXXXXX","client_type":"esp32","command":"play"}
 {"device_id":"djconnect-lilygo-t-embed-s3-XXXXXXXXXXXX","client_type":"esp32","command":"next"}
@@ -803,9 +803,11 @@ an error state.
 are valid and playlist browsing succeeds, HA must return HTTP 200 with
 `success:true`, `backend_available:true` and `playlists[]` items containing at
 least `name`, `uri`, `owner` and `image_url`, even when Spotify playback is
-idle. ESP32 clients may send `limit`; HA must cap the response to that limit
-and use a safe default of 20 when ESP omits it. App-like clients may request up
-to 100 playlists. Use `backend_available:false` only when the backend is
+idle. Clients may send `limit`; HA must accept only positive integer limits,
+default missing playlist limits to 50 for backwards compatibility and clamp
+playlist limits to the Spotify-safe maximum of 50. Queue requests may use
+`limit:100` and HA should keep returning up to 100 real queue items when the
+backend supports it. Use `backend_available:false` only when the backend is
 genuinely unavailable or auth is invalid, and still return a non-empty JSON body
 with `success:false`, `error:"playback_backend_unavailable"` and `playlists:[]`.
 
@@ -1364,7 +1366,7 @@ Examples:
 {"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"status"}
 {"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"devices"}
 {"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"queue","limit":100}
-{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"playlists"}
+{"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"playlists","limit":50}
 {"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"pause"}
 {"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"play"}
 {"device_id":"djconnect-ios-8F3A2C91B45D","client_type":"ios","command":"next"}
@@ -1449,9 +1451,11 @@ an error state.
 are valid and playlist browsing succeeds, HA must return HTTP 200 with
 `success:true`, `backend_available:true` and `playlists[]` items containing at
 least `name`, `uri`, `owner` and `image_url`, even when Spotify playback is
-idle. ESP32 clients may send `limit`; HA must cap the response to that limit
-and use a safe default of 20 when ESP omits it. App-like clients may request up
-to 100 playlists. Use `backend_available:false` only when the backend is
+idle. Clients may send `limit`; HA must accept only positive integer limits,
+default missing playlist limits to 50 for backwards compatibility and clamp
+playlist limits to the Spotify-safe maximum of 50. Queue requests may use
+`limit:100` and HA should keep returning up to 100 real queue items when the
+backend supports it. Use `backend_available:false` only when the backend is
 genuinely unavailable or auth is invalid, and still return a non-empty JSON body
 with `success:false`, `error:"playback_backend_unavailable"` and `playlists:[]`.
 

@@ -865,7 +865,7 @@ class DJConnectBackend(QObject):
     def _load_playlists_worker(self) -> None:
         started = time.monotonic()
         _LOGGER.info("Loading playlists from Home Assistant")
-        data = self.client.command("playlists")
+        data = self.client.command("playlists", limit=50)
         items = parse_playlist_items(data)
         _LOGGER.info("Loaded %s playlists from Home Assistant", len(items))
         self._mediaListReady.emit("playlists", items)

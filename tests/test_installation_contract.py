@@ -249,6 +249,9 @@ def test_install_script_can_resume_after_reboot_or_interruption() -> None:
     assert "PIP_CACHE_DIR=\"$DJCONNECT_PIP_CACHE\"" in script
     assert "TMPDIR=\"$pip_tmp\"" in script
     assert "${DJCONNECT_PIP_CACHE}/tmp" in script
+    assert 'DJCONNECT_UPGRADE_PIP="${DJCONNECT_UPGRADE_PIP:-0}"' in script
+    assert "Skipping pip self-upgrade" in script
+    assert "DJCONNECT_UPGRADE_PIP=1" in script
     assert '${release_dir}/.venv/bin/python" -m pip install --upgrade pip' in script
     assert '${release_dir}/.venv/bin/python" -m pip install --prefer-binary "$wheel_path"' in script
     assert '".venv/bin/pip" install' not in script

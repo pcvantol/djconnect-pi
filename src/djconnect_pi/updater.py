@@ -17,6 +17,7 @@ import requests
 from .config import DEFAULT_CONFIG_PATH, load_config
 
 PIP_CACHE_DIR = Path("/var/cache/djconnect-pip")
+UPGRADE_PIP_ENV = "DJCONNECT_UPGRADE_PIP"
 
 
 @dataclass
@@ -148,7 +149,10 @@ def install_python_dependencies(release_dir: Path, version: str) -> None:
     pip_env = pip_environment()
     subprocess.run(["python3", "-m", "venv", str(venv_dir)], check=True)
     python = venv_dir / "bin" / "python"
-    subprocess.run([str(python), "-m", "pip", "install", "--upgrade", "pip"], check=True, env=pip_env)
+    if os.environ.get(UPGRADE_PIP_ENV) == "1":
+        subprocess.run([str(python), "-m", "pip", "install", "--upgrade", "pip"], check=True, env=pip_env)
+    else:
+        subprocess.run([str(python), "-m", "pip", "--version"], check=True, env=pip_env)
     subprocess.run([str(python), "-m", "pip", "install", "--upgrade", "setuptools", "wheel"], check=True, env=pip_env)
     subprocess.run(
         [

@@ -1,5 +1,18 @@
 # Changelog
 
+## 3.1.62
+
+- Send `command:"playlists"` with `limit:50` from the Raspberry Pi touch UI and
+  web portal, matching the fixed iOS/macOS client contract and avoiding Spotify
+  invalid-limit failures.
+- Kept queue browsing on `command:"queue"` with `limit:100` and added
+  regression coverage for both media-list limits.
+- Updated the shared playback contract docs so Home Assistant defaults missing
+  playlist limits to 50, clamps playlist limits to the Spotify-safe maximum 50
+  and keeps queue limits up to 100.
+- Stopped upgrading pip on every install/update by default; set
+  `DJCONNECT_UPGRADE_PIP=1` only when a pip self-upgrade is explicitly needed.
+
 ## 3.1.61
 
 - Minified the built-in Raspberry Pi web portal HTML response while keeping the

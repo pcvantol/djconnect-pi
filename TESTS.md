@@ -85,6 +85,10 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 - live output-device validation and rollback coverage when HA rejects a
   selected output device
 - queue loading contract sends `command:"queue"` with `limit=100`
+- playlist loading contract sends `command:"playlists"` with `limit=50` from
+  both the touch UI and web portal state endpoint
+- installer/updater contract that pip self-upgrade is skipped by default and can
+  still be forced with `DJCONNECT_UPGRADE_PIP=1`
 - HA major/minor version compatibility checks and blocking mismatch behavior
 - protocol mismatch error handling
 - PySide backend properties and command dispatch

@@ -113,6 +113,41 @@ def test_client_api_daemon_portal_state_loads_output_devices_when_status_omits_t
     assert state["playback"]["output_device"] == ""
 
 
+def test_client_api_daemon_portal_state_requests_playlists_with_safe_limit(tmp_path: Path, monkeypatch) -> None:
+    config_path = tmp_path / "config.json"
+    save_config(config_path, Config(ha_url="http://ha:8123", paired=True, device_token="token"))
+    daemon = ClientAPIDaemon(config_path)
+    parser = HAClient(Config())
+    calls: list[tuple[str, dict[str, object]]] = []
+
+    class FakeHAClient:
+        def __init__(self, cfg: Config) -> None:
+            self.cfg = cfg
+
+        def command(self, command: str, **payload: object) -> dict[str, object]:
+            calls.append((command, payload))
+            if command == "status":
+                return {"playback": {"title": "Song"}}
+            if command == "playlists":
+                return {"playlists": [{"name": "Friday", "uri": "spotify:playlist:1"}]}
+            return {}
+
+        def playback_from_status(self, data: dict[str, object]) -> object:
+            return parser.playback_from_status(data)
+
+    monkeypatch.setattr(client_api_daemon, "HAClient", FakeHAClient)
+    monkeypatch.setattr(
+        client_api_daemon,
+        "_systemd_unit_status",
+        lambda label, unit: {"name": label, "status": "running", "detail": f"{unit}: active"},
+    )
+
+    state = daemon._portal_state({"playlists"})
+
+    assert calls == [("status", {}), ("devices", {}), ("playlists", {"limit": 50})]
+    assert state["playlists"][0]["title"] == "Friday"
+
+
 def test_systemd_unit_status_normalizes_systemctl_output(monkeypatch) -> None:
     def fake_run(*args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
         return subprocess.CompletedProcess(args=args, returncode=0, stdout="active\n", stderr="")
