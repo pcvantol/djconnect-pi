@@ -1,5 +1,27 @@
 # Changelog
 
+## 3.1.49
+
+- Changed mDNS discovery behavior so the Pi advertises `_djconnect._tcp` only
+  while it is unpaired. The local Client API keeps running after pairing for HA
+  commands, screenshots and text DJ responses, but already paired devices no
+  longer appear as pairing candidates.
+- Pairing through the local Client API now stops the mDNS advertisement
+  immediately; forgetting/resetting pairing allows discovery to return.
+- Fixed the Client API daemon forget path so it clears the stored device token,
+  marks the client unpaired and rotates the pairing code before rediscovery.
+- Added shared `PRODUCT_ROADMAP.md` with feature ideas, killer features,
+  production must-haves and premium-function candidates. It must be synced
+  across DJConnect repos during release hygiene.
+- Extended the repo-only Raspberry Pi OS bootstrap with boot-time filesystem
+  repair configuration for wall-mounted devices that may lose power: it keeps
+  `fsck.repair=yes` enabled, removes `fsck.mode=skip`, sets the root fstab
+  check pass and configures periodic ext filesystem checks.
+- Added explicit NTP time synchronization to the repo-only bootstrap with
+  `timedatectl set-ntp true` and `systemd-timesyncd.service` enable/start when
+  available.
+- Added tests for paired mDNS suppression and rediscovery after reset.
+
 ## 3.1.48
 
 - Added explicit Home Assistant backend-unavailable handling so

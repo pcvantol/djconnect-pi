@@ -92,6 +92,113 @@ def test_mdns_properties_include_ha_discovery_fields() -> None:
     }
 
 
+def test_mdns_is_not_advertised_when_already_paired(tmp_path: Path, monkeypatch) -> None:
+    registered: list[object] = []
+
+    class FakeZeroconf:
+        def register_service(self, info: object) -> None:
+            registered.append(info)
+
+        def unregister_service(self, info: object) -> None:
+            pass
+
+        def close(self) -> None:
+            pass
+
+    class FakeServiceInfo:
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            self.args = args
+            self.kwargs = kwargs
+
+    monkeypatch.setattr("djconnect_pi.client_api.Zeroconf", FakeZeroconf)
+    monkeypatch.setattr("djconnect_pi.client_api.ServiceInfo", FakeServiceInfo)
+    monkeypatch.setattr("djconnect_pi.client_api._local_ip", lambda: "127.0.0.1")
+    config_path = tmp_path / "config.json"
+    cfg = Config(
+        device_id="djconnect-raspberry-pi-ABCDEF123456",
+        local_api_host="127.0.0.1",
+        local_api_port=18080,
+        local_url="http://127.0.0.1:18080",
+        paired=True,
+        device_token="token-1",
+    )
+    save_config(config_path, cfg)
+    api = ClientAPI(
+        ClientAPIState(
+            cfg=cfg,
+            config_path=config_path,
+            playback_provider=lambda: {},
+            command_handler=lambda command, payload: {"success": True},
+            dj_response_handler=lambda payload: {"success": True},
+            screenshot_handler=lambda: {"success": True},
+            pair_handler=lambda: None,
+            forget_handler=lambda: None,
+        )
+    )
+    api.refresh_mdns()
+
+    assert registered == []
+
+
+def test_mdns_stops_after_pair_and_returns_after_forget(tmp_path: Path, monkeypatch) -> None:
+    registered: list[object] = []
+    unregistered: list[object] = []
+
+    class FakeZeroconf:
+        def register_service(self, info: object) -> None:
+            registered.append(info)
+
+        def unregister_service(self, info: object) -> None:
+            unregistered.append(info)
+
+        def close(self) -> None:
+            pass
+
+    class FakeServiceInfo:
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            self.args = args
+            self.kwargs = kwargs
+
+    monkeypatch.setattr("djconnect_pi.client_api.Zeroconf", FakeZeroconf)
+    monkeypatch.setattr("djconnect_pi.client_api.ServiceInfo", FakeServiceInfo)
+    monkeypatch.setattr("djconnect_pi.client_api._local_ip", lambda: "127.0.0.1")
+    config_path = tmp_path / "config.json"
+    cfg = Config(
+        device_id="djconnect-raspberry-pi-ABCDEF123456",
+        local_api_host="127.0.0.1",
+        local_api_port=18080,
+        local_url="http://127.0.0.1:18080",
+    )
+    save_config(config_path, cfg)
+    api = ClientAPI(
+        ClientAPIState(
+            cfg=cfg,
+            config_path=config_path,
+            playback_provider=lambda: {},
+            command_handler=lambda command, payload: {"success": True},
+            dj_response_handler=lambda payload: {"success": True},
+            screenshot_handler=lambda: {"success": True},
+            pair_handler=lambda: None,
+            forget_handler=lambda: None,
+        )
+    )
+
+    api.refresh_mdns()
+    assert len(registered) == 1
+    saved = load_config(config_path)
+    saved.device_token = "token-1"
+    saved.paired = True
+    save_config(config_path, saved)
+    api.refresh_mdns()
+    assert len(unregistered) == 1
+    saved.device_token = ""
+    saved.paired = False
+    save_config(config_path, saved)
+    api.refresh_mdns()
+
+    assert len(registered) == 2
+
+
 def test_client_api_pair_stores_token_and_ha_url(tmp_path: Path) -> None:
     api, cfg, events = start_api(tmp_path)
     config_path = tmp_path / "config.json"

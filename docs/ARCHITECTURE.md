@@ -41,7 +41,8 @@ src/djconnect_pi/qml/*.qml    touch UI, gestures and animations
 
 `djconnect-pi-api` is a separate daemon process installed as
 `djconnect-api.service`. It is the only owner of the local HTTP API port and the
-`_djconnect._tcp` mDNS advertisement.
+`_djconnect._tcp` mDNS advertisement. The HTTP API stays online after pairing,
+but the mDNS advertisement is only active while the Pi is unpaired.
 
 Responsibilities:
 
@@ -56,7 +57,7 @@ Responsibilities:
 - request screenshots from the UI process through a local screenshot event file
   and return the saved PNG path once QML `grabToImage` completes
 - advertise `device_id`, `client_type=raspberry_pi`, `version`,
-  `device_name` and `local_url` through mDNS
+  `device_name` and `local_url` through mDNS only while unpaired
 - reject oversized HTTP request bodies
 - reload the shared config before serving info/pairing-info or accepting local
   pairing so reset-pairing code rotation is reflected immediately
@@ -122,7 +123,7 @@ The Pi client is an app-like DJConnect client.
   "device_id": "djconnect-raspberry-pi-XXXXXXXXXXXX",
   "device_name": "DJConnect",
   "client_type": "raspberry_pi",
-  "version": "3.1.48",
+  "version": "3.1.49",
   "capabilities": {
     "touch": true,
     "voice": false,
@@ -166,7 +167,10 @@ same local API plus diagnostic DJ response and screenshot testing.
 the client is paired. It is intended for local support over SSH/LAN and may
 expose the live touchscreen contents, so it should stay authenticated and local.
 
-The Pi advertises `_djconnect._tcp` on the local Client API port. DJ responses
-are displayed as text on the wall screen and report `audio_played:false`.
+The Pi advertises `_djconnect._tcp` on the local Client API port only while it
+is not paired. After pairing, the local API remains available for HA commands,
+debug screenshots and text DJ responses, but discovery is stopped so HA does
+not keep presenting the device as a new pairing candidate. DJ responses are
+displayed as text on the wall screen and report `audio_played:false`.
 
 Spotify credentials remain in Home Assistant.

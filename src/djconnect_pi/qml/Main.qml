@@ -20,6 +20,7 @@ Window {
     property bool aboutOpen: false
     property bool resetPairingConfirmOpen: false
     property bool rebootConfirmOpen: false
+    property bool clearLogsConfirmOpen: false
     property bool forceScreenAwake: false
     property bool screenBlanked: djconnect.screenTimeoutSeconds > 0 && !idleTimer.running && !root.forceScreenAwake
     property real brightnessOverlayOpacity: root.screenBlanked ? 0 : 1 - (djconnect.screenBrightnessPercent / 100.0)
@@ -615,8 +616,8 @@ Window {
 
         ColumnLayout {
             anchors.fill: parent
-            anchors.leftMargin: root.edge
-            anchors.topMargin: root.edge
+            anchors.leftMargin: 16
+            anchors.topMargin: 16
             anchors.rightMargin: 16
             anchors.bottomMargin: root.edge + 112
             spacing: 9
@@ -1375,19 +1376,50 @@ Window {
 
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 88
+                Layout.preferredHeight: 76
                 radius: 8
                 color: "#5524145f"
 
                 ColumnLayout {
                     anchors.fill: parent
-                    anchors.margins: 16
-                    spacing: 4
+                    anchors.margins: 14
+                    spacing: 3
+
+                    Text {
+                        text: djconnect.t("home_assistant")
+                        color: "#b7a8c8"
+                        font.pixelSize: 17
+                        font.bold: true
+                        Layout.fillWidth: true
+                    }
+
+                    Text {
+                        text: djconnect.haUrl.length ? djconnect.haUrl : "http://homeassistant.local:8123"
+                        color: "#ffffff"
+                        font.pixelSize: 22
+                        font.bold: true
+                        font.family: "monospace"
+                        elide: Text.ElideMiddle
+                        Layout.fillWidth: true
+                    }
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 76
+                radius: 8
+                color: "#5524145f"
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: 14
+                    spacing: 3
 
                     Text {
                         text: djconnect.t("client_api_url")
                         color: "#b7a8c8"
-                        font.pixelSize: 18
+                        font.pixelSize: 17
                         font.bold: true
                         Layout.fillWidth: true
                     }
@@ -1395,7 +1427,7 @@ Window {
                     Text {
                         text: djconnect.localApiUrl
                         color: "#ffffff"
-                        font.pixelSize: 24
+                        font.pixelSize: 22
                         font.bold: true
                         font.family: "monospace"
                         elide: Text.ElideMiddle
@@ -1748,42 +1780,43 @@ Window {
             anchors.margins: 28
             spacing: 12
 
-            RowLayout {
+            Text {
+                text: djconnect.t("logs")
+                color: "#f4f8f8"
+                font.pixelSize: 34
+                font.bold: true
                 Layout.fillWidth: true
-                PurpleButton {
-                    text: djconnect.t("copy_logs")
-                    font.pixelSize: 24
-                    Layout.fillWidth: true
-                    onClicked: djconnect.copyLogs()
-                }
-                PurpleButton {
-                    text: djconnect.t("clear_logs")
-                    font.pixelSize: 24
-                    Layout.fillWidth: true
-                    onClicked: djconnect.clearLogs()
-                }
             }
 
             RowLayout {
                 Layout.fillWidth: true
-                spacing: 12
+                Layout.preferredHeight: 56
+                spacing: 10
 
-                Text {
-                    text: djconnect.t("logs")
-                    color: "#f4f8f8"
-                    font.pixelSize: 30
-                    font.bold: true
+                PurpleButton {
+                    text: djconnect.t("clear_logs")
+                    font.pixelSize: 22
                     Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    onClicked: root.clearLogsConfirmOpen = true
                 }
                 PurpleButton {
                     text: djconnect.t("refresh")
-                    font.pixelSize: 24
+                    font.pixelSize: 22
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
                     onClicked: {
                         djconnect.showLogs()
                         Qt.callLater(function() { logsArea.cursorPosition = logsArea.length })
                     }
                 }
-                PurpleButton { text: djconnect.t("close"); font.pixelSize: 24; onClicked: djconnect.hideLogs() }
+                PurpleButton {
+                    text: djconnect.t("close")
+                    font.pixelSize: 22
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    onClicked: djconnect.hideLogs()
+                }
             }
 
             ScrollView {
@@ -1805,6 +1838,70 @@ Window {
                         border.color: "#314449"
                     }
                     onTextChanged: Qt.callLater(function() { logsArea.cursorPosition = logsArea.length })
+                }
+            }
+        }
+    }
+
+    Rectangle {
+        id: clearLogsConfirmPanel
+        anchors.fill: parent
+        color: "#cc070b16"
+        visible: root.clearLogsConfirmOpen
+        z: 86
+
+        ModalBlocker {}
+
+        Rectangle {
+            anchors.centerIn: parent
+            width: Math.min(parent.width - 48, 520)
+            radius: 8
+            color: "#f0151020"
+            border.color: "#47345d"
+            border.width: 1
+
+            implicitHeight: clearLogsConfirmContent.implicitHeight + 44
+
+            ColumnLayout {
+                id: clearLogsConfirmContent
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.margins: 22
+                spacing: 18
+
+                Text {
+                    text: djconnect.t("clear_logs_confirm_title")
+                    color: "#ffffff"
+                    font.pixelSize: 28
+                    font.bold: true
+                    Layout.fillWidth: true
+                }
+
+                Text {
+                    text: djconnect.t("clear_logs_confirm_message")
+                    color: "#f4f0ff"
+                    font.pixelSize: 24
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+
+                DangerButton {
+                    text: djconnect.t("clear_logs")
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 56
+                    onClicked: {
+                        root.clearLogsConfirmOpen = false
+                        djconnect.clearLogs()
+                    }
+                }
+
+                PurpleButton {
+                    text: djconnect.t("cancel")
+                    font.pixelSize: 24
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 56
+                    onClicked: root.clearLogsConfirmOpen = false
                 }
             }
         }
@@ -2025,6 +2122,8 @@ Window {
                     Text { text: "DJConnect"; color: "#ffffff"; font.pixelSize: 20; Layout.fillWidth: true }
                     Text { text: djconnect.t("website"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
                     Text { text: "https://djconnect.dev"; color: "#ffffff"; font.pixelSize: 20; Layout.fillWidth: true; elide: Text.ElideRight }
+                    Text { text: djconnect.t("web_address"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
+                    Text { text: djconnect.webPortalUrl; color: "#ffffff"; font.pixelSize: 18; Layout.fillWidth: true; elide: Text.ElideMiddle }
                     Text { text: djconnect.t("device_id"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
                     Text { text: djconnect.deviceId; color: "#ffffff"; font.pixelSize: 18; Layout.fillWidth: true; elide: Text.ElideMiddle }
                 }

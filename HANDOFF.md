@@ -28,7 +28,13 @@ Implemented:
 - The local API daemon reloads shared config before serving info/pairing-info
   and before local pairing, so reset-pairing code rotation is immediately
   visible to HA mDNS discovery/config-flow.
-- `_djconnect._tcp` mDNS advertisement from `djconnect-api.service`
+- Local API pairing stops mDNS immediately; local API forget/reset clears the
+  token, marks the device unpaired, rotates the pairing code and allows mDNS
+  rediscovery again.
+- `_djconnect._tcp` mDNS advertisement from `djconnect-api.service` only while
+  the Pi is not paired. After successful pairing the local API keeps running,
+  but discovery is stopped so the device no longer appears as a pairing
+  candidate in Home Assistant.
 - Full-screen startup splash with DJConnect banner and spinner
 - Blocking first-run pairing screen with Client API URL and pairing code input
 - Blocking Home Assistant version-mismatch screen. For example, client `3.1.z`
@@ -126,15 +132,19 @@ Implemented:
   so a Pi can install the DJConnect app from the public distribution tarball
   without cloning the private source repo.
 - Repo-only OS bootstrap helper `scripts/bootstrap_raspberry_pi_os.sh` handles
-  root filesystem expansion, persistent 1GB swapfile setup, timezone Amsterdam,
-  SSH, apt full-upgrade, Raspberry Pi Connect, console boot, minimal X11/Qt
-  runtime dependencies and HyperPixel setup. It is intentionally excluded from
-  release tarballs and from the app release cycle.
+  root filesystem expansion, persistent 1GB swapfile setup, automatic
+  boot-time filesystem repair checks, timezone Amsterdam, NTP time
+  synchronization, SSH, apt full-upgrade, Raspberry Pi Connect, console boot,
+  minimal X11/Qt runtime dependencies and HyperPixel setup. It is
+  intentionally excluded from release tarballs and from the app release cycle.
 - systemd unit/timer templates
 - release and cleanup scripts
 - Standard release closeout should also run
   `./cleanup_old_releases.sh --keep 1 --public --execute` to clean old private
   and public releases/tags plus completed tag workflow runs.
+- Product-level ideas, killer features, production must-haves and premium
+  candidates are tracked in shared `PRODUCT_ROADMAP.md`; sync that file
+  byte-for-byte across DJConnect repos during release hygiene.
 - Install script targets a prepared Raspberry Pi OS 64-bit image, creates the
   runtime user, downloads the public release, installs the bundled wheel and
   dependencies inside the release venv, starts the local API daemon, and starts

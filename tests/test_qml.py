@@ -124,6 +124,8 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "djconnect.manualRefresh()" in main_qml
     assert main_qml.count("Layout.preferredWidth: 142") >= 2
     assert main_qml.count("Layout.preferredHeight: 48") >= 2
+    assert "anchors.topMargin: 16" in main_qml
+    assert 'djconnect.haUrl.length ? djconnect.haUrl : "http://homeassistant.local:8123"' in main_qml
     assert "djconnect.outputDevices" in main_qml
     assert "property var deviceChoices" in main_qml
     assert "djconnect.setOutputDevice" in main_qml
@@ -156,7 +158,11 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "repeatOne" in main_qml
     assert "repeatOff" in main_qml
     assert "logsArea.cursorPosition = logsArea.length" in main_qml
-    assert "djconnect.copyLogs()" in main_qml
+    assert "djconnect.copyLogs()" not in main_qml
+    assert 'djconnect.t("copy_logs")' not in main_qml
+    assert "root.clearLogsConfirmOpen = true" in main_qml
+    assert 'djconnect.t("clear_logs_confirm_title")' in main_qml
+    assert 'djconnect.t("clear_logs_confirm_message")' in main_qml
     assert "djconnect.clearLogs()" in main_qml
     assert "pairCodeField" not in main_qml
     assert "djconnect.pair(pairCodeField.text)" not in main_qml

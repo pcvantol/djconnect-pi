@@ -135,7 +135,17 @@ def test_repo_only_os_bootstrap_targets_lite_with_minimal_kiosk_runtime() -> Non
     assert "raspi-config nonint do_spi 1" in script
     assert "DJCONNECT_TIMEZONE" in script
     assert "Europe/Amsterdam" in script
+    assert "configure_time_sync" in script
+    assert "timedatectl set-ntp true" in script
+    assert "systemctl enable --now systemd-timesyncd.service" in script
+    assert "timedatectl status" in script
     assert "raspi-config nonint do_expand_rootfs" in script
+    assert "configure_filesystem_checks" in script
+    assert "fsck.repair=yes" in script
+    assert "fsck.mode=skip" in script
+    assert "tune2fs -c" in script
+    assert "DJCONNECT_FSCK_MAX_MOUNTS" in script
+    assert "DJCONNECT_FSCK_INTERVAL" in script
     assert "DJCONNECT_SWAPFILE" in script
     assert "DJCONNECT_SWAP_MB" in script
     assert "mkswap" in script

@@ -1,6 +1,6 @@
 # DJConnect Pi
 
-Version: `3.1.48`
+Version: `3.1.49`
 
 Raspberry Pi Zero 2 W touch-display client for DJConnect. This client uses
 Qt Quick/QML with a PySide6 backend and is meant for a Pimoroni HyperPixel 4.0
@@ -9,8 +9,9 @@ controls only.
 
 It intentionally does not implement PTT, microphone upload, local DJ response
 audio, ESP firmware OTA, ESP battery sensors or Wi-Fi RSSI sensors. It does
-run a small local Client API daemon plus `_djconnect._tcp` mDNS for Home
-Assistant pairing/discovery and text-only DJ responses.
+run a small local Client API daemon for Home Assistant pairing, commands,
+diagnostics and text-only DJ responses. `_djconnect._tcp` mDNS discovery is
+advertised only while the Pi is not yet paired.
 
 ## Client Contract
 
@@ -32,7 +33,7 @@ Assistant pairing/discovery and text-only DJ responses.
 - Postman collection:
   - `docs/postman/DJConnect Pi Local Client API.postman_collection.json`
 - mDNS service:
-  - `_djconnect._tcp`
+  - `_djconnect._tcp` while unpaired only
   - TXT: `device_id`, `client_type=raspberry_pi`, `version`, `device_name`, `local_url`
 - Supported commands:
   - `status`
@@ -98,7 +99,8 @@ Fresh Pi setup is split into two steps. General Raspberry Pi OS preparation is
 repo-only maintainer bootstrap work and is not part of the DJConnect app release
 tarball. Flash **Raspberry Pi OS Lite 64-bit** with Raspberry Pi Imager; the
 bootstrap installs only the minimal X11/Qt runtime required for the fullscreen
-touch UI:
+touch UI, expands the root filesystem, configures 1GB swap and enables
+boot-time filesystem repair checks plus NTP time synchronization:
 
 ```sh
 sudo apt-get update
@@ -119,9 +121,9 @@ not a private source clone:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.48.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.49.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.48
+cd djconnect-pi-3.1.49
 sudo ./scripts/install.sh
 ```
 
@@ -209,9 +211,9 @@ installer:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.48.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.49.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.48
+cd djconnect-pi-3.1.49
 sudo ./scripts/install.sh
 ```
 

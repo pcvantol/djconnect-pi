@@ -149,6 +149,22 @@ def install_python_dependencies(release_dir: Path, version: str) -> None:
     subprocess.run(["python3", "-m", "venv", str(venv_dir)], check=True)
     python = venv_dir / "bin" / "python"
     subprocess.run([str(python), "-m", "pip", "install", "--upgrade", "pip"], check=True, env=pip_env)
+    subprocess.run([str(python), "-m", "pip", "install", "--upgrade", "setuptools", "wheel"], check=True, env=pip_env)
+    subprocess.run(
+        [
+            str(python),
+            "-m",
+            "pip",
+            "install",
+            "--upgrade",
+            "--prefer-binary",
+            "PySide6>=6.7",
+            "requests>=2.31",
+            "zeroconf>=0.132",
+        ],
+        check=True,
+        env=pip_env,
+    )
     subprocess.run(
         [str(python), "-m", "pip", "install", "--prefer-binary", str(wheel_path)],
         check=True,

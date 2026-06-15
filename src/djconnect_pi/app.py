@@ -220,6 +220,10 @@ class DJConnectBackend(QObject):
     def localApiUrl(self) -> str:
         return self.cfg.local_url
 
+    @Property(str, notify=localApiUrlChanged)
+    def webPortalUrl(self) -> str:
+        return self.cfg.local_url
+
     @Property(str, notify=settingsChanged)
     def deviceId(self) -> str:
         return self.cfg.device_id
@@ -1037,6 +1041,24 @@ class DJConnectBackend(QObject):
                 if screen:
                     _LOGGER.info("Executing local debug screen request: %s", screen)
                     self.debugScreenRequested.emit(screen)
+                continue
+            if command == "settings":
+                _LOGGER.info("Executing local web portal settings update")
+                self._sync_config_from_disk()
+                self.languageChanged.emit()
+                self.logLevelChanged.emit()
+                self.screenBrightnessChanged.emit()
+                self.screenTimeoutChanged.emit()
+                self.settingsChanged.emit()
+                self.translationsChanged.emit()
+                continue
+            if command == "forget_pairing":
+                _LOGGER.info("Executing local web portal pairing reset")
+                self.resetPairing()
+                continue
+            if command == "reboot":
+                _LOGGER.info("Executing local web portal reboot request")
+                self.rebootDevice()
                 continue
             _LOGGER.info("Executing Client API command event from Home Assistant: %s", command)
             if command in {"previous", "next"}:

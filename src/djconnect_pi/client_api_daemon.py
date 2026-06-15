@@ -11,7 +11,8 @@ import threading
 import time
 
 from .client_api import ClientAPI, ClientAPIState
-from .config import DEFAULT_CONFIG_PATH, Config, load_config, save_config
+from .config import DEFAULT_CONFIG_PATH, Config, generate_pairing_code, load_config, save_config
+from .ha import AuthenticationError, BackendUnavailable, DJConnectError, HAClient, Playback
 from .logging_config import setup_logging
 from .system_info import log_raspberry_pi_system_info
 
@@ -34,6 +35,7 @@ class ClientAPIDaemon:
                 screenshot_handler=self._screenshot,
                 pair_handler=self._paired,
                 forget_handler=self._forgotten,
+                portal_state_provider=self._portal_state,
             )
         )
 
@@ -50,6 +52,78 @@ class ClientAPIDaemon:
         self._stopped.wait()
 
     def _playback(self) -> dict[str, object]:
+        return _playback_payload(
+            Playback(
+                title="",
+                artist="",
+                image_url="",
+                is_playing=False,
+                volume=50,
+                shuffle=False,
+                repeat="off",
+            )
+        )
+
+    def _portal_state(self, include: set[str]) -> dict[str, object]:
+        self.cfg = load_config(self.config_path)
+        playback = Playback()
+        queue: list[dict[str, object]] = []
+        playlists: list[dict[str, object]] = []
+        logs = ""
+        backend_available = bool(self.cfg.paired and self.cfg.device_token)
+        status_text = "Verbonden" if backend_available else "Niet gekoppeld"
+        if self.cfg.paired and self.cfg.device_token and self.cfg.ha_url:
+            client = HAClient(self.cfg)
+            try:
+                playback = client.playback_from_status(client.command("status"))
+                if "queue" in include:
+                    queue = _parse_queue_items(client.command("queue", limit=100))
+                if "playlists" in include:
+                    playlists = _parse_playlist_items(client.command("playlists"))
+                backend_available = True
+                status_text = "Verbonden"
+            except AuthenticationError as exc:
+                backend_available = False
+                status_text = f"Home Assistant autorisatie mislukt: {exc}"
+            except BackendUnavailable as exc:
+                backend_available = False
+                status_text = f"Backend niet beschikbaar: {exc}"
+            except DJConnectError as exc:
+                backend_available = False
+                status_text = str(exc)
+            except Exception as exc:
+                backend_available = False
+                status_text = f"Portal status mislukt: {exc}"
+                _LOGGER.warning("Portal state refresh failed: %s", exc)
+        if "logs" in include:
+            logs = _read_tail_text(Path(self.cfg.log_file), 48_000)
+        return {
+            "success": True,
+            "paired": self.cfg.paired,
+            "backend_available": backend_available,
+            "status_text": status_text,
+            "playback": _playback_payload(playback),
+            "queue": queue,
+            "playlists": playlists,
+            "logs": logs,
+            "settings": {
+                "language": self.cfg.language,
+                "log_level": self.cfg.log_level,
+                "screen_brightness_percent": self.cfg.screen_brightness_percent,
+                "screen_timeout_seconds": self.cfg.screen_timeout_seconds,
+                "update_channel": self.cfg.update_channel,
+            },
+            "about": {
+                "Versie": self.cfg.version,
+                "Apparaatnaam": self.cfg.device_name,
+                "Device ID": self.cfg.device_id,
+                "Client API URL": self.cfg.local_url,
+                "Home Assistant": self.cfg.ha_url,
+                "Koppeling": "Gekoppeld" if self.cfg.paired else "Niet gekoppeld",
+            },
+        }
+
+    def _fallback_playback(self) -> dict[str, object]:
         return {
             "title": "",
             "artist": "",
@@ -67,6 +141,9 @@ class ClientAPIDaemon:
             return self._dj_response(payload)
         if not command:
             return {"success": False, "error": "missing_command"}
+        if command == "reboot":
+            self._write_command_event({"command": "reboot", "payload": payload})
+            return {"success": True, "queued": True, "command": command}
         self._write_command_event({"command": command, "payload": payload})
         _LOGGER.info("Queued Client API command for touch UI: %s", command)
         return {"success": True, "queued": True, "command": command}
@@ -109,6 +186,10 @@ class ClientAPIDaemon:
         _LOGGER.info("Client API pairing stored for %s", self.cfg.device_id)
 
     def _forgotten(self) -> None:
+        self.cfg = load_config(self.config_path)
+        self.cfg.device_token = ""
+        self.cfg.paired = False
+        self.cfg.pairing_code = generate_pairing_code()
         save_config(self.config_path, self.cfg)
         _LOGGER.info("Client API pairing reset for %s", self.cfg.device_id)
 
@@ -170,6 +251,72 @@ def main() -> None:
     daemon.start()
     daemon.wait()
     raise SystemExit(0)
+
+
+def _playback_payload(playback: Playback) -> dict[str, object]:
+    return {
+        "title": playback.title,
+        "artist": playback.artist,
+        "image_url": playback.image_url,
+        "is_playing": playback.is_playing,
+        "volume": playback.volume,
+        "shuffle": playback.shuffle,
+        "repeat_state": playback.repeat,
+        "position_seconds": playback.position_seconds,
+        "duration_seconds": playback.duration_seconds,
+        "output_device": playback.output_device,
+        "output_devices": list(playback.output_devices),
+    }
+
+
+def _parse_queue_items(data: dict[str, object]) -> list[dict[str, object]]:
+    raw_queue = data.get("queue")
+    if isinstance(raw_queue, dict):
+        raw_items = raw_queue.get("items")
+    elif isinstance(raw_queue, list):
+        raw_items = raw_queue
+    else:
+        raw_items = data.get("items")
+    return [_media_item(item) for item in raw_items[:100] if isinstance(item, dict)] if isinstance(raw_items, list) else []
+
+
+def _parse_playlist_items(data: dict[str, object]) -> list[dict[str, object]]:
+    raw_items = data.get("playlists") or data.get("items")
+    return [_media_item(item, playlist=True) for item in raw_items if isinstance(item, dict)] if isinstance(raw_items, list) else []
+
+
+def _media_item(item: dict[str, object], playlist: bool = False) -> dict[str, object]:
+    title = str(item.get("name") or item.get("title") or item.get("display_title") or "")
+    subtitle = str(item.get("artist") or item.get("artists") or item.get("subtitle") or item.get("album") or "")
+    uri = str(item.get("uri") or item.get("id") or item.get("value") or "")
+    image_url = str(
+        item.get("image_url")
+        or item.get("album_image_url")
+        or item.get("album_art_url")
+        or item.get("media_image_url")
+        or item.get("entity_picture")
+        or ""
+    )
+    if playlist:
+        subtitle = str(item.get("owner") or item.get("description") or subtitle)
+    return {
+        "title": title,
+        "subtitle": subtitle,
+        "uri": uri,
+        "imageUrl": image_url,
+        "tint": "#8b5cf6" if playlist else "#38bdf8",
+    }
+
+
+def _read_tail_text(path: Path, max_bytes: int) -> str:
+    if not path.exists():
+        return ""
+    size = path.stat().st_size
+    with path.open("rb") as handle:
+        if size > max_bytes:
+            handle.seek(-max_bytes, 2)
+        data = handle.read()
+    return data.decode("utf-8", errors="replace")
 
 
 if __name__ == "__main__":

@@ -10,6 +10,7 @@ import threading
 from urllib.parse import parse_qs, urlparse
 
 from .config import CLIENT_TYPE, Config, load_config, save_config
+from .web_portal import index_html
 
 try:
     from zeroconf import ServiceInfo, Zeroconf
@@ -33,6 +34,8 @@ class ClientAPIState:
         screenshot_handler: Callable[[], dict[str, Any]],
         pair_handler: Callable[[], None],
         forget_handler: Callable[[], None],
+        portal_state_provider: Callable[[set[str]], dict[str, Any]] | None = None,
+        mdns_refresh_handler: Callable[[], None] | None = None,
     ) -> None:
         self.cfg = cfg
         self.config_path = config_path
@@ -42,6 +45,8 @@ class ClientAPIState:
         self.screenshot_handler = screenshot_handler
         self.pair_handler = pair_handler
         self.forget_handler = forget_handler
+        self.portal_state_provider = portal_state_provider
+        self.mdns_refresh_handler = mdns_refresh_handler
 
     def reload_config(self) -> None:
         self.cfg = load_config(self.config_path)
@@ -56,6 +61,17 @@ class ClientAPIHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         _LOGGER.debug("Client API GET %s", self.path)
         parsed = urlparse(self.path)
+        if parsed.path in {"", "/"}:
+            self._write_html(index_html(self.server.state.cfg.version))
+            return
+        if parsed.path == "/api/portal/state":
+            include = {
+                value.strip()
+                for value in str(parse_qs(parsed.query).get("include", [""])[0]).split(",")
+                if value.strip()
+            }
+            self._write_json(self._portal_state(include))
+            return
         if parsed.path == "/api/device/info":
             self._write_json(self._info())
             return
@@ -93,6 +109,11 @@ class ClientAPIHandler(BaseHTTPRequestHandler):
         if self.path == "/api/device/pair":
             self._handle_pair(payload)
             return
+        if self.path == "/api/portal/command":
+            command = str(payload.get("command") or "")
+            _LOGGER.info("Client API web portal command=%s", command)
+            self._write_json(self._portal_command(command, payload))
+            return
         if self.path == "/api/device/command":
             if not self._authorized():
                 _LOGGER.warning("Client API unauthorized command request")
@@ -117,6 +138,9 @@ class ClientAPIHandler(BaseHTTPRequestHandler):
                 return
             _LOGGER.info("Client API forget pairing request for device_id=%s", self.server.state.cfg.device_id)
             self.server.state.forget_handler()
+            self.server.state.reload_config()
+            if self.server.state.mdns_refresh_handler is not None:
+                self.server.state.mdns_refresh_handler()
             self._write_json({"success": True})
             return
         self._write_json({"success": False, "error": "not_found"}, HTTPStatus.NOT_FOUND)
@@ -135,6 +159,8 @@ class ClientAPIHandler(BaseHTTPRequestHandler):
         cfg.paired = True
         save_config(self.server.state.config_path, cfg)
         self.server.state.pair_handler()
+        if self.server.state.mdns_refresh_handler is not None:
+            self.server.state.mdns_refresh_handler()
         _LOGGER.info("Client API paired device_id=%s ha_url=%s", cfg.device_id, ha_url)
         self._write_json({"success": True, "device_id": cfg.device_id, "client_type": CLIENT_TYPE})
 
@@ -164,6 +190,71 @@ class ClientAPIHandler(BaseHTTPRequestHandler):
         info["pairing_code"] = self.server.state.cfg.pairing_code
         info["pairing_token"] = self.server.state.cfg.pairing_code
         return info
+
+    def _portal_state(self, include: set[str]) -> dict[str, Any]:
+        if self.server.state.portal_state_provider is None:
+            cfg = self.server.state.cfg
+            playback = self.server.state.playback_provider()
+            return {
+                "success": True,
+                "paired": cfg.paired,
+                "backend_available": cfg.paired,
+                "status_text": "Verbonden" if cfg.paired else "Niet gekoppeld",
+                "playback": playback,
+                "queue": [],
+                "playlists": [],
+                "logs": "",
+                "settings": _portal_settings(cfg),
+                "about": _portal_about(cfg),
+            }
+        return self.server.state.portal_state_provider(include)
+
+    def _portal_command(self, command: str, payload: dict[str, Any]) -> dict[str, Any]:
+        if not command:
+            return {"success": False, "error": "missing_command"}
+        if command == "settings":
+            self._apply_portal_settings(payload)
+            return {"success": True, "command": command}
+        if command == "forget_pairing":
+            self.server.state.forget_handler()
+            self.server.state.reload_config()
+            if self.server.state.mdns_refresh_handler is not None:
+                self.server.state.mdns_refresh_handler()
+            return {"success": True, "command": command}
+        allowed = {
+            "play",
+            "pause",
+            "next",
+            "previous",
+            "set_volume",
+            "set_shuffle",
+            "set_repeat",
+            "set_output",
+            "start_playlist",
+            "start_queue_item",
+            "reboot",
+            "debug_show_screen",
+        }
+        if command not in allowed:
+            return {"success": False, "error": "unsupported_command"}
+        return self.server.state.command_handler(command, payload)
+
+    def _apply_portal_settings(self, payload: dict[str, Any]) -> None:
+        self.server.state.reload_config()
+        cfg = self.server.state.cfg
+        language = str(payload.get("language") or cfg.language).strip().lower()
+        if language in {"en", "nl"}:
+            cfg.language = language
+        log_level = str(payload.get("log_level") or cfg.log_level).strip().upper()
+        if log_level in {"DEBUG", "INFO", "WARNING", "ERROR"}:
+            cfg.log_level = log_level
+        if "screen_brightness_percent" in payload:
+            cfg.screen_brightness_percent = max(10, min(100, int(payload["screen_brightness_percent"])))
+        if "screen_timeout_seconds" in payload:
+            cfg.screen_timeout_seconds = max(0, int(payload["screen_timeout_seconds"]))
+        save_config(self.server.state.config_path, cfg)
+        self.server.state.cfg = cfg
+        self.server.state.command_handler("settings", payload)
 
     def _authorized(self) -> bool:
         expected = self.server.state.cfg.device_token
@@ -204,6 +295,14 @@ class ClientAPIHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(raw)
 
+    def _write_html(self, payload: bytes, status: HTTPStatus = HTTPStatus.OK) -> None:
+        self.send_response(int(status))
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
+
 
 class ClientAPIServer(ThreadingHTTPServer):
     def __init__(self, server_address, RequestHandlerClass, state: ClientAPIState):
@@ -214,6 +313,7 @@ class ClientAPIServer(ThreadingHTTPServer):
 class ClientAPI:
     def __init__(self, state: ClientAPIState) -> None:
         self.state = state
+        self.state.mdns_refresh_handler = self.refresh_mdns
         self.server: ClientAPIServer | None = None
         self.thread: threading.Thread | None = None
         self.zeroconf = None
@@ -234,7 +334,7 @@ class ClientAPI:
         save_config(self.state.config_path, cfg)
         self.thread = threading.Thread(target=self.server.serve_forever, name="djconnect-client-api", daemon=True)
         self.thread.start()
-        self._start_mdns(local_url)
+        self.refresh_mdns()
         _LOGGER.info("Client API listening at %s", local_url)
         return local_url
 
@@ -249,6 +349,8 @@ class ClientAPI:
             self.thread = None
 
     def _start_mdns(self, local_url: str) -> None:
+        if self.zeroconf is not None:
+            return
         if Zeroconf is None or ServiceInfo is None:
             _LOGGER.warning("zeroconf is not installed; mDNS discovery disabled")
             return
@@ -269,6 +371,19 @@ class ClientAPI:
         self.zeroconf.register_service(self.service_info)
         _LOGGER.info("Advertised mDNS service %s on %s:%s", service_name, ip, cfg.local_api_port)
 
+    def refresh_mdns(self) -> None:
+        self.state.reload_config()
+        cfg = self.state.cfg
+        if cfg.paired and cfg.device_token:
+            if self.zeroconf is None:
+                _LOGGER.info("Skipping mDNS advertisement because DJConnect is paired with Home Assistant")
+            else:
+                _LOGGER.info("Stopping mDNS advertisement because DJConnect is paired with Home Assistant")
+            self._stop_mdns()
+            return
+        if cfg.local_url:
+            self._start_mdns(cfg.local_url)
+
     def _stop_mdns(self) -> None:
         if self.zeroconf is None or self.service_info is None:
             return
@@ -284,6 +399,27 @@ def _capabilities() -> dict[str, bool]:
         "voice": False,
         "local_audio": False,
         "local_dj_response_endpoint": True,
+    }
+
+
+def _portal_settings(cfg: Config) -> dict[str, Any]:
+    return {
+        "language": cfg.language,
+        "log_level": cfg.log_level,
+        "screen_brightness_percent": cfg.screen_brightness_percent,
+        "screen_timeout_seconds": cfg.screen_timeout_seconds,
+        "update_channel": cfg.update_channel,
+    }
+
+
+def _portal_about(cfg: Config) -> dict[str, str]:
+    return {
+        "Versie": cfg.version,
+        "Apparaatnaam": cfg.device_name,
+        "Device ID": cfg.device_id,
+        "Client API URL": cfg.local_url,
+        "Home Assistant": cfg.ha_url,
+        "Koppeling": "Gekoppeld" if cfg.paired else "Niet gekoppeld",
     }
 
 

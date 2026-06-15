@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DJCONNECT_BOOTSTRAP_VERSION="${DJCONNECT_BOOTSTRAP_VERSION:-3.1.48}"
+DJCONNECT_BOOTSTRAP_VERSION="${DJCONNECT_BOOTSTRAP_VERSION:-3.1.49}"
 DJCONNECT_TIMEZONE="${DJCONNECT_TIMEZONE:-Europe/Amsterdam}"
 DJCONNECT_INSTALL_HYPERPIXEL="${DJCONNECT_INSTALL_HYPERPIXEL:-1}"
 DJCONNECT_HYPERPIXEL_MODEL="${DJCONNECT_HYPERPIXEL_MODEL:-square}"
@@ -11,6 +11,8 @@ DJCONNECT_FULL_UPGRADE="${DJCONNECT_FULL_UPGRADE:-1}"
 DJCONNECT_RUNTIME_USER="${DJCONNECT_RUNTIME_USER:-djconnect}"
 DJCONNECT_SWAPFILE="${DJCONNECT_SWAPFILE:-/swapfile}"
 DJCONNECT_SWAP_MB="${DJCONNECT_SWAP_MB:-1024}"
+DJCONNECT_FSCK_MAX_MOUNTS="${DJCONNECT_FSCK_MAX_MOUNTS:-30}"
+DJCONNECT_FSCK_INTERVAL="${DJCONNECT_FSCK_INTERVAL:-1m}"
 
 usage() {
   cat <<EOF
@@ -30,14 +32,18 @@ Environment:
   DJCONNECT_RUNTIME_USER=djconnect
   DJCONNECT_SWAPFILE=/swapfile
   DJCONNECT_SWAP_MB=1024
+  DJCONNECT_FSCK_MAX_MOUNTS=30
+  DJCONNECT_FSCK_INTERVAL=1m
 
 This prepares a Raspberry Pi OS Lite 64-bit image for a wall-mounted
 DJConnect Pi:
 - validates the Raspberry Pi OS 64-bit baseline
 - expands the root filesystem to fill the SD card
+- configures automatic filesystem repair checks for boot after unsafe power loss
 - configures a persistent 1GB swapfile
 - configures boot to console
 - sets timezone to Europe/Amsterdam by default
+- enables automatic NTP time synchronization
 - configures UTF-8 locales
 - enables SSH
 - runs apt update and optional apt full-upgrade
@@ -81,12 +87,76 @@ configure_timezone() {
   timedatectl set-timezone "$DJCONNECT_TIMEZONE"
 }
 
+configure_time_sync() {
+  log "Configuring automatic time synchronization"
+  timedatectl set-ntp true || true
+
+  if systemctl list-unit-files systemd-timesyncd.service --no-legend 2>/dev/null | grep -q '^systemd-timesyncd\.service'; then
+    systemctl enable --now systemd-timesyncd.service || true
+  else
+    echo "systemd-timesyncd.service not found; relying on the OS default time synchronization service." >&2
+  fi
+
+  timedatectl status || true
+}
+
 expand_rootfs() {
   log "Expanding root filesystem"
   if command -v raspi-config >/dev/null 2>&1; then
     raspi-config nonint do_expand_rootfs || true
   else
     echo "raspi-config not found; skipping automatic root filesystem resize." >&2
+  fi
+}
+
+configure_filesystem_checks() {
+  log "Configuring automatic filesystem health checks"
+  local cmdline="/boot/firmware/cmdline.txt"
+  local root_source
+  local root_fstype
+
+  if [[ ! -f "$cmdline" ]]; then
+    cmdline="/boot/cmdline.txt"
+  fi
+  if [[ -f "$cmdline" ]]; then
+    cp -a "$cmdline" "${cmdline}.djconnect.bak"
+    sed -i \
+      -e 's/[[:space:]]fsck.mode=skip//g' \
+      -e 's/[[:space:]]fsck.repair=[^[:space:]]*//g' \
+      "$cmdline"
+    if ! grep -Eq '(^|[[:space:]])fsck.repair=yes($|[[:space:]])' "$cmdline"; then
+      sed -i 's/$/ fsck.repair=yes/' "$cmdline"
+    fi
+  else
+    echo "Could not find boot cmdline; skipping kernel fsck repair flag." >&2
+  fi
+
+  if findmnt -no SOURCE,FSTYPE / >/dev/null 2>&1; then
+    root_source="$(findmnt -no SOURCE /)"
+    root_fstype="$(findmnt -no FSTYPE /)"
+    if [[ "$root_fstype" =~ ^ext[234]$ ]] && command -v tune2fs >/dev/null 2>&1; then
+      tune2fs -c "$DJCONNECT_FSCK_MAX_MOUNTS" -i "$DJCONNECT_FSCK_INTERVAL" "$root_source" >/dev/null || true
+    fi
+  fi
+
+  if [[ -f /etc/fstab ]] && findmnt -no SOURCE / >/dev/null 2>&1; then
+    root_source="$(findmnt -no SOURCE /)"
+    awk -v root_source="$root_source" '
+      BEGIN { changed = 0 }
+      /^[[:space:]]*#/ || NF < 6 { print; next }
+      $2 == "/" {
+        $6 = 1
+        changed = 1
+      }
+      { print }
+      END { if (changed == 0) exit 0 }
+    ' /etc/fstab > /etc/fstab.djconnect
+    if ! cmp -s /etc/fstab /etc/fstab.djconnect; then
+      cp -a /etc/fstab /etc/fstab.djconnect.bak
+      mv /etc/fstab.djconnect /etc/fstab
+    else
+      rm -f /etc/fstab.djconnect
+    fi
   fi
 }
 
@@ -302,8 +372,10 @@ main() {
   log "DJConnect Pi OS bootstrap ${DJCONNECT_BOOTSTRAP_VERSION}"
   check_os_baseline
   expand_rootfs
+  configure_filesystem_checks
   configure_swapfile
   configure_timezone
+  configure_time_sync
   configure_console_boot
   enable_ssh
   install_base_packages

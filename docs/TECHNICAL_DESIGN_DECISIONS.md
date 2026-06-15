@@ -118,8 +118,8 @@ mainly by tests plus `compileall`.
 | --- | --- | --- |
 | Canonical Pi client type is `raspberry_pi` | `CLIENT_TYPE` in `config.py` | HA validates client family; this must not regress to command-only payloads. |
 | Device IDs use `djconnect-raspberry-pi-XXXXXXXXXXXX` | `config.py` | Stable app-like Pi identity, separate from ESP IDs. |
-| Local API is separate from UI | `client_api_daemon.py`, systemd units | Avoids port conflicts and keeps mDNS/HTTP available if the UI restarts. |
-| mDNS type is `_djconnect._tcp` | `client_api.py` | HA autodiscovery contract. |
+| Local API is separate from UI | `client_api_daemon.py`, systemd units | Avoids port conflicts and keeps HTTP available if the UI restarts. |
+| mDNS type is `_djconnect._tcp` while unpaired | `client_api.py` | HA autodiscovery should help pair new clients, but already paired Pi clients should not keep appearing as pairing candidates. |
 | `GET /api/debug/screenshot` is authenticated after pairing except loopback | `client_api.py` | Screenshot may expose live screen content; LAN callers need the bearer token, while SSH diagnostics can use `127.0.0.1` without reading the token file. |
 | `GET /api/debug/screen` is loopback-only | `client_api.py`, `app.py`, `Main.qml` | Allows post-deploy screenshot automation without exposing screen-control routes on the LAN. |
 | Text DJ responses are toast-only | `app.py`, `client_api_daemon.py` | Product decision: no local Pi audio/DJ response playback. |

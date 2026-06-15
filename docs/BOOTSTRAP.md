@@ -26,6 +26,10 @@ Software:
 - Minimal X11/kiosk runtime installed by the bootstrap script; no desktop/GUI
   image is required
 - 1GB active swapfile configured by the bootstrap script
+- Automatic filesystem repair checks configured by the bootstrap script, so
+  the Pi asks Linux to repair filesystems on boot after unsafe power loss
+- Automatic NTP time synchronization enabled by the bootstrap script for stable
+  logs, TLS/GitHub downloads and Home Assistant communication
 
 Network:
 
@@ -69,11 +73,20 @@ sudo reboot
 The bootstrap helper configures the running system to boot to console
 (`multi-user.target`), expands the root filesystem to fill the SD card, sets
 timezone to `Europe/Amsterdam`, configures a persistent 1GB swapfile at
-`/swapfile`, enables SSH, runs an optional apt full-upgrade, installs minimal
-X11/kiosk dependencies, Qt runtime libraries, generates `en_GB.UTF-8` and
-`nl_NL.UTF-8` locales, attempts Raspberry Pi Connect and configures HyperPixel.
-It is intentionally not included in DJConnect Pi release tarballs and is not
-part of the app release cycle.
+`/swapfile`, enables automatic boot-time filesystem repair with
+`fsck.repair=yes`, removes any `fsck.mode=skip`, sets the root filesystem check
+pass to `1` in `/etc/fstab`, enables periodic ext filesystem checks with
+`tune2fs`, enables NTP with `timedatectl set-ntp true` and
+`systemd-timesyncd.service` when present, enables SSH, runs an optional apt
+full-upgrade, installs minimal X11/kiosk dependencies, Qt runtime libraries,
+generates `en_GB.UTF-8` and `nl_NL.UTF-8` locales, attempts Raspberry Pi
+Connect and configures HyperPixel. It is intentionally not included in
+DJConnect Pi release tarballs and is not part of the app release cycle.
+
+These filesystem checks are intended for a wall-mounted device where power can
+occasionally be removed. They do not replace a good SD card or clean shutdowns,
+but they keep the normal Linux boot repair path enabled instead of silently
+skipping checks.
 
 If an earlier bootstrap attempt left apt/dpkg half-configured, repair the
 package state once and rerun the bootstrap:
@@ -155,9 +168,9 @@ completed:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.48.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.49.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.48
+cd djconnect-pi-3.1.49
 sudo ./scripts/install.sh
 ```
 
@@ -184,9 +197,9 @@ development checkout:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.48.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.49.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.48
+cd djconnect-pi-3.1.49
 sudo ./scripts/install.sh
 ```
 

@@ -28,6 +28,8 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
   `client_type=raspberry_pi`
 - local Client API info, pairing-info, pair, command, DJ response auth and mDNS
   TXT properties
+- mDNS discovery is suppressed while the Pi is paired and can return after
+  pairing is reset/forgotten
 - separate Client API daemon event bridges for queued HA commands and DJ
   response toasts
 - installer/systemd contract for separate API and touch UI services
@@ -36,11 +38,14 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
   and a bundled wheel without the loose `src/` app source tree
 - repo-only OS bootstrap contract for Raspberry Pi OS Lite 64-bit, modern
   HyperPixel KMS DPI overlay setup, root filesystem expansion, persistent 1GB
-  swapfile, timezone, SSH, apt full-upgrade, minimal X11/Qt runtime dependencies
-  and Raspberry Pi Connect
+  swapfile, boot-time filesystem repair checks for unsafe power-loss recovery,
+  timezone, NTP time synchronization, SSH, apt full-upgrade, minimal X11/Qt
+  runtime dependencies and Raspberry Pi Connect
 - installer contract that OS bootstrap tasks stay out of the app release cycle
 - technical design decisions documentation is linked from README and contains
   dependency/style/release-maintenance sections
+- shared product roadmap is documented in `PRODUCT_ROADMAP.md` and release
+  sync hygiene is documented in `SYNC_PROMPTS.md`
 - installer contract for rerunnable manual updates: existing config is kept,
   systemd units are refreshed, and API/UI services are restarted
 - installer contract for early free-space and active-swap checks before large
