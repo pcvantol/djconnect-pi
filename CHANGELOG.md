@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.1.50
+
+- Fixed the local Client API auth test setup so CI starts the API with the
+  device token already persisted, matching the runtime config reload behavior
+  used by the API/mDNS startup path.
+
 ## 3.1.49
 
 - Changed mDNS discovery behavior so the Pi advertises `_djconnect._tcp` only

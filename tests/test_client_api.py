@@ -13,12 +13,13 @@ from djconnect_pi.client_api import ClientAPIHandler
 from djconnect_pi.config import Config, load_config, save_config
 
 
-def start_api(tmp_path: Path) -> tuple[ClientAPI, Config, list[str]]:
+def start_api(tmp_path: Path, *, device_token: str = "") -> tuple[ClientAPI, Config, list[str]]:
     cfg = Config(
         device_id="djconnect-raspberry-pi-ABCDEF123456",
         pairing_code="123456",
         local_api_host="127.0.0.1",
         local_api_port=0,
+        device_token=device_token,
     )
     events: list[str] = []
     api = ClientAPI(
@@ -236,8 +237,7 @@ def test_client_api_pairing_info_reloads_rotated_pairing_code(tmp_path: Path) ->
 
 
 def test_client_api_requires_auth_for_dj_response(tmp_path: Path) -> None:
-    api, cfg, events = start_api(tmp_path)
-    cfg.device_token = "token-1"
+    api, cfg, events = start_api(tmp_path, device_token="token-1")
     try:
         unauth = requests.post(f"{cfg.local_url}/api/device/dj_response", json={"text": "Hoi"}, timeout=3)
         ok = requests.post(
@@ -255,8 +255,7 @@ def test_client_api_requires_auth_for_dj_response(tmp_path: Path) -> None:
 
 
 def test_client_api_debug_screenshot_allows_loopback_when_paired(tmp_path: Path) -> None:
-    api, cfg, _events = start_api(tmp_path)
-    cfg.device_token = "token-1"
+    api, cfg, _events = start_api(tmp_path, device_token="token-1")
     try:
         unauth_loopback = requests.get(f"{cfg.local_url}/api/debug/screenshot", timeout=3)
         ok = requests.get(
@@ -286,8 +285,7 @@ def test_client_api_debug_screen_is_loopback_only(tmp_path: Path) -> None:
 
 
 def test_client_api_rejects_oversized_request_body(tmp_path: Path) -> None:
-    api, cfg, _events = start_api(tmp_path)
-    cfg.device_token = "token-1"
+    api, cfg, _events = start_api(tmp_path, device_token="token-1")
     try:
         response = requests.post(
             f"{cfg.local_url}/api/device/command",
