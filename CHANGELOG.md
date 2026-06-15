@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.1.46
+
+- Locked the Pi queue request to the shared HA contract limit:
+  `command:"queue"` is sent with `limit:100`.
+- Added backend contract coverage for the queue limit and fixed the GitHub
+  Actions debug-screen test expectation so public release publishing can pass.
+
 ## 3.1.45
 
 - Added loopback-only debug automation for deployed Pi screenshots:

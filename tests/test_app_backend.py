@@ -474,6 +474,22 @@ def test_backend_refresh_loads_output_devices_when_status_omits_them(tmp_path: P
     assert statuses[0].output_devices == ("Slaapkamer R + Slaapkamer L",)
 
 
+def test_backend_queue_request_is_limited_to_100_items(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    calls: list[tuple[str, dict[str, object]]] = []
+
+    class FakeClient:
+        def command(self, command: str, **payload: object) -> dict[str, object]:
+            calls.append((command, payload))
+            return {"queue": {"items": []}}
+
+    backend.client = FakeClient()  # type: ignore[assignment]
+    backend._load_queue_worker()
+
+    assert calls == [("queue", {"limit": 100})]
+
+
 def test_backend_skips_duplicate_media_loads_while_in_flight(tmp_path: Path) -> None:
     ensure_app()
     backend = DJConnectBackend(tmp_path / "config.json")

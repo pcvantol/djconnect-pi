@@ -70,6 +70,8 @@ Implemented:
 - Real Home Assistant empty queue/playlist responses stay empty and show
   "Geen wachtrij" or "Geen afspeellijsten"; demo queue/playlist samples are
   only shown while local demo mode is active.
+- Queue loading follows the shared HA contract and requests at most 100 items:
+  `command:"queue"` with `limit:100`.
 - Speelt nu exposes the HA-provided playback output-device list and dispatches
   output selection with `command:"set_output"`. If the HA status response omits
   the list, the client asks HA for `command:"devices"` as a fallback.

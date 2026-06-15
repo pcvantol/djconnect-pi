@@ -1,6 +1,6 @@
 # DJConnect Pi
 
-Version: `3.1.45`
+Version: `3.1.46`
 
 Raspberry Pi Zero 2 W touch-display client for DJConnect. This client uses
 Qt Quick/QML with a PySide6 backend and is meant for a Pimoroni HyperPixel 4.0
@@ -43,6 +43,7 @@ Assistant pairing/discovery and text-only DJ responses.
   - `set_volume`
   - `set_shuffle`
   - `set_repeat`
+  - `queue` with `limit=100`
 - Version compatibility:
   - client `3.1.z` works with DJConnect HA `>=3.1.0` and `<3.2.0`
   - HA responses may include `ha_version` or `ha_major_minor`
@@ -118,9 +119,9 @@ not a private source clone:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.45.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.46.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.45
+cd djconnect-pi-3.1.46
 sudo ./scripts/install.sh
 ```
 
@@ -208,9 +209,9 @@ installer:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.45.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.46.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.45
+cd djconnect-pi-3.1.46
 sudo ./scripts/install.sh
 ```
 

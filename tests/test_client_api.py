@@ -174,7 +174,7 @@ def test_client_api_debug_screen_is_loopback_only(tmp_path: Path) -> None:
 
     assert response.status_code == 200
     assert response.json()["command"] == "debug_show_screen"
-    assert response.json()["queued"] is True
+    assert response.json()["success"] is True
     assert events == []
 
 
