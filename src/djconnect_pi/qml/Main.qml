@@ -550,7 +550,7 @@ Window {
             root.forceScreenAwake = true
             forcedWakeTimer.restart()
             Qt.callLater(function() {
-                root.grabToImage(function(result) {
+                root.contentItem.grabToImage(function(result) {
                     result.saveToFile(djconnect.screenshotFile)
                 })
             })

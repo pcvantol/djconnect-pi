@@ -1,10 +1,12 @@
 # Changelog
 
-## 3.1.57
+## 3.1.58
 
 - Added Raspberry Pi-specific local Client API power endpoints for Home
   Assistant button entities:
   `POST /api/device/restart` and `POST /api/device/shutdown`.
+- Fixed deployed Pi debug screenshots by capturing the QML `Window.contentItem`
+  instead of calling `grabToImage` on the `Window` object.
 - Kept the endpoints on the existing authenticated `/api/device/*` contract:
   bearer token is required and `X-DJConnect-Device-ID` is validated when
   supplied.

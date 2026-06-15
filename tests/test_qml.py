@@ -248,7 +248,7 @@ def test_qml_screen_blanking_wakes_on_tap() -> None:
     assert "function wakeDisplay()" in main_qml
     assert "root.splashVisible = true" in main_qml
     assert "splashTimer.restart()" in main_qml
-    assert "root.grabToImage" in main_qml
+    assert "root.contentItem.grabToImage" in main_qml
     assert "result.saveToFile(djconnect.screenshotFile)" in main_qml
     assert "function onWakeScreenRequested()" in main_qml
     assert "forcedWakeTimer.restart()" in main_qml
