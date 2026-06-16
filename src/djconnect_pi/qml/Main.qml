@@ -25,11 +25,17 @@ Window {
     property bool forceScreenAwake: false
     property bool screenBlanked: djconnect.screenTimeoutSeconds > 0 && !idleTimer.running && !root.forceScreenAwake
     property real brightnessOverlayOpacity: root.screenBlanked ? 0 : 1 - (djconnect.screenBrightnessPercent / 100.0)
+    property int trVersion: djconnect.translationVersion
+
+    function tr(key) {
+        root.trVersion
+        return djconnect.t(key)
+    }
 
     function repeatLabel(value) {
-        if (value === "track") return djconnect.t("repeat_one")
-        if (value === "context") return djconnect.t("repeat")
-        return djconnect.t("repeat_off")
+        if (value === "track") return root.tr("repeat_one")
+        if (value === "context") return root.tr("repeat")
+        return root.tr("repeat_off")
     }
 
     function recordActivity() {
@@ -419,7 +425,7 @@ Window {
                 }
 
                 PurpleButton {
-                    text: djconnect.t("refresh")
+                    text: root.tr("refresh")
                     font.pixelSize: 18
                     Layout.preferredWidth: 142
                     Layout.preferredHeight: 48
@@ -645,7 +651,7 @@ Window {
                 spacing: 10
 
                 Text {
-                    text: djconnect.t("now_playing")
+                    text: root.tr("now_playing")
                     color: "#f4f8f8"
                     font.pixelSize: 34
                     font.bold: true
@@ -661,7 +667,7 @@ Window {
                 }
 
                 PurpleButton {
-                    text: djconnect.t("refresh")
+                    text: root.tr("refresh")
                     font.pixelSize: 18
                     Layout.preferredWidth: 142
                     Layout.preferredHeight: 48
@@ -679,7 +685,7 @@ Window {
                 Rectangle {
                     id: artFrame
                     anchors.centerIn: parent
-                    width: Math.min(parent.width - 36, parent.height - 12)
+                    width: Math.min(parent.width - 6, parent.height - 4)
                     height: width
                     radius: 8
                     color: "#172024"
@@ -702,7 +708,56 @@ Window {
                     }
 
                     Rectangle {
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        z: 2
+                        height: Math.max(112, parent.height * 0.34)
+                        gradient: Gradient {
+                            orientation: Gradient.Vertical
+                            GradientStop { position: 0.0; color: "#00000000" }
+                            GradientStop { position: 0.44; color: "#b0000000" }
+                            GradientStop { position: 1.0; color: "#e8000000" }
+                        }
+                    }
+
+                    ColumnLayout {
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        anchors.margins: 18
+                        z: 3
+                        spacing: 4
+
+                        Text {
+                            text: djconnect.title
+                            color: "#ffffff"
+                            font.pixelSize: 34
+                            font.bold: true
+                            horizontalAlignment: Text.AlignHCenter
+                            elide: Text.ElideRight
+                            maximumLineCount: 1
+                            style: Text.Raised
+                            styleColor: "#aa000000"
+                            Layout.fillWidth: true
+                        }
+
+                        Text {
+                            text: djconnect.artist
+                            color: "#d8e3f2"
+                            font.pixelSize: 24
+                            horizontalAlignment: Text.AlignHCenter
+                            elide: Text.ElideRight
+                            maximumLineCount: 1
+                            style: Text.Raised
+                            styleColor: "#aa000000"
+                            Layout.fillWidth: true
+                        }
+                    }
+
+                    Rectangle {
                         anchors.fill: parent
+                        z: 1
                         color: "#1e2a2f"
                         opacity: albumArt.status === Image.Ready ? 0 : 1
 
@@ -719,33 +774,6 @@ Window {
 
                 TapHandler {
                     onTapped: root.activeScreen = "control"
-                }
-            }
-
-            ColumnLayout {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 86
-                spacing: 3
-
-                Text {
-                    text: djconnect.title
-                    color: "#f4f8f8"
-                    font.pixelSize: 36
-                    font.bold: true
-                    horizontalAlignment: Text.AlignHCenter
-                    elide: Text.ElideRight
-                    maximumLineCount: 1
-                    Layout.fillWidth: true
-                }
-
-                Text {
-                    text: djconnect.artist
-                    color: "#aebfc3"
-                    font.pixelSize: 28
-                    horizontalAlignment: Text.AlignHCenter
-                    elide: Text.ElideRight
-                    maximumLineCount: 1
-                    Layout.fillWidth: true
                 }
             }
 
@@ -812,7 +840,7 @@ Window {
                 spacing: 10
 
                 Text {
-                    text: djconnect.t("control")
+                    text: root.tr("control")
                     color: "#f4f8f8"
                     font.pixelSize: 34
                     font.bold: true
@@ -828,7 +856,7 @@ Window {
                 }
 
                 PurpleButton {
-                    text: djconnect.t("refresh")
+                    text: root.tr("refresh")
                     font.pixelSize: 18
                     Layout.preferredWidth: 142
                     Layout.preferredHeight: 48
@@ -927,10 +955,18 @@ Window {
                 spacing: 14
 
                 Text {
-                    text: djconnect.t("vol")
+                    text: root.tr("vol")
                     color: "#d7e2e4"
                     font.pixelSize: 24
                     Layout.preferredWidth: 46
+                }
+
+                PurpleButton {
+                    text: "-"
+                    font.pixelSize: 30
+                    Layout.preferredWidth: 54
+                    Layout.preferredHeight: 54
+                    onClicked: djconnect.adjustVolume(-10)
                 }
 
                 Slider {
@@ -972,6 +1008,14 @@ Window {
                     }
                 }
 
+                PurpleButton {
+                    text: "+"
+                    font.pixelSize: 30
+                    Layout.preferredWidth: 54
+                    Layout.preferredHeight: 54
+                    onClicked: djconnect.adjustVolume(10)
+                }
+
                 Text {
                     text: Math.round(Math.min(60, djconnect.volume) / 60 * 100) + "%"
                     color: "#f4f8f8"
@@ -989,7 +1033,7 @@ Window {
 
                 ComboBox {
                     id: controlOutputDeviceCombo
-                    property string noOutputDeviceLabel: djconnect.t("none")
+                    property string noOutputDeviceLabel: root.tr("none")
                     property var deviceChoices: [noOutputDeviceLabel].concat(djconnect.outputDevices.length > 0 ? djconnect.outputDevices : (djconnect.outputDevice.length > 0 ? [djconnect.outputDevice] : []))
                     model: deviceChoices
                     visible: count > 1 || djconnect.outputDevice.length === 0
@@ -1009,7 +1053,7 @@ Window {
                 }
 
                 Text {
-                    text: djconnect.t("output_device")
+                    text: root.tr("output_device")
                     visible: controlOutputDeviceCombo.count <= 1 && djconnect.outputDevice.length > 0
                     color: "#b8c5e8"
                     font.pixelSize: 24
@@ -1085,7 +1129,7 @@ Window {
                 spacing: 20
 
                 Text {
-                    text: djconnect.t("setup_title")
+                    text: root.tr("setup_title")
                     color: "#f4f8f8"
                     font.pixelSize: 38
                     font.bold: true
@@ -1097,7 +1141,7 @@ Window {
                     spacing: 14
 
                     Text {
-                        text: djconnect.t("device_id")
+                        text: root.tr("device_id")
                         color: "#d7e2e4"
                         font.pixelSize: 22
                         Layout.preferredWidth: 176
@@ -1114,7 +1158,7 @@ Window {
 
                 PurpleButton {
                     visible: !djconnect.paired
-                    text: djconnect.demoMode ? djconnect.t("exit_demo") : djconnect.t("demo_mode")
+                    text: djconnect.demoMode ? root.tr("exit_demo") : root.tr("demo_mode")
                     font.pixelSize: 24
                     Layout.fillWidth: true
                     onClicked: {
@@ -1133,7 +1177,7 @@ Window {
                 spacing: 14
 
                 Text {
-                    text: djconnect.t("ha_url")
+                    text: root.tr("ha_url")
                     color: "#d7e2e4"
                     font.pixelSize: 22
                     Layout.preferredWidth: 176
@@ -1154,7 +1198,7 @@ Window {
                 spacing: 14
 
                 Text {
-                    text: djconnect.t("screen_off")
+                    text: root.tr("screen_off")
                     color: "#d7e2e4"
                     font.pixelSize: 22
                     Layout.preferredWidth: 176
@@ -1181,7 +1225,7 @@ Window {
                 spacing: 14
 
                 Text {
-                    text: djconnect.t("brightness")
+                    text: root.tr("brightness")
                     color: "#d7e2e4"
                     font.pixelSize: 22
                     Layout.preferredWidth: 176
@@ -1240,7 +1284,7 @@ Window {
                 spacing: 14
 
                 Text {
-                    text: djconnect.t("updates")
+                    text: root.tr("updates")
                     color: "#d7e2e4"
                     font.pixelSize: 22
                     Layout.preferredWidth: 176
@@ -1262,7 +1306,7 @@ Window {
             }
 
             PurpleButton {
-                text: djconnect.t("check_updates")
+                text: root.tr("check_updates")
                 font.pixelSize: 24
                 Layout.fillWidth: true
                 Layout.preferredHeight: 58
@@ -1274,7 +1318,7 @@ Window {
                 spacing: 14
 
                 Text {
-                    text: djconnect.t("language")
+                    text: root.tr("language")
                     color: "#d7e2e4"
                     font.pixelSize: 22
                     Layout.preferredWidth: 176
@@ -1305,7 +1349,7 @@ Window {
                 spacing: 14
 
                 Text {
-                    text: djconnect.t("log_level")
+                    text: root.tr("log_level")
                     color: "#d7e2e4"
                     font.pixelSize: 22
                     Layout.preferredWidth: 176
@@ -1327,18 +1371,7 @@ Window {
             }
 
             PurpleButton {
-                text: djconnect.t("save")
-                font.pixelSize: 22
-                Layout.fillWidth: true
-                Layout.preferredHeight: 62
-                onClicked: {
-                    djconnect.setHaUrl(haUrlField.text)
-                    if (djconnect.paired) root.activeScreen = "now"
-                }
-            }
-
-            PurpleButton {
-                text: djconnect.t("view_logs")
+                text: root.tr("view_logs")
                 font.pixelSize: 24
                 Layout.fillWidth: true
                 Layout.preferredHeight: 58
@@ -1350,14 +1383,14 @@ Window {
                 spacing: 12
 
                 DangerButton {
-                    text: djconnect.t("reset_pairing")
+                    text: root.tr("reset_pairing")
                     Layout.fillWidth: true
                     Layout.preferredHeight: 58
                     onClicked: root.resetPairingConfirmOpen = true
                 }
 
                 PurpleButton {
-                    text: djconnect.t("about")
+                    text: root.tr("about")
                     Layout.fillWidth: true
                     Layout.preferredHeight: 58
                     onClicked: root.aboutOpen = true
@@ -1365,7 +1398,7 @@ Window {
             }
 
             WarningButton {
-                text: djconnect.t("reboot_device")
+                text: root.tr("reboot_device")
                 font.pixelSize: 24
                 Layout.fillWidth: true
                 Layout.preferredHeight: 58
@@ -1373,7 +1406,7 @@ Window {
             }
 
             DangerButton {
-                text: djconnect.t("shutdown_device")
+                text: root.tr("shutdown_device")
                 font.pixelSize: 24
                 Layout.fillWidth: true
                 Layout.preferredHeight: 58
@@ -1387,8 +1420,8 @@ Window {
 
     MediaListPanel {
         visible: root.activeScreen === "queue"
-        heading: djconnect.t("queue")
-        emptyText: djconnect.t("empty_queue")
+        heading: root.tr("queue")
+        emptyText: root.tr("empty_queue")
         playCommand: "start_queue_item"
         items: djconnect.queueItems
         onRefreshRequested: djconnect.loadQueue()
@@ -1396,8 +1429,8 @@ Window {
 
     MediaListPanel {
         visible: root.activeScreen === "playlists"
-        heading: djconnect.t("playlists")
-        emptyText: djconnect.t("empty_playlists")
+        heading: root.tr("playlists")
+        emptyText: root.tr("empty_playlists")
         playCommand: "start_playlist"
         items: djconnect.playlistItems
         onRefreshRequested: djconnect.loadPlaylists()
@@ -1428,7 +1461,7 @@ Window {
             spacing: 8
 
             NavButton {
-                text: djconnect.t("now_playing")
+                text: root.tr("now_playing")
                 iconSymbol: "▶"
                 checkable: true
                 checked: root.activeScreen === "now"
@@ -1438,7 +1471,7 @@ Window {
             }
 
             NavButton {
-                text: djconnect.t("control")
+                text: root.tr("control")
                 iconSymbol: "II"
                 checkable: true
                 checked: root.activeScreen === "control"
@@ -1448,7 +1481,7 @@ Window {
             }
 
             NavButton {
-                text: djconnect.t("queue")
+                text: root.tr("queue")
                 iconSymbol: "≡"
                 checkable: true
                 checked: root.activeScreen === "queue"
@@ -1461,7 +1494,7 @@ Window {
             }
 
             NavButton {
-                text: djconnect.t("playlists")
+                text: root.tr("playlists")
                 iconSymbol: "▦"
                 checkable: true
                 checked: root.activeScreen === "playlists"
@@ -1474,7 +1507,7 @@ Window {
             }
 
             NavButton {
-                text: djconnect.t("games")
+                text: root.tr("games")
                 iconSymbol: "◆"
                 checkable: true
                 checked: root.activeScreen === "games"
@@ -1484,7 +1517,7 @@ Window {
             }
 
             NavButton {
-                text: djconnect.t("setup")
+                text: root.tr("setup")
                 iconSymbol: "⚙"
                 checkable: true
                 checked: root.activeScreen === "settings"
@@ -1544,7 +1577,7 @@ Window {
                         }
 
                         Text {
-                            text: djconnect.t("tagline")
+                            text: root.tr("tagline")
                             color: "#c9c3d8"
                             font.pixelSize: 20
                             font.bold: true
@@ -1555,7 +1588,7 @@ Window {
             }
 
             Text {
-                text: djconnect.t("pairing_screen_title")
+                text: root.tr("pairing_screen_title")
                 color: "#d7e2e4"
                 font.pixelSize: 38
                 font.bold: true
@@ -1564,7 +1597,7 @@ Window {
             }
 
             Text {
-                text: djconnect.t("pairing_hint")
+                text: root.tr("pairing_hint")
                 color: "#b7a8c8"
                 font.pixelSize: 20
                 font.bold: true
@@ -1585,7 +1618,7 @@ Window {
                     spacing: 4
 
                     Text {
-                        text: djconnect.t("pairing_code")
+                        text: root.tr("pairing_code")
                         color: "#b7a8c8"
                         font.pixelSize: 18
                         font.bold: true
@@ -1614,7 +1647,7 @@ Window {
                     spacing: 3
 
                     Text {
-                        text: djconnect.t("home_assistant")
+                        text: root.tr("home_assistant")
                         color: "#b7a8c8"
                         font.pixelSize: 17
                         font.bold: true
@@ -1645,7 +1678,7 @@ Window {
                     spacing: 3
 
                     Text {
-                        text: djconnect.t("client_api_url")
+                        text: root.tr("client_api_url")
                         color: "#b7a8c8"
                         font.pixelSize: 17
                         font.bold: true
@@ -1682,7 +1715,7 @@ Window {
                     }
 
                     Text {
-                        text: djconnect.t("waiting_for_ha")
+                        text: root.tr("waiting_for_ha")
                         color: "#ffffff"
                         font.pixelSize: 22
                         font.bold: true
@@ -1692,7 +1725,7 @@ Window {
             }
 
             PurpleButton {
-                text: djconnect.t("start_demo_mode")
+                text: root.tr("start_demo_mode")
                 font.pixelSize: 22
                 Layout.fillWidth: true
                 Layout.preferredHeight: 54
@@ -1751,7 +1784,7 @@ Window {
                         }
 
                         Text {
-                            text: djconnect.t("tagline")
+                            text: root.tr("tagline")
                             color: "#c9c3d8"
                             font.pixelSize: 20
                             font.bold: true
@@ -1792,7 +1825,7 @@ Window {
                 spacing: 10
 
                 Text {
-                    text: djconnect.t("pairing_success_title")
+                    text: root.tr("pairing_success_title")
                     color: "#f4f0ff"
                     font.pixelSize: 38
                     font.bold: true
@@ -1801,7 +1834,7 @@ Window {
                 }
 
                 Text {
-                    text: djconnect.t("pairing_success_message")
+                    text: root.tr("pairing_success_message")
                     color: "#c9c3d8"
                     font.pixelSize: 20
                     font.bold: true
@@ -1811,7 +1844,7 @@ Window {
             }
 
             PurpleButton {
-                text: djconnect.t("start")
+                text: root.tr("start")
                 font.pixelSize: 24
                 Layout.fillWidth: true
                 Layout.preferredHeight: 58
@@ -1880,7 +1913,7 @@ Window {
                 }
 
                 Text {
-                    text: djconnect.t("startup_message")
+                    text: root.tr("startup_message")
                     color: "#9fb4b8"
                     font.pixelSize: 18
                     horizontalAlignment: Text.AlignHCenter
@@ -1991,7 +2024,7 @@ Window {
             spacing: 18
 
             Text {
-                text: djconnect.t("version_mismatch_title")
+                text: root.tr("version_mismatch_title")
                 color: "#f4f8f8"
                 font.pixelSize: 40
                 font.bold: true
@@ -2019,7 +2052,7 @@ Window {
                 }
 
                 Text {
-                    text: djconnect.t("update_trying")
+                    text: root.tr("update_trying")
                     color: "#9fb4b8"
                     font.pixelSize: 17
                 }
@@ -2030,7 +2063,7 @@ Window {
                 spacing: 12
 
                 PurpleButton {
-                    text: djconnect.t("view_logs")
+                    text: root.tr("view_logs")
                     font.pixelSize: 18
                     Layout.fillWidth: true
                     onClicked: djconnect.showLogs()
@@ -2054,7 +2087,7 @@ Window {
             spacing: 12
 
             Text {
-                text: djconnect.t("logs")
+                text: root.tr("logs")
                 color: "#f4f8f8"
                 font.pixelSize: 34
                 font.bold: true
@@ -2067,14 +2100,14 @@ Window {
                 spacing: 10
 
                 PurpleButton {
-                    text: djconnect.t("clear_logs")
+                    text: root.tr("clear_logs")
                     font.pixelSize: 22
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     onClicked: root.clearLogsConfirmOpen = true
                 }
                 PurpleButton {
-                    text: djconnect.t("refresh")
+                    text: root.tr("refresh")
                     font.pixelSize: 22
                     Layout.fillWidth: true
                     Layout.fillHeight: true
@@ -2084,7 +2117,7 @@ Window {
                     }
                 }
                 PurpleButton {
-                    text: djconnect.t("close")
+                    text: root.tr("close")
                     font.pixelSize: 22
                     Layout.fillWidth: true
                     Layout.fillHeight: true
@@ -2115,7 +2148,7 @@ Window {
             }
 
             Text {
-                text: djconnect.t("log") + ": " + djconnect.logFile
+                text: root.tr("log") + ": " + djconnect.logFile
                 color: "#91a3a7"
                 font.pixelSize: 17
                 elide: Text.ElideMiddle
@@ -2152,7 +2185,7 @@ Window {
                 spacing: 18
 
                 Text {
-                    text: djconnect.t("clear_logs_confirm_title")
+                    text: root.tr("clear_logs_confirm_title")
                     color: "#ffffff"
                     font.pixelSize: 28
                     font.bold: true
@@ -2160,7 +2193,7 @@ Window {
                 }
 
                 Text {
-                    text: djconnect.t("clear_logs_confirm_message")
+                    text: root.tr("clear_logs_confirm_message")
                     color: "#f4f0ff"
                     font.pixelSize: 24
                     wrapMode: Text.WordWrap
@@ -2168,7 +2201,7 @@ Window {
                 }
 
                 DangerButton {
-                    text: djconnect.t("clear_logs")
+                    text: root.tr("clear_logs")
                     Layout.fillWidth: true
                     Layout.preferredHeight: 56
                     onClicked: {
@@ -2178,7 +2211,7 @@ Window {
                 }
 
                 PurpleButton {
-                    text: djconnect.t("cancel")
+                    text: root.tr("cancel")
                     font.pixelSize: 24
                     Layout.fillWidth: true
                     Layout.preferredHeight: 56
@@ -2216,7 +2249,7 @@ Window {
                 spacing: 18
 
                 Text {
-                    text: djconnect.t("reset_pairing_confirm_title")
+                    text: root.tr("reset_pairing_confirm_title")
                     color: "#ffffff"
                     font.pixelSize: 28
                     font.bold: true
@@ -2224,7 +2257,7 @@ Window {
                 }
 
                 Text {
-                    text: djconnect.t("reset_pairing_confirm_message")
+                    text: root.tr("reset_pairing_confirm_message")
                     color: "#f4f0ff"
                     font.pixelSize: 24
                     wrapMode: Text.WordWrap
@@ -2232,7 +2265,7 @@ Window {
                 }
 
                 DangerButton {
-                    text: djconnect.t("reset_pairing")
+                    text: root.tr("reset_pairing")
                     Layout.fillWidth: true
                     Layout.preferredHeight: 56
                     onClicked: {
@@ -2243,7 +2276,7 @@ Window {
                 }
 
                 PurpleButton {
-                    text: djconnect.t("cancel")
+                    text: root.tr("cancel")
                     font.pixelSize: 24
                     Layout.fillWidth: true
                     Layout.preferredHeight: 56
@@ -2281,7 +2314,7 @@ Window {
                 spacing: 18
 
                 Text {
-                    text: djconnect.t("reboot_confirm_title")
+                    text: root.tr("reboot_confirm_title")
                     color: "#ffffff"
                     font.pixelSize: 28
                     font.bold: true
@@ -2289,7 +2322,7 @@ Window {
                 }
 
                 Text {
-                    text: djconnect.t("reboot_confirm_message")
+                    text: root.tr("reboot_confirm_message")
                     color: "#f4f0ff"
                     font.pixelSize: 24
                     wrapMode: Text.WordWrap
@@ -2297,7 +2330,7 @@ Window {
                 }
 
                 WarningButton {
-                    text: djconnect.t("reboot_device")
+                    text: root.tr("reboot_device")
                     Layout.fillWidth: true
                     Layout.preferredHeight: 56
                     onClicked: {
@@ -2307,7 +2340,7 @@ Window {
                 }
 
                 PurpleButton {
-                    text: djconnect.t("cancel")
+                    text: root.tr("cancel")
                     font.pixelSize: 24
                     Layout.fillWidth: true
                     Layout.preferredHeight: 56
@@ -2345,7 +2378,7 @@ Window {
                 spacing: 18
 
                 Text {
-                    text: djconnect.t("shutdown_confirm_title")
+                    text: root.tr("shutdown_confirm_title")
                     color: "#ffffff"
                     font.pixelSize: 28
                     font.bold: true
@@ -2353,7 +2386,7 @@ Window {
                 }
 
                 Text {
-                    text: djconnect.t("shutdown_confirm_message")
+                    text: root.tr("shutdown_confirm_message")
                     color: "#f4f0ff"
                     font.pixelSize: 24
                     wrapMode: Text.WordWrap
@@ -2361,7 +2394,7 @@ Window {
                 }
 
                 DangerButton {
-                    text: djconnect.t("shutdown_device")
+                    text: root.tr("shutdown_device")
                     Layout.fillWidth: true
                     Layout.preferredHeight: 56
                     onClicked: {
@@ -2371,7 +2404,7 @@ Window {
                 }
 
                 PurpleButton {
-                    text: djconnect.t("cancel")
+                    text: root.tr("cancel")
                     font.pixelSize: 24
                     Layout.fillWidth: true
                     Layout.preferredHeight: 56
@@ -2437,7 +2470,7 @@ Window {
                             }
 
                             Text {
-                                text: djconnect.t("tagline")
+                                text: root.tr("tagline")
                                 color: "#c8bfd4"
                                 font.pixelSize: 20
                                 font.bold: true
@@ -2448,7 +2481,7 @@ Window {
                 }
 
                 Text {
-                    text: djconnect.t("app_section")
+                    text: root.tr("app_section")
                     color: "#b7a8c8"
                     font.pixelSize: 20
                     font.bold: true
@@ -2461,22 +2494,22 @@ Window {
                     rowSpacing: 10
                     Layout.fillWidth: true
 
-                    Text { text: djconnect.t("version"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
+                    Text { text: root.tr("version"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
                     Text { text: djconnect.version; color: "#ffffff"; font.pixelSize: 20; Layout.fillWidth: true }
-                    Text { text: djconnect.t("device_name"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
+                    Text { text: root.tr("device_name"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
                     Text { text: "DJConnect"; color: "#ffffff"; font.pixelSize: 20; Layout.fillWidth: true }
-                    Text { text: djconnect.t("website"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
+                    Text { text: root.tr("website"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
                     Text { text: "https://djconnect.dev"; color: "#ffffff"; font.pixelSize: 20; Layout.fillWidth: true; elide: Text.ElideRight }
-                    Text { text: djconnect.t("web_address"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
+                    Text { text: root.tr("web_address"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
                     Text { text: djconnect.webPortalUrl; color: "#ffffff"; font.pixelSize: 18; Layout.fillWidth: true; elide: Text.ElideMiddle }
-                    Text { text: djconnect.t("device_id"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
+                    Text { text: root.tr("device_id"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
                     Text { text: djconnect.deviceId; color: "#ffffff"; font.pixelSize: 18; Layout.fillWidth: true; elide: Text.ElideMiddle }
                 }
 
                 Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: "#443262" }
 
                 Text {
-                    text: djconnect.t("connection_section")
+                    text: root.tr("connection_section")
                     color: "#b7a8c8"
                     font.pixelSize: 20
                     font.bold: true
@@ -2489,20 +2522,20 @@ Window {
                     rowSpacing: 10
                     Layout.fillWidth: true
 
-                    Text { text: djconnect.t("home_assistant"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
-                    Text { text: djconnect.paired ? djconnect.t("paired") : djconnect.t("not_paired"); color: "#ffffff"; font.pixelSize: 20; Layout.fillWidth: true }
-                    Text { text: djconnect.t("music"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
-                    Text { text: djconnect.paired ? djconnect.t("connected_value") : djconnect.t("not_connected_value"); color: djconnect.paired ? "#32d35a" : "#ff3b30"; font.pixelSize: 20; font.bold: true; Layout.fillWidth: true }
-                    Text { text: djconnect.t("client_api_url_label"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
+                    Text { text: root.tr("home_assistant"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
+                    Text { text: djconnect.paired ? root.tr("paired") : root.tr("not_paired"); color: "#ffffff"; font.pixelSize: 20; Layout.fillWidth: true }
+                    Text { text: root.tr("music"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
+                    Text { text: djconnect.paired ? root.tr("connected_value") : root.tr("not_connected_value"); color: djconnect.paired ? "#32d35a" : "#ff3b30"; font.pixelSize: 20; font.bold: true; Layout.fillWidth: true }
+                    Text { text: root.tr("client_api_url_label"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
                     Text { text: djconnect.localApiUrl; color: "#ffffff"; font.pixelSize: 18; Layout.fillWidth: true; elide: Text.ElideMiddle }
-                    Text { text: djconnect.t("home_assistant"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
+                    Text { text: root.tr("home_assistant"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
                     Text { text: djconnect.haUrl; color: "#ffffff"; font.pixelSize: 18; Layout.fillWidth: true; elide: Text.ElideMiddle }
                 }
 
                 Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: "#443262" }
 
                 Text {
-                    text: djconnect.t("notices_section")
+                    text: root.tr("notices_section")
                     color: "#b7a8c8"
                     font.pixelSize: 20
                     font.bold: true
@@ -2515,14 +2548,14 @@ Window {
                     rowSpacing: 10
                     Layout.fillWidth: true
 
-                    Text { text: djconnect.t("copyright"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
+                    Text { text: root.tr("copyright"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
                     Text { text: "2026 Peter van Tol"; color: "#ffffff"; font.pixelSize: 20; Layout.fillWidth: true }
-                    Text { text: djconnect.t("spotify_notice"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
-                    Text { text: djconnect.t("spotify_trademark"); color: "#ffffff"; font.pixelSize: 20; Layout.fillWidth: true }
+                    Text { text: root.tr("spotify_notice"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
+                    Text { text: root.tr("spotify_trademark"); color: "#ffffff"; font.pixelSize: 20; Layout.fillWidth: true }
                 }
 
                 PurpleButton {
-                    text: djconnect.t("close")
+                    text: root.tr("close")
                     font.pixelSize: 26
                     Layout.fillWidth: true
                     Layout.preferredHeight: 64

@@ -45,6 +45,7 @@ def index_html(version: str) -> bytes:
     .control-button {{ min-height:92px; width:92px; border-radius:14px; font-size:38px; box-shadow:inset 0 -3px 0 rgba(0,0,0,.18),0 8px 18px rgba(193,53,255,.25); }}
     .control-button.active {{ border-color:#f5d0fe; background:linear-gradient(135deg,#f13de8,#8b5cf6); }}
     .volume-head {{ display:flex; align-items:center; justify-content:space-between; color:#f13de8; font-size:26px; font-weight:850; margin:18px 0 6px; }}
+    .volume-controls {{ display:grid; grid-template-columns:56px 1fr 56px; gap:10px; align-items:center; }}
     button, select, input {{
       min-height:48px; border-radius:8px; border:1px solid rgba(217,177,255,.48);
       background:linear-gradient(135deg,rgba(193,53,255,.88),rgba(75,125,255,.72));
@@ -103,35 +104,35 @@ def index_html(version: str) -> bytes:
         <button class="control-button" onclick="toggleRepeat()" id="repeatButton">↻</button>
       </div>
       <div class="grid" style="margin-top:14px">
-        <div class="volume-head"><span>Volume</span><span id="volumePercent">0%</span></div>
-        <input id="volume" type="range" min="0" max="60" value="30" onchange="cmd('set_volume',{{value:Number(this.value)}})">
-        <label>Uitvoerapparaat <select id="outputs" onchange="selectOutput(this.value)"></select></label>
-        <button id="refreshButton" onclick="refreshAll(true)">Verversen</button>
+        <div class="volume-head"><span data-i18n="volume">Volume</span><span id="volumePercent">0%</span></div>
+        <div class="volume-controls"><button onclick="adjustVolume(-10)">-10</button><input id="volume" type="range" min="0" max="60" value="30" onchange="cmd('set_volume',{{value:Number(this.value)}})"><button onclick="adjustVolume(10)">+10</button></div>
+        <label><span data-i18n="output_device">Uitvoerapparaat</span> <select id="outputs" onchange="selectOutput(this.value)"></select></label>
+        <button id="refreshButton" onclick="refreshAll(true)" data-i18n="refresh">Verversen</button>
       </div>
     </section>
     <section>
-      <h2>Wachtrij</h2>
+      <h2 data-i18n="queue">Wachtrij</h2>
       <div id="queue" class="list"></div>
     </section>
     <section>
-      <h2>Afspeellijsten</h2>
+      <h2 data-i18n="playlists">Afspeellijsten</h2>
       <div id="playlists" class="list"></div>
     </section>
     <section>
-      <h2>Instellingen</h2>
+      <h2 data-i18n="settings">Instellingen</h2>
       <div class="grid">
-        <label>Taal <select id="language" onchange="saveSettings('Taal opgeslagen')"><option value="nl">Nederlands</option><option value="en">English</option></select></label>
-        <label>Logniveau <select id="logLevel" onchange="saveSettings('Logniveau opgeslagen')"><option>DEBUG</option><option>INFO</option><option>WARNING</option><option>ERROR</option></select></label>
-        <label>Schermhelderheid <input id="brightness" type="range" min="10" max="100" oninput="saveSettingsDebounced('Helderheid opgeslagen')" onchange="saveSettings('Helderheid opgeslagen')"></label>
-        <label>Scherm uit na seconden <select id="timeout" onchange="saveSettings('Schermtijd opgeslagen')"><option>30</option><option>60</option><option>90</option><option>120</option><option>180</option><option>240</option><option>300</option><option>600</option></select></label>
-        <button onclick="cmd('check_updates')">Controleer op updates</button>
-        <button class="danger" onclick="confirm('Opnieuw koppelen?')&&cmd('forget_pairing')">Opnieuw koppelen</button>
-        <button class="warning" onclick="confirm('Apparaat herstarten?')&&cmd('reboot')">Apparaat herstarten</button>
-        <button class="danger" onclick="confirm('Apparaat uitschakelen?')&&cmd('shutdown')">Apparaat uitschakelen</button>
+        <label><span data-i18n="language">Taal</span> <select id="language" onchange="saveSettings(t('language_saved'))"><option value="nl">Nederlands</option><option value="en">English</option></select></label>
+        <label><span data-i18n="log_level">Logniveau</span> <select id="logLevel" onchange="saveSettings(t('log_level_saved'))"><option>DEBUG</option><option>INFO</option><option>WARNING</option><option>ERROR</option></select></label>
+        <label><span data-i18n="brightness">Schermhelderheid</span> <input id="brightness" type="range" min="10" max="100" oninput="saveSettingsDebounced(t('brightness_saved'))" onchange="saveSettings(t('brightness_saved'))"></label>
+        <label><span data-i18n="screen_off">Scherm uit na seconden</span> <select id="timeout" onchange="saveSettings(t('screen_timeout_saved'))"><option>30</option><option>60</option><option>90</option><option>120</option><option>180</option><option>240</option><option>300</option><option>600</option></select></label>
+        <button onclick="cmd('check_updates')" data-i18n="check_updates">Controleer op updates</button>
+        <button class="danger" onclick="confirm(t('reset_pairing_confirm'))&&cmd('forget_pairing')" data-i18n="reset_pairing">Opnieuw koppelen</button>
+        <button class="warning" onclick="confirm(t('reboot_confirm'))&&cmd('reboot')" data-i18n="reboot_device">Apparaat herstarten</button>
+        <button class="danger" onclick="confirm(t('shutdown_confirm'))&&cmd('shutdown')" data-i18n="shutdown_device">Apparaat uitschakelen</button>
       </div>
     </section>
     <section>
-      <h2>Over</h2>
+      <h2 data-i18n="about">Over</h2>
       <div id="about" class="grid"></div>
     </section>
     <section>
@@ -140,17 +141,51 @@ def index_html(version: str) -> bytes:
     </section>
     <section class="wide">
       <h2>Logs</h2>
-      <div class="two" style="margin-bottom:10px"><button class="secondary" onclick="copyLogs()">Logs kopiëren</button><button id="logsRefreshButton" class="secondary" onclick="refreshLogs(true)">Logs verversen</button></div>
+      <div class="two" style="margin-bottom:10px"><button class="secondary" onclick="copyLogs()" data-i18n="copy_logs">Logs kopiëren</button><button id="logsRefreshButton" class="secondary" onclick="refreshLogs(true)" data-i18n="refresh_logs">Logs verversen</button></div>
       <pre id="logs">Logs laden...</pre>
     </section>
   </main>
   <div id="toast" class="toast"></div>
 <script>
 let state = {{}};
-let pendingOutputDevice = null;
-let pendingOutputUntil = 0;
 let settingsTimer = 0;
 let toastTimer = 0;
+const I18N = {{
+  nl: {{
+    loading:'Laden...', connected:'Verbonden', not_paired:'Niet gekoppeld', nothing_playing:'Niets speelt af',
+    volume:'Volume', output_device:'Uitvoerapparaat', none:'Geen', refresh:'Verversen', refreshing:'Verversen...',
+    queue:'Wachtrij', playlists:'Afspeellijsten', settings:'Instellingen', language:'Taal', log_level:'Logniveau',
+    brightness:'Schermhelderheid', screen_off:'Scherm uit na seconden', check_updates:'Controleer op updates',
+    reset_pairing:'Opnieuw koppelen', reboot_device:'Apparaat herstarten', shutdown_device:'Apparaat uitschakelen',
+    about:'Over', copy_logs:'Logs kopiëren', refresh_logs:'Logs verversen', logs_loading:'Logs laden...',
+    command_sent:'Commando verzonden', command_failed:'Mislukt', refreshed:'Verversd', status_failed:'Status mislukt',
+    logs_refreshed:'Logs ververst', logs_failed:'Logs mislukt', copied:'Gekopieerd naar klembord', copy_failed:'Kopieren mislukt',
+    settings_saved:'Instellingen opgeslagen', save_failed:'Opslaan mislukt', language_saved:'Taal opgeslagen',
+    log_level_saved:'Logniveau opgeslagen', brightness_saved:'Helderheid opgeslagen', screen_timeout_saved:'Schermtijd opgeslagen',
+    empty_queue:'Geen wachtrij', empty_playlists:'Geen afspeellijsten', no_diagnostics:'Geen diagnostics beschikbaar',
+    reset_pairing_confirm:'Opnieuw koppelen?', reboot_confirm:'Apparaat herstarten?', shutdown_confirm:'Apparaat uitschakelen?'
+  }},
+  en: {{
+    loading:'Loading...', connected:'Connected', not_paired:'Not paired', nothing_playing:'Nothing playing',
+    volume:'Volume', output_device:'Output device', none:'None', refresh:'Refresh', refreshing:'Refreshing...',
+    queue:'Queue', playlists:'Playlists', settings:'Settings', language:'Language', log_level:'Log level',
+    brightness:'Screen brightness', screen_off:'Screen off after seconds', check_updates:'Check for updates',
+    reset_pairing:'Reset pairing', reboot_device:'Restart device', shutdown_device:'Shut down device',
+    about:'About', copy_logs:'Copy logs', refresh_logs:'Refresh logs', logs_loading:'Loading logs...',
+    command_sent:'Command sent', command_failed:'Failed', refreshed:'Refreshed', status_failed:'Status failed',
+    logs_refreshed:'Logs refreshed', logs_failed:'Logs failed', copied:'Copied to clipboard', copy_failed:'Copy failed',
+    settings_saved:'Settings saved', save_failed:'Save failed', language_saved:'Language saved',
+    log_level_saved:'Log level saved', brightness_saved:'Brightness saved', screen_timeout_saved:'Screen timeout saved',
+    empty_queue:'No queue', empty_playlists:'No playlists', no_diagnostics:'No diagnostics available',
+    reset_pairing_confirm:'Reset pairing?', reboot_confirm:'Restart device?', shutdown_confirm:'Shut down device?'
+  }}
+}};
+function currentLanguage() {{ return (state.settings && state.settings.language) || document.getElementById('language')?.value || 'nl'; }}
+function t(key) {{ const lang = currentLanguage(); return (I18N[lang] && I18N[lang][key]) || I18N.nl[key] || key; }}
+function translateStatic() {{
+  document.documentElement.lang = currentLanguage();
+  for (const el of document.querySelectorAll('[data-i18n]')) el.textContent = t(el.dataset.i18n);
+}}
 function toast(message) {{
   const el = document.getElementById('toast');
   el.textContent = message;
@@ -173,13 +208,11 @@ function toggleRepeat() {{
 async function cmd(command, payload={{}}) {{
   try {{
     await api('/api/portal/command', {{method:'POST', body:JSON.stringify(Object.assign({{command}}, payload))}});
-    toast('Commando verzonden');
+    toast(t('command_sent'));
     setTimeout(refreshAll, 450);
-  }} catch (err) {{ toast(`Mislukt: ${{err.message}}`); }}
+  }} catch (err) {{ toast(`${{t('command_failed')}}: ${{err.message}}`); }}
 }}
 function selectOutput(value) {{
-  pendingOutputDevice = value;
-  pendingOutputUntil = Date.now() + 10000;
   cmd('set_output', {{value}});
 }}
 function setBusy(id, busy, label) {{
@@ -187,11 +220,11 @@ function setBusy(id, busy, label) {{
   if (!el) return;
   if (busy) {{
     el.dataset.label = el.textContent;
-    el.textContent = label || 'Verversen...';
+    el.textContent = label || t('refreshing');
     el.classList.add('busy');
     el.disabled = true;
   }} else {{
-    el.textContent = el.dataset.label || 'Verversen';
+    el.textContent = el.dataset.label || t('refresh');
     el.classList.remove('busy');
     el.disabled = false;
   }}
@@ -208,12 +241,15 @@ function settingsPayload() {{
     screen_timeout_seconds: Number(document.getElementById('timeout').value)
   }};
 }}
-async function saveSettings(message='Instellingen opgeslagen') {{
+async function saveSettings(message=t('settings_saved')) {{
   try {{
+    if (!state.settings) state.settings = {{}};
+    Object.assign(state.settings, settingsPayload());
+    translateStatic();
     await api('/api/portal/command', {{method:'POST', body:JSON.stringify(Object.assign({{command:'settings'}}, settingsPayload()))}});
     toast(message);
     setTimeout(refreshAll, 350);
-  }} catch (err) {{ toast(`Opslaan mislukt: ${{err.message}}`); }}
+  }} catch (err) {{ toast(`${{t('save_failed')}}: ${{err.message}}`); }}
 }}
 function saveSettingsDebounced(message) {{
   clearTimeout(settingsTimer);
@@ -224,7 +260,19 @@ function itemHtml(item, command) {{
   const title = item.title || '-';
   const sub = item.subtitle || '';
   const uri = item.uri || title;
-  return `<div class="item">${{art}}<div><div class="item-title">${{title}}</div><div class="item-sub">${{sub}}</div></div><button class="play" onclick="cmd('${{command}}',{{value:decodeURIComponent('${{encodeURIComponent(uri)}}')}})">▶</button></div>`;
+  const encoded = encodeURIComponent(uri);
+  return `<div class="item" role="button" tabindex="0" onclick="playMedia('${{command}}','${{encoded}}')">${{art}}<div><div class="item-title">${{title}}</div><div class="item-sub">${{sub}}</div></div><button class="play" onclick="event.stopPropagation();playMedia('${{command}}','${{encoded}}')">▶</button></div>`;
+}}
+function playMedia(command, encodedUri) {{
+  const uri = decodeURIComponent(encodedUri);
+  cmd(command, {{value:uri, uri:uri, context_uri:uri}});
+}}
+function adjustVolume(delta) {{
+  const current = Number(document.getElementById('volume').value || 0);
+  const value = Math.max(0, Math.min(60, current + delta));
+  document.getElementById('volume').value = value;
+  document.getElementById('volumePercent').textContent = `${{Math.round(value / 60 * 100)}}%`;
+  cmd('set_volume', {{value}});
 }}
 function diagnosticsHtml(item) {{
   const status = item.status || 'unknown';
@@ -232,10 +280,11 @@ function diagnosticsHtml(item) {{
 }}
 function render(data) {{
   state = data;
+  translateStatic();
   const playback = data.playback || {{}};
   document.getElementById('statusDot').classList.toggle('ok', !!data.backend_available);
-  document.getElementById('statusText').textContent = data.status_text || (data.paired ? 'Verbonden' : 'Niet gekoppeld');
-  document.getElementById('title').textContent = playback.title || 'Niets speelt af';
+  document.getElementById('statusText').textContent = data.status_text || (data.paired ? t('connected') : t('not_paired'));
+  document.getElementById('title').textContent = playback.title || t('nothing_playing');
   document.getElementById('artist').textContent = playback.artist || '';
   document.getElementById('art').src = playback.image_url || '';
   const volume = Math.min(60, playback.volume ?? 30);
@@ -245,45 +294,45 @@ function render(data) {{
   document.getElementById('shuffleButton').classList.toggle('active', !!playback.shuffle);
   document.getElementById('repeatButton').classList.toggle('active', (playback.repeat_state || 'off') !== 'off');
   const outputs = document.getElementById('outputs');
-  const selectedOutput = pendingOutputDevice && Date.now() < pendingOutputUntil ? pendingOutputDevice : playback.output_device;
+  const selectedOutput = playback.output_device;
   outputs.innerHTML = '';
   const none = document.createElement('option');
-  none.value = ''; none.textContent = 'Geen'; none.selected = !selectedOutput;
+  none.value = ''; none.textContent = t('none'); none.selected = !selectedOutput;
   outputs.appendChild(none);
   for (const name of (playback.output_devices || [])) {{
     const option = document.createElement('option');
     option.value = name; option.textContent = name; option.selected = name === selectedOutput;
     outputs.appendChild(option);
   }}
-  document.getElementById('queue').innerHTML = (data.queue || []).length ? data.queue.map(i => itemHtml(i,'start_queue_item')).join('') : '<div class="sub">Geen wachtrij</div>';
-  document.getElementById('playlists').innerHTML = (data.playlists || []).length ? data.playlists.map(i => itemHtml(i,'start_playlist')).join('') : '<div class="sub">Geen afspeellijsten</div>';
+  document.getElementById('queue').innerHTML = (data.queue || []).length ? data.queue.map(i => itemHtml(i,'start_queue_item')).join('') : `<div class="sub">${{t('empty_queue')}}</div>`;
+  document.getElementById('playlists').innerHTML = (data.playlists || []).length ? data.playlists.map(i => itemHtml(i,'start_playlist')).join('') : `<div class="sub">${{t('empty_playlists')}}</div>`;
   document.getElementById('language').value = data.settings?.language || 'nl';
   document.getElementById('logLevel').value = data.settings?.log_level || 'INFO';
   document.getElementById('brightness').value = data.settings?.screen_brightness_percent || 100;
   document.getElementById('timeout').value = String(data.settings?.screen_timeout_seconds ?? 120);
   document.getElementById('about').innerHTML = Object.entries(data.about || {{}}).map(([k,v]) => `<div class="row"><span class="key">${{k}}</span><span class="value">${{v || '-'}}</span></div>`).join('');
-  document.getElementById('diagnostics').innerHTML = (data.diagnostics || []).length ? data.diagnostics.map(diagnosticsHtml).join('') : '<div class="sub">Geen diagnostics beschikbaar</div>';
+  document.getElementById('diagnostics').innerHTML = (data.diagnostics || []).length ? data.diagnostics.map(diagnosticsHtml).join('') : `<div class="sub">${{t('no_diagnostics')}}</div>`;
   document.getElementById('logs').textContent = data.logs || '';
 }}
 async function refreshAll(showBusy=false) {{
-  if (showBusy) setBusy('refreshButton', true, 'Verversen...');
+  if (showBusy) setBusy('refreshButton', true, t('refreshing'));
   try {{
     render(await api('/api/portal/state?include=queue,playlists,logs'));
     scrollLogsToBottom();
-    if (showBusy) toast('Verversd');
+    if (showBusy) toast(t('refreshed'));
   }}
-  catch (err) {{ toast(`Status mislukt: ${{err.message}}`); }}
+  catch (err) {{ toast(`${{t('status_failed')}}: ${{err.message}}`); }}
   finally {{ if (showBusy) setBusy('refreshButton', false); }}
 }}
 async function refreshLogs(showBusy=false) {{
-  if (showBusy) setBusy('logsRefreshButton', true, 'Verversen...');
+  if (showBusy) setBusy('logsRefreshButton', true, t('refreshing'));
   try {{
     document.getElementById('logs').textContent = (await api('/api/portal/state?include=logs')).logs || '';
     scrollLogsToBottom();
-    if (showBusy) toast('Logs ververst');
+    if (showBusy) toast(t('logs_refreshed'));
   }}
-  catch (err) {{ toast(`Logs mislukt: ${{err.message}}`); }}
-  finally {{ if (showBusy) setBusy('logsRefreshButton', false, 'Logs verversen'); }}
+  catch (err) {{ toast(`${{t('logs_failed')}}: ${{err.message}}`); }}
+  finally {{ if (showBusy) setBusy('logsRefreshButton', false, t('refresh_logs')); }}
 }}
 async function copyLogs() {{
   const logs = document.getElementById('logs');
@@ -299,9 +348,9 @@ async function copyLogs() {{
     }} else {{
       document.execCommand('copy');
     }}
-    toast('Gekopieerd naar klembord');
+    toast(t('copied'));
   }} catch (err) {{
-    toast('Kopieren mislukt');
+    toast(t('copy_failed'));
   }}
 }}
 refreshAll();

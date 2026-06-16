@@ -8,6 +8,7 @@ from unittest.mock import Mock, patch
 import pytest
 from PySide6.QtCore import QCoreApplication
 
+from djconnect_pi.config import load_config, save_config
 from djconnect_pi.app import (
     DJConnectBackend,
     _format_duration,
@@ -265,10 +266,12 @@ def test_backend_persists_language_and_translates(tmp_path: Path) -> None:
         backend = DJConnectBackend(config_path)
 
     assert backend.t("setup") == "Instellingen"
+    assert backend.translationVersion == 0
     backend.setLanguage("en")
     reloaded = DJConnectBackend(config_path)
 
     assert backend.language == "en"
+    assert backend.translationVersion == 1
     assert backend.t("setup") == "Setup"
     assert reloaded.language == "en"
 
@@ -609,6 +612,40 @@ def test_backend_output_device_dispatches_command(tmp_path: Path) -> None:
 
     assert backend.outputDevice == "Slaapkamer"
     assert calls == ["set_output"]
+
+
+def test_backend_manual_refresh_clears_pending_output_device(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+
+    backend._pending_output_device = "Slaapkamer"
+    backend._pending_output_until = 999999
+    backend.manualRefresh()
+
+    assert backend._pending_output_device == ""
+    assert backend._pending_output_until == 0
+
+
+def test_backend_sync_config_updates_live_settings(tmp_path: Path) -> None:
+    ensure_app()
+    config_path = tmp_path / "config.json"
+    backend = DJConnectBackend(config_path)
+    updated = load_config(config_path)
+    updated.language = "nl" if backend.language == "en" else "en"
+    updated.log_level = "DEBUG"
+    updated.screen_brightness_percent = 42
+    updated.screen_timeout_seconds = 300
+    updated.update_channel = "beta"
+    save_config(config_path, updated)
+
+    backend._sync_config_from_disk()
+
+    assert backend.language == updated.language
+    assert backend.translationVersion == 1
+    assert backend.logLevel == "DEBUG"
+    assert backend.screenBrightnessPercent == 42
+    assert backend.screenTimeoutSeconds == 300
+    assert backend.updateChannel == "beta"
 
 
 def test_backend_output_device_can_be_cleared_locally(tmp_path: Path) -> None:

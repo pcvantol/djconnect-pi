@@ -88,6 +88,7 @@ class DJConnectBackend(QObject):
         self._dj_response_visible = False
         self._toast_text = ""
         self._toast_visible = False
+        self._translation_version = 0
         self._version_mismatch_visible = False
         self._version_mismatch_text = ""
         self._pairing_success_visible = False
@@ -102,6 +103,8 @@ class DJConnectBackend(QObject):
         self._queue_items: list[dict[str, object]] = []
         self._playlist_items: list[dict[str, object]] = []
         self._media_loads_in_flight: set[str] = set()
+        self._pending_output_device = ""
+        self._pending_output_until = 0.0
         self._status_text = self.tr_key("paired" if self.cfg.paired else "not_paired")
         self._backend_available = True
         self._busy = False
@@ -268,6 +271,10 @@ class DJConnectBackend(QObject):
     def languageName(self) -> str:
         return LANGUAGES.get(self.cfg.language, LANGUAGES["nl"])
 
+    @Property(int, notify=translationsChanged)
+    def translationVersion(self) -> int:
+        return self._translation_version
+
     @Property(str, notify=djResponseChanged)
     def djResponseText(self) -> str:
         return self._dj_response_text
@@ -349,6 +356,7 @@ class DJConnectBackend(QObject):
             return
         self.cfg.language = language
         save_config(self.config_path, self.cfg)
+        self._translation_version += 1
         self.languageChanged.emit()
         self.translationsChanged.emit()
         self.settingsChanged.emit()
@@ -426,12 +434,30 @@ class DJConnectBackend(QObject):
 
     def _sync_config_from_disk(self) -> None:
         latest = load_config(self.config_path)
-        if latest.device_token == self.cfg.device_token and latest.paired == self.cfg.paired and latest.ha_url == self.cfg.ha_url:
+        if (
+            latest.device_token == self.cfg.device_token
+            and latest.paired == self.cfg.paired
+            and latest.ha_url == self.cfg.ha_url
+            and latest.language == self.cfg.language
+            and latest.log_level == self.cfg.log_level
+            and latest.screen_brightness_percent == self.cfg.screen_brightness_percent
+            and latest.screen_timeout_seconds == self.cfg.screen_timeout_seconds
+            and latest.update_channel == self.cfg.update_channel
+        ):
             return
+        language_changed = latest.language != self.cfg.language
         self.cfg = latest
         self.client.cfg = self.cfg
         self.pairedChanged.emit()
         self.settingsChanged.emit()
+        self.logLevelChanged.emit()
+        self.screenBrightnessChanged.emit()
+        self.screenTimeoutChanged.emit()
+        self.updateChannelChanged.emit()
+        if language_changed:
+            self._translation_version += 1
+            self.languageChanged.emit()
+            self.translationsChanged.emit()
 
     @Slot()
     def startAfterPairing(self) -> None:
@@ -488,6 +514,10 @@ class DJConnectBackend(QObject):
             return
         self.command("set_volume", value=value)
 
+    @Slot(int)
+    def adjustVolume(self, delta: int) -> None:
+        self.setVolume(self.playback.volume + int(delta))
+
     @Slot()
     def toggleShuffle(self) -> None:
         self.playback.shuffle = not self.playback.shuffle
@@ -520,6 +550,8 @@ class DJConnectBackend(QObject):
             return
         previous = self.playback.output_device
         self.playback.output_device = value
+        self._pending_output_device = value
+        self._pending_output_until = time.monotonic() + 20
         self.outputDeviceChanged.emit()
         _LOGGER.info("User selected output device: %s", value)
         self.showToast(value)
@@ -581,6 +613,8 @@ class DJConnectBackend(QObject):
     @Slot()
     def manualRefresh(self) -> None:
         _LOGGER.info("User requested manual refresh")
+        self._pending_output_device = ""
+        self._pending_output_until = 0.0
         self.refresh()
 
     @Slot()
@@ -806,6 +840,12 @@ class DJConnectBackend(QObject):
         _LOGGER.debug("Refreshing playback status")
         data = self.client.command("status") if self.paired else self.client.status()
         playback = self.client.playback_from_status(data)
+        if self._pending_output_device and time.monotonic() < self._pending_output_until:
+            if not playback.output_devices or self._pending_output_device in playback.output_devices:
+                playback.output_device = self._pending_output_device
+        elif self._pending_output_device:
+            self._pending_output_device = ""
+            self._pending_output_until = 0.0
         if self.playback.output_device and not playback.output_device:
             playback.output_device = self.playback.output_device
         if self.paired and not playback.output_devices:
@@ -855,6 +895,8 @@ class DJConnectBackend(QObject):
                 playback.output_device = value
             if not playback.output_devices:
                 playback.output_devices = self.playback.output_devices or ((value,) if value else ())
+            self._pending_output_device = value
+            self._pending_output_until = time.monotonic() + 20
             self._playbackReady.emit(playback)
             _LOGGER.info("Output device %s validated in %.0fms", value, _elapsed_ms(started))
         except Exception:
@@ -1162,6 +1204,11 @@ class DJConnectBackend(QObject):
             if command == "check_updates":
                 _LOGGER.info("Executing local web portal update check request")
                 self.checkForUpdates()
+                continue
+            if command in {"start_queue_item", "start_playlist"}:
+                uri = str(payload.get("uri") or payload.get("value") or payload.get("context_uri") or "").strip()
+                _LOGGER.info("Executing local web portal media item request: %s", command)
+                self.playMediaItem(command, uri)
                 continue
             _LOGGER.info("Executing Client API command event from Home Assistant: %s", command)
             if command in {"previous", "next"}:

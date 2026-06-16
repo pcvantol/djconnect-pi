@@ -1,5 +1,20 @@
 # Changelog
 
+## 3.1.65
+
+- Fixed touch and web language refresh so changed settings immediately refresh
+  translated labels instead of leaving stale Dutch copy on English screens.
+- Fixed touch and web manual refresh so output-device selection is refreshed
+  from the current Home Assistant playback state, while recent user output
+  selections stay visible briefly until HA confirms them.
+- Made queue and playlist rows fully tappable/clickable on touch and web, and
+  send complete media-item payloads (`value`, `uri`, `context_uri`) so queue
+  item playback and playlist starts use the same client route.
+- Added touch-friendly volume step buttons around the volume slider and kept
+  the slider for fine adjustment.
+- Enlarged the Now Playing album art and rendered title/artist as a shadowed
+  overlay inside the artwork for better use of the HyperPixel screen.
+
 ## 3.1.64
 
 - Restyled touch and web notification toasts as DJConnect macOS-style rounded

@@ -24,6 +24,13 @@ Rectangle {
 
     signal closeRequested()
 
+    property int trVersion: djconnect.translationVersion
+
+    function tr(key) {
+        root.trVersion
+        return djconnect.t(key)
+    }
+
     MouseArea {
         anchors.fill: parent
         acceptedButtons: Qt.AllButtons
@@ -70,7 +77,7 @@ Rectangle {
     ]
     property int gameIndex: 0
     property string gameId: games[gameIndex].id
-    property string gameTitle: djconnect.t(games[gameIndex].titleKey)
+    property string gameTitle: root.tr(games[gameIndex].titleKey)
     property color gameTint: games[gameIndex].tint
     property bool playing: false
     property int score: 0
@@ -357,7 +364,7 @@ Rectangle {
             spacing: 10
 
             Text {
-                text: djconnect.t("games")
+                text: root.tr("games")
                 color: "#f4f8f8"
                 font.pixelSize: 30
                 font.bold: true
@@ -373,7 +380,7 @@ Rectangle {
             Repeater {
                 model: root.games
                 GlassButton {
-                    text: djconnect.t(modelData.titleKey)
+                    text: root.tr(modelData.titleKey)
                     checkable: true
                     checked: index === root.gameIndex
                     Layout.fillWidth: true
@@ -395,14 +402,14 @@ Rectangle {
             }
 
             Text {
-                text: djconnect.t("score") + " " + root.score
+                text: root.tr("score") + " " + root.score
                 color: "#f4f8f8"
                 font.pixelSize: 18
                 font.bold: true
             }
 
             Text {
-                text: djconnect.t("high") + " " + root.highScore()
+                text: root.tr("high") + " " + root.highScore()
                 color: "#9fb4b8"
                 font.pixelSize: 18
             }
@@ -558,7 +565,7 @@ Rectangle {
             GlassButton {
                 anchors.centerIn: parent
                 visible: !root.playing
-                text: djconnect.t("tap_to_play")
+                text: root.tr("tap_to_play")
                 font.pixelSize: 22
                 onClicked: root.startGame()
             }
@@ -570,14 +577,14 @@ Rectangle {
             spacing: 10
 
             GlassButton {
-                text: root.gameId === "asteroids" ? djconnect.t("left") : djconnect.t("up")
+                text: root.gameId === "asteroids" ? root.tr("left") : root.tr("up")
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 onClicked: root.gameId === "asteroids" ? root.moveHorizontal(-1) : root.move(-1)
             }
 
             GlassButton {
-                text: root.gameId === "asteroids" ? djconnect.t("right") : djconnect.t("down")
+                text: root.gameId === "asteroids" ? root.tr("right") : root.tr("down")
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 onClicked: root.gameId === "asteroids" ? root.moveHorizontal(1) : root.move(1)
@@ -585,14 +592,14 @@ Rectangle {
 
             GlassButton {
                 visible: root.gameId === "asteroids" || root.gameId === "fly"
-                text: djconnect.t("fire")
+                text: root.tr("fire")
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 onClicked: root.fire()
             }
 
             GlassButton {
-                text: djconnect.t("reset")
+                text: root.tr("reset")
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 onClicked: {
@@ -603,10 +610,10 @@ Rectangle {
         }
 
         Text {
-            text: root.gameId === "pong" ? djconnect.t("game_help_pong")
-                : root.gameId === "asteroids" ? djconnect.t("game_help_asteroids")
-                : root.gameId === "fly" ? djconnect.t("game_help_fly")
-                : djconnect.t("game_help_pacman")
+            text: root.gameId === "pong" ? root.tr("game_help_pong")
+                : root.gameId === "asteroids" ? root.tr("game_help_asteroids")
+                : root.gameId === "fly" ? root.tr("game_help_fly")
+                : root.tr("game_help_pacman")
             color: "#9fb4b8"
             font.pixelSize: 15
             wrapMode: Text.WordWrap

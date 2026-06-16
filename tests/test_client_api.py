@@ -103,18 +103,26 @@ def test_web_portal_media_buttons_and_refresh_are_clickable() -> None:
 
     assert "encodeURIComponent(uri)" in html
     assert "decodeURIComponent" in html
+    assert "playMedia(command,encodedUri)" in html
+    assert "context_uri:uri" in html
     assert "selectOutput(this.value)" in html
-    assert "pendingOutputDevice" in html
-    assert "none.textContent='Geen'" in html
-    assert "setBusy('refreshButton',true,'Verversen...')" in html
+    assert "pendingOutputDevice" not in html
+    assert "const selectedOutput=playback.output_device" in html
+    assert "none.textContent=t('none')" in html
+    assert "setBusy('refreshButton',true,t('refreshing'))" in html
     assert "refreshAll(true)" in html
     assert "scrollLogsToBottom()" in html
-    assert "setBusy('logsRefreshButton',true,'Verversen...')" in html
+    assert "setBusy('logsRefreshButton',true,t('refreshing'))" in html
     assert "Gekopieerd naar klembord" in html
+    assert "const I18N" in html
+    assert 'data-i18n="settings"' in html
+    assert "translateStatic()" in html
+    assert "adjustVolume(-10)" in html
+    assert "adjustVolume(10)" in html
     assert "range.selectNodeContents(logs)" in html
     assert "document.execCommand('copy')" in html
     assert "Instellingen opslaan" not in html
-    assert "saveSettingsDebounced('Helderheid opgeslagen')" in html
+    assert "saveSettingsDebounced(t('brightness_saved'))" in html
     assert "button.warning" in html
     assert 'class="warning" onclick="confirm(' in html
 

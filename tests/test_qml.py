@@ -28,16 +28,18 @@ def test_qml_has_blocking_pairing_and_splash_views() -> None:
     assert 'source: "app-icon.png"' in main_qml
     assert 'text: "v" + djconnect.version' in main_qml
     assert "!djconnect.paired && !djconnect.demoMode" in main_qml
-    assert 'djconnect.t("client_api_url")' in main_qml
+    assert "property int trVersion: djconnect.translationVersion" in main_qml
+    assert "function tr(key)" in main_qml
+    assert 'root.tr("client_api_url")' in main_qml
     assert "djconnect.pairingCode" in main_qml
     assert "blockingPairCodeField" not in main_qml
     assert "djconnect.pair(djconnect.pairingCode)" not in main_qml
-    assert 'djconnect.t("waiting_for_ha")' in main_qml
-    assert 'djconnect.t("start_demo_mode")' in main_qml
+    assert 'root.tr("waiting_for_ha")' in main_qml
+    assert 'root.tr("start_demo_mode")' in main_qml
     assert "djconnect.pairingSuccessVisible" in main_qml
-    assert 'djconnect.t("pairing_success_title")' in main_qml
+    assert 'root.tr("pairing_success_title")' in main_qml
     assert "djconnect.startAfterPairing()" in main_qml
-    assert 'djconnect.t("startup_message")' in main_qml
+    assert 'root.tr("startup_message")' in main_qml
 
 
 def test_qml_has_touch_games_panel() -> None:
@@ -46,14 +48,16 @@ def test_qml_has_touch_games_panel() -> None:
     games_qml = qml_root.joinpath("GamesPanel.qml").read_text(encoding="utf-8")
 
     assert "GamesPanel" in main_qml
-    assert 'djconnect.t("games")' in main_qml
+    assert 'root.tr("games")' in main_qml
     assert 'id: "pong"' in games_qml
     assert 'id: "asteroids"' in games_qml
     assert 'id: "fly"' in games_qml
     assert 'id: "pacman"' in games_qml
     assert 'titleKey: "game_pong"' in games_qml
-    assert "property string gameTitle: djconnect.t(games[gameIndex].titleKey)" in games_qml
-    assert "djconnect.t(modelData.titleKey)" in games_qml
+    assert "property int trVersion: djconnect.translationVersion" in games_qml
+    assert "function tr(key)" in games_qml
+    assert "property string gameTitle: root.tr(games[gameIndex].titleKey)" in games_qml
+    assert "root.tr(modelData.titleKey)" in games_qml
     assert "MouseArea" in games_qml
     assert "preventStealing: true" in games_qml
     assert "propagateComposedEvents: false" in games_qml
@@ -97,35 +101,36 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "font.pixelSize: 24" in main_qml
     assert "root.brightnessOverlayOpacity" in main_qml
     assert "z: 200" in main_qml
-    assert 'djconnect.t("about")' in main_qml
+    assert 'root.tr("about")' in main_qml
     assert "aboutScroll.availableWidth" in main_qml
     assert 'text: "https://djconnect.dev"' in main_qml
-    assert 'djconnect.t("reset_pairing_confirm_title")' in main_qml
-    assert 'djconnect.t("reset_pairing_confirm_message")' in main_qml
-    assert 'djconnect.t("cancel")' in main_qml
+    assert 'root.tr("reset_pairing_confirm_title")' in main_qml
+    assert 'root.tr("reset_pairing_confirm_message")' in main_qml
+    assert 'root.tr("cancel")' in main_qml
     assert "root.resetPairingConfirmOpen = true" in main_qml
     assert "root.rebootConfirmOpen = true" in main_qml
-    assert 'djconnect.t("reboot_confirm_title")' in main_qml
-    assert 'djconnect.t("reboot_confirm_message")' in main_qml
+    assert 'root.tr("reboot_confirm_title")' in main_qml
+    assert 'root.tr("reboot_confirm_message")' in main_qml
     assert "component WarningButton" in main_qml
-    assert 'WarningButton {\n                text: djconnect.t("reboot_device")' in main_qml
+    assert 'WarningButton {\n                text: root.tr("reboot_device")' in main_qml
     assert "root.shutdownConfirmOpen = true" in main_qml
-    assert 'djconnect.t("shutdown_confirm_title")' in main_qml
-    assert 'djconnect.t("shutdown_confirm_message")' in main_qml
+    assert 'root.tr("shutdown_confirm_title")' in main_qml
+    assert 'root.tr("shutdown_confirm_message")' in main_qml
     assert "djconnect.shutdownDevice()" in main_qml
     assert "djconnect.checkForUpdates()" in main_qml
-    assert 'djconnect.t("check_updates")' in main_qml
-    assert 'text: djconnect.t("no_voice")' not in main_qml
-    assert "placeholderText: djconnect.t(\"ha_url\")" not in main_qml
+    assert 'root.tr("check_updates")' in main_qml
+    assert 'root.tr("save")' not in main_qml
+    assert 'text: root.tr("no_voice")' not in main_qml
+    assert "placeholderText: root.tr(\"ha_url\")" not in main_qml
     assert "ModalBlocker {}" in main_qml
     assert "onClicked: function(mouse)" in main_qml
     assert "onWheel: function(wheel)" in main_qml
-    assert 'djconnect.t("queue")' in main_qml
-    assert 'djconnect.t("playlists")' in main_qml
+    assert 'root.tr("queue")' in main_qml
+    assert 'root.tr("playlists")' in main_qml
     assert "djconnect.queueItems" in main_qml
     assert "djconnect.playlistItems" in main_qml
-    assert 'emptyText: djconnect.t("empty_queue")' in main_qml
-    assert 'emptyText: djconnect.t("empty_playlists")' in main_qml
+    assert 'emptyText: root.tr("empty_queue")' in main_qml
+    assert 'emptyText: root.tr("empty_playlists")' in main_qml
     assert 'playCommand: "start_queue_item"' in main_qml
     assert 'playCommand: "start_playlist"' in main_qml
     assert "djconnect.playMediaItem(panel.playCommand, modelData.uri)" in main_qml
@@ -141,17 +146,21 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert 'djconnect.haUrl.length ? djconnect.haUrl : "http://homeassistant.local:8123"' in main_qml
     assert "djconnect.outputDevices" in main_qml
     assert "property var deviceChoices" in main_qml
-    assert 'property string noOutputDeviceLabel: djconnect.t("none")' in main_qml
+    assert 'property string noOutputDeviceLabel: root.tr("none")' in main_qml
     assert "djconnect.setOutputDevice" in main_qml
+    assert "djconnect.adjustVolume(-10)" in main_qml
+    assert "djconnect.adjustVolume(10)" in main_qml
+    assert 'text: "-"' in main_qml
+    assert 'text: "+"' in main_qml
     assert "id: nowPanel" in main_qml
     assert 'visible: root.activeScreen === "now"' in main_qml
     assert "id: controlPanel" in main_qml
     assert 'visible: root.activeScreen === "control"' in main_qml
-    assert 'djconnect.t("control")' in main_qml
+    assert 'root.tr("control")' in main_qml
     assert "id: controlOutputDeviceCombo" in main_qml
     assert 'text: "🔊"' not in main_qml
     assert "wrapMode: TextEdit.Wrap" in main_qml
-    assert 'text: djconnect.t("log") + ": " + djconnect.logFile' in main_qml
+    assert 'text: root.tr("log") + ": " + djconnect.logFile' in main_qml
     assert "djconnect.cachedImageUrl(modelData.imageUrl)" not in main_qml
     assert "source: modelData.imageUrl && modelData.imageUrl.length > 0 ? modelData.imageUrl : \"\"" in main_qml
     assert "height: 92" not in main_qml
@@ -184,15 +193,15 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "property var timeoutChoices: [30, 60, 90, 120, 180, 240, 300, 600]" in main_qml
     assert "logsArea.cursorPosition = logsArea.length" in main_qml
     assert "djconnect.copyLogs()" not in main_qml
-    assert 'djconnect.t("copy_logs")' not in main_qml
+    assert 'root.tr("copy_logs")' not in main_qml
     assert "root.clearLogsConfirmOpen = true" in main_qml
-    assert 'djconnect.t("clear_logs_confirm_title")' in main_qml
-    assert 'djconnect.t("clear_logs_confirm_message")' in main_qml
+    assert 'root.tr("clear_logs_confirm_title")' in main_qml
+    assert 'root.tr("clear_logs_confirm_message")' in main_qml
     assert "djconnect.clearLogs()" in main_qml
     assert "pairCodeField" not in main_qml
     assert "djconnect.pair(pairCodeField.text)" not in main_qml
-    assert 'djconnect.t("pairing_blocked")' not in main_qml
-    assert 'djconnect.t("dismiss")' not in main_qml
+    assert 'root.tr("pairing_blocked")' not in main_qml
+    assert 'root.tr("dismiss")' not in main_qml
     assert 'text: "DJConnect Pi"' not in main_qml
     assert 'text: "DJ"' not in main_qml
     assert "djconnect.quitApp()" not in main_qml
@@ -215,12 +224,12 @@ def test_qml_has_bottom_navigation_bar() -> None:
     assert 'iconSymbol: "▦"' in main_qml
     assert 'iconSymbol: "◆"' in main_qml
     assert 'iconSymbol: "⚙"' in main_qml
-    assert 'djconnect.t("now_playing")' in main_qml
-    assert 'djconnect.t("control")' in main_qml
-    assert 'djconnect.t("games")' in main_qml
-    assert 'djconnect.t("setup")' in main_qml
-    assert bottom_nav.index('text: djconnect.t("now_playing")') < bottom_nav.index('text: djconnect.t("control")')
-    assert bottom_nav.index('text: djconnect.t("playlists")') < bottom_nav.index('text: djconnect.t("games")')
+    assert 'root.tr("now_playing")' in main_qml
+    assert 'root.tr("control")' in main_qml
+    assert 'root.tr("games")' in main_qml
+    assert 'root.tr("setup")' in main_qml
+    assert bottom_nav.index('text: root.tr("now_playing")') < bottom_nav.index('text: root.tr("control")')
+    assert bottom_nav.index('text: root.tr("playlists")') < bottom_nav.index('text: root.tr("games")')
     assert 'root.activeScreen = "now"' in main_qml
     assert 'root.activeScreen = "control"' in main_qml
     assert 'root.activeScreen = "games"' in main_qml
@@ -230,7 +239,7 @@ def test_qml_has_bottom_navigation_bar() -> None:
 def test_qml_stop_demo_button_returns_to_pairing_flow() -> None:
     main_qml = files("djconnect_pi.qml").joinpath("Main.qml").read_text(encoding="utf-8")
 
-    assert 'text: djconnect.demoMode ? djconnect.t("exit_demo") : djconnect.t("demo_mode")' in main_qml
+    assert 'text: djconnect.demoMode ? root.tr("exit_demo") : root.tr("demo_mode")' in main_qml
     assert "djconnect.exitDemoMode()" in main_qml
     assert 'root.activeScreen = "now"' in main_qml
 
@@ -277,7 +286,7 @@ def test_qml_has_blocking_version_mismatch_view() -> None:
     assert "id: versionMismatchPanel" in main_qml
     assert "djconnect.versionMismatchVisible" in main_qml
     assert "djconnect.versionMismatchText" in main_qml
-    assert 'djconnect.t("update_trying")' in main_qml
+    assert 'root.tr("update_trying")' in main_qml
 
 
 def test_qml_uses_dark_djconnect_gradient_theme() -> None:
