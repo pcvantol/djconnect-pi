@@ -628,10 +628,8 @@ class DJConnectBackend(QObject):
         self._set_status_text(self.tr_key("checking_updates"))
         self.showToast(self.tr_key("checking_updates"))
         commands = (
-            ["systemctl", "start", "djconnect-updater.service"],
             ["sudo", "-n", "/usr/bin/systemctl", "start", "djconnect-updater.service"],
             ["sudo", "-n", "/bin/systemctl", "start", "djconnect-updater.service"],
-            ["sudo", "-n", "systemctl", "start", "djconnect-updater.service"],
         )
         last_error = "unknown error"
         for command in commands:
@@ -683,7 +681,7 @@ class DJConnectBackend(QObject):
             return
         _LOGGER.info("User requested %s from touch UI", command)
         self.showToast(self.tr_key("play"))
-        self.command(command, value=uri)
+        self._run(command, lambda: self._play_media_item_worker(command, uri))
 
     @Slot()
     def showLogs(self) -> None:
@@ -830,6 +828,17 @@ class DJConnectBackend(QObject):
         data = self.client.command(command, **payload)
         self._playbackReady.emit(self.client.playback_from_status(data))
         _LOGGER.info("Playback command %s completed in %.0fms", command, _elapsed_ms(started))
+
+    def _play_media_item_worker(self, command: str, uri: str) -> None:
+        started = time.monotonic()
+        _LOGGER.info("Sending media item command: %s", command)
+        data = self.client.command(command, value=uri, uri=uri, context_uri=uri)
+        self._playbackReady.emit(self.client.playback_from_status(data))
+        if command == "start_playlist":
+            self._load_queue_worker()
+        else:
+            self._refresh_worker()
+        _LOGGER.info("Media item command %s completed in %.0fms", command, _elapsed_ms(started))
 
     def _set_output_worker(self, value: str, previous: str) -> None:
         started = time.monotonic()

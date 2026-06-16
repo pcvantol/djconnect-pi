@@ -98,6 +98,27 @@ def test_web_portal_renders_diagnostics_block() -> None:
     assert "Controleer op updates" in html
 
 
+def test_web_portal_media_buttons_and_refresh_are_clickable() -> None:
+    html = index_html("3.1.64").decode("utf-8")
+
+    assert "encodeURIComponent(uri)" in html
+    assert "decodeURIComponent" in html
+    assert "selectOutput(this.value)" in html
+    assert "pendingOutputDevice" in html
+    assert "none.textContent='Geen'" in html
+    assert "setBusy('refreshButton',true,'Verversen...')" in html
+    assert "refreshAll(true)" in html
+    assert "scrollLogsToBottom()" in html
+    assert "setBusy('logsRefreshButton',true,'Verversen...')" in html
+    assert "Gekopieerd naar klembord" in html
+    assert "range.selectNodeContents(logs)" in html
+    assert "document.execCommand('copy')" in html
+    assert "Instellingen opslaan" not in html
+    assert "saveSettingsDebounced('Helderheid opgeslagen')" in html
+    assert "button.warning" in html
+    assert 'class="warning" onclick="confirm(' in html
+
+
 def test_mdns_properties_include_ha_discovery_fields() -> None:
     cfg = Config(device_id="djconnect-raspberry-pi-ABCDEF123456", device_name="Kitchen Pi")
 

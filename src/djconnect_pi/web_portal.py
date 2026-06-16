@@ -52,6 +52,7 @@ def index_html(version: str) -> bytes:
     }}
     select, input {{ background:rgba(16,10,42,.9); font-weight:700; width:100%; }}
     button.secondary {{ background:rgba(30,24,66,.86); }}
+    button.warning {{ background:#8a5a12; color:#fff3c4; }}
     button.danger {{ background:#6f1d2d; color:#ffd8df; }}
     .row {{ display:grid; grid-template-columns:148px 1fr; gap:10px; padding:8px 0; border-top:1px solid rgba(255,255,255,.08); }}
     .row:first-child {{ border-top:0; }}
@@ -74,8 +75,10 @@ def index_html(version: str) -> bytes:
     .chip.unknown {{ background:rgba(160,170,195,.18); color:#d8defa; border:1px solid rgba(160,170,195,.36); }}
     .two {{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }}
     pre {{ margin:0; min-height:260px; max-height:420px; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; background:rgba(4,3,18,.68); border:1px solid var(--line); border-radius:8px; padding:12px; font:14px/1.35 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }}
-    .toast {{ position:fixed; left:16px; right:16px; bottom:16px; opacity:0; transform:translateY(16px); transition:.18s; background:rgba(20,14,45,.96); border:1px solid var(--line); border-radius:8px; padding:14px; font-weight:800; z-index:5; }}
-    .toast.show {{ opacity:1; transform:translateY(0); }}
+    .toast {{ position:fixed; left:50%; bottom:28px; width:max-content; max-width:calc(100% - 32px); opacity:0; transform:translate(-50%,16px); transition:.18s; background:linear-gradient(90deg,#ff5a2e,#f13ccc 52%,#b731ff); border:2px solid rgba(255,255,255,.70); border-radius:999px; padding:16px 28px; font-weight:900; font-size:18px; color:white; box-shadow:0 0 44px rgba(255,91,50,.46),0 0 74px rgba(190,49,255,.32); z-index:20; }}
+    .toast::before {{ content:"▶"; display:inline-block; margin-right:14px; font-size:18px; }}
+    .toast.show {{ opacity:1; transform:translate(-50%,0); }}
+    button.busy {{ opacity:.72; cursor:progress; }}
     @media (min-width:840px) {{ main {{ grid-template-columns:1.1fr .9fr; }} }}
     @media (max-width:640px) {{ .now {{ grid-template-columns:1fr; }} .controls {{ grid-template-columns:repeat(2,1fr); }} .two {{ grid-template-columns:1fr; }} .row {{ grid-template-columns:1fr; }} }}
   </style>
@@ -102,8 +105,8 @@ def index_html(version: str) -> bytes:
       <div class="grid" style="margin-top:14px">
         <div class="volume-head"><span>Volume</span><span id="volumePercent">0%</span></div>
         <input id="volume" type="range" min="0" max="60" value="30" onchange="cmd('set_volume',{{value:Number(this.value)}})">
-        <label>Uitvoerapparaat <select id="outputs" onchange="this.value && cmd('set_output',{{value:this.value}})"></select></label>
-        <button onclick="refreshAll()">Verversen</button>
+        <label>Uitvoerapparaat <select id="outputs" onchange="selectOutput(this.value)"></select></label>
+        <button id="refreshButton" onclick="refreshAll(true)">Verversen</button>
       </div>
     </section>
     <section>
@@ -117,14 +120,13 @@ def index_html(version: str) -> bytes:
     <section>
       <h2>Instellingen</h2>
       <div class="grid">
-        <label>Taal <select id="language"><option value="nl">Nederlands</option><option value="en">English</option></select></label>
-        <label>Logniveau <select id="logLevel"><option>DEBUG</option><option>INFO</option><option>WARNING</option><option>ERROR</option></select></label>
-        <label>Schermhelderheid <input id="brightness" type="range" min="10" max="100"></label>
-        <label>Scherm uit na seconden <select id="timeout"><option>30</option><option>60</option><option>90</option><option>120</option><option>180</option><option>240</option><option>300</option><option>600</option></select></label>
-        <button onclick="saveSettings()">Instellingen opslaan</button>
+        <label>Taal <select id="language" onchange="saveSettings('Taal opgeslagen')"><option value="nl">Nederlands</option><option value="en">English</option></select></label>
+        <label>Logniveau <select id="logLevel" onchange="saveSettings('Logniveau opgeslagen')"><option>DEBUG</option><option>INFO</option><option>WARNING</option><option>ERROR</option></select></label>
+        <label>Schermhelderheid <input id="brightness" type="range" min="10" max="100" oninput="saveSettingsDebounced('Helderheid opgeslagen')" onchange="saveSettings('Helderheid opgeslagen')"></label>
+        <label>Scherm uit na seconden <select id="timeout" onchange="saveSettings('Schermtijd opgeslagen')"><option>30</option><option>60</option><option>90</option><option>120</option><option>180</option><option>240</option><option>300</option><option>600</option></select></label>
         <button onclick="cmd('check_updates')">Controleer op updates</button>
         <button class="danger" onclick="confirm('Opnieuw koppelen?')&&cmd('forget_pairing')">Opnieuw koppelen</button>
-        <button class="danger" onclick="confirm('Apparaat herstarten?')&&cmd('reboot')">Apparaat herstarten</button>
+        <button class="warning" onclick="confirm('Apparaat herstarten?')&&cmd('reboot')">Apparaat herstarten</button>
         <button class="danger" onclick="confirm('Apparaat uitschakelen?')&&cmd('shutdown')">Apparaat uitschakelen</button>
       </div>
     </section>
@@ -138,13 +140,16 @@ def index_html(version: str) -> bytes:
     </section>
     <section class="wide">
       <h2>Logs</h2>
-      <div class="two" style="margin-bottom:10px"><button class="secondary" onclick="copyLogs()">Logs kopiëren</button><button class="secondary" onclick="refreshLogs()">Logs verversen</button></div>
+      <div class="two" style="margin-bottom:10px"><button class="secondary" onclick="copyLogs()">Logs kopiëren</button><button id="logsRefreshButton" class="secondary" onclick="refreshLogs(true)">Logs verversen</button></div>
       <pre id="logs">Logs laden...</pre>
     </section>
   </main>
   <div id="toast" class="toast"></div>
 <script>
 let state = {{}};
+let pendingOutputDevice = null;
+let pendingOutputUntil = 0;
+let settingsTimer = 0;
 let toastTimer = 0;
 function toast(message) {{
   const el = document.getElementById('toast');
@@ -172,20 +177,54 @@ async function cmd(command, payload={{}}) {{
     setTimeout(refreshAll, 450);
   }} catch (err) {{ toast(`Mislukt: ${{err.message}}`); }}
 }}
-async function saveSettings() {{
-  await cmd('settings', {{
+function selectOutput(value) {{
+  pendingOutputDevice = value;
+  pendingOutputUntil = Date.now() + 10000;
+  cmd('set_output', {{value}});
+}}
+function setBusy(id, busy, label) {{
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (busy) {{
+    el.dataset.label = el.textContent;
+    el.textContent = label || 'Verversen...';
+    el.classList.add('busy');
+    el.disabled = true;
+  }} else {{
+    el.textContent = el.dataset.label || 'Verversen';
+    el.classList.remove('busy');
+    el.disabled = false;
+  }}
+}}
+function scrollLogsToBottom() {{
+  const logs = document.getElementById('logs');
+  logs.scrollTop = logs.scrollHeight;
+}}
+function settingsPayload() {{
+  return {{
     language: document.getElementById('language').value,
     log_level: document.getElementById('logLevel').value,
     screen_brightness_percent: Number(document.getElementById('brightness').value),
     screen_timeout_seconds: Number(document.getElementById('timeout').value)
-  }});
+  }};
+}}
+async function saveSettings(message='Instellingen opgeslagen') {{
+  try {{
+    await api('/api/portal/command', {{method:'POST', body:JSON.stringify(Object.assign({{command:'settings'}}, settingsPayload()))}});
+    toast(message);
+    setTimeout(refreshAll, 350);
+  }} catch (err) {{ toast(`Opslaan mislukt: ${{err.message}}`); }}
+}}
+function saveSettingsDebounced(message) {{
+  clearTimeout(settingsTimer);
+  settingsTimer = setTimeout(() => saveSettings(message), 220);
 }}
 function itemHtml(item, command) {{
   const art = item.imageUrl ? `<img class="thumb" src="${{item.imageUrl}}" alt="">` : `<div class="thumb">♪</div>`;
   const title = item.title || '-';
   const sub = item.subtitle || '';
   const uri = item.uri || title;
-  return `<div class="item">${{art}}<div><div class="item-title">${{title}}</div><div class="item-sub">${{sub}}</div></div><button class="play" onclick="cmd('${{command}}',{{value:${{JSON.stringify(uri)}}}})">▶</button></div>`;
+  return `<div class="item">${{art}}<div><div class="item-title">${{title}}</div><div class="item-sub">${{sub}}</div></div><button class="play" onclick="cmd('${{command}}',{{value:decodeURIComponent('${{encodeURIComponent(uri)}}')}})">▶</button></div>`;
 }}
 function diagnosticsHtml(item) {{
   const status = item.status || 'unknown';
@@ -206,13 +245,16 @@ function render(data) {{
   document.getElementById('shuffleButton').classList.toggle('active', !!playback.shuffle);
   document.getElementById('repeatButton').classList.toggle('active', (playback.repeat_state || 'off') !== 'off');
   const outputs = document.getElementById('outputs');
+  const selectedOutput = pendingOutputDevice && Date.now() < pendingOutputUntil ? pendingOutputDevice : playback.output_device;
   outputs.innerHTML = '';
+  const none = document.createElement('option');
+  none.value = ''; none.textContent = 'Geen'; none.selected = !selectedOutput;
+  outputs.appendChild(none);
   for (const name of (playback.output_devices || [])) {{
     const option = document.createElement('option');
-    option.value = name; option.textContent = name; option.selected = name === playback.output_device;
+    option.value = name; option.textContent = name; option.selected = name === selectedOutput;
     outputs.appendChild(option);
   }}
-  if (!outputs.children.length) outputs.innerHTML = '<option value="">Geen uitvoerapparaten</option>';
   document.getElementById('queue').innerHTML = (data.queue || []).length ? data.queue.map(i => itemHtml(i,'start_queue_item')).join('') : '<div class="sub">Geen wachtrij</div>';
   document.getElementById('playlists').innerHTML = (data.playlists || []).length ? data.playlists.map(i => itemHtml(i,'start_playlist')).join('') : '<div class="sub">Geen afspeellijsten</div>';
   document.getElementById('language').value = data.settings?.language || 'nl';
@@ -223,15 +265,45 @@ function render(data) {{
   document.getElementById('diagnostics').innerHTML = (data.diagnostics || []).length ? data.diagnostics.map(diagnosticsHtml).join('') : '<div class="sub">Geen diagnostics beschikbaar</div>';
   document.getElementById('logs').textContent = data.logs || '';
 }}
-async function refreshAll() {{
-  try {{ render(await api('/api/portal/state?include=queue,playlists,logs')); }}
+async function refreshAll(showBusy=false) {{
+  if (showBusy) setBusy('refreshButton', true, 'Verversen...');
+  try {{
+    render(await api('/api/portal/state?include=queue,playlists,logs'));
+    scrollLogsToBottom();
+    if (showBusy) toast('Verversd');
+  }}
   catch (err) {{ toast(`Status mislukt: ${{err.message}}`); }}
+  finally {{ if (showBusy) setBusy('refreshButton', false); }}
 }}
-async function refreshLogs() {{
-  try {{ document.getElementById('logs').textContent = (await api('/api/portal/state?include=logs')).logs || ''; }}
+async function refreshLogs(showBusy=false) {{
+  if (showBusy) setBusy('logsRefreshButton', true, 'Verversen...');
+  try {{
+    document.getElementById('logs').textContent = (await api('/api/portal/state?include=logs')).logs || '';
+    scrollLogsToBottom();
+    if (showBusy) toast('Logs ververst');
+  }}
   catch (err) {{ toast(`Logs mislukt: ${{err.message}}`); }}
+  finally {{ if (showBusy) setBusy('logsRefreshButton', false, 'Logs verversen'); }}
 }}
-function copyLogs() {{ navigator.clipboard.writeText(document.getElementById('logs').textContent || ''); toast('Logs gekopieerd'); }}
+async function copyLogs() {{
+  const logs = document.getElementById('logs');
+  const text = logs.textContent || '';
+  const range = document.createRange();
+  range.selectNodeContents(logs);
+  const selection = window.getSelection();
+  selection.removeAllRanges();
+  selection.addRange(range);
+  try {{
+    if (navigator.clipboard && window.isSecureContext) {{
+      await navigator.clipboard.writeText(text);
+    }} else {{
+      document.execCommand('copy');
+    }}
+    toast('Gekopieerd naar klembord');
+  }} catch (err) {{
+    toast('Kopieren mislukt');
+  }}
+}}
 refreshAll();
 setInterval(refreshAll, 15000);
 </script>

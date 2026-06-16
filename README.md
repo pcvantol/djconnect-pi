@@ -75,6 +75,7 @@ The app is a 720x720 fullscreen touch remote:
 - blocking version-mismatch screen when HA and Pi versions are incompatible
 - pairing screen shows the local Client API URL and pairing code
 - Speelt nu display screen with status, refresh, large album art and title
+- macOS-style gradient toast notifications for short action/backend feedback
 - HA-provided album art on Now Playing, Queue and Playlists, loaded
   asynchronously so media-list navigation stays responsive on Pi Zero 2 W
 - Queue and Playlist rows use fixed explicit artwork/text/play-button geometry
@@ -89,6 +90,8 @@ The app is a 720x720 fullscreen touch remote:
 - settings for screen blanking, brightness, language, logs, pairing reset,
   update checks, reboot/shutdown with confirmation and stable/beta update
   channel
+- settings save immediately when changed; there is no explicit save button on
+  the touch UI or web portal
 - output-device selector on Bediening that can switch HA-provided playback
   devices with `set_output`, plus a local-only "Geen" option so the UI does
   not pick the first HA device implicitly
@@ -101,6 +104,8 @@ The app is a 720x720 fullscreen touch remote:
 - logs viewer
 - web portal with Diagnostics for Home Assistant API, local API, pairing and
   DJConnect systemd service/timer status
+- web portal settings use save-on-change, refresh actions show busy feedback,
+  logs scroll to the newest line after refresh and log copy confirms via toast
 - web portal playback controls use the ESP-style large purple icon buttons
   with visible shuffle/repeat state and volume percentage
 - local demo mode before pairing

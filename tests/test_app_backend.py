@@ -564,7 +564,7 @@ def test_backend_check_for_updates_triggers_updater_service(tmp_path: Path) -> N
         backend.checkForUpdates()
 
     run.assert_called_once_with(
-        ["systemctl", "start", "djconnect-updater.service"],
+        ["sudo", "-n", "/usr/bin/systemctl", "start", "djconnect-updater.service"],
         check=True,
         timeout=8,
         capture_output=True,

@@ -184,8 +184,9 @@ sudo ./scripts/install.sh
 The public release bundle installs from its bundled wheel in `wheels/`. It does
 not contain the loose `src/` app source tree from the private source repository.
 It also writes a narrow `/etc/sudoers.d/djconnect-reboot` rule so the dedicated
-`djconnect` runtime user can run only `systemctl reboot` from the touchscreen
-`Apparaat herstarten` action.
+`djconnect` runtime user can run only absolute-path `systemctl` reboot,
+poweroff and `start djconnect-updater.service` commands from the touchscreen
+and web UI. The installer validates that sudoers fragment with `visudo -cf`.
 
 ## Manual Software Update
 

@@ -1,5 +1,26 @@
 # Changelog
 
+## 3.1.64
+
+- Restyled touch and web notification toasts as DJConnect macOS-style rounded
+  orange-to-magenta gradient capsules with a play icon, brighter white text and
+  glow treatment.
+- Removed the explicit web portal "Instellingen opslaan" button. Language,
+  log level, screen brightness and screen-blank timeout now save immediately
+  when changed, matching the touch UI's save-on-change behavior.
+- Changed the reboot action to warning styling on both the touch UI and web
+  portal, while keeping reset pairing and shutdown as destructive red actions.
+- Tightened the installer-created sudoers rule to only absolute `systemctl`
+  paths and validate the generated file with `visudo -cf`, covering reboot,
+  shutdown and manual updater starts without interactive authentication.
+- Added GitHub Actions concurrency so a newer publish workflow run cancels an
+  older in-progress run on the same ref.
+- Improved touch UI polish around shuffle/repeat icon rendering, bottom status
+  placement, Settings dropdown readability and tap-to-wake activity handling.
+- Improved the web portal refresh/log interactions with busy states, bottom
+  log scrolling, clipboard copy feedback and a local "Geen" output-device
+  option that avoids selecting the first HA output implicitly.
+
 ## 3.1.63
 
 - Removed repo-local syncprompt and roadmap copies: this Raspberry Pi repo now

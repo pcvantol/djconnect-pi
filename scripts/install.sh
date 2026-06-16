@@ -441,9 +441,12 @@ configure_reboot_sudoers() {
   fi
 
   cat >"$sudoers_file" <<EOF
-${DJCONNECT_RUNTIME_USER} ALL=(ALL) NOPASSWD: /usr/bin/systemctl reboot, /bin/systemctl reboot, /usr/bin/systemctl reboot -i, /bin/systemctl reboot -i, systemctl reboot, /usr/bin/systemctl poweroff, /bin/systemctl poweroff, /usr/bin/systemctl poweroff -i, /bin/systemctl poweroff -i, systemctl poweroff, /usr/bin/systemctl start djconnect-updater.service, /bin/systemctl start djconnect-updater.service, systemctl start djconnect-updater.service
+${DJCONNECT_RUNTIME_USER} ALL=(ALL) NOPASSWD: /usr/bin/systemctl reboot, /bin/systemctl reboot, /usr/bin/systemctl reboot -i, /bin/systemctl reboot -i, /usr/bin/systemctl poweroff, /bin/systemctl poweroff, /usr/bin/systemctl poweroff -i, /bin/systemctl poweroff -i, /usr/bin/systemctl start djconnect-updater.service, /bin/systemctl start djconnect-updater.service
 EOF
   chmod 0440 "$sudoers_file"
+  if command -v visudo >/dev/null 2>&1; then
+    visudo -cf "$sudoers_file" >/dev/null
+  fi
 }
 
 configure_xwrapper() {

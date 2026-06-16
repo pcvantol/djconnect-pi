@@ -107,6 +107,8 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "root.rebootConfirmOpen = true" in main_qml
     assert 'djconnect.t("reboot_confirm_title")' in main_qml
     assert 'djconnect.t("reboot_confirm_message")' in main_qml
+    assert "component WarningButton" in main_qml
+    assert 'WarningButton {\n                text: djconnect.t("reboot_device")' in main_qml
     assert "root.shutdownConfirmOpen = true" in main_qml
     assert 'djconnect.t("shutdown_confirm_title")' in main_qml
     assert 'djconnect.t("shutdown_confirm_message")' in main_qml
@@ -261,9 +263,12 @@ def test_qml_has_backend_toast_overlay() -> None:
     main_qml = files("djconnect_pi.qml").joinpath("Main.qml").read_text(encoding="utf-8")
 
     assert "id: toast" in main_qml
+    assert "id: toastGlow" in main_qml
     assert "djconnect.toastVisible" in main_qml
     assert "djconnect.toastText" in main_qml
     assert "Behavior on opacity" in main_qml
+    assert "#ff5a2e" in main_qml
+    assert "#b731ff" in main_qml
 
 
 def test_qml_has_blocking_version_mismatch_view() -> None:

@@ -179,8 +179,9 @@ Implemented:
   keeps existing config, refreshes release files and systemd units, and restarts
   `djconnect-api.service` plus `djconnect-client.service`.
 - Install script writes `/etc/sudoers.d/djconnect-reboot` with a narrow
-  passwordless rule for the runtime user to run only reboot, poweroff and
-  `systemctl start djconnect-updater.service`, used by the touch UI power and
+  passwordless rule for the runtime user to run only absolute-path
+  `systemctl` reboot, poweroff and `start djconnect-updater.service` commands,
+  validates it with `visudo -cf`, and uses it for the touch/web power and
   update-check buttons.
 - The unattended updater now mirrors the release installer path for public
   tarballs: it strips the top-level archive directory, installs the bundled

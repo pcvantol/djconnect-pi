@@ -32,13 +32,17 @@ Window {
         return djconnect.t("repeat_off")
     }
 
-    function wakeDisplay() {
+    function recordActivity() {
         var wasBlanked = root.screenBlanked
         idleTimer.restart()
         if (wasBlanked) {
             root.splashVisible = true
             splashTimer.restart()
         }
+    }
+
+    function wakeDisplay() {
+        root.recordActivity()
     }
 
     component PurpleButton: Button {
@@ -201,14 +205,36 @@ Window {
         }
     }
 
+    component WarningButton: Button {
+        id: control
+
+        font.pixelSize: 24
+        font.bold: true
+        contentItem: Text {
+            text: control.text
+            font: control.font
+            color: "#fff3c4"
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+            elide: Text.ElideRight
+        }
+        background: Rectangle {
+            radius: 8
+            color: control.down ? "#9a6a17" : "#7a4e10"
+            border.color: control.down ? "#ffd166" : "#c58b23"
+            border.width: 1
+            opacity: control.down ? 0.82 : 1.0
+        }
+    }
+
     component ModalBlocker: MouseArea {
         anchors.fill: parent
         acceptedButtons: Qt.AllButtons
         hoverEnabled: true
         preventStealing: true
         propagateComposedEvents: false
-        onClicked: function(mouse) { mouse.accepted = true }
-        onPressed: function(mouse) { mouse.accepted = true }
+        onClicked: function(mouse) { root.recordActivity(); mouse.accepted = true }
+        onPressed: function(mouse) { root.recordActivity(); mouse.accepted = true }
         onReleased: function(mouse) { mouse.accepted = true }
         onWheel: function(wheel) { wheel.accepted = true }
     }
@@ -279,6 +305,17 @@ Window {
                     ctx.fill()
                 }
 
+                function arrowHead(x, y, dir) {
+                    var l = s * 0.11
+                    var o = s * 0.08
+                    ctx.beginPath()
+                    ctx.moveTo(x, y)
+                    ctx.lineTo(x - dir * l, y - o)
+                    ctx.moveTo(x, y)
+                    ctx.lineTo(x - dir * l, y + o)
+                    ctx.stroke()
+                }
+
                 if (control.iconName === "pause") {
                     ctx.fillRect(cx - s * 0.18, cy - s * 0.22, s * 0.11, s * 0.44)
                     ctx.fillRect(cx + s * 0.07, cy - s * 0.22, s * 0.11, s * 0.44)
@@ -291,39 +328,29 @@ Window {
                     triangle(1, cx - s * 0.17)
                     ctx.fillRect(cx + s * 0.23, cy - s * 0.24, s * 0.07, s * 0.48)
                 } else if (control.iconName === "shuffle") {
+                    ctx.lineWidth = Math.max(5, s * 0.09)
                     ctx.beginPath()
-                    ctx.moveTo(cx - s * 0.32, cy - s * 0.16)
-                    ctx.bezierCurveTo(cx - s * 0.08, cy - s * 0.16, cx + s * 0.02, cy + s * 0.16, cx + s * 0.26, cy + s * 0.16)
+                    ctx.moveTo(cx - s * 0.34, cy - s * 0.19)
+                    ctx.bezierCurveTo(cx - s * 0.10, cy - s * 0.19, cx + s * 0.02, cy + s * 0.19, cx + s * 0.32, cy + s * 0.19)
                     ctx.stroke()
+                    arrowHead(cx + s * 0.34, cy + s * 0.19, 1)
                     ctx.beginPath()
-                    ctx.moveTo(cx - s * 0.32, cy + s * 0.16)
-                    ctx.bezierCurveTo(cx - s * 0.08, cy + s * 0.16, cx + s * 0.02, cy - s * 0.16, cx + s * 0.26, cy - s * 0.16)
+                    ctx.moveTo(cx - s * 0.34, cy + s * 0.19)
+                    ctx.bezierCurveTo(cx - s * 0.10, cy + s * 0.19, cx + s * 0.02, cy - s * 0.19, cx + s * 0.32, cy - s * 0.19)
                     ctx.stroke()
-                    triangle(1, cx + s * 0.33)
-                    triangle(1, cx + s * 0.33)
+                    arrowHead(cx + s * 0.34, cy - s * 0.19, 1)
                 } else if (control.iconName === "repeat" || control.iconName === "repeatOne" || control.iconName === "repeatOff") {
+                    ctx.lineWidth = Math.max(5, s * 0.09)
                     ctx.beginPath()
-                    ctx.moveTo(cx - s * 0.24, cy - s * 0.17)
-                    ctx.lineTo(cx + s * 0.20, cy - s * 0.17)
-                    ctx.lineTo(cx + s * 0.20, cy - s * 0.28)
+                    ctx.moveTo(cx - s * 0.26, cy - s * 0.18)
+                    ctx.lineTo(cx + s * 0.25, cy - s * 0.18)
                     ctx.stroke()
+                    arrowHead(cx + s * 0.31, cy - s * 0.18, 1)
                     ctx.beginPath()
-                    ctx.moveTo(cx + s * 0.30, cy - s * 0.17)
-                    ctx.lineTo(cx + s * 0.18, cy - s * 0.29)
-                    ctx.lineTo(cx + s * 0.18, cy - s * 0.05)
-                    ctx.closePath()
-                    ctx.fill()
-                    ctx.beginPath()
-                    ctx.moveTo(cx + s * 0.24, cy + s * 0.17)
-                    ctx.lineTo(cx - s * 0.20, cy + s * 0.17)
-                    ctx.lineTo(cx - s * 0.20, cy + s * 0.28)
+                    ctx.moveTo(cx + s * 0.26, cy + s * 0.18)
+                    ctx.lineTo(cx - s * 0.25, cy + s * 0.18)
                     ctx.stroke()
-                    ctx.beginPath()
-                    ctx.moveTo(cx - s * 0.30, cy + s * 0.17)
-                    ctx.lineTo(cx - s * 0.18, cy + s * 0.29)
-                    ctx.lineTo(cx - s * 0.18, cy + s * 0.05)
-                    ctx.closePath()
-                    ctx.fill()
+                    arrowHead(cx - s * 0.31, cy + s * 0.18, -1)
                     if (control.iconName === "repeatOne") {
                         ctx.font = "bold " + Math.max(14, s * 0.24) + "px sans-serif"
                         ctx.textAlign = "center"
@@ -443,6 +470,11 @@ Window {
                             Item {
                                 anchors.fill: parent
                                 anchors.margins: 12
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    onClicked: djconnect.playMediaItem(panel.playCommand, modelData.uri)
+                                }
 
                                 Rectangle {
                                     id: mediaArt
@@ -588,7 +620,7 @@ Window {
         anchors.fill: parent
         acceptedButtons: Qt.AllButtons
         propagateComposedEvents: true
-        onPressed: root.wakeDisplay()
+        onPressed: function(mouse) { root.recordActivity(); mouse.accepted = false }
     }
 
     Item {
@@ -612,18 +644,11 @@ Window {
                 Layout.preferredHeight: 34
                 spacing: 10
 
-                Rectangle {
-                    width: 14
-                    height: 14
-                    radius: 7
-                    color: djconnect.paired ? (djconnect.backendAvailable ? "#32d35a" : "#ff3b30") : "#e0a83a"
-                    Layout.alignment: Qt.AlignVCenter
-                }
-
                 Text {
-                    text: djconnect.statusText
-                    color: "#c2d3d6"
-                    font.pixelSize: 16
+                    text: djconnect.t("now_playing")
+                    color: "#f4f8f8"
+                    font.pixelSize: 34
+                    font.bold: true
                     elide: Text.ElideRight
                     Layout.fillWidth: true
                 }
@@ -724,6 +749,28 @@ Window {
                 }
             }
 
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 24
+                spacing: 9
+
+                Rectangle {
+                    width: 14
+                    height: 14
+                    radius: 7
+                    color: djconnect.paired ? (djconnect.backendAvailable ? "#32d35a" : "#ff3b30") : "#e0a83a"
+                    Layout.alignment: Qt.AlignVCenter
+                }
+
+                Text {
+                    text: djconnect.statusText
+                    color: "#c2d3d6"
+                    font.pixelSize: 16
+                    elide: Text.ElideRight
+                    Layout.fillWidth: true
+                }
+            }
+
         }
 
         Rectangle {
@@ -763,14 +810,6 @@ Window {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 48
                 spacing: 10
-
-                Rectangle {
-                    width: 14
-                    height: 14
-                    radius: 7
-                    color: djconnect.paired ? (djconnect.backendAvailable ? "#32d35a" : "#ff3b30") : "#e0a83a"
-                    Layout.alignment: Qt.AlignVCenter
-                }
 
                 Text {
                     text: djconnect.t("control")
@@ -816,7 +855,7 @@ Window {
                 Text {
                     text: djconnect.artist
                     color: "#b8c5e8"
-                    font.pixelSize: 20
+                    font.pixelSize: 28
                     horizontalAlignment: Text.AlignHCenter
                     elide: Text.ElideRight
                     maximumLineCount: 1
@@ -998,6 +1037,28 @@ Window {
                     onClicked: djconnect.cycleRepeat()
                 }
             }
+
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 24
+                spacing: 9
+
+                Rectangle {
+                    width: 14
+                    height: 14
+                    radius: 7
+                    color: djconnect.paired ? (djconnect.backendAvailable ? "#32d35a" : "#ff3b30") : "#e0a83a"
+                    Layout.alignment: Qt.AlignVCenter
+                }
+
+                Text {
+                    text: djconnect.statusText
+                    color: "#c2d3d6"
+                    font.pixelSize: 16
+                    elide: Text.ElideRight
+                    Layout.fillWidth: true
+                }
+            }
         }
     }
 
@@ -1104,7 +1165,12 @@ Window {
                     property var timeoutChoices: [30, 60, 90, 120, 180, 240, 300, 600]
                     model: timeoutChoices
                     currentIndex: Math.max(0, timeoutChoices.indexOf(djconnect.screenTimeoutSeconds))
-                    font.pixelSize: 22
+                    font.pixelSize: 28
+                    delegate: ItemDelegate {
+                        width: screenTimeoutBox.width
+                        text: modelData
+                        font.pixelSize: 30
+                    }
                     Layout.fillWidth: true
                     onActivated: function(index) { djconnect.setScreenTimeoutSeconds(timeoutChoices[index]) }
                 }
@@ -1129,6 +1195,35 @@ Window {
                     value: djconnect.screenBrightnessPercent
                     Layout.fillWidth: true
                     onMoved: djconnect.setScreenBrightnessPercent(Math.round(value))
+                    background: Rectangle {
+                        x: brightnessSlider.leftPadding
+                        y: brightnessSlider.topPadding + brightnessSlider.availableHeight / 2 - height / 2
+                        width: brightnessSlider.availableWidth
+                        height: 10
+                        radius: 5
+                        color: "#3324145f"
+
+                        Rectangle {
+                            width: brightnessSlider.visualPosition * parent.width
+                            height: parent.height
+                            radius: parent.radius
+                            gradient: Gradient {
+                                orientation: Gradient.Horizontal
+                                GradientStop { position: 0.0; color: "#ec4899" }
+                                GradientStop { position: 1.0; color: "#8b5cf6" }
+                            }
+                        }
+                    }
+                    handle: Rectangle {
+                        x: brightnessSlider.leftPadding + brightnessSlider.visualPosition * (brightnessSlider.availableWidth - width)
+                        y: brightnessSlider.topPadding + brightnessSlider.availableHeight / 2 - height / 2
+                        width: 30
+                        height: 30
+                        radius: 15
+                        color: "#f8f4ff"
+                        border.color: "#d9ccff"
+                        border.width: 1
+                    }
                 }
 
                 Text {
@@ -1153,9 +1248,14 @@ Window {
 
                 ComboBox {
                     id: updateChannelBox
-                    font.pixelSize: 22
+                    font.pixelSize: 28
                     model: ["stable", "beta"]
                     currentIndex: djconnect.updateChannel === "beta" ? 1 : 0
+                    delegate: ItemDelegate {
+                        width: updateChannelBox.width
+                        text: modelData
+                        font.pixelSize: 30
+                    }
                     Layout.fillWidth: true
                     onActivated: djconnect.setUpdateChannel(currentText)
                 }
@@ -1182,7 +1282,7 @@ Window {
 
                 ComboBox {
                     id: languageBox
-                    font.pixelSize: 22
+                    font.pixelSize: 28
                     model: [
                         { code: "nl", label: "Nederlands" },
                         { code: "en", label: "English" }
@@ -1190,6 +1290,11 @@ Window {
                     textRole: "label"
                     valueRole: "code"
                     currentIndex: djconnect.language === "en" ? 1 : 0
+                    delegate: ItemDelegate {
+                        width: languageBox.width
+                        text: modelData.label
+                        font.pixelSize: 30
+                    }
                     Layout.fillWidth: true
                     onActivated: djconnect.setLanguage(currentValue)
                 }
@@ -1208,9 +1313,14 @@ Window {
 
                 ComboBox {
                     id: logLevelBox
-                    font.pixelSize: 22
+                    font.pixelSize: 28
                     model: ["DEBUG", "INFO", "WARNING", "ERROR"]
                     currentIndex: model.indexOf(djconnect.logLevel)
+                    delegate: ItemDelegate {
+                        width: logLevelBox.width
+                        text: modelData
+                        font.pixelSize: 30
+                    }
                     Layout.fillWidth: true
                     onActivated: djconnect.setLogLevel(currentText)
                 }
@@ -1254,7 +1364,7 @@ Window {
                 }
             }
 
-            PurpleButton {
+            WarningButton {
                 text: djconnect.t("reboot_device")
                 font.pixelSize: 24
                 Layout.fillWidth: true
@@ -1788,36 +1898,81 @@ Window {
     }
 
     Rectangle {
-        id: toast
+        id: toastGlow
         anchors.top: parent.top
         anchors.horizontalCenter: parent.horizontalCenter
-        anchors.topMargin: 22
-        width: Math.min(parent.width - 44, Math.max(240, toastText.implicitWidth + 58))
-        height: Math.max(50, toastText.implicitHeight + 22)
-        radius: 8
-        color: "#d92f8cff"
-        border.color: "#80ffffff"
-        border.width: 1
+        anchors.topMargin: 16
+        width: toast.width + 54
+        height: toast.height + 46
+        radius: height / 2
+        color: "#55ff4b2b"
         opacity: djconnect.toastVisible ? 1 : 0
         visible: opacity > 0
-        z: 70
+        z: 69
         y: djconnect.toastVisible ? 0 : -16
 
         Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
         Behavior on y { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+    }
 
-        Text {
-            id: toastText
+    Rectangle {
+        id: toast
+        anchors.top: parent.top
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.topMargin: 32
+        width: Math.min(parent.width - 58, Math.max(300, toastText.implicitWidth + 112))
+        height: Math.max(64, toastText.implicitHeight + 26)
+        radius: height / 2
+        border.color: "#b8ffffff"
+        border.width: 2
+        opacity: djconnect.toastVisible ? 1 : 0
+        visible: opacity > 0
+        z: 70
+        y: djconnect.toastVisible ? 0 : -16
+        gradient: Gradient {
+            orientation: Gradient.Horizontal
+            GradientStop { position: 0.0; color: "#ff5a2e" }
+            GradientStop { position: 0.52; color: "#f13ccc" }
+            GradientStop { position: 1.0; color: "#b731ff" }
+        }
+
+        Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+        Behavior on y { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+
+        Row {
             anchors.centerIn: parent
-            width: parent.width - 34
-            text: djconnect.toastText
-            color: "#ffffff"
-            font.pixelSize: 18
-            font.bold: true
-            wrapMode: Text.WordWrap
-            horizontalAlignment: Text.AlignHCenter
-            elide: Text.ElideRight
-            maximumLineCount: 4
+            spacing: 16
+
+            Canvas {
+                width: 28
+                height: 28
+                anchors.verticalCenter: parent.verticalCenter
+                onPaint: {
+                    var ctx = getContext("2d")
+                    ctx.reset()
+                    ctx.fillStyle = "#ffffff"
+                    ctx.beginPath()
+                    ctx.moveTo(6, 4)
+                    ctx.lineTo(6, 24)
+                    ctx.lineTo(24, 14)
+                    ctx.closePath()
+                    ctx.fill()
+                }
+            }
+
+            Text {
+                id: toastText
+                width: Math.min(root.width - 188, implicitWidth)
+                anchors.verticalCenter: parent.verticalCenter
+                text: djconnect.toastText
+                color: "#ffffff"
+                font.pixelSize: 24
+                font.bold: true
+                wrapMode: Text.NoWrap
+                horizontalAlignment: Text.AlignLeft
+                elide: Text.ElideRight
+                maximumLineCount: 1
+            }
         }
     }
 
@@ -2141,7 +2296,7 @@ Window {
                     Layout.fillWidth: true
                 }
 
-                DangerButton {
+                WarningButton {
                     text: djconnect.t("reboot_device")
                     Layout.fillWidth: true
                     Layout.preferredHeight: 56
