@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 3.1.63
 
 - Removed repo-local syncprompt and roadmap copies: this Raspberry Pi repo now
   refers to canonical `pcvantol/djconnect/SYNC_PROMPTS.md` and
