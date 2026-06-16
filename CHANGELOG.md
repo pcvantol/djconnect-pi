@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.1.67
+
+- Wake the touch UI to Now Playing at full brightness when Home Assistant
+  reports a new track, so the wall display briefly shows the changed music.
+- Show Home Assistant DJ text responses as a centered DJConnect overlay for 20
+  seconds instead of a small toast, without adding local response audio.
+- Added a large play/pause quick action over the Now Playing artwork while
+  keeping the dedicated Bediening screen as the full control surface.
+
 ## 3.1.66
 
 - Fixed touch and web language refresh so changed settings immediately refresh

@@ -23,8 +23,9 @@ Window {
     property bool shutdownConfirmOpen: false
     property bool clearLogsConfirmOpen: false
     property bool forceScreenAwake: false
+    property bool forceBrightnessFull: false
     property bool screenBlanked: djconnect.screenTimeoutSeconds > 0 && !idleTimer.running && !root.forceScreenAwake
-    property real brightnessOverlayOpacity: root.screenBlanked ? 0 : 1 - (djconnect.screenBrightnessPercent / 100.0)
+    property real brightnessOverlayOpacity: root.screenBlanked || root.forceBrightnessFull ? 0 : 1 - (djconnect.screenBrightnessPercent / 100.0)
     property int trVersion: djconnect.translationVersion
 
     function tr(key) {
@@ -40,6 +41,7 @@ Window {
 
     function recordActivity() {
         var wasBlanked = root.screenBlanked
+        root.forceBrightnessFull = false
         idleTimer.restart()
         if (wasBlanked) {
             root.splashVisible = true
@@ -49,6 +51,26 @@ Window {
 
     function wakeDisplay() {
         root.recordActivity()
+    }
+
+    function hideTransientUi() {
+        root.aboutOpen = false
+        root.resetPairingConfirmOpen = false
+        root.rebootConfirmOpen = false
+        root.shutdownConfirmOpen = false
+        root.clearLogsConfirmOpen = false
+        djconnect.hideLogs()
+    }
+
+    function temporaryWake(seconds, navigateNow) {
+        if (navigateNow) {
+            root.hideTransientUi()
+            root.activeScreen = "now"
+        }
+        root.forceScreenAwake = true
+        root.forceBrightnessFull = true
+        forcedWakeTimer.interval = Math.max(1000, seconds * 1000)
+        forcedWakeTimer.restart()
     }
 
     component PurpleButton: Button {
@@ -558,23 +580,51 @@ Window {
         interval: Math.max(1000, djconnect.screenTimeoutSeconds * 1000)
         running: djconnect.screenTimeoutSeconds > 0
         repeat: false
+        onTriggered: {
+            root.hideTransientUi()
+            root.activeScreen = "now"
+        }
     }
 
     Timer {
         id: forcedWakeTimer
         interval: 10000
         repeat: false
-        onTriggered: root.forceScreenAwake = false
+        onTriggered: {
+            root.forceScreenAwake = false
+            root.forceBrightnessFull = false
+        }
+    }
+
+    Timer {
+        id: djResponseTimer
+        interval: 20000
+        repeat: false
+        onTriggered: djconnect.clearDjResponse()
     }
 
     Connections {
         target: djconnect
         function onWakeScreenRequested() {
             root.forceScreenAwake = true
+            root.forceBrightnessFull = false
+            forcedWakeTimer.interval = 10000
             forcedWakeTimer.restart()
+        }
+        function onTemporaryWakeRequested(seconds, navigateNow) {
+            root.temporaryWake(seconds, navigateNow)
+        }
+        function onDjResponseChanged() {
+            if (djconnect.djResponseVisible) {
+                djResponseTimer.restart()
+            } else {
+                djResponseTimer.stop()
+            }
         }
         function onScreenshotRequested() {
             root.forceScreenAwake = true
+            root.forceBrightnessFull = false
+            forcedWakeTimer.interval = 10000
             forcedWakeTimer.restart()
             Qt.callLater(function() {
                 root.contentItem.grabToImage(function(result) {
@@ -705,6 +755,58 @@ Window {
                         opacity: status === Image.Ready ? 1 : 0
 
                         Behavior on opacity { NumberAnimation { duration: 240 } }
+                    }
+
+                    Button {
+                        id: albumQuickPlay
+                        anchors.centerIn: parent
+                        z: 4
+                        width: Math.min(108, Math.max(78, parent.width * 0.24))
+                        height: width
+                        onClicked: djconnect.togglePlay()
+
+                        contentItem: Canvas {
+                            id: albumQuickPlayIcon
+                            anchors.fill: parent
+                            antialiasing: true
+                            onPaint: {
+                                var ctx = getContext("2d")
+                                ctx.clearRect(0, 0, width, height)
+                                var s = Math.min(width, height)
+                                var cx = width / 2
+                                var cy = height / 2
+                                ctx.fillStyle = "#ffffff"
+                                if (djconnect.playing) {
+                                    ctx.fillRect(cx - s * 0.18, cy - s * 0.24, s * 0.12, s * 0.48)
+                                    ctx.fillRect(cx + s * 0.06, cy - s * 0.24, s * 0.12, s * 0.48)
+                                } else {
+                                    ctx.beginPath()
+                                    ctx.moveTo(cx - s * 0.13, cy - s * 0.25)
+                                    ctx.lineTo(cx - s * 0.13, cy + s * 0.25)
+                                    ctx.lineTo(cx + s * 0.25, cy)
+                                    ctx.closePath()
+                                    ctx.fill()
+                                }
+                            }
+                            Connections {
+                                target: djconnect
+                                function onPlayingChanged() { albumQuickPlayIcon.requestPaint() }
+                            }
+                            Component.onCompleted: requestPaint()
+                        }
+
+                        background: Rectangle {
+                            radius: width / 2
+                            color: albumQuickPlay.down ? "#aa2b194d" : "#7024145f"
+                            border.color: "#80ffffff"
+                            border.width: 1
+                            opacity: albumQuickPlay.down ? 0.92 : 0.74
+                            gradient: Gradient {
+                                orientation: Gradient.Horizontal
+                                GradientStop { position: 0.0; color: "#70d946ef" }
+                                GradientStop { position: 1.0; color: "#70636bff" }
+                            }
+                        }
                     }
 
                     Rectangle {
@@ -2562,6 +2664,85 @@ Window {
                     onClicked: root.aboutOpen = false
                 }
             }
+        }
+    }
+
+    Rectangle {
+        id: djResponseOverlay
+        anchors.centerIn: parent
+        width: Math.min(parent.width - 52, 620)
+        height: Math.min(parent.height - 120, Math.max(260, djResponseText.implicitHeight + 112))
+        radius: 8
+        color: "#cc160f2a"
+        border.color: "#80d9ccff"
+        border.width: 1
+        visible: opacity > 0
+        opacity: djconnect.djResponseVisible && !root.splashVisible ? 1 : 0
+        z: 190
+
+        Behavior on opacity { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+
+        ModalBlocker {}
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 24
+            spacing: 16
+
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 84
+                spacing: 18
+
+                Image {
+                    source: "app-icon.png"
+                    Layout.preferredWidth: 76
+                    Layout.preferredHeight: 76
+                    fillMode: Image.PreserveAspectFit
+                    smooth: true
+                    mipmap: true
+                }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 2
+
+                    Text {
+                        text: "DJConnect"
+                        color: "#ffffff"
+                        font.pixelSize: 30
+                        font.bold: true
+                        Layout.fillWidth: true
+                    }
+
+                    Text {
+                        text: root.tr("dj_response")
+                        color: "#d8c8ff"
+                        font.pixelSize: 20
+                        font.bold: true
+                        Layout.fillWidth: true
+                    }
+                }
+            }
+
+            Text {
+                id: djResponseText
+                text: djconnect.djResponseText
+                color: "#ffffff"
+                font.pixelSize: 34
+                font.bold: true
+                wrapMode: Text.WordWrap
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+                style: Text.Raised
+                styleColor: "#aa000000"
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+            }
+        }
+
+        TapHandler {
+            onTapped: djconnect.clearDjResponse()
         }
     }
 

@@ -248,10 +248,24 @@ def test_qml_screen_blanking_wakes_on_tap() -> None:
     main_qml = files("djconnect_pi.qml").joinpath("Main.qml").read_text(encoding="utf-8")
 
     assert "property bool forceScreenAwake: false" in main_qml
+    assert "property bool forceBrightnessFull: false" in main_qml
     assert "property bool screenBlanked: djconnect.screenTimeoutSeconds > 0 && !idleTimer.running && !root.forceScreenAwake" in main_qml
+    assert "root.screenBlanked || root.forceBrightnessFull" in main_qml
     assert "onTapped: root.wakeDisplay()" in main_qml
     assert "id: forcedWakeTimer" in main_qml
     assert "interval: 10000" in main_qml
+    assert "root.activeScreen = \"now\"" in main_qml
+    assert "function temporaryWake(seconds, navigateNow)" in main_qml
+    assert "function onTemporaryWakeRequested(seconds, navigateNow)" in main_qml
+    assert "id: djResponseOverlay" in main_qml
+    assert "id: djResponseTimer" in main_qml
+    assert "djconnect.djResponseVisible" in main_qml
+    assert "djconnect.djResponseText" in main_qml
+    assert "djconnect.clearDjResponse()" in main_qml
+    assert "source: \"app-icon.png\"" in main_qml
+    assert "id: albumQuickPlay" in main_qml
+    assert "onClicked: djconnect.togglePlay()" in main_qml
+    assert "id: albumQuickPlayIcon" in main_qml
     assert "function onScreenshotRequested()" in main_qml
     assert "function onDebugScreenRequested(screen)" in main_qml
     assert 'screen === "queue"' in main_qml

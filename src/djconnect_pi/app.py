@@ -65,6 +65,7 @@ class DJConnectBackend(QObject):
     languageChanged = Signal()
     translationsChanged = Signal()
     wakeScreenRequested = Signal()
+    temporaryWakeRequested = Signal(int, bool)
     screenshotRequested = Signal()
     debugScreenRequested = Signal(str)
 
@@ -940,9 +941,9 @@ class DJConnectBackend(QObject):
         if not text:
             return {"success": False, "error": "missing_text"}
         self._dj_response_text = text
-        self._dj_response_visible = False
+        self._dj_response_visible = True
         self.djResponseChanged.emit()
-        self._show_toast(text, 10000)
+        self.temporaryWakeRequested.emit(20, False)
         return {
             "success": True,
             "displayed": True,
@@ -1032,6 +1033,7 @@ class DJConnectBackend(QObject):
             self.versionMismatchChanged.emit()
         old = self.playback
         self.playback = playback
+        track_changed = old.title != playback.title or old.artist != playback.artist or old.image_url != playback.image_url
         if old.title != playback.title:
             self.titleChanged.emit()
         if old.artist != playback.artist:
@@ -1050,6 +1052,8 @@ class DJConnectBackend(QObject):
             self.outputDeviceChanged.emit()
         if old.position_seconds != playback.position_seconds or old.duration_seconds != playback.duration_seconds:
             self.progressChanged.emit()
+        if track_changed and (playback.title or playback.artist or playback.image_url):
+            self.temporaryWakeRequested.emit(10, True)
         self._set_status_text(self.tr_key("connected" if self.paired else "ready_to_pair"))
 
     @Slot(str, object)

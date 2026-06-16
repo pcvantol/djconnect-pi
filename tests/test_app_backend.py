@@ -19,7 +19,7 @@ from djconnect_pi.app import (
     parse_queue_items,
     prepare_media_artwork,
 )
-from djconnect_pi.ha import AuthenticationError, HAClient
+from djconnect_pi.ha import AuthenticationError, HAClient, Playback
 
 
 def ensure_app() -> QCoreApplication:
@@ -347,6 +347,17 @@ def test_backend_wakes_screen_for_previous_next(tmp_path: Path) -> None:
     assert calls == [("previous", {}), ("next", {})]
 
 
+def test_backend_requests_temporary_wake_for_backend_track_change(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    wakes: list[tuple[int, bool]] = []
+    backend.temporaryWakeRequested.connect(lambda seconds, navigate: wakes.append((seconds, navigate)))
+
+    backend._apply_playback(Playback(title="New Track", artist="Artist", image_url="https://example.test/art.jpg"))
+
+    assert wakes == [(10, True)]
+
+
 def test_backend_demo_mode_is_blocked_after_pairing(tmp_path: Path) -> None:
     ensure_app()
     backend = DJConnectBackend(tmp_path / "config.json")
@@ -395,13 +406,15 @@ def test_backend_displays_local_dj_response_event_file(tmp_path: Path) -> None:
     event_file = tmp_path / "dj-response.json"
     backend.cfg.dj_response_file = str(event_file)
     event_file.write_text(json.dumps({"text": "Hallo vanaf HA"}), encoding="utf-8")
+    wakes: list[tuple[int, bool]] = []
+    backend.temporaryWakeRequested.connect(lambda seconds, navigate: wakes.append((seconds, navigate)))
 
     backend._poll_local_events()
 
-    assert backend.djResponseVisible is False
+    assert backend.djResponseVisible is True
     assert backend.djResponseText == "Hallo vanaf HA"
-    assert backend.toastVisible is True
-    assert backend.toastText == "Hallo vanaf HA"
+    assert backend.toastVisible is False
+    assert wakes == [(20, False)]
     assert not event_file.exists()
 
 
