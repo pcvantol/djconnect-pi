@@ -1,0 +1,99 @@
+{
+  "version": "3.1.x",
+  "description": "DJConnect spoken music intent examples for the post-STT PTT pipeline.",
+  "handling_order": [
+    "default_playlist",
+    "playlist",
+    "artist_with_track",
+    "album",
+    "track",
+    "artist"
+  ],
+  "rules": [
+    "Explicit media words win over generic phrasing.",
+    "Requests with album/plaat are album intents, even when the sentence also contains van/by.",
+    "Requests with nummer/liedje/track/song are track intents.",
+    "Generic requests such as Speel Nirvana remain artist-first.",
+    "Local deterministic parsing can override stale or generic HA Assist results.",
+    "HA may use Assist STT correction before intent parsing, but Spotify credentials are never sent to Assist."
+  ],
+  "intents": {
+    "artist": {
+      "spotify_type": "artist",
+      "nl": [
+        "Speel Nirvana",
+        "Start Metallica",
+        "Zet London Grammar op",
+        "Draai Pearl Jam",
+        "Ik heb wel zin in Nirvana",
+        "Ik wil Metallica horen",
+        "Nirvana wil ik wel horen"
+      ],
+      "en": [
+        "Play Nirvana",
+        "Start Metallica",
+        "Put on London Grammar",
+        "I want Pearl Jam",
+        "I feel like Nirvana"
+      ]
+    },
+    "track": {
+      "spotify_type": "track",
+      "nl": [
+        "Speel nummer Lithium",
+        "Speel nummer Lithium van Nirvana",
+        "Speel Lithium van Nirvana",
+        "Zet het liedje Black van Pearl Jam op",
+        "Draai track Nothing Else Matters van Metallica",
+        "Speel artiest Nirvana met nummer Lithium"
+      ],
+      "en": [
+        "Play song Lithium",
+        "Play Lithium by Nirvana",
+        "Play the track Black by Pearl Jam",
+        "Play artist Nirvana with song Lithium"
+      ]
+    },
+    "album": {
+      "spotify_type": "album",
+      "nl": [
+        "Speel album Nevermind",
+        "Speel album Ten van Pearl Jam",
+        "Zet de plaat OK Computer van Radiohead op",
+        "Draai album Rumours van Fleetwood Mac"
+      ],
+      "en": [
+        "Play album Nevermind",
+        "Play the album Ten by Pearl Jam",
+        "Put on album OK Computer by Radiohead"
+      ]
+    },
+    "playlist": {
+      "spotify_type": "playlist",
+      "nl": [
+        "Speel playlist DJConnect",
+        "Start mijn afspeellijst Roadtrip",
+        "Zet Chill playlist op",
+        "Draai afspeellijst Avond"
+      ],
+      "en": [
+        "Play playlist DJConnect",
+        "Start my playlist Roadtrip",
+        "Put on Chill playlist"
+      ]
+    },
+    "default_playlist": {
+      "spotify_type": "playlist",
+      "nl": [
+        "Speel mijn standaard playlist",
+        "Start favorieten",
+        "Zet liked songs op"
+      ],
+      "en": [
+        "Play my default playlist",
+        "Start liked songs",
+        "Play favorites"
+      ]
+    }
+  }
+}

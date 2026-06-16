@@ -96,7 +96,7 @@ class ClientAPIDaemon:
                 if "queue" in include:
                     queue = _parse_queue_items(client.command("queue", limit=100))
                 if "playlists" in include:
-                    playlists = _parse_playlist_items(client.command("playlists", limit=50))
+                    playlists = _parse_playlist_items(client.command("playlists", limit=100))
                 backend_available = True
                 status_text = "Verbonden"
             except AuthenticationError as exc:
@@ -329,9 +329,9 @@ def _parse_playlist_items(data: dict[str, object]) -> list[dict[str, object]]:
 
 
 def _media_item(item: dict[str, object], playlist: bool = False) -> dict[str, object] | None:
-    title = str(item.get("name") or item.get("title") or item.get("display_title") or "")
-    subtitle = str(item.get("artist") or item.get("artists") or item.get("subtitle") or item.get("album") or "")
-    uri = str(item.get("uri") or item.get("id") or item.get("value") or item.get("playlist_uri") or "")
+    title = str(item.get("name") or item.get("title") or item.get("display_title") or item.get("track_name") or "")
+    subtitle = str(item.get("artist") or item.get("artist_name") or item.get("artists") or item.get("subtitle") or item.get("album") or "")
+    uri = str(item.get("uri") or item.get("id") or item.get("value") or item.get("playlist_uri") or item.get("track_uri") or "")
     image_url = str(
         item.get("image_url")
         or item.get("imageUrl")

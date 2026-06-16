@@ -80,15 +80,17 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
   fallback HA `devices` command loading when status omits the device list
 - Home Assistant playback contract coverage for no-active-playback status
   snapshots, empty HTTP 2xx body errors, HTTP 401/403/404 auth failures,
-  `devices`/`outputs` aliases, nested playlist response shapes and queue
-  decoding up to 100 items
+  `success:true` empty playback command responses, `devices`/`outputs` aliases,
+  nested playlist response shapes and queue/playlist decoding up to 100 items
 - live output-device validation and rollback coverage when HA rejects a
   selected output device
 - queue loading contract sends `command:"queue"` with `limit=100`
-- playlist loading contract sends `command:"playlists"` with `limit=50` from
+- playlist loading contract sends `command:"playlists"` with `limit=100` from
   both the touch UI and web portal state endpoint
 - installer/updater contract that pip self-upgrade is skipped by default and can
   still be forced with `DJCONNECT_UPGRADE_PIP=1`
+- shared `examples/voice_intents.json` availability for website/docs alignment
+  without enabling local Raspberry Pi voice capture
 - HA major/minor version compatibility checks and blocking mismatch behavior
 - protocol mismatch error handling
 - PySide backend properties and command dispatch

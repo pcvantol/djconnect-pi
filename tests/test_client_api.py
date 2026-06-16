@@ -51,11 +51,16 @@ def test_client_api_info_and_pairing_info(tmp_path: Path) -> None:
         api.stop()
 
     assert info["client_type"] == "raspberry_pi"
+    assert info["app_version"] == cfg.version
     assert info["local_url"] == cfg.local_url
+    assert info["paired"] is False
+    assert info["ha_pairing_status"] == "pending"
     assert info["capabilities"]["local_dj_response_endpoint"] is True
     assert pairing["pair_code"] == "123456"
     assert pairing["pairing_code"] == "123456"
     assert pairing["pairing_token"] == "123456"
+    assert pairing["device_id"] == cfg.device_id
+    assert pairing["client_type"] == "raspberry_pi"
 
 
 def test_client_api_log_message_formats_http_server_args(caplog) -> None:
@@ -102,8 +107,11 @@ def test_mdns_properties_include_ha_discovery_fields() -> None:
         "device_id": "djconnect-raspberry-pi-ABCDEF123456",
         "client_type": "raspberry_pi",
         "version": cfg.version,
+        "app_version": cfg.version,
         "device_name": "Kitchen Pi",
         "local_url": "http://192.0.2.10:18080",
+        "pair_code": cfg.pairing_code,
+        "paired": "false",
     }
 
 
@@ -220,7 +228,12 @@ def test_client_api_pair_stores_token_and_ha_url(tmp_path: Path) -> None:
     try:
         response = requests.post(
             f"{cfg.local_url}/api/device/pair",
-            json={"device_token": "token-1", "ha_local_url": "http://ha:8123"},
+            json={
+                "device_id": cfg.device_id,
+                "client_type": "raspberry_pi",
+                "device_token": "token-1",
+                "ha_local_url": "http://ha:8123",
+            },
             timeout=3,
         )
     finally:
@@ -232,6 +245,36 @@ def test_client_api_pair_stores_token_and_ha_url(tmp_path: Path) -> None:
     assert saved.ha_url == "http://ha:8123"
     assert saved.paired is True
     assert "paired" in events
+
+
+@pytest.mark.parametrize(
+    ("payload", "error"),
+    [
+        ({"client_type": "esp32", "device_token": "token-1", "ha_local_url": "http://ha:8123"}, "invalid_client_type"),
+        (
+            {
+                "client_type": "raspberry_pi",
+                "device_id": "djconnect-raspberry-pi-WRONG000000",
+                "device_token": "token-1",
+                "ha_local_url": "http://ha:8123",
+            },
+            "invalid_device_id",
+        ),
+    ],
+)
+def test_client_api_pair_rejects_wrong_identity(tmp_path: Path, payload: dict[str, str], error: str) -> None:
+    api, cfg, events = start_api(tmp_path)
+    try:
+        response = requests.post(f"{cfg.local_url}/api/device/pair", json=payload, timeout=3)
+    finally:
+        api.stop()
+
+    saved = load_config(tmp_path / "config.json")
+    assert response.status_code == 400
+    assert response.json()["error"] == error
+    assert saved.device_token == ""
+    assert saved.paired is False
+    assert events == []
 
 
 def test_client_api_pairing_info_reloads_rotated_pairing_code(tmp_path: Path) -> None:

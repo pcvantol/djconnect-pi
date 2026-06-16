@@ -54,9 +54,15 @@ def test_pair_sends_raspberry_pi_identity_and_stores_token() -> None:
     assert captured["url"] == "http://ha/api/djconnect/pair"
     assert captured["json"]["client_type"] == "raspberry_pi"
     assert captured["json"]["device_id"] == "djconnect-raspberry-pi-ABCDEF123456"
+    assert captured["json"]["app_version"] == cfg.version
+    assert captured["json"]["language"] == cfg.language
     assert captured["json"]["pair_code"] == "123456"
     assert captured["json"]["capabilities"]["voice"] is False
     assert captured["json"]["capabilities"]["local_dj_response_endpoint"] is True
+    assert "device_type" not in captured["json"]
+    assert "device_language" not in captured["json"]
+    assert "voice_enabled" not in captured["json"]
+    assert "wakeword_enabled" not in captured["json"]
     assert cfg.device_token == "token-1"
     assert cfg.paired is True
 
@@ -82,9 +88,15 @@ def test_status_uses_bearer_token_and_playback_fields() -> None:
     assert captured["headers"]["X-DJConnect-Device-ID"] == "djconnect-raspberry-pi-ABCDEF123456"
     assert captured["json"]["last_track"] == "Alive"
     assert captured["json"]["artist"] == "Pearl Jam"
+    assert captured["json"]["client_type"] == "raspberry_pi"
+    assert captured["json"]["app_version"] == cfg.version
+    assert captured["json"]["language"] == cfg.language
+    assert captured["json"]["ha_pairing_status"] == "paired"
     assert captured["json"]["spotify_status"] == "playing"
     assert captured["json"]["volume"] == 37
     assert captured["json"]["repeat_state"] == "context"
+    for esp_only in ("battery", "wifi_rssi", "screen_state", "led_state", "screen_brightness", "screen_timeout", "speaker_volume"):
+        assert esp_only not in captured["json"]
 
 
 def test_command_posts_generic_command_payload() -> None:
@@ -191,6 +203,24 @@ def test_status_has_playback_false_decodes_without_backend_unavailable() -> None
         }
     )
 
+    assert playback.title == ""
+    assert playback.artist == ""
+    assert playback.is_playing is False
+
+
+@pytest.mark.parametrize("command", ["status", "queue", "devices", "playlists"])
+def test_successful_empty_playback_command_response_is_valid(command: str) -> None:
+    cfg = Config(ha_url="http://ha", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1")
+    client = HAClient(cfg)
+
+    def fake_post(url: str, **kwargs: Any) -> FakeResponse:
+        return FakeResponse(200, {"success": True, "backend_available": True, "command": command, "playback": {}})
+
+    with patch("djconnect_pi.ha.requests.post", side_effect=fake_post):
+        data = client.command(command)
+
+    playback = client.playback_from_status(data)
+    assert data["success"] is True
     assert playback.title == ""
     assert playback.artist == ""
     assert playback.is_playing is False

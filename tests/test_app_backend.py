@@ -86,10 +86,10 @@ def test_media_list_parsers_accept_ha_artwork_aliases() -> None:
             "queue": {
                 "items": [
                     {
-                        "title": "Track One",
-                        "artist": "Artist One",
-                        "uri": "spotify:track:1",
-                        "album_image_url": "https://example.test/track.jpg",
+                        "track_name": "Track One",
+                        "artist_name": "Artist One",
+                        "track_uri": "spotify:track:1",
+                        "entity_picture": "https://example.test/track.jpg",
                     }
                 ]
             }
@@ -161,6 +161,34 @@ def test_playlist_parser_accepts_aliases_and_ignores_unplayable_items() -> None:
 
 def test_empty_playlists_response_decodes_empty_state() -> None:
     assert parse_playlist_items({"playlists": []}) == []
+
+
+def test_playlist_parser_limits_to_100_items() -> None:
+    playlists = parse_playlist_items(
+        {
+            "data": {
+                "items": [
+                    {
+                        "name": f"Playlist {index}",
+                        "id": f"spotify:playlist:{index}",
+                        "owner": "Peter",
+                        "entity_picture": f"https://example.test/{index}.jpg",
+                    }
+                    for index in range(120)
+                ]
+            }
+        }
+    )
+
+    assert len(playlists) == 100
+    assert playlists[0] == {
+        "title": "Playlist 0",
+        "subtitle": "Peter",
+        "uri": "spotify:playlist:0",
+        "imageUrl": "https://example.test/0.jpg",
+        "tint": "#8b5cf6",
+    }
+    assert playlists[-1]["title"] == "Playlist 99"
 
 
 def test_queue_parser_limits_to_100_items_and_accepts_nullable_fields() -> None:
@@ -721,7 +749,7 @@ def test_backend_playlists_are_emitted_before_artwork_cache(tmp_path: Path, monk
 
     backend._load_playlists_worker()
 
-    assert calls == [("playlists", {"limit": 50})]
+    assert calls == [("playlists", {"limit": 100})]
     assert emitted[0][0] == "playlists"
     assert emitted[0][1][0]["title"] == "Friday Night"
     assert emitted[0][1][0]["imageUrl"] == "https://example.test/a.jpg"

@@ -144,7 +144,7 @@ def test_client_api_daemon_portal_state_requests_playlists_with_safe_limit(tmp_p
 
     state = daemon._portal_state({"playlists"})
 
-    assert calls == [("status", {}), ("devices", {}), ("playlists", {"limit": 50})]
+    assert calls == [("status", {}), ("devices", {}), ("playlists", {"limit": 100})]
     assert state["playlists"][0]["title"] == "Friday"
 
 

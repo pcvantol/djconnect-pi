@@ -174,6 +174,16 @@ class ClientAPIHandler(BaseHTTPRequestHandler):
             self._write_json({"success": False, "error": "missing_pairing_fields"}, HTTPStatus.BAD_REQUEST)
             return
         cfg = self.server.state.cfg
+        requested_client_type = str(payload.get("client_type") or CLIENT_TYPE).strip()
+        if requested_client_type != CLIENT_TYPE:
+            _LOGGER.warning("Client API pair request rejected for client_type=%s", requested_client_type)
+            self._write_json({"success": False, "error": "invalid_client_type"}, HTTPStatus.BAD_REQUEST)
+            return
+        requested_device_id = str(payload.get("device_id") or cfg.device_id).strip()
+        if requested_device_id != cfg.device_id:
+            _LOGGER.warning("Client API pair request rejected for mismatched device_id=%s", requested_device_id)
+            self._write_json({"success": False, "error": "invalid_device_id"}, HTTPStatus.BAD_REQUEST)
+            return
         cfg.device_token = token
         cfg.ha_url = ha_url
         cfg.paired = True
@@ -467,8 +477,11 @@ def _mdns_properties(cfg: Config, local_url: str) -> dict[str, str]:
         "device_id": cfg.device_id,
         "client_type": CLIENT_TYPE,
         "version": cfg.version,
+        "app_version": cfg.version,
         "device_name": cfg.device_name,
         "local_url": local_url,
+        "pair_code": cfg.pairing_code,
+        "paired": "true" if cfg.paired else "false",
     }
 
 

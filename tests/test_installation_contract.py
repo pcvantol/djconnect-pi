@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import subprocess
 from pathlib import Path
 import tomllib
@@ -103,7 +104,7 @@ def test_release_assets_include_installation_materials() -> None:
     workflow = ROOT.joinpath(".github/workflows/publish-release.yml").read_text(encoding="utf-8")
 
     for text in (release_script, workflow):
-        assert "README.md CHANGELOG.md docs systemd" in text
+        assert "README.md CHANGELOG.md docs examples systemd" in text
         assert "docs src systemd" not in text
         assert "cp -R pyproject.toml" not in text
         assert "python" in text
@@ -262,6 +263,16 @@ def test_install_script_can_resume_after_reboot_or_interruption() -> None:
     assert 'install --prefer-binary "$wheel_path"' in script
     assert 'install --prefer-binary "$release_dir"' not in script
     assert "DJConnect Pi wheel not found" in script
+
+
+def test_shared_voice_intent_examples_are_available_for_docs_alignment() -> None:
+    examples = json.loads(ROOT.joinpath("examples/voice_intents.json").read_text(encoding="utf-8"))
+
+    assert examples["version"] == "3.1.x"
+    assert examples["handling_order"][0] == "default_playlist"
+    assert "artist" in examples["intents"]
+    assert "playlist" in examples["intents"]
+    assert "Speel playlist DJConnect" in examples["intents"]["playlist"]["nl"]
 
 
 def test_install_script_configures_xwrapper_for_systemd_kiosk_start() -> None:

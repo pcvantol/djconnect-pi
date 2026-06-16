@@ -192,8 +192,10 @@ class HAClient:
             "device_name": self.cfg.device_name,
             "client_type": CLIENT_TYPE,
             "version": self.cfg.version,
+            "app_version": self.cfg.version,
             "firmware": self.cfg.version,
             "local_url": self.cfg.local_url,
+            "language": self.cfg.language,
             "capabilities": {
                 "touch": True,
                 "voice": False,

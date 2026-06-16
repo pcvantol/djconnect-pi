@@ -153,10 +153,26 @@ any command-specific value fields.
 
 Media browsing commands use explicit bounded limits: `queue` sends
 `{"command":"queue","limit":100}` and `playlists` sends
-`{"command":"playlists","limit":50}`. Home Assistant must continue accepting
+`{"command":"playlists","limit":100}`. Home Assistant must continue accepting
 older playlist requests without a limit by defaulting them internally to 50,
-and it should clamp playlist limits to the Spotify-safe maximum of 50 while
-keeping queue limits up to 100.
+and it should paginate Spotify internally with a Spotify-safe page size of 50
+while returning up to the client-requested playlist limit. Raspberry Pi and
+queue browsing both use a local maximum of 100 items.
+
+Command responses for `status`, `queue`, `devices` and `playlists` are treated
+as transport success first. A response with `success:true` and an empty
+`playback` object or `playback.has_playback:false` is valid and means no active
+Spotify playback is available; it must not be surfaced as a backend error.
+Playlist response parsing accepts `playlists`, `items`, `data.playlists`,
+`data.items`, `result.playlists` and `result.items`, up to 100 items, with
+`name`/`title`/`display_title`, `uri`/`id`/`value`/`playlist_uri`,
+`owner`/`owner_name`/`subtitle`/`description` and artwork aliases such as
+`image_url`, `entity_picture` and `thumbnail_url`.
+
+Shared spoken intent examples for website and documentation alignment are kept
+in `examples/voice_intents.json`. They describe the HA/ESP post-STT intent
+contract only; Raspberry Pi keeps `voice:false` and does not implement local
+voice capture.
 
 HA responses may include `ha_version` or `ha_major_minor`. The Pi enforces
 major/minor compatibility: client `3.1.z` accepts HA `>=3.1.0` and `<3.2.0`.

@@ -37,11 +37,12 @@ not install apt packages.
 | Dataclass config model | `src/djconnect_pi/config.py` | Provides a stable, serializable config shape with defaults and migration/backfill logic. |
 | Atomic config writes | `save_config` | Reduces risk of corrupting pairing/config data on power loss. |
 | Protocol facade | `HAClient` in `src/djconnect_pi/ha.py` | Centralizes Home Assistant URL construction, payload shape, version compatibility and response parsing. |
-| Parser normalization | `playback_from_status`, `parse_queue_items`, `parse_playlist_items` | Accepts HA contract aliases and exposes one UI-friendly model shape. |
+| Parser normalization | `playback_from_status`, `parse_queue_items`, `parse_playlist_items` | Accepts HA contract aliases, treats `success:true` with empty playback as valid and exposes one UI-friendly model shape. |
 | Defensive protocol validation | `_compatible_ha_version`, local API auth, body size checks | Fails early on incompatible HA versions, oversized local requests or missing bearer tokens. |
 | Immutable-ish runtime constants | `CLIENT_TYPE`, `PROTOCOL_VERSION` | Keeps protocol identity explicit and testable. |
 | Resource-aware installer/updater | `scripts/install.sh`, `updater.py` | Pi Zero 2 W has limited RAM/IO; installs check disk/swap and use cache-local pip temp directories. |
 | Test-as-contract | `tests/test_*` | Tests assert protocol payloads, systemd/service contracts, release bundle contents and QML structure. |
+| Shared examples as docs contract | `examples/voice_intents.json` | Keeps website/docs intent examples aligned with HA/ESP post-STT behavior without adding local Pi voice capture. |
 
 ### Python Conventions
 

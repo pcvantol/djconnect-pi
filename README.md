@@ -13,6 +13,10 @@ run a small local Client API daemon for Home Assistant pairing, commands,
 diagnostics and text-only DJ responses. `_djconnect._tcp` mDNS discovery is
 advertised only while the Pi is not yet paired.
 
+Shared spoken intent examples for website/docs alignment live in
+`examples/voice_intents.json`. They document the HA/ESP post-STT intent model;
+the Raspberry Pi client does not implement local voice capture.
+
 The same local API daemon serves the Raspberry Pi web portal at the Pi web
 address, so the portal is installed with the app release and starts
 automatically on boot through `djconnect-api.service`.
@@ -42,7 +46,8 @@ automatically on boot through `djconnect-api.service`.
   - `docs/postman/DJConnect Pi Local Client API.postman_collection.json`
 - mDNS service:
   - `_djconnect._tcp` while unpaired only
-  - TXT: `device_id`, `client_type=raspberry_pi`, `version`, `device_name`, `local_url`
+  - TXT: `device_id`, `client_type=raspberry_pi`, `version`, `app_version`,
+    `device_name`, `local_url`, `pair_code`, `paired`
 - Supported commands:
   - `status`
   - `play`
@@ -53,7 +58,7 @@ automatically on boot through `djconnect-api.service`.
   - `set_shuffle`
   - `set_repeat`
   - `queue` with `limit=100`
-  - `playlists` with `limit=50`
+  - `playlists` with `limit=100`
 - Version compatibility:
   - client `3.1.z` works with DJConnect HA `>=3.1.0` and `<3.2.0`
   - HA responses may include `ha_version` or `ha_major_minor`

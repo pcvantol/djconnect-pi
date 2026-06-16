@@ -5,6 +5,17 @@
 - Removed repo-local syncprompt and roadmap copies: this Raspberry Pi repo now
   refers to canonical `pcvantol/djconnect/SYNC_PROMPTS.md` and
   `pcvantol/djconnect/PRODUCT_ROADMAP.md`.
+- Added shared `examples/voice_intents.json` for website/docs alignment with the
+  HA/ESP post-STT intent examples, without enabling Raspberry Pi voice capture.
+- Added contract coverage that successful `status`, `queue`, `devices` and
+  `playlists` command responses with empty playback are valid transport
+  responses, not backend errors.
+- Added explicit playlist parser coverage for `data.items`, alias fields and
+  the 100-item local maximum.
+- Synced the Raspberry Pi client contract with HA v3.1.37: unpaired mDNS TXT
+  now includes pairing metadata, status payloads include `app_version` and the
+  Pi language, pairing rejects mismatched identity, and Pi playlist browsing
+  requests up to 100 items.
 
 ## 3.1.62
 
