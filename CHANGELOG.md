@@ -1,6 +1,6 @@
 # Changelog
 
-## 3.1.65
+## 3.1.66
 
 - Fixed touch and web language refresh so changed settings immediately refresh
   translated labels instead of leaving stale Dutch copy on English screens.

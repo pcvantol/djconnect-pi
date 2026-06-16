@@ -1,6 +1,6 @@
 # DJConnect Pi
 
-Version: `3.1.65`
+Version: `3.1.66`
 
 Raspberry Pi Zero 2 W touch-display client for DJConnect. This client uses
 Qt Quick/QML with a PySide6 backend and is meant for a Pimoroni HyperPixel 4.0
@@ -146,9 +146,9 @@ not a private source clone:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.65.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.66.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.65
+cd djconnect-pi-3.1.66
 sudo ./scripts/install.sh
 ```
 
@@ -224,6 +224,10 @@ The touch UI reboot/shutdown buttons and the manual "Controleer op updates"
 action use narrow systemctl commands and sudo fallbacks. The installer writes a
 narrow sudoers rule for the dedicated `djconnect` runtime user that only
 permits reboot, poweroff and starting `djconnect-updater.service`.
+The repo-only OS bootstrap writes a separate narrow sudoers rule for the
+install user, `pi` by default, so `sudo ./scripts/install.sh` can be rerun from
+`~/djconnect-install/djconnect-pi-*/scripts/install.sh` or
+`~/djconnect-pi/scripts/install.sh` without an interactive password.
 
 After each release, clean old source and public distribution releases/tags plus
 completed tag workflow runs:
@@ -243,9 +247,9 @@ installer:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.65.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.66.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.65
+cd djconnect-pi-3.1.66
 sudo ./scripts/install.sh
 ```
 

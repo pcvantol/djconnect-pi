@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DJCONNECT_BOOTSTRAP_VERSION="${DJCONNECT_BOOTSTRAP_VERSION:-3.1.65}"
+DJCONNECT_BOOTSTRAP_VERSION="${DJCONNECT_BOOTSTRAP_VERSION:-3.1.66}"
 DJCONNECT_TIMEZONE="${DJCONNECT_TIMEZONE:-Europe/Amsterdam}"
 DJCONNECT_INSTALL_HYPERPIXEL="${DJCONNECT_INSTALL_HYPERPIXEL:-1}"
 DJCONNECT_HYPERPIXEL_MODEL="${DJCONNECT_HYPERPIXEL_MODEL:-square}"
@@ -9,6 +9,7 @@ DJCONNECT_HYPERPIXEL_ROTATE="${DJCONNECT_HYPERPIXEL_ROTATE:-}"
 DJCONNECT_ENABLE_RPI_CONNECT="${DJCONNECT_ENABLE_RPI_CONNECT:-1}"
 DJCONNECT_FULL_UPGRADE="${DJCONNECT_FULL_UPGRADE:-1}"
 DJCONNECT_RUNTIME_USER="${DJCONNECT_RUNTIME_USER:-djconnect}"
+DJCONNECT_INSTALL_USER="${DJCONNECT_INSTALL_USER:-pi}"
 DJCONNECT_SWAPFILE="${DJCONNECT_SWAPFILE:-/swapfile}"
 DJCONNECT_SWAP_MB="${DJCONNECT_SWAP_MB:-1024}"
 DJCONNECT_FSCK_MAX_MOUNTS="${DJCONNECT_FSCK_MAX_MOUNTS:-30}"
@@ -30,6 +31,7 @@ Environment:
   DJCONNECT_ENABLE_RPI_CONNECT=1
   DJCONNECT_FULL_UPGRADE=1
   DJCONNECT_RUNTIME_USER=djconnect
+  DJCONNECT_INSTALL_USER=pi
   DJCONNECT_SWAPFILE=/swapfile
   DJCONNECT_SWAP_MB=1024
   DJCONNECT_FSCK_MAX_MOUNTS=30
@@ -48,6 +50,7 @@ DJConnect Pi:
 - enables SSH
 - runs apt update and optional apt full-upgrade
 - installs OS packages including minimal X11/kiosk, Qt runtime and Python
+- grants the install user narrow passwordless sudo for DJConnect install.sh
 - attempts to install and enable Raspberry Pi Connect
 - configures the modern HyperPixel 4 KMS DPI overlay
 
@@ -368,6 +371,29 @@ install_hyperpixel() {
   echo "Reboot is required before HyperPixel display output appears."
 }
 
+configure_installer_sudoers() {
+  log "Configuring DJConnect installer sudoers for ${DJCONNECT_INSTALL_USER}"
+  local sudoers_dir="/etc/sudoers.d"
+  local sudoers_file="${sudoers_dir}/djconnect-installer"
+
+  if ! id "$DJCONNECT_INSTALL_USER" >/dev/null 2>&1; then
+    echo "Install user ${DJCONNECT_INSTALL_USER} does not exist; skipping installer sudoers." >&2
+    return
+  fi
+  if [[ ! -d "$sudoers_dir" ]]; then
+    echo "Warning: ${sudoers_dir} does not exist; skipping installer sudoers." >&2
+    return
+  fi
+
+  cat >"$sudoers_file" <<EOF
+${DJCONNECT_INSTALL_USER} ALL=(root) NOPASSWD: /home/${DJCONNECT_INSTALL_USER}/djconnect-install/djconnect-pi-*/scripts/install.sh, /home/${DJCONNECT_INSTALL_USER}/djconnect-pi/scripts/install.sh
+EOF
+  chmod 0440 "$sudoers_file"
+  if command -v visudo >/dev/null 2>&1; then
+    visudo -cf "$sudoers_file" >/dev/null
+  fi
+}
+
 main() {
   log "DJConnect Pi OS bootstrap ${DJCONNECT_BOOTSTRAP_VERSION}"
   check_os_baseline
@@ -380,6 +406,7 @@ main() {
   enable_ssh
   install_base_packages
   configure_locale
+  configure_installer_sudoers
   install_rpi_connect
   install_hyperpixel
 

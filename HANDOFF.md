@@ -183,6 +183,11 @@ Implemented:
   `systemctl` reboot, poweroff and `start djconnect-updater.service` commands,
   validates it with `visudo -cf`, and uses it for the touch/web power and
   update-check buttons.
+- OS bootstrap writes `/etc/sudoers.d/djconnect-installer` with a narrow
+  passwordless rule for the install user, `pi` by default, to rerun only the
+  DJConnect `scripts/install.sh` from the public release extraction path or the
+  development checkout path. This keeps repeated release deploys noninteractive
+  without granting broad passwordless sudo to `pi`.
 - The unattended updater now mirrors the release installer path for public
   tarballs: it strips the top-level archive directory, installs the bundled
   wheel into `.venv`, validates all `djconnect-pi-*` console entrypoints and
