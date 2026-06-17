@@ -157,6 +157,16 @@ def test_media_item_payload_allows_queue_item_without_context() -> None:
     }
 
 
+def test_media_item_payload_accepts_qml_json_payload() -> None:
+    payload = media_item_payload(
+        "start_queue_item",
+        json.dumps({"title": "Episode", "subtitle": "Podcast", "uri": "spotify:episode:episode-1"}),
+    )
+
+    assert payload["uri"] == "spotify:episode:episode-1"
+    assert "context_uri" not in payload
+
+
 def test_media_item_payload_preserves_context_offset_when_supported() -> None:
     payload = media_item_payload(
         "start_queue_item",
@@ -901,6 +911,32 @@ def test_backend_playlists_are_emitted_before_artwork_cache(tmp_path: Path, monk
     assert emitted[0][1][0]["title"] == "Friday Night"
     assert emitted[0][1][0]["imageUrl"] == "https://example.test/a.jpg"
     assert submitted
+
+
+def test_backend_artwork_cache_is_limited_and_deduplicated(tmp_path: Path, monkeypatch) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    submitted: list[object] = []
+    processed_lengths: list[int] = []
+
+    def fake_prepare(items: list[dict[str, object]]) -> list[dict[str, object]]:
+        processed_lengths.append(len(items))
+        return items
+
+    class FakeExecutor:
+        def submit(self, worker):
+            submitted.append(worker)
+
+    backend._executor = FakeExecutor()  # type: ignore[assignment]
+    monkeypatch.setattr("djconnect_pi.app.prepare_media_artwork", fake_prepare)
+    items = [{"title": f"Item {index}", "imageUrl": f"https://example.test/{index}.jpg"} for index in range(40)]
+
+    backend._cache_media_artwork_async("playlists", items)
+    backend._cache_media_artwork_async("playlists", items)
+
+    assert len(submitted) == 1
+    submitted[0]()
+    assert processed_lengths == [12]
 
 
 def test_backend_skips_duplicate_media_loads_while_in_flight(tmp_path: Path) -> None:

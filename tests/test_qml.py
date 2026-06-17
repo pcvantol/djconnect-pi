@@ -147,7 +147,9 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert 'emptyText: root.tr("empty_playlists")' in main_qml
     assert 'playCommand: "start_queue_item"' in main_qml
     assert 'playCommand: "start_playlist"' in main_qml
-    assert "djconnect.playMediaItem(panel.playCommand, modelData)" in main_qml
+    assert "function itemPayload(item)" in main_qml
+    assert "JSON.stringify" in main_qml
+    assert "djconnect.playMediaItem(panel.playCommand, panel.itemPayload(modelData))" in main_qml
     assert "enabled: modelData.uri && modelData.uri.length > 0" in main_qml
     assert "visible: panel.items.length === 0" in main_qml
     assert "djconnect.loadQueue()" in main_qml

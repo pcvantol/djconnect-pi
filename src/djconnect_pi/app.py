@@ -32,6 +32,7 @@ LOG_LINE_RE = re.compile(
 LOG_LEVEL_SHORT = {"DEBUG": "DBG", "INFO": "INF", "WARNING": "WRN", "ERROR": "ERR", "CRITICAL": "ERR"}
 LOG_DISPLAY_MAX_BYTES = 160_000
 GAME_SOUND_SAMPLE_RATE = 16_000
+MEDIA_ARTWORK_CACHE_LIMIT = 12
 
 
 class DJConnectBackend(QObject):
@@ -105,6 +106,7 @@ class DJConnectBackend(QObject):
         self._queue_items: list[dict[str, object]] = []
         self._playlist_items: list[dict[str, object]] = []
         self._media_loads_in_flight: set[str] = set()
+        self._media_artwork_cache_in_flight: set[str] = set()
         self._pending_output_device = ""
         self._pending_output_until = 0.0
         self._game_sound_objects: list[tuple[object, QBuffer]] = []
@@ -707,8 +709,8 @@ class DJConnectBackend(QObject):
         self._set_status_text(message)
         self._show_toast(message, 5000)
 
-    @Slot(str, object)
-    def playMediaItem(self, command: str, item: object) -> None:
+    @Slot(str, str)
+    def playMediaItem(self, command: str, item: str) -> None:
         command = command.strip()
         payload = media_item_payload(command, item)
         if not command or not payload:
@@ -983,12 +985,24 @@ class DJConnectBackend(QObject):
     def _cache_media_artwork_async(self, kind: str, items: list[dict[str, object]]) -> None:
         if not items:
             return
+        if kind in self._media_artwork_cache_in_flight:
+            _LOGGER.debug("%s artwork cache skipped because a cache worker is already active", kind)
+            return
+        self._media_artwork_cache_in_flight.add(kind)
+        cache_items = [dict(item) for item in items[:MEDIA_ARTWORK_CACHE_LIMIT]]
 
         def worker() -> None:
-            started = time.monotonic()
-            cached = prepare_media_artwork([dict(item) for item in items])
-            _LOGGER.info("Cached %s artwork for %s items in %.0fms", kind, len(cached), _elapsed_ms(started))
-            self._mediaListReady.emit(kind, cached)
+            try:
+                started = time.monotonic()
+                cached = prepare_media_artwork(cache_items)
+                _LOGGER.info("Cached %s artwork for %s items in %.0fms", kind, len(cached), _elapsed_ms(started))
+                merged = [dict(item) for item in items]
+                for index, cached_item in enumerate(cached):
+                    if index < len(merged):
+                        merged[index] = cached_item
+                self._mediaListReady.emit(kind, merged)
+            finally:
+                self._media_artwork_cache_in_flight.discard(kind)
 
         self._executor.submit(worker)
 
@@ -1512,8 +1526,19 @@ def _media_item(item: dict[str, object], playlist: bool = False) -> dict[str, ob
 
 def media_item_payload(command: str, item: object) -> dict[str, object]:
     if isinstance(item, str):
-        uri = item.strip()
-        item_data: dict[str, object] = {"uri": uri}
+        text = item.strip()
+        if text.startswith("{"):
+            try:
+                parsed = json.loads(text)
+            except json.JSONDecodeError:
+                return {}
+            if not isinstance(parsed, dict):
+                return {}
+            item_data = parsed
+            uri = str(item_data.get("uri") or item_data.get("value") or "").strip()
+        else:
+            uri = text
+            item_data = {"uri": uri}
     elif isinstance(item, dict):
         item_data = item
         uri = str(item_data.get("uri") or item_data.get("value") or "").strip()

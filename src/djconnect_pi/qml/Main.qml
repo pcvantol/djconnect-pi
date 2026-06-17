@@ -422,6 +422,21 @@ Window {
         property var items: []
         signal refreshRequested()
 
+        function itemPayload(item) {
+            return JSON.stringify({
+                title: item.title || "",
+                subtitle: item.subtitle || "",
+                artist: item.artist || "",
+                uri: item.uri || "",
+                value: item.value || "",
+                contextUri: item.contextUri || "",
+                context_uri: item.context_uri || "",
+                queueContext: item.queueContext || "",
+                queue_context: item.queue_context || "",
+                index: typeof item.index === "number" ? item.index : null
+            })
+        }
+
         anchors.fill: parent
         color: "#070b16"
         z: 16
@@ -502,7 +517,7 @@ Window {
                                 MouseArea {
                                     anchors.fill: parent
                                     enabled: modelData.uri && modelData.uri.length > 0
-                                    onClicked: djconnect.playMediaItem(panel.playCommand, modelData)
+                                    onClicked: djconnect.playMediaItem(panel.playCommand, panel.itemPayload(modelData))
                                 }
 
                                 Rectangle {
@@ -567,7 +582,7 @@ Window {
                                     anchors.right: parent.right
                                     anchors.verticalCenter: parent.verticalCenter
                                     enabled: modelData.uri && modelData.uri.length > 0
-                                    onClicked: djconnect.playMediaItem(panel.playCommand, modelData)
+                                    onClicked: djconnect.playMediaItem(panel.playCommand, panel.itemPayload(modelData))
                                 }
                             }
                         }

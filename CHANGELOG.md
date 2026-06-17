@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.1.70
+
+- Fixed Raspberry Pi queue/playlist item taps by sending compact JSON payloads
+  from QML instead of passing QML model references into Python.
+- Reduced Raspberry Pi UI load by limiting media-list artwork caching to the
+  first visible batch and skipping duplicate artwork cache workers.
+
 ## 3.1.69
 
 - Allow Raspberry Pi queue items with a direct Spotify track or episode URI to
