@@ -66,13 +66,17 @@ def test_qml_has_touch_games_panel() -> None:
     assert "onPressed: function(mouse) { root.handleTouch(mouse.x, mouse.y) }" in games_qml
     assert "mouthOpen" in games_qml
     assert "ghostX - 4" in games_qml
-    assert "property int powerPellet" in games_qml
+    assert "property var powerPellets: [0, 7, 24, 31]" in games_qml
     assert "property int ghostVulnerableTicks" in games_qml
     assert "ghostVulnerableTicks = 210" in games_qml
     assert "for (var i = 0; i < 32; i++) pellets.push(i)" in games_qml
-    assert "powerPellet = 31" in games_qml
+    assert "powerPellets = [0, 7, 24, 31]" in games_qml
     assert "setScore(score + 5)" in games_qml
     assert 'root.ghostVulnerableTicks > 0 ? (ghostBlink ? "#e0f2fe" : "#3b82f6")' in games_qml
+    assert "property int deathTicks" in games_qml
+    assert "function playSfx(kind)" in games_qml
+    assert "djconnect.playGameSound(kind)" in games_qml
+    assert "Layout.preferredHeight: 58" in games_qml
 
 
 def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None:
@@ -101,6 +105,11 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "font.pixelSize: 24" in main_qml
     assert "root.brightnessOverlayOpacity" in main_qml
     assert "z: 200" in main_qml
+    now_start = main_qml.index("id: nowPanel")
+    now_block = main_qml[now_start : main_qml.index("id: controlPanel", now_start)]
+    assert "text: djconnect.statusText" not in now_block
+    assert 'anchors.bottomMargin: root.edge + 96' in now_block
+    assert "width: Math.min(parent.width, parent.height)" in now_block
     assert 'root.tr("about")' in main_qml
     assert "aboutScroll.availableWidth" in main_qml
     assert 'text: "https://djconnect.dev"' in main_qml
@@ -119,6 +128,11 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "djconnect.shutdownDevice()" in main_qml
     assert "djconnect.checkForUpdates()" in main_qml
     assert 'root.tr("check_updates")' in main_qml
+    settings_start = main_qml.index("id: settingsPanel")
+    settings_block = main_qml[settings_start : main_qml.index("MediaListPanel {", settings_start)]
+    assert 'root.tr("device_id")' not in settings_block
+    assert 'root.tr("ha_url")' not in settings_block
+    assert settings_block.index('root.tr("view_logs")') < settings_block.index('root.tr("check_updates")')
     assert 'root.tr("save")' not in main_qml
     assert 'text: root.tr("no_voice")' not in main_qml
     assert "placeholderText: root.tr(\"ha_url\")" not in main_qml
@@ -133,7 +147,8 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert 'emptyText: root.tr("empty_playlists")' in main_qml
     assert 'playCommand: "start_queue_item"' in main_qml
     assert 'playCommand: "start_playlist"' in main_qml
-    assert "djconnect.playMediaItem(panel.playCommand, modelData.uri)" in main_qml
+    assert "djconnect.playMediaItem(panel.playCommand, modelData)" in main_qml
+    assert "enabled: modelData.uri && modelData.uri.length > 0" in main_qml
     assert "visible: panel.items.length === 0" in main_qml
     assert "djconnect.loadQueue()" in main_qml
     assert "djconnect.loadPlaylists()" in main_qml
@@ -266,6 +281,7 @@ def test_qml_screen_blanking_wakes_on_tap() -> None:
     assert "id: albumQuickPlay" in main_qml
     assert "onClicked: djconnect.togglePlay()" in main_qml
     assert "id: albumQuickPlayIcon" in main_qml
+    assert "opacity: albumQuickPlay.down ? 0.72 : 0.42" in main_qml
     assert "function onScreenshotRequested()" in main_qml
     assert "function onDebugScreenRequested(screen)" in main_qml
     assert 'screen === "queue"' in main_qml
@@ -327,7 +343,7 @@ def test_qml_offscreen_smoke_loads() -> None:
             "djconnect_pi.app",
             "--windowed",
             "--exit-after-ms",
-            "250",
+            "1500",
             "--config",
             os.path.join(tmpdir, "djconnect-pi-qml-test.json"),
             "--log-file",
@@ -336,7 +352,7 @@ def test_qml_offscreen_smoke_loads() -> None:
         env=env,
         text=True,
         capture_output=True,
-        timeout=5,
+        timeout=10,
         check=False,
     )
 

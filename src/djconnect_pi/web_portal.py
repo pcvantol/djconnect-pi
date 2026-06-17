@@ -65,6 +65,13 @@ def index_html(version: str) -> bytes:
     .item-title {{ font-size:18px; font-weight:850; overflow-wrap:anywhere; }}
     .item-sub {{ color:var(--muted); font-size:14px; margin-top:2px; overflow-wrap:anywhere; }}
     .play {{ border-radius:50%; min-height:54px; width:54px; padding:0; font-size:22px; }}
+    .game-wrap {{ display:grid; gap:10px; }}
+    .game-tabs {{ display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }}
+    .game-tabs button.active {{ border-color:#fff; background:linear-gradient(135deg,#f13de8,#4b7dff); }}
+    #gameCanvas {{ width:100%; aspect-ratio:320/170; border:1px solid var(--line); border-radius:8px; background:#05080a; touch-action:none; image-rendering:pixelated; }}
+    .game-hud {{ display:flex; justify-content:space-between; gap:10px; color:var(--muted); font-weight:800; }}
+    .game-controls {{ display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:8px; }}
+    .game-controls button {{ min-height:54px; padding:6px; }}
     .diag-list {{ display:grid; gap:8px; }}
     .diag {{ display:grid; grid-template-columns:1fr auto; gap:10px; align-items:center; padding:10px; border:1px solid rgba(255,255,255,.10); border-radius:8px; background:rgba(8,7,28,.34); }}
     .diag-name {{ font-weight:850; }}
@@ -118,6 +125,16 @@ def index_html(version: str) -> bytes:
       <h2 data-i18n="playlists">Afspeellijsten</h2>
       <div id="playlists" class="list"></div>
     </section>
+    <section class="wide">
+      <h2 data-i18n="games">Games</h2>
+      <div class="game-wrap">
+        <div id="gameTabs" class="game-tabs"></div>
+        <div class="game-hud"><span id="gameName">Paddle Rally</span><span><span data-i18n="score">Score</span> <span id="gameScore">0</span> · <span data-i18n="high">Beste</span> <span id="gameHigh">0</span></span></div>
+        <canvas id="gameCanvas" width="320" height="170"></canvas>
+        <div id="gameControls" class="game-controls"></div>
+        <div id="gameHelp" class="sub"></div>
+      </div>
+    </section>
     <section>
       <h2 data-i18n="settings">Instellingen</h2>
       <div class="grid">
@@ -163,7 +180,13 @@ const I18N = {{
     settings_saved:'Instellingen opgeslagen', save_failed:'Opslaan mislukt', language_saved:'Taal opgeslagen',
     log_level_saved:'Logniveau opgeslagen', brightness_saved:'Helderheid opgeslagen', screen_timeout_saved:'Schermtijd opgeslagen',
     empty_queue:'Geen wachtrij', empty_playlists:'Geen afspeellijsten', no_diagnostics:'Geen diagnostics beschikbaar',
-    reset_pairing_confirm:'Opnieuw koppelen?', reboot_confirm:'Apparaat herstarten?', shutdown_confirm:'Apparaat uitschakelen?'
+    reset_pairing_confirm:'Opnieuw koppelen?', reboot_confirm:'Apparaat herstarten?', shutdown_confirm:'Apparaat uitschakelen?',
+    games:'Games', score:'Score', high:'Beste', game_pong:'Paddle Rally', game_asteroids:'Meteor Run', game_fly:'Sky Dash', game_pacman:'Maze Chase',
+    up:'Omhoog', down:'Omlaag', left:'Links', right:'Rechts', fire:'Schiet', reset:'Reset',
+    game_help_pong:'Beweeg het batje omhoog en omlaag.',
+    game_help_asteroids:'Beweeg links en rechts. Schiet om meteorieten te raken.',
+    game_help_fly:'Vlieg omhoog of omlaag. Schiet obstakels kapot.',
+    game_help_pacman:'Eet bolletjes. Power-bolletjes maken het spookje kwetsbaar.'
   }},
   en: {{
     loading:'Loading...', connected:'Connected', not_paired:'Not paired', nothing_playing:'Nothing playing',
@@ -177,7 +200,13 @@ const I18N = {{
     settings_saved:'Settings saved', save_failed:'Save failed', language_saved:'Language saved',
     log_level_saved:'Log level saved', brightness_saved:'Brightness saved', screen_timeout_saved:'Screen timeout saved',
     empty_queue:'No queue', empty_playlists:'No playlists', no_diagnostics:'No diagnostics available',
-    reset_pairing_confirm:'Reset pairing?', reboot_confirm:'Restart device?', shutdown_confirm:'Shut down device?'
+    reset_pairing_confirm:'Reset pairing?', reboot_confirm:'Restart device?', shutdown_confirm:'Shut down device?',
+    games:'Games', score:'Score', high:'High', game_pong:'Paddle Rally', game_asteroids:'Meteor Run', game_fly:'Sky Dash', game_pacman:'Maze Chase',
+    up:'Up', down:'Down', left:'Left', right:'Right', fire:'Fire', reset:'Reset',
+    game_help_pong:'Move the paddle up and down.',
+    game_help_asteroids:'Move left and right. Fire to hit meteors.',
+    game_help_fly:'Fly up or down. Shoot obstacles apart.',
+    game_help_pacman:'Eat pellets. Power pellets make the ghost vulnerable.'
   }}
 }};
 function currentLanguage() {{ return (state.settings && state.settings.language) || document.getElementById('language')?.value || 'nl'; }}
@@ -185,6 +214,7 @@ function t(key) {{ const lang = currentLanguage(); return (I18N[lang] && I18N[la
 function translateStatic() {{
   document.documentElement.lang = currentLanguage();
   for (const el of document.querySelectorAll('[data-i18n]')) el.textContent = t(el.dataset.i18n);
+  renderGameShell();
 }}
 function toast(message) {{
   const el = document.getElementById('toast');
@@ -259,14 +289,126 @@ function itemHtml(item, command) {{
   const art = item.imageUrl ? `<img class="thumb" src="${{item.imageUrl}}" alt="">` : `<div class="thumb">♪</div>`;
   const title = item.title || '-';
   const sub = item.subtitle || '';
-  const uri = item.uri || title;
-  const encoded = encodeURIComponent(uri);
-  return `<div class="item" role="button" tabindex="0" onclick="playMedia('${{command}}','${{encoded}}')">${{art}}<div><div class="item-title">${{title}}</div><div class="item-sub">${{sub}}</div></div><button class="play" onclick="event.stopPropagation();playMedia('${{command}}','${{encoded}}')">▶</button></div>`;
+  const usable = !!item.uri;
+  const encoded = encodeURIComponent(JSON.stringify(item));
+  const action = usable ? `playMedia('${{command}}','${{encoded}}')` : '';
+  return `<div class="item" role="button" tabindex="0" ${{usable ? `onclick="${{action}}"` : 'aria-disabled="true" style="opacity:.45"'}}>${{art}}<div><div class="item-title">${{title}}</div><div class="item-sub">${{sub}}</div></div><button class="play" ${{usable ? `onclick="event.stopPropagation();${{action}}"` : 'disabled'}}>▶</button></div>`;
 }}
-function playMedia(command, encodedUri) {{
-  const uri = decodeURIComponent(encodedUri);
-  cmd(command, {{value:uri, uri:uri, context_uri:uri}});
+function mediaPayload(command, item) {{
+  const uri = item.uri || item.value || '';
+  if (!uri) return null;
+  if (command === 'start_playlist') return {{value:uri, uri:uri, context_uri:uri}};
+  const payload = {{value:uri, uri:uri}};
+  if (item.title) payload.title = item.title;
+  if (item.artist || item.subtitle) payload.artist = item.artist || item.subtitle;
+  if (Number.isInteger(item.index)) payload.index = item.index;
+  const context = item.context_uri || item.contextUri || item.queue_context || item.queueContext || '';
+  if (context) {{
+    payload.context_uri = context;
+    if (context.startsWith('spotify:playlist:') || context.startsWith('spotify:album:') || context.startsWith('spotify:show:')) payload.offset_uri = uri;
+  }}
+  return payload;
 }}
+function playMedia(command, encodedItem) {{
+  const item = JSON.parse(decodeURIComponent(encodedItem));
+  const payload = mediaPayload(command, item);
+  if (!payload) return;
+  cmd(command, payload);
+}}
+const gameDefs = [
+  {{id:'pong', key:'game_pong'}}, {{id:'asteroids', key:'game_asteroids'}}, {{id:'fly', key:'game_fly'}}, {{id:'pacman', key:'game_pacman'}}
+];
+let game = {{id:'pong', score:0, high:JSON.parse(localStorage.getItem('djconnect-pi-game-high')||'{{}}'), playing:true, t:0, pause:0, flash:0, ex:[]}};
+function sfx(kind) {{
+  try {{
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = sfx.ctx || (sfx.ctx = new AudioCtx());
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    const freq = {{start:220, move:180, fire:760, pellet:520, power:300, ghost:880, death:90, hit:430, wall:260, explode:120, crash:70, gameover:100}}[kind] || 240;
+    o.type = 'square'; o.frequency.setValueAtTime(freq, ctx.currentTime);
+    o.frequency.exponentialRampToValueAtTime(Math.max(40, freq * .55), ctx.currentTime + .09);
+    g.gain.setValueAtTime(.025, ctx.currentTime); g.gain.exponentialRampToValueAtTime(.001, ctx.currentTime + .10);
+    o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime + .11);
+    if (navigator.vibrate) navigator.vibrate(8);
+  }} catch (_) {{}}
+}}
+function gameSetScore(v) {{
+  game.score = v;
+  if ((game.high[game.id] || 0) < v) {{
+    game.high[game.id] = v;
+    localStorage.setItem('djconnect-pi-game-high', JSON.stringify(game.high));
+  }}
+}}
+function gameReset() {{
+  Object.assign(game, {{score:0, playing:true, t:0, pause:0, flash:0, ex:[], stars:Array.from({{length:34}},()=>({{x:Math.random()*320,y:25+Math.random()*135,s:.4+Math.random()*2,p:Math.random()*6}})),
+    paddleY:85, ballX:160, ballY:85, ballVX:3, ballVY:2, shipX:160, bullet:false, bulletY:120, planeY:85, shot:false, shotX:58,
+    pacX:46, pacY:86, pacDX:1, pacDY:0, ghostX:250, ghostY:86, vuln:0, death:0, pellets:Array.from({{length:32}},(_,i)=>i), power:[0,7,24,31] }});
+  resetMeteor(); resetObstacle(); renderGameShell(); sfx('start');
+}}
+function resetMeteor() {{ game.metX=40+Math.random()*240; game.metY=30; game.metSize=6+Math.random()*7; game.metSpeed=.9+Math.random()*1.3+Math.min(game.score/35,1.4); game.metShape=Math.floor(Math.random()*3); }}
+function resetObstacle() {{ game.obsX=310; game.obsY=48+Math.random()*92; game.obsShape=Math.floor(Math.random()*4); game.obsColor=['#9a6b3f','#e879f9','#38bdf8','#facc15'][game.obsShape]; }}
+function selectGame(id) {{ game.id=id; gameReset(); }}
+function gameMove(dx,dy) {{
+  sfx('move');
+  if (game.id==='pong') game.paddleY=Math.max(42,Math.min(126,game.paddleY+dy*13));
+  else if (game.id==='asteroids') game.shipX=Math.max(24,Math.min(296,game.shipX+dx*15));
+  else if (game.id==='fly') game.planeY=Math.max(52,Math.min(138,game.planeY+dy*13));
+  else {{ if (dx) {{game.pacDX=dx; game.pacDY=0;}} if (dy) {{game.pacDY=dy; game.pacDX=0;}} }}
+}}
+function gameFire() {{ if (game.id==='asteroids'&&!game.bullet){{game.bullet=true;game.bulletY=120;sfx('fire');}} if(game.id==='fly'&&!game.shot){{game.shot=true;game.shotX=58;sfx('fire');}} }}
+function gameBoom(x,y,c) {{ game.ex.push({{x,y,c,a:0}}); }}
+function gameOver(kind) {{ game.flash=12; gameSetScore(0); sfx(kind||'gameover'); }}
+function gameTick() {{
+  game.t++;
+  for (const st of game.stars||[]) {{ st.x-=st.s*(game.id==='fly'?1.8:.45); st.p+=.08; if(st.x<0){{st.x=320;st.y=25+Math.random()*135;}} }}
+  for (let i=game.ex.length-1;i>=0;i--) if (++game.ex[i].a>18) game.ex.splice(i,1);
+  if (game.pause>0) {{ game.pause--; drawGame(); return; }}
+  if (game.flash>0) game.flash--;
+  if (game.id==='pong') {{
+    game.ballX+=game.ballVX; game.ballY+=game.ballVY;
+    if(game.ballY<=42||game.ballY>=156){{game.ballVY*=-1;sfx('wall');}}
+    if(game.ballX>=306){{game.ballVX=-Math.abs(game.ballVX);sfx('wall');}}
+    if(game.ballX<=30){{ if(Math.abs(game.ballY-game.paddleY)<22){{game.ballVX=Math.abs(game.ballVX);game.hit=8;gameSetScore(game.score+1);sfx('hit');}} else {{gameOver('gameover');game.ballX=160;game.ballY=86;game.pause=28;}} }}
+  }} else if (game.id==='asteroids') {{
+    game.metY+=game.metSpeed;
+    if(game.bullet){{game.bulletY-=8;if(game.bulletY<34)game.bullet=false;else if(Math.abs(game.metX-game.shipX)<game.metSize+8&&Math.abs(game.metY-game.bulletY)<game.metSize+8){{game.bullet=false;gameBoom(game.metX,game.metY,'#ff6fb3');gameSetScore(game.score+1);sfx('explode');resetMeteor();}}}}
+    if(game.metY>152){{gameOver('gameover');resetMeteor();}}
+  }} else if (game.id==='fly') {{
+    game.obsX-=4+Math.min(Math.floor(game.score/6),4);
+    if(game.shot){{game.shotX+=9;if(game.shotX>310)game.shot=false;else if(Math.abs(game.shotX-game.obsX)<16&&Math.abs(game.planeY-game.obsY)<24){{game.shot=false;gameBoom(game.obsX,game.obsY,'#facc15');gameSetScore(game.score+1);sfx('explode');resetObstacle();}}}}
+    if(game.obsX<20){{gameSetScore(game.score+1);resetObstacle();}}
+    if(game.obsX<66&&game.obsX>28&&Math.abs(game.planeY-game.obsY)<28){{gameBoom(48,game.planeY,'#ff5b5b');gameOver('crash');resetObstacle();}}
+  }} else {{
+    if(game.death>0){{ if(--game.death===0){{gameSetScore(0);gameReset();}} drawGame(); return; }}
+    game.pacX=Math.max(28,Math.min(292,game.pacX+game.pacDX*4)); game.pacY=Math.max(44,Math.min(150,game.pacY+game.pacDY*4)); if(game.vuln>0)game.vuln--;
+    const step=game.vuln>0?1:1.35+Math.min(Math.floor(game.score/14)*.45,1.8); if(Math.abs(game.ghostX-game.pacX)>2)game.ghostX+=game.ghostX<game.pacX?step:-step; if(Math.abs(game.ghostY-game.pacY)>2)game.ghostY+=game.ghostY<game.pacY?step:-step;
+    for(let p=0;p<game.pellets.length;p++){{ const pellet=game.pellets[p], px=48+(pellet%8)*28, py=52+Math.floor(pellet/8)*28; if(Math.abs(px-game.pacX)<10&&Math.abs(py-game.pacY)<10){{game.pellets.splice(p,1); if(game.power.includes(pellet)){{game.vuln=210;gameSetScore(game.score+3);sfx('power');}}else{{gameSetScore(game.score+1);sfx('pellet');}} break;}} }}
+    if(!game.pellets.length)gameReset();
+    if(Math.abs(game.ghostX-game.pacX)<14&&Math.abs(game.ghostY-game.pacY)<14){{ if(game.vuln>0){{gameSetScore(game.score+5);game.ghostX=250;game.ghostY=86;game.vuln=0;sfx('ghost');}} else {{game.flash=12;game.death=34;sfx('death');}} }}
+  }}
+  drawGame();
+}}
+function drawGame() {{
+  const c=document.getElementById('gameCanvas'); if(!c) return; const x=c.getContext('2d'); x.clearRect(0,0,320,170); x.fillStyle='#05080a'; x.fillRect(0,0,320,170);
+  if(game.id==='asteroids'||game.id==='fly') for(const st of game.stars||[]){{x.fillStyle=`rgba(255,255,255,${{game.id==='fly'?.28:.32+Math.sin(st.p)*.18}})`; game.id==='fly'?x.fillRect(st.x,st.y,8+st.s*4,1):x.fillRect(st.x,st.y,1.2,1.2);}}
+  x.strokeStyle='#26383d'; x.strokeRect(1,1,318,168); x.fillStyle='#c9b8ff'; x.font='14px sans-serif'; x.fillText(t(gameDefs.find(g=>g.id===game.id).key),12,20);
+  if(game.id==='pong'){{x.setLineDash([5,7]);x.strokeStyle='rgba(255,255,255,.22)';x.beginPath();x.moveTo(160,28);x.lineTo(160,150);x.stroke();x.setLineDash([]);x.fillStyle='#ff9f43';x.fillRect(18-(game.hit?2:0),game.paddleY-17,game.hit?12:8,34);if(game.hit)game.hit--;x.fillStyle='#1db954';x.beginPath();x.arc(game.ballX,game.ballY,4,0,7);x.fill();}}
+  else if(game.id==='asteroids'){{x.strokeStyle='#4aa3ff';x.beginPath();x.moveTo(game.shipX,128);x.lineTo(game.shipX-9,146);x.lineTo(game.shipX+9,146);x.closePath();x.stroke();x.strokeStyle=['#ff6fb3','#facc15','#a78bfa'][game.metShape];x.beginPath();game.metShape===0?x.arc(game.metX,game.metY,game.metSize,0,7):game.metShape===1?x.rect(game.metX-game.metSize,game.metY-game.metSize,game.metSize*2,game.metSize*2):(x.moveTo(game.metX,game.metY-game.metSize),x.lineTo(game.metX+game.metSize,game.metY+game.metSize),x.lineTo(game.metX-game.metSize,game.metY+game.metSize*.8),x.closePath());x.stroke();if(game.bullet){{x.fillStyle='#48d8ff';x.fillRect(game.shipX-2,game.bulletY,4,10);}}}}
+  else if(game.id==='fly'){{x.fillStyle='#48d8ff';x.beginPath();x.moveTo(62,game.planeY);x.lineTo(30,game.planeY-12);x.lineTo(30,game.planeY+12);x.closePath();x.fill();x.fillStyle=game.obsColor;x.beginPath();game.obsShape===0?x.fillRect(game.obsX-8,game.obsY-18,16,36):game.obsShape===1?(x.arc(game.obsX,game.obsY,13,0,7),x.fill()):game.obsShape===2?(x.moveTo(game.obsX,game.obsY-18),x.lineTo(game.obsX+16,game.obsY),x.lineTo(game.obsX,game.obsY+18),x.lineTo(game.obsX-16,game.obsY),x.closePath(),x.fill()):x.fillRect(game.obsX-14,game.obsY-8,28,16);if(game.shot){{x.fillStyle='#d9fbff';x.fillRect(game.shotX,game.planeY-2,14,4);}}}}
+  else {{x.fillStyle='rgba(255,255,255,.82)';for(const p of game.pellets){{x.beginPath();x.arc(48+(p%8)*28,52+Math.floor(p/8)*28,game.power.includes(p)?5:2,0,7);x.fill();}}const dir=game.pacDX<0?Math.PI:game.pacDY<0?4.71:game.pacDY>0?1.57:0;x.fillStyle='#ffe35a';x.beginPath();x.moveTo(game.pacX,game.pacY);x.arc(game.pacX,game.pacY,10,dir+.6,dir+6.28-.6);x.closePath();x.fill();x.fillStyle='#111827';x.beginPath();x.arc(game.pacX+(game.pacDX||.7)*3,game.pacY+(game.pacDY?game.pacDY*3:-4),1.8,0,7);x.fill();if(game.death){{x.strokeStyle='#fff7ad';x.beginPath();x.arc(game.pacX,game.pacY,16+(34-game.death)*.7,0,7);x.stroke();}}const blink=game.vuln>0&&Math.floor(game.vuln/12)%2===0;x.fillStyle=game.vuln>0?(blink?'#e0f2fe':'#3b82f6'):'#ff6fb3';x.beginPath();x.arc(game.ghostX,game.ghostY-2,9,Math.PI,0);x.lineTo(game.ghostX+9,game.ghostY+9);x.lineTo(game.ghostX+4,game.ghostY+5);x.lineTo(game.ghostX,game.ghostY+9);x.lineTo(game.ghostX-4,game.ghostY+5);x.lineTo(game.ghostX-9,game.ghostY+9);x.closePath();x.fill();}}
+  for(const b of game.ex){{x.globalAlpha=Math.max(0,1-b.a/18);x.strokeStyle=b.c;x.lineWidth=3;x.beginPath();x.arc(b.x,b.y,4+b.a*1.5,0,7);x.stroke();x.globalAlpha=1;}} if(game.flash){{x.strokeStyle='#ff5b5b';x.lineWidth=5;x.strokeRect(4,4,312,162);}}
+  document.getElementById('gameScore').textContent=game.score; document.getElementById('gameHigh').textContent=game.high[game.id]||0;
+}}
+function renderGameShell() {{
+  const tabs=document.getElementById('gameTabs'); if(!tabs) return; tabs.innerHTML=gameDefs.map(g=>`<button class="${{g.id===game.id?'active':''}}" onclick="selectGame('${{g.id}}')">${{t(g.key)}}</button>`).join('');
+  document.getElementById('gameName').textContent=t(gameDefs.find(g=>g.id===game.id).key); document.getElementById('gameHelp').textContent=t('game_help_'+(game.id==='pong'?'pong':game.id==='asteroids'?'asteroids':game.id==='fly'?'fly':'pacman'));
+  const dirs=game.id==='pacman'?[['↑',0,-1],['↓',0,1],['←',-1,0],['→',1,0]]:game.id==='asteroids'?[['←',-1,0],['→',1,0]]:[['↑',0,-1],['↓',0,1]];
+  document.getElementById('gameControls').innerHTML=dirs.map(d=>`<button onclick="gameMove(${{d[1]}},${{d[2]}})">${{d[0]}}</button>`).join('')+(game.id==='asteroids'||game.id==='fly'?`<button onclick="gameFire()">${{t('fire')}}</button>`:'')+`<button onclick="gameReset()">${{t('reset')}}</button>`;
+  drawGame();
+}}
+document.addEventListener('keydown', e=>{{ if(e.key==='ArrowUp')gameMove(0,-1); else if(e.key==='ArrowDown')gameMove(0,1); else if(e.key==='ArrowLeft')gameMove(-1,0); else if(e.key==='ArrowRight')gameMove(1,0); else if(e.key===' ')gameFire(); }});
+document.addEventListener('pointerdown', e=>{{ if(e.target&&e.target.id==='gameCanvas'){{const r=e.target.getBoundingClientRect(); const gx=(e.clientX-r.left)/r.width*320, gy=(e.clientY-r.top)/r.height*170; if(game.id==='pong')game.paddleY=Math.max(42,Math.min(126,gy)); else if(game.id==='asteroids')game.shipX=Math.max(24,Math.min(296,gx)); else if(game.id==='fly')game.planeY=Math.max(52,Math.min(138,gy)); else gameMove(Math.abs(gx-game.pacX)>Math.abs(gy-game.pacY)?(gx<game.pacX?-1:1):0,Math.abs(gx-game.pacX)>Math.abs(gy-game.pacY)?0:(gy<game.pacY?-1:1)); }}}});
 function adjustVolume(delta) {{
   const current = Number(document.getElementById('volume').value || 0);
   const value = Math.max(0, Math.min(60, current + delta));
@@ -354,6 +496,8 @@ async function copyLogs() {{
   }}
 }}
 refreshAll();
+gameReset();
+setInterval(gameTick, 33);
 setInterval(refreshAll, 15000);
 </script>
 </body>

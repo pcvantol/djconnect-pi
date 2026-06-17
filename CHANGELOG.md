@@ -1,5 +1,17 @@
 # Changelog
 
+## 3.1.68
+
+- Allow Raspberry Pi queue items with a direct Spotify track or episode URI to
+  start without requiring `queue_context`/`context_uri`, while preserving
+  context plus offset behavior for playlist, album and show contexts.
+- Expanded the local-only touch and web games with Maze Chase power pellets,
+  Sky Dash/Meteor Run background and explosion effects, Paddle Rally bounce
+  feedback, compact controls and short 8-bit sound effects.
+- Simplified the touch Settings screen by moving Device ID and Home Assistant
+  URL out of Settings, placing update checks below Logs, removing the Now
+  Playing status footer and giving album art more screen space.
+
 ## 3.1.67
 
 - Wake the touch UI to Now Playing at full brightness when Home Assistant

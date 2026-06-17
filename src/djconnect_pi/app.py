@@ -13,8 +13,9 @@ import sys
 import time
 from urllib.parse import urlparse
 
-from PySide6.QtCore import QCoreApplication, QObject, Property, QTimer, Signal, Slot
+from PySide6.QtCore import QByteArray, QBuffer, QCoreApplication, QIODevice, QObject, Property, QTimer, Signal, Slot
 from PySide6.QtGui import QGuiApplication
+from PySide6.QtMultimedia import QAudioFormat, QAudioSink, QMediaDevices
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
 import requests
@@ -31,6 +32,7 @@ LOG_LINE_RE = re.compile(
 )
 LOG_LEVEL_SHORT = {"DEBUG": "DBG", "INFO": "INF", "WARNING": "WRN", "ERROR": "ERR", "CRITICAL": "ERR"}
 LOG_DISPLAY_MAX_BYTES = 160_000
+GAME_SOUND_SAMPLE_RATE = 16_000
 
 
 class DJConnectBackend(QObject):
@@ -106,6 +108,7 @@ class DJConnectBackend(QObject):
         self._media_loads_in_flight: set[str] = set()
         self._pending_output_device = ""
         self._pending_output_until = 0.0
+        self._game_sound_objects: list[tuple[QAudioSink, QBuffer]] = []
         self._status_text = self.tr_key("paired" if self.cfg.paired else "not_paired")
         self._backend_available = True
         self._busy = False
@@ -705,18 +708,18 @@ class DJConnectBackend(QObject):
         self._set_status_text(message)
         self._show_toast(message, 5000)
 
-    @Slot(str, str)
-    def playMediaItem(self, command: str, uri: str) -> None:
-        uri = uri.strip()
+    @Slot(str, object)
+    def playMediaItem(self, command: str, item: object) -> None:
         command = command.strip()
-        if not command or not uri:
+        payload = media_item_payload(command, item)
+        if not command or not payload:
             return
         if command not in {"start_queue_item", "start_playlist"}:
             _LOGGER.warning("Ignoring unsupported media item command from touch UI: %s", command)
             return
         _LOGGER.info("User requested %s from touch UI", command)
         self.showToast(self.tr_key("play"))
-        self._run(command, lambda: self._play_media_item_worker(command, uri))
+        self._run(command, lambda: self._play_media_item_worker(command, payload))
 
     @Slot()
     def showLogs(self) -> None:
@@ -761,6 +764,54 @@ class DJConnectBackend(QObject):
     @Slot(str)
     def showToast(self, text: str) -> None:
         self._show_toast(text, 2000)
+
+    @Slot(str)
+    def playGameSound(self, kind: str) -> None:
+        tones = {
+            "start": (220, 90),
+            "move": (180, 45),
+            "fire": (760, 65),
+            "pellet": (520, 45),
+            "power": (300, 110),
+            "ghost": (880, 90),
+            "death": (90, 140),
+            "hit": (430, 55),
+            "wall": (260, 45),
+            "explode": (120, 120),
+            "crash": (70, 140),
+            "gameover": (100, 120),
+        }
+        frequency, duration_ms = tones.get(kind.strip(), (240, 55))
+        try:
+            device = QMediaDevices.defaultAudioOutput()
+            if device.isNull():
+                return
+            audio_format = QAudioFormat()
+            audio_format.setSampleRate(GAME_SOUND_SAMPLE_RATE)
+            audio_format.setChannelCount(1)
+            audio_format.setSampleFormat(QAudioFormat.Int16)
+            if not device.isFormatSupported(audio_format):
+                audio_format = device.preferredFormat()
+            data = _square_wave_pcm(frequency, duration_ms, audio_format.sampleRate())
+            if not data:
+                return
+            buffer = QBuffer(self)
+            buffer.setData(QByteArray(data))
+            buffer.open(QIODevice.ReadOnly)
+            sink = QAudioSink(device, audio_format, self)
+            sink.setVolume(0.04)
+            sink.start(buffer)
+            self._game_sound_objects.append((sink, buffer))
+            QTimer.singleShot(duration_ms + 250, lambda: self._cleanup_game_sound(sink, buffer))
+        except Exception as exc:
+            _LOGGER.debug("Game sound skipped: %s", exc)
+
+    def _cleanup_game_sound(self, sink: QAudioSink, buffer: QBuffer) -> None:
+        try:
+            sink.stop()
+            buffer.close()
+        finally:
+            self._game_sound_objects = [(s, b) for s, b in self._game_sound_objects if s is not sink and b is not buffer]
 
     def _show_toast(self, text: str, duration_ms: int = 2000) -> None:
         text = text.strip()
@@ -870,10 +921,10 @@ class DJConnectBackend(QObject):
         self._playbackReady.emit(self.client.playback_from_status(data))
         _LOGGER.info("Playback command %s completed in %.0fms", command, _elapsed_ms(started))
 
-    def _play_media_item_worker(self, command: str, uri: str) -> None:
+    def _play_media_item_worker(self, command: str, payload: dict[str, object]) -> None:
         started = time.monotonic()
         _LOGGER.info("Sending media item command: %s", command)
-        data = self.client.command(command, value=uri, uri=uri, context_uri=uri)
+        data = self.client.command(command, **payload)
         self._playbackReady.emit(self.client.playback_from_status(data))
         if command == "start_playlist":
             self._load_queue_worker()
@@ -1210,9 +1261,12 @@ class DJConnectBackend(QObject):
                 self.checkForUpdates()
                 continue
             if command in {"start_queue_item", "start_playlist"}:
-                uri = str(payload.get("uri") or payload.get("value") or payload.get("context_uri") or "").strip()
+                item_payload = media_item_payload(command, payload)
+                if not item_payload:
+                    _LOGGER.info("Ignoring local media item request without usable URI: %s", command)
+                    continue
                 _LOGGER.info("Executing local web portal media item request: %s", command)
-                self.playMediaItem(command, uri)
+                self.playMediaItem(command, item_payload)
                 continue
             _LOGGER.info("Executing Client API command event from Home Assistant: %s", command)
             if command in {"previous", "next"}:
@@ -1307,6 +1361,20 @@ def _read_tail_text(path: Path, max_bytes: int) -> str:
 
 def _elapsed_ms(started: float) -> float:
     return (time.monotonic() - started) * 1000
+
+
+def _square_wave_pcm(frequency: int, duration_ms: int, sample_rate: int) -> bytes:
+    if sample_rate <= 0:
+        return b""
+    sample_count = max(1, int(sample_rate * duration_ms / 1000))
+    period = max(1, int(sample_rate / max(1, frequency)))
+    amplitude = 1400
+    data = bytearray()
+    for index in range(sample_count):
+        envelope = 1.0 - (index / sample_count)
+        value = int((amplitude if (index % period) < period / 2 else -amplitude) * envelope)
+        data.extend(value.to_bytes(2, "little", signed=True))
+    return bytes(data)
 
 
 def _format_duration(seconds: int) -> str:
@@ -1407,6 +1475,8 @@ def _media_item(item: dict[str, object], playlist: bool = False) -> dict[str, ob
     title = str(item.get("name") or item.get("title") or item.get("display_title") or item.get("track_name") or "")
     subtitle = str(item.get("artist") or item.get("artist_name") or item.get("artists") or item.get("subtitle") or item.get("album") or "")
     uri = str(item.get("uri") or item.get("id") or item.get("value") or item.get("playlist_uri") or item.get("track_uri") or "")
+    context_uri = str(item.get("context_uri") or item.get("contextUri") or item.get("queue_context") or item.get("queueContext") or "")
+    index = item.get("index")
     image_url = str(
         item.get("image_url")
         or item.get("imageUrl")
@@ -1422,13 +1492,59 @@ def _media_item(item: dict[str, object], playlist: bool = False) -> dict[str, ob
         subtitle = str(item.get("owner") or item.get("owner_name") or item.get("description") or subtitle)
         if not title or not uri:
             return None
-    return {
+    result: dict[str, object] = {
         "title": title,
         "subtitle": subtitle,
         "uri": uri,
         "imageUrl": image_url,
         "tint": "#8b5cf6" if playlist else "#38bdf8",
     }
+    if not playlist:
+        result["contextUri"] = context_uri
+        result["index"] = index if isinstance(index, int) else None
+    return result
+
+
+def media_item_payload(command: str, item: object) -> dict[str, object]:
+    if isinstance(item, str):
+        uri = item.strip()
+        item_data: dict[str, object] = {"uri": uri}
+    elif isinstance(item, dict):
+        item_data = item
+        uri = str(item_data.get("uri") or item_data.get("value") or "").strip()
+    else:
+        return {}
+    if not uri:
+        return {}
+    if command == "start_playlist":
+        return {"value": uri, "uri": uri, "context_uri": uri}
+
+    payload: dict[str, object] = {"value": uri, "uri": uri}
+    title = str(item_data.get("title") or "").strip()
+    artist = str(item_data.get("artist") or item_data.get("subtitle") or "").strip()
+    context_uri = str(
+        item_data.get("context_uri")
+        or item_data.get("contextUri")
+        or item_data.get("queue_context")
+        or item_data.get("queueContext")
+        or ""
+    ).strip()
+    index = item_data.get("index")
+    if title:
+        payload["title"] = title
+    if artist:
+        payload["artist"] = artist
+    if isinstance(index, int):
+        payload["index"] = index
+    if context_uri:
+        payload["context_uri"] = context_uri
+        if _context_supports_offset(context_uri):
+            payload["offset_uri"] = uri
+    return payload
+
+
+def _context_supports_offset(context_uri: str) -> bool:
+    return context_uri.startswith(("spotify:playlist:", "spotify:album:", "spotify:show:"))
 
 
 def _first_present(data: dict[str, object], keys: tuple[str, ...]) -> object:

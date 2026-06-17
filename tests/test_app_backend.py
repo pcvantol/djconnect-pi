@@ -15,6 +15,7 @@ from djconnect_pi.app import (
     _format_logs_for_display,
     _read_tail_text,
     cached_image_url,
+    media_item_payload,
     parse_playlist_items,
     parse_queue_items,
     prepare_media_artwork,
@@ -113,6 +114,68 @@ def test_media_list_parsers_accept_ha_artwork_aliases() -> None:
     assert queue[0]["imageUrl"] == "https://example.test/track.jpg"
     assert playlists[0]["title"] == "Friday Night"
     assert playlists[0]["imageUrl"] == "https://example.test/playlist.jpg"
+
+
+def test_queue_parser_preserves_optional_context_and_episode_uri() -> None:
+    queue = parse_queue_items(
+        {
+            "queue": {
+                "items": [
+                    {
+                        "title": "Podcast Episode",
+                        "artist": "Podcast",
+                        "uri": "spotify:episode:episode-1",
+                    },
+                    {
+                        "title": "Playlist Track",
+                        "uri": "spotify:track:track-1",
+                        "queue_context": "spotify:playlist:playlist-1",
+                        "index": 4,
+                    },
+                ]
+            }
+        }
+    )
+
+    assert queue[0]["uri"] == "spotify:episode:episode-1"
+    assert queue[0]["contextUri"] == ""
+    assert queue[1]["contextUri"] == "spotify:playlist:playlist-1"
+    assert queue[1]["index"] == 4
+
+
+def test_media_item_payload_allows_queue_item_without_context() -> None:
+    payload = media_item_payload(
+        "start_queue_item",
+        {"title": "Episode", "subtitle": "Podcast", "uri": "spotify:episode:episode-1"},
+    )
+
+    assert payload == {
+        "value": "spotify:episode:episode-1",
+        "uri": "spotify:episode:episode-1",
+        "title": "Episode",
+        "artist": "Podcast",
+    }
+
+
+def test_media_item_payload_preserves_context_offset_when_supported() -> None:
+    payload = media_item_payload(
+        "start_queue_item",
+        {
+            "title": "Track",
+            "uri": "spotify:track:track-1",
+            "contextUri": "spotify:show:show-1",
+            "index": 2,
+        },
+    )
+
+    assert payload["uri"] == "spotify:track:track-1"
+    assert payload["context_uri"] == "spotify:show:show-1"
+    assert payload["offset_uri"] == "spotify:track:track-1"
+    assert payload["index"] == 2
+
+
+def test_media_item_payload_skips_queue_item_without_uri() -> None:
+    assert media_item_payload("start_queue_item", {"title": "Missing URI"}) == {}
 
 
 @pytest.mark.parametrize(
@@ -774,6 +837,40 @@ def test_backend_queue_request_is_limited_to_100_items(tmp_path: Path) -> None:
     backend._load_queue_worker()
 
     assert calls == [("queue", {"limit": 100})]
+
+
+def test_backend_queue_item_worker_sends_direct_uri_without_required_context(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    parser = HAClient(backend.cfg)
+    calls: list[tuple[str, dict[str, object]]] = []
+    backend._refresh_worker = lambda: None  # type: ignore[method-assign]
+
+    class FakeClient:
+        def command(self, command: str, **payload: object) -> dict[str, object]:
+            calls.append((command, payload))
+            return {"playback": {"title": "Episode"}}
+
+        def playback_from_status(self, data: dict[str, object]) -> Playback:
+            return parser.playback_from_status(data)
+
+    backend.client = FakeClient()  # type: ignore[assignment]
+
+    backend._play_media_item_worker(
+        "start_queue_item",
+        media_item_payload("start_queue_item", {"title": "Episode", "uri": "spotify:episode:episode-1"}),
+    )
+
+    assert calls == [
+        (
+            "start_queue_item",
+            {
+                "value": "spotify:episode:episode-1",
+                "uri": "spotify:episode:episode-1",
+                "title": "Episode",
+            },
+        )
+    ]
 
 
 def test_backend_playlists_are_emitted_before_artwork_cache(tmp_path: Path, monkeypatch) -> None:

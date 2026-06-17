@@ -332,6 +332,8 @@ def _media_item(item: dict[str, object], playlist: bool = False) -> dict[str, ob
     title = str(item.get("name") or item.get("title") or item.get("display_title") or item.get("track_name") or "")
     subtitle = str(item.get("artist") or item.get("artist_name") or item.get("artists") or item.get("subtitle") or item.get("album") or "")
     uri = str(item.get("uri") or item.get("id") or item.get("value") or item.get("playlist_uri") or item.get("track_uri") or "")
+    context_uri = str(item.get("context_uri") or item.get("contextUri") or item.get("queue_context") or item.get("queueContext") or "")
+    index = item.get("index")
     image_url = str(
         item.get("image_url")
         or item.get("imageUrl")
@@ -347,13 +349,17 @@ def _media_item(item: dict[str, object], playlist: bool = False) -> dict[str, ob
         subtitle = str(item.get("owner") or item.get("owner_name") or item.get("description") or subtitle)
         if not title or not uri:
             return None
-    return {
+    result: dict[str, object] = {
         "title": title,
         "subtitle": subtitle,
         "uri": uri,
         "imageUrl": image_url,
         "tint": "#8b5cf6" if playlist else "#38bdf8",
     }
+    if not playlist:
+        result["contextUri"] = context_uri
+        result["index"] = index if isinstance(index, int) else None
+    return result
 
 
 def _first_present(data: dict[str, object], keys: tuple[str, ...]) -> object:

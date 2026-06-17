@@ -101,10 +101,12 @@ def test_web_portal_renders_diagnostics_block() -> None:
 def test_web_portal_media_buttons_and_refresh_are_clickable() -> None:
     html = index_html("3.1.64").decode("utf-8")
 
-    assert "encodeURIComponent(uri)" in html
+    assert "encodeURIComponent(JSON.stringify(item))" in html
     assert "decodeURIComponent" in html
-    assert "playMedia(command,encodedUri)" in html
-    assert "context_uri:uri" in html
+    assert "playMedia(command,encodedItem)" in html
+    assert "function mediaPayload(command,item)" in html
+    assert "payload.context_uri=context" in html
+    assert "payload.offset_uri=uri" in html
     assert "selectOutput(this.value)" in html
     assert "pendingOutputDevice" not in html
     assert "const selectedOutput=playback.output_device" in html
@@ -113,6 +115,20 @@ def test_web_portal_media_buttons_and_refresh_are_clickable() -> None:
     assert "refreshAll(true)" in html
     assert "scrollLogsToBottom()" in html
     assert "setBusy('logsRefreshButton',true,t('refreshing'))" in html
+
+
+def test_web_portal_has_local_games_with_sound_hooks() -> None:
+    html = index_html("3.1.64").decode("utf-8")
+
+    assert "id=\"gameCanvas\"" in html
+    assert "const gameDefs" in html
+    assert "function sfx(kind)" in html
+    assert "AudioContext" in html
+    assert "navigator.vibrate" in html
+    assert "game_help_asteroids:'Beweeg links en rechts. Schiet om meteorieten te raken.'" in html
+    assert "game_help_asteroids:'Move left and right. Fire to hit meteors.'" in html
+    assert "power:[0,7,24,31]" in html
+    assert "setInterval(gameTick,33)" in html
     assert "Gekopieerd naar klembord" in html
     assert "const I18N" in html
     assert 'data-i18n="settings"' in html

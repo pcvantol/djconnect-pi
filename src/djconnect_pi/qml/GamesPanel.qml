@@ -83,6 +83,12 @@ Rectangle {
     property int score: 0
     property var highScores: ({ pong: 0, asteroids: 0, fly: 0, pacman: 0 })
     property bool flash: false
+    property int pauseTicks: 0
+    property int hitPulseTicks: 0
+    property int wallPulseTicks: 0
+    property int deathTicks: 0
+    property var explosions: []
+    property var stars: []
 
     property real paddleY: 86
     property real ballX: 160
@@ -93,11 +99,16 @@ Rectangle {
     property real asteroidX: 80
     property real asteroidY: 48
     property real asteroidVX: 2
+    property real asteroidSpeed: 1.2
+    property real asteroidSize: 9
+    property int asteroidShape: 0
     property real asteroidBulletY: 120
     property bool asteroidBulletActive: false
     property real planeY: 86
     property real obstacleX: 300
     property real obstacleY: 90
+    property int obstacleShape: 0
+    property color obstacleColor: "#9a6b3f"
     property real flyShotX: 58
     property bool flyShotActive: false
     property real pacmanX: 46
@@ -106,7 +117,7 @@ Rectangle {
     property real pacmanDY: 0
     property real ghostX: 250
     property real ghostY: 86
-    property int powerPellet: 23
+    property var powerPellets: [0, 7, 24, 31]
     property int ghostVulnerableTicks: 0
     property var pellets: []
 
@@ -123,7 +134,10 @@ Rectangle {
     }
 
     function startGame() {
-        if (!playing) playing = true
+        if (!playing) {
+            playing = true
+            playSfx("start")
+        }
     }
 
     function resetGame() {
@@ -137,6 +151,12 @@ Rectangle {
         asteroidBulletActive = false
         planeY = 86
         flyShotActive = false
+        pauseTicks = 0
+        hitPulseTicks = 0
+        wallPulseTicks = 0
+        deathTicks = 0
+        explosions = []
+        resetStars()
         resetPacman()
         resetAsteroid()
         resetObstacle()
@@ -145,13 +165,19 @@ Rectangle {
 
     function resetAsteroid() {
         asteroidX = 40 + Math.random() * 240
-        asteroidY = 46
-        asteroidVX = Math.random() > 0.5 ? 2 : -2
+        asteroidY = 34
+        asteroidVX = 0
+        asteroidSpeed = 0.95 + Math.random() * 1.25 + Math.min(score / 30, 1.4)
+        asteroidSize = 6 + Math.random() * 7
+        asteroidShape = Math.floor(Math.random() * 3)
     }
 
     function resetObstacle() {
         obstacleX = 310
         obstacleY = 52 + Math.random() * 86
+        obstacleShape = Math.floor(Math.random() * 4)
+        var colors = ["#9a6b3f", "#e879f9", "#38bdf8", "#facc15"]
+        obstacleColor = colors[obstacleShape]
     }
 
     function resetPacman() {
@@ -161,15 +187,36 @@ Rectangle {
         pacmanDY = 0
         ghostX = 250
         ghostY = 86
-        powerPellet = 31
+        powerPellets = [0, 7, 24, 31]
         ghostVulnerableTicks = 0
+        deathTicks = 0
         pellets = []
         for (var i = 0; i < 32; i++) pellets.push(i)
+    }
+
+    function resetStars() {
+        stars = []
+        for (var i = 0; i < 32; i++) {
+            stars.push({ x: Math.random() * 320, y: 30 + Math.random() * 130, speed: 0.35 + Math.random() * 1.8, phase: Math.random() * 6.28 })
+        }
     }
 
     function showFlash() {
         flash = true
         flashTimer.restart()
+    }
+
+    function playSfx(kind) {
+        djconnect.playGameSound(kind)
+        haptic()
+    }
+
+    function haptic() {
+        if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(10)
+    }
+
+    function addExplosion(x, y, tint) {
+        explosions.push({ x: x, y: y, age: 0, tint: tint })
     }
 
     function selectGame(index) {
@@ -180,6 +227,7 @@ Rectangle {
 
     function move(direction) {
         startGame()
+        playSfx("move")
         if (gameId === "pong") {
             paddleY = Math.max(42, Math.min(126, paddleY + direction * 12))
         } else if (gameId === "asteroids") {
@@ -195,6 +243,7 @@ Rectangle {
 
     function moveHorizontal(direction) {
         startGame()
+        playSfx("move")
         if (gameId === "pacman") {
             pacmanDX = direction
             pacmanDY = 0
@@ -209,9 +258,11 @@ Rectangle {
         if (gameId === "asteroids" && !asteroidBulletActive) {
             asteroidBulletActive = true
             asteroidBulletY = 120
+            playSfx("fire")
         } else if (gameId === "fly" && !flyShotActive) {
             flyShotActive = true
             flyShotX = 58
+            playSfx("fire")
         }
     }
 
@@ -241,39 +292,71 @@ Rectangle {
 
     function tickGame() {
         if (!playing) return
+        for (var e = explosions.length - 1; e >= 0; e--) {
+            explosions[e].age += 1
+            if (explosions[e].age > 18) explosions.splice(e, 1)
+        }
+        if (pauseTicks > 0) {
+            pauseTicks -= 1
+            gameCanvas.requestPaint()
+            return
+        }
+        if (hitPulseTicks > 0) hitPulseTicks -= 1
+        if (wallPulseTicks > 0) wallPulseTicks -= 1
+        for (var s = 0; s < stars.length; s++) {
+            stars[s].x -= stars[s].speed * (gameId === "fly" ? 1.8 : 0.45)
+            stars[s].phase += 0.08
+            if (stars[s].x < 0) {
+                stars[s].x = 320
+                stars[s].y = 30 + Math.random() * 130
+            }
+        }
         if (gameId === "pong") {
             ballX += ballVX
             ballY += ballVY
-            if (ballY <= 42 || ballY >= 156) ballVY *= -1
-            if (ballX >= 306) ballVX = -Math.abs(ballVX)
+            if (ballY <= 42 || ballY >= 156) {
+                ballVY *= -1
+                wallPulseTicks = 8
+                playSfx("wall")
+            }
+            if (ballX >= 306) {
+                ballVX = -Math.abs(ballVX)
+                wallPulseTicks = 8
+                playSfx("wall")
+            }
             if (ballX <= 30) {
                 if (ballY >= paddleY - 20 && ballY <= paddleY + 20) {
                     ballVX = Math.abs(ballVX)
+                    hitPulseTicks = 10
+                    playSfx("hit")
                     setScore(score + 1)
                 } else {
                     showFlash()
+                    playSfx("gameover")
                     setScore(0)
                     ballX = 160
                     ballY = 86
                     ballVX = 3
                     ballVY = Math.random() > 0.5 ? 2 : -2
+                    pauseTicks = 26
                 }
             }
         } else if (gameId === "asteroids") {
-            asteroidX += asteroidVX
-            asteroidY += 2 + Math.min(Math.floor(score / 5), 3)
-            if (asteroidX < 24 || asteroidX > 296) asteroidVX *= -1
+            asteroidY += asteroidSpeed
             if (asteroidBulletActive) {
                 asteroidBulletY -= 8
                 if (asteroidBulletY < 36) asteroidBulletActive = false
-                else if (Math.abs(asteroidX - shipX) < 16 && Math.abs(asteroidY - asteroidBulletY) < 16) {
+                else if (Math.abs(asteroidX - shipX) < asteroidSize + 8 && Math.abs(asteroidY - asteroidBulletY) < asteroidSize + 8) {
                     asteroidBulletActive = false
+                    addExplosion(asteroidX, asteroidY, "#ff6fb3")
+                    playSfx("explode")
                     setScore(score + 1)
                     resetAsteroid()
                 }
             }
             if (asteroidY > 150) {
                 showFlash()
+                playSfx("gameover")
                 setScore(0)
                 resetAsteroid()
             }
@@ -284,6 +367,8 @@ Rectangle {
                 if (flyShotX > 310) flyShotActive = false
                 else if (Math.abs(flyShotX - obstacleX) < 16 && Math.abs(planeY - obstacleY) < 24) {
                     flyShotActive = false
+                    addExplosion(obstacleX, obstacleY, "#facc15")
+                    playSfx("explode")
                     setScore(score + 1)
                     resetObstacle()
                 }
@@ -294,10 +379,21 @@ Rectangle {
             }
             if (obstacleX < 66 && obstacleX > 28 && Math.abs(planeY - obstacleY) < 28) {
                 showFlash()
+                addExplosion(48, planeY, "#ff5b5b")
+                playSfx("crash")
                 setScore(0)
                 resetObstacle()
             }
         } else {
+            if (deathTicks > 0) {
+                deathTicks -= 1
+                if (deathTicks === 0) {
+                    setScore(0)
+                    resetPacman()
+                }
+                gameCanvas.requestPaint()
+                return
+            }
             pacmanX = Math.max(28, Math.min(292, pacmanX + pacmanDX * 4))
             pacmanY = Math.max(44, Math.min(150, pacmanY + pacmanDY * 4))
             if (ghostVulnerableTicks > 0) ghostVulnerableTicks -= 1
@@ -310,10 +406,12 @@ Rectangle {
                 var py = 52 + Math.floor(pellet / 8) * 28
                 if (Math.abs(px - pacmanX) < 10 && Math.abs(py - pacmanY) < 10) {
                     pellets.splice(p, 1)
-                    if (pellet === powerPellet) {
+                    if (powerPellets.indexOf(pellet) >= 0) {
                         ghostVulnerableTicks = 210
+                        playSfx("power")
                         setScore(score + 3)
                     } else {
+                        playSfx("pellet")
                         setScore(score + 1)
                     }
                     break
@@ -323,13 +421,15 @@ Rectangle {
             if (Math.abs(ghostX - pacmanX) < 14 && Math.abs(ghostY - pacmanY) < 14) {
                 if (ghostVulnerableTicks > 0) {
                     setScore(score + 5)
+                    playSfx("ghost")
                     ghostX = 250
                     ghostY = 86
                     ghostVulnerableTicks = 0
                 } else {
                     showFlash()
-                    setScore(0)
-                    resetPacman()
+                    playSfx("death")
+                    deathTicks = 34
+                    pauseTicks = 0
                 }
             }
         }
@@ -434,6 +534,18 @@ Rectangle {
                     ctx.setLineDash([])
                     ctx.fillStyle = "#05080a"
                     ctx.fillRect(0, 0, width, height)
+                    if (root.gameId === "asteroids" || root.gameId === "fly") {
+                        for (var st = 0; st < root.stars.length; st++) {
+                            var star = root.stars[st]
+                            var alpha = root.gameId === "asteroids" ? 0.32 + Math.sin(star.phase) * 0.18 : 0.28
+                            ctx.fillStyle = "rgba(255,255,255," + alpha + ")"
+                            if (root.gameId === "fly") {
+                                ctx.fillRect(rx(star.x), ry(star.y), rx(8 + star.speed * 4), Math.max(1, ry(1)))
+                            } else {
+                                ctx.fillRect(rx(star.x), ry(star.y), Math.max(1, rx(1.2)), Math.max(1, ry(1.2)))
+                            }
+                        }
+                    }
                     ctx.strokeStyle = "#26383d"
                     ctx.lineWidth = 2
                     ctx.strokeRect(1, 1, width - 2, height - 2)
@@ -450,7 +562,12 @@ Rectangle {
                         ctx.stroke()
                         ctx.setLineDash([])
                         ctx.fillStyle = "#ff9f43"
-                        ctx.fillRect(rx(18), ry(root.paddleY - 17), rx(8), ry(34))
+                        ctx.fillRect(rx(18 - (root.hitPulseTicks > 0 ? 2 : 0)), ry(root.paddleY - 17), rx(root.hitPulseTicks > 0 ? 12 : 8), ry(34))
+                        if (root.wallPulseTicks > 0) {
+                            ctx.strokeStyle = "rgba(255,255,255,0.28)"
+                            ctx.lineWidth = 3
+                            ctx.strokeRect(rx(4), ry(32), rx(312), ry(130))
+                        }
                         if (root.playing) {
                             ctx.fillStyle = "#1db954"
                             ctx.beginPath()
@@ -466,9 +583,18 @@ Rectangle {
                         ctx.lineTo(rx(root.shipX + 9), ry(146))
                         ctx.closePath()
                         ctx.stroke()
-                        ctx.strokeStyle = "#ff6fb3"
+                        ctx.strokeStyle = ["#ff6fb3", "#facc15", "#a78bfa"][root.asteroidShape]
                         ctx.beginPath()
-                        ctx.arc(rx(root.asteroidX), ry(root.asteroidY), Math.max(rx(10), ry(10)), 0, Math.PI * 2)
+                        if (root.asteroidShape === 0) {
+                            ctx.arc(rx(root.asteroidX), ry(root.asteroidY), Math.max(rx(root.asteroidSize), ry(root.asteroidSize)), 0, Math.PI * 2)
+                        } else if (root.asteroidShape === 1) {
+                            ctx.rect(rx(root.asteroidX - root.asteroidSize), ry(root.asteroidY - root.asteroidSize), rx(root.asteroidSize * 2), ry(root.asteroidSize * 2))
+                        } else {
+                            ctx.moveTo(rx(root.asteroidX), ry(root.asteroidY - root.asteroidSize))
+                            ctx.lineTo(rx(root.asteroidX + root.asteroidSize), ry(root.asteroidY + root.asteroidSize))
+                            ctx.lineTo(rx(root.asteroidX - root.asteroidSize), ry(root.asteroidY + root.asteroidSize * 0.8))
+                            ctx.closePath()
+                        }
                         ctx.stroke()
                         if (root.asteroidBulletActive) {
                             ctx.fillStyle = "#48d8ff"
@@ -482,8 +608,23 @@ Rectangle {
                         ctx.lineTo(rx(30), ry(root.planeY + 12))
                         ctx.closePath()
                         ctx.fill()
-                        ctx.fillStyle = "#9a6b3f"
-                        ctx.fillRect(rx(root.obstacleX - 8), ry(root.obstacleY - 18), rx(16), ry(36))
+                        ctx.fillStyle = root.obstacleColor
+                        ctx.beginPath()
+                        if (root.obstacleShape === 0) {
+                            ctx.fillRect(rx(root.obstacleX - 8), ry(root.obstacleY - 18), rx(16), ry(36))
+                        } else if (root.obstacleShape === 1) {
+                            ctx.arc(rx(root.obstacleX), ry(root.obstacleY), Math.max(rx(13), ry(13)), 0, Math.PI * 2)
+                            ctx.fill()
+                        } else if (root.obstacleShape === 2) {
+                            ctx.moveTo(rx(root.obstacleX), ry(root.obstacleY - 18))
+                            ctx.lineTo(rx(root.obstacleX + 16), ry(root.obstacleY))
+                            ctx.lineTo(rx(root.obstacleX), ry(root.obstacleY + 18))
+                            ctx.lineTo(rx(root.obstacleX - 16), ry(root.obstacleY))
+                            ctx.closePath()
+                            ctx.fill()
+                        } else {
+                            ctx.fillRect(rx(root.obstacleX - 14), ry(root.obstacleY - 8), rx(28), ry(16))
+                        }
                         if (root.flyShotActive) {
                             ctx.fillStyle = "#d9fbff"
                             ctx.fillRect(rx(root.flyShotX), ry(root.planeY - 2), rx(14), ry(4))
@@ -494,7 +635,7 @@ Rectangle {
                             var pellet = root.pellets[i]
                             var col = pellet % 8
                             var row = Math.floor(pellet / 8)
-                            var isPowerPellet = pellet === root.powerPellet
+                            var isPowerPellet = root.powerPellets.indexOf(pellet) >= 0
                             ctx.beginPath()
                             ctx.arc(
                                 rx(48 + col * 28),
@@ -524,6 +665,19 @@ Rectangle {
                         )
                         ctx.closePath()
                         ctx.fill()
+                        ctx.fillStyle = "#111827"
+                        var eyeX = root.pacmanX + (root.pacmanDX !== 0 ? root.pacmanDX * 3 : 2)
+                        var eyeY = root.pacmanY + (root.pacmanDY !== 0 ? root.pacmanDY * 3 : -4)
+                        ctx.beginPath()
+                        ctx.arc(rx(eyeX), ry(eyeY), Math.max(rx(1.8), ry(1.8)), 0, Math.PI * 2)
+                        ctx.fill()
+                        if (root.deathTicks > 0) {
+                            ctx.strokeStyle = "#fff7ad"
+                            ctx.lineWidth = 3
+                            ctx.beginPath()
+                            ctx.arc(rx(root.pacmanX), ry(root.pacmanY), Math.max(rx(16 + (34 - root.deathTicks) * 0.7), ry(16)), 0, Math.PI * 2)
+                            ctx.stroke()
+                        }
                         var ghostBlink = root.ghostVulnerableTicks > 0 && Math.floor(root.ghostVulnerableTicks / 12) % 2 === 0
                         ctx.fillStyle = root.ghostVulnerableTicks > 0 ? (ghostBlink ? "#e0f2fe" : "#3b82f6") : "#ff6fb3"
                         ctx.beginPath()
@@ -552,6 +706,17 @@ Rectangle {
                         ctx.lineWidth = 5
                         ctx.strokeRect(4, 4, width - 8, height - 8)
                     }
+                    for (var ex = 0; ex < root.explosions.length; ex++) {
+                        var boom = root.explosions[ex]
+                        var radius = 4 + boom.age * 1.5
+                        ctx.strokeStyle = boom.tint
+                        ctx.globalAlpha = Math.max(0, 1 - boom.age / 18)
+                        ctx.lineWidth = 3
+                        ctx.beginPath()
+                        ctx.arc(rx(boom.x), ry(boom.y), Math.max(rx(radius), ry(radius)), 0, Math.PI * 2)
+                        ctx.stroke()
+                        ctx.globalAlpha = 1
+                    }
                 }
 
                 MouseArea {
@@ -579,29 +744,45 @@ Rectangle {
             GlassButton {
                 text: root.gameId === "asteroids" ? root.tr("left") : root.tr("up")
                 Layout.fillWidth: true
-                Layout.fillHeight: true
+                Layout.preferredHeight: 58
                 onClicked: root.gameId === "asteroids" ? root.moveHorizontal(-1) : root.move(-1)
             }
 
             GlassButton {
-                text: root.gameId === "asteroids" ? root.tr("right") : root.tr("down")
+                visible: root.gameId === "pacman"
+                text: root.tr("down")
                 Layout.fillWidth: true
-                Layout.fillHeight: true
-                onClicked: root.gameId === "asteroids" ? root.moveHorizontal(1) : root.move(1)
+                Layout.preferredHeight: 58
+                onClicked: root.move(1)
+            }
+
+            GlassButton {
+                visible: root.gameId === "pacman"
+                text: root.tr("left")
+                Layout.fillWidth: true
+                Layout.preferredHeight: 58
+                onClicked: root.moveHorizontal(-1)
+            }
+
+            GlassButton {
+                text: root.gameId === "pacman" ? root.tr("right") : root.gameId === "asteroids" ? root.tr("right") : root.tr("down")
+                Layout.fillWidth: true
+                Layout.preferredHeight: 58
+                onClicked: root.gameId === "pacman" || root.gameId === "asteroids" ? root.moveHorizontal(1) : root.move(1)
             }
 
             GlassButton {
                 visible: root.gameId === "asteroids" || root.gameId === "fly"
                 text: root.tr("fire")
                 Layout.fillWidth: true
-                Layout.fillHeight: true
+                Layout.preferredHeight: 58
                 onClicked: root.fire()
             }
 
             GlassButton {
                 text: root.tr("reset")
                 Layout.fillWidth: true
-                Layout.fillHeight: true
+                Layout.preferredHeight: 58
                 onClicked: {
                     root.playing = false
                     root.resetGame()

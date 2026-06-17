@@ -501,7 +501,8 @@ Window {
 
                                 MouseArea {
                                     anchors.fill: parent
-                                    onClicked: djconnect.playMediaItem(panel.playCommand, modelData.uri)
+                                    enabled: modelData.uri && modelData.uri.length > 0
+                                    onClicked: djconnect.playMediaItem(panel.playCommand, modelData)
                                 }
 
                                 Rectangle {
@@ -565,7 +566,8 @@ Window {
                                     id: mediaPlay
                                     anchors.right: parent.right
                                     anchors.verticalCenter: parent.verticalCenter
-                                    onClicked: djconnect.playMediaItem(panel.playCommand, modelData.uri)
+                                    enabled: modelData.uri && modelData.uri.length > 0
+                                    onClicked: djconnect.playMediaItem(panel.playCommand, modelData)
                                 }
                             }
                         }
@@ -689,11 +691,11 @@ Window {
 
         ColumnLayout {
             anchors.fill: parent
-            anchors.leftMargin: 16
-            anchors.topMargin: 16
-            anchors.rightMargin: 16
-            anchors.bottomMargin: root.edge + 112
-            spacing: 9
+            anchors.leftMargin: 8
+            anchors.topMargin: 8
+            anchors.rightMargin: 8
+            anchors.bottomMargin: root.edge + 96
+            spacing: 6
 
             RowLayout {
                 Layout.fillWidth: true
@@ -735,7 +737,7 @@ Window {
                 Rectangle {
                     id: artFrame
                     anchors.centerIn: parent
-                    width: Math.min(parent.width - 6, parent.height - 4)
+                    width: Math.min(parent.width, parent.height)
                     height: width
                     radius: 8
                     color: "#172024"
@@ -797,14 +799,14 @@ Window {
 
                         background: Rectangle {
                             radius: width / 2
-                            color: albumQuickPlay.down ? "#aa2b194d" : "#7024145f"
-                            border.color: "#80ffffff"
+                            color: albumQuickPlay.down ? "#7a2b194d" : "#3824145f"
+                            border.color: "#45ffffff"
                             border.width: 1
-                            opacity: albumQuickPlay.down ? 0.92 : 0.74
+                            opacity: albumQuickPlay.down ? 0.72 : 0.42
                             gradient: Gradient {
                                 orientation: Gradient.Horizontal
-                                GradientStop { position: 0.0; color: "#70d946ef" }
-                                GradientStop { position: 1.0; color: "#70636bff" }
+                                GradientStop { position: 0.0; color: "#38d946ef" }
+                                GradientStop { position: 1.0; color: "#38636bff" }
                             }
                         }
                     }
@@ -876,28 +878,6 @@ Window {
 
                 TapHandler {
                     onTapped: root.activeScreen = "control"
-                }
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 24
-                spacing: 9
-
-                Rectangle {
-                    width: 14
-                    height: 14
-                    radius: 7
-                    color: djconnect.paired ? (djconnect.backendAvailable ? "#32d35a" : "#ff3b30") : "#e0a83a"
-                    Layout.alignment: Qt.AlignVCenter
-                }
-
-                Text {
-                    text: djconnect.statusText
-                    color: "#c2d3d6"
-                    font.pixelSize: 16
-                    elide: Text.ElideRight
-                    Layout.fillWidth: true
                 }
             }
 
@@ -1238,26 +1218,6 @@ Window {
                     Layout.fillWidth: true
                 }
 
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 14
-
-                    Text {
-                        text: root.tr("device_id")
-                        color: "#d7e2e4"
-                        font.pixelSize: 22
-                        Layout.preferredWidth: 176
-                    }
-
-                    Text {
-                        text: djconnect.deviceId
-                        color: "#f4f8f8"
-                        font.pixelSize: 20
-                        elide: Text.ElideMiddle
-                        Layout.fillWidth: true
-                    }
-                }
-
                 PurpleButton {
                     visible: !djconnect.paired
                     text: djconnect.demoMode ? root.tr("exit_demo") : root.tr("demo_mode")
@@ -1273,27 +1233,6 @@ Window {
                         }
                     }
                 }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 14
-
-                Text {
-                    text: root.tr("ha_url")
-                    color: "#d7e2e4"
-                    font.pixelSize: 22
-                    Layout.preferredWidth: 176
-                }
-
-            Text {
-                id: haUrlField
-                text: djconnect.haUrl.length ? djconnect.haUrl : "http://homeassistant.local:8123"
-                color: "#f4f8f8"
-                font.pixelSize: 24
-                Layout.fillWidth: true
-                elide: Text.ElideMiddle
-            }
-            }
 
             RowLayout {
                 Layout.fillWidth: true
@@ -1407,14 +1346,6 @@ Window {
                 }
             }
 
-            PurpleButton {
-                text: root.tr("check_updates")
-                font.pixelSize: 24
-                Layout.fillWidth: true
-                Layout.preferredHeight: 58
-                onClicked: djconnect.checkForUpdates()
-            }
-
             RowLayout {
                 Layout.fillWidth: true
                 spacing: 14
@@ -1478,6 +1409,14 @@ Window {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 58
                 onClicked: djconnect.showLogs()
+            }
+
+            PurpleButton {
+                text: root.tr("check_updates")
+                font.pixelSize: 24
+                Layout.fillWidth: true
+                Layout.preferredHeight: 58
+                onClicked: djconnect.checkForUpdates()
             }
 
             RowLayout {
