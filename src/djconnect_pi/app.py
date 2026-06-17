@@ -15,7 +15,6 @@ from urllib.parse import urlparse
 
 from PySide6.QtCore import QByteArray, QBuffer, QCoreApplication, QIODevice, QObject, Property, QTimer, Signal, Slot
 from PySide6.QtGui import QGuiApplication
-from PySide6.QtMultimedia import QAudioFormat, QAudioSink, QMediaDevices
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
 import requests
@@ -108,7 +107,7 @@ class DJConnectBackend(QObject):
         self._media_loads_in_flight: set[str] = set()
         self._pending_output_device = ""
         self._pending_output_until = 0.0
-        self._game_sound_objects: list[tuple[QAudioSink, QBuffer]] = []
+        self._game_sound_objects: list[tuple[object, QBuffer]] = []
         self._status_text = self.tr_key("paired" if self.cfg.paired else "not_paired")
         self._backend_available = True
         self._busy = False
@@ -767,6 +766,11 @@ class DJConnectBackend(QObject):
 
     @Slot(str)
     def playGameSound(self, kind: str) -> None:
+        try:
+            from PySide6.QtMultimedia import QAudioFormat, QAudioSink, QMediaDevices
+        except Exception as exc:
+            _LOGGER.debug("Game sound unavailable: %s", exc)
+            return
         tones = {
             "start": (220, 90),
             "move": (180, 45),
@@ -806,9 +810,10 @@ class DJConnectBackend(QObject):
         except Exception as exc:
             _LOGGER.debug("Game sound skipped: %s", exc)
 
-    def _cleanup_game_sound(self, sink: QAudioSink, buffer: QBuffer) -> None:
+    def _cleanup_game_sound(self, sink: object, buffer: QBuffer) -> None:
         try:
-            sink.stop()
+            if hasattr(sink, "stop"):
+                sink.stop()
             buffer.close()
         finally:
             self._game_sound_objects = [(s, b) for s, b in self._game_sound_objects if s is not sink and b is not buffer]

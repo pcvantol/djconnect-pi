@@ -1,6 +1,6 @@
 # Changelog
 
-## 3.1.68
+## 3.1.69
 
 - Allow Raspberry Pi queue items with a direct Spotify track or episode URI to
   start without requiring `queue_context`/`context_uri`, while preserving
@@ -11,6 +11,8 @@
 - Simplified the touch Settings screen by moving Device ID and Home Assistant
   URL out of Settings, placing update checks below Logs, removing the Now
   Playing status footer and giving album art more screen space.
+- Lazily load QtMultimedia for local game sound effects so headless test
+  runners without PulseAudio libraries can still import the client backend.
 
 ## 3.1.67
 
