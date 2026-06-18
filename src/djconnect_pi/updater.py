@@ -281,13 +281,13 @@ def install_python_dependencies(release_dir: Path, version: str, status: UpdateS
         _run_once(
             state_dir,
             package_name,
-            [str(python), "-m", "pip", "install", "--upgrade", "--prefer-binary", requirement],
+            [str(python), "-m", "pip", "install", "--upgrade", "--only-binary=:all:", requirement],
             env=pip_env,
             status=status,
             message=message,
             progress=progress,
         )
-    _run_once(state_dir, "wheel_installed", [str(python), "-m", "pip", "install", "--prefer-binary", str(wheel_path)], env=pip_env, status=status, message="DJConnect app installeren", progress=96)
+    _run_once(state_dir, "wheel_installed", [str(python), "-m", "pip", "install", "--only-binary=:all:", str(wheel_path)], env=pip_env, status=status, message="DJConnect app installeren", progress=96)
     bin_link.symlink_to(".venv/bin")
     validate_release_entrypoints(release_dir)
 

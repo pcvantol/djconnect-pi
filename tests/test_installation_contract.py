@@ -305,7 +305,7 @@ def test_install_script_can_resume_after_reboot_or_interruption() -> None:
     assert "Skipping pip self-upgrade" in script
     assert "DJCONNECT_UPGRADE_PIP=1" in script
     assert '${release_dir}/.venv/bin/python" -m pip install --upgrade pip' in script
-    assert '${release_dir}/.venv/bin/python" -m pip install --prefer-binary "$wheel_path"' in script
+    assert '${release_dir}/.venv/bin/python" -m pip install --only-binary=:all: "$wheel_path"' in script
     assert 'release_state_dir="${release_dir}/.install-state"' in script
     assert '${release_state_dir}/venv_created' in script
     assert '${release_state_dir}/build_tools_installed' in script
@@ -325,8 +325,8 @@ def test_install_script_can_resume_after_reboot_or_interruption() -> None:
     assert 'rm -rf "${release_dir}/.venv" "${release_dir}/bin"' in script
     assert "wheel_path=" in script
     assert "djconnect_pi-${version}-*.whl" in script
-    assert 'install --prefer-binary "$wheel_path"' in script
-    assert 'install --prefer-binary "$release_dir"' not in script
+    assert 'install --only-binary=:all: "$wheel_path"' in script
+    assert 'install --only-binary=:all: "$release_dir"' not in script
     assert "DJConnect Pi wheel not found" in script
 
 
@@ -349,7 +349,7 @@ def test_install_script_configures_xwrapper_for_systemd_kiosk_start() -> None:
     assert "needs_root_rights=yes" in script
     assert "sed -i" in script
     assert "configure_xwrapper" in script.split("cp \"${DJCONNECT_ROOT}/current/systemd/\"", 1)[0]
-    assert "install --prefer-binary" in script
+    assert "install --only-binary=:all:" in script
     assert 'install -d -o root -g root "$DJCONNECT_PIP_CACHE"' in script
     assert "/opt/djconnect/pip-cache" not in script
     assert "resumes completed install steps after an interrupted run or reboot" in script

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DJCONNECT_VERSION="${DJCONNECT_VERSION:-3.1.81}"
+DJCONNECT_VERSION="${DJCONNECT_VERSION:-3.1.82}"
 DJCONNECT_REPO="${DJCONNECT_REPO:-pcvantol/djconnect-pi-releases}"
 DJCONNECT_HA_URL="${DJCONNECT_HA_URL:-http://homeassistant.local:8123}"
 DJCONNECT_RUNTIME_USER="${DJCONNECT_RUNTIME_USER:-djconnect}"
@@ -393,31 +393,31 @@ install_python_dependencies() {
     printf 'ok\n' >"${release_state_dir}/build_tools_installed"
   fi
   if [[ ! -f "${release_state_dir}/shiboken6_installed" ]]; then
-    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --upgrade --prefer-binary "shiboken6>=6.7"
+    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --upgrade --only-binary=:all: "shiboken6>=6.7"
     printf 'ok\n' >"${release_state_dir}/shiboken6_installed"
   fi
   if [[ ! -f "${release_state_dir}/pyside6_essentials_installed" ]]; then
-    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --upgrade --prefer-binary "PySide6_Essentials>=6.7"
+    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --upgrade --only-binary=:all: "PySide6_Essentials>=6.7"
     printf 'ok\n' >"${release_state_dir}/pyside6_essentials_installed"
   fi
   if [[ ! -f "${release_state_dir}/pyside6_addons_installed" ]]; then
-    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --upgrade --prefer-binary "PySide6_Addons>=6.7"
+    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --upgrade --only-binary=:all: "PySide6_Addons>=6.7"
     printf 'ok\n' >"${release_state_dir}/pyside6_addons_installed"
   fi
   if [[ ! -f "${release_state_dir}/pyside6_installed" ]]; then
-    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --upgrade --prefer-binary "PySide6>=6.7"
+    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --upgrade --only-binary=:all: "PySide6>=6.7"
     printf 'ok\n' >"${release_state_dir}/pyside6_installed"
   fi
   if [[ ! -f "${release_state_dir}/requests_installed" ]]; then
-    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --upgrade --prefer-binary "requests>=2.31"
+    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --upgrade --only-binary=:all: "requests>=2.31"
     printf 'ok\n' >"${release_state_dir}/requests_installed"
   fi
   if [[ ! -f "${release_state_dir}/zeroconf_installed" ]]; then
-    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --upgrade --prefer-binary "zeroconf>=0.132"
+    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --upgrade --only-binary=:all: "zeroconf>=0.132"
     printf 'ok\n' >"${release_state_dir}/zeroconf_installed"
   fi
   if [[ ! -f "${release_state_dir}/wheel_installed" ]]; then
-    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --prefer-binary "$wheel_path"
+    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --only-binary=:all: "$wheel_path"
     printf 'ok\n' >"${release_state_dir}/wheel_installed"
   fi
   ln -sfn ".venv/bin" "${release_dir}/bin"
@@ -460,7 +460,7 @@ payload = {
     "device_name": "DJConnect Pi",
     "device_token": "",
     "paired": False,
-    "version": "3.1.81",
+    "version": "3.1.82",
     "update_repo": "pcvantol/djconnect-pi-releases",
     "update_channel": "stable",
     "screen_timeout_seconds": 120,

@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.1.82
+
+- Force binary-only pip installs for runtime wheels in both the manual installer
+  and unattended updater so Pi installs never fall back to local source builds.
+
 ## 3.1.81
 
 - Added a blocking touch update-in-progress screen with a progress bar,
