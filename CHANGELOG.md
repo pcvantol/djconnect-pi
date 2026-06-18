@@ -1,6 +1,6 @@
 # Changelog
 
-## 3.1.85
+## 3.1.86
 
 - Release refresh after enabling public repository security settings and branch
   protection; no product behavior changes beyond 3.1.84.
