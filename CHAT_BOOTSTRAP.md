@@ -13,25 +13,26 @@ Lees eerst:
 
 Belangrijke context:
 - Dit is de Raspberry Pi client repo `pcvantol/djconnect-pi`.
+- DJConnect wordt ontwikkeld en onderhouden met AI-assisted/agentic engineering workflows, inclusief Codex; accepted changes blijven maintainer-reviewed en prompts/logs/issues mogen geen secrets of private data bevatten.
 - Canonical `client_type` is `raspberry_pi`.
 - Device IDs gebruiken `djconnect-raspberry-pi-XXXXXXXXXXXX`.
 - Geen PTT/mic/local DJ response audio toevoegen.
 - Geen lokale `SYNC_PROMPTS.md` of `PRODUCT_ROADMAP.md`; die staan canoniek in `pcvantol/djconnect`.
 
 Huidige stand:
-- Laatste gepubliceerde release is `v3.1.75`.
+- Laatste gepubliceerde release is `v3.1.76`.
 - Public updater assets staan in `pcvantol/djconnect-pi-releases`, inclusief `djconnect-pi-latest.json`.
-- Release `v3.1.75` is gepubliceerd in source en public distribution repo.
-- Public assets voor `v3.1.75` zijn geverifieerd:
-  - `djconnect-pi-3.1.75.tar.gz`
-  - `djconnect-pi-3.1.75.sha256`
+- Release `v3.1.76` is gepubliceerd in source en public distribution repo.
+- Public assets voor `v3.1.76` zijn geverifieerd:
+  - `djconnect-pi-3.1.76.tar.gz`
+  - `djconnect-pi-3.1.76.sha256`
   - `djconnect-pi-latest.json`
-- Cleanup is gedraaid met `./cleanup_old_releases.sh --keep 1 --public --execute`; alleen `v3.1.75` blijft over als recente source/public release.
+- Cleanup is gedraaid met `./cleanup_old_releases.sh --keep 1 --public --execute`; alleen `v3.1.76` blijft over als recente source/public release.
 - Pi draaide eerder nog `3.1.72`; updater/install via oude versies kon rebooten tijdens monolithische dependency-install.
-- Validatie voor `v3.1.75`:
+- Validatie voor `v3.1.76`:
   - `bash -n scripts/install.sh`
   - `python3.11 -m pytest tests/test_installation_contract.py tests/test_updater.py -q` -> 56 passed
-  - GitHub Actions publish workflow voor `v3.1.75` -> success
+  - GitHub Actions publish workflow voor `v3.1.76` -> success
 
 Openstaande gewenste workflow:
 - Bij een volgende release: actualiseer `CHAT_BOOTSTRAP.md` als onderdeel van de release closeout.
@@ -39,7 +40,7 @@ Openstaande gewenste workflow:
   `gh run list --workflow publish-release.yml --limit 3`
 - Verifieer na elke release de public assets:
   `gh release view vX.Y.Z --repo pcvantol/djconnect-pi-releases --json tagName,url,assets`
-- Deploy/updater op Pi gebruikt vanaf `v3.1.75` resumable dependency install markers voor reboot/interruption retries.
+- Deploy/updater op Pi gebruikt vanaf `v3.1.76` resumable dependency install markers voor reboot/interruption retries, inclusief losse PySide6-subpackages.
 
 Handmatig client killen op Pi:
 sudo systemctl stop djconnect-client.service

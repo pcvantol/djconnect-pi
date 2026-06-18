@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.1.76
+
+- Split PySide6 dependency installation into separate `shiboken6`,
+  `PySide6_Essentials`, `PySide6_Addons` and `PySide6` marked steps in both
+  the manual installer and unattended updater, so Pi reboots during the large
+  Qt wheel install can resume at the next subpackage.
+
 ## 3.1.75
 
 - Stop DJConnect client, local API, maintenance and watchdog services at the

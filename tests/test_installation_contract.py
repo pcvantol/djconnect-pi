@@ -302,11 +302,17 @@ def test_install_script_can_resume_after_reboot_or_interruption() -> None:
     assert 'release_state_dir="${release_dir}/.install-state"' in script
     assert '${release_state_dir}/venv_created' in script
     assert '${release_state_dir}/build_tools_installed' in script
+    assert '${release_state_dir}/shiboken6_installed' in script
+    assert '${release_state_dir}/pyside6_essentials_installed' in script
+    assert '${release_state_dir}/pyside6_addons_installed' in script
     assert '${release_state_dir}/pyside6_installed' in script
     assert '${release_state_dir}/requests_installed' in script
     assert '${release_state_dir}/zeroconf_installed' in script
     assert '${release_state_dir}/wheel_installed' in script
     assert '"PySide6>=6.7" "requests>=2.31" "zeroconf>=0.132"' not in script
+    assert '"PySide6_Essentials>=6.7"' in script
+    assert '"PySide6_Addons>=6.7"' in script
+    assert '"shiboken6>=6.7"' in script
     assert '".venv/bin/pip" install' not in script
     assert "Removing incomplete Python virtualenv before retry" in script
     assert 'rm -rf "${release_dir}/.venv" "${release_dir}/bin"' in script

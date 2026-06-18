@@ -214,6 +214,9 @@ def install_python_dependencies(release_dir: Path, version: str) -> None:
         env=pip_env,
     )
     for package_name, requirement in (
+        ("shiboken6_installed", "shiboken6>=6.7"),
+        ("pyside6_essentials_installed", "PySide6_Essentials>=6.7"),
+        ("pyside6_addons_installed", "PySide6_Addons>=6.7"),
         ("pyside6_installed", "PySide6>=6.7"),
         ("requests_installed", "requests>=2.31"),
         ("zeroconf_installed", "zeroconf>=0.132"),
