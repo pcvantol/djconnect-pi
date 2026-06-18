@@ -63,6 +63,8 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
   PySide6 downloads
 - installer contract for resource snapshots, inode reporting, CPU/Python/path/
   GitHub/thermal checks and incomplete `.venv` cleanup before dependency retry
+- installer contract for disabling the old updater/client before manual
+  installs and for per-package dependency markers under release `.install-state`
 - bootstrap/README contract that public release download examples match the
   current project version
 - config private permissions and atomic-write behavior
@@ -157,5 +159,8 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
   active release and one rollback release
 - updater pip install environment coverage for cache-local temp files under
   `/var/cache/djconnect-pip`
+- updater dependency install coverage for resumable marked steps, including
+  shiboken6, PySide6 Essentials, PySide6 Addons, PySide6, requests, zeroconf
+  and the bundled wheel
 - updater stable/beta prerelease channel handling
 - apt maintenance windows, upgrade command flow and reboot gating

@@ -232,8 +232,9 @@ The installer is safe to run over an earlier DJConnect install:
 If the Pi freezes, overheats, loses power or is rebooted during the heavy
 Python/PySide6 dependency install step, wait for it to boot and run the same
 public release install command again. The installer skips the completed release
-unpack step, removes the incomplete `.venv`, and continues the
-dependency/systemd steps.
+unpack step and continues from per-package dependency markers under
+`/opt/djconnect/releases/<version>/.install-state/`. If the venv step did not
+complete, the next run removes the incomplete `.venv` before retrying.
 
 If logs show `Unable to locate executable
 /opt/djconnect/current/bin/djconnect-pi-api`, rerun the latest public installer.

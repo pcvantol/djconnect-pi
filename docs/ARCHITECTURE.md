@@ -89,8 +89,9 @@ API, maintenance and watchdog services before download/install work. It leaves
 `djconnect-updater.service` running so the update can complete.
 Python dependency installation is split into resumable marked steps under the
 target release's `.install-state/` directory, so an interrupted Pi install can
-resume after venv creation, build tools, PySide6, requests, zeroconf or bundled
-wheel installation instead of starting the whole venv over.
+resume after venv creation, build tools, shiboken6, PySide6 Essentials, PySide6
+Addons, PySide6, requests, zeroconf or bundled wheel installation instead of
+starting the whole venv over.
 
 After install, the updater restarts `djconnect-api.service` and
 `djconnect-client.service`.

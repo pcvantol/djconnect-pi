@@ -649,7 +649,7 @@ Window {
             Qt.callLater(function() {
                 root.contentItem.grabToImage(function(result) {
                     result.saveToFile(djconnect.screenshotFile)
-                })
+                }, Qt.size(root.width, root.height))
             })
         }
         function onDebugScreenRequested(screen) {
@@ -690,6 +690,12 @@ Window {
         running: true
         repeat: false
         onTriggered: root.splashVisible = false
+    }
+
+    Rectangle {
+        anchors.fill: parent
+        color: root.color
+        z: -1000
     }
 
     MouseArea {

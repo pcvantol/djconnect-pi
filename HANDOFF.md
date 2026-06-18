@@ -212,9 +212,10 @@ Implemented:
   client, local API, maintenance and watchdog services before download/install
   work. It does not stop `djconnect-updater.service` itself.
 - Updater Python dependency installation is resumable per step: venv creation,
-  pip check/upgrade, build tools, PySide6, requests, zeroconf and bundled wheel
-  installs write markers under `.install-state/` so a reboot can continue at
-  the next package instead of rebuilding the release venv from scratch.
+  pip check/upgrade, build tools, shiboken6, PySide6 Essentials, PySide6
+  Addons, PySide6, requests, zeroconf and bundled wheel installs write markers
+  under the target release's `.install-state/` so a reboot can continue at the
+  next package instead of rebuilding the release venv from scratch.
 - After a successful unattended install, the updater cleans
   `/opt/djconnect/releases` and keeps only the active release plus one rollback
   release. Hidden temporary unpack directories are removed as well.
@@ -223,9 +224,11 @@ Implemented:
   public installer behavior during large PySide6 dependency installs.
 - Install script is resumable across reboot/interruption. It stores markers in
   `/opt/djconnect/install-state/<version>/` for `release_unpacked` and
-  `venv_ready`, uses `/var/cache/djconnect-pip` so large PySide6 downloads do
-  not have to restart from zero, removes incomplete `.venv` directories before
-  retrying, and uses a cache-local pip temp directory.
+  `venv_ready`, and stores per-package dependency markers in
+  `/opt/djconnect/releases/<version>/.install-state/`. It uses
+  `/var/cache/djconnect-pip` so large PySide6 downloads do not have to restart
+  from zero, removes incomplete `.venv` directories only before venv creation
+  is marked complete, and uses a cache-local pip temp directory.
 - Manual production update path is: download the current public
   `djconnect-pi-<version>.tar.gz`, extract it, run
   `sudo ./scripts/install.sh`. `git pull --ff-only` is only for

@@ -287,10 +287,11 @@ not contain the loose `src/` app source tree.
 
 The installer is resumable. If the Pi freezes, overheats, loses power or is
 rebooted during the heavy Python/PySide6 dependency step, run the same public
-release install command again. Completed steps are tracked under
-`/opt/djconnect/install-state/<version>/`, and Python downloads are cached under
-`/var/cache/djconnect-pip`. If the venv step did not complete, the next run
-removes the incomplete `.venv` before retrying.
+release install command again. Release-level steps are tracked under
+`/opt/djconnect/install-state/<version>/`; per-package dependency steps are
+tracked under `/opt/djconnect/releases/<version>/.install-state/`. Python
+downloads are cached under `/var/cache/djconnect-pip`. If the venv step did not
+complete, the next run removes the incomplete `.venv` before retrying.
 
 The repo-only bootstrap expands the root filesystem to fill the SD card. The
 bootstrap also configures a persistent 1GB swapfile. The app installer checks
