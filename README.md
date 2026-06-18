@@ -1,6 +1,6 @@
 # DJConnect Pi
 
-Version: `3.1.83`
+Version: `3.1.84`
 
 Raspberry Pi Zero 2 W touch-display client for DJConnect. This client uses
 Qt Quick/QML with a PySide6 backend and is meant for a Pimoroni HyperPixel 4.0
@@ -15,7 +15,12 @@ advertised only while the Pi is not yet paired.
 
 Shared spoken intent examples for website/docs alignment live in
 `examples/voice_intents.json`. They document the HA/ESP post-STT intent model;
-the Raspberry Pi client does not implement local voice capture.
+the Raspberry Pi client does not implement local voice capture. The
+`current_track` examples, such as `Welk nummer draait er nu?` / `What song is
+playing?`, and the `playback_control` examples, such as `Stop muziek`, `Start
+muziek`, `Zet harder`, `Zet zachter`, `Volgende nummer` and `Vorig nummer`,
+are handled by Home Assistant. They do not require Spotify credentials, Spotify
+Web API calls or a playback backend inside this Pi client.
 
 The same local API daemon serves the Raspberry Pi web portal at the Pi web
 address, so the portal is installed with the app release and starts
@@ -160,9 +165,9 @@ not a private source clone:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.83.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.84.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.83
+cd djconnect-pi-3.1.84
 sudo ./scripts/install.sh
 ```
 
@@ -269,9 +274,9 @@ installer:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.83.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.84.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.83
+cd djconnect-pi-3.1.84
 sudo ./scripts/install.sh
 ```
 

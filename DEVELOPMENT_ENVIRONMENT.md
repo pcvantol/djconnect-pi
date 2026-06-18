@@ -27,7 +27,9 @@ behavior here unless the product decision changes.
   release behavior.
 - `docs/`: architecture, bootstrap, security/performance and design notes.
 - `examples/voice_intents.json`: shared spoken intent examples for docs and
-  website alignment only; the Pi client does not implement local voice capture.
+  website alignment only. `current_track` and `playback_control` are handled by
+  Home Assistant; the Pi client does not implement local voice capture, local
+  Spotify credentials, Spotify Web API calls or playback backend logic.
 
 ## Local Setup
 
@@ -199,6 +201,11 @@ including:
 - `HANDOFF.md`
 - `CHAT_BOOTSTRAP.md`
 - related files in `docs/`
+
+For release visual hygiene, remove stale files from `screenshots/` before
+capturing the new release set. Regenerate the representative 720x720 screens
+after a successful install or UI validation so the directory contains only
+current-release screenshots.
 
 Keep the next-chat/bootstrap prompt current so a fresh Codex session starts
 from the latest release, validation status and expected next action.

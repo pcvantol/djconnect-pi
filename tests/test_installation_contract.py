@@ -90,6 +90,8 @@ def test_os_bootstrap_script_is_executable_in_git() -> None:
 def test_systemd_runs_api_separately_from_touch_ui() -> None:
     api_service = ROOT.joinpath("systemd/djconnect-api.service").read_text(encoding="utf-8")
     client_service = ROOT.joinpath("systemd/djconnect-client.service").read_text(encoding="utf-8")
+    update_ui_service = ROOT.joinpath("systemd/djconnect-update-ui.service").read_text(encoding="utf-8")
+    pyproject = ROOT.joinpath("pyproject.toml").read_text(encoding="utf-8")
 
     assert "djconnect-pi-api --config /opt/djconnect/config/client.json" in api_service
     assert "Restart=always" in api_service
@@ -97,6 +99,9 @@ def test_systemd_runs_api_separately_from_touch_ui() -> None:
     assert "Wants=network-online.target djconnect-updater.service" in client_service
     assert "After=network-online.target systemd-user-sessions.service djconnect-updater.service" in client_service
     assert "DJCONNECT_DISABLE_CLIENT_API" not in client_service
+    assert "Conflicts=djconnect-client.service" in update_ui_service
+    assert "djconnect-pi-update-ui --config /opt/djconnect/config/client.json" in update_ui_service
+    assert 'djconnect-pi-update-ui = "djconnect_pi.update_ui:main"' in pyproject
 
 
 def test_systemd_has_nightly_reboot_timer() -> None:
@@ -169,6 +174,7 @@ def test_release_assets_include_installation_materials() -> None:
 def test_technical_design_decisions_document_is_part_of_docs() -> None:
     readme = ROOT.joinpath("README.md").read_text(encoding="utf-8")
     doc = ROOT.joinpath("docs/TECHNICAL_DESIGN_DECISIONS.md").read_text(encoding="utf-8")
+    contributing = ROOT.joinpath("CONTRIBUTING.md").read_text(encoding="utf-8")
 
     assert "[Technical Design Decisions](docs/TECHNICAL_DESIGN_DECISIONS.md)" in readme
     assert "## Python Design Patterns" in doc
@@ -179,6 +185,9 @@ def test_technical_design_decisions_document_is_part_of_docs() -> None:
     assert "requests" in doc
     assert "zeroconf" in doc
     assert "## Release Maintenance Rule" in doc
+    assert "clean stale files from `screenshots/`" in doc
+    assert "regenerate the representative\n  720x720 screen set" in doc
+    assert "Clean out stale files in\n`screenshots/`" in contributing
 
 
 def test_repo_only_os_bootstrap_targets_lite_with_minimal_kiosk_runtime() -> None:
@@ -334,9 +343,19 @@ def test_shared_voice_intent_examples_are_available_for_docs_alignment() -> None
     examples = json.loads(ROOT.joinpath("examples/voice_intents.json").read_text(encoding="utf-8"))
 
     assert examples["version"] == "3.1.x"
-    assert examples["handling_order"][0] == "default_playlist"
+    assert examples["handling_order"][:2] == ["current_track", "playback_control"]
+    assert "current_track" in examples["intents"]
+    assert "playback_control" in examples["intents"]
     assert "artist" in examples["intents"]
     assert "playlist" in examples["intents"]
+    assert "Welk nummer draait er nu?" in examples["intents"]["current_track"]["nl"]
+    assert "What song is playing?" in examples["intents"]["current_track"]["en"]
+    assert "Stop muziek" in examples["intents"]["playback_control"]["commands"]["pause"]["nl"]
+    assert "Start muziek" in examples["intents"]["playback_control"]["commands"]["play"]["nl"]
+    assert "Zet harder" in examples["intents"]["playback_control"]["commands"]["volume_up"]["nl"]
+    assert "Zet zachter" in examples["intents"]["playback_control"]["commands"]["volume_down"]["nl"]
+    assert "Volgende nummer" in examples["intents"]["playback_control"]["commands"]["next"]["nl"]
+    assert "Vorig nummer" in examples["intents"]["playback_control"]["commands"]["previous"]["nl"]
     assert "Speel playlist DJConnect" in examples["intents"]["playlist"]["nl"]
 
 

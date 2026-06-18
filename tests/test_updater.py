@@ -380,6 +380,8 @@ def test_run_restarts_api_and_client_services_after_install(tmp_path: Path) -> N
         patch("djconnect_pi.updater.public_latest_release", return_value=make_release()),
         patch("djconnect_pi.updater.asset_url", side_effect=["bundle-url", "checksum-url"]),
         patch("djconnect_pi.updater.stop_services") as stop_services,
+        patch("djconnect_pi.updater.start_service") as start_service,
+        patch("djconnect_pi.updater.stop_service") as stop_service,
         patch("djconnect_pi.updater.download", side_effect=fake_download),
         patch("djconnect_pi.updater.verify_sha256"),
         patch("djconnect_pi.updater.install_release"),
@@ -390,11 +392,14 @@ def test_run_restarts_api_and_client_services_after_install(tmp_path: Path) -> N
 
     stop_services.assert_called_once_with(
         (
+            "djconnect-client.service",
             "djconnect-api.service",
             "djconnect-maintenance.service",
             "djconnect-watchdog.service",
         )
     )
+    start_service.assert_called_once_with("djconnect-update-ui.service")
+    stop_service.assert_called_once_with("djconnect-update-ui.service")
     assert download_calls == 2
     cleanup_old_releases.assert_called_once_with(tmp_path, 2)
     restart_services.assert_called_once_with(("djconnect-api.service", "djconnect-client.service"))
@@ -407,6 +412,8 @@ def test_run_writes_updater_status_file(tmp_path: Path) -> None:
         patch("djconnect_pi.updater.public_latest_release", return_value=make_release()),
         patch("djconnect_pi.updater.asset_url", side_effect=["bundle-url", "checksum-url"]),
         patch("djconnect_pi.updater.stop_services"),
+        patch("djconnect_pi.updater.start_service"),
+        patch("djconnect_pi.updater.stop_service"),
         patch("djconnect_pi.updater.download"),
         patch("djconnect_pi.updater.verify_sha256"),
         patch("djconnect_pi.updater.install_release"),
@@ -420,6 +427,29 @@ def test_run_writes_updater_status_file(tmp_path: Path) -> None:
     assert status["progress"] == 100
 
 
+def test_run_keeps_update_ui_visible_and_writes_failed_status_on_error(tmp_path: Path) -> None:
+    cfg = updater.UpdaterConfig(repo="pcvantol/djconnect-pi-releases", install_root=tmp_path, status_file=tmp_path / "status.json")
+
+    with (
+        patch("djconnect_pi.updater.public_latest_release", return_value=make_release()),
+        patch("djconnect_pi.updater.asset_url", side_effect=["bundle-url", "checksum-url"]),
+        patch("djconnect_pi.updater.stop_services"),
+        patch("djconnect_pi.updater.start_service") as start_service,
+        patch("djconnect_pi.updater.stop_service") as stop_service,
+        patch("djconnect_pi.updater.download", side_effect=RuntimeError("network down")),
+        patch("djconnect_pi.updater.restart_services") as restart_services,
+    ):
+        with pytest.raises(RuntimeError, match="network down"):
+            updater.run(cfg)
+
+    start_service.assert_called_once_with("djconnect-update-ui.service")
+    stop_service.assert_not_called()
+    restart_services.assert_not_called()
+    status = json.loads((tmp_path / "status.json").read_text(encoding="utf-8"))
+    assert status["state"] == "failed"
+    assert "network down" in status["message"]
+
+
 def test_stop_services_uses_best_effort_systemctl_stop() -> None:
     with patch("djconnect_pi.updater.subprocess.run") as run:
         updater.stop_services(("djconnect-client.service", "djconnect-api.service"))
@@ -427,4 +457,15 @@ def test_stop_services_uses_best_effort_systemctl_stop() -> None:
     assert run.call_args_list[0].args[0] == ["systemctl", "stop", "djconnect-client.service"]
     assert run.call_args_list[0].kwargs["check"] is False
     assert run.call_args_list[1].args[0] == ["systemctl", "stop", "djconnect-api.service"]
+    assert run.call_args_list[1].kwargs["check"] is False
+
+
+def test_start_and_stop_service_are_best_effort() -> None:
+    with patch("djconnect_pi.updater.subprocess.run") as run:
+        updater.start_service("djconnect-update-ui.service")
+        updater.stop_service("djconnect-update-ui.service")
+
+    assert run.call_args_list[0].args[0] == ["systemctl", "start", "djconnect-update-ui.service"]
+    assert run.call_args_list[0].kwargs["check"] is False
+    assert run.call_args_list[1].args[0] == ["systemctl", "stop", "djconnect-update-ui.service"]
     assert run.call_args_list[1].kwargs["check"] is False

@@ -22,7 +22,6 @@ Window {
     property bool rebootConfirmOpen: false
     property bool shutdownConfirmOpen: false
     property bool clearLogsConfirmOpen: false
-    property bool updateDetailsOpen: false
     property bool forceScreenAwake: false
     property bool forceBrightnessFull: false
     property bool screenBlanked: djconnect.screenTimeoutSeconds > 0 && !idleTimer.running && !root.forceScreenAwake
@@ -2035,134 +2034,10 @@ Window {
     }
 
     Rectangle {
-        id: updateProgressPanel
-        anchors.fill: parent
-        color: "#f2070b16"
-        visible: djconnect.updateInProgress
-        z: 62
-
-        AppBackground {}
-        ModalBlocker {}
-
-        ColumnLayout {
-            anchors.centerIn: parent
-            width: Math.min(parent.width - 56, 600)
-            spacing: 16
-
-            Image {
-                source: "app-icon.png"
-                Layout.alignment: Qt.AlignHCenter
-                Layout.preferredWidth: 82
-                Layout.preferredHeight: 82
-                fillMode: Image.PreserveAspectFit
-                smooth: true
-                mipmap: true
-            }
-
-            Text {
-                text: djconnect.updateTitle
-                color: "#ffffff"
-                font.pixelSize: 40
-                font.bold: true
-                horizontalAlignment: Text.AlignHCenter
-                Layout.fillWidth: true
-            }
-
-            Text {
-                text: djconnect.updateMessage
-                color: "#d7e2e4"
-                font.pixelSize: 20
-                wrapMode: Text.WordWrap
-                horizontalAlignment: Text.AlignHCenter
-                Layout.fillWidth: true
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 14
-
-                BusyIndicator {
-                    running: updateProgressPanel.visible
-                    implicitWidth: 34
-                    implicitHeight: 34
-                }
-
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 6
-
-                    ProgressBar {
-                        from: 0
-                        to: 100
-                        value: djconnect.updateProgress
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 18
-                    }
-
-                    Text {
-                        text: root.tr("update_progress") + ": " + djconnect.updateProgress + "%"
-                        color: "#b9c9e8"
-                        font.pixelSize: 16
-                        font.bold: true
-                        Layout.fillWidth: true
-                    }
-                }
-            }
-
-            PurpleButton {
-                text: root.updateDetailsOpen ? root.tr("hide_update_details") : root.tr("update_details")
-                font.pixelSize: 20
-                Layout.fillWidth: true
-                Layout.preferredHeight: 54
-                onClicked: root.updateDetailsOpen = !root.updateDetailsOpen
-            }
-
-            ColumnLayout {
-                visible: root.updateDetailsOpen
-                Layout.fillWidth: true
-                Layout.preferredHeight: visible ? 250 : 0
-                spacing: 8
-
-                Text {
-                    text: root.tr("installer_logs")
-                    color: "#f4f8f8"
-                    font.pixelSize: 18
-                    font.bold: true
-                    Layout.fillWidth: true
-                }
-
-                ScrollView {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    clip: true
-
-                    TextArea {
-                        id: updaterLogsArea
-                        text: djconnect.updateLogs
-                        readOnly: true
-                        selectByMouse: false
-                        wrapMode: TextEdit.WrapAnywhere
-                        color: "#d7e2e4"
-                        font.family: "monospace"
-                        font.pixelSize: 13
-                        background: Rectangle {
-                            color: "#cc050816"
-                            radius: 8
-                            border.color: "#33405f"
-                            border.width: 1
-                        }
-                        onTextChanged: Qt.callLater(function() { updaterLogsArea.cursorPosition = updaterLogsArea.length })
-                    }
-                }
-            }
-        }
-    }
-
-    Rectangle {
         id: versionMismatchPanel
         anchors.fill: parent
         color: "#f2070b16"
-        visible: !root.splashVisible && djconnect.versionMismatchVisible && !djconnect.updateInProgress
+        visible: !root.splashVisible && djconnect.versionMismatchVisible
         z: 60
 
         ModalBlocker {}

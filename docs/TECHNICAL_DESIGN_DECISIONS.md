@@ -252,5 +252,6 @@ For every future DJConnect Pi release:
   `ISSUES.md`, `CHAT_BOOTSTRAP.md` and relevant `docs/` files
 - extend tests when a design decision becomes a regression risk
 - keep changelog entries per release; do not consolidate historical versions
-- after release deploy to the Pi, capture and attach a live Pi screenshot when
-  remote capture is available
+- clean stale files from `screenshots/`, then regenerate the representative
+  720x720 screen set after release deploy or UI validation so screenshots do
+  not mix old and new app versions

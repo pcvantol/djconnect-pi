@@ -473,18 +473,70 @@ Rectangle {
 
         }
 
-        RowLayout {
+        Rectangle {
+            id: gameSelector
             Layout.fillWidth: true
-            spacing: 8
+            Layout.preferredHeight: 58
+            radius: 18
+            color: "#cc0a0522"
+            border.color: "#556088a8"
+            border.width: 2
+            clip: true
 
-            Repeater {
-                model: root.games
-                GlassButton {
-                    text: root.tr(modelData.titleKey)
-                    checkable: true
-                    checked: index === root.gameIndex
-                    Layout.fillWidth: true
-                    onClicked: root.selectGame(index)
+            Rectangle {
+                anchors.fill: parent
+                anchors.margins: 1
+                radius: 17
+                opacity: 0.5
+                gradient: Gradient {
+                    orientation: Gradient.Vertical
+                    GradientStop { position: 0.0; color: "#33235673" }
+                    GradientStop { position: 1.0; color: "#11050f26" }
+                }
+            }
+
+            RowLayout {
+                anchors.fill: parent
+                anchors.margins: 8
+                spacing: 0
+
+                Repeater {
+                    model: root.games
+
+                    Button {
+                        id: gameSegment
+                        text: root.tr(modelData.titleKey)
+                        checkable: true
+                        checked: index === root.gameIndex
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        Layout.minimumWidth: 0
+                        font.pixelSize: 18
+                        font.bold: true
+                        onClicked: root.selectGame(index)
+
+                        contentItem: Text {
+                            text: gameSegment.text
+                            font: gameSegment.font
+                            color: gameSegment.checked ? "#ffffff" : "#c8c7d5"
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                            elide: Text.ElideRight
+                        }
+
+                        background: Rectangle {
+                            radius: 12
+                            color: gameSegment.checked ? "#ff6d5df2" : "transparent"
+                            border.width: 0
+                            gradient: Gradient {
+                                orientation: Gradient.Horizontal
+                                GradientStop { position: 0.0; color: gameSegment.checked ? "#ff755f" : "#00000000" }
+                                GradientStop { position: 0.52; color: gameSegment.checked ? "#e04bcf" : "#00000000" }
+                                GradientStop { position: 1.0; color: gameSegment.checked ? "#9b5cf6" : "#00000000" }
+                            }
+                            opacity: gameSegment.down ? 0.82 : 1.0
+                        }
+                    }
                 }
             }
         }

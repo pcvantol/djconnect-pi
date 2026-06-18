@@ -28,10 +28,12 @@ class UpdaterConfig:
     install_root: Path = Path("/opt/djconnect")
     service_names: Sequence[str] = ("djconnect-api.service", "djconnect-client.service")
     stop_service_names: Sequence[str] = (
+        "djconnect-client.service",
         "djconnect-api.service",
         "djconnect-maintenance.service",
         "djconnect-watchdog.service",
     )
+    update_ui_service_name: str = "djconnect-update-ui.service"
     keep_releases: int = 2
     status_file: Path = Path("/opt/djconnect/config/updater-status.json")
 
@@ -297,6 +299,7 @@ def install_python_dependencies(release_dir: Path, version: str, status: UpdateS
 def validate_release_entrypoints(release_dir: Path) -> None:
     required = (
         "djconnect-pi-client",
+        "djconnect-pi-update-ui",
         "djconnect-pi-api",
         "djconnect-pi-updater",
         "djconnect-pi-maintenance",
@@ -354,6 +357,14 @@ def restart_services(service_names: Sequence[str]) -> None:
         subprocess.run(["systemctl", "restart", service_name], check=True)
 
 
+def start_service(service_name: str) -> None:
+    subprocess.run(["systemctl", "start", service_name], check=False)
+
+
+def stop_service(service_name: str) -> None:
+    subprocess.run(["systemctl", "stop", service_name], check=False)
+
+
 def stop_services(service_names: Sequence[str]) -> None:
     for service_name in service_names:
         subprocess.run(["systemctl", "stop", service_name], check=False)
@@ -389,19 +400,25 @@ def run(cfg: UpdaterConfig, dry_run: bool = False) -> str:
     status = UpdateStatus(status_file)
     status.write("checking", f"Nieuwe versie {version} gevonden", 12)
     stop_services(cfg.stop_service_names)
-    with tempfile.TemporaryDirectory(prefix="djconnect-pi-update-") as tmp:
-        bundle = Path(tmp) / "release.tar.gz"
-        checksum = Path(tmp) / "release.sha256"
-        status.write("downloading", f"Release {version} downloaden", 22)
-        download(bundle_url, bundle)
-        status.write("downloading", "Checksum downloaden", 28)
-        download(checksum_url, checksum)
-        status.write("verifying", "Release controleren", 32)
-        verify_sha256(bundle, checksum)
-        install_release(bundle, version, cfg.install_root, status=status)
-    status.write("cleanup", "Oude releases opruimen", 99)
-    cleanup_old_releases(cfg.install_root, cfg.keep_releases)
-    status.write("restarting", "DJConnect herstarten", 100)
+    start_service(cfg.update_ui_service_name)
+    try:
+        with tempfile.TemporaryDirectory(prefix="djconnect-pi-update-") as tmp:
+            bundle = Path(tmp) / "release.tar.gz"
+            checksum = Path(tmp) / "release.sha256"
+            status.write("downloading", f"Release {version} downloaden", 22)
+            download(bundle_url, bundle)
+            status.write("downloading", "Checksum downloaden", 28)
+            download(checksum_url, checksum)
+            status.write("verifying", "Release controleren", 32)
+            verify_sha256(bundle, checksum)
+            install_release(bundle, version, cfg.install_root, status=status)
+        status.write("cleanup", "Oude releases opruimen", 99)
+        cleanup_old_releases(cfg.install_root, cfg.keep_releases)
+        status.write("restarting", "DJConnect herstarten", 100)
+    except Exception as exc:
+        status.write("failed", f"Update mislukt: {exc}", 100)
+        raise
+    stop_service(cfg.update_ui_service_name)
     restart_services(cfg.service_names)
     status.write("complete", f"Versie {version} geinstalleerd", 100)
     return f"Installed {version}"
@@ -415,10 +432,12 @@ def config_from_file(
     install_root: Path = Path("/opt/djconnect"),
     service_names: Sequence[str] = ("djconnect-api.service", "djconnect-client.service"),
     stop_service_names: Sequence[str] = (
+        "djconnect-client.service",
         "djconnect-api.service",
         "djconnect-maintenance.service",
         "djconnect-watchdog.service",
     ),
+    update_ui_service_name: str = "djconnect-update-ui.service",
     keep_releases: int = 2,
 ) -> UpdaterConfig:
     app_cfg = load_config(config_path)
@@ -430,6 +449,7 @@ def config_from_file(
         install_root=install_root,
         service_names=service_names,
         stop_service_names=stop_service_names,
+        update_ui_service_name=update_ui_service_name,
         keep_releases=keep_releases,
         status_file=Path(app_cfg.updater_status_file),
     )
@@ -460,6 +480,7 @@ def main() -> None:
     stop_service_names = tuple(
         args.stop_service_names
         or (
+            "djconnect-client.service",
             "djconnect-api.service",
             "djconnect-maintenance.service",
             "djconnect-watchdog.service",

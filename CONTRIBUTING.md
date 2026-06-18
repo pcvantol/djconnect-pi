@@ -141,7 +141,9 @@ After release, verify the public release assets and update related DJConnect
 repositories when the release changes shared contracts, Home Assistant
 integration behavior, docs or product roadmap. Also update
 `CHAT_BOOTSTRAP.md` so a fresh Codex chat starts from the current release
-state, validation status and next expected action.
+state, validation status and next expected action. Clean out stale files in
+`screenshots/` and regenerate the current 720x720 screen set after a successful
+install or UI validation so release screenshots never mix old and new versions.
 
 ## Licensing
 

@@ -170,9 +170,9 @@ completed:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.83.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.84.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.83
+cd djconnect-pi-3.1.84
 sudo ./scripts/install.sh
 ```
 
@@ -200,9 +200,9 @@ development checkout:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.83.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.84.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.83
+cd djconnect-pi-3.1.84
 sudo ./scripts/install.sh
 ```
 
@@ -381,3 +381,6 @@ Open `Setup` on the touch screen and configure:
 - If a release fails to start, repoint `/opt/djconnect/current` to the previous
   directory in `/opt/djconnect/releases`.
 - This client has no microphone or local DJ audio response path by design.
+  Shared `current_track` and `playback_control` voice examples are Home
+  Assistant behavior and do not require Spotify credentials or playback backend
+  logic on the Pi.

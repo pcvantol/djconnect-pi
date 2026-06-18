@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "djconnect-pi"
-version = "3.1.83"
+version = "3.1.84"
 description = "Raspberry Pi touch display client for DJConnect"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -25,6 +25,7 @@ dev = [
 
 [project.scripts]
 djconnect-pi-client = "djconnect_pi.app:main"
+djconnect-pi-update-ui = "djconnect_pi.update_ui:main"
 djconnect-pi-api = "djconnect_pi.client_api_daemon:main"
 djconnect-pi-updater = "djconnect_pi.updater:main"
 djconnect-pi-maintenance = "djconnect_pi.maintenance:main"

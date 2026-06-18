@@ -58,6 +58,10 @@ def test_qml_has_touch_games_panel() -> None:
     assert "property int trVersion: djconnect.translationVersion" in games_qml
     assert "function tr(key)" in games_qml
     assert "property string gameTitle: root.tr(games[gameIndex].titleKey)" in games_qml
+    assert "id: gameSelector" in games_qml
+    assert "id: gameSegment" in games_qml
+    assert 'color: "#cc0a0522"' in games_qml
+    assert 'GradientStop { position: 0.0; color: gameSegment.checked ? "#ff755f" : "#00000000" }' in games_qml
     assert "root.tr(modelData.titleKey)" in games_qml
     assert "MouseArea" in games_qml
     assert "preventStealing: true" in games_qml
@@ -341,15 +345,17 @@ def test_qml_has_blocking_version_mismatch_view() -> None:
 
 
 def test_qml_has_update_progress_view_with_expandable_logs() -> None:
-    main_qml = files("djconnect_pi.qml").joinpath("Main.qml").read_text(encoding="utf-8")
+    qml_root = files("djconnect_pi.qml")
+    main_qml = qml_root.joinpath("Main.qml").read_text(encoding="utf-8")
+    update_qml = qml_root.joinpath("UpdateProgress.qml").read_text(encoding="utf-8")
 
-    assert "id: updateProgressPanel" in main_qml
-    assert "djconnect.updateInProgress" in main_qml
-    assert "djconnect.updateProgress" in main_qml
-    assert "root.updateDetailsOpen" in main_qml
-    assert 'root.tr("update_details")' in main_qml
-    assert 'root.tr("installer_logs")' in main_qml
-    assert "djconnect.updateLogs" in main_qml
+    assert "id: updateProgressPanel" not in main_qml
+    assert "djconnect.updateInProgress" not in main_qml
+    assert "id: updateProgressRoot" in update_qml
+    assert "updater.progress" in update_qml
+    assert "updater.detailsOpen" in update_qml
+    assert "updater.toggleDetails()" in update_qml
+    assert "updater.logs" in update_qml
 
 
 def test_qml_uses_dark_djconnect_gradient_theme() -> None:

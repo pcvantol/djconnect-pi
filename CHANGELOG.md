@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.1.84
+
+- Moved the updater progress screen into a separate `djconnect-update-ui`
+  entrypoint and systemd service so unattended updates stop the normal touch UI
+  before installing while still showing progress, a spinner and live logs.
+
 ## 3.1.83
 
 - Preserve an existing unpacked target release during unattended updater resume

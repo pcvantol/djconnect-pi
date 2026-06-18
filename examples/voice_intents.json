@@ -2,6 +2,8 @@
   "version": "3.1.x",
   "description": "DJConnect spoken music intent examples for the post-STT PTT pipeline.",
   "handling_order": [
+    "current_track",
+    "playback_control",
     "default_playlist",
     "playlist",
     "artist_with_track",
@@ -14,12 +16,118 @@
     "Requests with album/plaat are album intents, even when the sentence also contains van/by.",
     "Requests with nummer/liedje/track/song are track intents.",
     "Generic requests such as Speel Nirvana remain artist-first.",
+    "Current-track questions read Spotify playback status and generate a DJ response without starting playback.",
+    "Direct playback-control phrases bypass Spotify search and Assist intent parsing.",
     "Local deterministic parsing can override stale or generic HA Assist results.",
     "HA may use Assist STT correction before intent parsing, but Spotify credentials are never sent to Assist."
   ],
   "intents": {
+    "current_track": {
+      "spotify_type": "status",
+      "plays_music": false,
+      "description": "Ask which track is currently active. DJConnect reads Spotify playback state and returns a DJ response. If nothing is playing or Spotify is unavailable, it still returns a friendly answer.",
+      "nl": [
+        "Welk nummer draait er nu?",
+        "Welk nummer speelt er nu?",
+        "Wat draait er?",
+        "Wat speelt er?",
+        "Wat is dit?"
+      ],
+      "en": [
+        "What song is playing?",
+        "What track is playing now?",
+        "What's playing?",
+        "Which song is this?"
+      ]
+    },
+    "playback_control": {
+      "spotify_type": "backend_command",
+      "plays_music": false,
+      "description": "Direct playback controls. These do not run Spotify search. They call the Spotify backend command and then generate a DJ response.",
+      "commands": {
+        "pause": {
+          "spotify_command": "pause",
+          "nl": [
+            "Stop muziek",
+            "Stop de muziek",
+            "Pauzeer muziek"
+          ],
+          "en": [
+            "Stop music",
+            "Pause music"
+          ]
+        },
+        "play": {
+          "spotify_command": "play",
+          "nl": [
+            "Start muziek",
+            "Start de muziek",
+            "Hervat muziek"
+          ],
+          "en": [
+            "Start music",
+            "Play music",
+            "Resume music"
+          ]
+        },
+        "volume_up": {
+          "spotify_command": "set_volume",
+          "delta": 10,
+          "nl": [
+            "Zet harder",
+            "Zet de muziek harder",
+            "Volume omhoog"
+          ],
+          "en": [
+            "Turn it up",
+            "Volume up",
+            "Louder"
+          ]
+        },
+        "volume_down": {
+          "spotify_command": "set_volume",
+          "delta": -10,
+          "nl": [
+            "Zet zachter",
+            "Zet de muziek zachter",
+            "Volume omlaag"
+          ],
+          "en": [
+            "Turn it down",
+            "Volume down",
+            "Quieter"
+          ]
+        },
+        "next": {
+          "spotify_command": "next",
+          "nl": [
+            "Volgende nummer",
+            "Volgend nummer",
+            "Volgende track"
+          ],
+          "en": [
+            "Next song",
+            "Next track",
+            "Skip"
+          ]
+        },
+        "previous": {
+          "spotify_command": "previous",
+          "nl": [
+            "Vorig nummer",
+            "Vorige track",
+            "Vorig liedje"
+          ],
+          "en": [
+            "Previous song",
+            "Previous track"
+          ]
+        }
+      }
+    },
     "artist": {
       "spotify_type": "artist",
+      "plays_music": true,
       "nl": [
         "Speel Nirvana",
         "Start Metallica",
@@ -39,6 +147,7 @@
     },
     "track": {
       "spotify_type": "track",
+      "plays_music": true,
       "nl": [
         "Speel nummer Lithium",
         "Speel nummer Lithium van Nirvana",
@@ -56,6 +165,7 @@
     },
     "album": {
       "spotify_type": "album",
+      "plays_music": true,
       "nl": [
         "Speel album Nevermind",
         "Speel album Ten van Pearl Jam",
@@ -70,6 +180,7 @@
     },
     "playlist": {
       "spotify_type": "playlist",
+      "plays_music": true,
       "nl": [
         "Speel playlist DJConnect",
         "Start mijn afspeellijst Roadtrip",
@@ -84,6 +195,7 @@
     },
     "default_playlist": {
       "spotify_type": "playlist",
+      "plays_music": true,
       "nl": [
         "Speel mijn standaard playlist",
         "Start favorieten",

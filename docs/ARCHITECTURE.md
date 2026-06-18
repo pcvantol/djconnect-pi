@@ -108,7 +108,9 @@ The normal release closeout is to run `./cleanup_old_releases.sh --keep 1
 published. That removes old private releases/tags, old public distribution
 releases/tags and completed tag workflow runs. The closeout also updates
 `CHAT_BOOTSTRAP.md` with the current release number, validation status, public
-asset status and next expected action.
+asset status and next expected action. Release visual hygiene clears stale
+files from `screenshots/` and regenerates the representative 720x720 screen set
+after a successful install or UI validation.
 
 The source repo publishes release assets to the public distribution repo through
 `.github/workflows/publish-release.yml` on `vX.Y.Z` tags. The workflow needs a
@@ -153,7 +155,7 @@ The Pi client is an app-like DJConnect client.
   "device_id": "djconnect-raspberry-pi-XXXXXXXXXXXX",
   "device_name": "DJConnect",
   "client_type": "raspberry_pi",
-  "version": "3.1.83",
+  "version": "3.1.84",
   "capabilities": {
     "touch": true,
     "voice": false,
@@ -202,7 +204,13 @@ Playlist response parsing accepts `playlists`, `items`, `data.playlists`,
 Shared spoken intent examples for website and documentation alignment are kept
 in `examples/voice_intents.json`. They describe the HA/ESP post-STT intent
 contract only; Raspberry Pi keeps `voice:false` and does not implement local
-voice capture.
+voice capture. The `current_track` family asks Home Assistant for current
+Spotify playback state and returns a DJ response without starting playback.
+The `playback_control` family maps phrases such as `Stop muziek`, `Start
+muziek`, `Zet harder`, `Zet zachter`, `Volgende nummer` and `Vorig nummer` to
+HA-side backend commands. The Pi client does not need local Spotify
+credentials, local Spotify Web API calls or client-side playback backend logic
+for these examples.
 
 HA responses may include `ha_version` or `ha_major_minor`. The Pi enforces
 major/minor compatibility: client `3.1.z` accepts HA `>=3.1.0` and `<3.2.0`.

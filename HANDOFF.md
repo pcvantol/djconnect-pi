@@ -153,6 +153,11 @@ Implemented:
 - Dutch/English translations are kept in `src/djconnect_pi/i18n.py`; tests
   assert key parity. QML game titles use translation keys, not hardcoded
   display strings.
+- Shared spoken intent examples live in `examples/voice_intents.json` for docs
+  and website alignment. `current_track` and `playback_control` examples are
+  handled by Home Assistant after STT; the Pi keeps `voice:false` and does not
+  need local Spotify credentials, Spotify Web API calls or playback backend
+  logic for those examples.
 - Local demo mode before pairing. It must not store a bearer token or send HA
   traffic.
 - Stable/beta client update channel setting
@@ -179,6 +184,9 @@ Implemented:
 - Standard release closeout should update `CHAT_BOOTSTRAP.md` with the
   current release number, validation status, public asset status and next
   expected action.
+- Standard release visual hygiene should clear stale files from `screenshots/`
+  before generating the new representative 720x720 screen set, so the repo does
+  not mix screenshots from multiple app versions.
 - Product-level ideas, killer features, production must-haves and premium
   candidates are tracked only in canonical
   `pcvantol/djconnect/PRODUCT_ROADMAP.md`. Do not add a local copy in this
