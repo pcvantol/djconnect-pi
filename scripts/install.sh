@@ -115,6 +115,20 @@ print_thermal_status() {
   fi
 }
 
+stop_running_client_early() {
+  log "Stopping running DJConnect touch UI before install"
+
+  if command -v systemctl >/dev/null 2>&1; then
+    systemctl stop djconnect-client.service >/dev/null 2>&1 || true
+  fi
+
+  if command -v pkill >/dev/null 2>&1; then
+    pkill -TERM -f 'djconnect-pi-client|djconnect_pi\.app' >/dev/null 2>&1 || true
+    sleep 1
+    pkill -KILL -f 'djconnect-pi-client|djconnect_pi\.app' >/dev/null 2>&1 || true
+  fi
+}
+
 version() {
   printf '%s\n' "${DJCONNECT_VERSION#v}"
 }
@@ -498,6 +512,7 @@ configure_xwrapper() {
 
 main() {
   log "DJConnect Pi installer ${DJCONNECT_VERSION}"
+  stop_running_client_early
   print_resources "installer start"
   print_thermal_status
   check_runtime_dependencies
