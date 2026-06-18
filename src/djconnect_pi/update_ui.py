@@ -53,7 +53,7 @@ class UpdateUiBackend(QObject):
         self._device_address = _local_ip_from_config(local_url)
         self._ssh_command = f"ssh pi@{self._device_address}"
         self._mtime = 0.0
-        self._title = "Update bezig"
+        self._title = "DJConnect wordt bijgewerkt..."
         self._message = "DJConnect installeert een nieuwe versie. Laat de Pi aan staan."
         self._progress = 0
         self._current_version = ""
@@ -125,7 +125,7 @@ class UpdateUiBackend(QObject):
         except (TypeError, ValueError):
             progress = 0
         self._mtime = stat.st_mtime
-        self._title = str(data.get("title") or "Update bezig")
+        self._title = str(data.get("title") or "DJConnect wordt bijgewerkt...")
         self._message = str(data.get("message") or "DJConnect installeert een nieuwe versie. Laat de Pi aan staan.")
         self._progress = max(0, min(100, progress))
         self._current_version = str(data.get("current_version") or "")

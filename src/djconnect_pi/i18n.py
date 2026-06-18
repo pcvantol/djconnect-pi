@@ -36,7 +36,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "checking_updates": "Updates controleren...",
         "update_check_started": "Updatecontrole gestart",
         "update_check_failed": "Updatecontrole mislukt: {error}",
-        "update_in_progress_title": "Update bezig",
+        "update_in_progress_title": "DJConnect wordt bijgewerkt...",
         "update_in_progress_message": "DJConnect installeert een nieuwe versie. Laat de Pi aan staan.",
         "update_progress": "Voortgang",
         "update_details": "Meer details",

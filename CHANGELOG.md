@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.1.89
+
+- Polish the updater progress screen with a larger app icon, a thicker purple
+  progress bar, a fully purple DJConnect-style details button, a bottom-pinned
+  remote access block that hides while details are expanded, and the title
+  `DJConnect wordt bijgewerkt...`.
+
 ## 3.1.88
 
 - Style the updater progress UI details button and progress bar with the

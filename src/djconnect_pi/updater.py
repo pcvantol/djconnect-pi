@@ -45,7 +45,7 @@ class UpdateStatus:
         self.target_version = target_version
         self.logs: list[str] = []
 
-    def write(self, state: str, message: str, progress: int, *, title: str = "Update bezig") -> None:
+    def write(self, state: str, message: str, progress: int, *, title: str = "DJConnect wordt bijgewerkt...") -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         payload = {
             "state": state,

@@ -352,6 +352,8 @@ def test_qml_has_update_progress_view_with_expandable_logs() -> None:
     assert "id: updateProgressPanel" not in main_qml
     assert "djconnect.updateInProgress" not in main_qml
     assert "id: updateProgressRoot" in update_qml
+    assert "Layout.preferredWidth: 128" in update_qml
+    assert "Layout.preferredHeight: 128" in update_qml
     assert "updater.progress" in update_qml
     assert "updater.detailsOpen" in update_qml
     assert "updater.toggleDetails()" in update_qml
@@ -363,9 +365,14 @@ def test_qml_has_update_progress_view_with_expandable_logs() -> None:
     assert 'text: "->"' in update_qml
     assert "id: updateProgressBar" in update_qml
     assert "updateProgressBar.visualPosition" in update_qml
+    assert "Layout.preferredHeight: 36" in update_qml
+    assert "font.pixelSize: 22" in update_qml
     assert "id: detailsButton" in update_qml
+    assert "Layout.preferredHeight: 54" in update_qml
     assert "#d433ff" in update_qml
     assert "Remote meekijken" in update_qml
+    assert "visible: !updater.detailsOpen" in update_qml
+    assert "anchors.bottom: parent.bottom" in update_qml
     assert "updater.deviceAddress" in update_qml
     assert "updater.sshCommand" in update_qml
 
