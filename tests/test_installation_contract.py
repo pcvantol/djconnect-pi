@@ -24,6 +24,7 @@ def test_install_script_enables_local_api_service() -> None:
     assert "systemctl stop djconnect-updater.timer" in script
     assert "systemctl stop djconnect-updater.service" in script
     assert "stop_running_client_early" in script
+    assert "systemctl disable --now djconnect-client.service" in script
     assert "systemctl stop djconnect-client.service" in script
     assert "pkill -TERM -f 'djconnect-pi-client|djconnect_pi\\.app'" in script
     main_body = script.split("main() {", 1)[1]

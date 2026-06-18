@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DJCONNECT_VERSION="${DJCONNECT_VERSION:-3.1.78}"
+DJCONNECT_VERSION="${DJCONNECT_VERSION:-3.1.79}"
 DJCONNECT_REPO="${DJCONNECT_REPO:-pcvantol/djconnect-pi-releases}"
 DJCONNECT_HA_URL="${DJCONNECT_HA_URL:-http://homeassistant.local:8123}"
 DJCONNECT_RUNTIME_USER="${DJCONNECT_RUNTIME_USER:-djconnect}"
@@ -119,6 +119,7 @@ stop_running_client_early() {
   log "Stopping running DJConnect touch UI before install"
 
   if command -v systemctl >/dev/null 2>&1; then
+    systemctl disable --now djconnect-client.service >/dev/null 2>&1 || true
     systemctl stop djconnect-client.service >/dev/null 2>&1 || true
   fi
 
@@ -459,7 +460,7 @@ payload = {
     "device_name": "DJConnect Pi",
     "device_token": "",
     "paired": False,
-    "version": "3.1.78",
+    "version": "3.1.79",
     "update_repo": "pcvantol/djconnect-pi-releases",
     "update_channel": "stable",
     "screen_timeout_seconds": 120,

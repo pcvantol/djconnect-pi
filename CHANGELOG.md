@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.1.79
+
+- Disable `djconnect-client.service` at the start of the manual installer so a
+  rebooted interrupted install cannot start the old client unit, which pulls in
+  the old updater through `Wants=djconnect-updater.service` before the manual
+  retry can resume.
+
 ## 3.1.78
 
 - Disable `djconnect-updater.timer` at the start of the manual installer, and
