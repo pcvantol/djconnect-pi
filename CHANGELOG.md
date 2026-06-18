@@ -1,6 +1,6 @@
 # Changelog
 
-## 3.1.84
+## 3.1.85
 
 - Moved the updater progress screen into a separate `djconnect-update-ui`
   entrypoint and systemd service so unattended updates stop the normal touch UI
