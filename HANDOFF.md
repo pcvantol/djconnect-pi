@@ -144,7 +144,8 @@ Implemented:
   local API daemon.
 - The web portal Diagnostics block shows live Home Assistant API, local API,
   pairing and DJConnect systemd service/timer status as running, stopped,
-  failed or unknown.
+  failed or unknown, including the touch UI, separate update progress UI,
+  updater, maintenance, watchdog, screen schedule and nightly reboot units.
 - The web portal playback controls follow the ESP portal style with large
   purple icon buttons, active shuffle/repeat states and a visible volume
   percentage.
@@ -219,6 +220,9 @@ Implemented:
 - Once the unattended updater detects a newer release, it stops the DJConnect
   client, local API, maintenance and watchdog services before download/install
   work. It does not stop `djconnect-updater.service` itself.
+- The updater progress screen is a separate `djconnect-update-ui.service`
+  process, launched only during update work. The normal touch UI must not keep
+  running during installs.
 - Updater Python dependency installation is resumable per step: venv creation,
   pip check/upgrade, build tools, shiboken6, PySide6 Essentials, PySide6
   Addons, PySide6, requests, zeroconf and bundled wheel installs write markers
@@ -230,6 +234,9 @@ Implemented:
 - The unattended updater now also uses `/var/cache/djconnect-pip` and
   `/var/cache/djconnect-pip/tmp` for pip cache and temporary files, matching the
   public installer behavior during large PySide6 dependency installs.
+- The updater preserves an already unpacked target release when `VERSION` and
+  `wheels/` are present, so target-release `.install-state/` markers survive
+  reboot/resume retries.
 - Install script is resumable across reboot/interruption. It stores markers in
   `/opt/djconnect/install-state/<version>/` for `release_unpacked` and
   `venv_ready`, and stores per-package dependency markers in

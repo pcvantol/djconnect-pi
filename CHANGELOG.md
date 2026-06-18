@@ -2,6 +2,11 @@
 
 ## 3.1.85
 
+- Release refresh after enabling public repository security settings and branch
+  protection; no product behavior changes beyond 3.1.84.
+
+## 3.1.84
+
 - Moved the updater progress screen into a separate `djconnect-update-ui`
   entrypoint and systemd service so unattended updates stop the normal touch UI
   before installing while still showing progress, a spinner and live logs.

@@ -58,7 +58,7 @@ QT_QPA_PLATFORM=offscreen djconnect-pi-client --windowed --exit-after-ms 1500
 Build and dry-run the release flow:
 
 ```sh
-./release.sh 3.1.79 --dry-run
+./release.sh X.Y.Z --dry-run
 ```
 
 Use the next semantic version for real releases.

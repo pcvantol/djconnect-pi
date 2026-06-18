@@ -178,7 +178,7 @@ ssh -o BatchMode=yes pi@rbpi-djconnect.local "curl -fsS 'http://127.0.0.1:18080/
 Dry-run the release flow before making a real release:
 
 ```sh
-./release.sh 3.1.79 --dry-run
+./release.sh X.Y.Z --dry-run
 ```
 
 Use the next semantic version for real releases:

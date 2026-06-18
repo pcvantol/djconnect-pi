@@ -22,11 +22,13 @@ SCREENSHOT_TIMEOUT_SECONDS = 8.0
 DIAGNOSTIC_UNITS = (
     ("Client API", "djconnect-api.service"),
     ("Touch UI", "djconnect-client.service"),
+    ("Update progress UI", "djconnect-update-ui.service"),
     ("Updater", "djconnect-updater.timer"),
     ("OS maintenance", "djconnect-maintenance.timer"),
     ("Watchdog", "djconnect-watchdog.timer"),
     ("Screen off", "djconnect-screen-off.timer"),
     ("Screen on", "djconnect-screen-on.timer"),
+    ("Nightly reboot", "djconnect-nightly-reboot.timer"),
 )
 
 

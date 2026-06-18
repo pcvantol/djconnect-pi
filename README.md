@@ -113,7 +113,9 @@ The app is a 720x720 fullscreen touch remote:
 - DJ response text overlay
 - logs viewer
 - web portal with Diagnostics for Home Assistant API, local API, pairing and
-  DJConnect systemd service/timer status
+  DJConnect systemd service/timer status, including the touch UI, separate
+  update progress UI, updater, maintenance, watchdog, screen schedule and
+  nightly reboot units
 - web portal settings use save-on-change, refresh actions show busy feedback,
   logs scroll to the newest line after refresh and log copy confirms via toast
 - web portal playback controls use the ESP-style large purple icon buttons
@@ -195,9 +197,10 @@ enter the pairing code on the Pi. The client stores config under
 
 ## Unattended Updates
 
-The local Client API, updater and OS maintenance are separate processes from the
-UI app. The Client API runs as `djconnect-api.service`; the touch UI runs as
-`djconnect-client.service`.
+The local Client API, updater, updater progress UI and OS maintenance are
+separate processes from the UI app. The Client API runs as
+`djconnect-api.service`; the touch UI runs as `djconnect-client.service`; the
+temporary update progress screen runs as `djconnect-update-ui.service`.
 
 The updater checks GitHub Releases in the public distribution repository
 `pcvantol/djconnect-pi-releases`,
@@ -208,9 +211,12 @@ downloads a tarball asset and optional `.sha256`, installs into:
 /opt/djconnect/current -> /opt/djconnect/releases/<version>
 ```
 
-It then restarts `djconnect-api.service` and `djconnect-client.service`. App
-updates are atomic at the symlink level and preserve config outside the release
-directory.
+After a newer release is detected, the updater stops the normal touch UI, local
+API, maintenance and watchdog services before install work, then starts the
+separate updater UI so the screen can show progress without running the main
+client. It then restarts `djconnect-api.service` and `djconnect-client.service`.
+App updates are atomic at the symlink level and preserve config outside the
+release directory.
 
 Set the updater channel in the touch settings to `stable` for normal releases
 or `beta` to allow GitHub prereleases. The systemd updater reads
@@ -281,9 +287,9 @@ sudo ./scripts/install.sh
 ```
 
 The installer preserves existing config, updates `/opt/djconnect/current`,
-refreshes systemd units, and restarts `djconnect-api.service` and
-`djconnect-client.service`. It does not run OS bootstrap tasks such as timezone,
-SSH, apt full-upgrade, Raspberry Pi Connect or HyperPixel setup. Use
+refreshes systemd units, and restarts `djconnect-api.service` and `djconnect-client.service`.
+It does not run OS bootstrap tasks such as timezone, SSH, apt full-upgrade,
+Raspberry Pi Connect or HyperPixel setup. Use
 `git pull --ff-only` first only when the Pi is running from a development
 checkout.
 

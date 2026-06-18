@@ -73,7 +73,9 @@ def test_client_api_daemon_portal_state_includes_diagnostics(tmp_path: Path, mon
     diagnostics = state["diagnostics"]
     assert {"name": "Local Client API", "status": "running", "detail": "http://127.0.0.1:18080"} in diagnostics
     assert any(item["name"] == "Touch UI" and item["status"] == "running" for item in diagnostics)
+    assert any(item["name"] == "Update progress UI" and "djconnect-update-ui.service" in item["detail"] for item in diagnostics)
     assert any(item["name"] == "Updater" and "djconnect-updater.timer" in item["detail"] for item in diagnostics)
+    assert any(item["name"] == "Nightly reboot" and "djconnect-nightly-reboot.timer" in item["detail"] for item in diagnostics)
 
 
 def test_client_api_daemon_portal_state_loads_output_devices_when_status_omits_them(tmp_path: Path, monkeypatch) -> None:
