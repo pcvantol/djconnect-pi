@@ -128,7 +128,7 @@ The public release contains the Pi install tarball, checksum and
 After release, verify the public release assets and update related DJConnect
 repositories when the release changes shared contracts, Home Assistant
 integration behavior, docs or product roadmap. Also update
-`NEXT_CHAT_PROMPT.md` so a fresh Codex chat starts from the current release
+`CHAT_BOOTSTRAP.md` so a fresh Codex chat starts from the current release
 state, validation status and next expected action.
 
 ## Licensing

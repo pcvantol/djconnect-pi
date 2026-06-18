@@ -1,4 +1,4 @@
-# Next Chat Prompt
+# Chat Bootstrap Prompt
 
 Use this prompt to initialize a fresh Codex chat for this repository:
 
@@ -8,7 +8,7 @@ Werk in repo: /Users/pcvantol/Documents/GitHub/djconnect-pi
 Lees eerst:
 - AGENTS.md
 - HANDOFF.md
-- NEXT_CHAT_PROMPT.md
+- CHAT_BOOTSTRAP.md
 - git status --short
 
 Belangrijke context:
@@ -34,7 +34,7 @@ Huidige stand:
   - GitHub Actions publish workflow voor `v3.1.74` -> success
 
 Openstaande gewenste workflow:
-- Bij een volgende release: actualiseer `NEXT_CHAT_PROMPT.md` als onderdeel van de release closeout.
+- Bij een volgende release: actualiseer `CHAT_BOOTSTRAP.md` als onderdeel van de release closeout.
 - Controleer na elke release de public publish workflow:
   `gh run list --workflow publish-release.yml --limit 3`
 - Verifieer na elke release de public assets:

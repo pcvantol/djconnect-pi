@@ -7,7 +7,7 @@
 - Stop the running touch UI service and any lingering client process early in
   `scripts/install.sh`, before dependency checks and release installation work.
 - Added installer contract coverage for the early touch UI shutdown behavior.
-- Added `NEXT_CHAT_PROMPT.md` as a local handoff prompt for fresh Codex chats.
+- Added `CHAT_BOOTSTRAP.md` as a local handoff prompt for fresh Codex chats.
 
 ## 3.1.73
 

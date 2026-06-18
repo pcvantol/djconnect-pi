@@ -98,7 +98,7 @@ The normal release closeout is to run `./cleanup_old_releases.sh --keep 1
 --public --execute` after the source and public distribution releases have been
 published. That removes old private releases/tags, old public distribution
 releases/tags and completed tag workflow runs. The closeout also updates
-`NEXT_CHAT_PROMPT.md` with the current release number, validation status, public
+`CHAT_BOOTSTRAP.md` with the current release number, validation status, public
 asset status and next expected action.
 
 The source repo publishes release assets to the public distribution repo through

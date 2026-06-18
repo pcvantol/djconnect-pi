@@ -176,7 +176,7 @@ Implemented:
 - Standard release closeout should also run
   `./cleanup_old_releases.sh --keep 1 --public --execute` to clean old private
   and public releases/tags plus completed tag workflow runs.
-- Standard release closeout should update `NEXT_CHAT_PROMPT.md` with the
+- Standard release closeout should update `CHAT_BOOTSTRAP.md` with the
   current release number, validation status, public asset status and next
   expected action.
 - Product-level ideas, killer features, production must-haves and premium
