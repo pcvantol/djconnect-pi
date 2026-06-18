@@ -164,6 +164,8 @@ def unpack_release(bundle: Path, version: str, root: Path) -> Path:
     target = releases / version
     tmp_target = releases / f".{version}.tmp"
     releases.mkdir(parents=True, exist_ok=True)
+    if target.exists() and (target / "VERSION").exists() and (target / "wheels").exists():
+        return target
     if tmp_target.exists():
         shutil.rmtree(tmp_target)
     tmp_target.mkdir()

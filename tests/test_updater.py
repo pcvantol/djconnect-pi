@@ -107,6 +107,22 @@ def test_unpack_release_strips_bundle_root_directory(tmp_path: Path) -> None:
     assert not (target / "djconnect-pi-0.2.0").exists()
 
 
+def test_unpack_release_keeps_existing_release_for_resume(tmp_path: Path) -> None:
+    bundle = tmp_path / "release.tar.gz"
+    root = tmp_path / "root"
+    target = root / "releases" / "0.2.0"
+    state_dir = target / ".install-state"
+    (target / "wheels").mkdir(parents=True)
+    state_dir.mkdir()
+    (target / "VERSION").write_text("0.2.0\n", encoding="utf-8")
+    (target / "wheels" / "djconnect_pi-0.2.0-py3-none-any.whl").write_bytes(b"wheel")
+    (state_dir / "shiboken6_installed").write_text("ok\n", encoding="utf-8")
+    write_tar(bundle)
+
+    assert updater.unpack_release(bundle, "0.2.0", root) == target
+    assert (state_dir / "shiboken6_installed").exists()
+
+
 def test_install_release_installs_dependencies_before_activation(tmp_path: Path) -> None:
     bundle = tmp_path / "release.tar.gz"
     root = tmp_path / "root"

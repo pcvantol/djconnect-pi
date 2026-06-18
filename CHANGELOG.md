@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.1.83
+
+- Preserve an existing unpacked target release during unattended updater resume
+  so `.install-state` dependency markers survive reboot and power-loss retries.
+
 ## 3.1.82
 
 - Force binary-only pip installs for runtime wheels in both the manual installer
