@@ -39,8 +39,10 @@ class UpdaterConfig:
 
 
 class UpdateStatus:
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Path, *, current_version: str = "", target_version: str = "") -> None:
         self.path = path
+        self.current_version = current_version
+        self.target_version = target_version
         self.logs: list[str] = []
 
     def write(self, state: str, message: str, progress: int, *, title: str = "Update bezig") -> None:
@@ -50,6 +52,8 @@ class UpdateStatus:
             "title": title,
             "message": message,
             "progress": max(0, min(100, int(progress))),
+            "current_version": self.current_version,
+            "target_version": self.target_version,
             "logs": self.logs[-80:],
             "updated_at": time.time(),
         }
@@ -386,7 +390,8 @@ def run(cfg: UpdaterConfig, dry_run: bool = False) -> str:
     version = str(release.get("tag_name") or "").removeprefix("v")
     if not version:
         raise RuntimeError("Release has no tag name")
-    if version == current_version(cfg.install_root):
+    installed_version = current_version(cfg.install_root)
+    if version == installed_version:
         return f"Already on {version}"
 
     bundle_url = asset_url(release, ".tar.gz")
@@ -397,7 +402,7 @@ def run(cfg: UpdaterConfig, dry_run: bool = False) -> str:
     status_file = cfg.status_file
     if status_file == Path("/opt/djconnect/config/updater-status.json") and cfg.install_root != Path("/opt/djconnect"):
         status_file = cfg.install_root / "config" / "updater-status.json"
-    status = UpdateStatus(status_file)
+    status = UpdateStatus(status_file, current_version=installed_version, target_version=version)
     status.write("checking", f"Nieuwe versie {version} gevonden", 12)
     stop_services(cfg.stop_service_names)
     start_service(cfg.update_ui_service_name)

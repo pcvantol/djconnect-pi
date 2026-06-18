@@ -1,9 +1,16 @@
 # Changelog
 
+## 3.1.87
+
+- Show the current version, target version, Pi IP address and SSH command on the
+  separate updater progress UI, and wake the display when the updater UI starts
+  so remote install monitoring is visible.
+
 ## 3.1.86
 
-- Release refresh after enabling public repository security settings and branch
-  protection; no product behavior changes beyond 3.1.84.
+- Add the separate update progress UI and nightly reboot timer to the web portal
+  diagnostics list, and refresh release-cycle documentation around the updater
+  service split.
 
 ## 3.1.84
 

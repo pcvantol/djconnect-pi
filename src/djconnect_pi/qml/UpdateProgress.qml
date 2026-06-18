@@ -36,13 +36,13 @@ Window {
     ColumnLayout {
         anchors.centerIn: parent
         width: Math.min(parent.width - 56, 600)
-        spacing: 16
+        spacing: 10
 
         Image {
             source: "app-icon.png"
             Layout.alignment: Qt.AlignHCenter
-            Layout.preferredWidth: 88
-            Layout.preferredHeight: 88
+            Layout.preferredWidth: 64
+            Layout.preferredHeight: 64
             fillMode: Image.PreserveAspectFit
             smooth: true
             mipmap: true
@@ -51,7 +51,7 @@ Window {
         Text {
             text: updater.title
             color: "#ffffff"
-            font.pixelSize: 42
+            font.pixelSize: 34
             font.bold: true
             horizontalAlignment: Text.AlignHCenter
             Layout.fillWidth: true
@@ -60,10 +60,68 @@ Window {
         Text {
             text: updater.message
             color: "#d7e2e4"
-            font.pixelSize: 20
+            font.pixelSize: 17
             wrapMode: Text.WordWrap
             horizontalAlignment: Text.AlignHCenter
             Layout.fillWidth: true
+        }
+
+        RowLayout {
+            Layout.alignment: Qt.AlignHCenter
+            spacing: 12
+
+            Text {
+                text: updater.currentVersion ? updater.currentVersion : "-"
+                color: "#ffffff"
+                font.pixelSize: 20
+                font.bold: true
+            }
+
+            Text {
+                text: "->"
+                color: "#93c5fd"
+                font.pixelSize: 20
+                font.bold: true
+            }
+
+            Text {
+                text: updater.targetVersion ? updater.targetVersion : "-"
+                color: "#ffffff"
+                font.pixelSize: 20
+                font.bold: true
+            }
+        }
+
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 68
+            radius: 8
+            color: "#99050816"
+            border.color: "#42537c"
+            border.width: 1
+
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: 12
+                spacing: 4
+
+                Text {
+                    text: "Remote meekijken"
+                    color: "#f4f8f8"
+                    font.pixelSize: 14
+                    font.bold: true
+                    Layout.fillWidth: true
+                }
+
+                Text {
+                    text: updater.deviceAddress + "  |  " + updater.sshCommand
+                    color: "#d7e2e4"
+                    font.family: "monospace"
+                    font.pixelSize: 16
+                    elide: Text.ElideRight
+                    Layout.fillWidth: true
+                }
+            }
         }
 
         RowLayout {
@@ -100,16 +158,16 @@ Window {
 
         Button {
             text: updater.detailsOpen ? "Details verbergen" : "Meer details"
-            font.pixelSize: 20
+            font.pixelSize: 18
             Layout.fillWidth: true
-            Layout.preferredHeight: 54
+            Layout.preferredHeight: 46
             onClicked: updater.toggleDetails()
         }
 
         ColumnLayout {
             visible: updater.detailsOpen
             Layout.fillWidth: true
-            Layout.preferredHeight: visible ? 270 : 0
+            Layout.preferredHeight: visible ? 190 : 0
             spacing: 8
 
             Text {

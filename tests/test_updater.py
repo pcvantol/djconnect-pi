@@ -425,6 +425,8 @@ def test_run_writes_updater_status_file(tmp_path: Path) -> None:
     status = json.loads((tmp_path / "status.json").read_text(encoding="utf-8"))
     assert status["state"] == "complete"
     assert status["progress"] == 100
+    assert status["current_version"] == "0.0.0"
+    assert status["target_version"] == "0.2.0"
 
 
 def test_run_keeps_update_ui_visible_and_writes_failed_status_on_error(tmp_path: Path) -> None:

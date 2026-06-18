@@ -356,6 +356,12 @@ def test_qml_has_update_progress_view_with_expandable_logs() -> None:
     assert "updater.detailsOpen" in update_qml
     assert "updater.toggleDetails()" in update_qml
     assert "updater.logs" in update_qml
+    assert "updater.currentVersion" in update_qml
+    assert "updater.targetVersion" in update_qml
+    assert 'text: "->"' in update_qml
+    assert "Remote meekijken" in update_qml
+    assert "updater.deviceAddress" in update_qml
+    assert "updater.sshCommand" in update_qml
 
 
 def test_qml_uses_dark_djconnect_gradient_theme() -> None:

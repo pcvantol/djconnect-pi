@@ -5,7 +5,10 @@ from pathlib import Path
 import argparse
 import json
 import logging
+import socket
+import subprocess
 import sys
+from urllib.parse import urlparse
 
 from PySide6.QtCore import QObject, Property, QTimer, Signal, Slot
 from PySide6.QtGui import QGuiApplication
@@ -18,16 +21,43 @@ from .logging_config import setup_logging
 _LOGGER = logging.getLogger(__name__)
 
 
+def _local_ip_from_config(local_url: str) -> str:
+    host = urlparse(local_url).hostname if local_url else ""
+    if host and host not in {"0.0.0.0", "127.0.0.1", "localhost"}:
+        return host
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            sock.connect(("8.8.8.8", 80))
+            return str(sock.getsockname()[0])
+    except OSError:
+        return "rbpi-djconnect.local"
+
+
+def wake_display() -> None:
+    for command in (
+        ["xset", "dpms", "force", "on"],
+        ["xset", "s", "reset"],
+    ):
+        try:
+            subprocess.run(command, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except OSError as exc:
+            _LOGGER.debug("Could not run display wake command %s: %s", command, exc)
+
+
 class UpdateUiBackend(QObject):
     statusChanged = Signal()
 
-    def __init__(self, status_file: Path) -> None:
+    def __init__(self, status_file: Path, local_url: str) -> None:
         super().__init__()
         self.status_file = status_file
+        self._device_address = _local_ip_from_config(local_url)
+        self._ssh_command = f"ssh pi@{self._device_address}"
         self._mtime = 0.0
         self._title = "Update bezig"
         self._message = "DJConnect installeert een nieuwe versie. Laat de Pi aan staan."
         self._progress = 0
+        self._current_version = ""
+        self._target_version = ""
         self._logs = ""
         self._details_open = False
         self._timer = QTimer(self)
@@ -49,8 +79,24 @@ class UpdateUiBackend(QObject):
         return self._progress
 
     @Property(str, notify=statusChanged)
+    def currentVersion(self) -> str:
+        return self._current_version
+
+    @Property(str, notify=statusChanged)
+    def targetVersion(self) -> str:
+        return self._target_version
+
+    @Property(str, notify=statusChanged)
     def logs(self) -> str:
         return self._logs
+
+    @Property(str, notify=statusChanged)
+    def deviceAddress(self) -> str:
+        return self._device_address
+
+    @Property(str, notify=statusChanged)
+    def sshCommand(self) -> str:
+        return self._ssh_command
 
     @Property(bool, notify=statusChanged)
     def detailsOpen(self) -> bool:
@@ -82,6 +128,8 @@ class UpdateUiBackend(QObject):
         self._title = str(data.get("title") or "Update bezig")
         self._message = str(data.get("message") or "DJConnect installeert een nieuwe versie. Laat de Pi aan staan.")
         self._progress = max(0, min(100, progress))
+        self._current_version = str(data.get("current_version") or "")
+        self._target_version = str(data.get("target_version") or "")
         self._logs = log_text
         self.statusChanged.emit()
 
@@ -100,12 +148,13 @@ def main() -> None:
     QQuickStyle.setStyle("Basic")
     app = QGuiApplication(sys.argv)
     engine = QQmlApplicationEngine()
-    backend = UpdateUiBackend(Path(cfg.updater_status_file))
+    backend = UpdateUiBackend(Path(cfg.updater_status_file), cfg.local_url)
     engine.rootContext().setContextProperty("updater", backend)
     engine.rootContext().setContextProperty("startWindowed", args.windowed)
     engine.load(str(files("djconnect_pi.qml").joinpath("UpdateProgress.qml")))
     if not engine.rootObjects():
         raise SystemExit(1)
+    QTimer.singleShot(0, wake_display)
     if args.exit_after_ms > 0:
         QTimer.singleShot(args.exit_after_ms, app.quit)
     raise SystemExit(app.exec())
