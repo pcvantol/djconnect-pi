@@ -19,24 +19,26 @@ Belangrijke context:
 - Geen lokale `SYNC_PROMPTS.md` of `PRODUCT_ROADMAP.md`; die staan canoniek in `pcvantol/djconnect`.
 
 Huidige stand:
-- Laatste gepubliceerde release is `v3.1.73`.
+- Laatste gepubliceerde release is `v3.1.74`.
 - Public updater assets staan in `pcvantol/djconnect-pi-releases`, inclusief `djconnect-pi-latest.json`.
-- Pi draaide nog `3.1.70`; updater via oude versie kan nog GitHub API rate-limit raken.
-- Nieuwe unreleased wijzigingen na v3.1.73:
-  - `CONTRIBUTING.md` toegevoegd voor MIT/projectbijdragen.
-  - `scripts/install.sh` stopt/kilt `djconnect-client.service` en losse clientprocessen vroeg in de install.
-  - `tests/test_installation_contract.py` test dit gedrag.
-  - `NEXT_CHAT_PROMPT.md` bevat deze startprompt.
-- Validatie na die laatste wijzigingen:
+- Release `v3.1.74` is gepubliceerd in source en public distribution repo.
+- Public assets voor `v3.1.74` zijn geverifieerd:
+  - `djconnect-pi-3.1.74.tar.gz`
+  - `djconnect-pi-3.1.74.sha256`
+  - `djconnect-pi-latest.json`
+- Cleanup is gedraaid met `./cleanup_old_releases.sh --keep 1 --public --execute`; alleen `v3.1.74` blijft over als recente source/public release.
+- Pi draaide eerder nog `3.1.70`; updater via oude versie kan nog GitHub API rate-limit raken.
+- Validatie voor `v3.1.74`:
   - `bash -n scripts/install.sh`
-  - `python3 -m pytest tests/test_installation_contract.py -q` -> 31 passed
+  - `python3.11 -m pytest tests/test_installation_contract.py -q` -> 31 passed
+  - GitHub Actions publish workflow voor `v3.1.74` -> success
 
 Openstaande gewenste workflow:
-- Maak desgevraagd een nieuwe release, vermoedelijk `v3.1.74`.
-- Controleer daarna public publish workflow:
+- Bij een volgende release: actualiseer `NEXT_CHAT_PROMPT.md` als onderdeel van de release closeout.
+- Controleer na elke release de public publish workflow:
   `gh run list --workflow publish-release.yml --limit 3`
-- Verifieer public assets:
-  `gh release view v3.1.74 --repo pcvantol/djconnect-pi-releases --json tagName,url,assets`
+- Verifieer na elke release de public assets:
+  `gh release view vX.Y.Z --repo pcvantol/djconnect-pi-releases --json tagName,url,assets`
 - Deploy/updater op Pi kan pas betrouwbaar nadat de Pi voorbij `3.1.70` is, of via handmatige tarball install.
 
 Handmatig client killen op Pi:

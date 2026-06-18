@@ -83,6 +83,7 @@ repository.
 
 ## Contribution Guidelines
 
+- Follow the community standards in [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md).
 - Keep changes small and focused.
 - Add tests for code, packaging or contract changes.
 - Update docs and examples when behavior, setup or user-facing text changes.
@@ -126,7 +127,9 @@ The public release contains the Pi install tarball, checksum and
 
 After release, verify the public release assets and update related DJConnect
 repositories when the release changes shared contracts, Home Assistant
-integration behavior, docs or product roadmap.
+integration behavior, docs or product roadmap. Also update
+`NEXT_CHAT_PROMPT.md` so a fresh Codex chat starts from the current release
+state, validation status and next expected action.
 
 ## Licensing
 

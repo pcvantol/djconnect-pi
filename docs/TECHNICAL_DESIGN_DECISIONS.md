@@ -249,7 +249,7 @@ For every future DJConnect Pi release:
   dependencies, dependency versions, OS package requirements, packaging or
   release flow changes
 - update `README.md`, `CHANGELOG.md`, `HANDOFF.md`, `TESTS.md`, `TODO.md`,
-  `ISSUES.md` and relevant `docs/` files
+  `ISSUES.md`, `NEXT_CHAT_PROMPT.md` and relevant `docs/` files
 - extend tests when a design decision becomes a regression risk
 - keep changelog entries per release; do not consolidate historical versions
 - after release deploy to the Pi, capture and attach a live Pi screenshot when
