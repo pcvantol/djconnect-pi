@@ -20,6 +20,7 @@ def test_install_script_enables_local_api_service() -> None:
     script = ROOT.joinpath("scripts/install.sh").read_text(encoding="utf-8")
 
     assert "stop_running_updater_early" in script
+    assert "systemctl disable --now djconnect-updater.timer" in script
     assert "systemctl stop djconnect-updater.timer" in script
     assert "systemctl stop djconnect-updater.service" in script
     assert "stop_running_client_early" in script

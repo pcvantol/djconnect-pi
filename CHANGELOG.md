@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.1.78
+
+- Disable `djconnect-updater.timer` at the start of the manual installer, and
+  re-enable it only after a successful install, so an interrupted/rebooted
+  manual install is not raced by the old unattended updater on the next boot.
+
 ## 3.1.77
 
 - Stop `djconnect-updater.timer` and `djconnect-updater.service` at the start
