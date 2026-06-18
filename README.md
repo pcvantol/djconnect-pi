@@ -1,6 +1,6 @@
 # DJConnect Pi
 
-Version: `3.1.70`
+Version: `3.1.71`
 
 Raspberry Pi Zero 2 W touch-display client for DJConnect. This client uses
 Qt Quick/QML with a PySide6 backend and is meant for a Pimoroni HyperPixel 4.0
@@ -59,6 +59,8 @@ automatically on boot through `djconnect-api.service`.
   - `set_repeat`
   - `queue` with `limit=100`
   - `playlists` with `limit=100`
+  - `play_context_at` for queue rows, with nested `value.uri`
+  - `start_playlist` for playlist rows
 - Version compatibility:
   - client `3.1.z` works with DJConnect HA `>=3.1.0` and `<3.2.0`
   - HA responses may include `ha_version` or `ha_major_minor`
@@ -74,10 +76,12 @@ The app is a 720x720 fullscreen touch remote:
 - blocking first-run pairing screen until the client is paired
 - blocking version-mismatch screen when HA and Pi versions are incompatible
 - pairing screen shows the local Client API URL and pairing code
-- Speelt nu display screen with status, refresh, large album art and title
+- Speelt nu display screen with refresh, large unobstructed album art and
+  title/artist overlay
 - macOS-style gradient toast notifications for short action/backend feedback
 - HA-provided album art on Now Playing, Queue and Playlists, loaded
-  asynchronously so media-list navigation stays responsive on Pi Zero 2 W
+  asynchronously; Queue and Playlist background caching is limited to the first
+  visible batch to keep Pi Zero 2 W CPU, memory and I/O load low
 - Queue and Playlist rows use fixed explicit artwork/text/play-button geometry
   so album art, titles and play icons stay in the correct columns on the
   HyperPixel display
@@ -86,10 +90,11 @@ The app is a 720x720 fullscreen touch remote:
 - volume controls are capped at HA value 60 and display that as 100%
 - fixed bottom menu bar for Speelt nu, Bediening, Wachtrij, Afspeellijsten,
   Games and Instellingen
-- compact HA/pairing/backend status
 - settings for screen blanking, brightness, language, logs, pairing reset,
   update checks, reboot/shutdown with confirmation and stable/beta update
   channel
+- Device ID and Home Assistant URL are shown on Over, not duplicated in
+  Instellingen
 - settings save immediately when changed; there is no explicit save button on
   the touch UI or web portal
 - output-device selector on Bediening that can switch HA-provided playback
@@ -117,6 +122,14 @@ The app is a 720x720 fullscreen touch remote:
 The initial language is detected from the Raspberry Pi OS locale and then stored
 locally. Home Assistant does not provision UI language for Raspberry Pi clients;
 only ESP clients use HA language provisioning.
+
+Queue row playback follows the app/HACS contract. A row is playable when it has
+a non-empty Spotify `uri`. The Pi sends `command:"play_context_at"` with
+`{"value":{"uri":"spotify:..."}, "play":true}`. When Home Assistant supplies a
+queue context, the Pi includes `value.context_uri`; it includes
+`value.offset_uri` only for Spotify playlist, album and show contexts. Direct
+podcast episodes such as `spotify:episode:*` and direct tracks such as
+`spotify:track:*` stay selectable without queue context.
 
 ## Quick Start
 
@@ -146,9 +159,9 @@ not a private source clone:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.70.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.71.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.70
+cd djconnect-pi-3.1.71
 sudo ./scripts/install.sh
 ```
 
@@ -247,9 +260,9 @@ installer:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.70.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.71.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.70
+cd djconnect-pi-3.1.71
 sudo ./scripts/install.sh
 ```
 

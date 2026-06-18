@@ -14,7 +14,7 @@ import time
 from urllib.parse import urlparse
 
 from PySide6.QtCore import QByteArray, QBuffer, QCoreApplication, QIODevice, QObject, Property, QTimer, Signal, Slot
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtGui import QGuiApplication, QPixmapCache
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
 import requests
@@ -30,9 +30,11 @@ LOG_LINE_RE = re.compile(
     r"^\d{4}-\d{2}-\d{2}\s+(?P<time>\d{2}:\d{2}:\d{2})(?:[,.]\d+)?\s+(?P<level>[A-Z]+)\s+(?P<rest>.*)$"
 )
 LOG_LEVEL_SHORT = {"DEBUG": "DBG", "INFO": "INF", "WARNING": "WRN", "ERROR": "ERR", "CRITICAL": "ERR"}
-LOG_DISPLAY_MAX_BYTES = 160_000
+LOG_DISPLAY_MAX_BYTES = 80_000
 GAME_SOUND_SAMPLE_RATE = 16_000
-MEDIA_ARTWORK_CACHE_LIMIT = 12
+MEDIA_ARTWORK_CACHE_LIMIT = 6
+QT_PIXMAP_CACHE_LIMIT_KB = 4096
+UI_WORKER_COUNT = 1
 
 
 class DJConnectBackend(QObject):
@@ -113,7 +115,7 @@ class DJConnectBackend(QObject):
         self._status_text = self.tr_key("paired" if self.cfg.paired else "not_paired")
         self._backend_available = True
         self._busy = False
-        self._executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="djconnect")
+        self._executor = ThreadPoolExecutor(max_workers=UI_WORKER_COUNT, thread_name_prefix="djconnect")
         self._poll_timer = QTimer(self)
         self._poll_timer.setInterval(5000)
         self._poll_timer.timeout.connect(self.refresh)
@@ -715,12 +717,13 @@ class DJConnectBackend(QObject):
         payload = media_item_payload(command, item)
         if not command or not payload:
             return
-        if command not in {"start_queue_item", "start_playlist"}:
+        if command not in {"play_context_at", "start_queue_item", "start_playlist"}:
             _LOGGER.warning("Ignoring unsupported media item command from touch UI: %s", command)
             return
+        backend_command = "play_context_at" if command == "start_queue_item" else command
         _LOGGER.info("User requested %s from touch UI", command)
         self.showToast(self.tr_key("play"))
-        self._run(command, lambda: self._play_media_item_worker(command, payload))
+        self._run(backend_command, lambda: self._play_media_item_worker(backend_command, payload))
 
     @Slot()
     def showLogs(self) -> None:
@@ -760,6 +763,7 @@ class DJConnectBackend(QObject):
     @Slot()
     def hideLogs(self) -> None:
         self._logs_visible = False
+        self._logs_text = ""
         self.logsChanged.emit()
 
     @Slot(str)
@@ -1279,13 +1283,14 @@ class DJConnectBackend(QObject):
                 _LOGGER.info("Executing local web portal update check request")
                 self.checkForUpdates()
                 continue
-            if command in {"start_queue_item", "start_playlist"}:
+            if command in {"play_context_at", "start_queue_item", "start_playlist"}:
                 item_payload = media_item_payload(command, payload)
                 if not item_payload:
                     _LOGGER.info("Ignoring local media item request without usable URI: %s", command)
                     continue
+                backend_command = "play_context_at" if command == "start_queue_item" else command
                 _LOGGER.info("Executing local web portal media item request: %s", command)
-                self.playMediaItem(command, item_payload)
+                self.playMediaItem(backend_command, item_payload)
                 continue
             _LOGGER.info("Executing Client API command event from Home Assistant: %s", command)
             if command in {"previous", "next"}:
@@ -1341,6 +1346,7 @@ def main() -> None:
 
     QQuickStyle.setStyle("Basic")
     app = QGuiApplication(sys.argv)
+    QPixmapCache.setCacheLimit(QT_PIXMAP_CACHE_LIMIT_KB)
     engine = QQmlApplicationEngine()
     backend = DJConnectBackend(args.config)
     app.aboutToQuit.connect(backend.shutdown)
@@ -1549,7 +1555,7 @@ def media_item_payload(command: str, item: object) -> dict[str, object]:
     if command == "start_playlist":
         return {"value": uri, "uri": uri, "context_uri": uri}
 
-    payload: dict[str, object] = {"value": uri, "uri": uri}
+    value: dict[str, object] = {"uri": uri}
     title = str(item_data.get("title") or "").strip()
     artist = str(item_data.get("artist") or item_data.get("subtitle") or "").strip()
     context_uri = str(
@@ -1561,16 +1567,16 @@ def media_item_payload(command: str, item: object) -> dict[str, object]:
     ).strip()
     index = item_data.get("index")
     if title:
-        payload["title"] = title
+        value["title"] = title
     if artist:
-        payload["artist"] = artist
+        value["artist"] = artist
     if isinstance(index, int):
-        payload["index"] = index
+        value["index"] = index
     if context_uri:
-        payload["context_uri"] = context_uri
+        value["context_uri"] = context_uri
         if _context_supports_offset(context_uri):
-            payload["offset_uri"] = uri
-    return payload
+            value["offset_uri"] = uri
+    return {"value": value, "play": True}
 
 
 def _context_supports_offset(context_uri: str) -> bool:

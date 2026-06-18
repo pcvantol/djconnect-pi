@@ -145,7 +145,7 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "djconnect.playlistItems" in main_qml
     assert 'emptyText: root.tr("empty_queue")' in main_qml
     assert 'emptyText: root.tr("empty_playlists")' in main_qml
-    assert 'playCommand: "start_queue_item"' in main_qml
+    assert 'playCommand: "play_context_at"' in main_qml
     assert 'playCommand: "start_playlist"' in main_qml
     assert "function itemPayload(item)" in main_qml
     assert "JSON.stringify" in main_qml
@@ -180,6 +180,11 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert 'text: root.tr("log") + ": " + djconnect.logFile' in main_qml
     assert "djconnect.cachedImageUrl(modelData.imageUrl)" not in main_qml
     assert "source: modelData.imageUrl && modelData.imageUrl.length > 0 ? modelData.imageUrl : \"\"" in main_qml
+    assert "sourceSize.width: 68" in main_qml
+    assert "sourceSize.height: 68" in main_qml
+    assert "sourceSize.width: width" in main_qml
+    assert "sourceSize.height: height" in main_qml
+    assert main_qml.count("cache: false") >= 2
     assert "height: 92" not in main_qml
     assert "color: \"#990b1012\"" not in main_qml
     assert "Layout.preferredHeight: 178" in main_qml
@@ -280,10 +285,8 @@ def test_qml_screen_blanking_wakes_on_tap() -> None:
     assert "djconnect.djResponseText" in main_qml
     assert "djconnect.clearDjResponse()" in main_qml
     assert "source: \"app-icon.png\"" in main_qml
-    assert "id: albumQuickPlay" in main_qml
-    assert "onClicked: djconnect.togglePlay()" in main_qml
-    assert "id: albumQuickPlayIcon" in main_qml
-    assert "opacity: albumQuickPlay.down ? 0.72 : 0.42" in main_qml
+    assert "id: albumQuickPlay" not in main_qml
+    assert "id: albumQuickPlayIcon" not in main_qml
     assert "function onScreenshotRequested()" in main_qml
     assert "function onDebugScreenRequested(screen)" in main_qml
     assert 'screen === "queue"' in main_qml

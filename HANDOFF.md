@@ -13,9 +13,9 @@ Implemented:
   screens, splash, games, logs and blocking overlays
 - Bottom navigation is a larger touch-friendly icon+label bar ordered Speelt
   nu, Bediening, Wachtrij, Afspeellijsten, Games, Instellingen.
-- Speelt nu is display-focused: status, refresh, large album art and
-  title/artist. It no longer sends hidden playback commands from cover taps or
-  swipes.
+- Speelt nu is display-focused: refresh, large unobstructed album art and
+  title/artist overlay. It no longer sends hidden playback commands from cover
+  taps, swipes or an album-art play/pause overlay.
 - Bediening is the dedicated touch-control screen with enlarged previous,
   play/pause, next, track progress, volume, output-device, shuffle and repeat
   controls.
@@ -71,8 +71,7 @@ Implemented:
   so Pi responsiveness regressions can be traced from persistent logs.
 - Home Assistant 401 responses are parsed as authentication failures instead of
   showing raw JSON on the kiosk screen. The user gets a concise toast/status and
-  the connection dot turns red until a successful refresh restores backend
-  health.
+  backend health remains degraded until a successful refresh restores it.
 - Home Assistant `success:false` with `backend_available:false` is treated as a
   music-backend-unavailable state and shown as a short translated status/toast.
 - Configurable screen blanking from the touch settings panel. Default is 120
@@ -82,10 +81,11 @@ Implemented:
 - Previous/next track actions wake the rendered screen for 10 seconds, also
   when they arrive from Home Assistant through `/api/device/command`.
 - Configurable app-level brightness from the touch settings panel
-- Settings shows "Instellingen", uses label/value rows for read-only values
-  such as Device ID and Home Assistant URL, has a red "Opnieuw koppelen" action
-  with a confirmation screen, a "Logs" button, no local Close button and a
-  reboot/shutdown buttons with confirmation.
+- Settings shows "Instellingen" for editable kiosk settings and actions. Device
+  ID and Home Assistant URL live on Over, not in Instellingen. The screen has a
+  red "Opnieuw koppelen" action with a confirmation screen, a "Logs" button,
+  the update-check button below Logs, no local Close button and reboot/shutdown
+  buttons with confirmation.
 - The reboot/shutdown buttons and the manual update-check action use the
   installer-created narrow passwordless sudoers rule and try absolute systemctl
   paths first from the `djconnect` runtime user.
@@ -102,6 +102,11 @@ Implemented:
   only shown while local demo mode is active.
 - Queue loading follows the shared HA contract and requests at most 100 items:
   `command:"queue"` with `limit:100`.
+- Queue row playback follows the Apple/HACS contract: rows with a non-empty
+  Spotify `uri` send `command:"play_context_at"` with nested `value.uri`.
+  `context_uri` is optional, and `offset_uri` is sent only for playlist, album
+  and show contexts. Direct `spotify:episode:*` podcast items and direct
+  `spotify:track:*` items remain selectable without queue context.
 - Bediening exposes the HA-provided playback output-device list and dispatches
   output selection with `command:"set_output"`. If the HA status response omits
   the list, the client asks HA for `command:"devices"` as a fallback.
@@ -111,6 +116,13 @@ Implemented:
   HA response and cache album art afterward on a background worker. Blocking
   network or disk work in media-list delegates, or before list emission, caused
   touch UI hangs on Pi Zero 2 W.
+- Media-list artwork background caching is capped to the first 6 items and
+  duplicate cache workers are skipped while one is already active, reducing
+  CPU, swap and I/O pressure on the Pi Zero 2 W.
+- Dynamic artwork images are decoded at their display size and opt out of QML's
+  extra image cache retention. The Qt pixmap cache is capped at 4 MB, the UI
+  executor uses one worker and the touch log buffer is released when Logs
+  closes to reduce RAM pressure.
 - The Logs screen reads a bounded tail of the persistent log file before compact
   formatting, so a large rotated log cannot freeze the kiosk UI.
 - Wachtrij and Afspeellijsten use explicit artwork/text/play-button geometry

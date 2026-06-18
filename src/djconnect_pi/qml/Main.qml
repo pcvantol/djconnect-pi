@@ -418,7 +418,7 @@ Window {
         id: panel
         property string heading: ""
         property string emptyText: ""
-        property string playCommand: "start_queue_item"
+        property string playCommand: "play_context_at"
         property var items: []
         signal refreshRequested()
 
@@ -533,8 +533,11 @@ Window {
                                     Image {
                                         anchors.fill: parent
                                         source: modelData.imageUrl && modelData.imageUrl.length > 0 ? modelData.imageUrl : ""
+                                        sourceSize.width: 68
+                                        sourceSize.height: 68
                                         fillMode: Image.PreserveAspectCrop
                                         asynchronous: true
+                                        cache: false
                                         opacity: status === Image.Ready ? 1 : 0
                                     }
 
@@ -767,63 +770,14 @@ Window {
                         id: albumArt
                         anchors.fill: parent
                         source: djconnect.imageUrl
+                        sourceSize.width: width
+                        sourceSize.height: height
                         fillMode: Image.PreserveAspectCrop
                         asynchronous: true
+                        cache: false
                         opacity: status === Image.Ready ? 1 : 0
 
                         Behavior on opacity { NumberAnimation { duration: 240 } }
-                    }
-
-                    Button {
-                        id: albumQuickPlay
-                        anchors.centerIn: parent
-                        z: 4
-                        width: Math.min(108, Math.max(78, parent.width * 0.24))
-                        height: width
-                        onClicked: djconnect.togglePlay()
-
-                        contentItem: Canvas {
-                            id: albumQuickPlayIcon
-                            anchors.fill: parent
-                            antialiasing: true
-                            onPaint: {
-                                var ctx = getContext("2d")
-                                ctx.clearRect(0, 0, width, height)
-                                var s = Math.min(width, height)
-                                var cx = width / 2
-                                var cy = height / 2
-                                ctx.fillStyle = "#ffffff"
-                                if (djconnect.playing) {
-                                    ctx.fillRect(cx - s * 0.18, cy - s * 0.24, s * 0.12, s * 0.48)
-                                    ctx.fillRect(cx + s * 0.06, cy - s * 0.24, s * 0.12, s * 0.48)
-                                } else {
-                                    ctx.beginPath()
-                                    ctx.moveTo(cx - s * 0.13, cy - s * 0.25)
-                                    ctx.lineTo(cx - s * 0.13, cy + s * 0.25)
-                                    ctx.lineTo(cx + s * 0.25, cy)
-                                    ctx.closePath()
-                                    ctx.fill()
-                                }
-                            }
-                            Connections {
-                                target: djconnect
-                                function onPlayingChanged() { albumQuickPlayIcon.requestPaint() }
-                            }
-                            Component.onCompleted: requestPaint()
-                        }
-
-                        background: Rectangle {
-                            radius: width / 2
-                            color: albumQuickPlay.down ? "#7a2b194d" : "#3824145f"
-                            border.color: "#45ffffff"
-                            border.width: 1
-                            opacity: albumQuickPlay.down ? 0.72 : 0.42
-                            gradient: Gradient {
-                                orientation: Gradient.Horizontal
-                                GradientStop { position: 0.0; color: "#38d946ef" }
-                                GradientStop { position: 1.0; color: "#38636bff" }
-                            }
-                        }
                     }
 
                     Rectangle {
@@ -1478,7 +1432,7 @@ Window {
         visible: root.activeScreen === "queue"
         heading: root.tr("queue")
         emptyText: root.tr("empty_queue")
-        playCommand: "start_queue_item"
+        playCommand: "play_context_at"
         items: djconnect.queueItems
         onRefreshRequested: djconnect.loadQueue()
     }

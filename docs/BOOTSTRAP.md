@@ -168,9 +168,9 @@ completed:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.70.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.71.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.70
+cd djconnect-pi-3.1.71
 sudo ./scripts/install.sh
 ```
 
@@ -198,9 +198,9 @@ development checkout:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.70.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.71.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.70
+cd djconnect-pi-3.1.71
 sudo ./scripts/install.sh
 ```
 
@@ -255,6 +255,21 @@ sudo ./scripts/install.sh
 Newer updater versions install the bundled wheel and validate all console
 entrypoints before switching `/opt/djconnect/current`, so the same failure
 should not repeat after the fixed release is installed.
+
+For responsiveness triage after an update, confirm the Pi reports the expected
+release and low UI load:
+
+```sh
+cat /opt/djconnect/current/VERSION
+systemctl is-active djconnect-client.service djconnect-api.service
+ps -o pid,pcpu,pmem,comm -C djconnect-pi-client -C Xorg --sort=-pcpu
+free -m
+```
+
+DJConnect Pi `3.1.70` and newer limit media-list artwork cache work to the
+first visible batch and skip duplicate cache workers. If CPU remains high,
+compare `top`, `vmstat 1 5`, `vcgencmd measure_temp` and
+`vcgencmd get_throttled` before changing polling or UI code.
 
 If logs show `Only console users are allowed to run the X server` or
 `parse_vt_settings: Cannot open /dev/tty0 (Permission denied)`, rerun the latest

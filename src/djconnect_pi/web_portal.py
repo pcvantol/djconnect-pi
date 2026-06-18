@@ -298,16 +298,16 @@ function mediaPayload(command, item) {{
   const uri = item.uri || item.value || '';
   if (!uri) return null;
   if (command === 'start_playlist') return {{value:uri, uri:uri, context_uri:uri}};
-  const payload = {{value:uri, uri:uri}};
-  if (item.title) payload.title = item.title;
-  if (item.artist || item.subtitle) payload.artist = item.artist || item.subtitle;
-  if (Number.isInteger(item.index)) payload.index = item.index;
+  const value = {{uri:uri}};
+  if (item.title) value.title = item.title;
+  if (item.artist || item.subtitle) value.artist = item.artist || item.subtitle;
+  if (Number.isInteger(item.index)) value.index = item.index;
   const context = item.context_uri || item.contextUri || item.queue_context || item.queueContext || '';
   if (context) {{
-    payload.context_uri = context;
-    if (context.startsWith('spotify:playlist:') || context.startsWith('spotify:album:') || context.startsWith('spotify:show:')) payload.offset_uri = uri;
+    value.context_uri = context;
+    if (context.startsWith('spotify:playlist:') || context.startsWith('spotify:album:') || context.startsWith('spotify:show:')) value.offset_uri = uri;
   }}
-  return payload;
+  return {{value:value, play:true}};
 }}
 function playMedia(command, encodedItem) {{
   const item = JSON.parse(decodeURIComponent(encodedItem));
@@ -446,7 +446,7 @@ function render(data) {{
     option.value = name; option.textContent = name; option.selected = name === selectedOutput;
     outputs.appendChild(option);
   }}
-  document.getElementById('queue').innerHTML = (data.queue || []).length ? data.queue.map(i => itemHtml(i,'start_queue_item')).join('') : `<div class="sub">${{t('empty_queue')}}</div>`;
+  document.getElementById('queue').innerHTML = (data.queue || []).length ? data.queue.map(i => itemHtml(i,'play_context_at')).join('') : `<div class="sub">${{t('empty_queue')}}</div>`;
   document.getElementById('playlists').innerHTML = (data.playlists || []).length ? data.playlists.map(i => itemHtml(i,'start_playlist')).join('') : `<div class="sub">${{t('empty_playlists')}}</div>`;
   document.getElementById('language').value = data.settings?.language || 'nl';
   document.getElementById('logLevel').value = data.settings?.log_level || 'INFO';

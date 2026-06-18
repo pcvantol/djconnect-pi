@@ -1,5 +1,20 @@
 # Changelog
 
+## 3.1.71
+
+- Align Raspberry Pi queue-row playback with the Apple app and HA/HACS
+  contract by sending `command:"play_context_at"` with a nested `value.uri`
+  payload. `context_uri` is optional, and `offset_uri` is only included for
+  playlist, album and show contexts.
+- Keep queue rows with direct Spotify track or episode URIs selectable even
+  when Home Assistant does not provide `queue_context` or `context_uri`.
+- Removed the play/pause quick-action overlay from the Speelt nu album art so
+  the artwork stays unobstructed.
+- Reduced Raspberry Pi memory pressure by lowering the Qt pixmap cache,
+  decoding album/media artwork at display size, disabling extra QML image cache
+  retention for dynamic artwork, using one UI worker and clearing log text from
+  memory when the Logs screen closes.
+
 ## 3.1.70
 
 - Fixed Raspberry Pi queue/playlist item taps by sending compact JSON payloads

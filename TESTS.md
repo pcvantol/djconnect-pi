@@ -43,8 +43,8 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 - web portal contract for save-on-change Settings, warning-styled reboot,
   refresh busy states, clipboard feedback and newest-log scrolling
 - touch UI contract for Settings power/update actions, output-device "Geen",
-  warning-styled reboot, wrapped Logs text, macOS-style toast presentation and
-  queue/playlist item command routing
+  warning-styled reboot, wrapped Logs text, macOS-style toast presentation,
+  queue `play_context_at` routing and playlist item command routing
 - release bundle contract for including docs, systemd units, `scripts/install.sh`
   and a bundled wheel without the loose `src/` app source tree
 - repo-only OS bootstrap contract for Raspberry Pi OS Lite 64-bit, modern
@@ -89,6 +89,10 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 - live output-device validation and rollback coverage when HA rejects a
   selected output device
 - queue loading contract sends `command:"queue"` with `limit=100`
+- queue row playback contract sends `command:"play_context_at"` with nested
+  `value.uri`, keeps direct Spotify episode/track URIs playable without
+  context and preserves context plus offset behavior for playlist, album and
+  show contexts
 - playlist loading contract sends `command:"playlists"` with `limit=100` from
   both the touch UI and web portal state endpoint
 - installer/updater contract that pip self-upgrade is skipped by default and can
@@ -117,7 +121,8 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 - touch-friendly icon bottom navigation order, height, selected-state checks
   and the dedicated Bediening tab
 - shared AppBackground gradient, display-only Speelt nu checks and enlarged
-  Bediening playback-control sizing checks
+  Bediening playback-control sizing checks, including that Speelt nu album art
+  has no play/pause overlay
 - Maze Chase power-pellet and vulnerable ghost QML contract checks
 - Empty queue/playlist labels and backend behavior that only loads demo media
   after explicitly entering demo mode
@@ -129,7 +134,10 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 - HA queue/playlist media parser coverage for artwork aliases from the shared
   contract
 - backend media-list artwork background-cache coverage so Queue/Playlists show
-  rows immediately and keep album art without blocking QML delegates
+  rows immediately, cache only the first visible batch and keep album art
+  without blocking QML delegates
+- QML memory-pressure checks for artwork `sourceSize` bounds and disabled
+  dynamic image cache retention
 - backend guard coverage that duplicate queue/playlist loads are skipped while
   a matching request is already in flight
 - opaque queue/playlist main screens, manual refresh controls and no

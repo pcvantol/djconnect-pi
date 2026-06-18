@@ -17,7 +17,8 @@ Responsibilities:
 - execute HA initiated playback commands received through the local
   command-event queue
 - render now-playing and connection state
-- keep Speelt nu focused on status, refresh, large album art and title/artist
+- keep Speelt nu focused on refresh, large unobstructed album art and
+  title/artist
 - render HA-provided output-device choices on Bediening and dispatch
   `command:"set_output"`
 - render HA-provided album art asynchronously in Now Playing, Queue and
@@ -131,7 +132,7 @@ The Pi client is an app-like DJConnect client.
   "device_id": "djconnect-raspberry-pi-XXXXXXXXXXXX",
   "device_name": "DJConnect",
   "client_type": "raspberry_pi",
-  "version": "3.1.70",
+  "version": "3.1.71",
   "capabilities": {
     "touch": true,
     "voice": false,
@@ -158,6 +159,14 @@ older playlist requests without a limit by defaulting them internally to 50,
 and it should paginate Spotify internally with a Spotify-safe page size of 50
 while returning up to the client-requested playlist limit. Raspberry Pi and
 queue browsing both use a local maximum of 100 items.
+
+Queue row playback sends `command:"play_context_at"` and nests the selected
+item fields under `value`. A playable queue item only needs a non-empty Spotify
+`uri`. When a queue context is known, the Pi includes `value.context_uri`; it
+adds `value.offset_uri` only for Spotify playlist, album and show contexts.
+When no context is known, the Pi sends only direct item fields such as `uri`,
+`title`, optional `artist` and optional `index`, so podcast episodes
+(`spotify:episode:*`) and direct tracks (`spotify:track:*`) remain startable.
 
 Command responses for `status`, `queue`, `devices` and `playlists` are treated
 as transport success first. A response with `success:true` and an empty
@@ -191,6 +200,7 @@ The local Client API uses:
 - `POST /api/device/restart`
 - `POST /api/device/shutdown`
 - `GET /api/debug/screenshot`
+- `GET /api/debug/screen?screen=<name>` for loopback-only diagnostics
 
 `POST /api/device/restart` and `POST /api/device/shutdown` are Raspberry
 Pi-specific endpoints used by Home Assistant power button entities. They use

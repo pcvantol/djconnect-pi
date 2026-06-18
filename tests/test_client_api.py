@@ -105,8 +105,9 @@ def test_web_portal_media_buttons_and_refresh_are_clickable() -> None:
     assert "decodeURIComponent" in html
     assert "playMedia(command,encodedItem)" in html
     assert "function mediaPayload(command,item)" in html
-    assert "payload.context_uri=context" in html
-    assert "payload.offset_uri=uri" in html
+    assert "value.context_uri=context" in html
+    assert "value.offset_uri=uri" in html
+    assert "play_context_at" in html
     assert "selectOutput(this.value)" in html
     assert "pendingOutputDevice" not in html
     assert "const selectedOutput=playback.output_device" in html

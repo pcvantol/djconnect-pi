@@ -27,9 +27,9 @@ not install apt packages.
 | --- | --- | --- |
 | Backend-for-frontend QObject | `src/djconnect_pi/app.py` | Exposes typed Qt properties, signals and slots to QML while keeping HTTP/config logic in Python. |
 | Signal/slot state propagation | `DJConnectBackend` signals and `_apply_*` methods | Keeps QML declarative: QML observes backend properties and Python emits updates after HA/API work. |
-| Worker-thread offload | `ThreadPoolExecutor` in `app.py` | Prevents HA command/status calls and media-list preparation from blocking the UI thread. |
+| Worker-thread offload | `ThreadPoolExecutor` in `app.py` | Prevents HA command/status calls and media-list preparation from blocking the UI thread while using a single worker to limit RAM pressure on Pi Zero 2 W. |
 | In-flight request guard | `loadQueue`, `loadPlaylists` | Prevents repeated touch/navigation taps from flooding Home Assistant or stacking expensive work. |
-| Immediate list emission with background artwork cache | `_load_queue_worker`, `_load_playlists_worker`, `_cache_media_artwork_async` | Shows Queue/Playlist text and play controls as soon as HA returns, while slower artwork downloads happen afterward on a worker. |
+| Immediate list emission with bounded background artwork cache | `_load_queue_worker`, `_load_playlists_worker`, `_cache_media_artwork_async` | Shows Queue/Playlist text and play controls as soon as HA returns, while slower artwork downloads happen afterward on a worker for only the first six visible items. |
 | Backend health state | `backendAvailable`, `AuthenticationError`, `BackendUnavailable` | Keeps pairing state separate from live HA/backend reachability, letting the kiosk show red/green status and short toasts without losing pairing. |
 | Bounded log display | `_read_tail_text`, `_format_logs_for_display` | Prevents large persistent log files from freezing the UI when the user opens Logs on a Pi Zero 2 W. |
 | Event-file bridge | `client_api_daemon.py` + `app.py` local event polling | Keeps the API daemon separate from the UI process while still letting HA-triggered commands affect the live UI. |
@@ -76,8 +76,8 @@ mainly by tests plus `compileall`.
 | Display/control screen split | `nowPanel`, `controlPanel` in `Main.qml` | Keeps Speelt nu readable as a large album-art status screen while Bediening can dedicate the full page to larger touch playback controls. |
 | Shared app background component | `AppBackground` in `Main.qml` | Keeps Speelt nu, Bediening, Queue, Playlists, Logs, Settings and About visually consistent and avoids one-off screen backgrounds. |
 | Explicit media-list row geometry | `MediaListPanel` delegates place artwork, text and play button with x/y/width expressions | Avoids `RowLayout` and cross-item anchor ordering differences on the Pi runtime that previously misplaced or hid album art, titles and play icons. |
-| Async image rendering | `Image { asynchronous: true }` | Lets QML decode/render artwork without blocking interaction. Network/cache preparation is handled outside QML delegates. |
-| Canvas icons only where dynamic state matters | playback controls and game canvas | Avoids external icon packs while keeping touch controls scalable. |
+| Bounded async image rendering | `Image { asynchronous: true; sourceSize...; cache: false }` | Lets QML decode/render artwork without blocking interaction while avoiding full-size artwork retention in memory. Network/cache preparation is handled outside QML delegates. |
+| Canvas icons only where dynamic state matters | Bediening playback controls and game canvas | Avoids external icon packs while keeping touch controls scalable. Speelt nu does not draw a play/pause overlay over album art. |
 | Kiosk-first navigation | bottom menu bar and no visible app close button | Device is intended to be wall-mounted and dedicated. |
 
 ### QML Conventions
@@ -128,12 +128,13 @@ mainly by tests plus `compileall`.
 | Pi power endpoints are explicit and Pi-only | `POST /api/device/restart`, `POST /api/device/shutdown` in `client_api.py` | HA can expose Raspberry Pi restart/shutdown buttons without introducing ESP-only `/api/device/reboot` or OTA behavior. |
 | Text DJ responses are toast-only | `app.py`, `client_api_daemon.py` | Product decision: no local Pi audio/DJ response playback. |
 | HA version compatibility is major/minor bounded | `ha.py` | Client `3.1.z` accepts HA `>=3.1.0` and `<3.2.0`. |
+| Queue row playback uses `play_context_at` | `media_item_payload`, `MediaListPanel`, `web_portal.py` | Matches the Apple/HACS contract, starts rows from direct Spotify `uri` values and treats queue context as optional. |
 | Output-device selector uses status plus devices fallback | `app.py`, `ha.py` | Bediening must let users switch HA-provided playback devices even when the status response omits the device list. |
 | Output-device changes are optimistic but validated | `_set_output_worker` | The UI feels responsive, but if HA rejects or normalizes the selected output device the client rolls back and logs the rejection. |
 | Web portal shares the local API daemon | `client_api.py`, `web_portal.py` | Keeps browser diagnostics and controls on the same always-on Client API URL used for pairing, avoiding another supervised process. |
 | Portal stays on the Client API port by default | `Config.local_api_port` | Binding to port 80 would require root or Linux capabilities; the safer default is the existing local API port with an optional future reverse proxy if needed. |
 | Portal diagnostics normalize component health | `client_api_daemon.py` | Converts systemd service/timer states to running/stopped/failed/unknown so the browser UI can show DJConnect component health consistently. |
-| HTTP 401 is an authentication state | `AuthenticationError` in `ha.py`, `_run` in `app.py` | Prevents raw HA JSON from being shown on the kiosk and turns the connection dot red with a concise translated toast/status. |
+| HTTP 401 is an authentication state | `AuthenticationError` in `ha.py`, `_run` in `app.py` | Prevents raw HA JSON from being shown on the kiosk and surfaces backend health with a concise translated toast/status. |
 | Backend unavailable is not a UI crash state | `BackendUnavailable` in `ha.py`, `_run` in `app.py` | Spotify/HA backend downtime is surfaced as a short status/toast while the UI remains interactive. |
 
 ## Dependency Inventory

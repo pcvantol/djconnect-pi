@@ -16,10 +16,11 @@
   HyperPixel backlight at the hardware level.
 - Persistent logs rotate locally, but log retention has not yet been tuned on
   the wall device's SD card.
-- Raspberry Pi Zero 2 W performance still needs a dedicated hardware profiling
-  pass for polling cadence, QML Canvas repaints, log viewer size, media-list
-  artwork pre-cache latency, album-art cache pressure and PySide6 memory/CPU
-  usage.
+- Raspberry Pi Zero 2 W performance still needs continued hardware profiling
+  for polling cadence, remaining QML repaint work, output-device refresh
+  latency and PySide6 memory/CPU usage. The high-load album-art cache path has
+  an initial mitigation in place, including smaller cache batches and bounded
+  Qt/QML image retention.
 - Output-device list availability still depends on the HA contract returning a
   usable `devices`/`output_devices` shape; the Pi now falls back to
   `command:"devices"` when status omits it, but live HA variants should be
@@ -58,3 +59,10 @@
 - Speelt nu playback controls moved to a dedicated Bediening screen so the
   now-playing display can show larger album art and Bediening can use larger
   touch targets.
+- Speelt nu album art no longer has a play/pause overlay, leaving the artwork
+  unobstructed.
+- Queue row playback now uses `play_context_at` with nested `value.uri`, keeps
+  direct Spotify track/episode rows playable without queue context and only
+  sends `offset_uri` for playlist, album and show contexts.
+- Media-list artwork caching is capped to the first visible batch and duplicate
+  cache workers are skipped to reduce Pi Zero 2 W CPU, swap and I/O load.

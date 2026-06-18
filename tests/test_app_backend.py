@@ -145,31 +145,33 @@ def test_queue_parser_preserves_optional_context_and_episode_uri() -> None:
 
 def test_media_item_payload_allows_queue_item_without_context() -> None:
     payload = media_item_payload(
-        "start_queue_item",
+        "play_context_at",
         {"title": "Episode", "subtitle": "Podcast", "uri": "spotify:episode:episode-1"},
     )
 
     assert payload == {
-        "value": "spotify:episode:episode-1",
-        "uri": "spotify:episode:episode-1",
-        "title": "Episode",
-        "artist": "Podcast",
+        "value": {
+            "uri": "spotify:episode:episode-1",
+            "title": "Episode",
+            "artist": "Podcast",
+        },
+        "play": True,
     }
 
 
 def test_media_item_payload_accepts_qml_json_payload() -> None:
     payload = media_item_payload(
-        "start_queue_item",
+        "play_context_at",
         json.dumps({"title": "Episode", "subtitle": "Podcast", "uri": "spotify:episode:episode-1"}),
     )
 
-    assert payload["uri"] == "spotify:episode:episode-1"
-    assert "context_uri" not in payload
+    assert payload["value"]["uri"] == "spotify:episode:episode-1"
+    assert "context_uri" not in payload["value"]
 
 
 def test_media_item_payload_preserves_context_offset_when_supported() -> None:
     payload = media_item_payload(
-        "start_queue_item",
+        "play_context_at",
         {
             "title": "Track",
             "uri": "spotify:track:track-1",
@@ -178,14 +180,14 @@ def test_media_item_payload_preserves_context_offset_when_supported() -> None:
         },
     )
 
-    assert payload["uri"] == "spotify:track:track-1"
-    assert payload["context_uri"] == "spotify:show:show-1"
-    assert payload["offset_uri"] == "spotify:track:track-1"
-    assert payload["index"] == 2
+    assert payload["value"]["uri"] == "spotify:track:track-1"
+    assert payload["value"]["context_uri"] == "spotify:show:show-1"
+    assert payload["value"]["offset_uri"] == "spotify:track:track-1"
+    assert payload["value"]["index"] == 2
 
 
 def test_media_item_payload_skips_queue_item_without_uri() -> None:
-    assert media_item_payload("start_queue_item", {"title": "Missing URI"}) == {}
+    assert media_item_payload("play_context_at", {"title": "Missing URI"}) == {}
 
 
 @pytest.mark.parametrize(
@@ -867,17 +869,19 @@ def test_backend_queue_item_worker_sends_direct_uri_without_required_context(tmp
     backend.client = FakeClient()  # type: ignore[assignment]
 
     backend._play_media_item_worker(
-        "start_queue_item",
-        media_item_payload("start_queue_item", {"title": "Episode", "uri": "spotify:episode:episode-1"}),
+        "play_context_at",
+        media_item_payload("play_context_at", {"title": "Episode", "uri": "spotify:episode:episode-1"}),
     )
 
     assert calls == [
         (
-            "start_queue_item",
+            "play_context_at",
             {
-                "value": "spotify:episode:episode-1",
-                "uri": "spotify:episode:episode-1",
-                "title": "Episode",
+                "value": {
+                    "uri": "spotify:episode:episode-1",
+                    "title": "Episode",
+                },
+                "play": True,
             },
         )
     ]
@@ -936,7 +940,7 @@ def test_backend_artwork_cache_is_limited_and_deduplicated(tmp_path: Path, monke
 
     assert len(submitted) == 1
     submitted[0]()
-    assert processed_lengths == [12]
+    assert processed_lengths == [6]
 
 
 def test_backend_skips_duplicate_media_loads_while_in_flight(tmp_path: Path) -> None:

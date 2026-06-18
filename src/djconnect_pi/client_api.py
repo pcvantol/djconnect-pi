@@ -264,6 +264,7 @@ class ClientAPIHandler(BaseHTTPRequestHandler):
             "set_shuffle",
             "set_repeat",
             "set_output",
+            "play_context_at",
             "start_playlist",
             "start_queue_item",
             "check_updates",

@@ -13,9 +13,15 @@ This file records the first pass review for the wall-mounted Pi client.
   does not generate repeated network failures.
 - Album art is loaded asynchronously by QML and backed by the local artwork
   cache so media-list navigation is not blocked by image downloads.
+- Queue and Playlist rows are emitted before artwork preparation. Background
+  artwork caching is limited to the first 6 media-list items and duplicate
+  cache workers are skipped while one is active, which reduces CPU, swap and
+  I/O pressure on the Pi Zero 2 W.
+- Dynamic artwork is decoded at display size, QML does not retain an additional
+  cache for those changing images and Qt's pixmap cache is capped at 4 MB.
 - Playback controls live on the dedicated Bediening screen. Speelt nu only
-  renders status, refresh, album art and title text, reducing Canvas repaint
-  pressure on the default screen.
+  renders refresh, unobstructed album art and title text, reducing Canvas
+  repaint pressure on the default screen.
 - Screen blanking defaults to 120 seconds and wakes on tap. It reduces always-on
   visual load and burn-in risk. Hardware backlight/DPMS control still needs
   HyperPixel validation.
@@ -27,8 +33,10 @@ This file records the first pass review for the wall-mounted Pi client.
 ## Memory and Latency
 
 - The app keeps only one playback model in memory.
-- The backend executor is capped at two workers to avoid piling up network
+- The backend executor is capped at one worker to avoid piling up network
   requests on a weak Wi-Fi link.
+- Media-list cache work copies only the bounded visible batch, so long queue or
+  playlist responses do not trigger immediate artwork fetches for every row.
 - QML uses fixed 720x720 layout dimensions to avoid layout churn on the target
   display.
 - The local Client API is a separate daemon, so HTTP/mDNS work cannot block or
