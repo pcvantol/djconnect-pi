@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DJCONNECT_VERSION="${DJCONNECT_VERSION:-3.1.74}"
+DJCONNECT_VERSION="${DJCONNECT_VERSION:-3.1.75}"
 DJCONNECT_REPO="${DJCONNECT_REPO:-pcvantol/djconnect-pi-releases}"
 DJCONNECT_HA_URL="${DJCONNECT_HA_URL:-http://homeassistant.local:8123}"
 DJCONNECT_RUNTIME_USER="${DJCONNECT_RUNTIME_USER:-djconnect}"
@@ -332,10 +332,12 @@ install_python_dependencies() {
   local release_dir
   local wheel_path
   local pip_tmp
+  local release_state_dir
   version="$(version)"
   release_dir="${DJCONNECT_ROOT}/releases/${version}"
   wheel_path="$(find "$release_dir/wheels" -maxdepth 1 -type f -name "djconnect_pi-${version}-*.whl" 2>/dev/null | head -n 1 || true)"
   pip_tmp="${DJCONNECT_PIP_CACHE}/tmp"
+  release_state_dir="${release_dir}/.install-state"
 
   if marker_done "venv_ready" \
     && [[ -x "${release_dir}/.venv/bin/djconnect-pi-client" ]] \
@@ -353,23 +355,48 @@ install_python_dependencies() {
   fi
 
   log "Installing DJConnect Python dependencies"
-  if [[ -d "${release_dir}/.venv" ]]; then
-    echo "Removing incomplete Python virtualenv before retry: ${release_dir}/.venv"
-    rm -rf "${release_dir}/.venv" "${release_dir}/bin"
-  fi
+  install -d "$release_state_dir"
   install -d -o root -g root "$DJCONNECT_PIP_CACHE" "$pip_tmp"
   check_free_space
   print_resources "before Python dependency install"
-  python3 -m venv "${release_dir}/.venv"
-  if [[ "$DJCONNECT_UPGRADE_PIP" == "1" ]]; then
-    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --upgrade pip
-  else
-    "${release_dir}/.venv/bin/python" -m pip --version
-    echo "Skipping pip self-upgrade; set DJCONNECT_UPGRADE_PIP=1 to force it."
+
+  if [[ ! -f "${release_state_dir}/venv_created" ]]; then
+    if [[ -d "${release_dir}/.venv" ]]; then
+      echo "Removing incomplete Python virtualenv before retry: ${release_dir}/.venv"
+      rm -rf "${release_dir}/.venv" "${release_dir}/bin"
+    fi
+    python3 -m venv "${release_dir}/.venv"
+    printf 'ok\n' >"${release_state_dir}/venv_created"
   fi
-  TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --upgrade setuptools wheel
-  TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --upgrade --prefer-binary "PySide6>=6.7" "requests>=2.31" "zeroconf>=0.132"
-  TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --prefer-binary "$wheel_path"
+
+  if [[ "$DJCONNECT_UPGRADE_PIP" == "1" && ! -f "${release_state_dir}/pip_upgraded" ]]; then
+    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --upgrade pip
+    printf 'ok\n' >"${release_state_dir}/pip_upgraded"
+  elif [[ "$DJCONNECT_UPGRADE_PIP" != "1" && ! -f "${release_state_dir}/pip_checked" ]]; then
+    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip --version
+    echo "Skipping pip self-upgrade; set DJCONNECT_UPGRADE_PIP=1 to force it."
+    printf 'ok\n' >"${release_state_dir}/pip_checked"
+  fi
+  if [[ ! -f "${release_state_dir}/build_tools_installed" ]]; then
+    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --upgrade setuptools wheel
+    printf 'ok\n' >"${release_state_dir}/build_tools_installed"
+  fi
+  if [[ ! -f "${release_state_dir}/pyside6_installed" ]]; then
+    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --upgrade --prefer-binary "PySide6>=6.7"
+    printf 'ok\n' >"${release_state_dir}/pyside6_installed"
+  fi
+  if [[ ! -f "${release_state_dir}/requests_installed" ]]; then
+    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --upgrade --prefer-binary "requests>=2.31"
+    printf 'ok\n' >"${release_state_dir}/requests_installed"
+  fi
+  if [[ ! -f "${release_state_dir}/zeroconf_installed" ]]; then
+    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --upgrade --prefer-binary "zeroconf>=0.132"
+    printf 'ok\n' >"${release_state_dir}/zeroconf_installed"
+  fi
+  if [[ ! -f "${release_state_dir}/wheel_installed" ]]; then
+    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --prefer-binary "$wheel_path"
+    printf 'ok\n' >"${release_state_dir}/wheel_installed"
+  fi
   ln -sfn ".venv/bin" "${release_dir}/bin"
   mark_done "venv_ready"
   print_resources "after Python dependency install"
@@ -410,7 +437,7 @@ payload = {
     "device_name": "DJConnect Pi",
     "device_token": "",
     "paired": False,
-    "version": "3.1.74",
+    "version": "3.1.75",
     "update_repo": "pcvantol/djconnect-pi-releases",
     "update_channel": "stable",
     "screen_timeout_seconds": 120,

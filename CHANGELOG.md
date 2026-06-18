@@ -1,5 +1,19 @@
 # Changelog
 
+## 3.1.75
+
+- Stop DJConnect client, local API, maintenance and watchdog services at the
+  start of an unattended updater run after a newer release is detected, while
+  keeping `djconnect-updater.service` alive.
+- Make updater dependency installation resumable per package with
+  `.install-state/` markers for venv creation, pip, build tools, PySide6,
+  requests, zeroconf and the bundled wheel.
+- Make manual `scripts/install.sh` dependency installation resumable with the
+  same per-package markers so reboot/interruption retries continue instead of
+  rebuilding the release venv from scratch.
+- Expanded security/contact guidance in `SECURITY.md` and added
+  AI-assisted-development guidance to `CONTRIBUTING.md`.
+
 ## 3.1.74
 
 - Added `CONTRIBUTING.md` with MIT licensing, development, release and

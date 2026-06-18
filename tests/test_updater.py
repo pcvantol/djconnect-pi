@@ -168,6 +168,9 @@ def test_install_python_dependencies_uses_pip_cache_env(tmp_path: Path) -> None:
     assert run.call_args_list[1].kwargs["env"] == {"PIP_CACHE_DIR": "/cache", "TMPDIR": "/cache/tmp"}
     assert run.call_args_list[2].kwargs["env"] == {"PIP_CACHE_DIR": "/cache", "TMPDIR": "/cache/tmp"}
     assert run.call_args_list[1].args[0][-2:] == ["pip", "--version"]
+    assert run.call_args_list[3].args[0][-1] == "PySide6>=6.7"
+    assert run.call_args_list[4].args[0][-1] == "requests>=2.31"
+    assert run.call_args_list[5].args[0][-1] == "zeroconf>=0.132"
 
 
 def test_install_python_dependencies_can_force_pip_upgrade(tmp_path: Path, monkeypatch) -> None:
@@ -185,6 +188,37 @@ def test_install_python_dependencies_can_force_pip_upgrade(tmp_path: Path, monke
         updater.install_python_dependencies(release_dir, "0.2.0")
 
     assert run.call_args_list[1].args[0][-4:] == ["pip", "install", "--upgrade", "pip"]
+
+
+def test_install_python_dependencies_resumes_completed_steps(tmp_path: Path) -> None:
+    release_dir = tmp_path / "release"
+    wheels_dir = release_dir / "wheels"
+    state_dir = release_dir / ".install-state"
+    wheels_dir.mkdir(parents=True)
+    state_dir.mkdir()
+    (release_dir / ".venv" / "bin").mkdir(parents=True)
+    (state_dir / "venv_created").write_text("ok\n", encoding="utf-8")
+    (state_dir / "pip_checked").write_text("ok\n", encoding="utf-8")
+    (state_dir / "build_tools_installed").write_text("ok\n", encoding="utf-8")
+    (state_dir / "pyside6_installed").write_text("ok\n", encoding="utf-8")
+    (wheels_dir / "djconnect_pi-0.2.0-py3-none-any.whl").write_bytes(b"wheel")
+
+    with (
+        patch("djconnect_pi.updater.pip_environment", return_value={"PIP_CACHE_DIR": "/cache", "TMPDIR": "/cache/tmp"}),
+        patch("djconnect_pi.updater.validate_release_entrypoints"),
+        patch("djconnect_pi.updater.subprocess.run") as run,
+    ):
+        updater.install_python_dependencies(release_dir, "0.2.0")
+
+    commands = [call.args[0] for call in run.call_args_list]
+    assert not any(command[:3] == ["python3", "-m", "venv"] for command in commands)
+    assert all("PySide6>=6.7" not in command for command in commands)
+    assert commands[0][-1] == "requests>=2.31"
+    assert commands[1][-1] == "zeroconf>=0.132"
+    assert commands[2][-1].endswith("djconnect_pi-0.2.0-py3-none-any.whl")
+    assert (state_dir / "requests_installed").exists()
+    assert (state_dir / "zeroconf_installed").exists()
+    assert (state_dir / "wheel_installed").exists()
 
 
 def test_validate_release_entrypoints_rejects_missing_wrappers(tmp_path: Path) -> None:
@@ -286,17 +320,42 @@ def test_run_skips_when_current_version_matches(tmp_path: Path) -> None:
 
     cfg = updater.UpdaterConfig(repo="pcvantol/djconnect-pi-releases", install_root=tmp_path)
 
-    with patch("djconnect_pi.updater.public_latest_release", return_value=make_release()):
+    with (
+        patch("djconnect_pi.updater.public_latest_release", return_value=make_release()),
+        patch("djconnect_pi.updater.stop_services") as stop_services,
+    ):
         assert updater.run(cfg) == "Already on 0.2.0"
 
+    stop_services.assert_not_called()
 
-def test_run_restarts_api_and_client_services_after_install(tmp_path: Path) -> None:
+
+def test_run_dry_run_does_not_stop_services(tmp_path: Path) -> None:
     cfg = updater.UpdaterConfig(repo="pcvantol/djconnect-pi-releases", install_root=tmp_path)
 
     with (
         patch("djconnect_pi.updater.public_latest_release", return_value=make_release()),
+        patch("djconnect_pi.updater.stop_services") as stop_services,
+    ):
+        result = json.loads(updater.run(cfg, dry_run=True))
+
+    assert result["version"] == "0.2.0"
+    stop_services.assert_not_called()
+
+
+def test_run_restarts_api_and_client_services_after_install(tmp_path: Path) -> None:
+    cfg = updater.UpdaterConfig(repo="pcvantol/djconnect-pi-releases", install_root=tmp_path)
+    download_calls = 0
+
+    def fake_download(*_args: object) -> None:
+        nonlocal download_calls
+        download_calls += 1
+        assert stop_services.called
+
+    with (
+        patch("djconnect_pi.updater.public_latest_release", return_value=make_release()),
         patch("djconnect_pi.updater.asset_url", side_effect=["bundle-url", "checksum-url"]),
-        patch("djconnect_pi.updater.download"),
+        patch("djconnect_pi.updater.stop_services") as stop_services,
+        patch("djconnect_pi.updater.download", side_effect=fake_download),
         patch("djconnect_pi.updater.verify_sha256"),
         patch("djconnect_pi.updater.install_release"),
         patch("djconnect_pi.updater.cleanup_old_releases") as cleanup_old_releases,
@@ -304,5 +363,24 @@ def test_run_restarts_api_and_client_services_after_install(tmp_path: Path) -> N
     ):
         assert updater.run(cfg) == "Installed 0.2.0"
 
+    stop_services.assert_called_once_with(
+        (
+            "djconnect-client.service",
+            "djconnect-api.service",
+            "djconnect-maintenance.service",
+            "djconnect-watchdog.service",
+        )
+    )
+    assert download_calls == 2
     cleanup_old_releases.assert_called_once_with(tmp_path, 2)
     restart_services.assert_called_once_with(("djconnect-api.service", "djconnect-client.service"))
+
+
+def test_stop_services_uses_best_effort_systemctl_stop() -> None:
+    with patch("djconnect_pi.updater.subprocess.run") as run:
+        updater.stop_services(("djconnect-client.service", "djconnect-api.service"))
+
+    assert run.call_args_list[0].args[0] == ["systemctl", "stop", "djconnect-client.service"]
+    assert run.call_args_list[0].kwargs["check"] is False
+    assert run.call_args_list[1].args[0] == ["systemctl", "stop", "djconnect-api.service"]
+    assert run.call_args_list[1].kwargs["check"] is False

@@ -299,6 +299,14 @@ def test_install_script_can_resume_after_reboot_or_interruption() -> None:
     assert "DJCONNECT_UPGRADE_PIP=1" in script
     assert '${release_dir}/.venv/bin/python" -m pip install --upgrade pip' in script
     assert '${release_dir}/.venv/bin/python" -m pip install --prefer-binary "$wheel_path"' in script
+    assert 'release_state_dir="${release_dir}/.install-state"' in script
+    assert '${release_state_dir}/venv_created' in script
+    assert '${release_state_dir}/build_tools_installed' in script
+    assert '${release_state_dir}/pyside6_installed' in script
+    assert '${release_state_dir}/requests_installed' in script
+    assert '${release_state_dir}/zeroconf_installed' in script
+    assert '${release_state_dir}/wheel_installed' in script
+    assert '"PySide6>=6.7" "requests>=2.31" "zeroconf>=0.132"' not in script
     assert '".venv/bin/pip" install' not in script
     assert "Removing incomplete Python virtualenv before retry" in script
     assert 'rm -rf "${release_dir}/.venv" "${release_dir}/bin"' in script

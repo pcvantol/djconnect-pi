@@ -84,6 +84,14 @@ The active release is selected by atomically replacing:
 /opt/djconnect/current -> /opt/djconnect/releases/<version>
 ```
 
+Once the updater detects a newer release, it stops the DJConnect client, local
+API, maintenance and watchdog services before download/install work. It leaves
+`djconnect-updater.service` running so the update can complete.
+Python dependency installation is split into resumable marked steps under the
+target release's `.install-state/` directory, so an interrupted Pi install can
+resume after venv creation, build tools, PySide6, requests, zeroconf or bundled
+wheel installation instead of starting the whole venv over.
+
 After install, the updater restarts `djconnect-api.service` and
 `djconnect-client.service`.
 It also removes stale release directories after a successful install. The
@@ -144,7 +152,7 @@ The Pi client is an app-like DJConnect client.
   "device_id": "djconnect-raspberry-pi-XXXXXXXXXXXX",
   "device_name": "DJConnect",
   "client_type": "raspberry_pi",
-  "version": "3.1.74",
+  "version": "3.1.75",
   "capabilities": {
     "touch": true,
     "voice": false,

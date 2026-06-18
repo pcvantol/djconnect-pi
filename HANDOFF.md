@@ -208,6 +208,13 @@ Implemented:
   tarballs: it strips the top-level archive directory, installs the bundled
   wheel into `.venv`, validates all `djconnect-pi-*` console entrypoints and
   only then repoints `/opt/djconnect/current`.
+- Once the unattended updater detects a newer release, it stops the DJConnect
+  client, local API, maintenance and watchdog services before download/install
+  work. It does not stop `djconnect-updater.service` itself.
+- Updater Python dependency installation is resumable per step: venv creation,
+  pip check/upgrade, build tools, PySide6, requests, zeroconf and bundled wheel
+  installs write markers under `.install-state/` so a reboot can continue at
+  the next package instead of rebuilding the release venv from scratch.
 - After a successful unattended install, the updater cleans
   `/opt/djconnect/releases` and keeps only the active release plus one rollback
   release. Hidden temporary unpack directories are removed as well.

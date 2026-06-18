@@ -19,19 +19,19 @@ Belangrijke context:
 - Geen lokale `SYNC_PROMPTS.md` of `PRODUCT_ROADMAP.md`; die staan canoniek in `pcvantol/djconnect`.
 
 Huidige stand:
-- Laatste gepubliceerde release is `v3.1.74`.
+- Laatste gepubliceerde release is `v3.1.75`.
 - Public updater assets staan in `pcvantol/djconnect-pi-releases`, inclusief `djconnect-pi-latest.json`.
-- Release `v3.1.74` is gepubliceerd in source en public distribution repo.
-- Public assets voor `v3.1.74` zijn geverifieerd:
-  - `djconnect-pi-3.1.74.tar.gz`
-  - `djconnect-pi-3.1.74.sha256`
+- Release `v3.1.75` is gepubliceerd in source en public distribution repo.
+- Public assets voor `v3.1.75` zijn geverifieerd:
+  - `djconnect-pi-3.1.75.tar.gz`
+  - `djconnect-pi-3.1.75.sha256`
   - `djconnect-pi-latest.json`
-- Cleanup is gedraaid met `./cleanup_old_releases.sh --keep 1 --public --execute`; alleen `v3.1.74` blijft over als recente source/public release.
-- Pi draaide eerder nog `3.1.70`; updater via oude versie kan nog GitHub API rate-limit raken.
-- Validatie voor `v3.1.74`:
+- Cleanup is gedraaid met `./cleanup_old_releases.sh --keep 1 --public --execute`; alleen `v3.1.75` blijft over als recente source/public release.
+- Pi draaide eerder nog `3.1.72`; updater/install via oude versies kon rebooten tijdens monolithische dependency-install.
+- Validatie voor `v3.1.75`:
   - `bash -n scripts/install.sh`
-  - `python3.11 -m pytest tests/test_installation_contract.py -q` -> 31 passed
-  - GitHub Actions publish workflow voor `v3.1.74` -> success
+  - `python3.11 -m pytest tests/test_installation_contract.py tests/test_updater.py -q` -> 56 passed
+  - GitHub Actions publish workflow voor `v3.1.75` -> success
 
 Openstaande gewenste workflow:
 - Bij een volgende release: actualiseer `CHAT_BOOTSTRAP.md` als onderdeel van de release closeout.
@@ -39,7 +39,7 @@ Openstaande gewenste workflow:
   `gh run list --workflow publish-release.yml --limit 3`
 - Verifieer na elke release de public assets:
   `gh release view vX.Y.Z --repo pcvantol/djconnect-pi-releases --json tagName,url,assets`
-- Deploy/updater op Pi kan pas betrouwbaar nadat de Pi voorbij `3.1.70` is, of via handmatige tarball install.
+- Deploy/updater op Pi gebruikt vanaf `v3.1.75` resumable dependency install markers voor reboot/interruption retries.
 
 Handmatig client killen op Pi:
 sudo systemctl stop djconnect-client.service

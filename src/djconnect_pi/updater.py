@@ -26,6 +26,12 @@ class UpdaterConfig:
     channel: str = "stable"
     install_root: Path = Path("/opt/djconnect")
     service_names: Sequence[str] = ("djconnect-api.service", "djconnect-client.service")
+    stop_service_names: Sequence[str] = (
+        "djconnect-client.service",
+        "djconnect-api.service",
+        "djconnect-maintenance.service",
+        "djconnect-watchdog.service",
+    )
     keep_releases: int = 2
 
 
@@ -159,46 +165,66 @@ def pip_environment(cache_dir: Path = PIP_CACHE_DIR) -> dict[str, str]:
     return env
 
 
+def _mark_step_done(state_dir: Path, name: str) -> None:
+    state_dir.mkdir(parents=True, exist_ok=True)
+    (state_dir / name).write_text("ok\n", encoding="utf-8")
+
+
+def _step_done(state_dir: Path, name: str) -> bool:
+    return (state_dir / name).exists()
+
+
+def _run_once(state_dir: Path, name: str, command: list[str], env: dict[str, str] | None = None) -> None:
+    if _step_done(state_dir, name):
+        return
+    kwargs = {"check": True}
+    if env is not None:
+        kwargs["env"] = env
+    subprocess.run(command, **kwargs)
+    _mark_step_done(state_dir, name)
+
+
 def install_python_dependencies(release_dir: Path, version: str) -> None:
     wheel_path = wheel_for_release(release_dir, version)
     venv_dir = release_dir / ".venv"
     bin_link = release_dir / "bin"
-    if venv_dir.exists():
-        shutil.rmtree(venv_dir)
     if bin_link.exists() or bin_link.is_symlink():
         if bin_link.is_dir() and not bin_link.is_symlink():
             shutil.rmtree(bin_link)
         else:
             bin_link.unlink()
 
+    state_dir = release_dir / ".install-state"
     pip_env = pip_environment()
-    subprocess.run(["python3", "-m", "venv", str(venv_dir)], check=True)
+    if not _step_done(state_dir, "venv_created"):
+        if venv_dir.exists():
+            shutil.rmtree(venv_dir)
+        subprocess.run(["python3", "-m", "venv", str(venv_dir)], check=True)
+        _mark_step_done(state_dir, "venv_created")
+
     python = venv_dir / "bin" / "python"
     if os.environ.get(UPGRADE_PIP_ENV) == "1":
-        subprocess.run([str(python), "-m", "pip", "install", "--upgrade", "pip"], check=True, env=pip_env)
+        _run_once(state_dir, "pip_upgraded", [str(python), "-m", "pip", "install", "--upgrade", "pip"], env=pip_env)
     else:
-        subprocess.run([str(python), "-m", "pip", "--version"], check=True, env=pip_env)
-    subprocess.run([str(python), "-m", "pip", "install", "--upgrade", "setuptools", "wheel"], check=True, env=pip_env)
-    subprocess.run(
-        [
-            str(python),
-            "-m",
-            "pip",
-            "install",
-            "--upgrade",
-            "--prefer-binary",
-            "PySide6>=6.7",
-            "requests>=2.31",
-            "zeroconf>=0.132",
-        ],
-        check=True,
+        _run_once(state_dir, "pip_checked", [str(python), "-m", "pip", "--version"], env=pip_env)
+    _run_once(
+        state_dir,
+        "build_tools_installed",
+        [str(python), "-m", "pip", "install", "--upgrade", "setuptools", "wheel"],
         env=pip_env,
     )
-    subprocess.run(
-        [str(python), "-m", "pip", "install", "--prefer-binary", str(wheel_path)],
-        check=True,
-        env=pip_env,
-    )
+    for package_name, requirement in (
+        ("pyside6_installed", "PySide6>=6.7"),
+        ("requests_installed", "requests>=2.31"),
+        ("zeroconf_installed", "zeroconf>=0.132"),
+    ):
+        _run_once(
+            state_dir,
+            package_name,
+            [str(python), "-m", "pip", "install", "--upgrade", "--prefer-binary", requirement],
+            env=pip_env,
+        )
+    _run_once(state_dir, "wheel_installed", [str(python), "-m", "pip", "install", "--prefer-binary", str(wheel_path)], env=pip_env)
     bin_link.symlink_to(".venv/bin")
     validate_release_entrypoints(release_dir)
 
@@ -259,6 +285,11 @@ def restart_services(service_names: Sequence[str]) -> None:
         subprocess.run(["systemctl", "restart", service_name], check=True)
 
 
+def stop_services(service_names: Sequence[str]) -> None:
+    for service_name in service_names:
+        subprocess.run(["systemctl", "stop", service_name], check=False)
+
+
 def current_version(root: Path) -> str:
     version_file = root / "current" / "VERSION"
     if version_file.exists():
@@ -283,6 +314,7 @@ def run(cfg: UpdaterConfig, dry_run: bool = False) -> str:
     if dry_run:
         return json.dumps({"version": version, "bundle": bundle_url, "checksum": checksum_url}, indent=2)
 
+    stop_services(cfg.stop_service_names)
     with tempfile.TemporaryDirectory(prefix="djconnect-pi-update-") as tmp:
         bundle = Path(tmp) / "release.tar.gz"
         checksum = Path(tmp) / "release.sha256"
@@ -302,6 +334,12 @@ def config_from_file(
     channel_override: str = "",
     install_root: Path = Path("/opt/djconnect"),
     service_names: Sequence[str] = ("djconnect-api.service", "djconnect-client.service"),
+    stop_service_names: Sequence[str] = (
+        "djconnect-client.service",
+        "djconnect-api.service",
+        "djconnect-maintenance.service",
+        "djconnect-watchdog.service",
+    ),
     keep_releases: int = 2,
 ) -> UpdaterConfig:
     app_cfg = load_config(config_path)
@@ -312,6 +350,7 @@ def config_from_file(
         channel=channel,
         install_root=install_root,
         service_names=service_names,
+        stop_service_names=stop_service_names,
         keep_releases=keep_releases,
     )
 
@@ -328,16 +367,32 @@ def main() -> None:
         dest="service_names",
         help="systemd service to restart after install. May be supplied more than once.",
     )
+    parser.add_argument(
+        "--stop-service-name",
+        action="append",
+        dest="stop_service_names",
+        help="systemd service to stop before installing a detected update. May be supplied more than once.",
+    )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--keep-releases", type=int, default=2)
     args = parser.parse_args()
     service_names = tuple(args.service_names or ("djconnect-api.service", "djconnect-client.service"))
+    stop_service_names = tuple(
+        args.stop_service_names
+        or (
+            "djconnect-client.service",
+            "djconnect-api.service",
+            "djconnect-maintenance.service",
+            "djconnect-watchdog.service",
+        )
+    )
     cfg = config_from_file(
         args.config,
         repo_override=args.repo,
         channel_override=args.channel,
         install_root=args.install_root,
         service_names=service_names,
+        stop_service_names=stop_service_names,
         keep_releases=max(1, args.keep_releases),
     )
     print(run(cfg, args.dry_run))
