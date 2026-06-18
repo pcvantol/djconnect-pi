@@ -47,6 +47,29 @@ def test_include_prerelease_only_for_beta_channel() -> None:
     assert updater.include_prerelease("beta") is True
 
 
+def test_public_latest_release_reads_rate_limit_safe_manifest() -> None:
+    class Response:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict[str, object]:
+            return {
+                "version": "0.2.0",
+                "bundle": "https://example/djconnect-pi-0.2.0.tar.gz",
+                "checksum": "https://example/djconnect-pi-0.2.0.sha256",
+            }
+
+    with patch("djconnect_pi.updater.requests.get", return_value=Response()) as get:
+        release = updater.public_latest_release("pcvantol/djconnect-pi-releases")
+
+    get.assert_called_once_with(
+        "https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-latest.json",
+        timeout=20,
+    )
+    assert release["tag_name"] == "v0.2.0"
+    assert updater.asset_url(release, ".tar.gz") == "https://example/djconnect-pi-0.2.0.tar.gz"
+
+
 def test_asset_url_raises_for_missing_suffix() -> None:
     with pytest.raises(RuntimeError, match="No release asset"):
         updater.asset_url(make_release(), ".zip")
@@ -198,7 +221,7 @@ def test_cleanup_old_releases_keeps_current_and_previous(tmp_path: Path) -> None
 def test_run_dry_run_returns_selected_assets(tmp_path: Path) -> None:
     cfg = updater.UpdaterConfig(repo="pcvantol/djconnect-pi-releases", install_root=tmp_path)
 
-    with patch("djconnect_pi.updater.github_latest_release", return_value=make_release()):
+    with patch("djconnect_pi.updater.public_latest_release", return_value=make_release()):
         result = json.loads(updater.run(cfg, dry_run=True))
 
     assert result == {
@@ -214,7 +237,20 @@ def test_run_passes_prerelease_flag_for_beta_channel(tmp_path: Path) -> None:
     with patch("djconnect_pi.updater.github_latest_release", return_value=make_release()) as latest:
         updater.run(cfg, dry_run=True)
 
-    latest.assert_called_once_with("pcvantol/djconnect-pi-releases", True)
+    latest.assert_called_once_with("pcvantol/djconnect-pi-releases", include_prerelease=True)
+
+
+def test_run_stable_uses_public_manifest_instead_of_github_api(tmp_path: Path) -> None:
+    cfg = updater.UpdaterConfig(repo="pcvantol/djconnect-pi-releases", install_root=tmp_path)
+
+    with (
+        patch("djconnect_pi.updater.public_latest_release", return_value=make_release()) as latest_manifest,
+        patch("djconnect_pi.updater.github_latest_release") as github_latest,
+    ):
+        updater.run(cfg, dry_run=True)
+
+    latest_manifest.assert_called_once_with("pcvantol/djconnect-pi-releases")
+    github_latest.assert_not_called()
 
 
 def test_config_from_file_uses_touchscreen_update_settings(tmp_path: Path) -> None:
@@ -250,7 +286,7 @@ def test_run_skips_when_current_version_matches(tmp_path: Path) -> None:
 
     cfg = updater.UpdaterConfig(repo="pcvantol/djconnect-pi-releases", install_root=tmp_path)
 
-    with patch("djconnect_pi.updater.github_latest_release", return_value=make_release()):
+    with patch("djconnect_pi.updater.public_latest_release", return_value=make_release()):
         assert updater.run(cfg) == "Already on 0.2.0"
 
 
@@ -258,7 +294,7 @@ def test_run_restarts_api_and_client_services_after_install(tmp_path: Path) -> N
     cfg = updater.UpdaterConfig(repo="pcvantol/djconnect-pi-releases", install_root=tmp_path)
 
     with (
-        patch("djconnect_pi.updater.github_latest_release", return_value=make_release()),
+        patch("djconnect_pi.updater.public_latest_release", return_value=make_release()),
         patch("djconnect_pi.updater.asset_url", side_effect=["bundle-url", "checksum-url"]),
         patch("djconnect_pi.updater.download"),
         patch("djconnect_pi.updater.verify_sha256"),

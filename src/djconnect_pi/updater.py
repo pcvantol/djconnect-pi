@@ -46,6 +46,31 @@ def github_latest_release(repo: str, include_prerelease: bool) -> dict:
     raise RuntimeError("No suitable GitHub release found")
 
 
+def public_latest_release(repo: str) -> dict:
+    url = f"https://github.com/{repo}/releases/latest/download/djconnect-pi-latest.json"
+    response = requests.get(url, timeout=20)
+    response.raise_for_status()
+    data = response.json()
+    version = str(data.get("version") or data.get("tag_name") or "").removeprefix("v")
+    if not version:
+        raise RuntimeError("Latest release manifest has no version")
+    bundle_url = str(data.get("bundle") or "").strip()
+    checksum_url = str(data.get("checksum") or "").strip()
+    if not bundle_url or not checksum_url:
+        tag = f"v{version}"
+        bundle_url = f"https://github.com/{repo}/releases/download/{tag}/djconnect-pi-{version}.tar.gz"
+        checksum_url = f"https://github.com/{repo}/releases/download/{tag}/djconnect-pi-{version}.sha256"
+    return {
+        "tag_name": f"v{version}",
+        "draft": False,
+        "prerelease": bool(data.get("prerelease")),
+        "assets": [
+            {"name": f"djconnect-pi-{version}.tar.gz", "browser_download_url": bundle_url},
+            {"name": f"djconnect-pi-{version}.sha256", "browser_download_url": checksum_url},
+        ],
+    }
+
+
 def asset_url(release: dict, suffix: str) -> str:
     for asset in release.get("assets", []):
         name = str(asset.get("name") or "")
@@ -242,7 +267,11 @@ def current_version(root: Path) -> str:
 
 
 def run(cfg: UpdaterConfig, dry_run: bool = False) -> str:
-    release = github_latest_release(cfg.repo, include_prerelease(cfg.channel))
+    release = (
+        github_latest_release(cfg.repo, include_prerelease=True)
+        if include_prerelease(cfg.channel)
+        else public_latest_release(cfg.repo)
+    )
     version = str(release.get("tag_name") or "").removeprefix("v")
     if not version:
         raise RuntimeError("Release has no tag name")

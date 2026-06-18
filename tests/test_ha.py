@@ -165,6 +165,39 @@ def test_playback_from_status_does_not_select_first_output_device_as_fallback() 
     assert playback.output_devices == ("Woonkamer", "Keuken")
 
 
+def test_playback_from_status_maps_output_device_id_to_name() -> None:
+    playback = HAClient(Config()).playback_from_status(
+        {
+            "playback": {
+                "output_devices": [
+                    {"id": "speaker-1", "name": "Woonkamer"},
+                    {"id": "speaker-2", "name": "Slaapkamer"},
+                ],
+                "output_device": "speaker-2",
+            }
+        }
+    )
+
+    assert playback.output_device == "Slaapkamer"
+    assert playback.output_devices == ("Woonkamer", "Slaapkamer")
+
+
+def test_playback_from_status_uses_active_output_device_flag() -> None:
+    playback = HAClient(Config()).playback_from_status(
+        {
+            "playback": {
+                "output_devices": [
+                    {"id": "speaker-1", "name": "Woonkamer", "is_active": False},
+                    {"id": "speaker-2", "name": "Slaapkamer", "is_active": True},
+                ],
+            }
+        }
+    )
+
+    assert playback.output_device == "Slaapkamer"
+    assert playback.output_devices == ("Woonkamer", "Slaapkamer")
+
+
 def test_protocol_mismatch_raises_djconnect_error() -> None:
     client = HAClient(Config(ha_url="http://ha"))
 

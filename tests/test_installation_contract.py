@@ -46,6 +46,17 @@ def test_bootstrap_configures_narrow_installer_sudoers_for_pi_user() -> None:
     assert "ALL=(ALL) NOPASSWD: ALL" not in script
 
 
+def test_install_script_refreshes_narrow_installer_sudoers_for_pi_user() -> None:
+    script = ROOT.joinpath("scripts/install.sh").read_text(encoding="utf-8")
+
+    assert 'DJCONNECT_INSTALL_USER="${DJCONNECT_INSTALL_USER:-${SUDO_USER:-pi}}"' in script
+    assert "configure_installer_sudoers" in script
+    assert "djconnect-installer" in script
+    assert "NOPASSWD: /home/${DJCONNECT_INSTALL_USER}/djconnect-install/djconnect-pi-*/scripts/install.sh" in script
+    assert "/home/${DJCONNECT_INSTALL_USER}/djconnect-pi/scripts/install.sh" in script
+    assert "ALL=(ALL) NOPASSWD: ALL" not in script
+
+
 def test_install_script_is_executable_in_git() -> None:
     result = subprocess.run(
         ["git", "ls-files", "-s", "scripts/install.sh"],

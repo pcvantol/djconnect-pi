@@ -121,7 +121,7 @@ class HAClient:
 
     def playback_from_status(self, data: dict[str, Any]) -> Playback:
         playback = data.get("playback") if isinstance(data.get("playback"), dict) else data
-        output_devices = _string_list(
+        output_device_source = (
             playback.get("output_devices")
             or playback.get("devices")
             or playback.get("available_devices")
@@ -130,6 +130,17 @@ class HAClient:
             or data.get("devices")
             or data.get("available_devices")
             or data.get("outputs")
+        )
+        output_devices = _string_list(output_device_source)
+        output_device = _active_output_device(
+            output_device_source,
+            str(
+                playback.get("output_device")
+                or playback.get("device_name")
+                or playback.get("active_device")
+                or playback.get("source")
+                or ""
+            ),
         )
         backend_available = data.get("backend_available")
         if data.get("success") is False or backend_available is False:
@@ -176,13 +187,7 @@ class HAClient:
                 "track_duration",
                 "track_duration_seconds",
             ),
-            output_device=str(
-                playback.get("output_device")
-                or playback.get("device_name")
-                or playback.get("active_device")
-                or playback.get("source")
-                or ""
-            ),
+            output_device=output_device,
             output_devices=tuple(output_devices),
         )
 
@@ -308,6 +313,39 @@ def _string_list(value: Any) -> list[str]:
     if value:
         return [str(value)]
     return []
+
+
+def _active_output_device(devices: Any, explicit: str) -> str:
+    explicit = explicit.strip()
+    explicit_casefold = explicit.casefold()
+    active_name = ""
+    id_to_name: dict[str, str] = {}
+    names: list[str] = []
+    if isinstance(devices, list):
+        for item in devices:
+            if isinstance(item, dict):
+                name = str(item.get("name") or item.get("device_name") or item.get("label") or item.get("id") or "").strip()
+                device_id = str(item.get("id") or item.get("device_id") or item.get("value") or "").strip()
+                if name:
+                    names.append(name)
+                for key in (device_id, name):
+                    if key:
+                        id_to_name[key.casefold()] = name or key
+                if item.get("is_active") or item.get("active") or item.get("selected") or item.get("current"):
+                    active_name = name or device_id
+            elif item:
+                names.append(str(item).strip())
+    elif isinstance(devices, dict):
+        return _active_output_device(list(devices.values()), explicit)
+
+    if explicit:
+        if explicit_casefold in id_to_name:
+            return id_to_name[explicit_casefold]
+        for name in names:
+            if explicit_casefold == name.casefold():
+                return name
+        return explicit
+    return active_name
 
 
 def _response_shape(data: dict[str, Any]) -> dict[str, Any]:

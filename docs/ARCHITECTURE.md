@@ -103,6 +103,11 @@ The source repo publishes release assets to the public distribution repo through
 `.github/workflows/publish-release.yml` on `vX.Y.Z` tags. The workflow needs a
 `DJCONNECT_PI_RELEASES_TOKEN` secret with release-write access to
 `pcvantol/djconnect-pi-releases`.
+The public release also includes `djconnect-pi-latest.json`, a small stable
+release manifest downloaded through GitHub's public release asset URLs. The
+updater uses that manifest for the stable channel so normal wall-device updates
+do not depend on unauthenticated GitHub API release listing limits. The beta
+channel may still inspect GitHub releases to include prereleases.
 
 Release bundles include `docs/`, `systemd/`, `scripts/install.sh` and a
 prebuilt wheel under `wheels/`. They do not include the loose app source tree,
@@ -132,7 +137,7 @@ The Pi client is an app-like DJConnect client.
   "device_id": "djconnect-raspberry-pi-XXXXXXXXXXXX",
   "device_name": "DJConnect",
   "client_type": "raspberry_pi",
-  "version": "3.1.71",
+  "version": "3.1.72",
   "capabilities": {
     "touch": true,
     "voice": false,

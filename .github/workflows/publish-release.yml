@@ -84,6 +84,8 @@ jobs:
         shell: bash
         run: |
           version="${{ steps.meta.outputs.version }}"
+          tag="${{ steps.meta.outputs.tag }}"
+          prerelease="${{ steps.meta.outputs.prerelease }}"
           dist="dist/djconnect-pi-${version}"
           rm -rf "${dist}" "dist/djconnect-pi-${version}.tar.gz" "dist/djconnect-pi-${version}.sha256"
           mkdir -p "${dist}"
@@ -95,6 +97,15 @@ jobs:
           printf '%s\n' "${version}" > "${dist}/VERSION"
           tar -C dist -czf "dist/djconnect-pi-${version}.tar.gz" "djconnect-pi-${version}"
           shasum -a 256 "dist/djconnect-pi-${version}.tar.gz" > "dist/djconnect-pi-${version}.sha256"
+          cat > "dist/djconnect-pi-latest.json" <<EOF
+          {
+            "version": "${version}",
+            "tag_name": "${tag}",
+            "prerelease": ${prerelease},
+            "bundle": "https://github.com/pcvantol/djconnect-pi-releases/releases/download/${tag}/djconnect-pi-${version}.tar.gz",
+            "checksum": "https://github.com/pcvantol/djconnect-pi-releases/releases/download/${tag}/djconnect-pi-${version}.sha256"
+          }
+          EOF
 
       - name: Publish to public release repository
         env:
@@ -121,5 +132,6 @@ jobs:
           args+=(
             "dist/djconnect-pi-${version}.tar.gz"
             "dist/djconnect-pi-${version}.sha256"
+            "dist/djconnect-pi-latest.json"
           )
           gh "${args[@]}"

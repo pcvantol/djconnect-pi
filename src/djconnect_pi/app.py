@@ -620,6 +620,7 @@ class DJConnectBackend(QObject):
     @Slot()
     def manualRefresh(self) -> None:
         _LOGGER.info("User requested manual refresh")
+        self.showToast(self.tr_key("refreshing"))
         self._pending_output_device = ""
         self._pending_output_until = 0.0
         self.refresh()
@@ -858,6 +859,7 @@ class DJConnectBackend(QObject):
 
     @Slot()
     def loadQueue(self) -> None:
+        self.showToast(self.tr_key("refreshing"))
         if self._demo_mode:
             self._queue_items = demo_queue_items()
             self.mediaListsChanged.emit()
@@ -874,6 +876,7 @@ class DJConnectBackend(QObject):
 
     @Slot()
     def loadPlaylists(self) -> None:
+        self.showToast(self.tr_key("refreshing"))
         if self._demo_mode:
             self._playlist_items = demo_playlist_items()
             self.mediaListsChanged.emit()

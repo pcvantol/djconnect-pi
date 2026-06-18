@@ -1,6 +1,6 @@
 # DJConnect Pi
 
-Version: `3.1.71`
+Version: `3.1.72`
 
 Raspberry Pi Zero 2 W touch-display client for DJConnect. This client uses
 Qt Quick/QML with a PySide6 backend and is meant for a Pimoroni HyperPixel 4.0
@@ -75,7 +75,7 @@ The app is a 720x720 fullscreen touch remote:
 - dark DJConnect visual theme with blue/purple gradient backgrounds
 - blocking first-run pairing screen until the client is paired
 - blocking version-mismatch screen when HA and Pi versions are incompatible
-- pairing screen shows the local Client API URL and pairing code
+- pairing screen shows the local Client adres and pairing code
 - Speelt nu display screen with refresh, large unobstructed album art and
   title/artist overlay
 - macOS-style gradient toast notifications for short action/backend feedback
@@ -104,7 +104,7 @@ The app is a 720x720 fullscreen touch remote:
 - touch-only local games: Paddle Rally, Meteor Run, Sky Dash and Maze Chase
 - Dutch/English user-facing text, including game labels and fallback playback
   text
-- visible Client API URL for Home Assistant pairing
+- visible Client adres for Home Assistant pairing
 - DJ response text overlay
 - logs viewer
 - web portal with Diagnostics for Home Assistant API, local API, pairing and
@@ -159,9 +159,9 @@ not a private source clone:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.71.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.72.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.71
+cd djconnect-pi-3.1.72
 sudo ./scripts/install.sh
 ```
 
@@ -183,7 +183,7 @@ QT_QPA_PLATFORM=offscreen djconnect-pi-client --windowed --exit-after-ms 1500
 ```
 
 On first launch, the app blocks normal playback controls until pairing is done.
-Use the Client API URL shown on the Pi in the Home Assistant pairing flow, then
+Use the Client adres shown on the Pi in the Home Assistant pairing flow, then
 enter the pairing code on the Pi. The client stores config under
 `~/.config/djconnect-pi/config.json` unless `--config` is provided.
 
@@ -237,10 +237,12 @@ The touch UI reboot/shutdown buttons and the manual "Controleer op updates"
 action use narrow systemctl commands and sudo fallbacks. The installer writes a
 narrow sudoers rule for the dedicated `djconnect` runtime user that only
 permits reboot, poweroff and starting `djconnect-updater.service`.
-The repo-only OS bootstrap writes a separate narrow sudoers rule for the
-install user, `pi` by default, so `sudo ./scripts/install.sh` can be rerun from
+The repo-only OS bootstrap and the app installer both write a separate narrow
+sudoers rule for the install user, `pi` by default, so
+`sudo -n ./scripts/install.sh` can be rerun from
 `~/djconnect-install/djconnect-pi-*/scripts/install.sh` or
-`~/djconnect-pi/scripts/install.sh` without an interactive password.
+`~/djconnect-pi/scripts/install.sh` without an interactive password after one
+manual sudo install.
 
 After each release, clean old source and public distribution releases/tags plus
 completed tag workflow runs:
@@ -260,9 +262,9 @@ installer:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.71.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.72.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.71
+cd djconnect-pi-3.1.72
 sudo ./scripts/install.sh
 ```
 

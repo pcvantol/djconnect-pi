@@ -712,6 +712,7 @@ def test_backend_manual_refresh_clears_pending_output_device(tmp_path: Path) -> 
 
     assert backend._pending_output_device == ""
     assert backend._pending_output_until == 0
+    assert backend.toastText == backend.t("refreshing")
 
 
 def test_backend_sync_config_updates_live_settings(tmp_path: Path) -> None:
@@ -962,6 +963,7 @@ def test_backend_skips_duplicate_media_loads_while_in_flight(tmp_path: Path) -> 
     backend.loadPlaylists()
 
     assert len(calls) == 2
+    assert backend.toastText == backend.t("refreshing")
     assert calls[0][0] == backend.t("queue")
     assert calls[1][0] == backend.t("playlists")
 

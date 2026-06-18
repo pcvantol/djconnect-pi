@@ -134,7 +134,7 @@ class ClientAPIDaemon:
                 "Versie": self.cfg.version,
                 "Apparaatnaam": self.cfg.device_name,
                 "Device ID": self.cfg.device_id,
-                "Client API URL": self.cfg.local_url,
+                "Client adres": self.cfg.local_url,
                 "Home Assistant": self.cfg.ha_url,
                 "Home Assistant": "Gekoppeld" if self.cfg.paired else "Niet gekoppeld",
             },

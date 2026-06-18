@@ -44,8 +44,8 @@ Window {
         root.forceBrightnessFull = false
         idleTimer.restart()
         if (wasBlanked) {
-            root.splashVisible = true
-            splashTimer.restart()
+            root.hideTransientUi()
+            root.activeScreen = "now"
         }
     }
 
@@ -1086,9 +1086,17 @@ Window {
                     id: controlOutputDeviceCombo
                     property string noOutputDeviceLabel: root.tr("none")
                     property var deviceChoices: [noOutputDeviceLabel].concat(djconnect.outputDevices.length > 0 ? djconnect.outputDevices : (djconnect.outputDevice.length > 0 ? [djconnect.outputDevice] : []))
+                    function selectedIndex() {
+                        var selected = (djconnect.outputDevice || "").trim()
+                        if (selected.length === 0) return 0
+                        for (var i = 0; i < deviceChoices.length; i++) {
+                            if ((deviceChoices[i] || "").trim() === selected) return i
+                        }
+                        return 0
+                    }
                     model: deviceChoices
                     visible: count > 1 || djconnect.outputDevice.length === 0
-                    currentIndex: djconnect.outputDevice.length > 0 ? Math.max(0, deviceChoices.indexOf(djconnect.outputDevice)) : 0
+                    currentIndex: selectedIndex()
                     font.pixelSize: 26
                     delegate: ItemDelegate {
                         width: controlOutputDeviceCombo.width
@@ -2106,21 +2114,26 @@ Window {
 
             RowLayout {
                 Layout.fillWidth: true
+                Layout.minimumHeight: 56
                 Layout.preferredHeight: 56
+                Layout.maximumHeight: 56
+                Layout.fillHeight: false
                 spacing: 10
 
                 PurpleButton {
                     text: root.tr("clear_logs")
                     font.pixelSize: 22
                     Layout.fillWidth: true
-                    Layout.fillHeight: true
+                    Layout.preferredHeight: 56
+                    Layout.maximumHeight: 56
                     onClicked: root.clearLogsConfirmOpen = true
                 }
                 PurpleButton {
                     text: root.tr("refresh")
                     font.pixelSize: 22
                     Layout.fillWidth: true
-                    Layout.fillHeight: true
+                    Layout.preferredHeight: 56
+                    Layout.maximumHeight: 56
                     onClicked: {
                         djconnect.showLogs()
                         Qt.callLater(function() { logsArea.cursorPosition = logsArea.length })
@@ -2130,7 +2143,8 @@ Window {
                     text: root.tr("close")
                     font.pixelSize: 22
                     Layout.fillWidth: true
-                    Layout.fillHeight: true
+                    Layout.preferredHeight: 56
+                    Layout.maximumHeight: 56
                     onClicked: djconnect.hideLogs()
                 }
             }
@@ -2139,9 +2153,11 @@ Window {
                 id: logsScroll
                 Layout.fillWidth: true
                 Layout.fillHeight: true
+                Layout.minimumHeight: 360
 
                 TextArea {
                     id: logsArea
+                    height: logsScroll.availableHeight
                     text: djconnect.logsText
                     readOnly: true
                     wrapMode: TextEdit.Wrap

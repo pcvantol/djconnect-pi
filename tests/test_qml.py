@@ -31,6 +31,7 @@ def test_qml_has_blocking_pairing_and_splash_views() -> None:
     assert "property int trVersion: djconnect.translationVersion" in main_qml
     assert "function tr(key)" in main_qml
     assert 'root.tr("client_api_url")' in main_qml
+    assert "Client API URL" not in main_qml
     assert "djconnect.pairingCode" in main_qml
     assert "blockingPairCodeField" not in main_qml
     assert "djconnect.pair(djconnect.pairingCode)" not in main_qml
@@ -175,6 +176,8 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert 'visible: root.activeScreen === "control"' in main_qml
     assert 'root.tr("control")' in main_qml
     assert "id: controlOutputDeviceCombo" in main_qml
+    assert "function selectedIndex()" in main_qml
+    assert "currentIndex: selectedIndex()" in main_qml
     assert 'text: "🔊"' not in main_qml
     assert "wrapMode: TextEdit.Wrap" in main_qml
     assert 'text: root.tr("log") + ": " + djconnect.logFile' in main_qml
@@ -216,6 +219,11 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "logsArea.cursorPosition = logsArea.length" in main_qml
     assert "djconnect.copyLogs()" not in main_qml
     assert 'root.tr("copy_logs")' not in main_qml
+    logs_start = main_qml.index("visible: djconnect.logsVisible")
+    logs_block = main_qml[logs_start : main_qml.index("id: clearLogsConfirmPanel", logs_start)]
+    assert "Layout.maximumHeight: 56" in logs_block
+    assert "Layout.fillHeight: false" in logs_block
+    assert "Layout.minimumHeight: 360" in logs_block
     assert "root.clearLogsConfirmOpen = true" in main_qml
     assert 'root.tr("clear_logs_confirm_title")' in main_qml
     assert 'root.tr("clear_logs_confirm_message")' in main_qml
@@ -294,8 +302,13 @@ def test_qml_screen_blanking_wakes_on_tap() -> None:
     assert 'screen === "logs"' in main_qml
     assert 'screen === "about"' in main_qml
     assert "function wakeDisplay()" in main_qml
-    assert "root.splashVisible = true" in main_qml
-    assert "splashTimer.restart()" in main_qml
+    record_activity = main_qml[main_qml.index("function recordActivity()") : main_qml.index("function wakeDisplay()", main_qml.index("function recordActivity()"))]
+    assert "var wasBlanked = root.screenBlanked" in record_activity
+    assert "if (wasBlanked)" in record_activity
+    assert 'root.activeScreen = "now"' in record_activity
+    assert "root.hideTransientUi()" in record_activity
+    assert "root.splashVisible = true" not in record_activity
+    assert "splashTimer.restart()" not in record_activity
     assert "root.contentItem.grabToImage" in main_qml
     assert "result.saveToFile(djconnect.screenshotFile)" in main_qml
     assert "function onWakeScreenRequested()" in main_qml

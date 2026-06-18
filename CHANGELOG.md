@@ -1,5 +1,19 @@
 # Changelog
 
+## 3.1.72
+
+- Removed the splash replay when the screen wakes from the blanked state; wake
+  now returns directly to the kiosk UI.
+- Return to Speelt nu whenever the user taps the screen after screen blanking.
+- Removed remaining user-facing local API address wording in favor of
+  `Client adres`.
+- Avoid GitHub API rate limits for stable Pi updates by publishing and reading a
+  public `djconnect-pi-latest.json` release manifest from the public release
+  assets.
+- Refresh installer sudoers from the app installer as well as the OS bootstrap
+  so future `sudo -n ./scripts/install.sh` deploys can run from the standard
+  Pi install directories after one manual sudo install.
+
 ## 3.1.71
 
 - Align Raspberry Pi queue-row playback with the Apple app and HA/HACS
@@ -455,7 +469,7 @@
 - Split the local Client API into `djconnect-pi-api` and
   `djconnect-api.service`; the Qt touch UI no longer hosts the API itself.
 - Added full-screen startup splash and blocking first-run pairing screen with
-  Client API URL and pairing code input.
+  Client adres and pairing code input.
 - Added Home Assistant version compatibility guard. A `3.1.z` Pi client accepts
   HA `>=3.1.0` and `<3.2.0`; mismatches show a blocking screen and trigger
   `djconnect-updater.service`.

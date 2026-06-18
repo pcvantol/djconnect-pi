@@ -46,7 +46,7 @@ Implemented:
   but discovery is stopped so the device no longer appears as a pairing
   candidate in Home Assistant.
 - Full-screen startup splash with DJConnect banner and spinner
-- Blocking first-run pairing screen with Client API URL and pairing code input
+- Blocking first-run pairing screen with Client adres and pairing code input
 - Blocking Home Assistant version-mismatch screen. For example, client `3.1.z`
   accepts HA `>=3.1.0` and `<3.2.0`; mismatch triggers
   `djconnect-updater.service` once.
@@ -76,8 +76,8 @@ Implemented:
   music-backend-unavailable state and shown as a short translated status/toast.
 - Configurable screen blanking from the touch settings panel. Default is 120
   seconds and tap wakes the rendered screen.
-- When the screen wakes from the blanked state, the DJConnect startup splash is
-  shown briefly again before returning to the kiosk UI.
+- When the screen wakes from the blanked state, it closes transient overlays
+  and returns directly to Speelt nu without replaying the startup splash.
 - Previous/next track actions wake the rendered screen for 10 seconds, also
   when they arrive from Home Assistant through `/api/device/command`.
 - Configurable app-level brightness from the touch settings panel

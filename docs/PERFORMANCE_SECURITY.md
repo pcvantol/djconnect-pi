@@ -61,6 +61,9 @@ This file records the first pass review for the wall-mounted Pi client.
   and obvious abuse.
 - GitHub release updates require at least SHA256 verification before install.
   Signed manifests are still recommended for a later hardening pass.
+- Stable release discovery uses the public `djconnect-pi-latest.json` asset
+  through GitHub's normal release download path instead of unauthenticated
+  GitHub API listing calls, avoiding API rate-limit failures on the wall Pi.
 - The UI process should run as the unprivileged `djconnect` user. Only updater
   and OS maintenance services need root.
 - OS maintenance reboots only when `/var/run/reboot-required` exists and the

@@ -467,7 +467,7 @@ def _portal_about(cfg: Config) -> dict[str, str]:
         "Versie": cfg.version,
         "Apparaatnaam": cfg.device_name,
         "Device ID": cfg.device_id,
-        "Client API URL": cfg.local_url,
+        "Client adres": cfg.local_url,
         "Home Assistant": cfg.ha_url,
         "Home Assistant": "Gekoppeld" if cfg.paired else "Niet gekoppeld",
     }

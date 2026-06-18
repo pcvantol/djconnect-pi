@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DJCONNECT_VERSION="${DJCONNECT_VERSION:-3.1.71}"
+DJCONNECT_VERSION="${DJCONNECT_VERSION:-3.1.72}"
 DJCONNECT_REPO="${DJCONNECT_REPO:-pcvantol/djconnect-pi-releases}"
 DJCONNECT_HA_URL="${DJCONNECT_HA_URL:-http://homeassistant.local:8123}"
 DJCONNECT_RUNTIME_USER="${DJCONNECT_RUNTIME_USER:-djconnect}"
+DJCONNECT_INSTALL_USER="${DJCONNECT_INSTALL_USER:-${SUDO_USER:-pi}}"
 DJCONNECT_ROOT="${DJCONNECT_ROOT:-/opt/djconnect}"
 DJCONNECT_INSTALL_STATE="${DJCONNECT_INSTALL_STATE:-${DJCONNECT_ROOT}/install-state}"
 DJCONNECT_PIP_CACHE="${DJCONNECT_PIP_CACHE:-/var/cache/djconnect-pip}"
@@ -32,6 +33,7 @@ Environment:
   DJCONNECT_REPO=pcvantol/djconnect-pi-releases
   DJCONNECT_HA_URL=http://homeassistant.local:8123
   DJCONNECT_RUNTIME_USER=djconnect
+  DJCONNECT_INSTALL_USER=${DJCONNECT_INSTALL_USER}
   DJCONNECT_ROOT=/opt/djconnect
   DJCONNECT_INSTALL_STATE=/opt/djconnect/install-state
   DJCONNECT_PIP_CACHE=/var/cache/djconnect-pip
@@ -394,7 +396,7 @@ payload = {
     "device_name": "DJConnect Pi",
     "device_token": "",
     "paired": False,
-    "version": "3.1.71",
+    "version": "3.1.72",
     "update_repo": "pcvantol/djconnect-pi-releases",
     "update_channel": "stable",
     "screen_timeout_seconds": 120,
@@ -416,6 +418,7 @@ install_systemd_units() {
   print_resources "before systemd install"
   configure_xwrapper
   configure_reboot_sudoers
+  configure_installer_sudoers
   cp "${DJCONNECT_ROOT}/current/systemd/"*.service /etc/systemd/system/
   cp "${DJCONNECT_ROOT}/current/systemd/"*.timer /etc/systemd/system/
   systemctl daemon-reload
@@ -442,6 +445,28 @@ configure_reboot_sudoers() {
 
   cat >"$sudoers_file" <<EOF
 ${DJCONNECT_RUNTIME_USER} ALL=(ALL) NOPASSWD: /usr/bin/systemctl reboot, /bin/systemctl reboot, /usr/bin/systemctl reboot -i, /bin/systemctl reboot -i, /usr/bin/systemctl poweroff, /bin/systemctl poweroff, /usr/bin/systemctl poweroff -i, /bin/systemctl poweroff -i, /usr/bin/systemctl start djconnect-updater.service, /bin/systemctl start djconnect-updater.service
+EOF
+  chmod 0440 "$sudoers_file"
+  if command -v visudo >/dev/null 2>&1; then
+    visudo -cf "$sudoers_file" >/dev/null
+  fi
+}
+
+configure_installer_sudoers() {
+  local sudoers_dir="/etc/sudoers.d"
+  local sudoers_file="${sudoers_dir}/djconnect-installer"
+
+  if [[ -z "$DJCONNECT_INSTALL_USER" ]] || ! id "$DJCONNECT_INSTALL_USER" >/dev/null 2>&1; then
+    echo "Warning: install user ${DJCONNECT_INSTALL_USER:-<empty>} does not exist; skipping installer sudoers." >&2
+    return
+  fi
+  if [[ ! -d "$sudoers_dir" ]]; then
+    echo "Warning: ${sudoers_dir} does not exist; skipping installer sudoers." >&2
+    return
+  fi
+
+  cat >"$sudoers_file" <<EOF
+${DJCONNECT_INSTALL_USER} ALL=(root) NOPASSWD: /home/${DJCONNECT_INSTALL_USER}/djconnect-install/djconnect-pi-*/scripts/install.sh, /home/${DJCONNECT_INSTALL_USER}/djconnect-pi/scripts/install.sh
 EOF
   chmod 0440 "$sudoers_file"
   if command -v visudo >/dev/null 2>&1; then
