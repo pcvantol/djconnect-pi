@@ -433,6 +433,19 @@ def test_backend_requests_temporary_wake_for_backend_track_change(tmp_path: Path
     assert wakes == [(10, True)]
 
 
+def test_backend_requests_temporary_wake_when_playback_resumes(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.playback = Playback(title="Same Track", artist="Artist", is_playing=False)
+    wakes: list[tuple[int, bool]] = []
+    backend.temporaryWakeRequested.connect(lambda seconds, navigate: wakes.append((seconds, navigate)))
+
+    backend._apply_playback(Playback(title="Same Track", artist="Artist", is_playing=True))
+    backend._apply_playback(Playback(title="Same Track", artist="Artist", is_playing=False))
+
+    assert wakes == [(10, True)]
+
+
 def test_backend_demo_mode_is_blocked_after_pairing(tmp_path: Path) -> None:
     ensure_app()
     backend = DJConnectBackend(tmp_path / "config.json")

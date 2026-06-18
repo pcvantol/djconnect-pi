@@ -1111,6 +1111,7 @@ class DJConnectBackend(QObject):
         old = self.playback
         self.playback = playback
         track_changed = old.title != playback.title or old.artist != playback.artist or old.image_url != playback.image_url
+        resumed_playback = not old.is_playing and playback.is_playing
         if old.title != playback.title:
             self.titleChanged.emit()
         if old.artist != playback.artist:
@@ -1129,7 +1130,7 @@ class DJConnectBackend(QObject):
             self.outputDeviceChanged.emit()
         if old.position_seconds != playback.position_seconds or old.duration_seconds != playback.duration_seconds:
             self.progressChanged.emit()
-        if track_changed and (playback.title or playback.artist or playback.image_url):
+        if (track_changed and (playback.title or playback.artist or playback.image_url)) or resumed_playback:
             self.temporaryWakeRequested.emit(10, True)
         self._set_status_text(self.tr_key("connected" if self.paired else "ready_to_pair"))
 

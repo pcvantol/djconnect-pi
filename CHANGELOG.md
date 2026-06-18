@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.1.80
+
+- Wake the touch display and navigate to Now Playing when backend playback
+  transitions from paused to playing, matching the existing wake behavior for
+  previous/next commands and track changes.
+
 ## 3.1.79
 
 - Disable `djconnect-client.service` at the start of the manual installer so a
