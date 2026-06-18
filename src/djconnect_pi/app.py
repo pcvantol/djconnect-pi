@@ -64,6 +64,7 @@ class DJConnectBackend(QObject):
     screenTimeoutChanged = Signal()
     screenBrightnessChanged = Signal()
     updateChannelChanged = Signal()
+    updateStatusChanged = Signal()
     logFileChanged = Signal()
     logLevelChanged = Signal()
     languageChanged = Signal()
@@ -98,6 +99,12 @@ class DJConnectBackend(QObject):
         self._version_mismatch_text = ""
         self._pairing_success_visible = False
         self._update_service_triggered = False
+        self._update_visible = False
+        self._update_title = ""
+        self._update_message = ""
+        self._update_progress = 0
+        self._update_logs = ""
+        self._update_status_mtime = 0.0
         self._toast_timer = QTimer(self)
         self._toast_timer.setInterval(2000)
         self._toast_timer.setSingleShot(True)
@@ -269,6 +276,26 @@ class DJConnectBackend(QObject):
     @Property(str, notify=logLevelChanged)
     def logLevel(self) -> str:
         return self.cfg.log_level
+
+    @Property(bool, notify=updateStatusChanged)
+    def updateInProgress(self) -> bool:
+        return self._update_visible
+
+    @Property(str, notify=updateStatusChanged)
+    def updateTitle(self) -> str:
+        return self._update_title or self.tr_key("update_in_progress_title")
+
+    @Property(str, notify=updateStatusChanged)
+    def updateMessage(self) -> str:
+        return self._update_message or self.tr_key("update_in_progress_message")
+
+    @Property(int, notify=updateStatusChanged)
+    def updateProgress(self) -> int:
+        return self._update_progress
+
+    @Property(str, notify=updateStatusChanged)
+    def updateLogs(self) -> str:
+        return self._update_logs
 
     @Property(str, notify=languageChanged)
     def language(self) -> str:
@@ -1218,9 +1245,60 @@ class DJConnectBackend(QObject):
 
     @Slot()
     def _poll_local_events(self) -> None:
+        self._poll_update_status()
         self._poll_dj_response_event()
         self._poll_command_event()
         self._poll_screenshot_event()
+
+    def _poll_update_status(self) -> None:
+        path = Path(self.cfg.updater_status_file)
+        if not path.exists():
+            if self._update_visible:
+                self._update_visible = False
+                self.updateStatusChanged.emit()
+            return
+        try:
+            stat = path.stat()
+            if stat.st_mtime == self._update_status_mtime:
+                return
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            _LOGGER.warning("Failed to read updater status file: %s", exc)
+            return
+        if not isinstance(data, dict):
+            return
+        state = str(data.get("state") or "").strip()
+        visible = state not in {"", "complete"}
+        failed = state == "failed"
+        title = str(data.get("title") or "").strip()
+        message = str(data.get("message") or "").strip()
+        logs = data.get("logs")
+        if isinstance(logs, list):
+            log_text = "\n".join(str(line) for line in logs[-80:])
+        else:
+            log_text = str(logs or "")
+        progress = data.get("progress")
+        try:
+            progress_value = int(progress)
+        except (TypeError, ValueError):
+            progress_value = 100 if state == "complete" else 0
+        progress_value = max(0, min(100, progress_value))
+        changed = (
+            self._update_visible != (visible or failed)
+            or self._update_title != title
+            or self._update_message != message
+            or self._update_progress != progress_value
+            or self._update_logs != log_text
+        )
+        self._update_status_mtime = stat.st_mtime
+        if not changed:
+            return
+        self._update_visible = visible or failed
+        self._update_title = title
+        self._update_message = message
+        self._update_progress = progress_value
+        self._update_logs = log_text
+        self.updateStatusChanged.emit()
 
     def _poll_dj_response_event(self) -> None:
         path = Path(self.cfg.dj_response_file)

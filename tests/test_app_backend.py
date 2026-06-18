@@ -677,6 +677,32 @@ def test_backend_check_for_updates_triggers_updater_service(tmp_path: Path) -> N
     assert backend.statusText == backend.t("update_check_started")
 
 
+def test_backend_reads_updater_status_file(tmp_path: Path) -> None:
+    ensure_app()
+    config_path = tmp_path / "config.json"
+    backend = DJConnectBackend(config_path)
+    backend.cfg.updater_status_file = str(tmp_path / "updater-status.json")
+    Path(backend.cfg.updater_status_file).write_text(
+        json.dumps(
+            {
+                "state": "installing",
+                "title": "Update bezig",
+                "message": "PySide6 installeren",
+                "progress": 74,
+                "logs": ["line one", "line two"],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    backend._poll_update_status()
+
+    assert backend.updateInProgress is True
+    assert backend.updateProgress == 74
+    assert backend.updateMessage == "PySide6 installeren"
+    assert "line two" in backend.updateLogs
+
+
 def test_backend_version_mismatch_blocks_ui_and_triggers_update(tmp_path: Path) -> None:
     ensure_app()
     backend = DJConnectBackend(tmp_path / "config.json")

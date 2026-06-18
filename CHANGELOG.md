@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.1.81
+
+- Added a blocking touch update-in-progress screen with a progress bar,
+  spinner and expandable live installer logs backed by the updater daemon status
+  file.
+- Changed unattended updater behavior so the touch UI stays visible while API,
+  maintenance and watchdog services stop during an app update.
+
 ## 3.1.80
 
 - Wake the touch display and navigate to Now Playing when backend playback

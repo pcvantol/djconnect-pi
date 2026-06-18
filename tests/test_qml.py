@@ -340,6 +340,18 @@ def test_qml_has_blocking_version_mismatch_view() -> None:
     assert 'root.tr("update_trying")' in main_qml
 
 
+def test_qml_has_update_progress_view_with_expandable_logs() -> None:
+    main_qml = files("djconnect_pi.qml").joinpath("Main.qml").read_text(encoding="utf-8")
+
+    assert "id: updateProgressPanel" in main_qml
+    assert "djconnect.updateInProgress" in main_qml
+    assert "djconnect.updateProgress" in main_qml
+    assert "root.updateDetailsOpen" in main_qml
+    assert 'root.tr("update_details")' in main_qml
+    assert 'root.tr("installer_logs")' in main_qml
+    assert "djconnect.updateLogs" in main_qml
+
+
 def test_qml_uses_dark_djconnect_gradient_theme() -> None:
     qml_root = files("djconnect_pi.qml")
     main_qml = qml_root.joinpath("Main.qml").read_text(encoding="utf-8")

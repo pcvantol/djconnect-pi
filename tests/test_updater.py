@@ -118,7 +118,7 @@ def test_install_release_installs_dependencies_before_activation(tmp_path: Path)
     ):
         target = updater.install_release(bundle, "0.2.0", root)
 
-    install_python_dependencies.assert_called_once_with(target, "0.2.0")
+    install_python_dependencies.assert_called_once_with(target, "0.2.0", status=None)
     activate_release.assert_called_once_with(target, root)
 
 
@@ -374,7 +374,6 @@ def test_run_restarts_api_and_client_services_after_install(tmp_path: Path) -> N
 
     stop_services.assert_called_once_with(
         (
-            "djconnect-client.service",
             "djconnect-api.service",
             "djconnect-maintenance.service",
             "djconnect-watchdog.service",
@@ -383,6 +382,26 @@ def test_run_restarts_api_and_client_services_after_install(tmp_path: Path) -> N
     assert download_calls == 2
     cleanup_old_releases.assert_called_once_with(tmp_path, 2)
     restart_services.assert_called_once_with(("djconnect-api.service", "djconnect-client.service"))
+
+
+def test_run_writes_updater_status_file(tmp_path: Path) -> None:
+    cfg = updater.UpdaterConfig(repo="pcvantol/djconnect-pi-releases", install_root=tmp_path, status_file=tmp_path / "status.json")
+
+    with (
+        patch("djconnect_pi.updater.public_latest_release", return_value=make_release()),
+        patch("djconnect_pi.updater.asset_url", side_effect=["bundle-url", "checksum-url"]),
+        patch("djconnect_pi.updater.stop_services"),
+        patch("djconnect_pi.updater.download"),
+        patch("djconnect_pi.updater.verify_sha256"),
+        patch("djconnect_pi.updater.install_release"),
+        patch("djconnect_pi.updater.cleanup_old_releases"),
+        patch("djconnect_pi.updater.restart_services"),
+    ):
+        assert updater.run(cfg) == "Installed 0.2.0"
+
+    status = json.loads((tmp_path / "status.json").read_text(encoding="utf-8"))
+    assert status["state"] == "complete"
+    assert status["progress"] == 100
 
 
 def test_stop_services_uses_best_effort_systemctl_stop() -> None:

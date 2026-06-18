@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import tarfile
 import tempfile
+import time
 
 import requests
 
@@ -27,12 +28,39 @@ class UpdaterConfig:
     install_root: Path = Path("/opt/djconnect")
     service_names: Sequence[str] = ("djconnect-api.service", "djconnect-client.service")
     stop_service_names: Sequence[str] = (
-        "djconnect-client.service",
         "djconnect-api.service",
         "djconnect-maintenance.service",
         "djconnect-watchdog.service",
     )
     keep_releases: int = 2
+    status_file: Path = Path("/opt/djconnect/config/updater-status.json")
+
+
+class UpdateStatus:
+    def __init__(self, path: Path) -> None:
+        self.path = path
+        self.logs: list[str] = []
+
+    def write(self, state: str, message: str, progress: int, *, title: str = "Update bezig") -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "state": state,
+            "title": title,
+            "message": message,
+            "progress": max(0, min(100, int(progress))),
+            "logs": self.logs[-80:],
+            "updated_at": time.time(),
+        }
+        tmp = self.path.with_name(f".{self.path.name}.tmp")
+        tmp.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+        tmp.replace(self.path)
+
+    def log(self, line: str, state: str, message: str, progress: int) -> None:
+        clean = line.rstrip()
+        if clean:
+            self.logs.append(clean)
+        print(line, end="" if line.endswith("\n") else "\n", flush=True)
+        self.write(state, message, progress)
 
 
 def include_prerelease(channel: str) -> bool:
@@ -174,17 +202,41 @@ def _step_done(state_dir: Path, name: str) -> bool:
     return (state_dir / name).exists()
 
 
-def _run_once(state_dir: Path, name: str, command: list[str], env: dict[str, str] | None = None) -> None:
+def _run_once(
+    state_dir: Path,
+    name: str,
+    command: list[str],
+    env: dict[str, str] | None = None,
+    status: UpdateStatus | None = None,
+    message: str = "",
+    progress: int = 0,
+) -> None:
     if _step_done(state_dir, name):
         return
-    kwargs = {"check": True}
-    if env is not None:
-        kwargs["env"] = env
-    subprocess.run(command, **kwargs)
+    if status is None:
+        kwargs = {"check": True}
+        if env is not None:
+            kwargs["env"] = env
+        subprocess.run(command, **kwargs)
+    else:
+        status.write("installing", message, progress)
+        process = subprocess.Popen(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            env=env,
+        )
+        assert process.stdout is not None
+        for line in process.stdout:
+            status.log(line, "installing", message, progress)
+        return_code = process.wait()
+        if return_code != 0:
+            raise subprocess.CalledProcessError(return_code, command)
     _mark_step_done(state_dir, name)
 
 
-def install_python_dependencies(release_dir: Path, version: str) -> None:
+def install_python_dependencies(release_dir: Path, version: str, status: UpdateStatus | None = None) -> None:
     wheel_path = wheel_for_release(release_dir, version)
     venv_dir = release_dir / ".venv"
     bin_link = release_dir / "bin"
@@ -197,6 +249,8 @@ def install_python_dependencies(release_dir: Path, version: str) -> None:
     state_dir = release_dir / ".install-state"
     pip_env = pip_environment()
     if not _step_done(state_dir, "venv_created"):
+        if status is not None:
+            status.write("installing", "Python omgeving voorbereiden", 38)
         if venv_dir.exists():
             shutil.rmtree(venv_dir)
         subprocess.run(["python3", "-m", "venv", str(venv_dir)], check=True)
@@ -204,30 +258,36 @@ def install_python_dependencies(release_dir: Path, version: str) -> None:
 
     python = venv_dir / "bin" / "python"
     if os.environ.get(UPGRADE_PIP_ENV) == "1":
-        _run_once(state_dir, "pip_upgraded", [str(python), "-m", "pip", "install", "--upgrade", "pip"], env=pip_env)
+        _run_once(state_dir, "pip_upgraded", [str(python), "-m", "pip", "install", "--upgrade", "pip"], env=pip_env, status=status, message="pip bijwerken", progress=42)
     else:
-        _run_once(state_dir, "pip_checked", [str(python), "-m", "pip", "--version"], env=pip_env)
+        _run_once(state_dir, "pip_checked", [str(python), "-m", "pip", "--version"], env=pip_env, status=status, message="pip controleren", progress=42)
     _run_once(
         state_dir,
         "build_tools_installed",
         [str(python), "-m", "pip", "install", "--upgrade", "setuptools", "wheel"],
         env=pip_env,
+        status=status,
+        message="Build tools installeren",
+        progress=48,
     )
-    for package_name, requirement in (
-        ("shiboken6_installed", "shiboken6>=6.7"),
-        ("pyside6_essentials_installed", "PySide6_Essentials>=6.7"),
-        ("pyside6_addons_installed", "PySide6_Addons>=6.7"),
-        ("pyside6_installed", "PySide6>=6.7"),
-        ("requests_installed", "requests>=2.31"),
-        ("zeroconf_installed", "zeroconf>=0.132"),
+    for package_name, message, requirement, progress in (
+        ("shiboken6_installed", "shiboken6 installeren", "shiboken6>=6.7", 55),
+        ("pyside6_essentials_installed", "PySide6 Essentials installeren", "PySide6_Essentials>=6.7", 64),
+        ("pyside6_addons_installed", "PySide6 Addons installeren", "PySide6_Addons>=6.7", 74),
+        ("pyside6_installed", "PySide6 afronden", "PySide6>=6.7", 82),
+        ("requests_installed", "Requests installeren", "requests>=2.31", 88),
+        ("zeroconf_installed", "Zeroconf installeren", "zeroconf>=0.132", 92),
     ):
         _run_once(
             state_dir,
             package_name,
             [str(python), "-m", "pip", "install", "--upgrade", "--prefer-binary", requirement],
             env=pip_env,
+            status=status,
+            message=message,
+            progress=progress,
         )
-    _run_once(state_dir, "wheel_installed", [str(python), "-m", "pip", "install", "--prefer-binary", str(wheel_path)], env=pip_env)
+    _run_once(state_dir, "wheel_installed", [str(python), "-m", "pip", "install", "--prefer-binary", str(wheel_path)], env=pip_env, status=status, message="DJConnect app installeren", progress=96)
     bin_link.symlink_to(".venv/bin")
     validate_release_entrypoints(release_dir)
 
@@ -253,9 +313,13 @@ def activate_release(release_dir: Path, root: Path) -> None:
     os.replace(new_link, current)
 
 
-def install_release(bundle: Path, version: str, root: Path) -> Path:
+def install_release(bundle: Path, version: str, root: Path, status: UpdateStatus | None = None) -> Path:
     target = unpack_release(bundle, version, root)
-    install_python_dependencies(target, version)
+    if status is not None:
+        status.write("installing", f"Release {version} installeren", 34)
+    install_python_dependencies(target, version, status=status)
+    if status is not None:
+        status.write("activating", f"Release {version} activeren", 98)
     activate_release(target, root)
     return target
 
@@ -317,16 +381,27 @@ def run(cfg: UpdaterConfig, dry_run: bool = False) -> str:
     if dry_run:
         return json.dumps({"version": version, "bundle": bundle_url, "checksum": checksum_url}, indent=2)
 
+    status_file = cfg.status_file
+    if status_file == Path("/opt/djconnect/config/updater-status.json") and cfg.install_root != Path("/opt/djconnect"):
+        status_file = cfg.install_root / "config" / "updater-status.json"
+    status = UpdateStatus(status_file)
+    status.write("checking", f"Nieuwe versie {version} gevonden", 12)
     stop_services(cfg.stop_service_names)
     with tempfile.TemporaryDirectory(prefix="djconnect-pi-update-") as tmp:
         bundle = Path(tmp) / "release.tar.gz"
         checksum = Path(tmp) / "release.sha256"
+        status.write("downloading", f"Release {version} downloaden", 22)
         download(bundle_url, bundle)
+        status.write("downloading", "Checksum downloaden", 28)
         download(checksum_url, checksum)
+        status.write("verifying", "Release controleren", 32)
         verify_sha256(bundle, checksum)
-        install_release(bundle, version, cfg.install_root)
+        install_release(bundle, version, cfg.install_root, status=status)
+    status.write("cleanup", "Oude releases opruimen", 99)
     cleanup_old_releases(cfg.install_root, cfg.keep_releases)
+    status.write("restarting", "DJConnect herstarten", 100)
     restart_services(cfg.service_names)
+    status.write("complete", f"Versie {version} geinstalleerd", 100)
     return f"Installed {version}"
 
 
@@ -338,7 +413,6 @@ def config_from_file(
     install_root: Path = Path("/opt/djconnect"),
     service_names: Sequence[str] = ("djconnect-api.service", "djconnect-client.service"),
     stop_service_names: Sequence[str] = (
-        "djconnect-client.service",
         "djconnect-api.service",
         "djconnect-maintenance.service",
         "djconnect-watchdog.service",
@@ -355,6 +429,7 @@ def config_from_file(
         service_names=service_names,
         stop_service_names=stop_service_names,
         keep_releases=keep_releases,
+        status_file=Path(app_cfg.updater_status_file),
     )
 
 
@@ -383,7 +458,6 @@ def main() -> None:
     stop_service_names = tuple(
         args.stop_service_names
         or (
-            "djconnect-client.service",
             "djconnect-api.service",
             "djconnect-maintenance.service",
             "djconnect-watchdog.service",

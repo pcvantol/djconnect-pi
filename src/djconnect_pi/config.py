@@ -12,7 +12,7 @@ import uuid
 from .i18n import normalize_language
 
 CLIENT_TYPE = "raspberry_pi"
-PROTOCOL_VERSION = "3.1.80"
+PROTOCOL_VERSION = "3.1.81"
 DEFAULT_CONFIG_PATH = Path.home() / ".config" / "djconnect-pi" / "config.json"
 DEFAULT_LOG_PATH = Path.home() / ".local" / "state" / "djconnect-pi" / "client.log"
 
@@ -39,6 +39,7 @@ class Config:
     command_event_file: str = str(DEFAULT_LOG_PATH.parent / "command-event.json")
     screenshot_event_file: str = str(DEFAULT_LOG_PATH.parent / "screenshot-request.json")
     screenshot_file: str = str(DEFAULT_LOG_PATH.parent / "screenshot.png")
+    updater_status_file: str = str(DEFAULT_LOG_PATH.parent / "updater-status.json")
     log_level: str = "INFO"
 
 
@@ -78,6 +79,8 @@ def load_config(path: Path) -> Config:
         return cfg
     data = json.loads(path.read_text(encoding="utf-8"))
     cfg = Config(**{**asdict(Config()), **data})
+    if "updater_status_file" not in data and path.name == "client.json":
+        cfg.updater_status_file = str(path.parent / "updater-status.json")
     if not cfg.device_id:
         cfg.device_id = stable_device_id()
     if cfg.device_name in {"", "DJConnect Pi"}:
