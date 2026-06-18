@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.1.74
+
+- Added `CONTRIBUTING.md` with MIT licensing, development, release and
+  cross-repository contribution guidance for the Raspberry Pi client.
+- Stop the running touch UI service and any lingering client process early in
+  `scripts/install.sh`, before dependency checks and release installation work.
+- Added installer contract coverage for the early touch UI shutdown behavior.
+- Added `NEXT_CHAT_PROMPT.md` as a local handoff prompt for fresh Codex chats.
+
 ## 3.1.73
 
 - Changed the project license metadata and release bundles to MIT.
