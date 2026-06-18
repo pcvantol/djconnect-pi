@@ -358,7 +358,7 @@ def cleanup_old_releases(root: Path, keep: int = 2) -> list[Path]:
 
 def restart_services(service_names: Sequence[str]) -> None:
     for service_name in service_names:
-        subprocess.run(["systemctl", "restart", service_name], check=True)
+        subprocess.run(["systemctl", "restart", "--no-block", service_name], check=True)
 
 
 def start_service(service_name: str) -> None:

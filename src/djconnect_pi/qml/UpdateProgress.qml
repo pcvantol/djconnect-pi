@@ -68,13 +68,24 @@ Window {
 
         RowLayout {
             Layout.alignment: Qt.AlignHCenter
-            spacing: 12
+            spacing: 18
 
-            Text {
-                text: updater.currentVersion ? updater.currentVersion : "-"
-                color: "#ffffff"
-                font.pixelSize: 20
-                font.bold: true
+            ColumnLayout {
+                spacing: 2
+
+                Text {
+                    text: "Huidige versie"
+                    color: "#b9c9e8"
+                    font.pixelSize: 12
+                    font.bold: true
+                }
+
+                Text {
+                    text: updater.currentVersion ? updater.currentVersion : "-"
+                    color: "#ffffff"
+                    font.pixelSize: 20
+                    font.bold: true
+                }
             }
 
             Text {
@@ -82,13 +93,25 @@ Window {
                 color: "#93c5fd"
                 font.pixelSize: 20
                 font.bold: true
+                Layout.alignment: Qt.AlignBottom
             }
 
-            Text {
-                text: updater.targetVersion ? updater.targetVersion : "-"
-                color: "#ffffff"
-                font.pixelSize: 20
-                font.bold: true
+            ColumnLayout {
+                spacing: 2
+
+                Text {
+                    text: "Updaten naar"
+                    color: "#b9c9e8"
+                    font.pixelSize: 12
+                    font.bold: true
+                }
+
+                Text {
+                    text: updater.targetVersion ? updater.targetVersion : "-"
+                    color: "#ffffff"
+                    font.pixelSize: 20
+                    font.bold: true
+                }
             }
         }
 
@@ -139,11 +162,33 @@ Window {
                 spacing: 6
 
                 ProgressBar {
+                    id: updateProgressBar
                     from: 0
                     to: 100
                     value: updater.progress
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 18
+                    Layout.preferredHeight: 26
+
+                    background: Rectangle {
+                        color: "#33112643"
+                        radius: 13
+                        border.color: "#6248d6"
+                        border.width: 1
+                    }
+
+                    contentItem: Item {
+                        Rectangle {
+                            width: updateProgressBar.visualPosition * parent.width
+                            height: parent.height
+                            radius: 13
+                            gradient: Gradient {
+                                orientation: Gradient.Horizontal
+                                GradientStop { position: 0.0; color: "#ff5a2e" }
+                                GradientStop { position: 0.55; color: "#d433ff" }
+                                GradientStop { position: 1.0; color: "#7c3cff" }
+                            }
+                        }
+                    }
                 }
 
                 Text {
@@ -157,11 +202,33 @@ Window {
         }
 
         Button {
+            id: detailsButton
             text: updater.detailsOpen ? "Details verbergen" : "Meer details"
             font.pixelSize: 18
+            font.bold: true
             Layout.fillWidth: true
             Layout.preferredHeight: 46
             onClicked: updater.toggleDetails()
+
+            background: Rectangle {
+                radius: 8
+                gradient: Gradient {
+                    orientation: Gradient.Horizontal
+                    GradientStop { position: 0.0; color: detailsButton.down ? "#df4f30" : "#ff6a45" }
+                    GradientStop { position: 0.55; color: detailsButton.down ? "#b72bdc" : "#d433ff" }
+                    GradientStop { position: 1.0; color: detailsButton.down ? "#6332d6" : "#7c3cff" }
+                }
+                border.color: "#c7b9ff"
+                border.width: 1
+            }
+
+            contentItem: Text {
+                text: detailsButton.text
+                color: "#ffffff"
+                font: detailsButton.font
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+            }
         }
 
         ColumnLayout {

@@ -358,7 +358,13 @@ def test_qml_has_update_progress_view_with_expandable_logs() -> None:
     assert "updater.logs" in update_qml
     assert "updater.currentVersion" in update_qml
     assert "updater.targetVersion" in update_qml
+    assert "Huidige versie" in update_qml
+    assert "Updaten naar" in update_qml
     assert 'text: "->"' in update_qml
+    assert "id: updateProgressBar" in update_qml
+    assert "updateProgressBar.visualPosition" in update_qml
+    assert "id: detailsButton" in update_qml
+    assert "#d433ff" in update_qml
     assert "Remote meekijken" in update_qml
     assert "updater.deviceAddress" in update_qml
     assert "updater.sshCommand" in update_qml

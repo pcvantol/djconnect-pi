@@ -405,6 +405,14 @@ def test_run_restarts_api_and_client_services_after_install(tmp_path: Path) -> N
     restart_services.assert_called_once_with(("djconnect-api.service", "djconnect-client.service"))
 
 
+def test_restart_services_does_not_block_on_client_after_updater_dependency() -> None:
+    with patch("djconnect_pi.updater.subprocess.run") as run:
+        updater.restart_services(("djconnect-api.service", "djconnect-client.service"))
+
+    assert run.call_args_list[0].args[0] == ["systemctl", "restart", "--no-block", "djconnect-api.service"]
+    assert run.call_args_list[1].args[0] == ["systemctl", "restart", "--no-block", "djconnect-client.service"]
+
+
 def test_run_writes_updater_status_file(tmp_path: Path) -> None:
     cfg = updater.UpdaterConfig(repo="pcvantol/djconnect-pi-releases", install_root=tmp_path, status_file=tmp_path / "status.json")
 

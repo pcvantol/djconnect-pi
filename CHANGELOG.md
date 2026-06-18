@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.1.88
+
+- Style the updater progress UI details button and progress bar with the
+  DJConnect purple/orange treatment, label current and target versions, and use
+  non-blocking systemd restarts after updater activation so the client cannot
+  deadlock waiting for the updater service to finish.
+
 ## 3.1.87
 
 - Show the current version, target version, Pi IP address and SSH command on the
