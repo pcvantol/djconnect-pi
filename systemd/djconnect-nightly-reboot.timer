@@ -1,0 +1,9 @@
+[Unit]
+Description=Nightly reboot for DJConnect Raspberry Pi
+
+[Timer]
+OnCalendar=*-*-* 04:30:00
+Persistent=false
+
+[Install]
+WantedBy=timers.target

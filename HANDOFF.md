@@ -62,6 +62,7 @@ Implemented:
   empty game areas.
 - Separate GitHub release updater
 - Separate apt maintenance command
+- Separate nightly reboot timer at 04:30 for wall-device freshness
 - Persistent rotating file logging with sensitive-message redaction
 - Startup Raspberry Pi system-info logging for UI and API daemon
 - Debug logging around HA/API calls, HTTP status codes, JSON parse failures,
@@ -170,7 +171,7 @@ Implemented:
   synchronization, SSH, apt full-upgrade, Raspberry Pi Connect, console boot,
   minimal X11/Qt runtime dependencies and HyperPixel setup. It is
   intentionally excluded from release tarballs and from the app release cycle.
-- systemd unit/timer templates
+- systemd unit/timer templates, including the nightly reboot timer
 - release and cleanup scripts
 - Standard release closeout should also run
   `./cleanup_old_releases.sh --keep 1 --public --execute` to clean old private

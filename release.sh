@@ -121,7 +121,7 @@ build_assets() {
   local dist="dist/djconnect-pi-${VERSION}"
   run rm -rf "$dist" "dist/djconnect-pi-${VERSION}.tar.gz" "dist/djconnect-pi-${VERSION}.sha256"
   run mkdir -p "$dist"
-  run cp -R README.md CHANGELOG.md docs examples systemd "$dist/"
+  run cp -R LICENSE README.md CHANGELOG.md docs examples systemd "$dist/"
   run mkdir -p "$dist/scripts"
   run cp scripts/install.sh "$dist/scripts/"
   run mkdir -p "$dist/wheels"

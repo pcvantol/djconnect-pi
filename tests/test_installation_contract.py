@@ -88,6 +88,20 @@ def test_systemd_runs_api_separately_from_touch_ui() -> None:
     assert "DJCONNECT_DISABLE_CLIENT_API" not in client_service
 
 
+def test_systemd_has_nightly_reboot_timer() -> None:
+    service = ROOT.joinpath("systemd/djconnect-nightly-reboot.service").read_text(encoding="utf-8")
+    timer = ROOT.joinpath("systemd/djconnect-nightly-reboot.timer").read_text(encoding="utf-8")
+    install_script = ROOT.joinpath("scripts/install.sh").read_text(encoding="utf-8")
+    bootstrap = ROOT.joinpath("scripts/bootstrap_raspberry_pi_os.sh").read_text(encoding="utf-8")
+
+    assert "ExecStart=/usr/bin/systemctl reboot -i" in service
+    assert "OnCalendar=*-*-* 04:30:00" in timer
+    assert "Persistent=false" in timer
+    assert "systemctl enable --now djconnect-nightly-reboot.timer" in install_script
+    assert "DJCONNECT_ENABLE_NIGHTLY_REBOOT" in bootstrap
+    assert "configure_nightly_reboot" in bootstrap
+
+
 def test_pyproject_exposes_client_api_daemon_entrypoint() -> None:
     pyproject = ROOT.joinpath("pyproject.toml").read_text(encoding="utf-8")
 

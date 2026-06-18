@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DJCONNECT_VERSION="${DJCONNECT_VERSION:-3.1.72}"
+DJCONNECT_VERSION="${DJCONNECT_VERSION:-3.1.73}"
 DJCONNECT_REPO="${DJCONNECT_REPO:-pcvantol/djconnect-pi-releases}"
 DJCONNECT_HA_URL="${DJCONNECT_HA_URL:-http://homeassistant.local:8123}"
 DJCONNECT_RUNTIME_USER="${DJCONNECT_RUNTIME_USER:-djconnect}"
@@ -396,7 +396,7 @@ payload = {
     "device_name": "DJConnect Pi",
     "device_token": "",
     "paired": False,
-    "version": "3.1.72",
+    "version": "3.1.73",
     "update_repo": "pcvantol/djconnect-pi-releases",
     "update_channel": "stable",
     "screen_timeout_seconds": 120,
@@ -431,6 +431,7 @@ install_systemd_units() {
   systemctl enable --now djconnect-screen-off.timer
   systemctl enable --now djconnect-screen-on.timer
   systemctl enable --now djconnect-watchdog.timer
+  systemctl enable --now djconnect-nightly-reboot.timer
   print_resources "after systemd install"
 }
 

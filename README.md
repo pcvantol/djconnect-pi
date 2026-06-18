@@ -1,6 +1,6 @@
 # DJConnect Pi
 
-Version: `3.1.72`
+Version: `3.1.73`
 
 Raspberry Pi Zero 2 W touch-display client for DJConnect. This client uses
 Qt Quick/QML with a PySide6 backend and is meant for a Pimoroni HyperPixel 4.0
@@ -118,6 +118,7 @@ The app is a 720x720 fullscreen touch remote:
 - Logs, Over and Instellingen are opaque full-screen views; modal overlays
   consume touch input so controls behind logs, about, pairing and confirmation
   screens cannot be accidentally activated
+- separate nightly reboot timer at 04:30 for wall-device freshness
 
 The initial language is detected from the Raspberry Pi OS locale and then stored
 locally. Home Assistant does not provision UI language for Raspberry Pi clients;
@@ -159,9 +160,9 @@ not a private source clone:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.72.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.73.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.72
+cd djconnect-pi-3.1.73
 sudo ./scripts/install.sh
 ```
 
@@ -232,6 +233,8 @@ follow-up commit in the Home Assistant integration repo.
 OS maintenance is also separate. The maintenance command can run apt update,
 upgrade and reboot only when `/var/run/reboot-required` exists, optionally
 inside a configured maintenance window.
+The nightly reboot timer is separate from OS maintenance and reboots the wall
+Pi every night at 04:30.
 
 The touch UI reboot/shutdown buttons and the manual "Controleer op updates"
 action use narrow systemctl commands and sudo fallbacks. The installer writes a
@@ -262,9 +265,9 @@ installer:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.72.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.73.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.72
+cd djconnect-pi-3.1.73
 sudo ./scripts/install.sh
 ```
 
@@ -308,3 +311,7 @@ available.
 - [Issues](ISSUES.md)
 - [Todo](TODO.md)
 - [Tests](TESTS.md)
+
+## License
+
+DJConnect Pi is released under the MIT License. See [LICENSE](LICENSE).

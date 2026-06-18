@@ -30,6 +30,7 @@ Software:
   the Pi asks Linux to repair filesystems on boot after unsafe power loss
 - Automatic NTP time synchronization enabled by the bootstrap script for stable
   logs, TLS/GitHub downloads and Home Assistant communication
+- Nightly reboot timer enabled by default at 04:30
 
 Network:
 
@@ -80,8 +81,9 @@ pass to `1` in `/etc/fstab`, enables periodic ext filesystem checks with
 `systemd-timesyncd.service` when present, enables SSH, runs an optional apt
 full-upgrade, installs minimal X11/kiosk dependencies, Qt runtime libraries,
 generates `en_GB.UTF-8` and `nl_NL.UTF-8` locales, attempts Raspberry Pi
-Connect and configures HyperPixel. It is intentionally not included in
-DJConnect Pi release tarballs and is not part of the app release cycle.
+Connect, configures the nightly reboot timer and configures HyperPixel. It is
+intentionally not included in DJConnect Pi release tarballs and is not part of
+the app release cycle.
 
 These filesystem checks are intended for a wall-mounted device where power can
 occasionally be removed. They do not replace a good SD card or clean shutdowns,
@@ -168,9 +170,9 @@ completed:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.72.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.73.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.72
+cd djconnect-pi-3.1.73
 sudo ./scripts/install.sh
 ```
 
@@ -198,9 +200,9 @@ development checkout:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.72.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.73.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.72
+cd djconnect-pi-3.1.73
 sudo ./scripts/install.sh
 ```
 
@@ -218,6 +220,7 @@ The installer is safe to run over an earlier DJConnect install:
   Raspberry Pi OS Lite
 - restarts `djconnect-api.service` and `djconnect-client.service`
 - leaves updater, maintenance and screen timers enabled
+- leaves the nightly reboot timer enabled
 - does not run OS bootstrap tasks such as timezone, SSH, apt full-upgrade,
   Raspberry Pi Connect or HyperPixel setup
 - resumes completed install steps after interruption or reboot using markers in

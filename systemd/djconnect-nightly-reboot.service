@@ -1,0 +1,6 @@
+[Unit]
+Description=Nightly reboot for DJConnect Raspberry Pi
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemctl reboot -i

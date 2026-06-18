@@ -1,7 +1,10 @@
 # Changelog
 
-## 3.1.72
+## 3.1.73
 
+- Changed the project license metadata and release bundles to MIT.
+- Added a separate `djconnect-nightly-reboot.timer` for nightly Raspberry Pi
+  reboots at 04:30, installed by bootstrap and refreshed by the app installer.
 - Removed the splash replay when the screen wakes from the blanked state; wake
   now returns directly to the kiosk UI.
 - Return to Speelt nu whenever the user taps the screen after screen blanking.

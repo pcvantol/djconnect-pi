@@ -128,6 +128,11 @@ apt-get -y upgrade
 It only reboots when `--reboot` is passed and `/var/run/reboot-required` exists.
 The systemd timer schedules this inside the configured maintenance window.
 
+`djconnect-nightly-reboot.timer` is a separate wall-device freshness timer. It
+starts `djconnect-nightly-reboot.service` at 04:30 every night, which performs a
+plain Raspberry Pi reboot with `/usr/bin/systemctl reboot -i`. This is separate
+from app updates and from conditional OS maintenance reboots.
+
 ## Home Assistant Contract
 
 The Pi client is an app-like DJConnect client.
@@ -137,7 +142,7 @@ The Pi client is an app-like DJConnect client.
   "device_id": "djconnect-raspberry-pi-XXXXXXXXXXXX",
   "device_name": "DJConnect",
   "client_type": "raspberry_pi",
-  "version": "3.1.72",
+  "version": "3.1.73",
   "capabilities": {
     "touch": true,
     "voice": false,

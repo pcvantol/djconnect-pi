@@ -89,7 +89,7 @@ jobs:
           dist="dist/djconnect-pi-${version}"
           rm -rf "${dist}" "dist/djconnect-pi-${version}.tar.gz" "dist/djconnect-pi-${version}.sha256"
           mkdir -p "${dist}"
-          cp -R README.md CHANGELOG.md docs examples systemd "${dist}/"
+          cp -R LICENSE README.md CHANGELOG.md docs examples systemd "${dist}/"
           mkdir -p "${dist}/scripts"
           cp scripts/install.sh "${dist}/scripts/"
           mkdir -p "${dist}/wheels"

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DJCONNECT_BOOTSTRAP_VERSION="${DJCONNECT_BOOTSTRAP_VERSION:-3.1.72}"
+DJCONNECT_BOOTSTRAP_VERSION="${DJCONNECT_BOOTSTRAP_VERSION:-3.1.73}"
 DJCONNECT_TIMEZONE="${DJCONNECT_TIMEZONE:-Europe/Amsterdam}"
 DJCONNECT_INSTALL_HYPERPIXEL="${DJCONNECT_INSTALL_HYPERPIXEL:-1}"
 DJCONNECT_HYPERPIXEL_MODEL="${DJCONNECT_HYPERPIXEL_MODEL:-square}"
@@ -10,6 +10,7 @@ DJCONNECT_ENABLE_RPI_CONNECT="${DJCONNECT_ENABLE_RPI_CONNECT:-1}"
 DJCONNECT_FULL_UPGRADE="${DJCONNECT_FULL_UPGRADE:-1}"
 DJCONNECT_RUNTIME_USER="${DJCONNECT_RUNTIME_USER:-djconnect}"
 DJCONNECT_INSTALL_USER="${DJCONNECT_INSTALL_USER:-pi}"
+DJCONNECT_ENABLE_NIGHTLY_REBOOT="${DJCONNECT_ENABLE_NIGHTLY_REBOOT:-1}"
 DJCONNECT_SWAPFILE="${DJCONNECT_SWAPFILE:-/swapfile}"
 DJCONNECT_SWAP_MB="${DJCONNECT_SWAP_MB:-1024}"
 DJCONNECT_FSCK_MAX_MOUNTS="${DJCONNECT_FSCK_MAX_MOUNTS:-30}"
@@ -32,6 +33,7 @@ Environment:
   DJCONNECT_FULL_UPGRADE=1
   DJCONNECT_RUNTIME_USER=djconnect
   DJCONNECT_INSTALL_USER=pi
+  DJCONNECT_ENABLE_NIGHTLY_REBOOT=1
   DJCONNECT_SWAPFILE=/swapfile
   DJCONNECT_SWAP_MB=1024
   DJCONNECT_FSCK_MAX_MOUNTS=30
@@ -51,6 +53,7 @@ DJConnect Pi:
 - runs apt update and optional apt full-upgrade
 - installs OS packages including minimal X11/kiosk, Qt runtime and Python
 - grants the install user narrow passwordless sudo for DJConnect install.sh
+- enables a nightly reboot timer for wall-device freshness
 - attempts to install and enable Raspberry Pi Connect
 - configures the modern HyperPixel 4 KMS DPI overlay
 
@@ -394,6 +397,21 @@ EOF
   fi
 }
 
+configure_nightly_reboot() {
+  if [[ "$DJCONNECT_ENABLE_NIGHTLY_REBOOT" != "1" ]]; then
+    log "Skipping DJConnect nightly reboot timer"
+    return
+  fi
+
+  log "Configuring DJConnect nightly reboot timer"
+  local source_dir
+  source_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  install -m 0644 "${source_dir}/systemd/djconnect-nightly-reboot.service" /etc/systemd/system/
+  install -m 0644 "${source_dir}/systemd/djconnect-nightly-reboot.timer" /etc/systemd/system/
+  systemctl daemon-reload
+  systemctl enable --now djconnect-nightly-reboot.timer
+}
+
 main() {
   log "DJConnect Pi OS bootstrap ${DJCONNECT_BOOTSTRAP_VERSION}"
   check_os_baseline
@@ -407,6 +425,7 @@ main() {
   install_base_packages
   configure_locale
   configure_installer_sudoers
+  configure_nightly_reboot
   install_rpi_connect
   install_hyperpixel
 

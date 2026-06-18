@@ -100,7 +100,7 @@ mainly by tests plus `compileall`.
 | Environment-overridable defaults | `DJCONNECT_*="${DJCONNECT_*:-...}"` | Allows release/install customization without editing scripts. |
 | Idempotent/resumable install markers | `/opt/djconnect/install-state/<version>/*.done` | Allows retry after freeze/reboot during dependency installation. |
 | Atomic release activation | `/opt/djconnect/current -> /opt/djconnect/releases/<version>` | Makes upgrades switch at symlink level after validation. |
-| Separate systemd units | `systemd/*.service`, `systemd/*.timer` | Keeps API, UI, updater, maintenance and screen schedule isolated. |
+| Separate systemd units | `systemd/*.service`, `systemd/*.timer` | Keeps API, UI, updater, maintenance, nightly reboot and screen schedule isolated. |
 | Narrow sudoers rule | installer writes `djconnect-reboot` | Allows only reboot, poweroff and starting `djconnect-updater.service` from the runtime user. |
 | Workflow concurrency | `.github/workflows/publish-release.yml` | New publish runs cancel older in-progress runs on the same ref so stale release builds do not publish after a newer build. |
 | OS bootstrap excluded from release tarball | release script copies only app install material | Keeps Raspberry Pi OS preparation out of the app release cycle. |
