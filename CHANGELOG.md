@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.1.77
+
+- Stop `djconnect-updater.timer` and `djconnect-updater.service` at the start
+  of the manual installer so an old unattended updater cannot race the manual
+  install, replace the target release directory and wipe dependency markers.
+
 ## 3.1.76
 
 - Split PySide6 dependency installation into separate `shiboken6`,

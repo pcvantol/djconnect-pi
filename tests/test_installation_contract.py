@@ -19,10 +19,15 @@ def _project_version() -> str:
 def test_install_script_enables_local_api_service() -> None:
     script = ROOT.joinpath("scripts/install.sh").read_text(encoding="utf-8")
 
+    assert "stop_running_updater_early" in script
+    assert "systemctl stop djconnect-updater.timer" in script
+    assert "systemctl stop djconnect-updater.service" in script
     assert "stop_running_client_early" in script
     assert "systemctl stop djconnect-client.service" in script
     assert "pkill -TERM -f 'djconnect-pi-client|djconnect_pi\\.app'" in script
-    assert script.index("stop_running_client_early") < script.index("check_runtime_dependencies")
+    main_body = script.split("main() {", 1)[1]
+    assert main_body.index("stop_running_updater_early") < main_body.index("stop_running_client_early")
+    assert main_body.index("stop_running_client_early") < main_body.index("check_runtime_dependencies")
     assert "systemctl enable djconnect-api.service" in script
     assert "systemctl enable djconnect-client.service" in script
     assert "systemctl restart djconnect-api.service" in script

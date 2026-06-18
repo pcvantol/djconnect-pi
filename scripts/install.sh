@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DJCONNECT_VERSION="${DJCONNECT_VERSION:-3.1.76}"
+DJCONNECT_VERSION="${DJCONNECT_VERSION:-3.1.77}"
 DJCONNECT_REPO="${DJCONNECT_REPO:-pcvantol/djconnect-pi-releases}"
 DJCONNECT_HA_URL="${DJCONNECT_HA_URL:-http://homeassistant.local:8123}"
 DJCONNECT_RUNTIME_USER="${DJCONNECT_RUNTIME_USER:-djconnect}"
@@ -126,6 +126,15 @@ stop_running_client_early() {
     pkill -TERM -f 'djconnect-pi-client|djconnect_pi\.app' >/dev/null 2>&1 || true
     sleep 1
     pkill -KILL -f 'djconnect-pi-client|djconnect_pi\.app' >/dev/null 2>&1 || true
+  fi
+}
+
+stop_running_updater_early() {
+  log "Stopping running DJConnect updater before install"
+
+  if command -v systemctl >/dev/null 2>&1; then
+    systemctl stop djconnect-updater.timer >/dev/null 2>&1 || true
+    systemctl stop djconnect-updater.service >/dev/null 2>&1 || true
   fi
 }
 
@@ -449,7 +458,7 @@ payload = {
     "device_name": "DJConnect Pi",
     "device_token": "",
     "paired": False,
-    "version": "3.1.76",
+    "version": "3.1.77",
     "update_repo": "pcvantol/djconnect-pi-releases",
     "update_channel": "stable",
     "screen_timeout_seconds": 120,
@@ -551,6 +560,7 @@ configure_xwrapper() {
 
 main() {
   log "DJConnect Pi installer ${DJCONNECT_VERSION}"
+  stop_running_updater_early
   stop_running_client_early
   print_resources "installer start"
   print_thermal_status

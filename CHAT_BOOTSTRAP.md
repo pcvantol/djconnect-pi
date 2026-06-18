@@ -20,19 +20,19 @@ Belangrijke context:
 - Geen lokale `SYNC_PROMPTS.md` of `PRODUCT_ROADMAP.md`; die staan canoniek in `pcvantol/djconnect`.
 
 Huidige stand:
-- Laatste gepubliceerde release is `v3.1.76`.
+- Laatste gepubliceerde release is `v3.1.77`.
 - Public updater assets staan in `pcvantol/djconnect-pi-releases`, inclusief `djconnect-pi-latest.json`.
-- Release `v3.1.76` is gepubliceerd in source en public distribution repo.
-- Public assets voor `v3.1.76` zijn geverifieerd:
-  - `djconnect-pi-3.1.76.tar.gz`
-  - `djconnect-pi-3.1.76.sha256`
+- Release `v3.1.77` is gepubliceerd in source en public distribution repo.
+- Public assets voor `v3.1.77` zijn geverifieerd:
+  - `djconnect-pi-3.1.77.tar.gz`
+  - `djconnect-pi-3.1.77.sha256`
   - `djconnect-pi-latest.json`
-- Cleanup is gedraaid met `./cleanup_old_releases.sh --keep 1 --public --execute`; alleen `v3.1.76` blijft over als recente source/public release.
+- Cleanup is gedraaid met `./cleanup_old_releases.sh --keep 1 --public --execute`; alleen `v3.1.77` blijft over als recente source/public release.
 - Pi draaide eerder nog `3.1.72`; updater/install via oude versies kon rebooten tijdens monolithische dependency-install.
-- Validatie voor `v3.1.76`:
+- Validatie voor `v3.1.77`:
   - `bash -n scripts/install.sh`
   - `python3.11 -m pytest tests/test_installation_contract.py tests/test_updater.py -q` -> 56 passed
-  - GitHub Actions publish workflow voor `v3.1.76` -> success
+  - GitHub Actions publish workflow voor `v3.1.77` -> success
 
 Openstaande gewenste workflow:
 - Bij een volgende release: actualiseer `CHAT_BOOTSTRAP.md` als onderdeel van de release closeout.
@@ -40,7 +40,7 @@ Openstaande gewenste workflow:
   `gh run list --workflow publish-release.yml --limit 3`
 - Verifieer na elke release de public assets:
   `gh release view vX.Y.Z --repo pcvantol/djconnect-pi-releases --json tagName,url,assets`
-- Deploy/updater op Pi gebruikt vanaf `v3.1.76` resumable dependency install markers voor reboot/interruption retries, inclusief losse PySide6-subpackages.
+- Deploy/updater op Pi gebruikt vanaf `v3.1.77` resumable dependency install markers voor reboot/interruption retries, inclusief losse PySide6-subpackages, en de handmatige installer stopt eerst de oude updater-service/timer.
 
 Handmatig client killen op Pi:
 sudo systemctl stop djconnect-client.service
