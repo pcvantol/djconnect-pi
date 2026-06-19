@@ -93,7 +93,8 @@ resume after venv creation, build tools, shiboken6, PySide6 Essentials, PySide6
 Addons, PySide6, requests, zeroconf or bundled wheel installation instead of
 starting the whole venv over.
 
-After install, the updater restarts `djconnect-api.service` and
+After install, the updater refreshes bundled systemd service and timer
+templates, reloads systemd, and restarts `djconnect-api.service` and
 `djconnect-client.service`.
 It also removes stale release directories after a successful install. The
 default retention is the active `/opt/djconnect/current` release plus one
@@ -155,7 +156,7 @@ The Pi client is an app-like DJConnect client.
   "device_id": "djconnect-raspberry-pi-XXXXXXXXXXXX",
   "device_name": "DJConnect",
   "client_type": "raspberry_pi",
-  "version": "3.1.91",
+  "version": "3.1.92",
   "capabilities": {
     "touch": true,
     "voice": false,

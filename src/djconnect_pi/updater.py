@@ -356,6 +356,17 @@ def cleanup_old_releases(root: Path, keep: int = 2) -> list[Path]:
     return removed
 
 
+def refresh_systemd_units(release_dir: Path, systemd_dir: Path = Path("/etc/systemd/system")) -> None:
+    source_dir = release_dir / "systemd"
+    if not source_dir.is_dir():
+        raise RuntimeError(f"Release is missing systemd unit directory: {source_dir}")
+    systemd_dir.mkdir(parents=True, exist_ok=True)
+    for pattern in ("*.service", "*.timer"):
+        for unit in source_dir.glob(pattern):
+            shutil.copy2(unit, systemd_dir / unit.name)
+    subprocess.run(["systemctl", "daemon-reload"], check=True)
+
+
 def restart_services(service_names: Sequence[str]) -> None:
     for service_name in service_names:
         subprocess.run(["systemctl", "restart", "--no-block", service_name], check=True)
@@ -416,7 +427,8 @@ def run(cfg: UpdaterConfig, dry_run: bool = False) -> str:
             download(checksum_url, checksum)
             status.write("verifying", "Release controleren", 32)
             verify_sha256(bundle, checksum)
-            install_release(bundle, version, cfg.install_root, status=status)
+            release_dir = install_release(bundle, version, cfg.install_root, status=status)
+            refresh_systemd_units(release_dir)
         status.write("cleanup", "Oude releases opruimen", 99)
         cleanup_old_releases(cfg.install_root, cfg.keep_releases)
         status.write("restarting", "DJConnect herstarten", 100)

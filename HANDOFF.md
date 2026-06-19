@@ -220,6 +220,9 @@ Implemented:
   tarballs: it strips the top-level archive directory, installs the bundled
   wheel into `.venv`, validates all `djconnect-pi-*` console entrypoints and
   only then repoints `/opt/djconnect/current`.
+- The unattended updater refreshes bundled systemd service/timer templates and
+  runs `systemctl daemon-reload` after activating a release, before stopping the
+  update progress UI and restarting API/client services.
 - Once the unattended updater detects a newer release, it stops the DJConnect
   client, local API, maintenance and watchdog services before download/install
   work. It does not stop `djconnect-updater.service` itself.

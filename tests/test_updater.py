@@ -384,7 +384,8 @@ def test_run_restarts_api_and_client_services_after_install(tmp_path: Path) -> N
         patch("djconnect_pi.updater.stop_service") as stop_service,
         patch("djconnect_pi.updater.download", side_effect=fake_download),
         patch("djconnect_pi.updater.verify_sha256"),
-        patch("djconnect_pi.updater.install_release"),
+        patch("djconnect_pi.updater.install_release", return_value=tmp_path / "releases" / "0.2.0"),
+        patch("djconnect_pi.updater.refresh_systemd_units") as refresh_systemd_units,
         patch("djconnect_pi.updater.cleanup_old_releases") as cleanup_old_releases,
         patch("djconnect_pi.updater.restart_services") as restart_services,
     ):
@@ -401,6 +402,7 @@ def test_run_restarts_api_and_client_services_after_install(tmp_path: Path) -> N
     start_service.assert_called_once_with("djconnect-update-ui.service")
     stop_service.assert_called_once_with("djconnect-update-ui.service")
     assert download_calls == 2
+    refresh_systemd_units.assert_called_once_with(tmp_path / "releases" / "0.2.0")
     cleanup_old_releases.assert_called_once_with(tmp_path, 2)
     restart_services.assert_called_once_with(("djconnect-api.service", "djconnect-client.service"))
 
@@ -411,6 +413,24 @@ def test_restart_services_does_not_block_on_client_after_updater_dependency() ->
 
     assert run.call_args_list[0].args[0] == ["systemctl", "restart", "--no-block", "djconnect-api.service"]
     assert run.call_args_list[1].args[0] == ["systemctl", "restart", "--no-block", "djconnect-client.service"]
+
+
+def test_refresh_systemd_units_copies_release_units_and_reloads(tmp_path: Path) -> None:
+    release_dir = tmp_path / "release"
+    source = release_dir / "systemd"
+    target = tmp_path / "systemd"
+    source.mkdir(parents=True)
+    (source / "djconnect-client.service").write_text("[Service]\nExecStart=client\n", encoding="utf-8")
+    (source / "djconnect-updater.timer").write_text("[Timer]\nOnCalendar=daily\n", encoding="utf-8")
+    (source / "ignored.txt").write_text("ignore", encoding="utf-8")
+
+    with patch("djconnect_pi.updater.subprocess.run") as run:
+        updater.refresh_systemd_units(release_dir, target)
+
+    assert (target / "djconnect-client.service").read_text(encoding="utf-8") == "[Service]\nExecStart=client\n"
+    assert (target / "djconnect-updater.timer").read_text(encoding="utf-8") == "[Timer]\nOnCalendar=daily\n"
+    assert not (target / "ignored.txt").exists()
+    run.assert_called_once_with(["systemctl", "daemon-reload"], check=True)
 
 
 def test_run_writes_updater_status_file(tmp_path: Path) -> None:
@@ -424,7 +444,8 @@ def test_run_writes_updater_status_file(tmp_path: Path) -> None:
         patch("djconnect_pi.updater.stop_service"),
         patch("djconnect_pi.updater.download"),
         patch("djconnect_pi.updater.verify_sha256"),
-        patch("djconnect_pi.updater.install_release"),
+        patch("djconnect_pi.updater.install_release", return_value=tmp_path / "releases" / "0.2.0"),
+        patch("djconnect_pi.updater.refresh_systemd_units"),
         patch("djconnect_pi.updater.cleanup_old_releases"),
         patch("djconnect_pi.updater.restart_services"),
     ):

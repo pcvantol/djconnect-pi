@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.1.92
+
+- Refresh bundled systemd service and timer templates during unattended updater
+  installs before stopping the update progress UI and restarting DJConnect
+  services, so updater-delivered unit changes take effect without a manual
+  installer rerun.
+
 ## 3.1.91
 
 - Treat the updater progress UI's normal `xinit`/SIGTERM shutdown as a
