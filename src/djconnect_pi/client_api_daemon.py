@@ -320,7 +320,7 @@ def _parse_queue_items(data: dict[str, object]) -> list[dict[str, object]]:
         raw_items = _first_present(data, ("items",))
     if not isinstance(raw_items, list):
         return []
-    return [parsed for item in raw_items[:100] if isinstance(item, dict) and (parsed := _media_item(item))]
+    return _dedupe_queue_items([parsed for item in raw_items[:100] if isinstance(item, dict) and (parsed := _media_item(item))])
 
 
 def _parse_playlist_items(data: dict[str, object]) -> list[dict[str, object]]:
@@ -328,6 +328,25 @@ def _parse_playlist_items(data: dict[str, object]) -> list[dict[str, object]]:
     if not isinstance(raw_items, list):
         return []
     return [parsed for item in raw_items[:100] if isinstance(item, dict) and (parsed := _media_item(item, playlist=True))]
+
+
+def _dedupe_queue_items(items: list[dict[str, object]]) -> list[dict[str, object]]:
+    seen: set[tuple[str, str, str, str]] = set()
+    deduped: list[dict[str, object]] = []
+    for item in items:
+        key = (
+            str(item.get("uri") or "").strip().casefold(),
+            str(item.get("title") or "").strip().casefold(),
+            str(item.get("subtitle") or "").strip().casefold(),
+            str(item.get("imageUrl") or "").strip(),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(item)
+    if len(items) > 1 and len(deduped) == 1:
+        return []
+    return deduped
 
 
 def _media_item(item: dict[str, object], playlist: bool = False) -> dict[str, object] | None:

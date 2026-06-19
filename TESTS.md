@@ -84,6 +84,8 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 - playback response alias parsing
 - playback output-device response parsing, `set_output` command dispatch and
   fallback HA `devices` command loading when status omits the device list
+- playback refresh contract that Now Playing album art is cached locally before
+  QML renders it
 - Home Assistant playback contract coverage for no-active-playback status
   snapshots, empty HTTP 2xx body errors, HTTP 401/403/404 auth failures,
   `success:true` empty playback command responses, `devices`/`outputs` aliases,
@@ -106,8 +108,8 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 - PySide backend properties and command dispatch
 - persistent logging and redaction
 - bundled QML files and offscreen QML load
-- startup splash, blocking pairing screen, tap-to-wake blanking, splash-on-wake
-  and toast QML contract checks
+- startup splash, blocking pairing screen, tap-to-wake blanking, wake refresh,
+  navigation idle-timer restart, splash-on-wake and toast QML contract checks
 - previous/next wake-screen signal coverage, including HA command-event
   previous/next
 - modal overlay touch-blocking, settings reset-pairing/reboot confirmation,

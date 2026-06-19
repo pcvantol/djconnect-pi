@@ -83,7 +83,7 @@ def index_html(version: str) -> bytes:
     .chip.unknown {{ background:rgba(160,170,195,.18); color:#d8defa; border:1px solid rgba(160,170,195,.36); }}
     .two {{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }}
     pre {{ margin:0; min-height:260px; max-height:420px; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; background:rgba(4,3,18,.68); border:1px solid var(--line); border-radius:8px; padding:12px; font:14px/1.35 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }}
-    .toast {{ position:fixed; left:50%; bottom:28px; width:max-content; max-width:calc(100% - 32px); opacity:0; transform:translate(-50%,16px); transition:.18s; background:linear-gradient(90deg,#ff5a2e,#f13ccc 52%,#b731ff); border:2px solid rgba(255,255,255,.70); border-radius:999px; padding:16px 28px; font-weight:900; font-size:18px; color:white; box-shadow:0 0 44px rgba(255,91,50,.46),0 0 74px rgba(190,49,255,.32); z-index:20; }}
+    .toast {{ position:fixed; left:50%; bottom:28px; width:max-content; max-width:calc(100% - 32px); opacity:0; transform:translate(-50%,16px); transition:.18s; background:linear-gradient(90deg,#ff5a2e,#f13ccc 52%,#b731ff); border:2px solid rgba(255,255,255,.70); border-radius:999px; padding:16px 28px; font-weight:900; font-size:18px; color:white; z-index:20; }}
     .toast::before {{ content:"▶"; display:inline-block; margin-right:14px; font-size:18px; }}
     .toast.show {{ opacity:1; transform:translate(-50%,0); }}
     button.busy {{ opacity:.72; cursor:progress; }}

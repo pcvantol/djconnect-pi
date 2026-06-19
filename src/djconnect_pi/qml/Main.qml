@@ -24,6 +24,7 @@ Window {
     property bool clearLogsConfirmOpen: false
     property bool forceScreenAwake: false
     property bool forceBrightnessFull: false
+    property bool suppressNextNowPanelTap: false
     property bool screenBlanked: djconnect.screenTimeoutSeconds > 0 && !idleTimer.running && !root.forceScreenAwake
     property real brightnessOverlayOpacity: root.screenBlanked || root.forceBrightnessFull ? 0 : 1 - (djconnect.screenBrightnessPercent / 100.0)
     property int trVersion: djconnect.translationVersion
@@ -42,16 +43,26 @@ Window {
     function recordActivity() {
         var wasBlanked = root.screenBlanked
         root.forceBrightnessFull = false
-        idleTimer.restart()
+        root.restartIdleTimer()
         if (wasBlanked) {
             root.hideTransientUi()
             root.activeScreen = "now"
+            root.suppressNextNowPanelTap = true
+            djconnect.refresh()
+        }
+    }
+
+    function restartIdleTimer() {
+        if (djconnect.screenTimeoutSeconds > 0) {
+            idleTimer.restart()
         }
     }
 
     function wakeDisplay() {
         root.recordActivity()
     }
+
+    onActiveScreenChanged: root.restartIdleTimer()
 
     function hideTransientUi() {
         root.aboutOpen = false
@@ -628,6 +639,7 @@ Window {
         function onWakeScreenRequested() {
             root.forceScreenAwake = true
             root.forceBrightnessFull = false
+            root.restartIdleTimer()
             forcedWakeTimer.interval = 10000
             forcedWakeTimer.restart()
         }
@@ -644,6 +656,7 @@ Window {
         function onScreenshotRequested() {
             root.forceScreenAwake = true
             root.forceBrightnessFull = false
+            root.restartIdleTimer()
             forcedWakeTimer.interval = 10000
             forcedWakeTimer.restart()
             Qt.callLater(function() {
@@ -780,7 +793,7 @@ Window {
                         sourceSize.height: height
                         fillMode: Image.PreserveAspectCrop
                         asynchronous: true
-                        cache: false
+                        cache: true
                         opacity: status === Image.Ready ? 1 : 0
 
                         Behavior on opacity { NumberAnimation { duration: 240 } }
@@ -852,7 +865,13 @@ Window {
                 }
 
                 TapHandler {
-                    onTapped: root.activeScreen = "control"
+                    onTapped: {
+                        if (root.suppressNextNowPanelTap) {
+                            root.suppressNextNowPanelTap = false
+                            return
+                        }
+                        root.activeScreen = "control"
+                    }
                 }
             }
 
@@ -1952,24 +1971,6 @@ Window {
                 }
             }
         }
-    }
-
-    Rectangle {
-        id: toastGlow
-        anchors.top: parent.top
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.topMargin: 16
-        width: toast.width + 54
-        height: toast.height + 46
-        radius: height / 2
-        color: "#55ff4b2b"
-        opacity: djconnect.toastVisible ? 1 : 0
-        visible: opacity > 0
-        z: 69
-        y: djconnect.toastVisible ? 0 : -16
-
-        Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
-        Behavior on y { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
     }
 
     Rectangle {

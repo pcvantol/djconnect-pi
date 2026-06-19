@@ -10,6 +10,24 @@ from djconnect_pi.config import Config, save_config
 from djconnect_pi.ha import HAClient
 
 
+def test_client_api_daemon_queue_parser_hides_repeated_current_track() -> None:
+    queue = client_api_daemon._parse_queue_items(
+        {
+            "queue": [
+                {
+                    "title": "Mind Games",
+                    "artist": "HAEVN",
+                    "uri": "spotify:track:mind-games",
+                    "image_url": "https://example.test/mind-games.jpg",
+                }
+                for _ in range(5)
+            ]
+        }
+    )
+
+    assert queue == []
+
+
 def test_client_api_daemon_writes_dj_response_event(tmp_path: Path) -> None:
     config_path = tmp_path / "config.json"
     event_file = tmp_path / "dj-response.json"

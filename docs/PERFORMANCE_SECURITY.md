@@ -12,19 +12,23 @@ This file records the first pass review for the wall-mounted Pi client.
   pairing/configuration, refresh exits locally so the blocking pairing screen
   does not generate repeated network failures.
 - Album art is loaded asynchronously by QML and backed by the local artwork
-  cache so media-list navigation is not blocked by image downloads.
+  cache. Now Playing artwork is cached before render, while media-list
+  navigation is not blocked by image downloads.
 - Queue and Playlist rows are emitted before artwork preparation. Background
   artwork caching is limited to the first 6 media-list items and duplicate
   cache workers are skipped while one is active, which reduces CPU, swap and
   I/O pressure on the Pi Zero 2 W.
-- Dynamic artwork is decoded at display size, QML does not retain an additional
-  cache for those changing images and Qt's pixmap cache is capped at 4 MB.
+- Dynamic artwork is decoded at display size. The main Now Playing artwork can
+  use Qt caching because the backend first resolves remote URLs to stable local
+  cache files; media-list delegates still avoid retaining extra changing image
+  cache entries. Qt's pixmap cache is capped at 4 MB.
 - Playback controls live on the dedicated Bediening screen. Speelt nu only
   renders refresh, unobstructed album art and title text, reducing Canvas
   repaint pressure on the default screen.
-- Screen blanking defaults to 120 seconds and wakes on tap. It reduces always-on
-  visual load and burn-in risk. Hardware backlight/DPMS control still needs
-  HyperPixel validation.
+- Screen blanking defaults to 120 seconds and wakes on tap. Wake refreshes
+  playback and screen navigation restarts the idle timer, reducing stale screen
+  state while still limiting always-on visual load and burn-in risk. Hardware
+  backlight/DPMS control still needs HyperPixel validation.
 - Brightness is currently app-level dimming in QML, which is portable across Pi
   images but does not yet lower physical panel backlight power.
 - Release installs are atomic at the symlink level, avoiding partially updated

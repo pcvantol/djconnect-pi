@@ -126,20 +126,33 @@ class HAClient:
             or playback.get("devices")
             or playback.get("available_devices")
             or playback.get("outputs")
+            or playback.get("device")
+            or playback.get("active_device")
+            or playback.get("current_device")
             or data.get("output_devices")
             or data.get("devices")
             or data.get("available_devices")
             or data.get("outputs")
+            or data.get("device")
+            or data.get("active_device")
+            or data.get("current_device")
         )
         output_devices = _string_list(output_device_source)
         output_device = _active_output_device(
             output_device_source,
-            str(
+            _output_device_name(
                 playback.get("output_device")
                 or playback.get("device_name")
                 or playback.get("active_device")
+                or playback.get("current_device")
+                or playback.get("device")
                 or playback.get("source")
-                or ""
+                or data.get("output_device")
+                or data.get("device_name")
+                or data.get("active_device")
+                or data.get("current_device")
+                or data.get("device")
+                or data.get("source")
             ),
         )
         backend_available = data.get("backend_available")
@@ -309,10 +322,21 @@ def _string_list(value: Any) -> list[str]:
                 result.append(str(item))
         return result
     if isinstance(value, dict):
+        name = value.get("name") or value.get("device_name") or value.get("label")
+        if name:
+            return [str(name)]
         return _string_list(list(value.values()))
     if value:
         return [str(value)]
     return []
+
+
+def _output_device_name(value: Any) -> str:
+    if isinstance(value, dict):
+        return str(value.get("name") or value.get("device_name") or value.get("label") or value.get("id") or "").strip()
+    if value:
+        return str(value).strip()
+    return ""
 
 
 def _active_output_device(devices: Any, explicit: str) -> str:

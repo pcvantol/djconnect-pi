@@ -142,6 +142,8 @@ def test_web_portal_has_local_games_with_sound_hooks() -> None:
     assert "saveSettingsDebounced(t('brightness_saved'))" in html
     assert "button.warning" in html
     assert 'class="warning" onclick="confirm(' in html
+    toast_css = html[html.index(".toast") : html.index(".toast::before")]
+    assert "box-shadow" not in toast_css
 
 
 def test_mdns_properties_include_ha_discovery_fields() -> None:

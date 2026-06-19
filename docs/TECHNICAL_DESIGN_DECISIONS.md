@@ -76,7 +76,8 @@ mainly by tests plus `compileall`.
 | Display/control screen split | `nowPanel`, `controlPanel` in `Main.qml` | Keeps Speelt nu readable as a large album-art status screen while Bediening can dedicate the full page to larger touch playback controls. |
 | Shared app background component | `AppBackground` in `Main.qml` | Keeps Speelt nu, Bediening, Queue, Playlists, Logs, Settings and About visually consistent and avoids one-off screen backgrounds. |
 | Explicit media-list row geometry | `MediaListPanel` delegates place artwork, text and play button with x/y/width expressions | Avoids `RowLayout` and cross-item anchor ordering differences on the Pi runtime that previously misplaced or hid album art, titles and play icons. |
-| Bounded async image rendering | `Image { asynchronous: true; sourceSize...; cache: false }` | Lets QML decode/render artwork without blocking interaction while avoiding full-size artwork retention in memory. Network/cache preparation is handled outside QML delegates. |
+| Bounded async image rendering | `Image { asynchronous: true; sourceSize... }`, backend artwork cache | Lets QML decode/render artwork without blocking interaction while avoiding full-size artwork retention in memory. Now Playing uses backend-resolved local cache files and Qt image caching; media-list delegates keep extra QML image caching off while background cache preparation is bounded. |
+| Idle timer reset on navigation | `recordActivity()`, `restartIdleTimer()`, `onActiveScreenChanged` in `Main.qml` | Prevents a stale blanking timeout from firing immediately after a user tap or screen change. |
 | Canvas icons only where dynamic state matters | Bediening playback controls and game canvas | Avoids external icon packs while keeping touch controls scalable. Speelt nu does not draw a play/pause overlay over album art. |
 | Kiosk-first navigation | bottom menu bar and no visible app close button | Device is intended to be wall-mounted and dedicated. |
 

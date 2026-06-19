@@ -275,6 +275,38 @@ def test_queue_parser_limits_to_100_items_and_accepts_nullable_fields() -> None:
     assert queue[-1]["title"] == "Track 99"
 
 
+def test_queue_parser_treats_repeated_current_track_as_empty_queue() -> None:
+    queue = parse_queue_items(
+        {
+            "queue": [
+                {
+                    "title": "Mind Games",
+                    "artist": "HAEVN",
+                    "uri": "spotify:track:mind-games",
+                    "image_url": "https://example.test/mind-games.jpg",
+                }
+                for _ in range(5)
+            ]
+        }
+    )
+
+    assert queue == []
+
+
+def test_queue_parser_dedupes_repeated_items_but_keeps_real_queue() -> None:
+    queue = parse_queue_items(
+        {
+            "queue": [
+                {"title": "Track One", "artist": "Artist", "uri": "spotify:track:1"},
+                {"title": "Track Two", "artist": "Artist", "uri": "spotify:track:2"},
+                {"title": "Track One", "artist": "Artist", "uri": "spotify:track:1"},
+            ]
+        }
+    )
+
+    assert [item["title"] for item in queue] == ["Track One", "Track Two"]
+
+
 def test_prepare_media_artwork_caches_urls_before_qml_render(monkeypatch) -> None:
     items = [{"title": "Track", "imageUrl": "https://example.test/art.jpg"}]
 
@@ -815,6 +847,72 @@ def test_backend_refresh_loads_output_devices_when_status_omits_them(tmp_path: P
     assert [call[0] for call in calls] == ["status", "devices"]
     assert statuses
     assert statuses[0].output_devices == ("Slaapkamer R + Slaapkamer L",)
+
+
+def test_backend_refresh_caches_now_playing_artwork_before_render(tmp_path: Path, monkeypatch) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token"
+    parser = HAClient(backend.cfg)
+    playback_updates: list[Playback] = []
+
+    class FakeClient:
+        def command(self, command: str, **payload: object) -> dict[str, object]:
+            if command == "status":
+                return {"playback": {"title": "Song", "artist": "Artist", "image_url": "https://example.test/art.jpg"}}
+            return {}
+
+        def playback_from_status(self, data: dict[str, object]) -> Playback:
+            return parser.playback_from_status(data)
+
+        def status(self, playback: object) -> dict[str, object]:
+            return {"success": True}
+
+    monkeypatch.setattr("djconnect_pi.app.cached_image_url", lambda url, **kwargs: "file:///cache/art.jpg")
+    backend._playbackReady.connect(lambda playback: playback_updates.append(playback))
+    backend.client = FakeClient()  # type: ignore[assignment]
+
+    backend._refresh_worker()
+
+    assert playback_updates[-1].image_url == "file:///cache/art.jpg"
+
+
+def test_backend_refresh_loads_active_output_device_when_status_omits_it(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token"
+    parser = HAClient(backend.cfg)
+    statuses: list[object] = []
+
+    class FakeClient:
+        def command(self, command: str, **payload: object) -> dict[str, object]:
+            if command == "status":
+                return {
+                    "playback": {
+                        "title": "Song",
+                        "artist": "Artist",
+                        "output_devices": [{"name": "Slaapkamer"}, {"name": "Tuin"}],
+                    }
+                }
+            if command == "devices":
+                return {"devices": [{"name": "Slaapkamer", "is_active": False}, {"name": "Tuin", "is_active": True}]}
+            return {}
+
+        def playback_from_status(self, data: dict[str, object]) -> object:
+            return parser.playback_from_status(data)
+
+        def status(self, playback: object) -> dict[str, object]:
+            statuses.append(playback)
+            return {"success": True}
+
+    backend.client = FakeClient()  # type: ignore[assignment]
+    backend._refresh_worker()
+
+    assert statuses
+    assert statuses[0].output_device == "Tuin"
+    assert statuses[0].output_devices == ("Slaapkamer", "Tuin")
 
 
 def test_backend_refresh_preserves_selected_output_device_when_status_omits_it(tmp_path: Path) -> None:

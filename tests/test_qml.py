@@ -115,6 +115,7 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "text: djconnect.statusText" not in now_block
     assert 'anchors.bottomMargin: root.edge + 96' in now_block
     assert "width: Math.min(parent.width, parent.height)" in now_block
+    assert "cache: true" in now_block
     assert 'root.tr("about")' in main_qml
     assert "aboutScroll.availableWidth" in main_qml
     assert 'text: "https://djconnect.dev"' in main_qml
@@ -191,7 +192,7 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "sourceSize.height: 68" in main_qml
     assert "sourceSize.width: width" in main_qml
     assert "sourceSize.height: height" in main_qml
-    assert main_qml.count("cache: false") >= 2
+    assert main_qml.count("cache: false") >= 1
     assert "height: 92" not in main_qml
     assert "color: \"#990b1012\"" not in main_qml
     assert "Layout.preferredHeight: 178" in main_qml
@@ -283,6 +284,7 @@ def test_qml_screen_blanking_wakes_on_tap() -> None:
 
     assert "property bool forceScreenAwake: false" in main_qml
     assert "property bool forceBrightnessFull: false" in main_qml
+    assert "property bool suppressNextNowPanelTap: false" in main_qml
     assert "property bool screenBlanked: djconnect.screenTimeoutSeconds > 0 && !idleTimer.running && !root.forceScreenAwake" in main_qml
     assert "root.screenBlanked || root.forceBrightnessFull" in main_qml
     assert "onTapped: root.wakeDisplay()" in main_qml
@@ -308,9 +310,16 @@ def test_qml_screen_blanking_wakes_on_tap() -> None:
     assert "function wakeDisplay()" in main_qml
     record_activity = main_qml[main_qml.index("function recordActivity()") : main_qml.index("function wakeDisplay()", main_qml.index("function recordActivity()"))]
     assert "var wasBlanked = root.screenBlanked" in record_activity
+    assert "root.restartIdleTimer()" in record_activity
     assert "if (wasBlanked)" in record_activity
     assert 'root.activeScreen = "now"' in record_activity
+    assert "root.suppressNextNowPanelTap = true" in record_activity
     assert "root.hideTransientUi()" in record_activity
+    assert "djconnect.refresh()" in record_activity
+    assert "function restartIdleTimer()" in main_qml
+    assert "onActiveScreenChanged: root.restartIdleTimer()" in main_qml
+    assert "if (root.suppressNextNowPanelTap)" in main_qml
+    assert "root.suppressNextNowPanelTap = false" in main_qml
     assert "root.splashVisible = true" not in record_activity
     assert "splashTimer.restart()" not in record_activity
     assert "root.contentItem.grabToImage" in main_qml
@@ -327,7 +336,7 @@ def test_qml_has_backend_toast_overlay() -> None:
     main_qml = files("djconnect_pi.qml").joinpath("Main.qml").read_text(encoding="utf-8")
 
     assert "id: toast" in main_qml
-    assert "id: toastGlow" in main_qml
+    assert "id: toastGlow" not in main_qml
     assert "djconnect.toastVisible" in main_qml
     assert "djconnect.toastText" in main_qml
     assert "Behavior on opacity" in main_qml

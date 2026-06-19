@@ -6,8 +6,9 @@
 - Continue hardware profiling for polling cadence, remaining QML repaint work,
   output-device refresh latency and PySide6 memory/CPU on the Raspberry Pi
   Zero 2 W. Album-art cache pressure has an initial mitigation: only the first
-  visible media-list batch is cached, dynamic artwork is decoded at display
-  size and duplicate cache workers are skipped.
+  visible media-list batch is cached, Now Playing artwork is cached locally
+  before render, dynamic artwork is decoded at display size and duplicate cache
+  workers are skipped.
 - Reduce Home Assistant polling and UI refresh work when playback is idle or
   the screen is blanked.
 - Cap the on-screen log viewer to the newest lines while keeping full persisted

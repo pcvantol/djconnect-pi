@@ -1,5 +1,19 @@
 # Changelog
 
+## 3.1.90
+
+- Refresh playback immediately when the blanked touch screen wakes, so Speelt
+  nu updates title, output-device state and album art before the user navigates.
+- Cache Now Playing album art locally before QML renders it and allow the main
+  album-art image to use Qt caching, improving perceived refresh latency on the
+  Raspberry Pi touchscreen.
+- Restart the screen-blanking idle timer on screen navigation and backend wake
+  events so taps such as switching to Afspeellijsten cannot be followed by an
+  immediate stale timeout.
+- Remove the remaining toast glow styling in both QML and the web portal,
+  preserve active output-device labels from HA `devices` responses and hide
+  repeated current-track-only queue snapshots.
+
 ## 3.1.89
 
 - Polish the updater progress screen with a larger app icon, a thicker purple

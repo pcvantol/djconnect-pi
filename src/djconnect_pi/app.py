@@ -915,17 +915,22 @@ class DJConnectBackend(QObject):
             self._pending_output_until = 0.0
         if self.playback.output_device and not playback.output_device:
             playback.output_device = self.playback.output_device
-        if self.paired and not playback.output_devices:
+        if self.paired and (not playback.output_devices or not playback.output_device):
             try:
                 devices_data = self.client.command("devices")
                 devices_playback = self.client.playback_from_status(devices_data)
                 if devices_playback.output_devices:
                     playback.output_devices = devices_playback.output_devices
                     _LOGGER.debug("Loaded %s output devices from Home Assistant devices command", len(playback.output_devices))
+                if devices_playback.output_device and not playback.output_device:
+                    playback.output_device = devices_playback.output_device
+                    _LOGGER.debug("Loaded active output device from Home Assistant devices command: %s", playback.output_device)
             except DJConnectError as exc:
                 _LOGGER.warning("Output devices refresh failed: %s", exc)
         if self.paired:
             self.client.status(playback)
+        if playback.image_url:
+            playback.image_url = cached_image_url(playback.image_url, timeout_seconds=3)
         self._playbackReady.emit(playback)
         _LOGGER.info("Refresh completed in %.0fms", _elapsed_ms(started))
 
@@ -1412,7 +1417,7 @@ def _format_duration(seconds: int) -> str:
     return f"{seconds // 60}:{seconds % 60:02d}"
 
 
-def cached_image_url(url: str, ttl_seconds: int = 24 * 60 * 60) -> str:
+def cached_image_url(url: str, ttl_seconds: int = 24 * 60 * 60, timeout_seconds: float = 8) -> str:
     url = str(url or "").strip()
     if not url:
         return ""
@@ -1430,7 +1435,7 @@ def cached_image_url(url: str, ttl_seconds: int = 24 * 60 * 60) -> str:
         return target.as_uri()
 
     try:
-        response = requests.get(url, timeout=8)
+        response = requests.get(url, timeout=timeout_seconds)
         response.raise_for_status()
         target.write_bytes(response.content)
         return target.as_uri()
@@ -1491,7 +1496,7 @@ def parse_queue_items(data: dict[str, object]) -> list[dict[str, object]]:
         raw_items = _first_present(data, ("items",))
     if not isinstance(raw_items, list):
         return []
-    return [parsed for item in raw_items[:100] if isinstance(item, dict) and (parsed := _media_item(item))]
+    return _dedupe_queue_items([parsed for item in raw_items[:100] if isinstance(item, dict) and (parsed := _media_item(item))])
 
 
 def parse_playlist_items(data: dict[str, object]) -> list[dict[str, object]]:
@@ -1499,6 +1504,25 @@ def parse_playlist_items(data: dict[str, object]) -> list[dict[str, object]]:
     if not isinstance(raw_items, list):
         return []
     return [parsed for item in raw_items[:100] if isinstance(item, dict) and (parsed := _media_item(item, playlist=True))]
+
+
+def _dedupe_queue_items(items: list[dict[str, object]]) -> list[dict[str, object]]:
+    seen: set[tuple[str, str, str, str]] = set()
+    deduped: list[dict[str, object]] = []
+    for item in items:
+        key = (
+            str(item.get("uri") or "").strip().casefold(),
+            str(item.get("title") or "").strip().casefold(),
+            str(item.get("subtitle") or "").strip().casefold(),
+            str(item.get("imageUrl") or "").strip(),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(item)
+    if len(items) > 1 and len(deduped) == 1:
+        return []
+    return deduped
 
 
 def _media_item(item: dict[str, object], playlist: bool = False) -> dict[str, object] | None:

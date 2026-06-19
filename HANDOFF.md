@@ -78,7 +78,10 @@ Implemented:
 - Configurable screen blanking from the touch settings panel. Default is 120
   seconds and tap wakes the rendered screen.
 - When the screen wakes from the blanked state, it closes transient overlays
-  and returns directly to Speelt nu without replaying the startup splash.
+  and returns directly to Speelt nu without replaying the startup splash, then
+  refreshes playback so title, output device and album art are current.
+- Screen navigation and backend wake events restart the idle timer, preventing
+  stale timeout expiry immediately after a user tap or tab change.
 - Previous/next track actions wake the rendered screen for 10 seconds, also
   when they arrive from Home Assistant through `/api/device/command`.
 - Configurable app-level brightness from the touch settings panel
@@ -315,9 +318,10 @@ Not implemented by design:
 - Brightness is implemented as QML dimming; hardware backlight control still
   needs HyperPixel validation before using sysfs or DRM controls.
 - Performance follow-up candidates: reduce HA polling when idle, avoid
-  unnecessary Canvas repaints, add a nonblocking background artwork pre-cache,
-  cap log rendering size for the touch viewer, and profile PySide6 memory/CPU
-  on the Pi Zero 2 W.
+  unnecessary Canvas repaints, cap log rendering size for the touch viewer, and
+  profile PySide6 memory/CPU on the Pi Zero 2 W. Now Playing album art is cached
+  before render, and media-list artwork pre-cache remains bounded to the first
+  visible batch.
 - When changing protocol behavior, update canonical
   `pcvantol/djconnect/SYNC_PROMPTS.md`. Do not add a local copy in this repo;
   make a follow-up change/commit in `pcvantol/djconnect` when the change starts

@@ -20,22 +20,21 @@ Belangrijke context:
 - Geen lokale `SYNC_PROMPTS.md` of `PRODUCT_ROADMAP.md`; die staan canoniek in `pcvantol/djconnect`.
 
 Huidige stand:
-- Laatste gepubliceerde release is `v3.1.85`.
+- Laatste beoogde release in deze werkronde is `v3.1.90`.
 - Public updater assets staan in `pcvantol/djconnect-pi-releases`, inclusief `djconnect-pi-latest.json`.
-- Release `v3.1.85` is gepubliceerd in source en public distribution repo.
-- Public assets voor `v3.1.85` zijn geverifieerd:
-  - `djconnect-pi-3.1.85.tar.gz`
-  - `djconnect-pi-3.1.85.sha256`
+- Release `v3.1.90` bevat touch idle-timer fixes, wake refresh, Now Playing
+  album-art caching, output-device parsing, queue dedupe en toast-glow cleanup.
+- Na publicatie moeten public assets voor `v3.1.90` worden geverifieerd:
+  - `djconnect-pi-3.1.90.tar.gz`
+  - `djconnect-pi-3.1.90.sha256`
   - `djconnect-pi-latest.json`
-- Pi is handmatig via de public installer naar `3.1.85` gebracht omdat de oude
-  `3.1.82` updater resume-state kon verliezen tijdens reboot. De actieve symlink
-  is `/opt/djconnect/current -> /opt/djconnect/releases/3.1.85`.
-- Validatie voor `v3.1.85`:
-  - `python3 -m pytest -q` -> 196 passed, 10 skipped
+- Pi moet via de normale updater-route naar `3.1.90` worden gebracht.
+- Validatie voor `v3.1.90`:
+  - run `python3 -m pytest -q`
   - `git diff --check` -> ok
-  - GitHub Actions publish workflow voor `v3.1.85` -> success
-  - Pi services na install: `djconnect-api.service`, `djconnect-client.service`
-    en `djconnect-updater.timer` active
+  - GitHub Actions publish workflow voor `v3.1.90` controleren
+  - Pi services na updater install: `djconnect-api.service`,
+    `djconnect-client.service` en `djconnect-updater.timer` active
 
 Openstaande gewenste workflow:
 - Controleer na elke release de public publish workflow:
