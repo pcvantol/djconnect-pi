@@ -361,6 +361,7 @@ def test_qml_has_update_progress_view_with_expandable_logs() -> None:
     assert "id: updateProgressPanel" not in main_qml
     assert "djconnect.updateInProgress" not in main_qml
     assert "id: updateProgressRoot" in update_qml
+    assert "BusyIndicator" not in update_qml
     assert "Layout.preferredWidth: 128" in update_qml
     assert "Layout.preferredHeight: 128" in update_qml
     assert "updater.progress" in update_qml

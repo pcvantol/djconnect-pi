@@ -119,13 +119,6 @@ Window {
 
         RowLayout {
             Layout.fillWidth: true
-            spacing: 14
-
-            BusyIndicator {
-                running: true
-                implicitWidth: 36
-                implicitHeight: 36
-            }
 
             ColumnLayout {
                 Layout.fillWidth: true

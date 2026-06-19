@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.1.93
+
+- Remove the updater progress UI's standalone spinner so the update screen
+  relies on status text, progress percentage, progress bar and expandable logs.
+
 ## 3.1.92
 
 - Refresh bundled systemd service and timer templates during unattended updater
