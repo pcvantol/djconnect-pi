@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.1.91
+
+- Treat the updater progress UI's normal `xinit`/SIGTERM shutdown as a
+  successful systemd exit so completed updates do not leave
+  `djconnect-update-ui.service` in a failed state.
+
 ## 3.1.90
 
 - Refresh playback immediately when the blanked touch screen wakes, so Speelt

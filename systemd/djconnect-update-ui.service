@@ -11,5 +11,6 @@ WorkingDirectory=/opt/djconnect
 Environment=HOME=/home/djconnect
 Environment=XDG_RUNTIME_DIR=/run/user/%U
 ExecStart=/usr/bin/xinit /opt/djconnect/current/bin/djconnect-pi-update-ui --config /opt/djconnect/config/client.json -- :0 -nolisten tcp -nocursor
+SuccessExitStatus=1 SIGTERM
 Restart=on-failure
 RestartSec=3

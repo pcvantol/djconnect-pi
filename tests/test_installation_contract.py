@@ -101,6 +101,7 @@ def test_systemd_runs_api_separately_from_touch_ui() -> None:
     assert "DJCONNECT_DISABLE_CLIENT_API" not in client_service
     assert "Conflicts=djconnect-client.service" in update_ui_service
     assert "djconnect-pi-update-ui --config /opt/djconnect/config/client.json" in update_ui_service
+    assert "SuccessExitStatus=1 SIGTERM" in update_ui_service
     assert 'djconnect-pi-update-ui = "djconnect_pi.update_ui:main"' in pyproject
 
 
