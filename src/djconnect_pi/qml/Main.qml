@@ -691,7 +691,7 @@ Window {
                 djconnect.loadPlaylists()
                 return
             }
-            if (screen === "games" || screen === "settings" || screen === "now" || screen === "control") {
+            if (screen === "games" || screen === "settings" || screen === "now" || screen === "control" || screen === "askdj") {
                 root.activeScreen = screen
             }
         }
@@ -1479,6 +1479,251 @@ Window {
         onRefreshRequested: djconnect.loadPlaylists()
     }
 
+    Rectangle {
+        id: askDjPanel
+        anchors.fill: parent
+        color: "#070b16"
+        visible: root.activeScreen === "askdj"
+        z: 17
+
+        AppBackground {}
+        ModalBlocker {}
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 16
+            anchors.bottomMargin: 130
+            spacing: 10
+
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 48
+                spacing: 10
+
+                Text {
+                    text: root.tr("ask_dj")
+                    color: "#ffffff"
+                    font.pixelSize: 34
+                    font.bold: true
+                    Layout.fillWidth: true
+                }
+
+                BusyIndicator {
+                    running: djconnect.askDjBusy
+                    visible: djconnect.askDjBusy
+                    implicitWidth: 30
+                    implicitHeight: 30
+                }
+
+                PurpleButton {
+                    text: root.tr("refresh")
+                    font.pixelSize: 18
+                    Layout.preferredWidth: 118
+                    Layout.preferredHeight: 48
+                    onClicked: djconnect.loadAskDjHistory()
+                }
+
+                DangerButton {
+                    text: root.tr("clear")
+                    font.pixelSize: 18
+                    Layout.preferredWidth: 96
+                    Layout.preferredHeight: 48
+                    onClicked: djconnect.clearAskDjHistory()
+                }
+            }
+
+            PurpleButton {
+                text: root.tr("ask_dj_suggestion")
+                enabled: !djconnect.askDjBusy
+                font.pixelSize: 20
+                Layout.fillWidth: true
+                Layout.preferredHeight: 46
+                onClicked: djconnect.requestAskDjIdleSuggestion()
+            }
+
+            ScrollView {
+                id: askDjScroll
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                clip: true
+                ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                contentWidth: availableWidth
+
+                ColumnLayout {
+                    width: Math.max(0, askDjScroll.availableWidth)
+                    spacing: 10
+
+                    Text {
+                        text: root.tr("ask_dj_empty")
+                        visible: djconnect.askDjMessages.length === 0
+                        color: "#b7c2d8"
+                        font.pixelSize: 24
+                        font.bold: true
+                        horizontalAlignment: Text.AlignHCenter
+                        wrapMode: Text.WordWrap
+                        Layout.fillWidth: true
+                        Layout.topMargin: 36
+                    }
+
+                    Repeater {
+                        model: djconnect.askDjMessages
+
+                        Rectangle {
+                            property bool userBubble: modelData.role === "user"
+                            property bool systemBubble: modelData.role === "system" || modelData.messageKind === "system"
+
+                            Layout.preferredWidth: userBubble ? Math.min(askDjScroll.availableWidth * 0.78, 520) : askDjScroll.availableWidth
+                            Layout.alignment: userBubble ? Qt.AlignRight : Qt.AlignLeft
+                            implicitHeight: askDjBubbleContent.implicitHeight + 24
+                            radius: 8
+                            color: systemBubble ? "#33434a57" : (userBubble ? "#664f46e5" : "#4434145f")
+                            border.color: systemBubble ? "#6aa0b9c8" : (userBubble ? "#a5b4fc" : "#7f67ff")
+                            border.width: 1
+
+                            ColumnLayout {
+                                id: askDjBubbleContent
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.top: parent.top
+                                anchors.margins: 12
+                                spacing: 8
+
+                                Text {
+                                    text: modelData.text
+                                    color: "#ffffff"
+                                    font.pixelSize: systemBubble ? 19 : 22
+                                    font.bold: !systemBubble
+                                    wrapMode: Text.WordWrap
+                                    Layout.fillWidth: true
+                                }
+
+                                Flow {
+                                    visible: modelData.images && modelData.images.length > 0
+                                    spacing: 8
+                                    Layout.fillWidth: true
+
+                                    Repeater {
+                                        model: modelData.images || []
+                                        Rectangle {
+                                            width: 112
+                                            height: 112
+                                            radius: 8
+                                            color: "#22182e"
+                                            clip: true
+                                            Image {
+                                                anchors.fill: parent
+                                                source: modelData.url || ""
+                                                fillMode: Image.PreserveAspectCrop
+                                                sourceSize.width: 112
+                                                sourceSize.height: 112
+                                                asynchronous: true
+                                                cache: false
+                                            }
+                                        }
+                                    }
+                                }
+
+                                ColumnLayout {
+                                    visible: modelData.links && modelData.links.length > 0
+                                    Layout.fillWidth: true
+                                    spacing: 4
+
+                                    Text {
+                                        text: root.tr("sources")
+                                        color: "#d8c8ff"
+                                        font.pixelSize: 16
+                                        font.bold: true
+                                        Layout.fillWidth: true
+                                    }
+
+                                    Repeater {
+                                        model: modelData.links || []
+                                        Rectangle {
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: 28
+                                            color: "#00000000"
+
+                                            Text {
+                                                anchors.fill: parent
+                                                text: modelData.title || modelData.url || ""
+                                                color: "#a7f3ff"
+                                                font.pixelSize: 17
+                                                elide: Text.ElideRight
+                                                verticalAlignment: Text.AlignVCenter
+                                            }
+
+                                            MouseArea {
+                                                anchors.fill: parent
+                                                enabled: modelData.url && modelData.url.length > 0
+                                                onClicked: Qt.openUrlExternally(modelData.url)
+                                            }
+                                        }
+                                    }
+                                }
+
+                                Flow {
+                                    visible: modelData.actions && modelData.actions.length > 0
+                                    spacing: 8
+                                    Layout.fillWidth: true
+
+                                    Repeater {
+                                        model: modelData.actions || []
+                                        PurpleButton {
+                                            text: modelData.title
+                                            font.pixelSize: 17
+                                            width: Math.min(260, Math.max(120, implicitWidth + 20))
+                                            height: 46
+                                            onClicked: djconnect.playAskDjAction(modelData.payload)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 60
+                spacing: 10
+
+                TextField {
+                    id: askDjInput
+                    placeholderText: root.tr("ask_dj_placeholder")
+                    enabled: !djconnect.askDjBusy
+                    font.pixelSize: 22
+                    color: "#ffffff"
+                    placeholderTextColor: "#a9b0c2"
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    background: Rectangle {
+                        radius: 8
+                        color: "#3324145f"
+                        border.color: "#6b5cff"
+                        border.width: 1
+                    }
+                    onAccepted: {
+                        djconnect.sendAskDjMessage(text)
+                        text = ""
+                    }
+                }
+
+                PurpleButton {
+                    text: root.tr("send")
+                    enabled: askDjInput.text.trim().length > 0 && !djconnect.askDjBusy
+                    font.pixelSize: 20
+                    Layout.preferredWidth: 112
+                    Layout.fillHeight: true
+                    onClicked: {
+                        djconnect.sendAskDjMessage(askDjInput.text)
+                        askDjInput.text = ""
+                    }
+                }
+            }
+        }
+    }
+
     GamesPanel {
         anchors.fill: parent
         visible: gamesOpen
@@ -1546,6 +1791,19 @@ Window {
                 onClicked: {
                     root.activeScreen = "playlists"
                     djconnect.loadPlaylists()
+                }
+            }
+
+            NavButton {
+                text: root.tr("ask_dj")
+                iconSymbol: "?"
+                checkable: true
+                checked: root.activeScreen === "askdj"
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                onClicked: {
+                    root.activeScreen = "askdj"
+                    djconnect.loadAskDjHistory()
                 }
             }
 

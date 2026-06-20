@@ -11,6 +11,7 @@ import re
 import subprocess
 import sys
 import time
+import uuid
 from urllib.parse import urlparse
 
 from PySide6.QtCore import QByteArray, QBuffer, QCoreApplication, QIODevice, QObject, Property, QTimer, Signal, Slot
@@ -60,6 +61,7 @@ class DJConnectBackend(QObject):
     versionMismatchChanged = Signal()
     logsChanged = Signal()
     mediaListsChanged = Signal()
+    askDjChanged = Signal()
     demoModeChanged = Signal()
     screenTimeoutChanged = Signal()
     screenBrightnessChanged = Signal()
@@ -82,6 +84,7 @@ class DJConnectBackend(QObject):
     _outputDeviceRejected = Signal(str, str)
     _backendAvailableReady = Signal(bool)
     _toastReady = Signal(str, int)
+    _askDjReady = Signal(object)
 
     def __init__(self, config_path: Path) -> None:
         super().__init__()
@@ -107,6 +110,10 @@ class DJConnectBackend(QObject):
         self._demo_mode = False
         self._queue_items: list[dict[str, object]] = []
         self._playlist_items: list[dict[str, object]] = []
+        self._ask_dj_messages: list[dict[str, object]] = []
+        self._ask_dj_history_revision = 0
+        self._ask_dj_clear_revision = 0
+        self._ask_dj_busy = False
         self._media_loads_in_flight: set[str] = set()
         self._media_artwork_cache_in_flight: set[str] = set()
         self._pending_output_device = ""
@@ -133,6 +140,7 @@ class DJConnectBackend(QObject):
         self._outputDeviceRejected.connect(self._apply_output_device_rejection)
         self._backendAvailableReady.connect(self._set_backend_available)
         self._toastReady.connect(self._show_toast)
+        self._askDjReady.connect(self._apply_ask_dj_data)
         QTimer.singleShot(250, self.refresh)
         _LOGGER.info("DJConnect Pi client backend started for %s", self.cfg.device_id)
 
@@ -163,6 +171,14 @@ class DJConnectBackend(QObject):
     @Property("QVariantList", notify=mediaListsChanged)
     def playlistItems(self) -> list[dict[str, object]]:
         return self._playlist_items
+
+    @Property("QVariantList", notify=askDjChanged)
+    def askDjMessages(self) -> list[dict[str, object]]:
+        return self._ask_dj_messages
+
+    @Property(bool, notify=askDjChanged)
+    def askDjBusy(self) -> bool:
+        return self._ask_dj_busy
 
     @Property(bool, notify=playingChanged)
     def playing(self) -> bool:
@@ -627,6 +643,84 @@ class DJConnectBackend(QObject):
         self.refresh()
 
     @Slot()
+    def loadAskDjHistory(self) -> None:
+        self._sync_config_from_disk()
+        if self._demo_mode or not self.paired or self._ask_dj_busy:
+            return
+        _LOGGER.info("User opened Ask DJ history")
+        self._set_ask_dj_busy(True)
+        self._run(self.tr_key("ask_dj"), self._load_ask_dj_history_worker, done=lambda: self._set_ask_dj_busy(False))
+
+    @Slot(str)
+    def sendAskDjMessage(self, text: str) -> None:
+        text = text.strip()
+        if not text:
+            return
+        self._sync_config_from_disk()
+        if self._demo_mode or not self.paired or self._ask_dj_busy:
+            return
+        client_message_id = str(uuid.uuid4())
+        self._merge_ask_dj_messages(
+            [
+                {
+                    "id": client_message_id,
+                    "client_message_id": client_message_id,
+                    "role": "user",
+                    "text": text,
+                    "message_kind": "user",
+                    "pending": True,
+                }
+            ]
+        )
+        _LOGGER.info("User sent Ask DJ text message")
+        self._set_ask_dj_busy(True)
+        self._run(
+            self.tr_key("ask_dj_sending"),
+            lambda: self._send_ask_dj_message_worker(text, client_message_id),
+            done=lambda: self._set_ask_dj_busy(False),
+        )
+
+    @Slot(str)
+    def playAskDjAction(self, action_text: str) -> None:
+        try:
+            value = json.loads(action_text)
+        except json.JSONDecodeError:
+            value = {}
+        if not isinstance(value, dict):
+            return
+        kind = str(value.get("kind") or "").strip()
+        command = "ask_dj_play_recommendation"
+        if kind == "confirmation" or str(value.get("action_style") or "") == "confirmation":
+            command = "ask_dj_followup_response"
+            value = {"response_value": str(value.get("response_value") or "").strip()}
+            if not value["response_value"]:
+                return
+        _LOGGER.info("User selected Ask DJ action: %s", command)
+        self.showToast(self.tr_key("play") if command == "ask_dj_play_recommendation" else self.tr_key("ask_dj"))
+        if command == "ask_dj_play_recommendation":
+            self.command(command, value=value, play=True)
+        else:
+            self.command(command, value=value)
+
+    @Slot()
+    def clearAskDjHistory(self) -> None:
+        self._sync_config_from_disk()
+        if self._demo_mode or not self.paired or self._ask_dj_busy:
+            return
+        _LOGGER.info("User requested Ask DJ history clear")
+        self._set_ask_dj_busy(True)
+        self._run(self.tr_key("ask_dj_clear"), self._clear_ask_dj_history_worker, done=lambda: self._set_ask_dj_busy(False))
+
+    @Slot()
+    def requestAskDjIdleSuggestion(self) -> None:
+        self._sync_config_from_disk()
+        if self._demo_mode or not self.paired or self._ask_dj_busy:
+            return
+        _LOGGER.info("User requested Ask DJ idle suggestion")
+        self._set_ask_dj_busy(True)
+        self._run(self.tr_key("ask_dj"), self._ask_dj_idle_suggestion_worker, done=lambda: self._set_ask_dj_busy(False))
+
+    @Slot()
     def resetPairing(self) -> None:
         _LOGGER.info("User requested pairing reset from touch UI")
         self._forget_pairing()
@@ -995,6 +1089,23 @@ class DJConnectBackend(QObject):
         _LOGGER.info("Playlist list displayed in %.0fms", _elapsed_ms(started))
         self._cache_media_artwork_async("playlists", items)
 
+    def _load_ask_dj_history_worker(self) -> None:
+        data = self.client.ask_dj_history(self._ask_dj_history_revision)
+        self._askDjReady.emit(data)
+
+    def _send_ask_dj_message_worker(self, text: str, client_message_id: str) -> None:
+        data = self.client.ask_dj_message(text, client_message_id=client_message_id, audio_response="auto")
+        self._askDjReady.emit(data)
+
+    def _clear_ask_dj_history_worker(self) -> None:
+        data = self.client.clear_ask_dj_history()
+        data["_local_clear"] = True
+        self._askDjReady.emit(data)
+
+    def _ask_dj_idle_suggestion_worker(self) -> None:
+        data = self.client.ask_dj_idle_suggestion()
+        self._askDjReady.emit(data)
+
     def _cache_media_artwork_async(self, kind: str, items: list[dict[str, object]]) -> None:
         if not items:
             return
@@ -1151,6 +1262,49 @@ class DJConnectBackend(QObject):
         else:
             return
         self.mediaListsChanged.emit()
+
+    @Slot(object)
+    def _apply_ask_dj_data(self, data: object) -> None:
+        if not isinstance(data, dict):
+            return
+        clear_revision = _int_value(data.get("clear_revision"), self._ask_dj_clear_revision)
+        if clear_revision > self._ask_dj_clear_revision or data.get("_local_clear") is True:
+            self._ask_dj_messages = []
+            self._ask_dj_clear_revision = clear_revision
+        trimmed_before = str(data.get("history_trimmed_before") or "").strip()
+        if trimmed_before:
+            self._ask_dj_messages = [m for m in self._ask_dj_messages if str(m.get("created_at") or m.get("server_time") or "") >= trimmed_before]
+        messages = parse_ask_dj_messages(data)
+        if messages:
+            self._merge_ask_dj_messages(messages)
+        else:
+            self.askDjChanged.emit()
+        self._ask_dj_history_revision = max(self._ask_dj_history_revision, _int_value(data.get("history_revision"), self._ask_dj_history_revision))
+        self._set_backend_available(True)
+
+    def _merge_ask_dj_messages(self, messages: list[dict[str, object]]) -> None:
+        merged = list(self._ask_dj_messages)
+        index_by_key: dict[str, int] = {}
+        for index, message in enumerate(merged):
+            key = _ask_dj_message_key(message)
+            if key:
+                index_by_key[key] = index
+        for message in messages:
+            key = _ask_dj_message_key(message)
+            if key and key in index_by_key:
+                merged[index_by_key[key]] = {**merged[index_by_key[key]], **message, "pending": False}
+            else:
+                merged.append(message)
+                if key:
+                    index_by_key[key] = len(merged) - 1
+        self._ask_dj_messages = merged[-100:]
+        self.askDjChanged.emit()
+
+    def _set_ask_dj_busy(self, value: bool) -> None:
+        if self._ask_dj_busy == value:
+            return
+        self._ask_dj_busy = value
+        self.askDjChanged.emit()
 
     @Slot(str, str)
     def _apply_output_device_rejection(self, previous: str, attempted: str) -> None:
@@ -1606,6 +1760,122 @@ def media_item_payload(command: str, item: object) -> dict[str, object]:
         if _context_supports_offset(context_uri):
             value["offset_uri"] = uri
     return {"value": value, "play": True}
+
+
+def parse_ask_dj_messages(data: dict[str, object]) -> list[dict[str, object]]:
+    raw_messages = _first_present(data, ("messages", "history", "items"))
+    parsed: list[dict[str, object]] = []
+    if isinstance(raw_messages, list):
+        for item in raw_messages:
+            if isinstance(item, dict):
+                message = _ask_dj_message(item)
+                if message:
+                    parsed.append(message)
+    response_message = _ask_dj_message(data)
+    if response_message:
+        parsed.append(response_message)
+    return parsed
+
+
+def _ask_dj_message(item: dict[str, object]) -> dict[str, object] | None:
+    text = str(item.get("text") or item.get("dj_text") or item.get("message") or item.get("assistant_message") or item.get("content") or "").strip()
+    user_text = str(item.get("user_message") or "").strip()
+    role = str(item.get("role") or item.get("sender") or "").strip().lower()
+    kind = str(item.get("message_kind") or item.get("kind") or "").strip().lower()
+    if not text and not user_text and not any(isinstance(item.get(key), list) and item.get(key) for key in ("images", "links", "sources", "playback_actions", "confirmation_actions")):
+        return None
+    if role not in {"user", "assistant", "system"}:
+        role = "user" if user_text and not text else ("system" if kind == "system" else "assistant")
+    if user_text and not text:
+        text = user_text
+    if kind == "system":
+        role = "system"
+    message: dict[str, object] = {
+        "id": str(item.get("id") or item.get("message_id") or item.get("server_id") or item.get("client_message_id") or uuid.uuid4()),
+        "client_message_id": str(item.get("client_message_id") or ""),
+        "role": role,
+        "messageKind": kind or role,
+        "origin": str(item.get("origin") or ""),
+        "text": text,
+        "created_at": str(item.get("created_at") or item.get("timestamp") or item.get("server_time") or ""),
+        "images": _ask_dj_images(item.get("images")),
+        "links": _ask_dj_links(item.get("links"), item.get("sources")),
+        "actions": _ask_dj_actions(item.get("playback_actions"), item.get("confirmation_actions")),
+        "audioUrl": str(item.get("audio_url") or ""),
+        "audioType": str(item.get("audio_type") or ""),
+    }
+    return message
+
+
+def _ask_dj_images(value: object) -> list[dict[str, object]]:
+    if not isinstance(value, list):
+        return []
+    images: list[dict[str, object]] = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        url = str(item.get("thumbnail_url") or item.get("url") or "").strip()
+        if url:
+            images.append({"url": url, "title": str(item.get("title") or item.get("alt") or "")})
+    return images[:6]
+
+
+def _ask_dj_links(*values: object) -> list[dict[str, object]]:
+    links: list[dict[str, object]] = []
+    for value in values:
+        if not isinstance(value, list):
+            continue
+        for item in value:
+            if isinstance(item, str):
+                links.append({"title": item, "url": item, "kind": "link"})
+            elif isinstance(item, dict):
+                url = str(item.get("url") or item.get("href") or "").strip()
+                title = str(item.get("title") or item.get("label") or item.get("name") or url).strip()
+                if url or title:
+                    links.append({"title": title, "url": url, "kind": str(item.get("kind") or item.get("source") or "source")})
+    return links[:8]
+
+
+def _ask_dj_actions(playback_actions: object, confirmation_actions: object) -> list[dict[str, object]]:
+    actions: list[dict[str, object]] = []
+    for value in (playback_actions, confirmation_actions):
+        if not isinstance(value, list):
+            continue
+        for item in value:
+            if not isinstance(item, dict):
+                continue
+            kind = str(item.get("kind") or "").strip()
+            title = str(item.get("title") or item.get("label") or item.get("name") or "").strip()
+            subtitle = str(item.get("subtitle") or item.get("artist") or item.get("description") or "").strip()
+            if kind == "confirmation" or str(item.get("action_style") or "") == "confirmation":
+                title = title or ("Ja" if str(item.get("response_value") or "").lower() == "yes" else "Nee")
+            elif not title:
+                title = "Play Now"
+            actions.append(
+                {
+                    "title": title,
+                    "subtitle": subtitle,
+                    "kind": kind,
+                    "imageUrl": str(item.get("image_url") or item.get("thumbnail_url") or item.get("art_url") or ""),
+                    "payload": json.dumps(item, ensure_ascii=True),
+                }
+            )
+    return actions[:8]
+
+
+def _ask_dj_message_key(message: dict[str, object]) -> str:
+    for key in ("id", "client_message_id"):
+        value = str(message.get(key) or "").strip()
+        if value:
+            return f"{key}:{value}"
+    return ""
+
+
+def _int_value(value: object, default: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
 
 
 def _context_supports_offset(context_uri: str) -> bool:

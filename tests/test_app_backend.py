@@ -16,6 +16,7 @@ from djconnect_pi.app import (
     _read_tail_text,
     cached_image_url,
     media_item_payload,
+    parse_ask_dj_messages,
     parse_playlist_items,
     parse_queue_items,
     prepare_media_artwork,
@@ -114,6 +115,34 @@ def test_media_list_parsers_accept_ha_artwork_aliases() -> None:
     assert queue[0]["imageUrl"] == "https://example.test/track.jpg"
     assert playlists[0]["title"] == "Friday Night"
     assert playlists[0]["imageUrl"] == "https://example.test/playlist.jpg"
+
+
+def test_ask_dj_parser_accepts_history_rich_messages() -> None:
+    messages = parse_ask_dj_messages(
+        {
+            "messages": [
+                {"id": "u1", "role": "user", "text": "Welke albums?"},
+                {
+                    "id": "a1",
+                    "role": "assistant",
+                    "dj_text": "Radiohead heeft meerdere albums.",
+                    "images": [{"url": "http://ha/api/image/1", "thumbnail_url": "http://ha/api/thumb/1"}],
+                    "links": [{"title": "Wikipedia", "url": "http://ha/link", "kind": "wikipedia"}],
+                    "sources": [{"name": "MusicBrainz", "url": "http://ha/source", "source": "musicbrainz"}],
+                    "playback_actions": [{"kind": "track", "title": "Play Now", "uri": "spotify:track:1", "subtitle": "Radiohead"}],
+                    "confirmation_actions": [{"kind": "confirmation", "action_style": "confirmation", "response_value": "yes"}],
+                },
+            ]
+        }
+    )
+
+    assert messages[0]["role"] == "user"
+    assert messages[0]["text"] == "Welke albums?"
+    assert messages[1]["text"] == "Radiohead heeft meerdere albums."
+    assert messages[1]["images"] == [{"url": "http://ha/api/thumb/1", "title": ""}]
+    assert len(messages[1]["links"]) == 2
+    assert [action["kind"] for action in messages[1]["actions"]] == ["track", "confirmation"]
+    assert "spotify:track:1" in messages[1]["actions"][0]["payload"]
 
 
 def test_queue_parser_preserves_optional_context_and_episode_uri() -> None:
