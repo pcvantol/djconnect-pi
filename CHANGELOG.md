@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.1.95
+
+- Add the Raspberry Pi text-only Ask DJ screen with server-side history sync,
+  clear/trim metadata handling, HA-proxied images, clickable sources, Play Now
+  actions and confirmation follow-up buttons.
+- Add Home Assistant Ask DJ client calls for message, history, clear and idle
+  suggestion while keeping Raspberry Pi voice/PTT/audio upload unsupported.
+
 ## 3.1.94
 
 - Align the Raspberry Pi client with the canonical sync contract by removing
