@@ -31,8 +31,14 @@
         "header": [],
         "url": {
           "raw": "{{client_api_url}}/api/device/info",
-          "host": ["{{client_api_url}}"],
-          "path": ["api", "device", "info"]
+          "host": [
+            "{{client_api_url}}"
+          ],
+          "path": [
+            "api",
+            "device",
+            "info"
+          ]
         }
       }
     },
@@ -43,8 +49,14 @@
         "header": [],
         "url": {
           "raw": "{{client_api_url}}/api/device/pairing-info",
-          "host": ["{{client_api_url}}"],
-          "path": ["api", "device", "pairing-info"]
+          "host": [
+            "{{client_api_url}}"
+          ],
+          "path": [
+            "api",
+            "device",
+            "pairing-info"
+          ]
         }
       }
     },
@@ -64,8 +76,14 @@
         },
         "url": {
           "raw": "{{client_api_url}}/api/device/pair",
-          "host": ["{{client_api_url}}"],
-          "path": ["api", "device", "pair"]
+          "host": [
+            "{{client_api_url}}"
+          ],
+          "path": [
+            "api",
+            "device",
+            "pair"
+          ]
         }
       }
     },
@@ -89,8 +107,14 @@
         },
         "url": {
           "raw": "{{client_api_url}}/api/device/command",
-          "host": ["{{client_api_url}}"],
-          "path": ["api", "device", "command"]
+          "host": [
+            "{{client_api_url}}"
+          ],
+          "path": [
+            "api",
+            "device",
+            "command"
+          ]
         }
       }
     },
@@ -114,8 +138,14 @@
         },
         "url": {
           "raw": "{{client_api_url}}/api/device/command",
-          "host": ["{{client_api_url}}"],
-          "path": ["api", "device", "command"]
+          "host": [
+            "{{client_api_url}}"
+          ],
+          "path": [
+            "api",
+            "device",
+            "command"
+          ]
         }
       }
     },
@@ -131,8 +161,14 @@
         ],
         "url": {
           "raw": "{{client_api_url}}/api/debug/screenshot",
-          "host": ["{{client_api_url}}"],
-          "path": ["api", "debug", "screenshot"]
+          "host": [
+            "{{client_api_url}}"
+          ],
+          "path": [
+            "api",
+            "debug",
+            "screenshot"
+          ]
         }
       }
     },
@@ -156,8 +192,14 @@
         },
         "url": {
           "raw": "{{client_api_url}}/api/device/restart",
-          "host": ["{{client_api_url}}"],
-          "path": ["api", "device", "restart"]
+          "host": [
+            "{{client_api_url}}"
+          ],
+          "path": [
+            "api",
+            "device",
+            "restart"
+          ]
         }
       }
     },
@@ -181,8 +223,14 @@
         },
         "url": {
           "raw": "{{client_api_url}}/api/device/shutdown",
-          "host": ["{{client_api_url}}"],
-          "path": ["api", "device", "shutdown"]
+          "host": [
+            "{{client_api_url}}"
+          ],
+          "path": [
+            "api",
+            "device",
+            "shutdown"
+          ]
         }
       }
     },
@@ -206,9 +254,32 @@
         },
         "url": {
           "raw": "{{client_api_url}}/api/device/forget",
-          "host": ["{{client_api_url}}"],
-          "path": ["api", "device", "forget"]
+          "host": [
+            "{{client_api_url}}"
+          ],
+          "path": [
+            "api",
+            "device",
+            "forget"
+          ]
         }
+      }
+    }
+  ],
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test(\"status is 2xx\", function () {",
+          "  pm.expect(pm.response.code).to.be.within(200, 299);",
+          "});",
+          "pm.test(\"response is successful JSON\", function () {",
+          "  const data = pm.response.json();",
+          "  pm.expect(data.success).to.eql(true);",
+          "});"
+        ]
       }
     }
   ]

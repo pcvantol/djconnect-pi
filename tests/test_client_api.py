@@ -74,6 +74,11 @@ def test_postman_collection_documents_local_api_endpoints() -> None:
     path = Path("docs/postman/DJConnect Pi Local Client API.postman_collection.json")
     collection = json.loads(path.read_text(encoding="utf-8"))
     urls = {item["request"]["url"]["raw"] for item in collection["item"]}
+    scripts = "\n".join(
+        line
+        for event in collection.get("event", [])
+        for line in event.get("script", {}).get("exec", [])
+    )
 
     assert "{{client_api_url}}/api/device/info" in urls
     assert "{{client_api_url}}/api/device/pairing-info" in urls
@@ -84,6 +89,8 @@ def test_postman_collection_documents_local_api_endpoints() -> None:
     assert "{{client_api_url}}/api/device/forget" in urls
     assert "{{client_api_url}}/api/device/restart" in urls
     assert "{{client_api_url}}/api/device/shutdown" in urls
+    assert "status is 2xx" in scripts
+    assert "response is successful JSON" in scripts
 
 
 def test_web_portal_renders_diagnostics_block() -> None:

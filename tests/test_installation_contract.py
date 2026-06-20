@@ -142,6 +142,15 @@ def test_release_workflow_publishes_to_public_distribution_repo() -> None:
     assert '"v*.*.*"' in workflow
 
 
+def test_release_workflow_runs_postman_collection_with_newman() -> None:
+    workflow = ROOT.joinpath(".github/workflows/publish-release.yml").read_text(encoding="utf-8")
+
+    assert "npm install --global newman" in workflow
+    assert "tests/postman_mock_server.py" in workflow
+    assert "newman run" in workflow
+    assert "DJConnect Pi Local Client API.postman_collection.json" in workflow
+
+
 def test_cleanup_script_removes_completed_actions_runs_for_deleted_tags() -> None:
     script = ROOT.joinpath("cleanup_old_releases.sh").read_text(encoding="utf-8")
 

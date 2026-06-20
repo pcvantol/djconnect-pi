@@ -54,6 +54,11 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
       - name: Install Qt runtime libraries
         run: |
           sudo apt-get update
@@ -76,6 +81,28 @@ jobs:
 
       - name: Run tests
         run: python -m pytest
+
+      - name: Run Postman collection
+        shell: bash
+        run: |
+          npm install --global newman
+          ready_file="$(mktemp)"
+          python tests/postman_mock_server.py --host 127.0.0.1 --port 18080 --token ci-token --ready-file "${ready_file}" &
+          server_pid="$!"
+          trap 'kill "${server_pid}"' EXIT
+          for attempt in {1..20}; do
+            if [[ -s "${ready_file}" ]]; then
+              break
+            fi
+            sleep 0.5
+          done
+          client_api_url="$(cat "${ready_file}")"
+          curl -fsS "${client_api_url}/api/device/info" >/dev/null
+          newman run "docs/postman/DJConnect Pi Local Client API.postman_collection.json" \
+            --env-var "client_api_url=${client_api_url}" \
+            --env-var "device_token=ci-token" \
+            --env-var "device_id=djconnect-raspberry-pi-ABCDEF123456" \
+            --env-var "ha_url=http://homeassistant.local:8123"
 
       - name: Compile Python
         run: python -m compileall src tests
