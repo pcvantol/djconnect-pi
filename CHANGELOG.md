@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.1.96
+
+- Make Raspberry Pi Ask DJ read-only: the touch UI now only displays and
+  refreshes server-side history, without local message input, idle suggestions,
+  clear history, Play Now or follow-up action controls.
+- Align the Pi client contract with the shared sync prompt so Raspberry Pi uses
+  only Ask DJ history sync while iOS/macOS/watchOS remain interactive clients.
+
 ## 3.1.95
 
 - Add the Raspberry Pi text-only Ask DJ screen with server-side history sync,

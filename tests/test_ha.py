@@ -120,38 +120,6 @@ def test_command_posts_generic_command_payload() -> None:
     assert result["playback"]["title"] == "Song"
 
 
-def test_ask_dj_message_posts_text_contract() -> None:
-    cfg = Config(
-        ha_url="http://ha",
-        device_id="djconnect-raspberry-pi-ABCDEF123456",
-        device_name="Kitchen Pi",
-        device_token="token-1",
-    )
-    client = HAClient(cfg)
-    captured: dict[str, Any] = {}
-
-    def fake_post(url: str, **kwargs: Any) -> FakeResponse:
-        captured["url"] = url
-        captured["json"] = kwargs["json"]
-        captured["headers"] = kwargs["headers"]
-        return FakeResponse(200, {"success": True, "text": "Hallo"})
-
-    with patch("djconnect_pi.ha.requests.post", side_effect=fake_post):
-        client.ask_dj_message("Welke albums?", client_message_id="msg-1")
-
-    assert captured["url"] == "http://ha/api/djconnect/ask_dj/message"
-    assert captured["headers"]["Authorization"] == "Bearer token-1"
-    assert captured["json"]["identity"] == {
-        "client_type": "raspberry_pi",
-        "device_id": "djconnect-raspberry-pi-ABCDEF123456",
-        "device_name": "Kitchen Pi",
-    }
-    assert captured["json"]["client_id"] == "djconnect-raspberry-pi-ABCDEF123456"
-    assert captured["json"]["client_message_id"] == "msg-1"
-    assert captured["json"]["text"] == "Welke albums?"
-    assert captured["json"]["audio_response"] == "auto"
-
-
 def test_ask_dj_history_gets_since_revision() -> None:
     cfg = Config(ha_url="http://ha", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1")
     client = HAClient(cfg)
