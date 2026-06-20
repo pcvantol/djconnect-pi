@@ -218,7 +218,7 @@ class HAClient:
                 "touch": True,
                 "voice": False,
                 "local_audio": False,
-                "local_dj_response_endpoint": True,
+                "local_dj_response_endpoint": False,
             },
             **extra,
         }

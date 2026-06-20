@@ -156,12 +156,12 @@ The Pi client is an app-like DJConnect client.
   "device_id": "djconnect-raspberry-pi-XXXXXXXXXXXX",
   "device_name": "DJConnect",
   "client_type": "raspberry_pi",
-  "version": "3.1.93",
+  "version": "3.1.94",
   "capabilities": {
     "touch": true,
     "voice": false,
     "local_audio": false,
-    "local_dj_response_endpoint": true
+    "local_dj_response_endpoint": false
   }
 }
 ```
@@ -225,7 +225,6 @@ The local Client API uses:
 - `GET /api/device/pairing-info`
 - `POST /api/device/pair`
 - `POST /api/device/command`
-- `POST /api/device/dj_response`
 - `POST /api/device/forget`
 - `POST /api/device/restart`
 - `POST /api/device/shutdown`
@@ -240,7 +239,7 @@ HTTP response is returned before the Pi actually restarts or powers off.
 
 The Postman collection in
 `docs/postman/DJConnect Pi Local Client API.postman_collection.json` covers the
-same local API plus diagnostic DJ response and screenshot testing.
+same local API plus diagnostic screenshot testing.
 
 `GET /api/debug/screenshot` requires `Authorization: Bearer <device_token>` once
 the client is paired. It is intended for local support over SSH/LAN and may
@@ -248,8 +247,10 @@ expose the live touchscreen contents, so it should stay authenticated and local.
 
 The Pi advertises `_djconnect._tcp` on the local Client API port only while it
 is not paired. After pairing, the local API remains available for HA commands,
-debug screenshots and text DJ responses, but discovery is stopped so HA does
-not keep presenting the device as a new pairing candidate. DJ responses are
-displayed as text on the wall screen and report `audio_played:false`.
+debug screenshots and pairing reset, but discovery is stopped so HA does not
+keep presenting the device as a new pairing candidate. The Pi does not expose a
+local `/api/device/dj_response` endpoint. DJ response text may still be shown
+on the wall screen when it arrives through normal Home Assistant command or
+status response payloads.
 
 Spotify credentials remain in Home Assistant.

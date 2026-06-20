@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.1.94
+
+- Align the Raspberry Pi client with the canonical sync contract by removing
+  the Pi-local `/api/device/dj_response` endpoint and advertising
+  `local_dj_response_endpoint:false` while retaining text-only display support
+  for DJ response text returned through normal Home Assistant responses.
+
 ## 3.1.93
 
 - Remove the updater progress UI's standalone spinner so the update screen

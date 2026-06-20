@@ -16,23 +16,26 @@ Belangrijke context:
 - DJConnect wordt ontwikkeld en onderhouden met AI-assisted/agentic engineering workflows, inclusief Codex; accepted changes blijven maintainer-reviewed en prompts/logs/issues mogen geen secrets of private data bevatten.
 - Canonical `client_type` is `raspberry_pi`.
 - Device IDs gebruiken `djconnect-raspberry-pi-XXXXXXXXXXXX`.
-- Geen PTT/mic/local DJ response audio toevoegen.
+- Geen PTT/mic/local DJ response audio of Pi-local `/api/device/dj_response`
+  endpoint toevoegen.
 - Geen lokale `SYNC_PROMPTS.md` of `PRODUCT_ROADMAP.md`; die staan canoniek in `pcvantol/djconnect`.
 
 Huidige stand:
-- Laatste beoogde release in deze werkronde is `v3.1.90`.
+- Laatste beoogde release in deze werkronde is `v3.1.94`.
 - Public updater assets staan in `pcvantol/djconnect-pi-releases`, inclusief `djconnect-pi-latest.json`.
-- Release `v3.1.90` bevat touch idle-timer fixes, wake refresh, Now Playing
-  album-art caching, output-device parsing, queue dedupe en toast-glow cleanup.
-- Na publicatie moeten public assets voor `v3.1.90` worden geverifieerd:
-  - `djconnect-pi-3.1.90.tar.gz`
-  - `djconnect-pi-3.1.90.sha256`
+- Release `v3.1.94` verwijdert het Pi-local `/api/device/dj_response`
+  endpoint en adverteert `local_dj_response_endpoint:false`, conform de
+  canonical syncprompt. Tekst-only DJ response weergave blijft alleen mogelijk
+  via normale Home Assistant command/status responses.
+- Na publicatie moeten public assets voor `v3.1.94` worden geverifieerd:
+  - `djconnect-pi-3.1.94.tar.gz`
+  - `djconnect-pi-3.1.94.sha256`
   - `djconnect-pi-latest.json`
-- Pi moet via de normale updater-route naar `3.1.90` worden gebracht.
-- Validatie voor `v3.1.90`:
+- Pi moet via de normale updater-route naar `3.1.94` worden gebracht.
+- Validatie voor `v3.1.94`:
   - run `python3 -m pytest -q`
   - `git diff --check` -> ok
-  - GitHub Actions publish workflow voor `v3.1.90` controleren
+  - GitHub Actions publish workflow voor `v3.1.94` controleren
   - Pi services na updater install: `djconnect-api.service`,
     `djconnect-client.service` en `djconnect-updater.timer` active
 

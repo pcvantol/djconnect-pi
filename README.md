@@ -1,6 +1,6 @@
 # DJConnect Pi
 
-Version: `3.1.93`
+Version: `3.1.94`
 
 Raspberry Pi Zero 2 W touch-display client for DJConnect. This client uses
 Qt Quick/QML with a PySide6 backend and is meant for a Pimoroni HyperPixel 4.0
@@ -8,10 +8,10 @@ Square Touch style kiosk remote: pairing, status, now playing and touch
 playback control only.
 
 It intentionally does not implement PTT, microphone upload, local DJ response
-audio, ESP firmware OTA, ESP battery sensors or Wi-Fi RSSI sensors. It does
-run a small local Client API daemon for Home Assistant pairing, commands,
-diagnostics and text-only DJ responses. `_djconnect._tcp` mDNS discovery is
-advertised only while the Pi is not yet paired.
+audio, a Pi-local DJ response endpoint, ESP firmware OTA, ESP battery sensors
+or Wi-Fi RSSI sensors. It does run a small local Client API daemon for Home
+Assistant pairing, commands and diagnostics. `_djconnect._tcp` mDNS discovery
+is advertised only while the Pi is not yet paired.
 
 Shared spoken intent examples for website/docs alignment live in
 `examples/voice_intents.json`. They document the HA/ESP post-STT intent model;
@@ -39,7 +39,6 @@ automatically on boot through `djconnect-api.service`.
   - `GET /api/device/pairing-info`
   - `POST /api/device/pair`
   - `POST /api/device/command`
-  - `POST /api/device/dj_response`
   - `POST /api/device/forget`
   - `POST /api/device/restart`
   - `POST /api/device/shutdown`
@@ -170,9 +169,9 @@ not a private source clone:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.93.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.94.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.93
+cd djconnect-pi-3.1.94
 sudo ./scripts/install.sh
 ```
 
@@ -283,9 +282,9 @@ installer:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.93.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.94.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.93
+cd djconnect-pi-3.1.94
 sudo ./scripts/install.sh
 ```
 

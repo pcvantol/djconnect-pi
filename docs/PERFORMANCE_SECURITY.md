@@ -45,8 +45,9 @@ This file records the first pass review for the wall-mounted Pi client.
   display.
 - The local Client API is a separate daemon, so HTTP/mDNS work cannot block or
   restart the Qt scene.
-- DJ responses cross from the API daemon to the UI through a small local event
-  file instead of sharing an HTTP listener in the UI process.
+- The Pi does not expose a local DJ-response endpoint. If Home Assistant returns
+  DJ response text in normal command/status responses, the touch UI may display
+  that text without adding a local audio or voice path.
 
 ## Security
 

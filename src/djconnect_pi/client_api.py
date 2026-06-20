@@ -30,7 +30,6 @@ class ClientAPIState:
         config_path,
         playback_provider: Callable[[], dict[str, Any]],
         command_handler: Callable[[str, dict[str, Any]], dict[str, Any]],
-        dj_response_handler: Callable[[dict[str, Any]], dict[str, Any]],
         screenshot_handler: Callable[[], dict[str, Any]],
         pair_handler: Callable[[], None],
         forget_handler: Callable[[], None],
@@ -41,7 +40,6 @@ class ClientAPIState:
         self.config_path = config_path
         self.playback_provider = playback_provider
         self.command_handler = command_handler
-        self.dj_response_handler = dj_response_handler
         self.screenshot_handler = screenshot_handler
         self.pair_handler = pair_handler
         self.forget_handler = forget_handler
@@ -122,14 +120,6 @@ class ClientAPIHandler(BaseHTTPRequestHandler):
             command = str(payload.get("command") or "")
             _LOGGER.debug("Client API command=%s payload_keys=%s", command, sorted(payload))
             self._write_json(self.server.state.command_handler(command, payload))
-            return
-        if self.path == "/api/device/dj_response":
-            if not self._authorized():
-                _LOGGER.warning("Client API unauthorized DJ response request")
-                self._write_json({"success": False, "error": "unauthorized"}, HTTPStatus.UNAUTHORIZED)
-                return
-            _LOGGER.debug("Client API DJ response payload_keys=%s", sorted(payload))
-            self._write_json(self.server.state.dj_response_handler(payload))
             return
         if self.path == "/api/device/restart":
             status = self._device_auth_status()
@@ -448,7 +438,7 @@ def _capabilities() -> dict[str, bool]:
         "touch": True,
         "voice": False,
         "local_audio": False,
-        "local_dj_response_endpoint": True,
+        "local_dj_response_endpoint": False,
     }
 
 

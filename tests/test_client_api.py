@@ -29,7 +29,6 @@ def start_api(tmp_path: Path, *, device_token: str = "") -> tuple[ClientAPI, Con
             config_path=tmp_path / "config.json",
             playback_provider=lambda: {"title": "Alive"},
             command_handler=lambda command, payload: {"success": True, "command": command},
-            dj_response_handler=lambda payload: events.append(str(payload.get("text"))) or {"success": True},
             screenshot_handler=lambda: {"success": True, "path": "/tmp/screenshot.png"},
             pair_handler=lambda: events.append("paired"),
             forget_handler=lambda: events.append("forgotten"),
@@ -55,7 +54,7 @@ def test_client_api_info_and_pairing_info(tmp_path: Path) -> None:
     assert info["local_url"] == cfg.local_url
     assert info["paired"] is False
     assert info["ha_pairing_status"] == "pending"
-    assert info["capabilities"]["local_dj_response_endpoint"] is True
+    assert info["capabilities"]["local_dj_response_endpoint"] is False
     assert pairing["pair_code"] == "123456"
     assert pairing["pairing_code"] == "123456"
     assert pairing["pairing_token"] == "123456"
@@ -80,7 +79,7 @@ def test_postman_collection_documents_local_api_endpoints() -> None:
     assert "{{client_api_url}}/api/device/pairing-info" in urls
     assert "{{client_api_url}}/api/device/pair" in urls
     assert "{{client_api_url}}/api/device/command" in urls
-    assert "{{client_api_url}}/api/device/dj_response" in urls
+    assert "{{client_api_url}}/api/device/dj_response" not in urls
     assert "{{client_api_url}}/api/debug/screenshot" in urls
     assert "{{client_api_url}}/api/device/forget" in urls
     assert "{{client_api_url}}/api/device/restart" in urls
@@ -200,7 +199,6 @@ def test_mdns_is_not_advertised_when_already_paired(tmp_path: Path, monkeypatch)
             config_path=config_path,
             playback_provider=lambda: {},
             command_handler=lambda command, payload: {"success": True},
-            dj_response_handler=lambda payload: {"success": True},
             screenshot_handler=lambda: {"success": True},
             pair_handler=lambda: None,
             forget_handler=lambda: None,
@@ -247,7 +245,6 @@ def test_mdns_stops_after_pair_and_returns_after_forget(tmp_path: Path, monkeypa
             config_path=config_path,
             playback_provider=lambda: {},
             command_handler=lambda command, payload: {"success": True},
-            dj_response_handler=lambda payload: {"success": True},
             screenshot_handler=lambda: {"success": True},
             pair_handler=lambda: None,
             forget_handler=lambda: None,
@@ -341,11 +338,10 @@ def test_client_api_pairing_info_reloads_rotated_pairing_code(tmp_path: Path) ->
     assert pairing["pairing_token"] == "654321"
 
 
-def test_client_api_requires_auth_for_dj_response(tmp_path: Path) -> None:
+def test_client_api_does_not_expose_local_dj_response_endpoint(tmp_path: Path) -> None:
     api, cfg, events = start_api(tmp_path, device_token="token-1")
     try:
-        unauth = requests.post(f"{cfg.local_url}/api/device/dj_response", json={"text": "Hoi"}, timeout=3)
-        ok = requests.post(
+        response = requests.post(
             f"{cfg.local_url}/api/device/dj_response",
             json={"text": "Hoi"},
             headers={"Authorization": "Bearer token-1"},
@@ -354,9 +350,8 @@ def test_client_api_requires_auth_for_dj_response(tmp_path: Path) -> None:
     finally:
         api.stop()
 
-    assert unauth.status_code == 401
-    assert ok.status_code == 200
-    assert "Hoi" in events
+    assert response.status_code == 404
+    assert events == []
 
 
 def test_client_api_restart_and_shutdown_require_device_auth(tmp_path: Path) -> None:
@@ -374,7 +369,6 @@ def test_client_api_restart_and_shutdown_require_device_auth(tmp_path: Path) -> 
             config_path=tmp_path / "config.json",
             playback_provider=lambda: {"title": "Alive"},
             command_handler=lambda command, payload: commands.append(command) or {"success": True, "command": command},
-            dj_response_handler=lambda payload: {"success": True},
             screenshot_handler=lambda: {"success": True, "path": "/tmp/screenshot.png"},
             pair_handler=lambda: None,
             forget_handler=lambda: None,

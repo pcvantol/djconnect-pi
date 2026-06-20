@@ -297,9 +297,10 @@ Not implemented by design:
   changes: source is `pcvantol/djconnect-pi`, public release assets are in
   `pcvantol/djconnect-pi-releases`.
 - Keep the Client API app-like. Do not add ESP OTA routes.
-- `POST /api/device/dj_response` is accepted by the API daemon, written to the
-  local DJ-response event file, displayed by the UI, and reports
-  `audio_played:false` unless real Pi audio support is explicitly added later.
+- Do not expose a Pi-local `/api/device/dj_response` endpoint. DJ response text
+  may still be displayed when it arrives through normal Home Assistant command
+  or status response payloads; the Pi must not treat itself as a local audio or
+  voice device.
 - Keep logs free of bearer tokens, HA tokens, Spotify secrets and Wi-Fi
   passwords. `logging_config.py` redacts obviously sensitive messages.
 - Do not reintroduce Wi-Fi provisioning into the DJConnect installer; that

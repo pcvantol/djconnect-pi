@@ -43,7 +43,6 @@ class ClientAPIDaemon:
                 config_path=self.config_path,
                 playback_provider=self._playback,
                 command_handler=self._command,
-                dj_response_handler=self._dj_response,
                 screenshot_handler=self._screenshot,
                 pair_handler=self._paired,
                 forget_handler=self._forgotten,

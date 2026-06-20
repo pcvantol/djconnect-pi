@@ -120,31 +120,6 @@
       }
     },
     {
-      "name": "DJ Response",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          },
-          {
-            "key": "Authorization",
-            "value": "Bearer {{device_token}}"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"text\": \"Testbericht voor het DJConnect scherm\"\n}"
-        },
-        "url": {
-          "raw": "{{client_api_url}}/api/device/dj_response",
-          "host": ["{{client_api_url}}"],
-          "path": ["api", "device", "dj_response"]
-        }
-      }
-    },
-    {
       "name": "Debug Screenshot",
       "request": {
         "method": "GET",
