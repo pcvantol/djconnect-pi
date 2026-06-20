@@ -11,7 +11,6 @@ import re
 import subprocess
 import sys
 import time
-import uuid
 from urllib.parse import urlparse
 
 from PySide6.QtCore import QByteArray, QBuffer, QCoreApplication, QIODevice, QObject, Property, QTimer, Signal, Slot
@@ -651,75 +650,6 @@ class DJConnectBackend(QObject):
         self._set_ask_dj_busy(True)
         self._run(self.tr_key("ask_dj"), self._load_ask_dj_history_worker, done=lambda: self._set_ask_dj_busy(False))
 
-    @Slot(str)
-    def sendAskDjMessage(self, text: str) -> None:
-        text = text.strip()
-        if not text:
-            return
-        self._sync_config_from_disk()
-        if self._demo_mode or not self.paired or self._ask_dj_busy:
-            return
-        client_message_id = str(uuid.uuid4())
-        self._merge_ask_dj_messages(
-            [
-                {
-                    "id": client_message_id,
-                    "client_message_id": client_message_id,
-                    "role": "user",
-                    "text": text,
-                    "message_kind": "user",
-                    "pending": True,
-                }
-            ]
-        )
-        _LOGGER.info("User sent Ask DJ text message")
-        self._set_ask_dj_busy(True)
-        self._run(
-            self.tr_key("ask_dj_sending"),
-            lambda: self._send_ask_dj_message_worker(text, client_message_id),
-            done=lambda: self._set_ask_dj_busy(False),
-        )
-
-    @Slot(str)
-    def playAskDjAction(self, action_text: str) -> None:
-        try:
-            value = json.loads(action_text)
-        except json.JSONDecodeError:
-            value = {}
-        if not isinstance(value, dict):
-            return
-        kind = str(value.get("kind") or "").strip()
-        command = "ask_dj_play_recommendation"
-        if kind == "confirmation" or str(value.get("action_style") or "") == "confirmation":
-            command = "ask_dj_followup_response"
-            value = {"response_value": str(value.get("response_value") or "").strip()}
-            if not value["response_value"]:
-                return
-        _LOGGER.info("User selected Ask DJ action: %s", command)
-        self.showToast(self.tr_key("play") if command == "ask_dj_play_recommendation" else self.tr_key("ask_dj"))
-        if command == "ask_dj_play_recommendation":
-            self.command(command, value=value, play=True)
-        else:
-            self.command(command, value=value)
-
-    @Slot()
-    def clearAskDjHistory(self) -> None:
-        self._sync_config_from_disk()
-        if self._demo_mode or not self.paired or self._ask_dj_busy:
-            return
-        _LOGGER.info("User requested Ask DJ history clear")
-        self._set_ask_dj_busy(True)
-        self._run(self.tr_key("ask_dj_clear"), self._clear_ask_dj_history_worker, done=lambda: self._set_ask_dj_busy(False))
-
-    @Slot()
-    def requestAskDjIdleSuggestion(self) -> None:
-        self._sync_config_from_disk()
-        if self._demo_mode or not self.paired or self._ask_dj_busy:
-            return
-        _LOGGER.info("User requested Ask DJ idle suggestion")
-        self._set_ask_dj_busy(True)
-        self._run(self.tr_key("ask_dj"), self._ask_dj_idle_suggestion_worker, done=lambda: self._set_ask_dj_busy(False))
-
     @Slot()
     def resetPairing(self) -> None:
         _LOGGER.info("User requested pairing reset from touch UI")
@@ -1093,19 +1023,6 @@ class DJConnectBackend(QObject):
         data = self.client.ask_dj_history(self._ask_dj_history_revision)
         self._askDjReady.emit(data)
 
-    def _send_ask_dj_message_worker(self, text: str, client_message_id: str) -> None:
-        data = self.client.ask_dj_message(text, client_message_id=client_message_id, audio_response="auto")
-        self._askDjReady.emit(data)
-
-    def _clear_ask_dj_history_worker(self) -> None:
-        data = self.client.clear_ask_dj_history()
-        data["_local_clear"] = True
-        self._askDjReady.emit(data)
-
-    def _ask_dj_idle_suggestion_worker(self) -> None:
-        data = self.client.ask_dj_idle_suggestion()
-        self._askDjReady.emit(data)
-
     def _cache_media_artwork_async(self, kind: str, items: list[dict[str, object]]) -> None:
         if not items:
             return
@@ -1268,7 +1185,7 @@ class DJConnectBackend(QObject):
         if not isinstance(data, dict):
             return
         clear_revision = _int_value(data.get("clear_revision"), self._ask_dj_clear_revision)
-        if clear_revision > self._ask_dj_clear_revision or data.get("_local_clear") is True:
+        if clear_revision > self._ask_dj_clear_revision:
             self._ask_dj_messages = []
             self._ask_dj_clear_revision = clear_revision
         trimmed_before = str(data.get("history_trimmed_before") or "").strip()
@@ -1791,7 +1708,7 @@ def _ask_dj_message(item: dict[str, object]) -> dict[str, object] | None:
     if kind == "system":
         role = "system"
     message: dict[str, object] = {
-        "id": str(item.get("id") or item.get("message_id") or item.get("server_id") or item.get("client_message_id") or uuid.uuid4()),
+        "id": str(item.get("id") or item.get("message_id") or item.get("server_id") or item.get("client_message_id") or ""),
         "client_message_id": str(item.get("client_message_id") or ""),
         "role": role,
         "messageKind": kind or role,

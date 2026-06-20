@@ -271,6 +271,19 @@ def test_qml_has_bottom_navigation_bar() -> None:
     assert 'root.activeScreen = "settings"' in main_qml
 
 
+def test_qml_ask_dj_screen_is_read_only() -> None:
+    main_qml = files("djconnect_pi.qml").joinpath("Main.qml").read_text(encoding="utf-8")
+    ask_dj_block = main_qml[main_qml.index("id: askDjPanel") : main_qml.index("GamesPanel {")]
+
+    assert 'visible: root.activeScreen === "askdj"' in ask_dj_block
+    assert "djconnect.loadAskDjHistory()" in ask_dj_block
+    assert "TextField" not in ask_dj_block
+    assert "sendAskDjMessage" not in ask_dj_block
+    assert "requestAskDjIdleSuggestion" not in ask_dj_block
+    assert "clearAskDjHistory" not in ask_dj_block
+    assert "playAskDjAction" not in ask_dj_block
+
+
 def test_qml_stop_demo_button_returns_to_pairing_flow() -> None:
     main_qml = files("djconnect_pi.qml").joinpath("Main.qml").read_text(encoding="utf-8")
 

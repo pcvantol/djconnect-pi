@@ -1522,23 +1522,6 @@ Window {
                     Layout.preferredHeight: 48
                     onClicked: djconnect.loadAskDjHistory()
                 }
-
-                DangerButton {
-                    text: root.tr("clear")
-                    font.pixelSize: 18
-                    Layout.preferredWidth: 96
-                    Layout.preferredHeight: 48
-                    onClicked: djconnect.clearAskDjHistory()
-                }
-            }
-
-            PurpleButton {
-                text: root.tr("ask_dj_suggestion")
-                enabled: !djconnect.askDjBusy
-                font.pixelSize: 20
-                Layout.fillWidth: true
-                Layout.preferredHeight: 46
-                onClicked: djconnect.requestAskDjIdleSuggestion()
             }
 
             ScrollView {
@@ -1661,63 +1644,8 @@ Window {
                                     }
                                 }
 
-                                Flow {
-                                    visible: modelData.actions && modelData.actions.length > 0
-                                    spacing: 8
-                                    Layout.fillWidth: true
-
-                                    Repeater {
-                                        model: modelData.actions || []
-                                        PurpleButton {
-                                            text: modelData.title
-                                            font.pixelSize: 17
-                                            width: Math.min(260, Math.max(120, implicitWidth + 20))
-                                            height: 46
-                                            onClicked: djconnect.playAskDjAction(modelData.payload)
-                                        }
-                                    }
-                                }
                             }
                         }
-                    }
-                }
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 60
-                spacing: 10
-
-                TextField {
-                    id: askDjInput
-                    placeholderText: root.tr("ask_dj_placeholder")
-                    enabled: !djconnect.askDjBusy
-                    font.pixelSize: 22
-                    color: "#ffffff"
-                    placeholderTextColor: "#a9b0c2"
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    background: Rectangle {
-                        radius: 8
-                        color: "#3324145f"
-                        border.color: "#6b5cff"
-                        border.width: 1
-                    }
-                    onAccepted: {
-                        djconnect.sendAskDjMessage(text)
-                        text = ""
-                    }
-                }
-
-                PurpleButton {
-                    text: root.tr("send")
-                    enabled: askDjInput.text.trim().length > 0 && !djconnect.askDjBusy
-                    font.pixelSize: 20
-                    Layout.preferredWidth: 112
-                    Layout.fillHeight: true
-                    onClicked: {
-                        djconnect.sendAskDjMessage(askDjInput.text)
-                        askDjInput.text = ""
                     }
                 }
             }

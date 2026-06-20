@@ -119,52 +119,12 @@ class HAClient:
         self._validate_ha_version(data)
         return data
 
-    def ask_dj_message(
-        self,
-        text: str,
-        *,
-        client_message_id: str,
-        audio_response: str = "auto",
-        **payload: Any,
-    ) -> dict[str, Any]:
-        body = self._ask_dj_payload(client_message_id=client_message_id, text=text, audio_response=audio_response, **payload)
-        url = self._url("/api/djconnect/ask_dj/message")
-        _LOGGER.debug("POST %s client_type=%s device_id=%s payload_keys=%s", url, CLIENT_TYPE, self.cfg.device_id, sorted(body))
-        started = time.monotonic()
-        response = requests.post(url, json=body, headers=self._headers(), timeout=self.timeout)
-        _LOGGER.debug("POST %s returned HTTP %s in %.0fms", url, response.status_code, _elapsed_ms(started))
-        data = self._json(response)
-        self._validate_ha_version(data)
-        return data
-
     def ask_dj_history(self, since_revision: int = 0) -> dict[str, Any]:
         url = self._url(f"/api/djconnect/ask_dj/history?since_revision={max(0, int(since_revision))}")
         _LOGGER.debug("GET %s client_type=%s device_id=%s", url, CLIENT_TYPE, self.cfg.device_id)
         started = time.monotonic()
         response = requests.get(url, headers=self._headers(), timeout=self.timeout)
         _LOGGER.debug("GET %s returned HTTP %s in %.0fms", url, response.status_code, _elapsed_ms(started))
-        data = self._json(response)
-        self._validate_ha_version(data)
-        return data
-
-    def clear_ask_dj_history(self) -> dict[str, Any]:
-        url = self._url("/api/djconnect/ask_dj/history/clear")
-        body = self._ask_dj_payload()
-        _LOGGER.debug("POST %s client_type=%s device_id=%s", url, CLIENT_TYPE, self.cfg.device_id)
-        started = time.monotonic()
-        response = requests.post(url, json=body, headers=self._headers(), timeout=self.timeout)
-        _LOGGER.debug("POST %s returned HTTP %s in %.0fms", url, response.status_code, _elapsed_ms(started))
-        data = self._json(response)
-        self._validate_ha_version(data)
-        return data
-
-    def ask_dj_idle_suggestion(self) -> dict[str, Any]:
-        url = self._url("/api/djconnect/ask_dj/idle_suggestion")
-        body = self._ask_dj_payload()
-        _LOGGER.debug("POST %s client_type=%s device_id=%s", url, CLIENT_TYPE, self.cfg.device_id)
-        started = time.monotonic()
-        response = requests.post(url, json=body, headers=self._headers(), timeout=self.timeout)
-        _LOGGER.debug("POST %s returned HTTP %s in %.0fms", url, response.status_code, _elapsed_ms(started))
         data = self._json(response)
         self._validate_ha_version(data)
         return data
