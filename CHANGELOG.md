@@ -1,6 +1,6 @@
 # Changelog
 
-## 3.1.96
+## 3.1.97
 
 - Make Raspberry Pi Ask DJ read-only: the touch UI now only displays and
   refreshes server-side history, without local message input, idle suggestions,
