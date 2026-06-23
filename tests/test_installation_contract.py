@@ -236,6 +236,17 @@ def test_repo_only_os_bootstrap_targets_lite_with_minimal_kiosk_runtime() -> Non
     assert "update-locale LANG=en_GB.UTF-8 LC_CTYPE=en_GB.UTF-8" in script
     assert "xinit" in script
     assert "xserver-xorg" in script
+    assert "DJCONNECT_ENABLE_VNC" in script
+    assert "DJCONNECT_VNC_PORT" in script
+    assert "DJCONNECT_VNC_LOCALHOST_ONLY" in script
+    assert "x11vnc" in script
+    assert "install_vnc" in script
+    assert "djconnect-vnc.service" in script
+    assert "-display :0" in script
+    assert "-auth guess" in script
+    assert "-rfbport ${DJCONNECT_VNC_PORT}" in script
+    assert "localhost_arg=\"-localhost\"" in script
+    assert "ssh -L ${DJCONNECT_VNC_PORT}:127.0.0.1:${DJCONNECT_VNC_PORT}" in script
     assert "libxkbcommon-x11-0" in script
     assert "libxcb-cursor0" in script
     assert "openbox" not in script
@@ -262,6 +273,8 @@ def test_install_script_excludes_repo_only_os_bootstrap_tasks() -> None:
     assert "apt-get -y full-upgrade" not in script
     assert "apt-get install -y" not in script
     assert "systemctl enable --now rpi-connect" not in script
+    assert "djconnect-vnc.service" not in script
+    assert "x11vnc" not in script
     assert "hyperpixel4-init.service" not in script
     assert "gtk-application-prefer-dark-theme=true" not in script
 
@@ -473,6 +486,19 @@ def test_bootstrap_documentation_targets_raspberry_pi_os_lite() -> None:
         assert "Raspberry Pi OS Lite 64-bit" in text
     assert "Choose Raspberry Pi OS Lite 64-bit Bookworm" in bootstrap
     assert "Raspberry Pi OS Desktop/GUI" not in bootstrap
+
+
+def test_bootstrap_documentation_describes_vnc_tunnel() -> None:
+    bootstrap = ROOT.joinpath("docs/BOOTSTRAP.md").read_text(encoding="utf-8")
+    readme = ROOT.joinpath("README.md").read_text(encoding="utf-8")
+
+    assert "localhost-only `x11vnc`" in bootstrap
+    assert "djconnect-vnc.service" in bootstrap
+    assert "ssh -L 5901:127.0.0.1:5901 pi@rbpi-djconnect.local" in bootstrap
+    assert "localhost:5901" in bootstrap
+    assert "DJCONNECT_ENABLE_VNC=0" in bootstrap
+    assert "DJCONNECT_VNC_LOCALHOST_ONLY=0" in bootstrap
+    assert "localhost-only `x11vnc`" in readme
     assert "Desktop/GUI image" not in readme
 
 

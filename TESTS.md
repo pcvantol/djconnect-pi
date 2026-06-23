@@ -61,7 +61,7 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
   HyperPixel KMS DPI overlay setup, root filesystem expansion, persistent 1GB
   swapfile, boot-time filesystem repair checks for unsafe power-loss recovery,
   timezone, NTP time synchronization, SSH, apt full-upgrade, minimal X11/Qt
-  runtime dependencies and Raspberry Pi Connect
+  runtime dependencies, Raspberry Pi Connect and localhost-only x11vnc
 - installer contract that OS bootstrap tasks stay out of the app release cycle
 - technical design decisions documentation is linked from README and contains
   dependency/style/release-maintenance sections
@@ -133,8 +133,8 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 - Games screen full-background touch blocking so Speelt nu controls cannot be
   tapped through transparent game areas
 - touch-friendly icon bottom navigation order, height, selected-state checks,
-  the dedicated Bediening tab and the Meer overflow screen for secondary
-  destinations
+  consistent QML Canvas menu icons, the dedicated Bediening tab and the Meer
+  overflow screen for secondary destinations
 - shared AppBackground gradient, display-only Speelt nu checks and enlarged
   Bediening playback-control sizing checks, including that Speelt nu album art
   has no play/pause overlay

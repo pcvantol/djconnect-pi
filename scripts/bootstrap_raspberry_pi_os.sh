@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DJCONNECT_BOOTSTRAP_VERSION="${DJCONNECT_BOOTSTRAP_VERSION:-3.1.98}"
+DJCONNECT_BOOTSTRAP_VERSION="${DJCONNECT_BOOTSTRAP_VERSION:-3.1.99}"
 DJCONNECT_TIMEZONE="${DJCONNECT_TIMEZONE:-Europe/Amsterdam}"
 DJCONNECT_INSTALL_HYPERPIXEL="${DJCONNECT_INSTALL_HYPERPIXEL:-1}"
 DJCONNECT_HYPERPIXEL_MODEL="${DJCONNECT_HYPERPIXEL_MODEL:-square}"
 DJCONNECT_HYPERPIXEL_ROTATE="${DJCONNECT_HYPERPIXEL_ROTATE:-}"
 DJCONNECT_ENABLE_RPI_CONNECT="${DJCONNECT_ENABLE_RPI_CONNECT:-1}"
+DJCONNECT_ENABLE_VNC="${DJCONNECT_ENABLE_VNC:-1}"
+DJCONNECT_VNC_PORT="${DJCONNECT_VNC_PORT:-5901}"
+DJCONNECT_VNC_LOCALHOST_ONLY="${DJCONNECT_VNC_LOCALHOST_ONLY:-1}"
 DJCONNECT_FULL_UPGRADE="${DJCONNECT_FULL_UPGRADE:-1}"
 DJCONNECT_RUNTIME_USER="${DJCONNECT_RUNTIME_USER:-djconnect}"
 DJCONNECT_INSTALL_USER="${DJCONNECT_INSTALL_USER:-pi}"
@@ -30,6 +33,9 @@ Environment:
   DJCONNECT_HYPERPIXEL_MODEL=square
   DJCONNECT_HYPERPIXEL_ROTATE=
   DJCONNECT_ENABLE_RPI_CONNECT=1
+  DJCONNECT_ENABLE_VNC=1
+  DJCONNECT_VNC_PORT=5901
+  DJCONNECT_VNC_LOCALHOST_ONLY=1
   DJCONNECT_FULL_UPGRADE=1
   DJCONNECT_RUNTIME_USER=djconnect
   DJCONNECT_INSTALL_USER=pi
@@ -55,6 +61,7 @@ DJConnect Pi:
 - grants the install user narrow passwordless sudo for DJConnect install.sh
 - enables a nightly reboot timer for wall-device freshness
 - attempts to install and enable Raspberry Pi Connect
+- installs a localhost-only x11vnc service for secure SSH-tunneled screen sharing
 - configures the modern HyperPixel 4 KMS DPI overlay
 
 This is a repo-only bootstrap helper. It is intentionally not included in
@@ -284,6 +291,49 @@ install_base_packages() {
     xserver-xorg-input-libinput
 }
 
+install_vnc() {
+  if [[ "$DJCONNECT_ENABLE_VNC" != "1" ]]; then
+    log "Skipping x11vnc remote screen service"
+    return
+  fi
+
+  log "Configuring x11vnc remote screen service"
+  apt-get install -y x11vnc || {
+    echo "x11vnc package was not available on this image; continuing." >&2
+    return 0
+  }
+
+  local localhost_arg=""
+  if [[ "$DJCONNECT_VNC_LOCALHOST_ONLY" == "1" ]]; then
+    localhost_arg="-localhost"
+  fi
+
+  cat > /etc/systemd/system/djconnect-vnc.service <<EOF
+[Unit]
+Description=DJConnect Raspberry Pi VNC screen sharing
+After=djconnect-client.service
+Wants=djconnect-client.service
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=5
+ExecStart=/usr/bin/x11vnc -display :0 -auth guess -forever -shared -noxdamage -repeat -rfbport ${DJCONNECT_VNC_PORT} ${localhost_arg}
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+  systemctl daemon-reload
+  systemctl enable --now djconnect-vnc.service || true
+
+  if [[ "$DJCONNECT_VNC_LOCALHOST_ONLY" == "1" ]]; then
+    echo "x11vnc is bound to localhost on port ${DJCONNECT_VNC_PORT}. Use: ssh -L ${DJCONNECT_VNC_PORT}:127.0.0.1:${DJCONNECT_VNC_PORT} ${DJCONNECT_INSTALL_USER}@<pi-host>"
+  else
+    echo "x11vnc is listening on port ${DJCONNECT_VNC_PORT}. Use only on a trusted network or add VNC authentication."
+  fi
+}
+
 install_rpi_connect() {
   if [[ "$DJCONNECT_ENABLE_RPI_CONNECT" != "1" ]]; then
     log "Skipping Raspberry Pi Connect"
@@ -427,6 +477,7 @@ main() {
   configure_installer_sudoers
   configure_nightly_reboot
   install_rpi_connect
+  install_vnc
   install_hyperpixel
 
   log "Raspberry Pi OS bootstrap complete"

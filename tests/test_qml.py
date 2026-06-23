@@ -263,6 +263,7 @@ def test_qml_has_bottom_navigation_bar() -> None:
     more_panel = main_qml[main_qml.index("id: morePanel") : main_qml.index("id: askDjPanel")]
 
     assert "id: bottomNav" in main_qml
+    assert "component MenuIcon: Canvas" in main_qml
     assert "component NavButton" in main_qml
     assert "component MoreMenuButton" in main_qml
     assert "id: morePanel" in main_qml
@@ -271,10 +272,17 @@ def test_qml_has_bottom_navigation_bar() -> None:
     nav_button = main_qml[main_qml.index("component NavButton") : main_qml.index("component MoreMenuButton")]
     assert "anchors.top: parent.top" not in nav_button
     assert "visible: navControl.checked" not in nav_button
-    assert 'iconSymbol: "▶"' in main_qml
-    assert 'iconSymbol: "II"' in main_qml
-    assert 'iconSymbol: "≡"' in main_qml
-    assert 'iconSymbol: "•••"' in main_qml
+    assert 'iconName: "music"' in bottom_nav
+    assert 'iconName: "control"' in bottom_nav
+    assert 'iconName: "chat"' in bottom_nav
+    assert 'iconName: "queue"' in bottom_nav
+    assert 'iconName: "more"' in bottom_nav
+    assert 'iconName: "playlists"' in more_panel
+    assert 'iconName: "gamepad"' in more_panel
+    assert 'iconName: "settings"' in more_panel
+    assert 'iconName: "logs"' in more_panel
+    assert 'iconName: "info"' in more_panel
+    assert "iconSymbol" not in main_qml
     assert 'root.tr("now_playing")' in main_qml
     assert 'root.tr("control")' in bottom_nav
     assert 'root.tr("ask_dj")' in bottom_nav

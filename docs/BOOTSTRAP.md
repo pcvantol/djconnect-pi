@@ -25,6 +25,8 @@ Software:
 - systemd
 - Minimal X11/kiosk runtime installed by the bootstrap script; no desktop/GUI
   image is required
+- Localhost-only x11vnc screen sharing on port `5901`, installed by the
+  bootstrap script for SSH-tunneled remote viewing
 - 1GB active swapfile configured by the bootstrap script
 - Automatic filesystem repair checks configured by the bootstrap script, so
   the Pi asks Linux to repair filesystems on boot after unsafe power loss
@@ -81,9 +83,22 @@ pass to `1` in `/etc/fstab`, enables periodic ext filesystem checks with
 `systemd-timesyncd.service` when present, enables SSH, runs an optional apt
 full-upgrade, installs minimal X11/kiosk dependencies, Qt runtime libraries,
 generates `en_GB.UTF-8` and `nl_NL.UTF-8` locales, attempts Raspberry Pi
-Connect, configures the nightly reboot timer and configures HyperPixel. It is
-intentionally not included in DJConnect Pi release tarballs and is not part of
-the app release cycle.
+Connect, installs a localhost-only `x11vnc` screen-sharing service, configures
+the nightly reboot timer and configures HyperPixel. It is intentionally not
+included in DJConnect Pi release tarballs and is not part of the app release
+cycle.
+
+The VNC service is installed as `djconnect-vnc.service` and binds to
+`127.0.0.1:5901` by default. Open it from your Mac with an SSH tunnel:
+
+```sh
+ssh -L 5901:127.0.0.1:5901 pi@rbpi-djconnect.local
+```
+
+Then connect your VNC client to `localhost:5901`. This avoids exposing an
+unauthenticated VNC port on the LAN. To disable this bootstrap step, run with
+`DJCONNECT_ENABLE_VNC=0`; to expose the VNC port directly on a trusted network,
+set `DJCONNECT_VNC_LOCALHOST_ONLY=0`.
 
 These filesystem checks are intended for a wall-mounted device where power can
 occasionally be removed. They do not replace a good SD card or clean shutdowns,
@@ -170,9 +185,9 @@ completed:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.98.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.99.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.98
+cd djconnect-pi-3.1.99
 sudo ./scripts/install.sh
 ```
 
@@ -200,9 +215,9 @@ development checkout:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.98.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.99.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.98
+cd djconnect-pi-3.1.99
 sudo ./scripts/install.sh
 ```
 
@@ -222,7 +237,7 @@ The installer is safe to run over an earlier DJConnect install:
 - leaves updater, maintenance and screen timers enabled
 - leaves the nightly reboot timer enabled
 - does not run OS bootstrap tasks such as timezone, SSH, apt full-upgrade,
-  Raspberry Pi Connect or HyperPixel setup
+  Raspberry Pi Connect, VNC or HyperPixel setup
 - resumes completed install steps after interruption or reboot using markers in
   `/opt/djconnect/install-state/<version>/`
 - reuses Python package downloads from `/var/cache/djconnect-pip`

@@ -69,7 +69,7 @@ mainly by tests plus `compileall`.
 | Pattern | Where | Why |
 | --- | --- | --- |
 | Declarative shell with Python backend | `src/djconnect_pi/qml/Main.qml` | QML owns rendering and touch interaction; Python owns state, IO and persistence. |
-| Local reusable components | `PurpleButton`, `NavButton`, `IconButton`, `MediaListPanel`, `MediaPlayButton` in `Main.qml`; `GamesPanel.qml` | Keeps the kiosk UI visually consistent without a separate component package. |
+| Local reusable components | `PurpleButton`, `NavButton`, `MenuIcon`, `IconButton`, `MediaListPanel`, `MediaPlayButton` in `Main.qml`; `GamesPanel.qml` | Keeps the kiosk UI visually consistent without a separate component package. |
 | Full-screen state panels | Now Playing, Queue, Playlists, Games, Settings, logs, about and pairing overlays | Prevents background screen tap-through and matches kiosk operation. |
 | Modal touch blockers | `ModalBlocker` | Consumes pointer/wheel events while overlays are visible. |
 | Fixed touch target dimensions | bottom nav, media rows, media play buttons, Bediening controls | Reduces layout shift on a 720x720 4-inch touch display. |
@@ -78,7 +78,7 @@ mainly by tests plus `compileall`.
 | Explicit media-list row geometry | `MediaListPanel` delegates place artwork, text and play button with x/y/width expressions | Avoids `RowLayout` and cross-item anchor ordering differences on the Pi runtime that previously misplaced or hid album art, titles and play icons. |
 | Bounded async image rendering | `Image { asynchronous: true; sourceSize... }`, backend artwork cache | Lets QML decode/render artwork without blocking interaction while avoiding full-size artwork retention in memory. Now Playing uses backend-resolved local cache files and Qt image caching; media-list delegates keep extra QML image caching off while background cache preparation is bounded. |
 | Idle timer reset on navigation | `recordActivity()`, `restartIdleTimer()`, `onActiveScreenChanged` in `Main.qml` | Prevents a stale blanking timeout from firing immediately after a user tap or screen change. |
-| Canvas icons only where dynamic state matters | Bediening playback controls and game canvas | Avoids external icon packs while keeping touch controls scalable. Speelt nu does not draw a play/pause overlay over album art. |
+| Canvas-drawn touch icons | `MenuIcon`, Bediening playback controls and game canvas | Avoids external icon packs and platform-dependent Unicode glyphs while keeping navigation and controls scalable. Speelt nu does not draw a play/pause overlay over album art. |
 | Kiosk-first navigation | bottom menu bar and no visible app close button | Device is intended to be wall-mounted and dedicated. |
 
 ### QML Conventions
@@ -225,6 +225,7 @@ state. License metadata is maintained by Debian/Raspberry Pi packages in
 | `python3-venv` | OS repository managed | release virtualenv creation | https://packages.debian.org/trixie/python3-venv |
 | `ssh` | OS repository managed | remote maintenance and deploy access | https://packages.debian.org/trixie/ssh |
 | `unzip` | OS repository managed | operator utility | https://packages.debian.org/trixie/unzip |
+| `x11vnc` | OS repository managed, optional bootstrap step | localhost-only SSH-tunneled VNC access to the X11 kiosk display | https://packages.debian.org/trixie/x11vnc |
 | `x11-xserver-utils` | OS repository managed | X11 utilities | https://packages.debian.org/trixie/x11-xserver-utils |
 | `xinit` | OS repository managed | systemd-started X11 kiosk session | https://packages.debian.org/trixie/xinit |
 | `xserver-xorg` | OS repository managed | X server for Qt kiosk UI | https://packages.debian.org/trixie/xserver-xorg |
