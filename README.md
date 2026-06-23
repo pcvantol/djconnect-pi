@@ -1,6 +1,6 @@
 # DJConnect Pi
 
-Version: `3.1.98`
+Version: `3.1.99`
 
 Raspberry Pi Zero 2 W touch-display client for DJConnect. This client uses
 Qt Quick/QML with a PySide6 backend and is meant for a Pimoroni HyperPixel 4.0
@@ -96,6 +96,9 @@ The app is a 720x720 fullscreen touch remote:
 - separate Bediening screen with enlarged previous, play/pause, next,
   progress, volume, output-device, shuffle and repeat controls
 - volume controls are capped at HA value 60 and display that as 100%
+- bottom navigation and Meer menu icons are drawn as consistent QML Canvas
+  outline icons, matching the macOS-style menu language without depending on
+  platform-specific Unicode glyph rendering
 - Ask DJ screen that passively displays the shared Home Assistant conversation
   feed, decodes assistant, system, status and other-client user messages, and
   renders HA-provided structured action buttons without any free text, voice,
@@ -155,7 +158,9 @@ repo-only maintainer bootstrap work and is not part of the DJConnect app release
 tarball. Flash **Raspberry Pi OS Lite 64-bit** with Raspberry Pi Imager; the
 bootstrap installs only the minimal X11/Qt runtime required for the fullscreen
 touch UI, expands the root filesystem, configures 1GB swap and enables
-boot-time filesystem repair checks plus NTP time synchronization:
+boot-time filesystem repair checks plus NTP time synchronization. It also
+installs a localhost-only `x11vnc` screen-sharing service on port `5901` for
+SSH-tunneled remote viewing:
 
 ```sh
 sudo apt-get update
@@ -176,9 +181,9 @@ not a private source clone:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.98.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.99.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.98
+cd djconnect-pi-3.1.99
 sudo ./scripts/install.sh
 ```
 
@@ -289,16 +294,16 @@ installer:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.98.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.99.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.98
+cd djconnect-pi-3.1.99
 sudo ./scripts/install.sh
 ```
 
 The installer preserves existing config, updates `/opt/djconnect/current`,
 refreshes systemd units, and restarts `djconnect-api.service` and `djconnect-client.service`.
 It does not run OS bootstrap tasks such as timezone, SSH, apt full-upgrade,
-Raspberry Pi Connect or HyperPixel setup. Use
+Raspberry Pi Connect, VNC or HyperPixel setup. Use
 `git pull --ff-only` first only when the Pi is running from a development
 checkout.
 

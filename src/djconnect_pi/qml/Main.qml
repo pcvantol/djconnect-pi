@@ -111,21 +111,132 @@ Window {
         }
     }
 
+    component MenuIcon: Canvas {
+        id: menuIcon
+        property string iconName: "more"
+        property color iconColor: "#f7f3ff"
+        property real strokeWidth: 2.4
+
+        implicitWidth: 32
+        implicitHeight: 32
+        onIconNameChanged: requestPaint()
+        onIconColorChanged: requestPaint()
+        onStrokeWidthChanged: requestPaint()
+        onPaint: {
+            var ctx = getContext("2d")
+            var w = width
+            var h = height
+            var s = Math.min(w, h)
+            var x = (w - s) / 2
+            var y = (h - s) / 2
+            function px(v) { return x + v * s / 32 }
+            function py(v) { return y + v * s / 32 }
+            function line(x1, y1, x2, y2) {
+                ctx.beginPath()
+                ctx.moveTo(px(x1), py(y1))
+                ctx.lineTo(px(x2), py(y2))
+                ctx.stroke()
+            }
+            function circle(cx, cy, r, fill) {
+                ctx.beginPath()
+                ctx.arc(px(cx), py(cy), r * s / 32, 0, Math.PI * 2)
+                if (fill) ctx.fill()
+                else ctx.stroke()
+            }
+            function roundRect(x0, y0, ww, hh, rr) {
+                ctx.beginPath()
+                ctx.moveTo(px(x0 + rr), py(y0))
+                ctx.lineTo(px(x0 + ww - rr), py(y0))
+                ctx.quadraticCurveTo(px(x0 + ww), py(y0), px(x0 + ww), py(y0 + rr))
+                ctx.lineTo(px(x0 + ww), py(y0 + hh - rr))
+                ctx.quadraticCurveTo(px(x0 + ww), py(y0 + hh), px(x0 + ww - rr), py(y0 + hh))
+                ctx.lineTo(px(x0 + rr), py(y0 + hh))
+                ctx.quadraticCurveTo(px(x0), py(y0 + hh), px(x0), py(y0 + hh - rr))
+                ctx.lineTo(px(x0), py(y0 + rr))
+                ctx.quadraticCurveTo(px(x0), py(y0), px(x0 + rr), py(y0))
+                ctx.closePath()
+                ctx.stroke()
+            }
+
+            ctx.clearRect(0, 0, w, h)
+            ctx.strokeStyle = menuIcon.iconColor
+            ctx.fillStyle = menuIcon.iconColor
+            ctx.lineWidth = menuIcon.strokeWidth
+            ctx.lineCap = "round"
+            ctx.lineJoin = "round"
+
+            if (iconName === "music") {
+                line(13, 10, 13, 23)
+                line(13, 10, 22, 7)
+                line(22, 7, 22, 19)
+                circle(10, 23, 3.2, true)
+                circle(19, 19, 3.2, true)
+            } else if (iconName === "control") {
+                line(8, 10, 24, 10); circle(13, 10, 3, false)
+                line(8, 16, 24, 16); circle(20, 16, 3, false)
+                line(8, 22, 24, 22); circle(11, 22, 3, false)
+            } else if (iconName === "chat") {
+                roundRect(6, 8, 14, 11, 3)
+                line(11, 19, 9, 23)
+                roundRect(13, 13, 13, 10, 3)
+                line(21, 23, 24, 26)
+            } else if (iconName === "queue") {
+                ctx.beginPath()
+                ctx.moveTo(px(6), py(7)); ctx.lineTo(px(10), py(9.5)); ctx.lineTo(px(6), py(12)); ctx.closePath(); ctx.fill()
+                line(13, 9.5, 26, 9.5)
+                line(7, 16, 26, 16)
+                line(7, 22.5, 26, 22.5)
+            } else if (iconName === "more") {
+                circle(9, 16, 2.2, true); circle(16, 16, 2.2, true); circle(23, 16, 2.2, true)
+            } else if (iconName === "playlists") {
+                line(10, 7, 22, 7); line(8, 10, 24, 10)
+                roundRect(7, 12, 18, 13, 2)
+            } else if (iconName === "gamepad") {
+                ctx.beginPath()
+                ctx.moveTo(px(8), py(20))
+                ctx.quadraticCurveTo(px(10), py(12), px(14), py(14))
+                ctx.lineTo(px(18), py(14))
+                ctx.quadraticCurveTo(px(22), py(12), px(24), py(20))
+                ctx.quadraticCurveTo(px(25), py(25), px(21), py(23))
+                ctx.lineTo(px(18), py(20))
+                ctx.lineTo(px(14), py(20))
+                ctx.lineTo(px(11), py(23))
+                ctx.quadraticCurveTo(px(7), py(25), px(8), py(20))
+                ctx.stroke()
+                line(11, 18, 15, 18); line(13, 16, 13, 20)
+                circle(20, 17, 1.2, true); circle(23, 20, 1.2, true)
+            } else if (iconName === "settings") {
+                circle(16, 16, 5, false)
+                for (var i = 0; i < 8; i++) {
+                    var a = i * Math.PI / 4
+                    line(16 + Math.cos(a) * 8, 16 + Math.sin(a) * 8, 16 + Math.cos(a) * 11, 16 + Math.sin(a) * 11)
+                }
+            } else if (iconName === "logs") {
+                roundRect(9, 6, 13, 18, 2)
+                line(13, 11, 18, 11); line(13, 16, 17, 16)
+                circle(21, 22, 3.5, false); line(23.5, 24.5, 26, 27)
+            } else if (iconName === "info") {
+                circle(16, 16, 10, false)
+                line(16, 15, 16, 22); circle(16, 10.5, 1.2, true)
+            }
+        }
+    }
+
     component NavButton: PurpleButton {
         id: navControl
-        property string iconSymbol: ""
+        property string iconName: ""
 
         font.pixelSize: 15
         contentItem: ColumnLayout {
             spacing: 3
 
-            Text {
-                text: navControl.iconSymbol
-                color: navControl.enabled ? (navControl.checked ? "#ffffff" : "#d8defa") : "#93a0b8"
-                font.pixelSize: navControl.checked ? 27 : 24
-                font.bold: true
-                horizontalAlignment: Text.AlignHCenter
-                verticalAlignment: Text.AlignVCenter
+            MenuIcon {
+                iconName: navControl.iconName
+                iconColor: navControl.enabled ? (navControl.checked ? "#ffffff" : "#d8defa") : "#93a0b8"
+                strokeWidth: navControl.checked ? 2.8 : 2.4
+                Layout.preferredWidth: navControl.checked ? 30 : 28
+                Layout.preferredHeight: navControl.checked ? 30 : 28
+                Layout.alignment: Qt.AlignHCenter
                 Layout.fillWidth: true
             }
 
@@ -157,7 +268,7 @@ Window {
 
     component MoreMenuButton: Button {
         id: moreControl
-        property string iconSymbol: ""
+        property string iconName: ""
 
         font.pixelSize: 25
         font.bold: false
@@ -166,14 +277,12 @@ Window {
         contentItem: RowLayout {
             spacing: 18
 
-            Text {
-                text: moreControl.iconSymbol
-                color: "#f02dff"
-                font.pixelSize: 30
-                font.bold: true
-                horizontalAlignment: Text.AlignHCenter
-                verticalAlignment: Text.AlignVCenter
+            MenuIcon {
+                iconName: moreControl.iconName
+                iconColor: "#f02dff"
+                strokeWidth: 2.5
                 Layout.preferredWidth: 48
+                Layout.preferredHeight: 36
             }
 
             Text {
@@ -811,15 +920,15 @@ Window {
 
         ColumnLayout {
             anchors.fill: parent
-            anchors.leftMargin: 8
-            anchors.topMargin: 8
-            anchors.rightMargin: 8
+            anchors.leftMargin: 16
+            anchors.topMargin: 16
+            anchors.rightMargin: 16
             anchors.bottomMargin: root.edge + 96
-            spacing: 6
+            spacing: 10
 
             RowLayout {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 34
+                Layout.preferredHeight: 48
                 spacing: 10
 
                 Text {
@@ -1613,7 +1722,7 @@ Window {
 
                     MoreMenuButton {
                         text: root.tr("playlists")
-                        iconSymbol: "▤"
+                        iconName: "playlists"
                         onClicked: {
                             root.activeScreen = "playlists"
                             djconnect.loadPlaylists()
@@ -1623,28 +1732,28 @@ Window {
 
                     MoreMenuButton {
                         text: root.tr("games")
-                        iconSymbol: "◇"
+                        iconName: "gamepad"
                         onClicked: root.activeScreen = "games"
                     }
                     Rectangle { Layout.fillWidth: true; Layout.leftMargin: 122; Layout.preferredHeight: 1; color: "#4d4a68" }
 
                     MoreMenuButton {
                         text: root.tr("setup")
-                        iconSymbol: "⚙"
+                        iconName: "settings"
                         onClicked: root.activeScreen = "settings"
                     }
                     Rectangle { Layout.fillWidth: true; Layout.leftMargin: 122; Layout.preferredHeight: 1; color: "#4d4a68" }
 
                     MoreMenuButton {
                         text: root.tr("logs")
-                        iconSymbol: "▣"
+                        iconName: "logs"
                         onClicked: djconnect.showLogs()
                     }
                     Rectangle { Layout.fillWidth: true; Layout.leftMargin: 122; Layout.preferredHeight: 1; color: "#4d4a68" }
 
                     MoreMenuButton {
                         text: root.tr("about")
-                        iconSymbol: "ⓘ"
+                        iconName: "info"
                         onClicked: root.aboutOpen = true
                     }
                 }
@@ -1883,7 +1992,7 @@ Window {
 
             NavButton {
                 text: root.tr("now_playing")
-                iconSymbol: "▶"
+                iconName: "music"
                 checkable: true
                 checked: root.activeScreen === "now"
                 Layout.fillWidth: true
@@ -1893,7 +2002,7 @@ Window {
 
             NavButton {
                 text: root.tr("control")
-                iconSymbol: "II"
+                iconName: "control"
                 checkable: true
                 checked: root.activeScreen === "control"
                 Layout.fillWidth: true
@@ -1903,7 +2012,7 @@ Window {
 
             NavButton {
                 text: root.tr("ask_dj")
-                iconSymbol: "▣"
+                iconName: "chat"
                 checkable: true
                 checked: root.activeScreen === "askdj"
                 Layout.fillWidth: true
@@ -1916,7 +2025,7 @@ Window {
 
             NavButton {
                 text: root.tr("queue")
-                iconSymbol: "≡"
+                iconName: "queue"
                 checkable: true
                 checked: root.activeScreen === "queue"
                 Layout.fillWidth: true
@@ -1929,7 +2038,7 @@ Window {
 
             NavButton {
                 text: root.tr("more")
-                iconSymbol: "•••"
+                iconName: "more"
                 checkable: true
                 checked: root.activeScreen === "more" || root.activeScreen === "playlists" || root.activeScreen === "games" || root.activeScreen === "settings"
                 Layout.fillWidth: true

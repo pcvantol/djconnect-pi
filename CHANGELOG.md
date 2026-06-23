@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.1.99
+
+- Replace the bottom navigation and Meer menu glyphs with consistent QML Canvas
+  outline icons so the Raspberry Pi touch UI matches the macOS menu icon style
+  more closely and avoids platform-dependent Unicode symbols.
+- Extend the repo-only Raspberry Pi OS bootstrap with an optional
+  localhost-only `x11vnc` service on port `5901` for SSH-tunneled remote screen
+  sharing. The app release installer still does not install or manage VNC.
+
 ## 3.1.98
 
 - Add Raspberry Pi Ask DJ `readonly_actions` mode: the touch UI displays the

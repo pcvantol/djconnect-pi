@@ -68,6 +68,9 @@ This file records the first pass review for the wall-mounted Pi client.
   errors and exceptions without logging bearer tokens.
 - Local Client API request bodies are capped to reduce accidental memory spikes
   and obvious abuse.
+- The repo-only OS bootstrap installs `x11vnc` as `djconnect-vnc.service`
+  bound to `127.0.0.1:5901` by default, intended for SSH-tunneled screen
+  viewing instead of exposing an unauthenticated VNC port on the LAN.
 - GitHub release updates require at least SHA256 verification before install.
   Signed manifests are still recommended for a later hardening pass.
 - Stable release discovery uses the public `djconnect-pi-latest.json` asset
