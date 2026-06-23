@@ -433,12 +433,19 @@ class ClientAPI:
         self.service_info = None
 
 
-def _capabilities() -> dict[str, bool]:
+def _capabilities() -> dict[str, object]:
     return {
         "touch": True,
         "voice": False,
+        "voice_supported": False,
+        "tts_supported": False,
         "local_audio": False,
+        "local_audio_supported": False,
         "local_dj_response_endpoint": False,
+        "ask_dj_supported": True,
+        "ask_dj_mode": "readonly_actions",
+        "ask_dj_free_input_supported": False,
+        "ask_dj_actions_supported": True,
     }
 
 

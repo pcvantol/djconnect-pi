@@ -26,17 +26,28 @@ def test_qml_has_blocking_pairing_and_splash_views() -> None:
     assert 'id: pairingSuccessPanel\n        anchors.fill: parent\n        color: "#070b16"' in main_qml
     assert "id: splashPanel" in main_qml
     assert 'source: "app-icon.png"' in main_qml
+    assert 'radius: 24\n                color: "#171029"' in main_qml
+    assert 'GradientStop { position: 0.72; color: "#37145a" }' in main_qml
     assert 'text: "v" + djconnect.version' in main_qml
     assert "!djconnect.paired && !djconnect.demoMode" in main_qml
     assert "property int trVersion: djconnect.translationVersion" in main_qml
     assert "function tr(key)" in main_qml
     assert 'root.tr("client_api_url")' in main_qml
     assert "Client API URL" not in main_qml
+    assert "component LoadingSpinner" in main_qml
+    assert "RotationAnimation on rotation" in main_qml
+    assert "LoadingSpinner {\n                        running: pairingPanel.visible" in main_qml
+    pairing_panel = main_qml[main_qml.index("id: pairingPanel") : main_qml.index("id: pairingSuccessPanel")]
+    assert pairing_panel.index('root.tr("home_assistant")') < pairing_panel.index('root.tr("pairing_code")')
+    assert pairing_panel.index('root.tr("pairing_code")') < pairing_panel.index('root.tr("client_api_url")')
     assert "djconnect.pairingCode" in main_qml
     assert "blockingPairCodeField" not in main_qml
     assert "djconnect.pair(djconnect.pairingCode)" not in main_qml
     assert 'root.tr("waiting_for_ha")' in main_qml
     assert 'root.tr("start_demo_mode")' in main_qml
+    assert "id: startDemoButton" in main_qml
+    assert "ctx.arc(width / 2, height / 2, s * 0.38, 0, Math.PI * 2)" in main_qml
+    assert "ctx.lineTo(width * 0.68, height * 0.5)" in main_qml
     assert "djconnect.pairingSuccessVisible" in main_qml
     assert 'root.tr("pairing_success_title")' in main_qml
     assert "djconnect.startAfterPairing()" in main_qml
@@ -244,31 +255,46 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
 
 def test_qml_has_bottom_navigation_bar() -> None:
     main_qml = files("djconnect_pi.qml").joinpath("Main.qml").read_text(encoding="utf-8")
-    bottom_nav = main_qml[main_qml.index("id: bottomNav") :]
+    bottom_nav = main_qml[main_qml.index("id: bottomNav") : main_qml.index("id: pairingPanel")]
+    more_panel = main_qml[main_qml.index("id: morePanel") : main_qml.index("id: askDjPanel")]
 
     assert "id: bottomNav" in main_qml
     assert "component NavButton" in main_qml
+    assert "component MoreMenuButton" in main_qml
+    assert "id: morePanel" in main_qml
     assert "height: 104" in main_qml
     assert "border.width: navControl.checked ? 3 : 1" in main_qml
-    nav_button = main_qml[main_qml.index("component NavButton") : main_qml.index("component IconButton")]
+    nav_button = main_qml[main_qml.index("component NavButton") : main_qml.index("component MoreMenuButton")]
     assert "anchors.top: parent.top" not in nav_button
     assert "visible: navControl.checked" not in nav_button
     assert 'iconSymbol: "▶"' in main_qml
     assert 'iconSymbol: "II"' in main_qml
     assert 'iconSymbol: "≡"' in main_qml
-    assert 'iconSymbol: "▦"' in main_qml
-    assert 'iconSymbol: "◆"' in main_qml
-    assert 'iconSymbol: "⚙"' in main_qml
+    assert 'iconSymbol: "•••"' in main_qml
     assert 'root.tr("now_playing")' in main_qml
-    assert 'root.tr("control")' in main_qml
+    assert 'root.tr("control")' in bottom_nav
+    assert 'root.tr("ask_dj")' in bottom_nav
+    assert 'root.tr("queue")' in bottom_nav
+    assert 'root.tr("more")' in bottom_nav
+    assert 'root.tr("playlists")' in more_panel
     assert 'root.tr("games")' in main_qml
     assert 'root.tr("setup")' in main_qml
+    assert 'root.tr("logs")' in more_panel
+    assert 'root.tr("about")' in more_panel
     assert bottom_nav.index('text: root.tr("now_playing")') < bottom_nav.index('text: root.tr("control")')
-    assert bottom_nav.index('text: root.tr("playlists")') < bottom_nav.index('text: root.tr("games")')
+    assert bottom_nav.index('text: root.tr("control")') < bottom_nav.index('text: root.tr("ask_dj")')
+    assert bottom_nav.index('text: root.tr("ask_dj")') < bottom_nav.index('text: root.tr("queue")')
+    assert bottom_nav.index('text: root.tr("queue")') < bottom_nav.index('text: root.tr("more")')
+    assert more_panel.index('text: root.tr("playlists")') < more_panel.index('text: root.tr("games")')
+    assert more_panel.index('text: root.tr("games")') < more_panel.index('text: root.tr("setup")')
+    assert more_panel.index('text: root.tr("setup")') < more_panel.index('text: root.tr("logs")')
+    assert more_panel.index('text: root.tr("logs")') < more_panel.index('text: root.tr("about")')
     assert 'root.activeScreen = "now"' in main_qml
     assert 'root.activeScreen = "control"' in main_qml
+    assert 'root.activeScreen = "playlists"' in main_qml
     assert 'root.activeScreen = "games"' in main_qml
     assert 'root.activeScreen = "settings"' in main_qml
+    assert 'root.activeScreen = "more"' in main_qml
 
 
 def test_qml_ask_dj_screen_is_read_only() -> None:
@@ -277,8 +303,16 @@ def test_qml_ask_dj_screen_is_read_only() -> None:
 
     assert 'visible: root.activeScreen === "askdj"' in ask_dj_block
     assert "djconnect.loadAskDjHistory()" in ask_dj_block
+    assert "id: askDjRefreshButton" in ask_dj_block
+    assert "Layout.preferredWidth: 150" in ask_dj_block
+    assert "id: askDjPollTimer" in main_qml
+    assert 'running: root.activeScreen === "askdj" && djconnect.paired && !djconnect.demoMode' in main_qml
+    assert "onTriggered: djconnect.pollAskDjHistory()" in main_qml
+    assert "id: askDjActionButton" in ask_dj_block
+    assert "modelData.actions || []" in ask_dj_block
+    assert 'onClicked: djconnect.sendAskDjAction(modelData.payload || "{}")' in ask_dj_block
     assert "TextField" not in ask_dj_block
-    assert "sendAskDjMessage" not in ask_dj_block
+    assert "sendAskDjMessage" not in main_qml
     assert "requestAskDjIdleSuggestion" not in ask_dj_block
     assert "clearAskDjHistory" not in ask_dj_block
     assert "playAskDjAction" not in ask_dj_block

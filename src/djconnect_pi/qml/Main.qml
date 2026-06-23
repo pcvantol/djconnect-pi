@@ -155,6 +155,49 @@ Window {
         }
     }
 
+    component MoreMenuButton: Button {
+        id: moreControl
+        property string iconSymbol: ""
+
+        font.pixelSize: 25
+        font.bold: false
+        Layout.fillWidth: true
+        Layout.preferredHeight: 66
+        contentItem: RowLayout {
+            spacing: 18
+
+            Text {
+                text: moreControl.iconSymbol
+                color: "#f02dff"
+                font.pixelSize: 30
+                font.bold: true
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+                Layout.preferredWidth: 48
+            }
+
+            Text {
+                text: moreControl.text
+                color: moreControl.enabled ? "#f7f3ff" : "#93a0b8"
+                font: moreControl.font
+                elide: Text.ElideRight
+                verticalAlignment: Text.AlignVCenter
+                Layout.fillWidth: true
+            }
+
+            Text {
+                text: "›"
+                color: "#a9abc3"
+                font.pixelSize: 42
+                verticalAlignment: Text.AlignVCenter
+                Layout.preferredWidth: 28
+            }
+        }
+        background: Rectangle {
+            color: moreControl.down ? "#2f2756" : "#00000000"
+        }
+    }
+
     component PlaybackButton: Button {
         id: control
         property bool primary: false
@@ -219,6 +262,37 @@ Window {
                 GradientStop { position: 1.0; color: "#4f46e5" }
             }
             opacity: control.down ? 0.78 : 1.0
+        }
+    }
+
+    component LoadingSpinner: Item {
+        id: spinner
+        property bool running: true
+        property color dotColor: "#d9ccff"
+
+        implicitWidth: 42
+        implicitHeight: 42
+
+        Repeater {
+            model: 12
+
+            Rectangle {
+                width: Math.max(4, spinner.width * 0.13)
+                height: width
+                radius: width / 2
+                color: spinner.dotColor
+                opacity: 0.18 + (index / 11) * 0.72
+                x: spinner.width / 2 - width / 2 + Math.cos((index / 12) * Math.PI * 2) * spinner.width * 0.32
+                y: spinner.height / 2 - height / 2 + Math.sin((index / 12) * Math.PI * 2) * spinner.height * 0.32
+            }
+        }
+
+        RotationAnimation on rotation {
+            running: spinner.running && spinner.visible
+            loops: Animation.Infinite
+            from: 0
+            to: 360
+            duration: 900
         }
     }
 
@@ -632,6 +706,15 @@ Window {
         interval: 20000
         repeat: false
         onTriggered: djconnect.clearDjResponse()
+    }
+
+    Timer {
+        id: askDjPollTimer
+        interval: 7000
+        running: root.activeScreen === "askdj" && djconnect.paired && !djconnect.demoMode
+        repeat: true
+        triggeredOnStart: true
+        onTriggered: djconnect.pollAskDjHistory()
     }
 
     Connections {
@@ -1480,6 +1563,98 @@ Window {
     }
 
     Rectangle {
+        id: morePanel
+        anchors.fill: parent
+        color: "#070b16"
+        visible: root.activeScreen === "more"
+        z: 16
+
+        AppBackground {}
+        ModalBlocker {}
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.leftMargin: 28
+            anchors.topMargin: 26
+            anchors.rightMargin: 28
+            anchors.bottomMargin: root.edge + 126
+            spacing: 16
+
+            Text {
+                text: root.tr("more")
+                color: "#f4f8f8"
+                font.pixelSize: 48
+                font.bold: true
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: moreMenuColumn.implicitHeight
+                radius: 24
+                color: "#dd20113d"
+                border.color: "#3b3d68"
+                border.width: 1
+                clip: true
+                gradient: Gradient {
+                    orientation: Gradient.Horizontal
+                    GradientStop { position: 0.0; color: "#3a0f43" }
+                    GradientStop { position: 0.58; color: "#251a54" }
+                    GradientStop { position: 1.0; color: "#1b2456" }
+                }
+
+                ColumnLayout {
+                    id: moreMenuColumn
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    spacing: 0
+
+                    MoreMenuButton {
+                        text: root.tr("playlists")
+                        iconSymbol: "▤"
+                        onClicked: {
+                            root.activeScreen = "playlists"
+                            djconnect.loadPlaylists()
+                        }
+                    }
+                    Rectangle { Layout.fillWidth: true; Layout.leftMargin: 122; Layout.preferredHeight: 1; color: "#4d4a68" }
+
+                    MoreMenuButton {
+                        text: root.tr("games")
+                        iconSymbol: "◇"
+                        onClicked: root.activeScreen = "games"
+                    }
+                    Rectangle { Layout.fillWidth: true; Layout.leftMargin: 122; Layout.preferredHeight: 1; color: "#4d4a68" }
+
+                    MoreMenuButton {
+                        text: root.tr("setup")
+                        iconSymbol: "⚙"
+                        onClicked: root.activeScreen = "settings"
+                    }
+                    Rectangle { Layout.fillWidth: true; Layout.leftMargin: 122; Layout.preferredHeight: 1; color: "#4d4a68" }
+
+                    MoreMenuButton {
+                        text: root.tr("logs")
+                        iconSymbol: "▣"
+                        onClicked: djconnect.showLogs()
+                    }
+                    Rectangle { Layout.fillWidth: true; Layout.leftMargin: 122; Layout.preferredHeight: 1; color: "#4d4a68" }
+
+                    MoreMenuButton {
+                        text: root.tr("about")
+                        iconSymbol: "ⓘ"
+                        onClicked: root.aboutOpen = true
+                    }
+                }
+            }
+
+            Item { Layout.fillHeight: true }
+        }
+    }
+
+    Rectangle {
         id: askDjPanel
         anchors.fill: parent
         color: "#070b16"
@@ -1516,9 +1691,10 @@ Window {
                 }
 
                 PurpleButton {
+                    id: askDjRefreshButton
                     text: root.tr("refresh")
                     font.pixelSize: 18
-                    Layout.preferredWidth: 118
+                    Layout.preferredWidth: 150
                     Layout.preferredHeight: 48
                     onClicked: djconnect.loadAskDjHistory()
                 }
@@ -1553,7 +1729,7 @@ Window {
 
                         Rectangle {
                             property bool userBubble: modelData.role === "user"
-                            property bool systemBubble: modelData.role === "system" || modelData.messageKind === "system"
+                            property bool systemBubble: modelData.role === "system" || modelData.role === "status" || modelData.messageKind === "system" || modelData.messageKind === "status"
 
                             Layout.preferredWidth: userBubble ? Math.min(askDjScroll.availableWidth * 0.78, 520) : askDjScroll.availableWidth
                             Layout.alignment: userBubble ? Qt.AlignRight : Qt.AlignLeft
@@ -1644,6 +1820,35 @@ Window {
                                     }
                                 }
 
+                                Flow {
+                                    visible: modelData.actions && modelData.actions.length > 0
+                                    spacing: 8
+                                    Layout.fillWidth: true
+
+                                    Repeater {
+                                        model: modelData.actions || []
+
+                                        PurpleButton {
+                                            id: askDjActionButton
+                                            text: modelData.title || root.tr("start")
+                                            font.pixelSize: 18
+                                            implicitWidth: Math.max(112, actionLabel.implicitWidth + 28)
+                                            implicitHeight: 44
+                                            contentItem: Text {
+                                                id: actionLabel
+                                                text: askDjActionButton.text
+                                                font: askDjActionButton.font
+                                                color: "#ffffff"
+                                                horizontalAlignment: Text.AlignHCenter
+                                                verticalAlignment: Text.AlignVCenter
+                                                elide: Text.ElideRight
+                                                maximumLineCount: 1
+                                            }
+                                            onClicked: djconnect.sendAskDjAction(modelData.payload || "{}")
+                                        }
+                                    }
+                                }
+
                             }
                         }
                     }
@@ -1697,6 +1902,19 @@ Window {
             }
 
             NavButton {
+                text: root.tr("ask_dj")
+                iconSymbol: "▣"
+                checkable: true
+                checked: root.activeScreen === "askdj"
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                onClicked: {
+                    root.activeScreen = "askdj"
+                    djconnect.loadAskDjHistory()
+                }
+            }
+
+            NavButton {
                 text: root.tr("queue")
                 iconSymbol: "≡"
                 checkable: true
@@ -1710,49 +1928,13 @@ Window {
             }
 
             NavButton {
-                text: root.tr("playlists")
-                iconSymbol: "▦"
+                text: root.tr("more")
+                iconSymbol: "•••"
                 checkable: true
-                checked: root.activeScreen === "playlists"
+                checked: root.activeScreen === "more" || root.activeScreen === "playlists" || root.activeScreen === "games" || root.activeScreen === "settings"
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                onClicked: {
-                    root.activeScreen = "playlists"
-                    djconnect.loadPlaylists()
-                }
-            }
-
-            NavButton {
-                text: root.tr("ask_dj")
-                iconSymbol: "?"
-                checkable: true
-                checked: root.activeScreen === "askdj"
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                onClicked: {
-                    root.activeScreen = "askdj"
-                    djconnect.loadAskDjHistory()
-                }
-            }
-
-            NavButton {
-                text: root.tr("games")
-                iconSymbol: "◆"
-                checkable: true
-                checked: root.activeScreen === "games"
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                onClicked: root.activeScreen = "games"
-            }
-
-            NavButton {
-                text: root.tr("setup")
-                iconSymbol: "⚙"
-                checkable: true
-                checked: root.activeScreen === "settings"
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                onClicked: root.activeScreen = "settings"
+                onClicked: root.activeScreen = "more"
             }
         }
     }
@@ -1774,15 +1956,25 @@ Window {
             Rectangle {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 132
-                radius: 8
-                color: "#dd151020"
-                border.color: "#3f2f70"
+                radius: 24
+                color: "#171029"
+                border.color: "#3b2a63"
                 border.width: 1
+                gradient: Gradient {
+                    orientation: Gradient.Horizontal
+                    GradientStop { position: 0.0; color: "#12091d" }
+                    GradientStop { position: 0.42; color: "#26103f" }
+                    GradientStop { position: 0.72; color: "#37145a" }
+                    GradientStop { position: 1.0; color: "#141125" }
+                }
 
                 RowLayout {
                     anchors.fill: parent
-                    anchors.margins: 18
-                    spacing: 18
+                    anchors.leftMargin: 28
+                    anchors.rightMargin: 28
+                    anchors.topMargin: 18
+                    anchors.bottomMargin: 18
+                    spacing: 22
 
                     Image {
                         source: "app-icon.png"
@@ -1837,35 +2029,6 @@ Window {
 
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 98
-                radius: 8
-                color: "#5524145f"
-
-                ColumnLayout {
-                    anchors.fill: parent
-                    anchors.margins: 16
-                    spacing: 4
-
-                    Text {
-                        text: root.tr("pairing_code")
-                        color: "#b7a8c8"
-                        font.pixelSize: 18
-                        font.bold: true
-                        Layout.fillWidth: true
-                    }
-
-                    Text {
-                        text: djconnect.pairingCode
-                        color: "#ffffff"
-                        font.pixelSize: 36
-                        font.bold: true
-                        Layout.fillWidth: true
-                    }
-                }
-            }
-
-            Rectangle {
-                Layout.fillWidth: true
                 Layout.preferredHeight: 76
                 radius: 8
                 color: "#5524145f"
@@ -1890,6 +2053,35 @@ Window {
                         font.bold: true
                         font.family: "monospace"
                         elide: Text.ElideMiddle
+                        Layout.fillWidth: true
+                    }
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 98
+                radius: 8
+                color: "#5524145f"
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: 16
+                    spacing: 4
+
+                    Text {
+                        text: root.tr("pairing_code")
+                        color: "#b7a8c8"
+                        font.pixelSize: 18
+                        font.bold: true
+                        Layout.fillWidth: true
+                    }
+
+                    Text {
+                        text: djconnect.pairingCode
+                        color: "#ffffff"
+                        font.pixelSize: 36
+                        font.bold: true
                         Layout.fillWidth: true
                     }
                 }
@@ -1937,7 +2129,7 @@ Window {
                     anchors.margins: 18
                     spacing: 18
 
-                    BusyIndicator {
+                    LoadingSpinner {
                         running: pairingPanel.visible
                         implicitWidth: 38
                         implicitHeight: 38
@@ -1954,10 +2146,51 @@ Window {
             }
 
             PurpleButton {
+                id: startDemoButton
                 text: root.tr("start_demo_mode")
                 font.pixelSize: 22
                 Layout.fillWidth: true
                 Layout.preferredHeight: 54
+                contentItem: RowLayout {
+                    spacing: 10
+
+                    Item {
+                        Layout.preferredWidth: 28
+                        Layout.preferredHeight: 28
+
+                        Canvas {
+                            anchors.fill: parent
+                            antialiasing: true
+                            onPaint: {
+                                var ctx = getContext("2d")
+                                var s = Math.min(width, height)
+                                ctx.clearRect(0, 0, width, height)
+                                ctx.strokeStyle = "#ffffff"
+                                ctx.fillStyle = "#ffffff"
+                                ctx.lineWidth = 3
+                                ctx.beginPath()
+                                ctx.arc(width / 2, height / 2, s * 0.38, 0, Math.PI * 2)
+                                ctx.stroke()
+                                ctx.beginPath()
+                                ctx.moveTo(width * 0.43, height * 0.33)
+                                ctx.lineTo(width * 0.43, height * 0.67)
+                                ctx.lineTo(width * 0.68, height * 0.5)
+                                ctx.closePath()
+                                ctx.fill()
+                            }
+                        }
+                    }
+
+                    Text {
+                        text: startDemoButton.text
+                        font: startDemoButton.font
+                        color: startDemoButton.enabled ? "#ffffff" : "#93a0b8"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        elide: Text.ElideRight
+                        Layout.fillWidth: false
+                    }
+                }
                 onClicked: djconnect.enterDemoMode()
             }
 

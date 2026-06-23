@@ -113,6 +113,9 @@ class DJConnectBackend(QObject):
         self._ask_dj_history_revision = 0
         self._ask_dj_clear_revision = 0
         self._ask_dj_busy = False
+        self._ask_dj_unavailable_until = 0.0
+        self._ask_dj_poll_error_count = 0
+        self._ask_dj_poll_in_flight = False
         self._media_loads_in_flight: set[str] = set()
         self._media_artwork_cache_in_flight: set[str] = set()
         self._pending_output_device = ""
@@ -589,8 +592,11 @@ class DJConnectBackend(QObject):
         self._demo_mode = True
         self._queue_items = demo_queue_items()
         self._playlist_items = demo_playlist_items()
+        self.playback.output_device = ""
+        self.playback.output_devices = ("Keuken", "Woonkamer")
         self.demoModeChanged.emit()
         self.mediaListsChanged.emit()
+        self.outputDeviceChanged.emit()
         self._apply_demo_track("Midnight City", "M83")
         _LOGGER.info("User entered local demo mode")
         self.showToast(self.tr_key("demo_active"))
@@ -649,6 +655,23 @@ class DJConnectBackend(QObject):
         _LOGGER.info("User opened Ask DJ history")
         self._set_ask_dj_busy(True)
         self._run(self.tr_key("ask_dj"), self._load_ask_dj_history_worker, done=lambda: self._set_ask_dj_busy(False))
+
+    @Slot(str)
+    def sendAskDjAction(self, action_payload: str) -> None:
+        self._sync_config_from_disk()
+        if self._demo_mode or not self.paired or self._ask_dj_busy:
+            return
+        try:
+            action = json.loads(action_payload)
+        except json.JSONDecodeError:
+            _LOGGER.warning("Ignoring malformed Ask DJ action payload")
+            return
+        if not isinstance(action, dict):
+            _LOGGER.warning("Ignoring non-object Ask DJ action payload")
+            return
+        _LOGGER.info("User triggered Ask DJ structured action kind=%s", action.get("kind") or action.get("action_style") or action.get("type") or "")
+        self._set_ask_dj_busy(True)
+        self._run(self.tr_key("ask_dj"), lambda: self._send_ask_dj_action_worker(action), done=lambda: self._set_ask_dj_busy(False))
 
     @Slot()
     def resetPairing(self) -> None:
@@ -1022,6 +1045,36 @@ class DJConnectBackend(QObject):
     def _load_ask_dj_history_worker(self) -> None:
         data = self.client.ask_dj_history(self._ask_dj_history_revision)
         self._askDjReady.emit(data)
+
+    def _send_ask_dj_action_worker(self, action: dict[str, object]) -> None:
+        data = self.client.ask_dj_action(action)
+        self._askDjReady.emit(data)
+
+    @Slot()
+    def pollAskDjHistory(self) -> None:
+        self._sync_config_from_disk()
+        if self._demo_mode or not self.paired or not self.cfg.device_token:
+            return
+        now = time.monotonic()
+        if self._ask_dj_busy or self._ask_dj_poll_in_flight or now < self._ask_dj_unavailable_until:
+            return
+        self._ask_dj_poll_in_flight = True
+        self._executor.submit(self._poll_ask_dj_history_worker)
+
+    def _poll_ask_dj_history_worker(self) -> None:
+        try:
+            data = self.client.ask_dj_history(self._ask_dj_history_revision)
+        except (AuthenticationError, ProtocolVersionMismatch, BackendUnavailable, DJConnectError, requests.RequestException) as exc:
+            self._ask_dj_poll_error_count = min(self._ask_dj_poll_error_count + 1, 6)
+            delay = min(300, 10 * (2 ** (self._ask_dj_poll_error_count - 1)))
+            self._ask_dj_unavailable_until = time.monotonic() + delay
+            _LOGGER.warning("Ask DJ read-only poll unavailable; retrying later: %s", exc)
+            self._ask_dj_poll_in_flight = False
+            return
+        self._ask_dj_poll_error_count = 0
+        self._ask_dj_unavailable_until = 0.0
+        self._askDjReady.emit(data)
+        self._ask_dj_poll_in_flight = False
 
     def _cache_media_artwork_async(self, kind: str, items: list[dict[str, object]]) -> None:
         if not items:
@@ -1701,8 +1754,8 @@ def _ask_dj_message(item: dict[str, object]) -> dict[str, object] | None:
     kind = str(item.get("message_kind") or item.get("kind") or "").strip().lower()
     if not text and not user_text and not any(isinstance(item.get(key), list) and item.get(key) for key in ("images", "links", "sources", "playback_actions", "confirmation_actions")):
         return None
-    if role not in {"user", "assistant", "system"}:
-        role = "user" if user_text and not text else ("system" if kind == "system" else "assistant")
+    if role not in {"user", "assistant", "system", "status"}:
+        role = "user" if user_text and not text else ("status" if kind == "status" else ("system" if kind == "system" else "assistant"))
     if user_text and not text:
         text = user_text
     if kind == "system":
@@ -1718,8 +1771,8 @@ def _ask_dj_message(item: dict[str, object]) -> dict[str, object] | None:
         "images": _ask_dj_images(item.get("images")),
         "links": _ask_dj_links(item.get("links"), item.get("sources")),
         "actions": _ask_dj_actions(item.get("playback_actions"), item.get("confirmation_actions")),
-        "audioUrl": str(item.get("audio_url") or ""),
-        "audioType": str(item.get("audio_type") or ""),
+        "audioUrl": "",
+        "audioType": "",
     }
     return message
 
