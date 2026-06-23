@@ -58,6 +58,13 @@ def test_pair_sends_raspberry_pi_identity_and_stores_token() -> None:
     assert captured["json"]["language"] == cfg.language
     assert captured["json"]["pair_code"] == "123456"
     assert captured["json"]["capabilities"]["voice"] is False
+    assert captured["json"]["capabilities"]["voice_supported"] is False
+    assert captured["json"]["capabilities"]["tts_supported"] is False
+    assert captured["json"]["capabilities"]["local_audio_supported"] is False
+    assert captured["json"]["capabilities"]["ask_dj_supported"] is True
+    assert captured["json"]["capabilities"]["ask_dj_mode"] == "readonly_actions"
+    assert captured["json"]["capabilities"]["ask_dj_free_input_supported"] is False
+    assert captured["json"]["capabilities"]["ask_dj_actions_supported"] is True
     assert captured["json"]["capabilities"]["local_dj_response_endpoint"] is False
     assert "device_type" not in captured["json"]
     assert "device_language" not in captured["json"]
@@ -134,7 +141,31 @@ def test_ask_dj_history_gets_since_revision() -> None:
         client.ask_dj_history(12)
 
     assert captured["url"] == "http://ha/api/djconnect/ask_dj/history?since_revision=12"
+    assert captured["headers"]["Authorization"] == "Bearer token-1"
     assert captured["headers"]["X-DJConnect-Device-ID"] == "djconnect-raspberry-pi-ABCDEF123456"
+    assert captured["headers"]["X-DJConnect-Client-Type"] == "raspberry_pi"
+
+
+def test_ask_dj_action_uses_structured_command_payload() -> None:
+    cfg = Config(ha_url="http://ha", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1")
+    client = HAClient(cfg)
+    captured: dict[str, Any] = {}
+
+    def fake_post(url: str, **kwargs: Any) -> FakeResponse:
+        captured["url"] = url
+        captured["json"] = kwargs["json"]
+        captured["headers"] = kwargs["headers"]
+        return FakeResponse(200, {"success": True, "messages": []})
+
+    with patch("djconnect_pi.ha.requests.post", side_effect=fake_post):
+        client.ask_dj_action({"kind": "confirmation", "response_value": "yes"})
+
+    assert captured["url"] == "http://ha/api/djconnect/command"
+    assert captured["json"]["command"] == "ask_dj_action"
+    assert captured["json"]["action"] == {"kind": "confirmation", "response_value": "yes"}
+    assert "prompt" not in captured["json"]
+    assert "text" not in captured["json"]
+    assert captured["headers"]["Authorization"] == "Bearer token-1"
 
 
 def test_playback_from_status_accepts_aliases() -> None:

@@ -26,6 +26,16 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 - Home Assistant pairing/status/command payloads
 - Home Assistant command payloads include `device_id` and
   `client_type=raspberry_pi`
+- Ask DJ capability payloads advertise `readonly_actions`, structured actions
+  support and no free input, voice, TTS or local audio support
+- Ask DJ history polling uses bearer auth, Pi identity headers, the revision
+  cursor and pairing/auth/version guards with quiet backoff on unavailable
+  backend states
+- Ask DJ QML renders assistant, system, status and other-client user messages
+  plus HA-provided action buttons, while free prompt/send-message controls stay
+  absent
+- Ask DJ action taps send only the structured action payload through the normal
+  HA command contract
 - local Client API info, pairing-info, pair, command, DJ response auth and mDNS
   TXT properties
 - Raspberry Pi-specific local Client API restart/shutdown endpoints, including
@@ -122,8 +132,9 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
   queue and playlist QML contract checks
 - Games screen full-background touch blocking so Speelt nu controls cannot be
   tapped through transparent game areas
-- touch-friendly icon bottom navigation order, height, selected-state checks
-  and the dedicated Bediening tab
+- touch-friendly icon bottom navigation order, height, selected-state checks,
+  the dedicated Bediening tab and the Meer overflow screen for secondary
+  destinations
 - shared AppBackground gradient, display-only Speelt nu checks and enlarged
   Bediening playback-control sizing checks, including that Speelt nu album art
   has no play/pause overlay

@@ -131,7 +131,9 @@ def test_ask_dj_parser_accepts_history_rich_messages() -> None:
                     "sources": [{"name": "MusicBrainz", "url": "http://ha/source", "source": "musicbrainz"}],
                     "playback_actions": [{"kind": "track", "title": "Play Now", "uri": "spotify:track:1", "subtitle": "Radiohead"}],
                     "confirmation_actions": [{"kind": "confirmation", "action_style": "confirmation", "response_value": "yes"}],
+                    "audio_url": "https://ha.local/tts.mp3",
                 },
+                {"id": "s1", "kind": "status", "text": "Ask DJ denkt na"},
             ]
         }
     )
@@ -143,6 +145,67 @@ def test_ask_dj_parser_accepts_history_rich_messages() -> None:
     assert len(messages[1]["links"]) == 2
     assert [action["kind"] for action in messages[1]["actions"]] == ["track", "confirmation"]
     assert "spotify:track:1" in messages[1]["actions"][0]["payload"]
+    assert messages[1]["audioUrl"] == ""
+    assert messages[2]["role"] == "status"
+    assert messages[2]["text"] == "Ask DJ denkt na"
+
+
+def test_ask_dj_poll_requires_pairing_and_token(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.client.ask_dj_history = Mock()
+
+    backend.pollAskDjHistory()
+
+    backend.client.ask_dj_history.assert_not_called()
+
+
+def test_ask_dj_poll_worker_uses_revision_and_applies_backoff(tmp_path: Path) -> None:
+    ensure_app()
+    config_path = tmp_path / "config.json"
+    backend = DJConnectBackend(config_path)
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token-1"
+    backend.client.cfg = backend.cfg
+    backend._ask_dj_history_revision = 7
+    backend.client.ask_dj_history = Mock(return_value={"history_revision": 8, "messages": [{"id": "a1", "role": "assistant", "text": "Hoi"}]})
+
+    backend._poll_ask_dj_history_worker()
+
+    backend.client.ask_dj_history.assert_called_once_with(7)
+    assert backend.askDjMessages[0]["text"] == "Hoi"
+    assert backend._ask_dj_history_revision == 8
+    assert backend._ask_dj_poll_error_count == 0
+
+    backend.client.ask_dj_history = Mock(side_effect=AuthenticationError("stale token"))
+    backend._poll_ask_dj_history_worker()
+
+    assert backend._ask_dj_poll_error_count == 1
+    assert backend._ask_dj_unavailable_until > 0
+
+
+def test_ask_dj_action_tap_sends_structured_payload_only(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token-1"
+    backend.client.cfg = backend.cfg
+    backend.client.ask_dj_action = Mock(return_value={"success": True, "messages": []})
+
+    backend._send_ask_dj_action_worker({"kind": "confirmation", "response_value": "yes"})
+
+    backend.client.ask_dj_action.assert_called_once_with({"kind": "confirmation", "response_value": "yes"})
+
+
+def test_demo_mode_uses_example_output_devices(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+
+    backend.enterDemoMode()
+
+    assert backend.outputDevice == ""
+    assert backend.outputDevices == ["Keuken", "Woonkamer"]
+    assert "True" not in backend.outputDevices
 
 
 def test_queue_parser_preserves_optional_context_and_episode_uri() -> None:

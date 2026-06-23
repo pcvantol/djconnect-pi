@@ -129,6 +129,9 @@ class HAClient:
         self._validate_ha_version(data)
         return data
 
+    def ask_dj_action(self, action: dict[str, Any]) -> dict[str, Any]:
+        return self.command("ask_dj_action", action=action)
+
     def playback_from_status(self, data: dict[str, Any]) -> Playback:
         playback = data.get("playback") if isinstance(data.get("playback"), dict) else data
         output_device_source = (
@@ -227,8 +230,15 @@ class HAClient:
             "capabilities": {
                 "touch": True,
                 "voice": False,
+                "voice_supported": False,
+                "tts_supported": False,
                 "local_audio": False,
+                "local_audio_supported": False,
                 "local_dj_response_endpoint": False,
+                "ask_dj_supported": True,
+                "ask_dj_mode": "readonly_actions",
+                "ask_dj_free_input_supported": False,
+                "ask_dj_actions_supported": True,
             },
             **extra,
         }
@@ -255,6 +265,7 @@ class HAClient:
         headers = {
             "Content-Type": "application/json",
             "X-DJConnect-Device-ID": self.cfg.device_id,
+            "X-DJConnect-Client-Type": CLIENT_TYPE,
         }
         if self.cfg.device_token:
             headers["Authorization"] = f"Bearer {self.cfg.device_token}"

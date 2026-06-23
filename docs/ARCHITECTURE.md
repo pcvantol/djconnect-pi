@@ -14,6 +14,8 @@ Responsibilities:
 - pair with Home Assistant
 - send periodic status
 - send playback commands
+- poll Ask DJ history/status as a read-only conversation feed
+- send only structured HA-provided Ask DJ action responses from touch buttons
 - execute HA initiated playback commands received through the local
   command-event queue
 - render now-playing and connection state
@@ -156,12 +158,19 @@ The Pi client is an app-like DJConnect client.
   "device_id": "djconnect-raspberry-pi-XXXXXXXXXXXX",
   "device_name": "DJConnect",
   "client_type": "raspberry_pi",
-  "version": "3.1.97",
+  "version": "3.1.98",
   "capabilities": {
     "touch": true,
     "voice": false,
+    "voice_supported": false,
+    "tts_supported": false,
     "local_audio": false,
-    "local_dj_response_endpoint": false
+    "local_audio_supported": false,
+    "local_dj_response_endpoint": false,
+    "ask_dj_supported": true,
+    "ask_dj_mode": "readonly_actions",
+    "ask_dj_free_input_supported": false,
+    "ask_dj_actions_supported": true
   }
 }
 ```
@@ -171,10 +180,20 @@ Runtime traffic uses:
 - `POST /api/djconnect/pair`
 - `POST /api/djconnect/status`
 - `POST /api/djconnect/command`
+- `GET /api/djconnect/ask_dj/history?since_revision=<revision>`
 
 Pairing, status and command payloads all include the stable `device_id` and
 `client_type=raspberry_pi`. Command payloads also include the command name and
 any command-specific value fields.
+
+Ask DJ on Raspberry Pi is `readonly_actions`. The touch UI renders shared
+assistant, system, status and other-client user messages from Home Assistant,
+uses the returned `revision` cursor to avoid duplicate polling, and never shows
+free text input, push-to-talk, wake word, TTS or local audio playback controls.
+When Home Assistant includes structured Ask DJ action buttons, the Pi may send
+`command:"ask_dj_action"` through the normal command endpoint with the exact
+structured `action` payload. It must not call free prompt/send-message
+endpoints and must not fall back to raw text if action support is unavailable.
 
 Media browsing commands use explicit bounded limits: `queue` sends
 `{"command":"queue","limit":100}` and `playlists` sends

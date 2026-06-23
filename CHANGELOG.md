@@ -1,12 +1,23 @@
 # Changelog
 
-## 3.1.97
+## 3.1.98
 
-- Make Raspberry Pi Ask DJ read-only: the touch UI now only displays and
-  refreshes server-side history, without local message input, idle suggestions,
-  clear history, Play Now or follow-up action controls.
-- Align the Pi client contract with the shared sync prompt so Raspberry Pi uses
-  only Ask DJ history sync while iOS/macOS/watchOS remain interactive clients.
+- Add Raspberry Pi Ask DJ `readonly_actions` mode: the touch UI displays the
+  shared Home Assistant conversation feed and can render HA-provided structured
+  action buttons, without free text prompts, voice input, TTS or local audio.
+- Advertise explicit Ask DJ capabilities:
+  `ask_dj_supported:true`, `ask_dj_mode:"readonly_actions"`,
+  `ask_dj_free_input_supported:false`, `ask_dj_actions_supported:true`,
+  `voice_supported:false`, `tts_supported:false` and
+  `local_audio_supported:false`.
+- Poll Ask DJ history idempotently with the server revision cursor, only after
+  pairing/authentication, and back off quietly on unavailable, stale auth,
+  version mismatch or network failures.
+- Move Afspeellijsten, Games and Instellingen behind a Meer screen so the
+  bottom navigation keeps Speelt nu, Bediening, Ask DJ, Wachtrij and Meer.
+- Polish the pairing/update UI with an animated spinner, macOS-style app banner,
+  pairing-field order alignment, a colon-free pairing heading and a play icon
+  on the demo-mode button.
 
 ## 3.1.95
 
