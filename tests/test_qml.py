@@ -124,6 +124,10 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     now_start = main_qml.index("id: nowPanel")
     now_block = main_qml[now_start : main_qml.index("id: controlPanel", now_start)]
     assert "text: djconnect.statusText" not in now_block
+    assert "anchors.leftMargin: 16" in now_block
+    assert "anchors.topMargin: 16" in now_block
+    assert "anchors.rightMargin: 16" in now_block
+    assert "Layout.preferredHeight: 48" in now_block
     assert 'anchors.bottomMargin: root.edge + 96' in now_block
     assert "width: Math.min(parent.width, parent.height)" in now_block
     assert "cache: true" in now_block

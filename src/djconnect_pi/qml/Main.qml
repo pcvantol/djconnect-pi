@@ -811,15 +811,15 @@ Window {
 
         ColumnLayout {
             anchors.fill: parent
-            anchors.leftMargin: 8
-            anchors.topMargin: 8
-            anchors.rightMargin: 8
+            anchors.leftMargin: 16
+            anchors.topMargin: 16
+            anchors.rightMargin: 16
             anchors.bottomMargin: root.edge + 96
-            spacing: 6
+            spacing: 10
 
             RowLayout {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 34
+                Layout.preferredHeight: 48
                 spacing: 10
 
                 Text {
