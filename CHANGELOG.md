@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.1.100
+
+- Update Ask DJ message merging to prefer the server-side `messages[]`
+  exchange contract, keep each user question above its assistant reply within
+  the same exchange, and deduplicate optimistic, HTTP and history/push copies
+  of the same conversation bubble.
+
 ## 3.1.99
 
 - Replace the bottom navigation and Meer menu glyphs with consistent QML Canvas
