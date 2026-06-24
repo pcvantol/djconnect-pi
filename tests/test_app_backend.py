@@ -150,6 +150,125 @@ def test_ask_dj_parser_accepts_history_rich_messages() -> None:
     assert messages[2]["text"] == "Ask DJ denkt na"
 
 
+def test_ask_dj_parser_prefers_canonical_response_messages() -> None:
+    messages = parse_ask_dj_messages(
+        {
+            "user_message": "heb je playlists van snowpatrol",
+            "assistant_message": "Legacy antwoord dat niet los moet renderen",
+            "messages": [
+                {
+                    "id": "u-server",
+                    "client_message_id": "client-1",
+                    "exchange_id": "exchange-1",
+                    "exchange_order": 0,
+                    "role": "user",
+                    "text": "heb je playlists van snowpatrol",
+                },
+                {
+                    "id": "a-server",
+                    "client_message_id": "client-1",
+                    "exchange_id": "exchange-1",
+                    "exchange_order": 1,
+                    "role": "assistant",
+                    "text": "Ik heb een paar Snow Patrol playlists gevonden.",
+                },
+            ],
+        }
+    )
+
+    assert [message["id"] for message in messages] == ["u-server", "a-server"]
+    assert [message["role"] for message in messages] == ["user", "assistant"]
+    assert [message["exchange_order"] for message in messages] == [0, 1]
+
+
+def test_ask_dj_parser_keeps_legacy_user_before_assistant() -> None:
+    messages = parse_ask_dj_messages(
+        {
+            "client_message_id": "client-legacy",
+            "user_message": "heb je playlists van snowpatrol",
+            "assistant_message": "Ik heb een paar Snow Patrol playlists gevonden.",
+            "created_at": "2026-06-24T12:00:00Z",
+        }
+    )
+
+    assert [message["role"] for message in messages] == ["user", "assistant"]
+    assert [message["text"] for message in messages] == [
+        "heb je playlists van snowpatrol",
+        "Ik heb een paar Snow Patrol playlists gevonden.",
+    ]
+
+
+def test_ask_dj_merge_orders_exchange_and_deduplicates_refreshes(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend._merge_ask_dj_messages(
+        [
+            {
+                "id": "",
+                "client_message_id": "client-1",
+                "role": "user",
+                "text": "heb je playlists van snowpatrol",
+                "created_at": "2026-06-24T12:00:00Z",
+                "pending": True,
+            }
+        ]
+    )
+    backend._apply_ask_dj_data(
+        {
+            "history_revision": 5,
+            "messages": [
+                {
+                    "id": "a-server",
+                    "client_message_id": "client-1",
+                    "exchange_id": "exchange-1",
+                    "exchange_order": 1,
+                    "role": "assistant",
+                    "text": "Ik heb een paar Snow Patrol playlists gevonden.",
+                    "created_at": "2026-06-24T12:00:01Z",
+                },
+                {
+                    "id": "u-server",
+                    "client_message_id": "client-1",
+                    "exchange_id": "exchange-1",
+                    "exchange_order": 0,
+                    "role": "user",
+                    "text": "heb je playlists van snowpatrol",
+                    "created_at": "2026-06-24T12:00:02Z",
+                },
+            ],
+        }
+    )
+    backend._apply_ask_dj_data(
+        {
+            "history_revision": 6,
+            "messages": [
+                {
+                    "id": "u-server",
+                    "client_message_id": "client-1",
+                    "exchange_id": "exchange-1",
+                    "exchange_order": 0,
+                    "role": "user",
+                    "text": "heb je playlists van snowpatrol",
+                },
+                {
+                    "id": "a-server",
+                    "client_message_id": "client-1",
+                    "exchange_id": "exchange-1",
+                    "exchange_order": 1,
+                    "role": "assistant",
+                    "text": "Ik heb een paar Snow Patrol playlists gevonden.",
+                },
+            ],
+        }
+    )
+
+    rendered = [(message["role"], message["text"]) for message in backend.askDjMessages]
+    assert rendered == [
+        ("user", "heb je playlists van snowpatrol"),
+        ("assistant", "Ik heb een paar Snow Patrol playlists gevonden."),
+    ]
+
+
 def test_ask_dj_poll_requires_pairing_and_token(tmp_path: Path) -> None:
     ensure_app()
     backend = DJConnectBackend(tmp_path / "config.json")
