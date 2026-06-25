@@ -21,26 +21,31 @@ Belangrijke context:
 - Geen lokale `SYNC_PROMPTS.md` of `PRODUCT_ROADMAP.md`; die staan canoniek in `pcvantol/djconnect`.
 
 Huidige stand:
-- Laatste beoogde release in deze werkronde is `v3.1.100`.
-- Public updater assets staan in `pcvantol/djconnect-pi-releases`, inclusief `djconnect-pi-latest.json`.
-- Release `v3.1.100` werkt de Ask DJ chat-rendering bij voor het nieuwe
-  server-side message exchange contract: `messages[]` is canoniek waar
-  beschikbaar, optimistic/user bubbles mergen in de server exchange, en user
-  berichten blijven boven het DJ antwoord binnen dezelfde exchange.
+- Laatste release in deze werkronde is `v3.1.109`.
+- Public updater assets staan in `pcvantol/djconnect-pi-releases`, inclusief
+  `djconnect-pi-latest.json`.
+- Release `v3.1.109` voegt Add to favorites toe voor Now Playing en Ask DJ:
+  Now Playing stuurt `save_current_track` via `/api/djconnect/command`, en
+  Ask DJ `playback_actions[]` met `kind:"control"` en
+  `command:"save_current_track"` worden als directe favorietenknop gerenderd
+  zonder recommendation playback of extra artwork.
 - Source release is aangemaakt:
-  - source repo tag/release: `v3.1.100`
-  - source PR naar `main`: `#7`
-- Public publish workflow voor `v3.1.100` loopt nog; verifieer na afronden:
-  - `djconnect-pi-3.1.100.tar.gz`
-  - `djconnect-pi-3.1.100.sha256`
+  - source repo tag/release: `v3.1.109`
+  - source PR naar `main`: `#16`
+- Public publish workflow voor `v3.1.109` is geslaagd.
+- Public assets voor `v3.1.109` zijn gepubliceerd:
+  - `djconnect-pi-3.1.109.tar.gz`
+  - `djconnect-pi-3.1.109.sha256`
   - `djconnect-pi-latest.json`
-- Pi moet via de normale updater-route naar `3.1.100` worden gebracht.
-- Validatie voor `v3.1.100`:
-  - run `python3 -m pytest -q`
+- Pi is via de normale updater-route naar `3.1.109` gebracht.
+- Validatie voor `v3.1.109`:
+  - `python3 -m py_compile src/djconnect_pi/app.py src/djconnect_pi/ha.py src/djconnect_pi/i18n.py tests/test_ha.py tests/test_app_backend.py tests/test_qml.py tests/test_i18n.py` -> ok
   - `git diff --check` -> ok
-  - GitHub Actions publish workflow voor `v3.1.100` controleren
+  - GitHub Actions publish workflow voor `v3.1.109` -> success
   - Pi services na updater install: `djconnect-api.service`,
     `djconnect-client.service` en `djconnect-updater.timer` active
+  - Lokale `pytest` is niet gedraaid omdat pytest niet in de beschikbare
+    Python interpreters geïnstalleerd is.
 
 Openstaande gewenste workflow:
 - Controleer na elke release de public publish workflow:
