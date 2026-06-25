@@ -14,16 +14,14 @@ Button {
     font.bold: true
 
     background: Rectangle {
-        radius: 8
-        color: control.primary ? "#668b5cf6" : "#3324145f"
-        border.color: control.down || control.primary ? "#d9ccff" : "#7f67ff"
-        border.width: 1
+        radius: Math.min(width, height) / 2
+        border.width: 0
         scale: control.down ? 0.96 : 1.0
         gradient: Gradient {
             orientation: Gradient.Horizontal
-            GradientStop { position: 0.0; color: control.enabled ? "#556d28d9" : "#25293d" }
-            GradientStop { position: 0.55; color: control.enabled ? "#448b5cf6" : "#2c3048" }
-            GradientStop { position: 1.0; color: control.enabled ? "#332563eb" : "#25293d" }
+            GradientStop { position: 0.0; color: control.enabled ? "#247fff" : "#33415f" }
+            GradientStop { position: 0.58; color: control.enabled ? "#7757ff" : "#3c3f61" }
+            GradientStop { position: 1.0; color: control.enabled ? "#c33cff" : "#4b3d65" }
         }
 
         Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutCubic } }

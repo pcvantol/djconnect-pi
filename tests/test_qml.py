@@ -73,7 +73,8 @@ def test_qml_has_touch_games_panel() -> None:
     assert "id: gameSelector" in games_qml
     assert "id: gameSegment" in games_qml
     assert 'color: "#cc0a0522"' in games_qml
-    assert 'GradientStop { position: 0.0; color: gameSegment.checked ? "#ff755f" : "#00000000" }' in games_qml
+    assert 'GradientStop { position: 0.0; color: gameSegment.checked ? "#247fff" : "#00000000" }' in games_qml
+    assert 'GradientStop { position: 1.0; color: gameSegment.checked ? "#c33cff" : "#00000000" }' in games_qml
     assert "root.tr(modelData.titleKey)" in games_qml
     assert "MouseArea" in games_qml
     assert "preventStealing: true" in games_qml
@@ -111,7 +112,8 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "component MediaListPanel" in main_qml
     assert "component GlassButton" in games_qml
     assert "#3324145f" in main_qml
-    assert "#3324145f" in games_qml
+    assert "#247fff" in games_qml
+    assert "#c33cff" in games_qml
     assert 'color: "#ffffff"' in main_qml
     assert "id: settingsPanel" in main_qml
     assert "id: settingsScroll" in main_qml
@@ -269,7 +271,7 @@ def test_qml_has_bottom_navigation_bar() -> None:
     assert "component MoreMenuButton" in main_qml
     assert "id: morePanel" in main_qml
     assert "height: 104" in main_qml
-    assert "border.width: navControl.checked ? 3 : 1" in main_qml
+    assert "border.width: navControl.checked ? 2 : 0" in main_qml
     nav_button = main_qml[main_qml.index("component NavButton") : main_qml.index("component MoreMenuButton")]
     assert "anchors.top: parent.top" not in nav_button
     assert "visible: navControl.checked" not in nav_button

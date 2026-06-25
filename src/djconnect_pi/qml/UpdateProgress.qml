@@ -217,16 +217,15 @@ Window {
             onClicked: updater.toggleDetails()
 
             background: Rectangle {
-                radius: 8
-                color: "#3b1677"
+                radius: Math.min(width, height) / 2
                 gradient: Gradient {
                     orientation: Gradient.Horizontal
-                    GradientStop { position: 0.0; color: detailsButton.down ? "#5422a6" : "#6f35ff" }
-                    GradientStop { position: 0.48; color: detailsButton.down ? "#8d21bf" : "#c02eff" }
-                    GradientStop { position: 1.0; color: detailsButton.down ? "#4a168f" : "#8228f2" }
+                    GradientStop { position: 0.0; color: "#247fff" }
+                    GradientStop { position: 0.58; color: "#7757ff" }
+                    GradientStop { position: 1.0; color: "#c33cff" }
                 }
-                border.color: "#d8c8ff"
-                border.width: 2
+                border.width: 0
+                opacity: detailsButton.down ? 0.78 : 1.0
             }
 
             contentItem: Text {
