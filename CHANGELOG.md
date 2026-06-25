@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.1.104
+
+- Use the blue-to-magenta Play Now gradient for all Ask DJ buttons.
+
 ## 3.1.103
 
 - Scroll the Ask DJ history to the newest chat bubble automatically when the
