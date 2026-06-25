@@ -158,7 +158,7 @@ The Pi client is an app-like DJConnect client.
   "device_id": "djconnect-raspberry-pi-XXXXXXXXXXXX",
   "device_name": "DJConnect",
   "client_type": "raspberry_pi",
-  "version": "3.1.106",
+  "version": "3.1.107",
   "capabilities": {
     "touch": true,
     "voice": false,
@@ -168,8 +168,8 @@ The Pi client is an app-like DJConnect client.
     "local_audio_supported": false,
     "local_dj_response_endpoint": false,
     "ask_dj_supported": true,
-    "ask_dj_mode": "readonly_actions",
-    "ask_dj_free_input_supported": false,
+    "ask_dj_mode": "text_actions",
+    "ask_dj_free_input_supported": true,
     "ask_dj_actions_supported": true
   }
 }
@@ -180,20 +180,22 @@ Runtime traffic uses:
 - `POST /api/djconnect/pair`
 - `POST /api/djconnect/status`
 - `POST /api/djconnect/command`
+- `POST /api/djconnect/ask_dj/message`
 - `GET /api/djconnect/ask_dj/history?since_revision=<revision>`
+- `POST /api/djconnect/ask_dj/history/clear`
 
 Pairing, status and command payloads all include the stable `device_id` and
 `client_type=raspberry_pi`. Command payloads also include the command name and
 any command-specific value fields.
 
-Ask DJ on Raspberry Pi is `readonly_actions`. The touch UI renders shared
-assistant, system, status and other-client user messages from Home Assistant,
-uses the returned `revision` cursor to avoid duplicate polling, and never shows
-free text input, push-to-talk, wake word, TTS or local audio playback controls.
-When Home Assistant includes structured Ask DJ action buttons, the Pi may send
-`command:"ask_dj_action"` through the normal command endpoint with the exact
-structured `action` payload. It must not call free prompt/send-message
-endpoints and must not fall back to raw text if action support is unavailable.
+Ask DJ on Raspberry Pi is `text_actions`. The touch UI sends typed text
+questions to Home Assistant, renders shared assistant, system, status and
+other-client user messages from Home Assistant, uses the returned `revision`
+cursor to avoid duplicate polling, and never shows push-to-talk, wake word, TTS
+or local audio playback controls. When Home Assistant includes structured Ask
+DJ action buttons, the Pi may send `command:"ask_dj_action"` through the normal
+command endpoint with the exact structured `action` payload. It must not
+reconstruct intents, follow-ups, memory or playback actions locally.
 
 Media browsing commands use explicit bounded limits: `queue` sends
 `{"command":"queue","limit":100}` and `playlists` sends

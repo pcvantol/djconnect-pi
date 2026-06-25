@@ -1921,9 +1921,17 @@ Window {
                     id: askDjRefreshButton
                     text: root.tr("refresh")
                     font.pixelSize: 18
-                    Layout.preferredWidth: 150
+                    Layout.preferredWidth: 132
                     Layout.preferredHeight: 48
                     onClicked: djconnect.loadAskDjHistory()
+                }
+
+                AskDjGradientButton {
+                    text: root.tr("clear")
+                    font.pixelSize: 18
+                    Layout.preferredWidth: 112
+                    Layout.preferredHeight: 48
+                    onClicked: djconnect.clearAskDjHistory()
                 }
             }
 
@@ -1934,6 +1942,62 @@ Window {
                 font.bold: true
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 58
+                radius: 8
+                color: "#3324145f"
+                border.color: "#5c4d95"
+                border.width: 1
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.margins: 8
+                    spacing: 8
+
+                    TextField {
+                        id: askDjInput
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        placeholderText: root.tr("ask_dj_input_placeholder")
+                        enabled: !djconnect.askDjBusy
+                        color: "#ffffff"
+                        placeholderTextColor: "#91a0bd"
+                        font.pixelSize: 20
+                        selectByMouse: false
+                        maximumLength: 500
+                        background: Rectangle {
+                            radius: 8
+                            color: "#22070b16"
+                            border.color: askDjInput.activeFocus ? "#a5b4fc" : "#39415f"
+                            border.width: 1
+                        }
+                        onAccepted: {
+                            var message = askDjInput.text.trim()
+                            if (message.length > 0 && !djconnect.askDjBusy) {
+                                askDjInput.text = ""
+                                djconnect.sendAskDjMessage(message)
+                            }
+                        }
+                    }
+
+                    AskDjGradientButton {
+                        text: root.tr("send")
+                        enabled: !djconnect.askDjBusy && askDjInput.text.trim().length > 0
+                        font.pixelSize: 18
+                        Layout.preferredWidth: 112
+                        Layout.fillHeight: true
+                        onClicked: {
+                            var message = askDjInput.text.trim()
+                            if (message.length > 0) {
+                                askDjInput.text = ""
+                                djconnect.sendAskDjMessage(message)
+                            }
+                        }
+                    }
+                }
             }
 
             ScrollView {
@@ -2013,6 +2077,98 @@ Window {
                                                 sourceSize.height: 112
                                                 asynchronous: true
                                                 cache: false
+                                            }
+                                        }
+                                    }
+                                }
+
+                                ColumnLayout {
+                                    visible: modelData.items && modelData.items.length > 0
+                                    Layout.fillWidth: true
+                                    spacing: 8
+
+                                    Repeater {
+                                        model: modelData.items || []
+
+                                        Rectangle {
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: 70
+                                            radius: 8
+                                            color: "#44291f4b"
+                                            border.color: "#44ffffff"
+                                            border.width: 1
+                                            clip: true
+
+                                            RowLayout {
+                                                anchors.fill: parent
+                                                anchors.margins: 8
+                                                spacing: 10
+
+                                                Rectangle {
+                                                    Layout.preferredWidth: 54
+                                                    Layout.preferredHeight: 54
+                                                    radius: 8
+                                                    color: "#22182e"
+                                                    clip: true
+
+                                                    Image {
+                                                        visible: modelData.imageUrl && modelData.imageUrl.length > 0
+                                                        anchors.fill: parent
+                                                        source: modelData.imageUrl || ""
+                                                        fillMode: Image.PreserveAspectCrop
+                                                        sourceSize.width: 54
+                                                        sourceSize.height: 54
+                                                        asynchronous: true
+                                                        cache: false
+                                                    }
+
+                                                    Text {
+                                                        anchors.centerIn: parent
+                                                        visible: !modelData.imageUrl || modelData.imageUrl.length === 0
+                                                        text: "♪"
+                                                        color: "#d8c8ff"
+                                                        font.pixelSize: 24
+                                                        font.bold: true
+                                                    }
+                                                }
+
+                                                ColumnLayout {
+                                                    Layout.fillWidth: true
+                                                    spacing: 2
+
+                                                    Text {
+                                                        text: modelData.title || ""
+                                                        color: "#ffffff"
+                                                        font.pixelSize: 17
+                                                        font.bold: true
+                                                        elide: Text.ElideRight
+                                                        maximumLineCount: 1
+                                                        Layout.fillWidth: true
+                                                    }
+
+                                                    Text {
+                                                        text: modelData.subtitle || ""
+                                                        color: "#f0d7ea"
+                                                        font.pixelSize: 15
+                                                        font.bold: true
+                                                        elide: Text.ElideRight
+                                                        maximumLineCount: 1
+                                                        visible: text.length > 0
+                                                        Layout.fillWidth: true
+                                                    }
+                                                }
+
+                                                Text {
+                                                    text: modelData.time || ""
+                                                    color: "#b7c2d8"
+                                                    font.pixelSize: 14
+                                                    font.bold: true
+                                                    horizontalAlignment: Text.AlignRight
+                                                    elide: Text.ElideRight
+                                                    maximumLineCount: 1
+                                                    Layout.preferredWidth: 112
+                                                    visible: text.length > 0
+                                                }
                                             }
                                         }
                                     }

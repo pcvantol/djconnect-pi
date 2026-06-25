@@ -1,12 +1,12 @@
 # DJConnect Pi
 
-Version: `3.1.106`
+Version: `3.1.107`
 
 Raspberry Pi Zero 2 W touch-display client for DJConnect. This client uses
 Qt Quick/QML with a PySide6 backend and is meant for a Pimoroni HyperPixel 4.0
 Square Touch style kiosk remote: pairing, status, now playing and touch
-playback control, plus passive Ask DJ conversation display with structured
-touch actions.
+playback control, plus Ask DJ text questions, conversation display and
+structured touch actions.
 
 It intentionally does not implement PTT, microphone upload, local DJ response
 audio, a Pi-local DJ response endpoint, ESP firmware OTA, ESP battery sensors
@@ -35,7 +35,9 @@ automatically on boot through `djconnect-api.service`.
   - `POST /api/djconnect/pair`
   - `POST /api/djconnect/status`
   - `POST /api/djconnect/command`
+  - `POST /api/djconnect/ask_dj/message`
   - `GET /api/djconnect/ask_dj/history?since_revision=<revision>`
+  - `POST /api/djconnect/ask_dj/history/clear`
 - Local Client API endpoints:
   - `GET /api/device/info`
   - `GET /api/device/pairing-info`
@@ -67,7 +69,7 @@ automatically on boot through `djconnect-api.service`.
   - `playlists` with `limit=100`
   - `play_context_at` for queue rows, with nested `value.uri`
   - `start_playlist` for playlist rows
-  - `ask_dj_action` for HA-provided structured Ask DJ action buttons only
+  - `ask_dj_action` for HA-provided structured Ask DJ action buttons
 - Version compatibility:
   - client `3.1.z` works with DJConnect HA `>=3.1.0` and `<3.2.0`
   - HA responses may include `ha_version` or `ha_major_minor`
@@ -99,10 +101,10 @@ The app is a 720x720 fullscreen touch remote:
 - bottom navigation and Meer menu icons are drawn as consistent QML Canvas
   outline icons, matching the macOS-style menu language without depending on
   platform-specific Unicode glyph rendering
-- Ask DJ screen that passively displays the shared Home Assistant conversation
-  feed, decodes assistant, system, status and other-client user messages, and
-  renders HA-provided structured action buttons without any free text, voice,
-  TTS or local audio path
+- Ask DJ screen that sends typed text questions to Home Assistant, displays the
+  shared conversation feed, decodes assistant, system, status and other-client
+  user messages, and renders HA-provided structured action buttons without any
+  voice, PTT, TTS or local audio path
 - fixed bottom menu bar for Speelt nu, Bediening, Ask DJ, Wachtrij and Meer;
   Meer contains Afspeellijsten, Games, Instellingen, Logs and Over
 - settings for screen blanking, brightness, language, logs, pairing reset,
@@ -181,9 +183,9 @@ not a private source clone:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.106.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.107.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.106
+cd djconnect-pi-3.1.107
 sudo ./scripts/install.sh
 ```
 
@@ -294,9 +296,9 @@ installer:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.106.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.107.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.106
+cd djconnect-pi-3.1.107
 sudo ./scripts/install.sh
 ```
 

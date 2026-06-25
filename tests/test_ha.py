@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
@@ -63,8 +62,8 @@ def test_pair_sends_raspberry_pi_identity_and_stores_token() -> None:
     assert captured["json"]["capabilities"]["tts_supported"] is False
     assert captured["json"]["capabilities"]["local_audio_supported"] is False
     assert captured["json"]["capabilities"]["ask_dj_supported"] is True
-    assert captured["json"]["capabilities"]["ask_dj_mode"] == "readonly_actions"
-    assert captured["json"]["capabilities"]["ask_dj_free_input_supported"] is False
+    assert captured["json"]["capabilities"]["ask_dj_mode"] == "text_actions"
+    assert captured["json"]["capabilities"]["ask_dj_free_input_supported"] is True
     assert captured["json"]["capabilities"]["ask_dj_actions_supported"] is True
     assert captured["json"]["capabilities"]["local_dj_response_endpoint"] is False
     assert "device_type" not in captured["json"]
@@ -170,10 +169,52 @@ def test_ask_dj_history_gets_since_revision() -> None:
     assert captured["headers"]["X-DJConnect-Client-Type"] == "raspberry_pi"
 
 
-def test_ask_dj_message_endpoint_is_not_used() -> None:
-    source = Path("src/djconnect_pi/ha.py").read_text(encoding="utf-8")
+def test_ask_dj_message_posts_text_identity_and_no_audio_request() -> None:
+    cfg = Config(ha_url="http://ha", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1")
+    client = HAClient(cfg)
+    captured: dict[str, Any] = {}
 
-    assert "/api/djconnect/ask_dj/message" not in source
+    def fake_post(url: str, **kwargs: Any) -> FakeResponse:
+        captured["url"] = url
+        captured["json"] = kwargs["json"]
+        captured["headers"] = kwargs["headers"]
+        return FakeResponse(200, {"success": True, "messages": []})
+
+    with patch("djconnect_pi.ha.requests.post", side_effect=fake_post):
+        client.ask_dj_message("Wat speelt er?", "msg-1")
+
+    assert captured["url"] == "http://ha/api/djconnect/ask_dj/message"
+    assert captured["headers"]["Authorization"] == "Bearer token-1"
+    assert captured["json"]["client_type"] == "raspberry_pi"
+    assert captured["json"]["device_id"] == "djconnect-raspberry-pi-ABCDEF123456"
+    assert captured["json"]["client_id"] == "djconnect-raspberry-pi-ABCDEF123456"
+    assert captured["json"]["client_message_id"] == "msg-1"
+    assert captured["json"]["text"] == "Wat speelt er?"
+    assert captured["json"]["audio_response"] == "never"
+    assert captured["json"]["identity"]["client_type"] == "raspberry_pi"
+    assert "message" not in captured["json"]
+    assert "prompt" not in captured["json"]
+
+
+def test_ask_dj_clear_history_posts_identity_payload() -> None:
+    cfg = Config(ha_url="http://ha", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1")
+    client = HAClient(cfg)
+    captured: dict[str, Any] = {}
+
+    def fake_post(url: str, **kwargs: Any) -> FakeResponse:
+        captured["url"] = url
+        captured["json"] = kwargs["json"]
+        captured["headers"] = kwargs["headers"]
+        return FakeResponse(200, {"success": True, "clear_revision": 3, "messages": []})
+
+    with patch("djconnect_pi.ha.requests.post", side_effect=fake_post):
+        client.ask_dj_clear_history()
+
+    assert captured["url"] == "http://ha/api/djconnect/ask_dj/history/clear"
+    assert captured["headers"]["Authorization"] == "Bearer token-1"
+    assert captured["json"]["client_type"] == "raspberry_pi"
+    assert captured["json"]["device_id"] == "djconnect-raspberry-pi-ABCDEF123456"
+    assert captured["json"]["identity"]["device_name"] == cfg.device_name
 
 
 def test_ask_dj_action_uses_structured_command_payload() -> None:
@@ -210,12 +251,18 @@ def test_ask_dj_play_action_uses_action_command_or_play_recommendation() -> None
     with patch("djconnect_pi.ha.requests.post", side_effect=fake_post):
         client.ask_dj_action({"kind": "playlist", "title": "Roadtrip", "uri": "spotify:playlist:1"})
         client.ask_dj_action({"command": "custom_action", "kind": "track", "uri": "spotify:track:1"})
+        client.ask_dj_action({"kind": "control", "command": "pause", "title": "Pauze"})
+        client.ask_dj_action({"kind": "output", "command": "set_output", "title": "Keuken", "value": "Keuken"})
 
     assert captured[0]["command"] == "ask_dj_play_recommendation"
     assert captured[0]["play"] is True
     assert captured[0]["value"]["uri"] == "spotify:playlist:1"
     assert captured[1]["command"] == "custom_action"
     assert captured[1]["play"] is True
+    assert captured[2]["command"] == "pause"
+    assert captured[2]["play"] is False
+    assert captured[3]["command"] == "set_output"
+    assert captured[3]["play"] is False
 
 
 def test_playback_from_status_accepts_aliases() -> None:

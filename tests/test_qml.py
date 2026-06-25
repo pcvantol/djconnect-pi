@@ -312,7 +312,7 @@ def test_qml_has_bottom_navigation_bar() -> None:
     assert 'root.activeScreen = "more"' in main_qml
 
 
-def test_qml_ask_dj_screen_is_read_only() -> None:
+def test_qml_ask_dj_screen_sends_text_without_audio_controls() -> None:
     main_qml = files("djconnect_pi.qml").joinpath("Main.qml").read_text(encoding="utf-8")
     ask_dj_block = main_qml[main_qml.index("id: askDjPanel") : main_qml.index("GamesPanel {")]
 
@@ -323,8 +323,13 @@ def test_qml_ask_dj_screen_is_read_only() -> None:
     assert "djconnect.loadAskDjHistory()" in ask_dj_block
     assert "id: askDjRefreshButton" in ask_dj_block
     assert "AskDjGradientButton" in ask_dj_block
-    assert "Layout.preferredWidth: 150" in ask_dj_block
+    assert "Layout.preferredWidth: 132" in ask_dj_block
+    assert "djconnect.clearAskDjHistory()" in ask_dj_block
     assert 'root.tr("ask_dj_readonly_hint")' in ask_dj_block
+    assert "TextField" in ask_dj_block
+    assert 'root.tr("ask_dj_input_placeholder")' in ask_dj_block
+    assert 'root.tr("send")' in ask_dj_block
+    assert "djconnect.sendAskDjMessage(message)" in ask_dj_block
     assert 'root.tr("replay_audio")' not in ask_dj_block
     assert "Qt.openUrlExternally(modelData.audioUrl)" not in ask_dj_block
     assert "id: askDjPollTimer" in main_qml
@@ -338,13 +343,12 @@ def test_qml_ask_dj_screen_is_read_only() -> None:
     assert "modelData.actions || []" in ask_dj_block
     assert "modelData.isMedia" in ask_dj_block
     assert "modelData.isOutput" in ask_dj_block
+    assert "modelData.items || []" in ask_dj_block
+    assert "modelData.time ||" in ask_dj_block
     assert 'source: modelData.imageUrl && modelData.imageUrl.length > 0 ? modelData.imageUrl : ""' in ask_dj_block
     assert 'text: modelData.isOutput ? root.tr("activate") : (modelData.isMedia ? "Play Now" : (modelData.title || root.tr("start")))' in ask_dj_block
     assert 'onClicked: djconnect.sendAskDjAction(modelData.payload || "{}")' in ask_dj_block
-    assert "TextField" not in ask_dj_block
-    assert "sendAskDjMessage" not in main_qml
     assert "requestAskDjIdleSuggestion" not in ask_dj_block
-    assert "clearAskDjHistory" not in ask_dj_block
     assert "playAskDjAction" not in ask_dj_block
 
 

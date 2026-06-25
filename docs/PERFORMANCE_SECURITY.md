@@ -56,10 +56,10 @@ This file records the first pass review for the wall-mounted Pi client.
   writes are atomic and stored with `0600` permissions.
 - Pair/status/command requests include `client_type: raspberry_pi` and app-like
   capabilities that explicitly disable voice/audio/local response handling.
-- Ask DJ is advertised as `readonly_actions`: the Pi can poll shared history
-  and send only HA-provided structured action payloads, while free prompts,
-  microphone input, wake word, TTS and local Ask DJ audio playback remain
-  unsupported.
+- Ask DJ is advertised as `text_actions`: the Pi can send typed text to Home
+  Assistant, poll shared history and send HA-provided structured action
+  payloads, while microphone input, wake word, TTS and local Ask DJ audio
+  playback remain unsupported.
 - Persistent logging uses rotating files and redacts messages that obviously
   contain tokens, bearer auth, passwords or secrets.
 - Startup logs include Raspberry Pi system information such as OS, kernel,

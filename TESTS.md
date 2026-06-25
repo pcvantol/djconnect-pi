@@ -26,8 +26,8 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 - Home Assistant pairing/status/command payloads
 - Home Assistant command payloads include `device_id` and
   `client_type=raspberry_pi`
-- Ask DJ capability payloads advertise `readonly_actions`, structured actions
-  support and no free input, voice, TTS or local audio support
+- Ask DJ capability payloads advertise `text_actions`, structured actions
+  support, typed text input and no voice, TTS or local audio support
 - Ask DJ history polling uses bearer auth, Pi identity headers, the revision
   cursor and pairing/auth/version guards with quiet backoff on unavailable
   backend states

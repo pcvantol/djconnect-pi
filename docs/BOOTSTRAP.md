@@ -185,9 +185,9 @@ completed:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.106.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.107.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.106
+cd djconnect-pi-3.1.107
 sudo ./scripts/install.sh
 ```
 
@@ -215,9 +215,9 @@ development checkout:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.106.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.107.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.106
+cd djconnect-pi-3.1.107
 sudo ./scripts/install.sh
 ```
 
@@ -369,8 +369,8 @@ journalctl -u djconnect-client.service -f
 3. On the Pi screen, enter the Home Assistant URL if prompted.
 4. Enter the pairing code.
 5. Confirm the Pi reports `client_type: raspberry_pi`.
-6. Confirm `/api/device/info` reports Ask DJ as `readonly_actions`, with
-   `ask_dj_free_input_supported:false`, `ask_dj_actions_supported:true`,
+6. Confirm `/api/device/info` reports Ask DJ as `text_actions`, with
+   `ask_dj_free_input_supported:true`, `ask_dj_actions_supported:true`,
    `voice_supported:false`, `tts_supported:false` and
    `local_audio_supported:false`.
 
@@ -403,6 +403,7 @@ Open `Setup` on the touch screen and configure:
   Shared `current_track` and `playback_control` voice examples are Home
   Assistant behavior and do not require Spotify credentials or playback backend
   logic on the Pi.
-- Ask DJ on the Pi is a read-only feed with optional structured touch action
-  buttons supplied by Home Assistant. It does not expose free text input,
-  push-to-talk, wake word, TTS or local Ask DJ audio playback.
+- Ask DJ on the Pi sends typed text questions to Home Assistant and displays
+  the shared feed with optional structured touch action buttons supplied by
+  Home Assistant. It does not expose push-to-talk, wake word, TTS or local Ask
+  DJ audio playback.

@@ -1,5 +1,16 @@
 # Changelog
 
+## 3.1.107
+
+- Update Raspberry Pi Ask DJ for the Home Assistant v3.1.92 contract: typed
+  text messages use `/api/djconnect/ask_dj/message`, history sync keeps
+  `since_revision`, history clearing uses `/api/djconnect/ask_dj/history/clear`
+  and capabilities advertise text actions while voice/PTT/TTS/local audio stay
+  disabled.
+- Render Ask DJ response `items[]` as compact rows, keep memory summaries
+  text-only and route HA-provided control, output, confirmation and Play Now
+  actions through `/api/djconnect/command` without local intent reconstruction.
+
 ## 3.1.106
 
 - Apply the blue-to-magenta button gradient across the Raspberry Pi UI.

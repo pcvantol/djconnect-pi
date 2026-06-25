@@ -228,6 +228,82 @@ def test_ask_dj_output_actions_render_as_rows_without_duplicate_bullets() -> Non
     assert all(action["isMedia"] is False for action in messages[0]["actions"])
 
 
+def test_ask_dj_control_status_has_no_art_or_audio_button() -> None:
+    messages = parse_ask_dj_messages(
+        {
+            "messages": [
+                {
+                    "id": "shuffle",
+                    "role": "assistant",
+                    "text": "Shuffle staat aan.",
+                    "images": [],
+                    "playback_actions": [
+                        {"kind": "control", "command": "set_shuffle", "title": "Shuffle uitzetten", "value": False, "image_url": "https://example.test/old.jpg"}
+                    ],
+                    "audio_url": None,
+                }
+            ]
+        }
+    )
+
+    assert messages[0]["text"] == "Shuffle staat aan."
+    assert messages[0]["images"] == []
+    assert messages[0]["audioUrl"] == ""
+    assert messages[0]["actions"][0]["title"] == "Shuffle uitzetten"
+    assert messages[0]["actions"][0]["isMedia"] is False
+    assert messages[0]["actions"][0]["imageUrl"] == ""
+
+
+def test_ask_dj_memory_summary_is_text_only_with_memory_source() -> None:
+    messages = parse_ask_dj_messages(
+        {
+            "text": "Je houdt van Kebu en rustige ochtendmuziek.",
+            "intent": "personal_memory_summary",
+            "sources": [{"source": "djconnect_memory"}],
+            "images": [],
+            "playback_actions": [],
+            "audio_url": None,
+        }
+    )
+
+    assert messages[0]["text"] == "Je houdt van Kebu en rustige ochtendmuziek."
+    assert messages[0]["images"] == []
+    assert messages[0]["actions"] == []
+    assert messages[0]["audioUrl"] == ""
+    assert messages[0]["links"] == [{"title": "djconnect_memory", "url": "", "kind": "djconnect_memory"}]
+
+
+def test_ask_dj_recently_played_items_render_as_compact_rows_without_actions(monkeypatch) -> None:
+    monkeypatch.setattr("djconnect_pi.app.cached_image_url", lambda url: f"file:///cache/{url.rsplit('/', 1)[-1]}")
+    messages = parse_ask_dj_messages(
+        {
+            "text": "Deze nummers heb je afgelopen uur afgespeeld.",
+            "intent": "recently_played_history",
+            "items": [
+                {
+                    "title": "Nightdrive",
+                    "artist": "Kebu",
+                    "played_at": "08:42",
+                    "image_url": "https://example.test/nightdrive.jpg",
+                }
+            ],
+            "playback_actions": [],
+        }
+    )
+
+    assert messages[0]["actions"] == []
+    assert messages[0]["images"] == []
+    assert messages[0]["items"] == [
+        {
+            "title": "Nightdrive",
+            "subtitle": "Kebu",
+            "time": "08:42",
+            "kind": "",
+            "imageUrl": "file:///cache/nightdrive.jpg",
+        }
+    ]
+
+
 def test_ask_dj_parser_prefers_canonical_response_messages() -> None:
     messages = parse_ask_dj_messages(
         {

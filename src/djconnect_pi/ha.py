@@ -156,16 +156,46 @@ class HAClient:
         self._validate_ha_version(data)
         return data
 
+    def ask_dj_message(self, text: str, client_message_id: str) -> dict[str, Any]:
+        body = self._ask_dj_payload(
+            text=text,
+            client_message_id=client_message_id,
+            audio_response="never",
+        )
+        url = self._url("/api/djconnect/ask_dj/message")
+        _LOGGER.debug("POST %s client_type=%s device_id=%s client_message_id=%s", url, CLIENT_TYPE, self.cfg.device_id, client_message_id)
+        started = time.monotonic()
+        response = requests.post(url, json=body, headers=self._headers(), timeout=self.timeout)
+        _LOGGER.debug("POST %s returned HTTP %s in %.0fms", url, response.status_code, _elapsed_ms(started))
+        data = self._json(response)
+        self._validate_ha_version(data)
+        return data
+
+    def ask_dj_clear_history(self) -> dict[str, Any]:
+        body = self._ask_dj_payload()
+        url = self._url("/api/djconnect/ask_dj/history/clear")
+        _LOGGER.debug("POST %s client_type=%s device_id=%s", url, CLIENT_TYPE, self.cfg.device_id)
+        started = time.monotonic()
+        response = requests.post(url, json=body, headers=self._headers(), timeout=self.timeout)
+        _LOGGER.debug("POST %s returned HTTP %s in %.0fms", url, response.status_code, _elapsed_ms(started))
+        data = self._json(response)
+        self._validate_ha_version(data)
+        return data
+
     def ask_dj_action(self, action: dict[str, Any]) -> dict[str, Any]:
         command = str(action.get("command") or "").strip()
-        kind = str(action.get("kind") or "").strip()
-        action_style = str(action.get("action_style") or "").strip()
+        kind = str(action.get("kind") or "").strip().lower()
+        action_style = str(action.get("action_style") or "").strip().lower()
         if not command:
             if kind == "confirmation" or action_style == "confirmation":
                 command = "ask_dj_followup_response"
+            elif kind == "output":
+                command = "set_output"
+            elif kind == "control":
+                command = str(action.get("action") or action.get("type") or "control").strip()
             else:
                 command = "ask_dj_play_recommendation"
-        play = bool(action.get("play")) or bool(action.get("uri") or action.get("context_uri") or action.get("contextUri"))
+        play = bool(action.get("play")) or kind in {"track", "album", "artist", "playlist", "track_mix"} or action_style == "play_now"
         return self.command(command, value=action, play=play)
 
     def playback_from_status(self, data: dict[str, Any]) -> Playback:
@@ -261,8 +291,8 @@ class HAClient:
                 "local_audio_supported": False,
                 "local_dj_response_endpoint": False,
                 "ask_dj_supported": True,
-                "ask_dj_mode": "readonly_actions",
-                "ask_dj_free_input_supported": False,
+                "ask_dj_mode": "text_actions",
+                "ask_dj_free_input_supported": True,
                 "ask_dj_actions_supported": True,
             },
             **extra,
