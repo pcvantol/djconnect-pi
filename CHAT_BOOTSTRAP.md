@@ -21,31 +21,33 @@ Belangrijke context:
 - Geen lokale `SYNC_PROMPTS.md` of `PRODUCT_ROADMAP.md`; die staan canoniek in `pcvantol/djconnect`.
 
 Huidige stand:
-- Laatste release in deze werkronde is `v3.1.109`.
+- Laatste release in deze werkronde is `v3.1.110`.
 - Public updater assets staan in `pcvantol/djconnect-pi-releases`, inclusief
   `djconnect-pi-latest.json`.
-- Release `v3.1.109` voegt Add to favorites toe voor Now Playing en Ask DJ:
-  Now Playing stuurt `save_current_track` via `/api/djconnect/command`, en
-  Ask DJ `playback_actions[]` met `kind:"control"` en
-  `command:"save_current_track"` worden als directe favorietenknop gerenderd
-  zonder recommendation playback of extra artwork.
+- Release `v3.1.110` maakt het Ask DJ touch-keyboard een overlay die opent
+  zodra het prompt-tekstveld focus krijgt en direct onder dat tekstveld over
+  de chatcontent heen verschijnt.
 - Source release is aangemaakt:
-  - source repo tag/release: `v3.1.109`
-  - source PR naar `main`: `#16`
-- Public publish workflow voor `v3.1.109` is geslaagd.
-- Public assets voor `v3.1.109` zijn gepubliceerd:
-  - `djconnect-pi-3.1.109.tar.gz`
-  - `djconnect-pi-3.1.109.sha256`
+  - source repo tag/release: `v3.1.110`
+  - source PR naar `main`: `#16` (zelfde release branch, bijgewerkt)
+- Public publish workflow voor `v3.1.110` is geslaagd.
+- Public assets voor `v3.1.110` zijn gepubliceerd:
+  - `djconnect-pi-3.1.110.tar.gz`
+  - `djconnect-pi-3.1.110.sha256`
   - `djconnect-pi-latest.json`
-- Pi is via de normale updater-route naar `3.1.109` gebracht.
-- Validatie voor `v3.1.109`:
-  - `python3 -m py_compile src/djconnect_pi/app.py src/djconnect_pi/ha.py src/djconnect_pi/i18n.py tests/test_ha.py tests/test_app_backend.py tests/test_qml.py tests/test_i18n.py` -> ok
+- Pi draait `3.1.110`. De normale updater zag kort na publicatie nog
+  `3.1.109` via GitHub `latest/download`; deployment is daarom gedaan via de
+  gedocumenteerde public tarball installer-route:
+  `~/djconnect-install/djconnect-pi-3.1.110/scripts/install.sh`.
+- Validatie voor `v3.1.110`:
+  - `/Users/pcvantol/.platformio/penv/bin/pytest tests/test_qml.py -q` -> ok,
+    14 passed
+  - `python3 -m py_compile src/djconnect_pi/app.py tests/test_qml.py` -> ok
+  - `bash -n scripts/install.sh scripts/bootstrap_raspberry_pi_os.sh cleanup_old_releases.sh release.sh` -> ok
   - `git diff --check` -> ok
-  - GitHub Actions publish workflow voor `v3.1.109` -> success
-  - Pi services na updater install: `djconnect-api.service`,
+  - GitHub Actions publish workflow voor `v3.1.110` -> success
+  - Pi services na install: `djconnect-api.service`,
     `djconnect-client.service` en `djconnect-updater.timer` active
-  - Lokale `pytest` is niet gedraaid omdat pytest niet in de beschikbare
-    Python interpreters geïnstalleerd is.
 
 Openstaande gewenste workflow:
 - Controleer na elke release de public publish workflow:
