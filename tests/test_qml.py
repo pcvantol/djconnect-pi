@@ -333,6 +333,14 @@ def test_qml_ask_dj_screen_sends_text_without_audio_controls() -> None:
     assert "djconnect.sendAskDjMessage(message)" in ask_dj_block
     assert "component AskDjKeyButton" in main_qml
     assert "id: askDjKeyboard" in ask_dj_block
+    assert "property bool askDjKeyboardOpen: false" in main_qml
+    assert "root.askDjKeyboardOpen = true" in ask_dj_block
+    assert "root.askDjKeyboardOpen = false" in ask_dj_block
+    assert "TapHandler" in ask_dj_block
+    assert "visible: root.askDjKeyboardOpen" in ask_dj_block
+    assert "askDjInput.mapToItem(askDjPanel, 0, askDjInput.height).y + 8" in ask_dj_block
+    assert "height: 216" in ask_dj_block
+    assert "z: 40" in ask_dj_block
     assert "function insertAskDjKey(value)" in ask_dj_block
     assert "function deleteAskDjText()" in ask_dj_block
     assert 'model: ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"]' in ask_dj_block

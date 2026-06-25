@@ -26,6 +26,7 @@ Window {
     property bool forceBrightnessFull: false
     property bool suppressNextNowPanelTap: false
     property bool askDjKeyboardShift: false
+    property bool askDjKeyboardOpen: false
     property int standardButtonRadius: 8
     property bool screenBlanked: djconnect.screenTimeoutSeconds > 0 && !idleTimer.running && !root.forceScreenAwake
     property real brightnessOverlayOpacity: root.screenBlanked || root.forceBrightnessFull ? 0 : 1 - (djconnect.screenBrightnessPercent / 100.0)
@@ -66,6 +67,8 @@ Window {
 
     onActiveScreenChanged: {
         root.restartIdleTimer()
+        root.askDjKeyboardOpen = false
+        root.askDjKeyboardShift = false
         if (root.activeScreen === "askdj") {
             root.scrollAskDjToBottom()
         }
@@ -1933,6 +1936,7 @@ Window {
             if (message.length > 0 && !djconnect.askDjBusy) {
                 askDjInput.text = ""
                 root.askDjKeyboardShift = false
+                root.askDjKeyboardOpen = false
                 djconnect.sendAskDjMessage(message)
             }
         }
@@ -1944,6 +1948,7 @@ Window {
             var pos = Math.max(0, askDjInput.cursorPosition)
             askDjInput.text = askDjInput.text.slice(0, pos) + value + askDjInput.text.slice(pos)
             askDjInput.cursorPosition = pos + value.length
+            root.askDjKeyboardOpen = true
             askDjInput.forceActiveFocus()
         }
 
@@ -1968,6 +1973,7 @@ Window {
                 askDjInput.text = askDjInput.text.slice(0, pos - 1) + askDjInput.text.slice(pos)
                 askDjInput.cursorPosition = pos - 1
             }
+            root.askDjKeyboardOpen = true
             askDjInput.forceActiveFocus()
         }
 
@@ -2057,7 +2063,19 @@ Window {
                             border.color: askDjInput.activeFocus ? "#a5b4fc" : "#39415f"
                             border.width: 1
                         }
+                        onActiveFocusChanged: {
+                            if (activeFocus) {
+                                root.askDjKeyboardOpen = true
+                            }
+                        }
                         onAccepted: askDjPanel.sendAskDjInput()
+
+                        TapHandler {
+                            onTapped: {
+                                root.askDjKeyboardOpen = true
+                                askDjInput.forceActiveFocus()
+                            }
+                        }
                     }
 
                     AskDjGradientButton {
@@ -2067,133 +2085,6 @@ Window {
                         Layout.preferredWidth: 112
                         Layout.fillHeight: true
                         onClicked: askDjPanel.sendAskDjInput()
-                    }
-                }
-            }
-
-            Rectangle {
-                id: askDjKeyboard
-                Layout.fillWidth: true
-                Layout.preferredHeight: 216
-                radius: 8
-                color: "#d90b1024"
-                border.color: "#3f4b77"
-                border.width: 1
-                clip: true
-
-                ColumnLayout {
-                    anchors.fill: parent
-                    anchors.margins: 8
-                    spacing: 7
-
-                    RowLayout {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        spacing: 6
-
-                        Repeater {
-                            model: ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"]
-
-                            AskDjKeyButton {
-                                keyText: modelData
-                                displayText: root.askDjKeyboardShift ? keyText.toUpperCase() : keyText
-                                onClicked: askDjPanel.insertAskDjKey(keyText)
-                            }
-                        }
-                    }
-
-                    RowLayout {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        Layout.leftMargin: 18
-                        Layout.rightMargin: 18
-                        spacing: 6
-
-                        Repeater {
-                            model: ["a", "s", "d", "f", "g", "h", "j", "k", "l"]
-
-                            AskDjKeyButton {
-                                keyText: modelData
-                                displayText: root.askDjKeyboardShift ? keyText.toUpperCase() : keyText
-                                onClicked: askDjPanel.insertAskDjKey(keyText)
-                            }
-                        }
-                    }
-
-                    RowLayout {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        spacing: 6
-
-                        AskDjKeyButton {
-                            displayText: "⇧"
-                            active: root.askDjKeyboardShift
-                            Layout.preferredWidth: 72
-                            Layout.fillWidth: false
-                            onClicked: {
-                                root.askDjKeyboardShift = !root.askDjKeyboardShift
-                                askDjInput.forceActiveFocus()
-                            }
-                        }
-
-                        Repeater {
-                            model: ["z", "x", "c", "v", "b", "n", "m"]
-
-                            AskDjKeyButton {
-                                keyText: modelData
-                                displayText: root.askDjKeyboardShift ? keyText.toUpperCase() : keyText
-                                onClicked: askDjPanel.insertAskDjKey(keyText)
-                            }
-                        }
-
-                        AskDjKeyButton {
-                            displayText: "⌫"
-                            Layout.preferredWidth: 72
-                            Layout.fillWidth: false
-                            onClicked: askDjPanel.deleteAskDjText()
-                        }
-                    }
-
-                    RowLayout {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        spacing: 6
-
-                        AskDjKeyButton {
-                            displayText: "?"
-                            Layout.preferredWidth: 70
-                            Layout.fillWidth: false
-                            onClicked: askDjPanel.insertAskDjText("?")
-                        }
-
-                        AskDjKeyButton {
-                            displayText: root.tr("keyboard_space")
-                            Layout.fillWidth: true
-                            onClicked: askDjPanel.insertAskDjText(" ")
-                        }
-
-                        AskDjKeyButton {
-                            displayText: "."
-                            Layout.preferredWidth: 58
-                            Layout.fillWidth: false
-                            onClicked: askDjPanel.insertAskDjText(".")
-                        }
-
-                        AskDjKeyButton {
-                            displayText: ","
-                            Layout.preferredWidth: 58
-                            Layout.fillWidth: false
-                            onClicked: askDjPanel.insertAskDjText(",")
-                        }
-
-                        AskDjGradientButton {
-                            text: root.tr("send")
-                            enabled: !djconnect.askDjBusy && askDjInput.text.trim().length > 0
-                            font.pixelSize: 17
-                            Layout.preferredWidth: 116
-                            Layout.fillHeight: true
-                            onClicked: askDjPanel.sendAskDjInput()
-                        }
                     }
                 }
             }
@@ -2554,6 +2445,138 @@ Window {
 
                             }
                         }
+                    }
+                }
+            }
+        }
+
+        Rectangle {
+            id: askDjKeyboard
+            visible: root.askDjKeyboardOpen
+            x: Math.max(16, askDjInput.mapToItem(askDjPanel, 0, 0).x)
+            y: askDjInput.mapToItem(askDjPanel, 0, askDjInput.height).y + 8
+            width: Math.min(askDjPanel.width - x - 16, Math.max(420, askDjInput.width))
+            height: 216
+            radius: 8
+            color: "#f20b1024"
+            border.color: "#6573aa"
+            border.width: 1
+            clip: true
+            z: 40
+
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: 8
+                spacing: 7
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    spacing: 6
+
+                    Repeater {
+                        model: ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"]
+
+                        AskDjKeyButton {
+                            keyText: modelData
+                            displayText: root.askDjKeyboardShift ? keyText.toUpperCase() : keyText
+                            onClicked: askDjPanel.insertAskDjKey(keyText)
+                        }
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Layout.leftMargin: 18
+                    Layout.rightMargin: 18
+                    spacing: 6
+
+                    Repeater {
+                        model: ["a", "s", "d", "f", "g", "h", "j", "k", "l"]
+
+                        AskDjKeyButton {
+                            keyText: modelData
+                            displayText: root.askDjKeyboardShift ? keyText.toUpperCase() : keyText
+                            onClicked: askDjPanel.insertAskDjKey(keyText)
+                        }
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    spacing: 6
+
+                    AskDjKeyButton {
+                        displayText: "⇧"
+                        active: root.askDjKeyboardShift
+                        Layout.preferredWidth: 72
+                        Layout.fillWidth: false
+                        onClicked: {
+                            root.askDjKeyboardShift = !root.askDjKeyboardShift
+                            root.askDjKeyboardOpen = true
+                            askDjInput.forceActiveFocus()
+                        }
+                    }
+
+                    Repeater {
+                        model: ["z", "x", "c", "v", "b", "n", "m"]
+
+                        AskDjKeyButton {
+                            keyText: modelData
+                            displayText: root.askDjKeyboardShift ? keyText.toUpperCase() : keyText
+                            onClicked: askDjPanel.insertAskDjKey(keyText)
+                        }
+                    }
+
+                    AskDjKeyButton {
+                        displayText: "⌫"
+                        Layout.preferredWidth: 72
+                        Layout.fillWidth: false
+                        onClicked: askDjPanel.deleteAskDjText()
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    spacing: 6
+
+                    AskDjKeyButton {
+                        displayText: "?"
+                        Layout.preferredWidth: 70
+                        Layout.fillWidth: false
+                        onClicked: askDjPanel.insertAskDjText("?")
+                    }
+
+                    AskDjKeyButton {
+                        displayText: root.tr("keyboard_space")
+                        Layout.fillWidth: true
+                        onClicked: askDjPanel.insertAskDjText(" ")
+                    }
+
+                    AskDjKeyButton {
+                        displayText: "."
+                        Layout.preferredWidth: 58
+                        Layout.fillWidth: false
+                        onClicked: askDjPanel.insertAskDjText(".")
+                    }
+
+                    AskDjKeyButton {
+                        displayText: ","
+                        Layout.preferredWidth: 58
+                        Layout.fillWidth: false
+                        onClicked: askDjPanel.insertAskDjText(",")
+                    }
+
+                    AskDjGradientButton {
+                        text: root.tr("send")
+                        enabled: !djconnect.askDjBusy && askDjInput.text.trim().length > 0
+                        font.pixelSize: 17
+                        Layout.preferredWidth: 116
+                        Layout.fillHeight: true
+                        onClicked: askDjPanel.sendAskDjInput()
                     }
                 }
             }

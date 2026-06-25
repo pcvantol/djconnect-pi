@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.1.110
+
+- Open the Ask DJ touch keyboard as an overlay directly below the prompt field
+  when the field receives focus, instead of reserving fixed space in the chat
+  layout.
+
 ## 3.1.109
 
 - Add a Now Playing favorite action that sends `save_current_track` through
