@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.1.108
+
+- Keep queue item playback in queue context by sending `play_context_at` and
+  leaving the Queue screen open instead of jumping back to Now Playing.
+- Normalize touch UI button corner radii across standard, Ask DJ, warning and
+  danger buttons while keeping Meer menu rows and bottom navigation on the
+  original shared radius.
+- Show the normal refresh toast when the Ask DJ screen is manually refreshed,
+  while keeping the automatic history load on screen open quiet.
+
 ## 3.1.107
 
 - Update Raspberry Pi Ask DJ for the Home Assistant v3.1.92 contract: typed

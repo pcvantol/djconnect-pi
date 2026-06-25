@@ -54,7 +54,8 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
   refresh busy states, clipboard feedback and newest-log scrolling
 - touch UI contract for Settings power/update actions, output-device "Geen",
   warning-styled reboot, wrapped Logs text, macOS-style toast presentation,
-  queue `play_context_at` routing and playlist item command routing
+  queue `play_context_at` routing, Ask DJ manual-refresh toast feedback and
+  playlist item command routing
 - release bundle contract for including docs, systemd units, `scripts/install.sh`
   and a bundled wheel without the loose `src/` app source tree
 - repo-only OS bootstrap contract for Raspberry Pi OS Lite 64-bit, modern

@@ -117,6 +117,7 @@ class DJConnectBackend(QObject):
         self._ask_dj_unavailable_until = 0.0
         self._ask_dj_poll_error_count = 0
         self._ask_dj_poll_in_flight = False
+        self._suppress_next_playback_navigation = False
         self._media_loads_in_flight: set[str] = set()
         self._media_artwork_cache_in_flight: set[str] = set()
         self._pending_output_device = ""
@@ -650,10 +651,19 @@ class DJConnectBackend(QObject):
 
     @Slot()
     def loadAskDjHistory(self) -> None:
+        self._load_ask_dj_history(show_toast=False, action="opened")
+
+    @Slot()
+    def refreshAskDjHistory(self) -> None:
+        self._load_ask_dj_history(show_toast=True, action="refreshed")
+
+    def _load_ask_dj_history(self, *, show_toast: bool, action: str) -> None:
         self._sync_config_from_disk()
         if self._demo_mode or not self.paired or self._ask_dj_busy:
             return
-        _LOGGER.info("User opened Ask DJ history")
+        _LOGGER.info("User %s Ask DJ history", action)
+        if show_toast:
+            self.showToast(self.tr_key("refreshing"))
         self._set_ask_dj_busy(True)
         self._run(self.tr_key("ask_dj"), self._load_ask_dj_history_worker, done=lambda: self._set_ask_dj_busy(False))
 
@@ -1016,6 +1026,7 @@ class DJConnectBackend(QObject):
         started = time.monotonic()
         _LOGGER.info("Sending media item command: %s", command)
         data = self.client.command(command, **payload)
+        self._suppress_next_playback_navigation = command == "play_context_at"
         self._playbackReady.emit(self.client.playback_from_status(data))
         if command == "start_playlist":
             self._load_queue_worker()
@@ -1261,8 +1272,11 @@ class DJConnectBackend(QObject):
             self.outputDeviceChanged.emit()
         if old.position_seconds != playback.position_seconds or old.duration_seconds != playback.duration_seconds:
             self.progressChanged.emit()
+        suppress_navigation = self._suppress_next_playback_navigation
+        self._suppress_next_playback_navigation = False
         if (track_changed and (playback.title or playback.artist or playback.image_url)) or resumed_playback:
-            self.temporaryWakeRequested.emit(10, True)
+            navigate_now = not suppress_navigation
+            self.temporaryWakeRequested.emit(10, navigate_now)
         self._set_status_text(self.tr_key("connected" if self.paired else "ready_to_pair"))
 
     @Slot(str, object)

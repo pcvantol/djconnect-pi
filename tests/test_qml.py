@@ -169,11 +169,12 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "djconnect.playlistItems" in main_qml
     assert 'emptyText: root.tr("empty_queue")' in main_qml
     assert 'emptyText: root.tr("empty_playlists")' in main_qml
-    assert 'playCommand: "start_queue_item"' in main_qml
+    assert 'playCommand: "play_context_at"' in main_qml
     assert 'playCommand: "start_playlist"' in main_qml
     assert "function itemPayload(item)" in main_qml
     assert "JSON.stringify" in main_qml
     assert "djconnect.playMediaItem(panel.playCommand, panel.itemPayload(modelData))" in main_qml
+    assert 'onClicked: root.activeScreen = "now"' not in main_qml[main_qml.index('visible: root.activeScreen === "queue"') : main_qml.index('visible: root.activeScreen === "playlists"')]
     assert "enabled: modelData.uri && modelData.uri.length > 0" in main_qml
     assert "visible: panel.items.length === 0" in main_qml
     assert "djconnect.loadQueue()" in main_qml
@@ -320,7 +321,7 @@ def test_qml_ask_dj_screen_sends_text_without_audio_controls() -> None:
     assert "component AskDjGradientButton" in main_qml
     assert 'GradientStop { position: 0.0; color: askDjButton.enabled ? "#247fff" : "#33415f" }' in main_qml
     assert 'GradientStop { position: 1.0; color: askDjButton.enabled ? "#c33cff" : "#4b3d65" }' in main_qml
-    assert "djconnect.loadAskDjHistory()" in ask_dj_block
+    assert "djconnect.refreshAskDjHistory()" in ask_dj_block
     assert "id: askDjRefreshButton" in ask_dj_block
     assert "AskDjGradientButton" in ask_dj_block
     assert "Layout.preferredWidth: 132" in ask_dj_block

@@ -446,7 +446,7 @@ function render(data) {{
     option.value = name; option.textContent = name; option.selected = name === selectedOutput;
     outputs.appendChild(option);
   }}
-  document.getElementById('queue').innerHTML = (data.queue || []).length ? data.queue.map(i => itemHtml(i,'start_queue_item')).join('') : `<div class="sub">${{t('empty_queue')}}</div>`;
+  document.getElementById('queue').innerHTML = (data.queue || []).length ? data.queue.map(i => itemHtml(i,'play_context_at')).join('') : `<div class="sub">${{t('empty_queue')}}</div>`;
   document.getElementById('playlists').innerHTML = (data.playlists || []).length ? data.playlists.map(i => itemHtml(i,'start_playlist')).join('') : `<div class="sub">${{t('empty_playlists')}}</div>`;
   document.getElementById('language').value = data.settings?.language || 'nl';
   document.getElementById('logLevel').value = data.settings?.log_level || 'INFO';

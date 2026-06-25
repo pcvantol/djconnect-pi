@@ -1144,6 +1144,26 @@ def test_backend_manual_refresh_clears_pending_output_device(tmp_path: Path) -> 
     assert backend.toastText == backend.t("refreshing")
 
 
+def test_backend_ask_dj_refresh_shows_toast(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token"
+    calls: list[tuple[str, object, object]] = []
+
+    def fake_run(label: str, worker, done=None) -> None:
+        calls.append((label, worker, done))
+
+    backend._run = fake_run  # type: ignore[method-assign]
+    backend._sync_config_from_disk = lambda: None  # type: ignore[method-assign]
+
+    backend.refreshAskDjHistory()
+
+    assert backend.toastText == backend.t("refreshing")
+    assert calls
+    assert calls[0][0] == backend.t("ask_dj")
+
+
 def test_backend_sync_config_updates_live_settings(tmp_path: Path) -> None:
     ensure_app()
     config_path = tmp_path / "config.json"
@@ -1426,6 +1446,36 @@ def test_backend_queue_item_play_uses_start_queue_item_command(tmp_path: Path) -
             },
         )
     ]
+
+
+def test_backend_media_item_play_does_not_navigate_to_now_playing(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    parser = HAClient(backend.cfg)
+    wakes: list[tuple[int, bool]] = []
+    backend.temporaryWakeRequested.connect(lambda seconds, navigate: wakes.append((seconds, navigate)))
+    backend._refresh_worker = lambda: None  # type: ignore[method-assign]
+
+    def run_now(status: str, worker, **_: object) -> None:
+        worker()
+
+    class FakeClient:
+        def command(self, command: str, **payload: object) -> dict[str, object]:
+            return {"playback": {"title": "Queued Track", "artist": "Artist", "playing": True}}
+
+        def playback_from_status(self, data: dict[str, object]) -> Playback:
+            return parser.playback_from_status(data)
+
+    backend._run = run_now  # type: ignore[method-assign]
+    backend.client = FakeClient()  # type: ignore[assignment]
+
+    backend.playMediaItem(
+        "play_context_at",
+        json.dumps({"title": "Queued Track", "uri": "spotify:track:track-1", "index": 2}),
+    )
+    QCoreApplication.processEvents()
+
+    assert wakes == [(10, False)]
 
 
 def test_backend_playlists_are_emitted_before_artwork_cache(tmp_path: Path, monkeypatch) -> None:

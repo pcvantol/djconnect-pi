@@ -25,6 +25,7 @@ Window {
     property bool forceScreenAwake: false
     property bool forceBrightnessFull: false
     property bool suppressNextNowPanelTap: false
+    property int standardButtonRadius: 8
     property bool screenBlanked: djconnect.screenTimeoutSeconds > 0 && !idleTimer.running && !root.forceScreenAwake
     property real brightnessOverlayOpacity: root.screenBlanked || root.forceBrightnessFull ? 0 : 1 - (djconnect.screenBrightnessPercent / 100.0)
     property int trVersion: djconnect.translationVersion
@@ -114,7 +115,7 @@ Window {
             elide: Text.ElideRight
         }
         background: Rectangle {
-            radius: Math.min(width, height) / 2
+            radius: root.standardButtonRadius
             border.width: 0
             gradient: Gradient {
                 orientation: Gradient.Horizontal
@@ -140,7 +141,7 @@ Window {
             maximumLineCount: 1
         }
         background: Rectangle {
-            radius: Math.min(width, height) / 2
+            radius: root.standardButtonRadius
             border.width: 0
             gradient: Gradient {
                 orientation: Gradient.Horizontal
@@ -293,7 +294,7 @@ Window {
             }
         }
         background: Rectangle {
-            radius: Math.min(width, height) / 2
+            radius: root.standardButtonRadius
             border.width: navControl.checked ? 2 : 0
             border.color: "#f5d0fe"
             gradient: Gradient {
@@ -343,7 +344,7 @@ Window {
             }
         }
         background: Rectangle {
-            radius: Math.min(width, height) / 2
+            radius: root.standardButtonRadius
             border.width: 0
             gradient: Gradient {
                 orientation: Gradient.Horizontal
@@ -464,7 +465,7 @@ Window {
             elide: Text.ElideRight
         }
         background: Rectangle {
-            radius: 8
+            radius: root.standardButtonRadius
             color: control.down ? "#8d2a35" : "#682632"
             border.color: control.down ? "#ff8a80" : "#a43b49"
             border.width: 1
@@ -486,7 +487,7 @@ Window {
             elide: Text.ElideRight
         }
         background: Rectangle {
-            radius: 8
+            radius: root.standardButtonRadius
             color: control.down ? "#9a6a17" : "#7a4e10"
             border.color: control.down ? "#ffd166" : "#c58b23"
             border.width: 1
@@ -706,7 +707,7 @@ Window {
             }
         }
         background: Rectangle {
-            radius: Math.min(width, height) / 2
+            radius: root.standardButtonRadius
             border.width: control.active ? 2 : 0
             border.color: "#f5d0fe"
             gradient: Gradient {
@@ -1775,7 +1776,7 @@ Window {
         visible: root.activeScreen === "queue"
         heading: root.tr("queue")
         emptyText: root.tr("empty_queue")
-        playCommand: "start_queue_item"
+        playCommand: "play_context_at"
         items: djconnect.queueItems
         onRefreshRequested: djconnect.loadQueue()
     }
@@ -1923,7 +1924,7 @@ Window {
                     font.pixelSize: 18
                     Layout.preferredWidth: 132
                     Layout.preferredHeight: 48
-                    onClicked: djconnect.loadAskDjHistory()
+                    onClicked: djconnect.refreshAskDjHistory()
                 }
 
                 AskDjGradientButton {
