@@ -324,6 +324,10 @@ def test_qml_ask_dj_screen_is_read_only() -> None:
     assert "id: askDjPollTimer" in main_qml
     assert 'running: root.activeScreen === "askdj" && djconnect.paired && !djconnect.demoMode' in main_qml
     assert "onTriggered: djconnect.pollAskDjHistory()" in main_qml
+    assert "function scrollAskDjToBottom()" in main_qml
+    assert 'if (root.activeScreen === "askdj")' in main_qml
+    assert "function onAskDjChanged()" in main_qml
+    assert "askDjScroll.contentItem.contentY = Math.max" in ask_dj_block or "askDjScroll.contentItem.contentY = Math.max" in main_qml
     assert "id: askDjActionButton" in ask_dj_block
     assert "modelData.actions || []" in ask_dj_block
     assert "modelData.isMedia" in ask_dj_block
@@ -384,7 +388,8 @@ def test_qml_screen_blanking_wakes_on_tap() -> None:
     assert "root.hideTransientUi()" in record_activity
     assert "djconnect.refresh()" in record_activity
     assert "function restartIdleTimer()" in main_qml
-    assert "onActiveScreenChanged: root.restartIdleTimer()" in main_qml
+    assert "onActiveScreenChanged: {" in main_qml
+    assert "root.restartIdleTimer()" in main_qml
     assert "if (root.suppressNextNowPanelTap)" in main_qml
     assert "root.suppressNextNowPanelTap = false" in main_qml
     assert "root.splashVisible = true" not in record_activity

@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.1.103
+
+- Scroll the Ask DJ history to the newest chat bubble automatically when the
+  screen opens or refreshed history arrives.
+
 ## 3.1.102
 
 - Normalize album-art extraction for now playing, queue/playlists and Ask DJ

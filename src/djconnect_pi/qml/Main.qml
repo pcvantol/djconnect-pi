@@ -62,7 +62,24 @@ Window {
         root.recordActivity()
     }
 
-    onActiveScreenChanged: root.restartIdleTimer()
+    onActiveScreenChanged: {
+        root.restartIdleTimer()
+        if (root.activeScreen === "askdj") {
+            root.scrollAskDjToBottom()
+        }
+    }
+
+    function scrollAskDjToBottom() {
+        Qt.callLater(function() {
+            if (!askDjScroll || !askDjScroll.contentItem) {
+                return
+            }
+            askDjScroll.contentItem.contentY = Math.max(
+                0,
+                askDjScroll.contentItem.contentHeight - askDjScroll.contentItem.height
+            )
+        })
+    }
 
     function hideTransientUi() {
         root.aboutOpen = false
@@ -912,6 +929,11 @@ Window {
                 djResponseTimer.restart()
             } else {
                 djResponseTimer.stop()
+            }
+        }
+        function onAskDjChanged() {
+            if (root.activeScreen === "askdj") {
+                root.scrollAskDjToBottom()
             }
         }
         function onScreenshotRequested() {
