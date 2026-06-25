@@ -1,5 +1,30 @@
 # Changelog
 
+## 3.1.101
+
+- Polish Ask DJ on the Raspberry Pi as a read-only action surface: preserve
+  server history revisions and trim metadata, show the read-only state in the
+  UI, render replay audio only when provided, and dispatch HA-provided action
+  commands without local intent interpretation.
+- Render Ask DJ playback recommendations and output-device selections as
+  list-item rows with artwork or output affordances plus Play Now/Activeer
+  buttons, while hiding duplicate speaker bullet text when matching structured
+  actions are present.
+- Add compatibility fields to the Pi status heartbeat so Home Assistant
+  playback sensors can show the active output, available outputs and queue
+  count instead of unknown.
+- Keep queue item playback in queue context by sending `start_queue_item`
+  instead of remapping queue rows to `play_context_at`.
+- Reuse the new DJConnect app banner across the touch app, pairing success,
+  splash/about overlays and the standalone updater UI.
+
+## 3.1.100
+
+- Update Ask DJ message merging to prefer the server-side `messages[]`
+  exchange contract, keep each user question above its assistant reply within
+  the same exchange, and deduplicate optimistic, HTTP and history/push copies
+  of the same conversation bubble.
+
 ## 3.1.99
 
 - Replace the bottom navigation and Meer menu glyphs with consistent QML Canvas

@@ -33,6 +33,66 @@ Window {
         }
     }
 
+    component AppBanner: Rectangle {
+        Layout.fillWidth: true
+        Layout.preferredHeight: 132
+        radius: 24
+        color: "#171029"
+        border.color: "#3b2a63"
+        border.width: 1
+        clip: true
+        gradient: Gradient {
+            orientation: Gradient.Horizontal
+            GradientStop { position: 0.0; color: "#12091d" }
+            GradientStop { position: 0.42; color: "#26103f" }
+            GradientStop { position: 0.72; color: "#37145a" }
+            GradientStop { position: 1.0; color: "#141125" }
+        }
+
+        RowLayout {
+            anchors.fill: parent
+            anchors.leftMargin: 28
+            anchors.rightMargin: 28
+            anchors.topMargin: 18
+            anchors.bottomMargin: 18
+            spacing: 22
+
+            Image {
+                source: "app-icon.png"
+                Layout.preferredWidth: 84
+                Layout.preferredHeight: 84
+                fillMode: Image.PreserveAspectFit
+                smooth: true
+                mipmap: true
+            }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 6
+
+                Text {
+                    text: "DJConnect"
+                    color: "#ffffff"
+                    font.pixelSize: 38
+                    font.bold: true
+                    elide: Text.ElideRight
+                    maximumLineCount: 1
+                    Layout.fillWidth: true
+                }
+
+                Text {
+                    text: updater.title
+                    color: "#c9c3d8"
+                    font.pixelSize: 20
+                    font.bold: true
+                    elide: Text.ElideRight
+                    maximumLineCount: 1
+                    Layout.fillWidth: true
+                }
+            }
+        }
+    }
+
     ColumnLayout {
         anchors.top: parent.top
         anchors.topMargin: 28
@@ -40,24 +100,7 @@ Window {
         width: Math.min(parent.width - 56, 600)
         spacing: 10
 
-        Image {
-            source: "app-icon.png"
-            Layout.alignment: Qt.AlignHCenter
-            Layout.preferredWidth: 128
-            Layout.preferredHeight: 128
-            fillMode: Image.PreserveAspectFit
-            smooth: true
-            mipmap: true
-        }
-
-        Text {
-            text: updater.title
-            color: "#ffffff"
-            font.pixelSize: 32
-            font.bold: true
-            horizontalAlignment: Text.AlignHCenter
-            Layout.fillWidth: true
-        }
+        AppBanner {}
 
         Text {
             text: updater.message

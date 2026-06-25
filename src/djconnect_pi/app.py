@@ -769,10 +769,9 @@ class DJConnectBackend(QObject):
         if command not in {"play_context_at", "start_queue_item", "start_playlist"}:
             _LOGGER.warning("Ignoring unsupported media item command from touch UI: %s", command)
             return
-        backend_command = "play_context_at" if command == "start_queue_item" else command
         _LOGGER.info("User requested %s from touch UI", command)
         self.showToast(self.tr_key("play"))
-        self._run(backend_command, lambda: self._play_media_item_worker(backend_command, payload))
+        self._run(command, lambda: self._play_media_item_worker(command, payload))
 
     @Slot()
     def showLogs(self) -> None:
@@ -975,7 +974,7 @@ class DJConnectBackend(QObject):
             except DJConnectError as exc:
                 _LOGGER.warning("Output devices refresh failed: %s", exc)
         if self.paired:
-            self.client.status(playback)
+            self.client.status(playback, queue_items=self._queue_items)
         if playback.image_url:
             playback.image_url = cached_image_url(playback.image_url, timeout_seconds=3)
         self._playbackReady.emit(playback)
@@ -1043,11 +1042,17 @@ class DJConnectBackend(QObject):
         self._cache_media_artwork_async("playlists", items)
 
     def _load_ask_dj_history_worker(self) -> None:
-        data = self.client.ask_dj_history(self._ask_dj_history_revision)
+        try:
+            data = self.client.ask_dj_history(self._ask_dj_history_revision)
+        except (DJConnectError, requests.RequestException) as exc:
+            raise BackendUnavailable("Ask DJ unavailable") from exc
         self._askDjReady.emit(data)
 
     def _send_ask_dj_action_worker(self, action: dict[str, object]) -> None:
-        data = self.client.ask_dj_action(action)
+        try:
+            data = self.client.ask_dj_action(action)
+        except (DJConnectError, requests.RequestException) as exc:
+            raise BackendUnavailable("Ask DJ unavailable") from exc
         self._askDjReady.emit(data)
 
     @Slot()
@@ -1068,7 +1073,7 @@ class DJConnectBackend(QObject):
             self._ask_dj_poll_error_count = min(self._ask_dj_poll_error_count + 1, 6)
             delay = min(300, 10 * (2 ** (self._ask_dj_poll_error_count - 1)))
             self._ask_dj_unavailable_until = time.monotonic() + delay
-            _LOGGER.warning("Ask DJ read-only poll unavailable; retrying later: %s", exc)
+            _LOGGER.warning("Ask DJ read-only poll unavailable; retrying later: %s", exc.__class__.__name__)
             self._ask_dj_poll_in_flight = False
             return
         self._ask_dj_poll_error_count = 0
@@ -1246,28 +1251,32 @@ class DJConnectBackend(QObject):
             self._ask_dj_messages = [m for m in self._ask_dj_messages if str(m.get("created_at") or m.get("server_time") or "") >= trimmed_before]
         messages = parse_ask_dj_messages(data)
         if messages:
-            self._merge_ask_dj_messages(messages)
+            self._merge_ask_dj_messages(messages, limit=_int_value(data.get("history_limit"), 100))
         else:
             self.askDjChanged.emit()
         self._ask_dj_history_revision = max(self._ask_dj_history_revision, _int_value(data.get("history_revision"), self._ask_dj_history_revision))
         self._set_backend_available(True)
 
-    def _merge_ask_dj_messages(self, messages: list[dict[str, object]]) -> None:
+    def _merge_ask_dj_messages(self, messages: list[dict[str, object]], limit: int = 100) -> None:
         merged = list(self._ask_dj_messages)
+        next_arrival_index = max((_int_value(message.get("_arrival_index"), index) for index, message in enumerate(merged)), default=-1) + 1
         index_by_key: dict[str, int] = {}
         for index, message in enumerate(merged):
-            key = _ask_dj_message_key(message)
-            if key:
+            for key in _ask_dj_message_keys(message):
                 index_by_key[key] = index
         for message in messages:
-            key = _ask_dj_message_key(message)
-            if key and key in index_by_key:
-                merged[index_by_key[key]] = {**merged[index_by_key[key]], **message, "pending": False}
+            match_index = next((index_by_key[key] for key in _ask_dj_message_keys(message) if key in index_by_key), None)
+            if match_index is not None:
+                merged[match_index] = {**merged[match_index], **message, "pending": False}
+                for key in _ask_dj_message_keys(merged[match_index]):
+                    index_by_key[key] = match_index
             else:
+                message = {**message, "_arrival_index": next_arrival_index}
+                next_arrival_index += 1
                 merged.append(message)
-                if key:
+                for key in _ask_dj_message_keys(message):
                     index_by_key[key] = len(merged) - 1
-        self._ask_dj_messages = merged[-100:]
+        self._ask_dj_messages = _sort_ask_dj_messages(merged)[-max(1, limit):]
         self.askDjChanged.emit()
 
     def _set_ask_dj_busy(self, value: bool) -> None:
@@ -1422,9 +1431,8 @@ class DJConnectBackend(QObject):
                 if not item_payload:
                     _LOGGER.info("Ignoring local media item request without usable URI: %s", command)
                     continue
-                backend_command = "play_context_at" if command == "start_queue_item" else command
                 _LOGGER.info("Executing local web portal media item request: %s", command)
-                self.playMediaItem(backend_command, item_payload)
+                self.playMediaItem(command, item_payload)
                 continue
             _LOGGER.info("Executing Client API command event from Home Assistant: %s", command)
             if command in {"previous", "next"}:
@@ -1736,14 +1744,15 @@ def parse_ask_dj_messages(data: dict[str, object]) -> list[dict[str, object]]:
     raw_messages = _first_present(data, ("messages", "history", "items"))
     parsed: list[dict[str, object]] = []
     if isinstance(raw_messages, list):
-        for item in raw_messages:
+        for index, item in enumerate(raw_messages):
             if isinstance(item, dict):
                 message = _ask_dj_message(item)
                 if message:
+                    message["_source_index"] = index
                     parsed.append(message)
-    response_message = _ask_dj_message(data)
-    if response_message:
-        parsed.append(response_message)
+        if parsed:
+            return parsed
+    parsed.extend(_ask_dj_legacy_response_messages(data))
     return parsed
 
 
@@ -1760,9 +1769,15 @@ def _ask_dj_message(item: dict[str, object]) -> dict[str, object] | None:
         text = user_text
     if kind == "system":
         role = "system"
+    actions = _ask_dj_actions(item.get("playback_actions"), item.get("confirmation_actions"))
+    text = _ask_dj_display_text(text, actions)
     message: dict[str, object] = {
-        "id": str(item.get("id") or item.get("message_id") or item.get("server_id") or item.get("client_message_id") or ""),
+        "id": str(item.get("id") or item.get("message_id") or item.get("server_id") or ""),
         "client_message_id": str(item.get("client_message_id") or ""),
+        "exchange_id": str(item.get("exchange_id") or ""),
+        "exchange_order": _optional_int(item.get("exchange_order")),
+        "history_revision": _optional_int(item.get("history_revision") or item.get("revision")),
+        "server_order": _optional_int(item.get("server_order") or item.get("order") or item.get("sequence")),
         "role": role,
         "messageKind": kind or role,
         "origin": str(item.get("origin") or ""),
@@ -1770,11 +1785,36 @@ def _ask_dj_message(item: dict[str, object]) -> dict[str, object] | None:
         "created_at": str(item.get("created_at") or item.get("timestamp") or item.get("server_time") or ""),
         "images": _ask_dj_images(item.get("images")),
         "links": _ask_dj_links(item.get("links"), item.get("sources")),
-        "actions": _ask_dj_actions(item.get("playback_actions"), item.get("confirmation_actions")),
-        "audioUrl": "",
-        "audioType": "",
+        "actions": actions,
+        "audioUrl": str(item.get("audio_url") or item.get("audioUrl") or ""),
+        "audioType": str(item.get("audio_type") or item.get("audioType") or ""),
     }
     return message
+
+
+def _ask_dj_legacy_response_messages(data: dict[str, object]) -> list[dict[str, object]]:
+    user_text = str(data.get("user_message") or "").strip()
+    assistant_text = str(data.get("assistant_message") or data.get("dj_text") or data.get("text") or data.get("message") or data.get("content") or "").strip()
+    messages: list[dict[str, object]] = []
+    if user_text:
+        user = _ask_dj_message({**data, "role": "user", "text": user_text, "assistant_message": "", "message": "", "content": ""})
+        if user:
+            user["exchange_order"] = user.get("exchange_order") if user.get("exchange_order") is not None else 0
+            user["_source_index"] = 0
+            messages.append(user)
+    if assistant_text:
+        assistant = _ask_dj_message({**data, "role": "assistant", "text": assistant_text, "user_message": ""})
+        if assistant:
+            assistant["exchange_order"] = assistant.get("exchange_order") if assistant.get("exchange_order") is not None else 1
+            assistant["_source_index"] = 1
+            messages.append(assistant)
+    if messages:
+        return messages
+    response_message = _ask_dj_message(data)
+    if response_message:
+        response_message["_source_index"] = 0
+        return [response_message]
+    return []
 
 
 def _ask_dj_images(value: object) -> list[dict[str, object]]:
@@ -1784,9 +1824,20 @@ def _ask_dj_images(value: object) -> list[dict[str, object]]:
     for item in value:
         if not isinstance(item, dict):
             continue
-        url = str(item.get("thumbnail_url") or item.get("url") or "").strip()
+        url = str(
+            item.get("image_url")
+            or item.get("imageUrl")
+            or item.get("album_image_url")
+            or item.get("albumImageUrl")
+            or item.get("album_art_url")
+            or item.get("art_url")
+            or item.get("media_image_url")
+            or item.get("url")
+            or item.get("thumbnail_url")
+            or ""
+        ).strip()
         if url:
-            images.append({"url": url, "title": str(item.get("title") or item.get("alt") or "")})
+            images.append({"url": cached_image_url(url), "title": str(item.get("title") or item.get("alt") or "")})
     return images[:6]
 
 
@@ -1821,24 +1872,125 @@ def _ask_dj_actions(playback_actions: object, confirmation_actions: object) -> l
                 title = title or ("Ja" if str(item.get("response_value") or "").lower() == "yes" else "Nee")
             elif not title:
                 title = "Play Now"
+            is_output = _is_output_action(item)
+            image_url = str(
+                item.get("image_url")
+                or item.get("imageUrl")
+                or item.get("album_image_url")
+                or item.get("albumImageUrl")
+                or item.get("album_art_url")
+                or item.get("thumbnail_url")
+                or item.get("art_url")
+                or item.get("media_image_url")
+                or ""
+            ).strip()
             actions.append(
                 {
                     "title": title,
                     "subtitle": subtitle,
                     "kind": kind,
-                    "imageUrl": str(item.get("image_url") or item.get("thumbnail_url") or item.get("art_url") or ""),
+                    "isOutput": is_output,
+                    "isMedia": not is_output and kind != "confirmation" and str(item.get("action_style") or "") != "confirmation",
+                    "imageUrl": cached_image_url(image_url) if image_url else "",
                     "payload": json.dumps(item, ensure_ascii=True),
                 }
             )
     return actions[:8]
 
 
+def _is_output_action(item: dict[str, object]) -> bool:
+    values = {
+        str(item.get("kind") or "").strip().lower(),
+        str(item.get("type") or "").strip().lower(),
+        str(item.get("command") or "").strip().lower(),
+        str(item.get("action") or "").strip().lower(),
+    }
+    return bool(values & {"speaker", "speakers", "output", "outputs", "output_device", "set_output", "select_output"})
+
+
+def _ask_dj_display_text(text: str, actions: list[dict[str, object]]) -> str:
+    output_titles = {
+        _normalized_action_title(str(action.get("title") or ""))
+        for action in actions
+        if action.get("isOutput")
+    }
+    if not text or not output_titles:
+        return text
+    lines: list[str] = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith(("- ", "* ", "• ")):
+            title = _normalized_action_title(stripped[2:])
+            if title in output_titles:
+                continue
+        lines.append(line)
+    return "\n".join(lines).strip()
+
+
+def _normalized_action_title(value: str) -> str:
+    return " ".join(value.strip().casefold().split())
+
+
 def _ask_dj_message_key(message: dict[str, object]) -> str:
-    for key in ("id", "client_message_id"):
-        value = str(message.get(key) or "").strip()
-        if value:
-            return f"{key}:{value}"
-    return ""
+    keys = _ask_dj_message_keys(message)
+    return keys[0] if keys else ""
+
+
+def _ask_dj_message_keys(message: dict[str, object]) -> list[str]:
+    keys: list[str] = []
+    message_id = str(message.get("id") or "").strip()
+    if message_id:
+        keys.append(f"id:{message_id}")
+    client_message_id = str(message.get("client_message_id") or "").strip()
+    role = str(message.get("role") or "").strip()
+    if client_message_id and role:
+        keys.append(f"client_message_id:{client_message_id}:role:{role}")
+    return keys
+
+
+def _ask_dj_exchange_order(message: dict[str, object]) -> int:
+    value = message.get("exchange_order")
+    if isinstance(value, int):
+        return value
+    role = str(message.get("role") or "").strip().lower()
+    if role == "user":
+        return 0
+    if role == "assistant":
+        return 1
+    return 2
+
+
+def _ask_dj_order_value(message: dict[str, object]) -> tuple[int, object]:
+    for priority, key in enumerate(("history_revision", "server_order", "created_at", "_arrival_index", "_source_index")):
+        value = message.get(key)
+        if value is None or value == "":
+            continue
+        return priority, value
+    return 99, ""
+
+
+def _sort_ask_dj_messages(messages: list[dict[str, object]]) -> list[dict[str, object]]:
+    exchange_anchor: dict[str, tuple[int, object]] = {}
+    for message in messages:
+        exchange_id = str(message.get("exchange_id") or "").strip()
+        if not exchange_id:
+            continue
+        order_value = _ask_dj_order_value(message)
+        if exchange_id not in exchange_anchor or order_value < exchange_anchor[exchange_id]:
+            exchange_anchor[exchange_id] = order_value
+
+    def sort_key(message: dict[str, object]) -> tuple[object, ...]:
+        exchange_id = str(message.get("exchange_id") or "").strip()
+        order_value = exchange_anchor.get(exchange_id, _ask_dj_order_value(message))
+        client_message_id = str(message.get("client_message_id") or "").strip()
+        return (
+            order_value,
+            exchange_id or client_message_id,
+            _ask_dj_exchange_order(message),
+            _ask_dj_order_value(message),
+        )
+
+    return sorted(messages, key=sort_key)
 
 
 def _int_value(value: object, default: int = 0) -> int:
@@ -1846,6 +1998,13 @@ def _int_value(value: object, default: int = 0) -> int:
         return int(value)
     except (TypeError, ValueError):
         return default
+
+
+def _optional_int(value: object) -> int | None:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _context_supports_offset(context_uri: str) -> bool:

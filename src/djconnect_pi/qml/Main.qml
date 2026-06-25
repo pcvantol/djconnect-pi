@@ -486,6 +486,75 @@ Window {
         }
     }
 
+    component AppBanner: Rectangle {
+        id: appBanner
+        property string detailText: root.tr("tagline")
+        property int logoSize: 84
+        property int titleSize: 38
+        property int detailSize: 20
+        property int horizontalPadding: 28
+        property int verticalPadding: 18
+        property int contentSpacing: 22
+
+        Layout.fillWidth: true
+        Layout.preferredHeight: 132
+        radius: 24
+        color: "#171029"
+        border.color: "#3b2a63"
+        border.width: 1
+        clip: true
+        gradient: Gradient {
+            orientation: Gradient.Horizontal
+            GradientStop { position: 0.0; color: "#12091d" }
+            GradientStop { position: 0.42; color: "#26103f" }
+            GradientStop { position: 0.72; color: "#37145a" }
+            GradientStop { position: 1.0; color: "#141125" }
+        }
+
+        RowLayout {
+            anchors.fill: parent
+            anchors.leftMargin: appBanner.horizontalPadding
+            anchors.rightMargin: appBanner.horizontalPadding
+            anchors.topMargin: appBanner.verticalPadding
+            anchors.bottomMargin: appBanner.verticalPadding
+            spacing: appBanner.contentSpacing
+
+            Image {
+                source: "app-icon.png"
+                Layout.preferredWidth: appBanner.logoSize
+                Layout.preferredHeight: appBanner.logoSize
+                fillMode: Image.PreserveAspectFit
+                smooth: true
+                mipmap: true
+            }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 6
+
+                Text {
+                    text: "DJConnect"
+                    color: "#ffffff"
+                    font.pixelSize: appBanner.titleSize
+                    font.bold: true
+                    elide: Text.ElideRight
+                    maximumLineCount: 1
+                    Layout.fillWidth: true
+                }
+
+                Text {
+                    text: appBanner.detailText
+                    color: "#c9c3d8"
+                    font.pixelSize: appBanner.detailSize
+                    font.bold: true
+                    elide: Text.ElideRight
+                    maximumLineCount: 1
+                    Layout.fillWidth: true
+                }
+            }
+        }
+    }
+
     component IconButton: Button {
         id: control
         property string iconName: "play"
@@ -1657,7 +1726,7 @@ Window {
         visible: root.activeScreen === "queue"
         heading: root.tr("queue")
         emptyText: root.tr("empty_queue")
-        playCommand: "play_context_at"
+        playCommand: "start_queue_item"
         items: djconnect.queueItems
         onRefreshRequested: djconnect.loadQueue()
     }
@@ -1809,6 +1878,15 @@ Window {
                 }
             }
 
+            Text {
+                text: root.tr("ask_dj_readonly_hint")
+                color: "#b7c2d8"
+                font.pixelSize: 17
+                font.bold: true
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+
             ScrollView {
                 id: askDjScroll
                 Layout.fillWidth: true
@@ -1863,6 +1941,15 @@ Window {
                                     font.bold: !systemBubble
                                     wrapMode: Text.WordWrap
                                     Layout.fillWidth: true
+                                }
+
+                                PurpleButton {
+                                    visible: modelData.audioUrl && modelData.audioUrl.length > 0
+                                    text: root.tr("replay_audio")
+                                    font.pixelSize: 17
+                                    Layout.preferredWidth: 180
+                                    Layout.preferredHeight: 44
+                                    onClicked: Qt.openUrlExternally(modelData.audioUrl)
                                 }
 
                                 Flow {
@@ -1929,31 +2016,144 @@ Window {
                                     }
                                 }
 
-                                Flow {
+                                ColumnLayout {
                                     visible: modelData.actions && modelData.actions.length > 0
-                                    spacing: 8
                                     Layout.fillWidth: true
+                                    spacing: 8
 
                                     Repeater {
                                         model: modelData.actions || []
 
-                                        PurpleButton {
-                                            id: askDjActionButton
-                                            text: modelData.title || root.tr("start")
-                                            font.pixelSize: 18
-                                            implicitWidth: Math.max(112, actionLabel.implicitWidth + 28)
-                                            implicitHeight: 44
-                                            contentItem: Text {
-                                                id: actionLabel
-                                                text: askDjActionButton.text
-                                                font: askDjActionButton.font
-                                                color: "#ffffff"
-                                                horizontalAlignment: Text.AlignHCenter
-                                                verticalAlignment: Text.AlignVCenter
-                                                elide: Text.ElideRight
-                                                maximumLineCount: 1
+                                        Rectangle {
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: (modelData.isMedia || modelData.isOutput) ? 88 : 50
+                                            radius: 8
+                                            color: (modelData.isMedia || modelData.isOutput) ? "#55291f4b" : "#00000000"
+                                            border.color: (modelData.isMedia || modelData.isOutput) ? "#55ffffff" : "#00000000"
+                                            border.width: (modelData.isMedia || modelData.isOutput) ? 1 : 0
+                                            clip: true
+
+                                            RowLayout {
+                                                anchors.fill: parent
+                                                anchors.margins: (modelData.isMedia || modelData.isOutput) ? 10 : 0
+                                                spacing: 12
+
+                                                Rectangle {
+                                                    visible: modelData.isMedia || modelData.isOutput
+                                                    Layout.preferredWidth: 68
+                                                    Layout.preferredHeight: 68
+                                                    radius: 8
+                                                    color: "#22182e"
+                                                    clip: true
+
+                                                    Image {
+                                                        visible: modelData.isMedia
+                                                        anchors.fill: parent
+                                                        source: modelData.imageUrl && modelData.imageUrl.length > 0 ? modelData.imageUrl : ""
+                                                        fillMode: Image.PreserveAspectCrop
+                                                        sourceSize.width: 68
+                                                        sourceSize.height: 68
+                                                        asynchronous: true
+                                                        cache: false
+                                                    }
+
+                                                    Text {
+                                                        anchors.centerIn: parent
+                                                        visible: modelData.isOutput || !modelData.imageUrl || modelData.imageUrl.length === 0
+                                                        text: modelData.isOutput ? "OUT" : "♪"
+                                                        color: "#d8c8ff"
+                                                        font.pixelSize: modelData.isOutput ? 18 : 28
+                                                        font.bold: true
+                                                    }
+                                                }
+
+                                                ColumnLayout {
+                                                    visible: modelData.isMedia || modelData.isOutput
+                                                    Layout.fillWidth: true
+                                                    spacing: 3
+
+                                                    Text {
+                                                        text: modelData.title || root.tr("start")
+                                                        color: "#ffffff"
+                                                        font.pixelSize: 18
+                                                        font.bold: true
+                                                        elide: Text.ElideRight
+                                                        maximumLineCount: 1
+                                                        Layout.fillWidth: true
+                                                    }
+
+                                                    Text {
+                                                        text: modelData.subtitle || ""
+                                                        color: "#f0d7ea"
+                                                        font.pixelSize: 16
+                                                        font.bold: true
+                                                        elide: Text.ElideRight
+                                                        maximumLineCount: 1
+                                                        visible: text.length > 0
+                                                        Layout.fillWidth: true
+                                                    }
+
+                                                    Rectangle {
+                                                        Layout.preferredHeight: 24
+                                                        Layout.preferredWidth: Math.max(78, actionKindLabel.implicitWidth + 24)
+                                                        radius: 12
+                                                        color: "#33ffffff"
+
+                                                        Text {
+                                                            id: actionKindLabel
+                                                            anchors.centerIn: parent
+                                                            text: modelData.kind || "media"
+                                                            color: "#ffffff"
+                                                            font.pixelSize: 14
+                                                            font.bold: true
+                                                            elide: Text.ElideRight
+                                                        }
+                                                    }
+                                                }
+
+                                                PurpleButton {
+                                                    id: askDjActionButton
+                                                    text: modelData.isOutput ? root.tr("activate") : (modelData.isMedia ? "Play Now" : (modelData.title || root.tr("start")))
+                                                    font.pixelSize: (modelData.isMedia || modelData.isOutput) ? 16 : 18
+                                                    Layout.fillWidth: !(modelData.isMedia || modelData.isOutput)
+                                                    Layout.preferredWidth: (modelData.isMedia || modelData.isOutput) ? 118 : 0
+                                                    Layout.preferredHeight: (modelData.isMedia || modelData.isOutput) ? 44 : 50
+                                                    contentItem: RowLayout {
+                                                        spacing: 8
+
+                                                        Canvas {
+                                                            visible: modelData.isMedia
+                                                            Layout.preferredWidth: 18
+                                                            Layout.preferredHeight: 18
+                                                            antialiasing: true
+                                                            onPaint: {
+                                                                var ctx = getContext("2d")
+                                                                ctx.clearRect(0, 0, width, height)
+                                                                ctx.fillStyle = "#ffffff"
+                                                                ctx.beginPath()
+                                                                ctx.moveTo(width * 0.33, height * 0.22)
+                                                                ctx.lineTo(width * 0.33, height * 0.78)
+                                                                ctx.lineTo(width * 0.78, height * 0.5)
+                                                                ctx.closePath()
+                                                                ctx.fill()
+                                                            }
+                                                        }
+
+                                                        Text {
+                                                            id: actionLabel
+                                                            text: askDjActionButton.text
+                                                            font: askDjActionButton.font
+                                                            color: "#ffffff"
+                                                            horizontalAlignment: Text.AlignHCenter
+                                                            verticalAlignment: Text.AlignVCenter
+                                                            elide: Text.ElideRight
+                                                            maximumLineCount: 1
+                                                            Layout.fillWidth: true
+                                                        }
+                                                    }
+                                                    onClicked: djconnect.sendAskDjAction(modelData.payload || "{}")
+                                                }
                                             }
-                                            onClicked: djconnect.sendAskDjAction(modelData.payload || "{}")
                                         }
                                     }
                                 }
@@ -2062,60 +2262,7 @@ Window {
             width: Math.min(parent.width - 40, 640)
             spacing: 14
 
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 132
-                radius: 24
-                color: "#171029"
-                border.color: "#3b2a63"
-                border.width: 1
-                gradient: Gradient {
-                    orientation: Gradient.Horizontal
-                    GradientStop { position: 0.0; color: "#12091d" }
-                    GradientStop { position: 0.42; color: "#26103f" }
-                    GradientStop { position: 0.72; color: "#37145a" }
-                    GradientStop { position: 1.0; color: "#141125" }
-                }
-
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.leftMargin: 28
-                    anchors.rightMargin: 28
-                    anchors.topMargin: 18
-                    anchors.bottomMargin: 18
-                    spacing: 22
-
-                    Image {
-                        source: "app-icon.png"
-                        Layout.preferredWidth: 84
-                        Layout.preferredHeight: 84
-                        fillMode: Image.PreserveAspectFit
-                        smooth: true
-                        mipmap: true
-                    }
-
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: 6
-
-                        Text {
-                            text: "DJConnect"
-                            color: "#ffffff"
-                            font.pixelSize: 38
-                            font.bold: true
-                            Layout.fillWidth: true
-                        }
-
-                        Text {
-                            text: root.tr("tagline")
-                            color: "#c9c3d8"
-                            font.pixelSize: 20
-                            font.bold: true
-                            Layout.fillWidth: true
-                        }
-                    }
-                }
-            }
+            AppBanner {}
 
             Text {
                 text: root.tr("pairing_screen_title")
@@ -2320,50 +2467,7 @@ Window {
             width: Math.min(parent.width - 40, 640)
             spacing: 28
 
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 132
-                radius: 8
-                color: "#dd151020"
-                border.color: "#3f2f70"
-                border.width: 1
-
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.margins: 18
-                    spacing: 18
-
-                    Image {
-                        source: "app-icon.png"
-                        Layout.preferredWidth: 84
-                        Layout.preferredHeight: 84
-                        fillMode: Image.PreserveAspectFit
-                        smooth: true
-                        mipmap: true
-                    }
-
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: 6
-
-                        Text {
-                            text: "DJConnect"
-                            color: "#ffffff"
-                            font.pixelSize: 38
-                            font.bold: true
-                            Layout.fillWidth: true
-                        }
-
-                        Text {
-                            text: root.tr("tagline")
-                            color: "#c9c3d8"
-                            font.pixelSize: 20
-                            font.bold: true
-                            Layout.fillWidth: true
-                        }
-                    }
-                }
-            }
+            AppBanner {}
 
             Rectangle {
                 Layout.alignment: Qt.AlignHCenter
@@ -2445,42 +2549,17 @@ Window {
             anchors.centerIn: parent
             width: Math.min(parent.width - 64, 560)
             height: 300
-            radius: 8
-            color: "#cc0b1024"
-            border.color: "#4050a8"
-            border.width: 1
+            color: "#00000000"
 
             ColumnLayout {
                 anchors.fill: parent
-                anchors.margins: 26
-                spacing: 10
+                spacing: 18
 
-                Image {
-                    source: "app-icon.png"
-                    Layout.alignment: Qt.AlignHCenter
-                    Layout.preferredWidth: 92
-                    Layout.preferredHeight: 92
-                    fillMode: Image.PreserveAspectFit
-                    smooth: true
-                    mipmap: true
-                }
-
-                Text {
-                    text: "DJConnect"
-                    color: "#f4f8f8"
-                    font.pixelSize: 46
-                    font.bold: true
-                    horizontalAlignment: Text.AlignHCenter
-                    Layout.fillWidth: true
-                }
-
-                Text {
-                    text: "v" + djconnect.version
-                    color: "#d946ef"
-                    font.pixelSize: 20
-                    font.bold: true
-                    horizontalAlignment: Text.AlignHCenter
-                    Layout.fillWidth: true
+                AppBanner {
+                    detailText: "v" + djconnect.version
+                    titleSize: 42
+                    detailSize: 20
+                    logoSize: 92
                 }
 
                 Text {
@@ -2996,49 +3075,8 @@ Window {
                 width: Math.max(0, aboutScroll.availableWidth)
                 spacing: 18
 
-                Rectangle {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 132
-                    radius: 8
-                    color: "#dd151020"
-                    border.color: "#3f2f70"
-                    border.width: 1
-
-                    RowLayout {
-                        anchors.fill: parent
-                        anchors.margins: 18
-                        spacing: 18
-
-                        Image {
-                            Layout.preferredWidth: 82
-                            Layout.preferredHeight: 82
-                            source: "app-icon.png"
-                            fillMode: Image.PreserveAspectFit
-                            smooth: true
-                            mipmap: true
-                        }
-
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: 4
-
-                            Text {
-                                text: "DJConnect"
-                                color: "#ffffff"
-                                font.pixelSize: 38
-                                font.bold: true
-                                Layout.fillWidth: true
-                            }
-
-                            Text {
-                                text: root.tr("tagline")
-                                color: "#c8bfd4"
-                                font.pixelSize: 20
-                                font.bold: true
-                                Layout.fillWidth: true
-                            }
-                        }
-                    }
+                AppBanner {
+                    logoSize: 82
                 }
 
                 Text {
@@ -3148,40 +3186,16 @@ Window {
             anchors.margins: 24
             spacing: 16
 
-            RowLayout {
+            AppBanner {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 84
-                spacing: 18
-
-                Image {
-                    source: "app-icon.png"
-                    Layout.preferredWidth: 76
-                    Layout.preferredHeight: 76
-                    fillMode: Image.PreserveAspectFit
-                    smooth: true
-                    mipmap: true
-                }
-
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 2
-
-                    Text {
-                        text: "DJConnect"
-                        color: "#ffffff"
-                        font.pixelSize: 30
-                        font.bold: true
-                        Layout.fillWidth: true
-                    }
-
-                    Text {
-                        text: root.tr("dj_response")
-                        color: "#d8c8ff"
-                        font.pixelSize: 20
-                        font.bold: true
-                        Layout.fillWidth: true
-                    }
-                }
+                Layout.preferredHeight: 98
+                detailText: root.tr("dj_response")
+                logoSize: 64
+                titleSize: 30
+                detailSize: 20
+                horizontalPadding: 20
+                verticalPadding: 14
+                contentSpacing: 16
             }
 
             Text {

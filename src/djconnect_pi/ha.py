@@ -65,9 +65,27 @@ class HAClient:
             self.cfg.paired = True
         return data
 
-    def status(self, playback: Playback | None = None) -> dict[str, Any]:
+    def status(self, playback: Playback | None = None, queue_items: list[dict[str, object]] | None = None) -> dict[str, Any]:
         payload = self._base_payload(ha_pairing_status="paired" if self.cfg.paired else "pending")
         if playback is not None:
+            output_devices = list(playback.output_devices)
+            playback_payload = {
+                "has_playback": bool(playback.title or playback.artist or playback.image_url or playback.duration_seconds),
+                "title": playback.title,
+                "track_name": playback.title,
+                "artist": playback.artist,
+                "image_url": playback.image_url,
+                "is_playing": playback.is_playing,
+                "volume": playback.volume,
+                "shuffle": playback.shuffle,
+                "repeat_state": playback.repeat,
+                "position": playback.position_seconds,
+                "duration": playback.duration_seconds,
+                "output_device": playback.output_device,
+                "output_devices": output_devices,
+            }
+            if playback.output_device:
+                playback_payload["device"] = {"id": playback.output_device, "name": playback.output_device}
             payload.update(
                 {
                     "last_track": playback.title,
@@ -78,8 +96,17 @@ class HAClient:
                     "spotify_status": "playing" if playback.is_playing else "paused",
                     "position": playback.position_seconds,
                     "duration": playback.duration_seconds,
+                    "playback": playback_payload,
+                    "output_device": playback.output_device,
+                    "output_devices": output_devices,
+                    "available_outputs": [{"id": name, "name": name} for name in output_devices],
                 }
             )
+            if playback.output_device:
+                payload["sound_output"] = playback.output_device
+                payload["output"] = playback.output_device
+        if queue_items is not None:
+            payload["queue"] = {"items": queue_items}
         url = self._url("/api/djconnect/status")
         _LOGGER.debug("POST %s paired=%s playback_included=%s", url, self.cfg.paired, playback is not None)
         started = time.monotonic()
@@ -130,7 +157,16 @@ class HAClient:
         return data
 
     def ask_dj_action(self, action: dict[str, Any]) -> dict[str, Any]:
-        return self.command("ask_dj_action", action=action)
+        command = str(action.get("command") or "").strip()
+        kind = str(action.get("kind") or "").strip()
+        action_style = str(action.get("action_style") or "").strip()
+        if not command:
+            if kind == "confirmation" or action_style == "confirmation":
+                command = "ask_dj_followup_response"
+            else:
+                command = "ask_dj_play_recommendation"
+        play = bool(action.get("play")) or bool(action.get("uri") or action.get("context_uri") or action.get("contextUri"))
+        return self.command(command, value=action, play=play)
 
     def playback_from_status(self, data: dict[str, Any]) -> Playback:
         playback = data.get("playback") if isinstance(data.get("playback"), dict) else data

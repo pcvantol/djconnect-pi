@@ -21,21 +21,24 @@ Belangrijke context:
 - Geen lokale `SYNC_PROMPTS.md` of `PRODUCT_ROADMAP.md`; die staan canoniek in `pcvantol/djconnect`.
 
 Huidige stand:
-- Laatste beoogde release in deze werkronde is `v3.1.94`.
+- Laatste beoogde release in deze werkronde is `v3.1.100`.
 - Public updater assets staan in `pcvantol/djconnect-pi-releases`, inclusief `djconnect-pi-latest.json`.
-- Release `v3.1.94` verwijdert het Pi-local `/api/device/dj_response`
-  endpoint en adverteert `local_dj_response_endpoint:false`, conform de
-  canonical syncprompt. Tekst-only DJ response weergave blijft alleen mogelijk
-  via normale Home Assistant command/status responses.
-- Na publicatie moeten public assets voor `v3.1.94` worden geverifieerd:
-  - `djconnect-pi-3.1.94.tar.gz`
-  - `djconnect-pi-3.1.94.sha256`
+- Release `v3.1.100` werkt de Ask DJ chat-rendering bij voor het nieuwe
+  server-side message exchange contract: `messages[]` is canoniek waar
+  beschikbaar, optimistic/user bubbles mergen in de server exchange, en user
+  berichten blijven boven het DJ antwoord binnen dezelfde exchange.
+- Source release is aangemaakt:
+  - source repo tag/release: `v3.1.100`
+  - source PR naar `main`: `#7`
+- Public publish workflow voor `v3.1.100` loopt nog; verifieer na afronden:
+  - `djconnect-pi-3.1.100.tar.gz`
+  - `djconnect-pi-3.1.100.sha256`
   - `djconnect-pi-latest.json`
-- Pi moet via de normale updater-route naar `3.1.94` worden gebracht.
-- Validatie voor `v3.1.94`:
+- Pi moet via de normale updater-route naar `3.1.100` worden gebracht.
+- Validatie voor `v3.1.100`:
   - run `python3 -m pytest -q`
   - `git diff --check` -> ok
-  - GitHub Actions publish workflow voor `v3.1.94` controleren
+  - GitHub Actions publish workflow voor `v3.1.100` controleren
   - Pi services na updater install: `djconnect-api.service`,
     `djconnect-client.service` en `djconnect-updater.timer` active
 
