@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import subprocess
+from importlib.resources import files
 
 from djconnect_pi import update_ui
 
@@ -27,6 +28,16 @@ def test_update_ui_uses_configured_local_url_for_remote_access() -> None:
 
     assert backend.deviceAddress == "192.168.1.115"
     assert backend.sshCommand == "ssh pi@192.168.1.115"
+
+
+def test_update_progress_uses_app_banner() -> None:
+    update_qml = files("djconnect_pi.qml").joinpath("UpdateProgress.qml").read_text(encoding="utf-8")
+
+    assert "component AppBanner" in update_qml
+    assert "AppBanner {}" in update_qml
+    assert 'GradientStop { position: 0.72; color: "#37145a" }' in update_qml
+    assert 'text: "DJConnect"' in update_qml
+    assert "Layout.preferredWidth: 128" not in update_qml
 
 
 def test_update_ui_wakes_display_with_xset(monkeypatch) -> None:

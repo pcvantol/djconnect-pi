@@ -117,7 +117,8 @@ def test_media_list_parsers_accept_ha_artwork_aliases() -> None:
     assert playlists[0]["imageUrl"] == "https://example.test/playlist.jpg"
 
 
-def test_ask_dj_parser_accepts_history_rich_messages() -> None:
+def test_ask_dj_parser_accepts_history_rich_messages(monkeypatch) -> None:
+    monkeypatch.setattr("djconnect_pi.app.cached_image_url", lambda url: f"file:///cache/{url.rsplit('/', 1)[-1]}")
     messages = parse_ask_dj_messages(
         {
             "messages": [
@@ -126,10 +127,21 @@ def test_ask_dj_parser_accepts_history_rich_messages() -> None:
                     "id": "a1",
                     "role": "assistant",
                     "dj_text": "Radiohead heeft meerdere albums.",
-                    "images": [{"url": "http://ha/api/image/1", "thumbnail_url": "http://ha/api/thumb/1"}],
+                    "images": [
+                        {"url": "http://ha/api/image/1", "thumbnail_url": "http://ha/api/thumb/1"},
+                        {"image_url": "http://ha/api/album/ten.jpg"},
+                    ],
                     "links": [{"title": "Wikipedia", "url": "http://ha/link", "kind": "wikipedia"}],
                     "sources": [{"name": "MusicBrainz", "url": "http://ha/source", "source": "musicbrainz"}],
-                    "playback_actions": [{"kind": "track", "title": "Play Now", "uri": "spotify:track:1", "subtitle": "Radiohead"}],
+                    "playback_actions": [
+                        {
+                            "kind": "track",
+                            "title": "Play Now",
+                            "uri": "spotify:track:1",
+                            "subtitle": "Radiohead",
+                            "image_url": "http://ha/api/track/art.jpg",
+                        }
+                    ],
                     "confirmation_actions": [{"kind": "confirmation", "action_style": "confirmation", "response_value": "yes"}],
                     "audio_url": "https://ha.local/tts.mp3",
                 },
@@ -141,13 +153,43 @@ def test_ask_dj_parser_accepts_history_rich_messages() -> None:
     assert messages[0]["role"] == "user"
     assert messages[0]["text"] == "Welke albums?"
     assert messages[1]["text"] == "Radiohead heeft meerdere albums."
-    assert messages[1]["images"] == [{"url": "http://ha/api/thumb/1", "title": ""}]
+    assert messages[1]["images"] == [
+        {"url": "file:///cache/1", "title": ""},
+        {"url": "file:///cache/ten.jpg", "title": ""},
+    ]
     assert len(messages[1]["links"]) == 2
     assert [action["kind"] for action in messages[1]["actions"]] == ["track", "confirmation"]
+    assert messages[1]["actions"][0]["isMedia"] is True
+    assert messages[1]["actions"][0]["imageUrl"] == "file:///cache/art.jpg"
+    assert messages[1]["actions"][1]["isMedia"] is False
     assert "spotify:track:1" in messages[1]["actions"][0]["payload"]
-    assert messages[1]["audioUrl"] == ""
+    assert messages[1]["audioUrl"] == "https://ha.local/tts.mp3"
     assert messages[2]["role"] == "status"
     assert messages[2]["text"] == "Ask DJ denkt na"
+
+
+def test_ask_dj_output_actions_render_as_rows_without_duplicate_bullets() -> None:
+    messages = parse_ask_dj_messages(
+        {
+            "messages": [
+                {
+                    "id": "speaker-list",
+                    "role": "assistant",
+                    "text": "Dit zijn de momenteel beschikbare speakers:\n- Tuin\n- Speelhoek + Keuken\n- iPhone",
+                    "playback_actions": [
+                        {"command": "set_output", "kind": "output", "title": "Tuin", "value": "Tuin"},
+                        {"command": "set_output", "kind": "output", "title": "Speelhoek + Keuken", "value": "Speelhoek + Keuken"},
+                        {"command": "set_output", "kind": "output", "title": "iPhone", "value": "iPhone"},
+                    ],
+                }
+            ]
+        }
+    )
+
+    assert messages[0]["text"] == "Dit zijn de momenteel beschikbare speakers:"
+    assert [action["title"] for action in messages[0]["actions"]] == ["Tuin", "Speelhoek + Keuken", "iPhone"]
+    assert all(action["isOutput"] is True for action in messages[0]["actions"])
+    assert all(action["isMedia"] is False for action in messages[0]["actions"])
 
 
 def test_ask_dj_parser_prefers_canonical_response_messages() -> None:
@@ -267,6 +309,25 @@ def test_ask_dj_merge_orders_exchange_and_deduplicates_refreshes(tmp_path: Path)
         ("user", "heb je playlists van snowpatrol"),
         ("assistant", "Ik heb een paar Snow Patrol playlists gevonden."),
     ]
+
+
+def test_ask_dj_history_limit_is_applied_from_server(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+
+    backend._apply_ask_dj_data(
+        {
+            "history_revision": 1,
+            "history_limit": 2,
+            "messages": [
+                {"id": "m1", "role": "assistant", "text": "Een", "created_at": "2026-06-24T12:00:01Z"},
+                {"id": "m2", "role": "assistant", "text": "Twee", "created_at": "2026-06-24T12:00:02Z"},
+                {"id": "m3", "role": "assistant", "text": "Drie", "created_at": "2026-06-24T12:00:03Z"},
+            ],
+        }
+    )
+
+    assert [message["id"] for message in backend.askDjMessages] == ["m2", "m3"]
 
 
 def test_ask_dj_poll_requires_pairing_and_token(tmp_path: Path) -> None:
@@ -1048,8 +1109,8 @@ def test_backend_refresh_loads_output_devices_when_status_omits_them(tmp_path: P
         def playback_from_status(self, data: dict[str, object]) -> object:
             return parser.playback_from_status(data)
 
-        def status(self, playback: object) -> dict[str, object]:
-            statuses.append(playback)
+        def status(self, playback: object, queue_items: list[dict[str, object]] | None = None) -> dict[str, object]:
+            statuses.append((playback, queue_items))
             return {"success": True}
 
     backend.client = FakeClient()  # type: ignore[assignment]
@@ -1057,7 +1118,8 @@ def test_backend_refresh_loads_output_devices_when_status_omits_them(tmp_path: P
 
     assert [call[0] for call in calls] == ["status", "devices"]
     assert statuses
-    assert statuses[0].output_devices == ("Slaapkamer R + Slaapkamer L",)
+    assert statuses[0][0].output_devices == ("Slaapkamer R + Slaapkamer L",)
+    assert statuses[0][1] == []
 
 
 def test_backend_refresh_caches_now_playing_artwork_before_render(tmp_path: Path, monkeypatch) -> None:
@@ -1077,7 +1139,7 @@ def test_backend_refresh_caches_now_playing_artwork_before_render(tmp_path: Path
         def playback_from_status(self, data: dict[str, object]) -> Playback:
             return parser.playback_from_status(data)
 
-        def status(self, playback: object) -> dict[str, object]:
+        def status(self, playback: object, queue_items: list[dict[str, object]] | None = None) -> dict[str, object]:
             return {"success": True}
 
     monkeypatch.setattr("djconnect_pi.app.cached_image_url", lambda url, **kwargs: "file:///cache/art.jpg")
@@ -1114,7 +1176,7 @@ def test_backend_refresh_loads_active_output_device_when_status_omits_it(tmp_pat
         def playback_from_status(self, data: dict[str, object]) -> object:
             return parser.playback_from_status(data)
 
-        def status(self, playback: object) -> dict[str, object]:
+        def status(self, playback: object, queue_items: list[dict[str, object]] | None = None) -> dict[str, object]:
             statuses.append(playback)
             return {"success": True}
 
@@ -1146,7 +1208,7 @@ def test_backend_refresh_preserves_selected_output_device_when_status_omits_it(t
         def playback_from_status(self, data: dict[str, object]) -> object:
             return parser.playback_from_status(data)
 
-        def status(self, playback: object) -> dict[str, object]:
+        def status(self, playback: object, queue_items: list[dict[str, object]] | None = None) -> dict[str, object]:
             statuses.append(playback)
             return {"success": True}
 
@@ -1203,6 +1265,50 @@ def test_backend_queue_item_worker_sends_direct_uri_without_required_context(tmp
                 "value": {
                     "uri": "spotify:episode:episode-1",
                     "title": "Episode",
+                },
+                "play": True,
+            },
+        )
+    ]
+
+
+def test_backend_queue_item_play_uses_start_queue_item_command(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    parser = HAClient(backend.cfg)
+    calls: list[tuple[str, dict[str, object]]] = []
+    runs: list[str] = []
+    backend._refresh_worker = lambda: None  # type: ignore[method-assign]
+
+    def run_now(status: str, worker, **_: object) -> None:
+        runs.append(status)
+        worker()
+
+    class FakeClient:
+        def command(self, command: str, **payload: object) -> dict[str, object]:
+            calls.append((command, payload))
+            return {"playback": {"title": "Queued Track"}}
+
+        def playback_from_status(self, data: dict[str, object]) -> Playback:
+            return parser.playback_from_status(data)
+
+    backend._run = run_now  # type: ignore[method-assign]
+    backend.client = FakeClient()  # type: ignore[assignment]
+
+    backend.playMediaItem(
+        "start_queue_item",
+        json.dumps({"title": "Queued Track", "uri": "spotify:track:track-1", "index": 2}),
+    )
+
+    assert runs == ["start_queue_item"]
+    assert calls == [
+        (
+            "start_queue_item",
+            {
+                "value": {
+                    "uri": "spotify:track:track-1",
+                    "title": "Queued Track",
+                    "index": 2,
                 },
                 "play": True,
             },

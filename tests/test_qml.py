@@ -26,9 +26,10 @@ def test_qml_has_blocking_pairing_and_splash_views() -> None:
     assert 'id: pairingSuccessPanel\n        anchors.fill: parent\n        color: "#070b16"' in main_qml
     assert "id: splashPanel" in main_qml
     assert 'source: "app-icon.png"' in main_qml
-    assert 'radius: 24\n                color: "#171029"' in main_qml
+    assert "component AppBanner" in main_qml
+    assert 'radius: 24\n        color: "#171029"' in main_qml
     assert 'GradientStop { position: 0.72; color: "#37145a" }' in main_qml
-    assert 'text: "v" + djconnect.version' in main_qml
+    assert 'detailText: "v" + djconnect.version' in main_qml
     assert "!djconnect.paired && !djconnect.demoMode" in main_qml
     assert "property int trVersion: djconnect.translationVersion" in main_qml
     assert "function tr(key)" in main_qml
@@ -166,7 +167,7 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "djconnect.playlistItems" in main_qml
     assert 'emptyText: root.tr("empty_queue")' in main_qml
     assert 'emptyText: root.tr("empty_playlists")' in main_qml
-    assert 'playCommand: "play_context_at"' in main_qml
+    assert 'playCommand: "start_queue_item"' in main_qml
     assert 'playCommand: "start_playlist"' in main_qml
     assert "function itemPayload(item)" in main_qml
     assert "JSON.stringify" in main_qml
@@ -317,11 +318,18 @@ def test_qml_ask_dj_screen_is_read_only() -> None:
     assert "djconnect.loadAskDjHistory()" in ask_dj_block
     assert "id: askDjRefreshButton" in ask_dj_block
     assert "Layout.preferredWidth: 150" in ask_dj_block
+    assert 'root.tr("ask_dj_readonly_hint")' in ask_dj_block
+    assert 'root.tr("replay_audio")' in ask_dj_block
+    assert "modelData.audioUrl && modelData.audioUrl.length > 0" in ask_dj_block
     assert "id: askDjPollTimer" in main_qml
     assert 'running: root.activeScreen === "askdj" && djconnect.paired && !djconnect.demoMode' in main_qml
     assert "onTriggered: djconnect.pollAskDjHistory()" in main_qml
     assert "id: askDjActionButton" in ask_dj_block
     assert "modelData.actions || []" in ask_dj_block
+    assert "modelData.isMedia" in ask_dj_block
+    assert "modelData.isOutput" in ask_dj_block
+    assert 'source: modelData.imageUrl && modelData.imageUrl.length > 0 ? modelData.imageUrl : ""' in ask_dj_block
+    assert 'text: modelData.isOutput ? root.tr("activate") : (modelData.isMedia ? "Play Now" : (modelData.title || root.tr("start")))' in ask_dj_block
     assert 'onClicked: djconnect.sendAskDjAction(modelData.payload || "{}")' in ask_dj_block
     assert "TextField" not in ask_dj_block
     assert "sendAskDjMessage" not in main_qml
@@ -421,8 +429,10 @@ def test_qml_has_update_progress_view_with_expandable_logs() -> None:
     assert "djconnect.updateInProgress" not in main_qml
     assert "id: updateProgressRoot" in update_qml
     assert "BusyIndicator" not in update_qml
-    assert "Layout.preferredWidth: 128" in update_qml
-    assert "Layout.preferredHeight: 128" in update_qml
+    assert "component AppBanner" in update_qml
+    assert "AppBanner {}" in update_qml
+    assert "Layout.preferredWidth: 128" not in update_qml
+    assert "Layout.preferredHeight: 128" not in update_qml
     assert "updater.progress" in update_qml
     assert "updater.detailsOpen" in update_qml
     assert "updater.toggleDetails()" in update_qml
