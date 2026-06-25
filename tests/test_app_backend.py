@@ -117,6 +117,42 @@ def test_media_list_parsers_accept_ha_artwork_aliases() -> None:
     assert playlists[0]["imageUrl"] == "https://example.test/playlist.jpg"
 
 
+def test_media_list_parsers_accept_nested_spotify_images() -> None:
+    queue = parse_queue_items(
+        {
+            "queue": {
+                "items": [
+                    {
+                        "track_name": "Track One",
+                        "artist_name": "Artist One",
+                        "track_uri": "spotify:track:1",
+                        "album": {
+                            "images": [
+                                {"url": "https://example.test/small.jpg", "width": 64},
+                                {"url": "https://example.test/large.jpg", "width": 640},
+                            ]
+                        },
+                    }
+                ]
+            }
+        }
+    )
+    playlists = parse_playlist_items(
+        {
+            "playlists": [
+                {
+                    "name": "Friday Night",
+                    "uri": "spotify:playlist:1",
+                    "images": [{"url": "https://example.test/playlist-large.jpg", "width": 300}],
+                }
+            ]
+        }
+    )
+
+    assert queue[0]["imageUrl"] == "https://example.test/large.jpg"
+    assert playlists[0]["imageUrl"] == "https://example.test/playlist-large.jpg"
+
+
 def test_ask_dj_parser_accepts_history_rich_messages(monkeypatch) -> None:
     monkeypatch.setattr("djconnect_pi.app.cached_image_url", lambda url: f"file:///cache/{url.rsplit('/', 1)[-1]}")
     messages = parse_ask_dj_messages(
@@ -139,7 +175,7 @@ def test_ask_dj_parser_accepts_history_rich_messages(monkeypatch) -> None:
                             "title": "Play Now",
                             "uri": "spotify:track:1",
                             "subtitle": "Radiohead",
-                            "image_url": "http://ha/api/track/art.jpg",
+                            "item": {"album": {"images": [{"url": "http://ha/api/track/art.jpg", "width": 640}]}},
                         }
                     ],
                     "confirmation_actions": [{"kind": "confirmation", "action_style": "confirmation", "response_value": "yes"}],

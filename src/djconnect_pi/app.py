@@ -1578,7 +1578,7 @@ def cached_image_url(url: str, ttl_seconds: int = 24 * 60 * 60, timeout_seconds:
 
 def prepare_media_artwork(items: list[dict[str, object]]) -> list[dict[str, object]]:
     for item in items:
-        image_url = str(item.get("imageUrl") or "")
+        image_url = _image_url_from(item)
         if image_url:
             item["imageUrl"] = cached_image_url(image_url)
     return items
@@ -1663,17 +1663,7 @@ def _media_item(item: dict[str, object], playlist: bool = False) -> dict[str, ob
     uri = str(item.get("uri") or item.get("id") or item.get("value") or item.get("playlist_uri") or item.get("track_uri") or "")
     context_uri = str(item.get("context_uri") or item.get("contextUri") or item.get("queue_context") or item.get("queueContext") or "")
     index = item.get("index")
-    image_url = str(
-        item.get("image_url")
-        or item.get("imageUrl")
-        or item.get("album_image_url")
-        or item.get("albumImageUrl")
-        or item.get("album_art_url")
-        or item.get("media_image_url")
-        or item.get("entity_picture")
-        or item.get("thumbnail_url")
-        or ""
-    )
+    image_url = _image_url_from(item)
     if playlist:
         subtitle = str(item.get("owner") or item.get("owner_name") or item.get("description") or subtitle)
         if not title or not uri:
@@ -1824,18 +1814,7 @@ def _ask_dj_images(value: object) -> list[dict[str, object]]:
     for item in value:
         if not isinstance(item, dict):
             continue
-        url = str(
-            item.get("image_url")
-            or item.get("imageUrl")
-            or item.get("album_image_url")
-            or item.get("albumImageUrl")
-            or item.get("album_art_url")
-            or item.get("art_url")
-            or item.get("media_image_url")
-            or item.get("url")
-            or item.get("thumbnail_url")
-            or ""
-        ).strip()
+        url = _image_url_from(item)
         if url:
             images.append({"url": cached_image_url(url), "title": str(item.get("title") or item.get("alt") or "")})
     return images[:6]
@@ -1873,17 +1852,7 @@ def _ask_dj_actions(playback_actions: object, confirmation_actions: object) -> l
             elif not title:
                 title = "Play Now"
             is_output = _is_output_action(item)
-            image_url = str(
-                item.get("image_url")
-                or item.get("imageUrl")
-                or item.get("album_image_url")
-                or item.get("albumImageUrl")
-                or item.get("album_art_url")
-                or item.get("thumbnail_url")
-                or item.get("art_url")
-                or item.get("media_image_url")
-                or ""
-            ).strip()
+            image_url = _image_url_from(item)
             actions.append(
                 {
                     "title": title,
@@ -1896,6 +1865,70 @@ def _ask_dj_actions(playback_actions: object, confirmation_actions: object) -> l
                 }
             )
     return actions[:8]
+
+
+def _image_url_from(item: dict[str, object]) -> str:
+    for key in (
+        "image_url",
+        "imageUrl",
+        "album_image_url",
+        "albumImageUrl",
+        "album_art_url",
+        "albumArtUrl",
+        "art_url",
+        "artUrl",
+        "artwork_url",
+        "artworkUrl",
+        "media_image_url",
+        "mediaImageUrl",
+        "entity_picture",
+        "thumbnail_url",
+        "thumbnailUrl",
+        "thumbnail",
+        "cover_url",
+        "coverUrl",
+        "cover",
+        "image",
+        "picture",
+        "images",
+        "artworks",
+        "thumbnails",
+        "url",
+    ):
+        value = item.get(key)
+        url = _image_url_value(value)
+        if url:
+            return url
+    for key in ("album", "track", "playlist", "show", "episode", "item", "metadata"):
+        nested = item.get(key)
+        if isinstance(nested, dict):
+            url = _image_url_from(nested)
+            if url:
+                return url
+    return ""
+
+
+def _image_url_value(value: object) -> str:
+    if isinstance(value, str):
+        text = value.strip()
+        if text.startswith(("http://", "https://", "file://")):
+            return text
+        return ""
+    if isinstance(value, dict):
+        return _image_url_from(value)
+    if isinstance(value, list):
+        candidates: list[dict[str, object]] = [item for item in value if isinstance(item, dict)]
+        if candidates:
+            candidates.sort(key=lambda item: int(item.get("width") or item.get("height") or 0), reverse=True)
+            for candidate in candidates:
+                url = _image_url_from(candidate)
+                if url:
+                    return url
+        for item in value:
+            url = _image_url_value(item)
+            if url:
+                return url
+    return ""
 
 
 def _is_output_action(item: dict[str, object]) -> bool:

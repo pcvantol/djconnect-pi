@@ -250,6 +250,25 @@ def test_playback_from_status_accepts_aliases() -> None:
     assert playback.output_devices == ("Slaapkamer R + Slaapkamer L",)
 
 
+def test_playback_from_status_accepts_nested_spotify_images() -> None:
+    playback = HAClient(Config()).playback_from_status(
+        {
+            "playback": {
+                "track": "Alive",
+                "artists": "Pearl Jam",
+                "album": {
+                    "images": [
+                        {"url": "http://image-small", "width": 64},
+                        {"url": "http://image-large", "width": 640},
+                    ]
+                },
+            }
+        }
+    )
+
+    assert playback.image_url == "http://image-large"
+
+
 def test_playback_from_status_does_not_select_first_output_device_as_fallback() -> None:
     playback = HAClient(Config()).playback_from_status(
         {

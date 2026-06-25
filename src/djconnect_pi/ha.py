@@ -215,18 +215,7 @@ class HAClient:
         return Playback(
             title=str(playback.get("title") or playback.get("track") or playback.get("track_name") or playback.get("last_track") or ""),
             artist=str(playback.get("artist") or playback.get("artists") or playback.get("album_artist") or ""),
-            image_url=str(
-                playback.get("image_url")
-                or playback.get("imageUrl")
-                or playback.get("album_image_url")
-                or playback.get("albumImageUrl")
-                or playback.get("album_art_url")
-                or playback.get("media_image_url")
-                or playback.get("entity_picture")
-                or playback.get("thumbnail_url")
-                or playback.get("artwork")
-                or ""
-            ),
+            image_url=_image_url_from(playback),
             is_playing=bool(playback.get("is_playing") or playback.get("playing")),
             volume=int(playback.get("volume") or playback.get("volume_percent") or 50),
             shuffle=bool(playback.get("shuffle")),
@@ -383,6 +372,70 @@ def _seconds_from_playback(playback: dict[str, Any], *keys: str) -> int:
             continue
         return max(0, int(float(value)))
     return 0
+
+
+def _image_url_from(item: dict[str, Any]) -> str:
+    for key in (
+        "image_url",
+        "imageUrl",
+        "album_image_url",
+        "albumImageUrl",
+        "album_art_url",
+        "albumArtUrl",
+        "art_url",
+        "artUrl",
+        "artwork",
+        "artwork_url",
+        "artworkUrl",
+        "media_image_url",
+        "mediaImageUrl",
+        "entity_picture",
+        "thumbnail_url",
+        "thumbnailUrl",
+        "thumbnail",
+        "cover_url",
+        "coverUrl",
+        "cover",
+        "image",
+        "picture",
+        "images",
+        "artworks",
+        "thumbnails",
+        "url",
+    ):
+        url = _image_url_value(item.get(key))
+        if url:
+            return url
+    for key in ("album", "track", "playlist", "show", "episode", "item", "metadata"):
+        nested = item.get(key)
+        if isinstance(nested, dict):
+            url = _image_url_from(nested)
+            if url:
+                return url
+    return ""
+
+
+def _image_url_value(value: Any) -> str:
+    if isinstance(value, str):
+        text = value.strip()
+        if text.startswith(("http://", "https://", "file://")):
+            return text
+        return ""
+    if isinstance(value, dict):
+        return _image_url_from(value)
+    if isinstance(value, list):
+        candidates = [item for item in value if isinstance(item, dict)]
+        if candidates:
+            candidates.sort(key=lambda item: int(item.get("width") or item.get("height") or 0), reverse=True)
+            for candidate in candidates:
+                url = _image_url_from(candidate)
+                if url:
+                    return url
+        for item in value:
+            url = _image_url_value(item)
+            if url:
+                return url
+    return ""
 
 
 def _string_list(value: Any) -> list[str]:
