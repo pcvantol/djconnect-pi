@@ -283,7 +283,7 @@ Window {
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 24
         width: Math.min(parent.width - 56, 600)
-        height: 68
+        height: 116
         radius: 8
         color: "#99050816"
         border.color: "#42537c"
@@ -303,10 +303,28 @@ Window {
             }
 
             Text {
-                text: updater.deviceAddress + "  |  " + updater.sshCommand
+                text: "SSH: " + updater.sshCommand
                 color: "#d7e2e4"
                 font.family: "monospace"
-                font.pixelSize: 16
+                font.pixelSize: 14
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+            }
+
+            Text {
+                text: "VNC tunnel: " + updater.vncCommand
+                color: "#d7e2e4"
+                font.family: "monospace"
+                font.pixelSize: 14
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+            }
+
+            Text {
+                text: updater.vncInstruction
+                color: "#b9c9e8"
+                font.pixelSize: 13
+                font.bold: true
                 elide: Text.ElideRight
                 Layout.fillWidth: true
             }

@@ -52,6 +52,8 @@ class UpdateUiBackend(QObject):
         self.status_file = status_file
         self._device_address = _local_ip_from_config(local_url)
         self._ssh_command = f"ssh pi@{self._device_address}"
+        self._vnc_command = f"ssh -L 5901:127.0.0.1:5901 pi@{self._device_address}"
+        self._vnc_instruction = "Open je VNC client naar localhost:5901"
         self._mtime = 0.0
         self._title = "DJConnect wordt bijgewerkt..."
         self._message = "DJConnect installeert een nieuwe versie. Laat de Pi aan staan."
@@ -97,6 +99,14 @@ class UpdateUiBackend(QObject):
     @Property(str, notify=statusChanged)
     def sshCommand(self) -> str:
         return self._ssh_command
+
+    @Property(str, notify=statusChanged)
+    def vncCommand(self) -> str:
+        return self._vnc_command
+
+    @Property(str, notify=statusChanged)
+    def vncInstruction(self) -> str:
+        return self._vnc_instruction
 
     @Property(bool, notify=statusChanged)
     def detailsOpen(self) -> bool:

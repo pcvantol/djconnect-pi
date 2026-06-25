@@ -1991,15 +1991,6 @@ Window {
                                     Layout.fillWidth: true
                                 }
 
-                                AskDjGradientButton {
-                                    visible: modelData.audioUrl && modelData.audioUrl.length > 0
-                                    text: root.tr("replay_audio")
-                                    font.pixelSize: 17
-                                    Layout.preferredWidth: 180
-                                    Layout.preferredHeight: 44
-                                    onClicked: Qt.openUrlExternally(modelData.audioUrl)
-                                }
-
                                 Flow {
                                     visible: modelData.images && modelData.images.length > 0
                                     spacing: 8

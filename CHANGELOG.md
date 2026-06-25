@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.1.105
+
+- Remove the Ask DJ audio replay button from the Raspberry Pi UI.
+- Show SSH and VNC tunnel commands in the updater Remote meekijken panel.
+
 ## 3.1.104
 
 - Use the blue-to-magenta Play Now gradient for all Ask DJ buttons.

@@ -28,6 +28,8 @@ def test_update_ui_uses_configured_local_url_for_remote_access() -> None:
 
     assert backend.deviceAddress == "192.168.1.115"
     assert backend.sshCommand == "ssh pi@192.168.1.115"
+    assert backend.vncCommand == "ssh -L 5901:127.0.0.1:5901 pi@192.168.1.115"
+    assert backend.vncInstruction == "Open je VNC client naar localhost:5901"
 
 
 def test_update_progress_uses_app_banner() -> None:

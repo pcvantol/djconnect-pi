@@ -323,8 +323,8 @@ def test_qml_ask_dj_screen_is_read_only() -> None:
     assert "AskDjGradientButton" in ask_dj_block
     assert "Layout.preferredWidth: 150" in ask_dj_block
     assert 'root.tr("ask_dj_readonly_hint")' in ask_dj_block
-    assert 'root.tr("replay_audio")' in ask_dj_block
-    assert "modelData.audioUrl && modelData.audioUrl.length > 0" in ask_dj_block
+    assert 'root.tr("replay_audio")' not in ask_dj_block
+    assert "Qt.openUrlExternally(modelData.audioUrl)" not in ask_dj_block
     assert "id: askDjPollTimer" in main_qml
     assert 'running: root.activeScreen === "askdj" && djconnect.paired && !djconnect.demoMode' in main_qml
     assert "onTriggered: djconnect.pollAskDjHistory()" in main_qml
@@ -461,8 +461,10 @@ def test_qml_has_update_progress_view_with_expandable_logs() -> None:
     assert "Remote meekijken" in update_qml
     assert "visible: !updater.detailsOpen" in update_qml
     assert "anchors.bottom: parent.bottom" in update_qml
-    assert "updater.deviceAddress" in update_qml
     assert "updater.sshCommand" in update_qml
+    assert "updater.vncCommand" in update_qml
+    assert "updater.vncInstruction" in update_qml
+    assert '"VNC tunnel: "' in update_qml
 
 
 def test_qml_uses_dark_djconnect_gradient_theme() -> None:
