@@ -114,17 +114,15 @@ Window {
             elide: Text.ElideRight
         }
         background: Rectangle {
-            radius: 8
-            border.color: control.down || control.checked ? "#d9ccff" : "#7f67ff"
-            border.width: 1
-            color: control.checked ? "#668b5cf6" : "#3324145f"
+            radius: Math.min(width, height) / 2
+            border.width: 0
             gradient: Gradient {
                 orientation: Gradient.Horizontal
-                GradientStop { position: 0.0; color: control.enabled ? "#556d28d9" : "#25293d" }
-                GradientStop { position: 0.52; color: control.enabled ? "#448b5cf6" : "#2c3048" }
-                GradientStop { position: 1.0; color: control.enabled ? "#332563eb" : "#25293d" }
+                GradientStop { position: 0.0; color: control.enabled ? "#247fff" : "#33415f" }
+                GradientStop { position: 0.58; color: control.enabled ? "#7757ff" : "#3c3f61" }
+                GradientStop { position: 1.0; color: control.enabled ? "#c33cff" : "#4b3d65" }
             }
-            opacity: control.down ? 0.78 : 1.0
+            opacity: control.down ? 0.78 : (control.enabled ? 1.0 : 0.62)
         }
     }
 
@@ -295,17 +293,16 @@ Window {
             }
         }
         background: Rectangle {
-            radius: 8
-            border.color: navControl.checked ? "#f5d0fe" : "#6b5cff"
-            border.width: navControl.checked ? 3 : 1
-            color: navControl.checked ? "#aa7c3aed" : "#3324145f"
+            radius: Math.min(width, height) / 2
+            border.width: navControl.checked ? 2 : 0
+            border.color: "#f5d0fe"
             gradient: Gradient {
                 orientation: Gradient.Horizontal
-                GradientStop { position: 0.0; color: navControl.checked ? "#d946ef" : "#4424145f" }
-                GradientStop { position: 0.54; color: navControl.checked ? "#8b5cf6" : "#333b2c9f" }
-                GradientStop { position: 1.0; color: navControl.checked ? "#4f46e5" : "#332563eb" }
+                GradientStop { position: 0.0; color: navControl.enabled ? "#247fff" : "#33415f" }
+                GradientStop { position: 0.58; color: navControl.enabled ? "#7757ff" : "#3c3f61" }
+                GradientStop { position: 1.0; color: navControl.enabled ? "#c33cff" : "#4b3d65" }
             }
-            opacity: navControl.down ? 0.78 : 1.0
+            opacity: navControl.down ? 0.78 : (navControl.checked ? 1.0 : 0.72)
         }
     }
 
@@ -346,7 +343,15 @@ Window {
             }
         }
         background: Rectangle {
-            color: moreControl.down ? "#2f2756" : "#00000000"
+            radius: Math.min(width, height) / 2
+            border.width: 0
+            gradient: Gradient {
+                orientation: Gradient.Horizontal
+                GradientStop { position: 0.0; color: moreControl.enabled ? "#247fff" : "#33415f" }
+                GradientStop { position: 0.58; color: moreControl.enabled ? "#7757ff" : "#3c3f61" }
+                GradientStop { position: 1.0; color: moreControl.enabled ? "#c33cff" : "#4b3d65" }
+            }
+            opacity: moreControl.down ? 0.78 : (moreControl.enabled ? 1.0 : 0.62)
         }
     }
 
@@ -367,14 +372,12 @@ Window {
         }
         background: Rectangle {
             radius: primary ? 42 : 8
-            color: primary ? "#ccbf36f6" : "#3324145f"
-            border.color: control.down || primary ? "#d9ccff" : "#7f67ff"
-            border.width: 1
+            border.width: 0
             gradient: Gradient {
                 orientation: Gradient.Horizontal
-                GradientStop { position: 0.0; color: primary ? "#c026d3" : "#5524145f" }
-                GradientStop { position: 0.55; color: primary ? "#bf36f6" : "#448b5cf6" }
-                GradientStop { position: 1.0; color: primary ? "#a855f7" : "#332563eb" }
+                GradientStop { position: 0.0; color: "#247fff" }
+                GradientStop { position: 0.58; color: "#7757ff" }
+                GradientStop { position: 1.0; color: "#c33cff" }
             }
             opacity: control.down ? 0.78 : 1.0
             scale: control.down ? 0.96 : 1.0
@@ -405,13 +408,12 @@ Window {
         }
         background: Rectangle {
             radius: 29
-            border.color: control.down ? "#f5d0fe" : "#bda7ff"
-            border.width: 2
+            border.width: 0
             gradient: Gradient {
                 orientation: Gradient.Horizontal
-                GradientStop { position: 0.0; color: "#c026d3" }
-                GradientStop { position: 0.55; color: "#8b5cf6" }
-                GradientStop { position: 1.0; color: "#4f46e5" }
+                GradientStop { position: 0.0; color: "#247fff" }
+                GradientStop { position: 0.58; color: "#7757ff" }
+                GradientStop { position: 1.0; color: "#c33cff" }
             }
             opacity: control.down ? 0.78 : 1.0
         }
@@ -704,17 +706,16 @@ Window {
             }
         }
         background: Rectangle {
-            radius: control.primary ? height / 2 : 8
-            color: control.active ? "#8836f6" : "#3324145f"
-            border.color: control.down || control.active || control.primary ? "#d9ccff" : "#7f67ff"
-            border.width: 1
+            radius: Math.min(width, height) / 2
+            border.width: control.active ? 2 : 0
+            border.color: "#f5d0fe"
             gradient: Gradient {
                 orientation: Gradient.Horizontal
-                GradientStop { position: 0.0; color: control.primary || control.active ? "#c026d3" : "#5524145f" }
-                GradientStop { position: 0.55; color: control.primary || control.active ? "#bf36f6" : "#448b5cf6" }
-                GradientStop { position: 1.0; color: control.primary || control.active ? "#7c3aed" : "#332563eb" }
+                GradientStop { position: 0.0; color: control.enabled ? "#247fff" : "#33415f" }
+                GradientStop { position: 0.58; color: control.enabled ? "#7757ff" : "#3c3f61" }
+                GradientStop { position: 1.0; color: control.enabled ? "#c33cff" : "#4b3d65" }
             }
-            opacity: control.down ? 0.78 : 1.0
+            opacity: control.down ? 0.78 : (control.enabled ? 1.0 : 0.62)
             scale: control.down ? 0.96 : 1.0
             Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutCubic } }
         }

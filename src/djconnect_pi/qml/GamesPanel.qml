@@ -56,15 +56,14 @@ Rectangle {
             elide: Text.ElideRight
         }
         background: Rectangle {
-            radius: 8
-            color: control.checked ? "#668b5cf6" : "#3324145f"
-            border.color: control.down || control.checked ? "#d9ccff" : "#7f67ff"
-            border.width: 1
+            radius: Math.min(width, height) / 2
+            border.width: control.checked ? 2 : 0
+            border.color: "#f5d0fe"
             gradient: Gradient {
                 orientation: Gradient.Horizontal
-                GradientStop { position: 0.0; color: control.enabled ? "#556d28d9" : "#25293d" }
-                GradientStop { position: 0.55; color: control.enabled ? "#448b5cf6" : "#2c3048" }
-                GradientStop { position: 1.0; color: control.enabled ? "#332563eb" : "#25293d" }
+                GradientStop { position: 0.0; color: control.enabled ? "#247fff" : "#33415f" }
+                GradientStop { position: 0.58; color: control.enabled ? "#7757ff" : "#3c3f61" }
+                GradientStop { position: 1.0; color: control.enabled ? "#c33cff" : "#4b3d65" }
             }
         }
     }
@@ -525,14 +524,14 @@ Rectangle {
                         }
 
                         background: Rectangle {
-                            radius: 12
-                            color: gameSegment.checked ? "#ff6d5df2" : "transparent"
-                            border.width: 0
+                            radius: Math.min(width, height) / 2
+                            border.width: gameSegment.checked ? 2 : 0
+                            border.color: "#f5d0fe"
                             gradient: Gradient {
                                 orientation: Gradient.Horizontal
-                                GradientStop { position: 0.0; color: gameSegment.checked ? "#ff755f" : "#00000000" }
-                                GradientStop { position: 0.52; color: gameSegment.checked ? "#e04bcf" : "#00000000" }
-                                GradientStop { position: 1.0; color: gameSegment.checked ? "#9b5cf6" : "#00000000" }
+                                GradientStop { position: 0.0; color: gameSegment.checked ? "#247fff" : "#00000000" }
+                                GradientStop { position: 0.58; color: gameSegment.checked ? "#7757ff" : "#00000000" }
+                                GradientStop { position: 1.0; color: gameSegment.checked ? "#c33cff" : "#00000000" }
                             }
                             opacity: gameSegment.down ? 0.82 : 1.0
                         }

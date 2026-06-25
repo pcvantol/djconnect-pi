@@ -14,16 +14,15 @@ Button {
     font.bold: true
 
     background: Rectangle {
-        radius: 8
-        color: pill.active ? "#668b5cf6" : "#3324145f"
-        border.color: pill.down || pill.active ? "#d9ccff" : "#7f67ff"
-        border.width: 1
+        radius: Math.min(width, height) / 2
+        border.width: pill.active ? 2 : 0
+        border.color: "#f5d0fe"
         scale: pill.down ? 0.97 : 1.0
         gradient: Gradient {
             orientation: Gradient.Horizontal
-            GradientStop { position: 0.0; color: pill.enabled ? "#556d28d9" : "#25293d" }
-            GradientStop { position: 0.55; color: pill.enabled ? "#448b5cf6" : "#2c3048" }
-            GradientStop { position: 1.0; color: pill.enabled ? "#332563eb" : "#25293d" }
+            GradientStop { position: 0.0; color: pill.enabled ? "#247fff" : "#33415f" }
+            GradientStop { position: 0.58; color: pill.enabled ? "#7757ff" : "#3c3f61" }
+            GradientStop { position: 1.0; color: pill.enabled ? "#c33cff" : "#4b3d65" }
         }
 
         Behavior on scale { NumberAnimation { duration: 80 } }

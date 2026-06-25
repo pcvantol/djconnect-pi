@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.1.106
+
+- Apply the blue-to-magenta button gradient across the Raspberry Pi UI.
+
 ## 3.1.105
 
 - Remove the Ask DJ audio replay button from the Raspberry Pi UI.
