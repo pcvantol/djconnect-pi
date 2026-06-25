@@ -331,6 +331,12 @@ def test_qml_ask_dj_screen_sends_text_without_audio_controls() -> None:
     assert 'root.tr("ask_dj_input_placeholder")' in ask_dj_block
     assert 'root.tr("send")' in ask_dj_block
     assert "djconnect.sendAskDjMessage(message)" in ask_dj_block
+    assert "component AskDjKeyButton" in main_qml
+    assert "id: askDjKeyboard" in ask_dj_block
+    assert "function insertAskDjKey(value)" in ask_dj_block
+    assert "function deleteAskDjText()" in ask_dj_block
+    assert 'model: ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"]' in ask_dj_block
+    assert 'displayText: root.tr("keyboard_space")' in ask_dj_block
     assert 'root.tr("replay_audio")' not in ask_dj_block
     assert "Qt.openUrlExternally(modelData.audioUrl)" not in ask_dj_block
     assert "id: askDjPollTimer" in main_qml
