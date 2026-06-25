@@ -315,8 +315,12 @@ def test_qml_ask_dj_screen_is_read_only() -> None:
     ask_dj_block = main_qml[main_qml.index("id: askDjPanel") : main_qml.index("GamesPanel {")]
 
     assert 'visible: root.activeScreen === "askdj"' in ask_dj_block
+    assert "component AskDjGradientButton" in main_qml
+    assert 'GradientStop { position: 0.0; color: askDjButton.enabled ? "#247fff" : "#33415f" }' in main_qml
+    assert 'GradientStop { position: 1.0; color: askDjButton.enabled ? "#c33cff" : "#4b3d65" }' in main_qml
     assert "djconnect.loadAskDjHistory()" in ask_dj_block
     assert "id: askDjRefreshButton" in ask_dj_block
+    assert "AskDjGradientButton" in ask_dj_block
     assert "Layout.preferredWidth: 150" in ask_dj_block
     assert 'root.tr("ask_dj_readonly_hint")' in ask_dj_block
     assert 'root.tr("replay_audio")' in ask_dj_block

@@ -128,6 +128,32 @@ Window {
         }
     }
 
+    component AskDjGradientButton: Button {
+        id: askDjButton
+        font.pixelSize: 18
+        font.bold: true
+        contentItem: Text {
+            text: askDjButton.text
+            font: askDjButton.font
+            color: askDjButton.enabled ? "#ffffff" : "#d4d8e8"
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+            elide: Text.ElideRight
+            maximumLineCount: 1
+        }
+        background: Rectangle {
+            radius: Math.min(width, height) / 2
+            border.width: 0
+            gradient: Gradient {
+                orientation: Gradient.Horizontal
+                GradientStop { position: 0.0; color: askDjButton.enabled ? "#247fff" : "#33415f" }
+                GradientStop { position: 0.58; color: askDjButton.enabled ? "#7757ff" : "#3c3f61" }
+                GradientStop { position: 1.0; color: askDjButton.enabled ? "#c33cff" : "#4b3d65" }
+            }
+            opacity: askDjButton.down ? 0.78 : (askDjButton.enabled ? 1.0 : 0.62)
+        }
+    }
+
     component MenuIcon: Canvas {
         id: menuIcon
         property string iconName: "more"
@@ -1890,7 +1916,7 @@ Window {
                     implicitHeight: 30
                 }
 
-                PurpleButton {
+                AskDjGradientButton {
                     id: askDjRefreshButton
                     text: root.tr("refresh")
                     font.pixelSize: 18
@@ -1965,7 +1991,7 @@ Window {
                                     Layout.fillWidth: true
                                 }
 
-                                PurpleButton {
+                                AskDjGradientButton {
                                     visible: modelData.audioUrl && modelData.audioUrl.length > 0
                                     text: root.tr("replay_audio")
                                     font.pixelSize: 17
@@ -2133,7 +2159,7 @@ Window {
                                                     }
                                                 }
 
-                                                PurpleButton {
+                                                AskDjGradientButton {
                                                     id: askDjActionButton
                                                     text: modelData.isOutput ? root.tr("activate") : (modelData.isMedia ? "Play Now" : (modelData.title || root.tr("start")))
                                                     font.pixelSize: (modelData.isMedia || modelData.isOutput) ? 16 : 18
