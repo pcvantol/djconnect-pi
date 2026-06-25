@@ -353,6 +353,14 @@ def test_qml_ask_dj_screen_sends_text_without_audio_controls() -> None:
     assert "playAskDjAction" not in ask_dj_block
 
 
+def test_qml_now_playing_can_save_current_track() -> None:
+    main_qml = files("djconnect_pi.qml").joinpath("Main.qml").read_text(encoding="utf-8")
+    now_block = main_qml[main_qml.index("id: nowPanel") : main_qml.index("id: controlPanel")]
+
+    assert 'root.tr("add_to_favorites")' in now_block
+    assert "djconnect.saveCurrentTrack()" in now_block
+
+
 def test_qml_stop_demo_button_returns_to_pairing_flow() -> None:
     main_qml = files("djconnect_pi.qml").joinpath("Main.qml").read_text(encoding="utf-8")
 

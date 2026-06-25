@@ -195,6 +195,8 @@ class HAClient:
                 command = str(action.get("action") or action.get("type") or "control").strip()
             else:
                 command = "ask_dj_play_recommendation"
+        if command == "save_current_track":
+            return self.command(command)
         play = bool(action.get("play")) or kind in {"track", "album", "artist", "playlist", "track_mix"} or action_style == "play_now"
         return self.command(command, value=action, play=play)
 

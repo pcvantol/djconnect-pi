@@ -38,6 +38,10 @@ QT_PIXMAP_CACHE_LIMIT_KB = 4096
 UI_WORKER_COUNT = 1
 
 
+class SaveCurrentTrackError(DJConnectError):
+    pass
+
+
 class DJConnectBackend(QObject):
     statusTextChanged = Signal()
     backendAvailableChanged = Signal()
@@ -528,6 +532,14 @@ class DJConnectBackend(QObject):
         _LOGGER.info("User requested next track")
         self.showToast(self.tr_key("next"))
         self.command("next")
+
+    @Slot()
+    def saveCurrentTrack(self) -> None:
+        self._sync_config_from_disk()
+        if self._demo_mode or not self.paired:
+            return
+        _LOGGER.info("User requested saving the current track")
+        self._run("save_current_track", self._save_current_track_worker)
 
     @Slot(int)
     def setVolume(self, value: int) -> None:
@@ -1022,6 +1034,22 @@ class DJConnectBackend(QObject):
         self._playbackReady.emit(self.client.playback_from_status(data))
         _LOGGER.info("Playback command %s completed in %.0fms", command, _elapsed_ms(started))
 
+    def _save_current_track_worker(self) -> None:
+        started = time.monotonic()
+        try:
+            data = self.client.command("save_current_track")
+        except (AuthenticationError, ProtocolVersionMismatch, BackendUnavailable):
+            raise
+        except DJConnectError as exc:
+            raise SaveCurrentTrackError(str(exc)) from exc
+        if data.get("success") is False:
+            error = str(data.get("error") or data.get("message") or "save_current_track_failed")
+            raise SaveCurrentTrackError(error)
+        self._toastReady.emit(self.tr_key("favorite_saved"), 2200)
+        if _contains_playback_payload(data):
+            self._playbackReady.emit(self.client.playback_from_status(data))
+        _LOGGER.info("Save current track completed in %.0fms", _elapsed_ms(started))
+
     def _play_media_item_worker(self, command: str, payload: dict[str, object]) -> None:
         started = time.monotonic()
         _LOGGER.info("Sending media item command: %s", command)
@@ -1085,9 +1113,19 @@ class DJConnectBackend(QObject):
         self._askDjReady.emit(data)
 
     def _send_ask_dj_action_worker(self, action: dict[str, object]) -> None:
+        is_save_current_track = str(action.get("command") or "").strip() == "save_current_track"
         try:
             data = self.client.ask_dj_action(action)
+            if is_save_current_track:
+                if data.get("success") is False:
+                    error = str(data.get("error") or data.get("message") or "save_current_track_failed")
+                    raise SaveCurrentTrackError(error)
+                self._toastReady.emit(self.tr_key("favorite_saved"), 2200)
+        except (SaveCurrentTrackError, AuthenticationError, ProtocolVersionMismatch):
+            raise
         except (DJConnectError, requests.RequestException) as exc:
+            if is_save_current_track and not isinstance(exc, BackendUnavailable):
+                raise SaveCurrentTrackError(str(exc)) from exc
             raise BackendUnavailable("Ask DJ unavailable") from exc
         self._askDjReady.emit(data)
 
@@ -1228,6 +1266,11 @@ class DJConnectBackend(QObject):
                     return
                 self._statusReady.emit(message)
                 self._toastReady.emit(message, 5000)
+            except SaveCurrentTrackError as exc:
+                _LOGGER.warning("%s failed: %s", label, exc)
+                message = self.tr_key("favorite_save_failed")
+                self._statusReady.emit(message)
+                self._toastReady.emit(message, 3500)
             except DJConnectError as exc:
                 self._backendAvailableReady.emit(False)
                 _LOGGER.warning("%s failed: %s", label, exc)
@@ -1799,6 +1842,30 @@ def parse_ask_dj_messages(data: dict[str, object]) -> list[dict[str, object]]:
     return parsed
 
 
+def _contains_playback_payload(data: dict[str, object]) -> bool:
+    playback = data.get("playback")
+    if isinstance(playback, dict) and bool(playback):
+        return True
+    return any(
+        data.get(key) not in (None, "")
+        for key in (
+            "title",
+            "track",
+            "track_name",
+            "last_track",
+            "artist",
+            "artists",
+            "image_url",
+            "album_image_url",
+            "is_playing",
+            "playing",
+            "duration",
+            "duration_seconds",
+            "duration_ms",
+        )
+    )
+
+
 def _ask_dj_message(item: dict[str, object]) -> dict[str, object] | None:
     text = str(item.get("text") or item.get("dj_text") or item.get("message") or item.get("assistant_message") or item.get("content") or "").strip()
     user_text = str(item.get("user_message") or "").strip()
@@ -1923,10 +1990,12 @@ def _ask_dj_actions(playback_actions: object, confirmation_actions: object) -> l
             if not isinstance(item, dict):
                 continue
             kind = str(item.get("kind") or "").strip()
-            title = str(item.get("title") or item.get("label") or item.get("name") or "").strip()
+            title = str(item.get("button_label") or item.get("label") or item.get("title") or item.get("name") or "").strip()
             subtitle = str(item.get("subtitle") or item.get("artist") or item.get("description") or "").strip()
             if kind == "confirmation" or str(item.get("action_style") or "") == "confirmation":
                 title = title or ("Ja" if str(item.get("response_value") or "").lower() == "yes" else "Nee")
+            elif not title and kind == "control" and str(item.get("command") or "").strip() == "save_current_track":
+                title = "Zet in favorieten"
             elif not title:
                 title = "Play Now"
             is_output = _is_output_action(item)

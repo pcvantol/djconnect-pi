@@ -11,6 +11,7 @@ from PySide6.QtCore import QCoreApplication
 from djconnect_pi.config import load_config, save_config
 from djconnect_pi.app import (
     DJConnectBackend,
+    SaveCurrentTrackError,
     _format_duration,
     _format_logs_for_display,
     _read_tail_text,
@@ -254,6 +255,33 @@ def test_ask_dj_control_status_has_no_art_or_audio_button() -> None:
     assert messages[0]["actions"][0]["imageUrl"] == ""
 
 
+def test_ask_dj_save_current_track_control_uses_button_label_without_art() -> None:
+    messages = parse_ask_dj_messages(
+        {
+            "messages": [
+                {
+                    "id": "favorite",
+                    "role": "assistant",
+                    "text": "Ik kan het huidige nummer opslaan.",
+                    "playback_actions": [
+                        {
+                            "kind": "control",
+                            "command": "save_current_track",
+                            "button_label": "Zet in favorieten",
+                            "image_url": "https://example.test/track.jpg",
+                        }
+                    ],
+                }
+            ]
+        }
+    )
+
+    assert messages[0]["actions"][0]["title"] == "Zet in favorieten"
+    assert messages[0]["actions"][0]["isMedia"] is False
+    assert messages[0]["actions"][0]["imageUrl"] == ""
+    assert "save_current_track" in messages[0]["actions"][0]["payload"]
+
+
 def test_ask_dj_memory_summary_is_text_only_with_memory_source() -> None:
     messages = parse_ask_dj_messages(
         {
@@ -487,6 +515,17 @@ def test_ask_dj_action_tap_sends_structured_payload_only(tmp_path: Path) -> None
     backend._send_ask_dj_action_worker({"kind": "confirmation", "response_value": "yes"})
 
     backend.client.ask_dj_action.assert_called_once_with({"kind": "confirmation", "response_value": "yes"})
+
+
+def test_save_current_track_worker_raises_specific_error_on_success_false(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.client.command = Mock(return_value={"success": False, "error": "spotify_save_failed"})
+
+    with pytest.raises(SaveCurrentTrackError):
+        backend._save_current_track_worker()
+
+    backend.client.command.assert_called_once_with("save_current_track")
 
 
 def test_demo_mode_uses_example_output_devices(tmp_path: Path) -> None:

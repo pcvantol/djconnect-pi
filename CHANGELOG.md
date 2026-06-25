@@ -1,6 +1,13 @@
 # Changelog
 
-## 3.1.108
+## 3.1.109
+
+- Add a Now Playing favorite action that sends `save_current_track` through
+  the shared DJConnect command endpoint.
+- Render Ask DJ `save_current_track` control actions as direct favorite buttons
+  without routing them through recommendation playback or adding extra artwork.
+- Show concise saved/failed feedback for Spotify favorite saves while keeping
+  normal authentication policy intact.
 
 - Keep queue item playback in queue context by sending `play_context_at` and
   leaving the Queue screen open instead of jumping back to Now Playing.

@@ -1069,10 +1069,19 @@ Window {
                 PurpleButton {
                     text: root.tr("refresh")
                     font.pixelSize: 18
-                    Layout.preferredWidth: 142
+                    Layout.preferredWidth: 118
                     Layout.preferredHeight: 48
                     Layout.rightMargin: 0
                     onClicked: djconnect.manualRefresh()
+                }
+
+                PurpleButton {
+                    text: root.tr("add_to_favorites")
+                    font.pixelSize: 17
+                    Layout.preferredWidth: 126
+                    Layout.preferredHeight: 48
+                    enabled: djconnect.paired && (djconnect.title.length > 0 || djconnect.artist.length > 0)
+                    onClicked: djconnect.saveCurrentTrack()
                 }
 
             }

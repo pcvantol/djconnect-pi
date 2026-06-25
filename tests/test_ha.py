@@ -265,6 +265,31 @@ def test_ask_dj_play_action_uses_action_command_or_play_recommendation() -> None
     assert captured[3]["play"] is False
 
 
+def test_ask_dj_save_current_track_action_posts_direct_command_payload() -> None:
+    cfg = Config(ha_url="http://ha", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1")
+    client = HAClient(cfg)
+    captured: dict[str, Any] = {}
+
+    def fake_post(url: str, **kwargs: Any) -> FakeResponse:
+        captured["url"] = url
+        captured["json"] = kwargs["json"]
+        captured["headers"] = kwargs["headers"]
+        return FakeResponse(200, {"success": True})
+
+    with patch("djconnect_pi.ha.requests.post", side_effect=fake_post):
+        client.ask_dj_action({"kind": "control", "command": "save_current_track", "button_label": "Zet in favorieten"})
+
+    assert captured["url"] == "http://ha/api/djconnect/command"
+    assert captured["headers"]["Authorization"] == "Bearer token-1"
+    assert captured["headers"]["X-DJConnect-Device-ID"] == "djconnect-raspberry-pi-ABCDEF123456"
+    assert captured["headers"]["Content-Type"] == "application/json"
+    assert captured["json"]["device_id"] == "djconnect-raspberry-pi-ABCDEF123456"
+    assert captured["json"]["client_type"] == "raspberry_pi"
+    assert captured["json"]["command"] == "save_current_track"
+    assert "value" not in captured["json"]
+    assert "play" not in captured["json"]
+
+
 def test_playback_from_status_accepts_aliases() -> None:
     playback = HAClient(Config()).playback_from_status(
         {
