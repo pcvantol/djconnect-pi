@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.1.102
+
+- Normalize album-art extraction for now playing, queue/playlists and Ask DJ
+  action rows when Home Assistant/Spotify sends nested `images[]`, `album`,
+  `item`, `cover`, `thumbnail` or artwork payloads instead of flat
+  `image_url` fields.
+
 ## 3.1.101
 
 - Polish Ask DJ on the Raspberry Pi as a read-only action surface: preserve
