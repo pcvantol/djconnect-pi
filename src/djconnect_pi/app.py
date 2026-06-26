@@ -1871,7 +1871,11 @@ def _ask_dj_message(item: dict[str, object]) -> dict[str, object] | None:
         text = user_text
     if kind == "system":
         role = "system"
-    actions = _ask_dj_actions(item.get("playback_actions"), item.get("confirmation_actions"))
+    technical_analysis = _is_technical_track_analysis(item)
+    if technical_analysis:
+        actions = _ask_dj_actions(item.get("playback_actions"), None) if isinstance(item.get("playback_actions"), list) else []
+    else:
+        actions = _ask_dj_actions(item.get("playback_actions"), item.get("confirmation_actions"))
     text = _ask_dj_display_text(text, actions)
     message: dict[str, object] = {
         "id": str(item.get("id") or item.get("message_id") or item.get("server_id") or ""),
@@ -1886,13 +1890,29 @@ def _ask_dj_message(item: dict[str, object]) -> dict[str, object] | None:
         "text": text,
         "created_at": str(item.get("created_at") or item.get("timestamp") or item.get("server_time") or ""),
         "images": _ask_dj_images(item.get("images")),
-        "items": _ask_dj_items(item.get("items")),
+        "items": _ask_dj_items(item.get("items"), technical_analysis=technical_analysis),
         "links": _ask_dj_links(item.get("links"), item.get("sources")),
         "actions": actions,
         "audioUrl": str(item.get("audio_url") or item.get("audioUrl") or ""),
         "audioType": str(item.get("audio_type") or item.get("audioType") or ""),
+        "technicalAnalysis": technical_analysis,
+        "analysis": _ask_dj_analysis(item.get("analysis")) if technical_analysis else {},
+        "rawResponse": item,
     }
     return message
+
+
+def _is_technical_track_analysis(item: dict[str, object]) -> bool:
+    intent = item.get("intent")
+    intent_name = ""
+    intent_action = ""
+    if isinstance(intent, dict):
+        intent_name = str(intent.get("intent") or "").strip()
+        intent_action = str(intent.get("action") or "").strip()
+    elif isinstance(intent, str):
+        intent_name = intent.strip()
+    action = str(item.get("action") or intent_action or "").strip()
+    return intent_name == "technical_track_analysis" or action == "track_analysis"
 
 
 def _ask_dj_legacy_response_messages(data: dict[str, object]) -> list[dict[str, object]]:
@@ -1949,7 +1969,7 @@ def _ask_dj_links(*values: object) -> list[dict[str, object]]:
     return links[:8]
 
 
-def _ask_dj_items(value: object) -> list[dict[str, object]]:
+def _ask_dj_items(value: object, *, technical_analysis: bool = False) -> list[dict[str, object]]:
     if not isinstance(value, list):
         return []
     items: list[dict[str, object]] = []
@@ -1957,6 +1977,27 @@ def _ask_dj_items(value: object) -> list[dict[str, object]]:
         if not isinstance(item, dict):
             continue
         title = str(item.get("title") or item.get("name") or item.get("track") or item.get("album") or item.get("artist") or "").strip()
+        item_kind = str(item.get("kind") or item.get("type") or "").strip()
+        if technical_analysis and item_kind in {"technical_metric", "arrangement"}:
+            value_text = str(item.get("value") or item.get("description") or item.get("subtitle") or "").strip()
+            source = str(item.get("source") or item.get("provider") or "").strip()
+            confidence = str(item.get("confidence") or "").strip()
+            if title or value_text:
+                items.append(
+                    {
+                        "title": title,
+                        "subtitle": "",
+                        "value": value_text,
+                        "time": "",
+                        "kind": item_kind,
+                        "source": source,
+                        "confidence": confidence,
+                        "imageUrl": "",
+                        "technicalMetric": item_kind == "technical_metric",
+                        "arrangement": item_kind == "arrangement",
+                    }
+                )
+            continue
         subtitle = str(item.get("subtitle") or item.get("artist") or item.get("album") or item.get("description") or "").strip()
         when = str(item.get("played_at") or item.get("time") or item.get("timestamp") or item.get("created_at") or "").strip()
         image_url = _image_url_from(item)
@@ -1965,12 +2006,203 @@ def _ask_dj_items(value: object) -> list[dict[str, object]]:
                 {
                     "title": title,
                     "subtitle": subtitle,
+                    "value": "",
                     "time": when,
-                    "kind": str(item.get("kind") or item.get("type") or ""),
+                    "kind": item_kind,
+                    "source": "",
+                    "confidence": "",
                     "imageUrl": cached_image_url(image_url) if image_url else "",
+                    "technicalMetric": False,
+                    "arrangement": False,
                 }
             )
     return items[:20]
+
+
+def _ask_dj_analysis(value: object) -> dict[str, object]:
+    if not isinstance(value, dict):
+        return {}
+    mode = str(value.get("mode") or "").strip()
+    mode_labels = {
+        "measured_plus_knowledge": "Gemeten + duiding",
+        "measured": "Gemeten",
+        "knowledge_plus_metadata": "Duiding",
+        "unavailable": "Niet beschikbaar",
+    }
+    measured = value.get("measured")
+    inferred = value.get("inferred")
+    contract_version = _optional_int(value.get("contract_version") or value.get("contractVersion"))
+    sections = _ask_dj_analysis_sections(value.get("sections"))
+    timeline = _ask_dj_analysis_timeline(value.get("timeline"))
+    dj_tips = _ask_dj_analysis_tips(value.get("dj_tips") or value.get("djTips"))
+    limitations = _ask_dj_analysis_limitations(value.get("limitations"))
+    if not sections and not timeline and not dj_tips:
+        sections = _ask_dj_v1_analysis_sections(measured if isinstance(measured, dict) else {}, inferred if isinstance(inferred, dict) else {})
+        if not timeline and isinstance(measured, dict):
+            timeline = _ask_dj_analysis_timeline(measured.get("sections"))
+    return {
+        "contractVersion": contract_version,
+        "mode": mode,
+        "modeLabel": mode_labels.get(mode, ""),
+        "confidence": str(value.get("confidence") or "").strip(),
+        "source": str(value.get("source") or value.get("provider") or "").strip(),
+        "sections": sections,
+        "timeline": timeline,
+        "djTips": dj_tips,
+        "measured": measured if isinstance(measured, dict) else {},
+        "inferred": inferred if isinstance(inferred, dict) else {},
+        "limitations": limitations,
+    }
+
+
+def _ask_dj_analysis_sections(value: object) -> list[dict[str, object]]:
+    if not isinstance(value, list):
+        return []
+    sections: list[dict[str, object]] = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        section_id = str(item.get("id") or item.get("section_id") or item.get("kind") or item.get("title") or "").strip()
+        title = str(item.get("title") or item.get("label") or section_id.replace("_", " ").title()).strip()
+        body = str(item.get("body") or item.get("text") or item.get("description") or item.get("value") or "").strip()
+        source = str(item.get("source") or item.get("provider") or "").strip()
+        confidence = str(item.get("confidence") or "").strip()
+        details = _string_list(item.get("details") or item.get("items") or item.get("bullets"))
+        if title or body or details:
+            sections.append(
+                {
+                    "id": section_id,
+                    "kind": str(item.get("kind") or "").strip(),
+                    "title": title,
+                    "body": body,
+                    "source": source,
+                    "confidence": confidence,
+                    "details": details,
+                }
+            )
+    return sections[:12]
+
+
+def _ask_dj_analysis_timeline(value: object) -> list[dict[str, object]]:
+    if not isinstance(value, list):
+        return []
+    timeline: list[dict[str, object]] = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        label = str(item.get("label") or item.get("title") or item.get("kind") or item.get("id") or "").strip()
+        start = _time_label(_first_present(item, ("start", "start_time", "start_ms", "offset_ms")))
+        end = _time_label(_first_present(item, ("end", "end_time", "end_ms")))
+        duration = _time_label(_first_present(item, ("duration", "duration_ms")))
+        source = str(item.get("source") or item.get("provider") or "").strip()
+        confidence = str(item.get("confidence") or "").strip()
+        if label or start or end or duration:
+            timeline.append(
+                {
+                    "id": str(item.get("id") or "").strip(),
+                    "kind": str(item.get("kind") or "").strip(),
+                    "label": label,
+                    "start": start,
+                    "end": end,
+                    "duration": duration,
+                    "source": source,
+                    "confidence": confidence,
+                }
+            )
+    return timeline[:16]
+
+
+def _ask_dj_analysis_tips(value: object) -> list[dict[str, object]]:
+    if not isinstance(value, list):
+        return []
+    tips: list[dict[str, object]] = []
+    for item in value:
+        if isinstance(item, str):
+            text = item.strip()
+            if text:
+                tips.append({"kind": "", "title": "", "text": text, "source": "", "confidence": ""})
+        elif isinstance(item, dict):
+            text = str(item.get("text") or item.get("body") or item.get("description") or item.get("tip") or "").strip()
+            title = str(item.get("title") or item.get("label") or "").strip()
+            if text or title:
+                tips.append(
+                    {
+                        "kind": str(item.get("kind") or item.get("type") or "").strip(),
+                        "title": title,
+                        "text": text,
+                        "source": str(item.get("source") or item.get("provider") or "").strip(),
+                        "confidence": str(item.get("confidence") or "").strip(),
+                    }
+                )
+    return tips[:8]
+
+
+def _ask_dj_analysis_limitations(value: object) -> list[dict[str, object]]:
+    if not isinstance(value, list):
+        return []
+    limitations: list[dict[str, object]] = []
+    for item in value:
+        if isinstance(item, str):
+            text = item.strip()
+            if text:
+                limitations.append({"text": text, "source": "", "confidence": ""})
+        elif isinstance(item, dict):
+            text = str(item.get("text") or item.get("body") or item.get("description") or item.get("message") or "").strip()
+            if text:
+                limitations.append(
+                    {
+                        "text": text,
+                        "source": str(item.get("source") or item.get("provider") or "").strip(),
+                        "confidence": str(item.get("confidence") or "").strip(),
+                    }
+                )
+    return limitations[:8]
+
+
+def _ask_dj_v1_analysis_sections(measured: dict[str, object], inferred: dict[str, object]) -> list[dict[str, object]]:
+    sections: list[dict[str, object]] = []
+    metric_parts = []
+    for label, key in (("BPM", "bpm"), ("Key", "key"), ("Energy", "energy"), ("Danceability", "danceability")):
+        raw = measured.get(key)
+        if raw not in (None, ""):
+            metric_parts.append(f"{label}: {raw}")
+    features = measured.get("features")
+    if isinstance(features, dict):
+        for key, raw in features.items():
+            if raw not in (None, ""):
+                metric_parts.append(f"{str(key).replace('_', ' ').title()}: {raw}")
+    if metric_parts:
+        sections.append({"id": "measured", "kind": "measured", "title": "Measured", "body": " · ".join(metric_parts), "source": str(measured.get("source") or measured.get("provider") or "").strip(), "confidence": str(measured.get("confidence") or "").strip(), "details": []})
+    inferred_parts = []
+    for key, raw in inferred.items():
+        if key in {"source", "provider", "confidence"} or raw in (None, ""):
+            continue
+        inferred_parts.append(f"{str(key).replace('_', ' ').title()}: {raw}")
+    if inferred_parts:
+        sections.append({"id": "inferred", "kind": "inferred", "title": "Inferred", "body": " · ".join(inferred_parts), "source": str(inferred.get("source") or inferred.get("provider") or "").strip(), "confidence": str(inferred.get("confidence") or "").strip(), "details": []})
+    return sections
+
+
+def _string_list(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    result: list[str] = []
+    for item in value:
+        text = str(item.get("text") if isinstance(item, dict) else item).strip()
+        if text:
+            result.append(text)
+    return result[:8]
+
+
+def _time_label(value: object) -> str:
+    if value in (None, ""):
+        return ""
+    if isinstance(value, (int, float)):
+        seconds = float(value) / 1000.0 if float(value) >= 1000 else float(value)
+        minutes = int(seconds // 60)
+        remainder = int(seconds % 60)
+        return f"{minutes}:{remainder:02d}"
+    return str(value).strip()
 
 
 def _ask_dj_actions(playback_actions: object, confirmation_actions: object) -> list[dict[str, object]]:

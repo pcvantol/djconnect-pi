@@ -184,6 +184,24 @@ Window {
             border.width: 1
             opacity: keyButton.enabled ? 1.0 : 0.56
         }
+
+        MouseArea {
+            anchors.fill: parent
+            acceptedButtons: Qt.AllButtons
+            preventStealing: true
+            propagateComposedEvents: false
+            onPressed: function(mouse) {
+                root.recordActivity()
+                mouse.accepted = true
+            }
+            onReleased: function(mouse) {
+                mouse.accepted = true
+            }
+            onClicked: function(mouse) {
+                keyButton.clicked()
+                mouse.accepted = true
+            }
+        }
     }
 
     component MenuIcon: Canvas {
@@ -1942,7 +1960,7 @@ Window {
         }
 
         function insertAskDjText(value) {
-            if (djconnect.askDjBusy || value.length === 0) {
+            if (value.length === 0) {
                 return
             }
             var pos = Math.max(0, askDjInput.cursorPosition)
@@ -1960,9 +1978,6 @@ Window {
         }
 
         function deleteAskDjText() {
-            if (djconnect.askDjBusy) {
-                return
-            }
             var start = askDjInput.selectionStart
             var end = askDjInput.selectionEnd
             if (start !== end) {
@@ -2051,7 +2066,6 @@ Window {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         placeholderText: root.tr("ask_dj_input_placeholder")
-                        enabled: !djconnect.askDjBusy
                         color: "#ffffff"
                         placeholderTextColor: "#91a0bd"
                         font.pixelSize: 20
@@ -2146,6 +2160,31 @@ Window {
                                 }
 
                                 Flow {
+                                    visible: modelData.technicalAnalysis && modelData.analysis && modelData.analysis.modeLabel
+                                    spacing: 8
+                                    Layout.fillWidth: true
+
+                                    Rectangle {
+                                        width: technicalModeLabel.implicitWidth + 24
+                                        height: 30
+                                        radius: 8
+                                        color: "#33434a57"
+                                        border.color: "#6aa0b9c8"
+                                        border.width: 1
+
+                                        Text {
+                                            id: technicalModeLabel
+                                            anchors.centerIn: parent
+                                            text: modelData.analysis ? [modelData.analysis.modeLabel || "", modelData.analysis.source || "", modelData.analysis.confidence || ""].filter(function(value) { return value.length > 0 }).join(" · ") : ""
+                                            color: "#d8f3ff"
+                                            font.pixelSize: 15
+                                            font.bold: true
+                                            elide: Text.ElideRight
+                                        }
+                                    }
+                                }
+
+                                Flow {
                                     visible: modelData.images && modelData.images.length > 0
                                     spacing: 8
                                     Layout.fillWidth: true
@@ -2171,8 +2210,199 @@ Window {
                                     }
                                 }
 
+                                Flow {
+                                    visible: modelData.technicalAnalysis && modelData.items && modelData.items.length > 0
+                                    spacing: 8
+                                    Layout.fillWidth: true
+
+                                    Repeater {
+                                        model: modelData.items || []
+
+                                        Rectangle {
+                                            width: Math.min(askDjScroll.availableWidth, Math.max(132, technicalMetricContent.implicitWidth + 24))
+                                            height: 58
+                                            radius: 8
+                                            color: modelData.arrangement ? "#33334857" : "#3324145f"
+                                            border.color: modelData.arrangement ? "#6aa0b9c8" : "#7f67ff"
+                                            border.width: 1
+                                            clip: true
+
+                                            ColumnLayout {
+                                                id: technicalMetricContent
+                                                anchors.fill: parent
+                                                anchors.margins: 8
+                                                spacing: 1
+
+                                                RowLayout {
+                                                    Layout.fillWidth: true
+                                                    spacing: 6
+
+                                                    Text {
+                                                        text: modelData.title || ""
+                                                        color: "#d8c8ff"
+                                                        font.pixelSize: 14
+                                                        font.bold: true
+                                                        elide: Text.ElideRight
+                                                        maximumLineCount: 1
+                                                        Layout.fillWidth: true
+                                                    }
+
+                                                    Text {
+                                                        text: modelData.value || ""
+                                                        color: "#ffffff"
+                                                        font.pixelSize: 18
+                                                        font.bold: true
+                                                        elide: Text.ElideRight
+                                                        maximumLineCount: 1
+                                                    }
+                                                }
+
+                                                Text {
+                                                    text: [modelData.source || "", modelData.confidence || ""].filter(function(value) { return value.length > 0 }).join(" · ")
+                                                    color: "#9fb2d0"
+                                                    font.pixelSize: 12
+                                                    font.bold: true
+                                                    elide: Text.ElideRight
+                                                    maximumLineCount: 1
+                                                    visible: text.length > 0
+                                                    Layout.fillWidth: true
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
                                 ColumnLayout {
-                                    visible: modelData.items && modelData.items.length > 0
+                                    visible: modelData.technicalAnalysis && modelData.analysis && modelData.analysis.sections && modelData.analysis.sections.length > 0
+                                    Layout.fillWidth: true
+                                    spacing: 6
+
+                                    Repeater {
+                                        model: modelData.analysis && modelData.analysis.sections ? modelData.analysis.sections : []
+
+                                        Rectangle {
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: technicalSectionContent.implicitHeight + 16
+                                            radius: 8
+                                            color: "#3324145f"
+                                            border.color: (modelData.source === "inferred" || modelData.source === "local_fallback" || modelData.source === "unavailable" || modelData.confidence === "low") ? "#b6a46a" : "#7f67ff"
+                                            border.width: 1
+
+                                            ColumnLayout {
+                                                id: technicalSectionContent
+                                                anchors.left: parent.left
+                                                anchors.right: parent.right
+                                                anchors.top: parent.top
+                                                anchors.margins: 8
+                                                spacing: 3
+
+                                                Text {
+                                                    text: modelData.title || modelData.id || modelData.kind || ""
+                                                    color: "#ffffff"
+                                                    font.pixelSize: 16
+                                                    font.bold: true
+                                                    elide: Text.ElideRight
+                                                    maximumLineCount: 1
+                                                    Layout.fillWidth: true
+                                                }
+
+                                                Text {
+                                                    text: modelData.body || ""
+                                                    color: "#f0d7ea"
+                                                    font.pixelSize: 14
+                                                    wrapMode: Text.WordWrap
+                                                    visible: text.length > 0
+                                                    Layout.fillWidth: true
+                                                }
+
+                                                Repeater {
+                                                    model: modelData.details || []
+
+                                                    Text {
+                                                        text: "• " + modelData
+                                                        color: "#d8c8ff"
+                                                        font.pixelSize: 13
+                                                        wrapMode: Text.WordWrap
+                                                        Layout.fillWidth: true
+                                                    }
+                                                }
+
+                                                Text {
+                                                    text: [modelData.source || "", modelData.confidence || ""].filter(function(value) { return value.length > 0 }).join(" · ")
+                                                    color: "#9fb2d0"
+                                                    font.pixelSize: 12
+                                                    font.bold: true
+                                                    visible: text.length > 0
+                                                    Layout.fillWidth: true
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                ColumnLayout {
+                                    visible: modelData.technicalAnalysis && modelData.analysis && modelData.analysis.timeline && modelData.analysis.timeline.length > 0
+                                    Layout.fillWidth: true
+                                    spacing: 4
+
+                                    Repeater {
+                                        model: modelData.analysis && modelData.analysis.timeline ? modelData.analysis.timeline : []
+
+                                        RowLayout {
+                                            Layout.fillWidth: true
+                                            spacing: 8
+
+                                            Text {
+                                                text: [modelData.start || "", modelData.end || ""].filter(function(value) { return value.length > 0 }).join("–")
+                                                color: "#d8f3ff"
+                                                font.pixelSize: 13
+                                                font.bold: true
+                                                Layout.preferredWidth: 86
+                                                visible: text.length > 0
+                                            }
+
+                                            Text {
+                                                text: modelData.label || modelData.kind || modelData.id || ""
+                                                color: "#ffffff"
+                                                font.pixelSize: 14
+                                                elide: Text.ElideRight
+                                                maximumLineCount: 1
+                                                Layout.fillWidth: true
+                                            }
+
+                                            Text {
+                                                text: [modelData.source || "", modelData.confidence || ""].filter(function(value) { return value.length > 0 }).join(" · ")
+                                                color: "#9fb2d0"
+                                                font.pixelSize: 11
+                                                elide: Text.ElideRight
+                                                maximumLineCount: 1
+                                                visible: text.length > 0
+                                                Layout.preferredWidth: 118
+                                            }
+                                        }
+                                    }
+                                }
+
+                                ColumnLayout {
+                                    visible: modelData.technicalAnalysis && modelData.analysis && modelData.analysis.djTips && modelData.analysis.djTips.length > 0
+                                    Layout.fillWidth: true
+                                    spacing: 4
+
+                                    Repeater {
+                                        model: modelData.analysis && modelData.analysis.djTips ? modelData.analysis.djTips : []
+
+                                        Text {
+                                            text: "• " + [modelData.title || modelData.kind || "", modelData.text || ""].filter(function(value) { return value.length > 0 }).join(": ")
+                                            color: "#d8c8ff"
+                                            font.pixelSize: 14
+                                            wrapMode: Text.WordWrap
+                                            Layout.fillWidth: true
+                                        }
+                                    }
+                                }
+
+                                ColumnLayout {
+                                    visible: !modelData.technicalAnalysis && modelData.items && modelData.items.length > 0
                                     Layout.fillWidth: true
                                     spacing: 8
 
@@ -2259,6 +2489,32 @@ Window {
                                                     visible: text.length > 0
                                                 }
                                             }
+                                        }
+                                    }
+                                }
+
+                                ColumnLayout {
+                                    visible: modelData.technicalAnalysis && modelData.analysis && modelData.analysis.limitations && modelData.analysis.limitations.length > 0
+                                    Layout.fillWidth: true
+                                    spacing: 3
+
+                                    Text {
+                                        text: root.tr("analysis_limitations")
+                                        color: "#9fb2d0"
+                                        font.pixelSize: 13
+                                        font.bold: true
+                                        Layout.fillWidth: true
+                                    }
+
+                                    Repeater {
+                                        model: modelData.analysis && modelData.analysis.limitations ? modelData.analysis.limitations : []
+
+                                        Text {
+                                            text: "• " + (modelData.text || modelData)
+                                            color: "#9fb2d0"
+                                            font.pixelSize: 13
+                                            wrapMode: Text.WordWrap
+                                            Layout.fillWidth: true
                                         }
                                     }
                                 }
@@ -2473,10 +2729,32 @@ Window {
             clip: true
             z: 40
 
+            MouseArea {
+                anchors.fill: parent
+                acceptedButtons: Qt.AllButtons
+                preventStealing: true
+                propagateComposedEvents: false
+                onPressed: function(mouse) {
+                    root.recordActivity()
+                    mouse.accepted = true
+                }
+                onReleased: function(mouse) {
+                    mouse.accepted = true
+                }
+                onClicked: function(mouse) {
+                    askDjInput.forceActiveFocus()
+                    mouse.accepted = true
+                }
+                onWheel: function(wheel) {
+                    wheel.accepted = true
+                }
+            }
+
             ColumnLayout {
                 anchors.fill: parent
                 anchors.margins: 8
                 spacing: 7
+                z: 1
 
                 RowLayout {
                     Layout.fillWidth: true

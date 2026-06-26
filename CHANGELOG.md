@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.1.112
+
+- Add Ask DJ technical track analysis contract v2 support with read-only
+  analysis cards for sections, timeline, DJ tips and limitations, while keeping
+  explicit backend `playback_actions[]` as the only allowed playback controls.
+- Keep technical analysis rendering forward-compatible for unknown section,
+  source and tip kinds, and preserve v1 measured/inferred fallback rendering
+  without parsing timestamps or DJ tips from prose.
+
 ## 3.1.111
 
 - Align Raspberry Pi Ask DJ with the server-side contract: typed prompts send

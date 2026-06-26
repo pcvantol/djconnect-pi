@@ -332,7 +332,15 @@ def test_qml_ask_dj_screen_sends_text_without_audio_controls() -> None:
     assert 'root.tr("send")' in ask_dj_block
     assert "djconnect.sendAskDjMessage(message)" in ask_dj_block
     assert "component AskDjKeyButton" in main_qml
+    key_button_block = main_qml[main_qml.index("component AskDjKeyButton") : main_qml.index("component MenuIcon")]
+    assert "propagateComposedEvents: false" in key_button_block
+    assert "preventStealing: true" in key_button_block
+    assert "keyButton.clicked()" in key_button_block
     assert "id: askDjKeyboard" in ask_dj_block
+    keyboard_block = ask_dj_block[ask_dj_block.index("id: askDjKeyboard") : ask_dj_block.index("GamesPanel {") if "GamesPanel {" in ask_dj_block else len(ask_dj_block)]
+    assert "propagateComposedEvents: false" in keyboard_block
+    assert "preventStealing: true" in keyboard_block
+    assert "askDjInput.forceActiveFocus()" in keyboard_block
     assert "property bool askDjKeyboardOpen: false" in main_qml
     assert "root.askDjKeyboardOpen = true" in ask_dj_block
     assert "root.askDjKeyboardOpen = false" in ask_dj_block
@@ -343,6 +351,12 @@ def test_qml_ask_dj_screen_sends_text_without_audio_controls() -> None:
     assert "z: 40" in ask_dj_block
     assert "function insertAskDjKey(value)" in ask_dj_block
     assert "function deleteAskDjText()" in ask_dj_block
+    insert_block = ask_dj_block[ask_dj_block.index("function insertAskDjText") : ask_dj_block.index("function insertAskDjKey")]
+    delete_block = ask_dj_block[ask_dj_block.index("function deleteAskDjText") : ask_dj_block.index("AppBackground {}")]
+    text_field_block = ask_dj_block[ask_dj_block.index("id: askDjInput") : ask_dj_block.index("AskDjGradientButton {\n                        text: root.tr(\"send\")")]
+    assert "djconnect.askDjBusy" not in insert_block
+    assert "djconnect.askDjBusy" not in delete_block
+    assert "enabled: !djconnect.askDjBusy" not in text_field_block
     assert 'model: ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"]' in ask_dj_block
     assert 'displayText: root.tr("keyboard_space")' in ask_dj_block
     assert 'root.tr("replay_audio")' in ask_dj_block
@@ -366,6 +380,27 @@ def test_qml_ask_dj_screen_sends_text_without_audio_controls() -> None:
     assert 'onClicked: djconnect.sendAskDjAction(modelData.payload || "{}")' in ask_dj_block
     assert "requestAskDjIdleSuggestion" not in ask_dj_block
     assert "playAskDjAction" not in ask_dj_block
+
+
+def test_qml_ask_dj_technical_analysis_has_compact_readonly_rendering() -> None:
+    main_qml = files("djconnect_pi.qml").joinpath("Main.qml").read_text(encoding="utf-8")
+    ask_dj_block = main_qml[main_qml.index("id: askDjPanel") : main_qml.index("GamesPanel {")]
+
+    assert "modelData.technicalAnalysis && modelData.analysis && modelData.analysis.modeLabel" in ask_dj_block
+    assert "modelData.analysis ? [modelData.analysis.modeLabel || \"\", modelData.analysis.source || \"\", modelData.analysis.confidence || \"\"].filter" in ask_dj_block
+    assert "modelData.technicalAnalysis && modelData.items && modelData.items.length > 0" in ask_dj_block
+    assert "modelData.arrangement ? \"#33334857\" : \"#3324145f\"" in ask_dj_block
+    assert "modelData.value || \"\"" in ask_dj_block
+    assert "[modelData.source || \"\", modelData.confidence || \"\"].filter" in ask_dj_block
+    assert "modelData.analysis.sections && modelData.analysis.sections.length > 0" in ask_dj_block
+    assert "modelData.title || modelData.id || modelData.kind" in ask_dj_block
+    assert "modelData.analysis.timeline && modelData.analysis.timeline.length > 0" in ask_dj_block
+    assert "modelData.start || \"\", modelData.end || \"\"" in ask_dj_block
+    assert "modelData.analysis.djTips && modelData.analysis.djTips.length > 0" in ask_dj_block
+    assert "!modelData.technicalAnalysis && modelData.items && modelData.items.length > 0" in ask_dj_block
+    assert "modelData.technicalAnalysis && modelData.analysis && modelData.analysis.limitations" in ask_dj_block
+    assert "modelData.text || modelData" in ask_dj_block
+    assert 'root.tr("analysis_limitations")' in ask_dj_block
 
 
 def test_qml_now_playing_can_save_current_track() -> None:
