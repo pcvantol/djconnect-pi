@@ -21,37 +21,44 @@ Belangrijke context:
 - Geen lokale `SYNC_PROMPTS.md` of `PRODUCT_ROADMAP.md`; die staan canoniek in `pcvantol/djconnect`.
 
 Huidige stand:
-- Laatste release in deze werkronde is `v3.1.111`.
+- Laatste release in deze werkronde is `v3.1.112`.
 - Public updater assets staan in `pcvantol/djconnect-pi-releases`, inclusief
   `djconnect-pi-latest.json`.
-- Release `v3.1.111` lijnt Raspberry Pi Ask DJ uit met het server-side
-  contract: prompt payloads sturen `audio_response:"auto"`, backend actions
-  worden zonder client-side playback inference teruggestuurd, gewone
-  output-acties gebruiken de geretourneerde `value`, en audio replay verschijnt
-  alleen als de backend `audio_url` teruggeeft.
+- Release `v3.1.112` voegt Raspberry Pi client support toe voor Ask DJ
+  technical track analysis contract v2: responses met
+  `intent.intent=="technical_track_analysis"` of `action=="track_analysis"`
+  renderen read-only analysis sections, optionele timeline, DJ tips en
+  limitations; v1 `measured`/`inferred` fallback blijft ondersteund zonder
+  prose uit `text`/`dj_text` te parsen; expliciete `playback_actions[]` blijven
+  de enige technische analyse playback controls.
 - Source release is aangemaakt:
-  - source repo tag/release: `v3.1.111`
-  - source PR naar `main`: `#16` (zelfde release branch, bijgewerkt)
+  - source repo tag/release: `v3.1.112`
+  - source PR naar `main`: `#17`
 - Directe push naar `main` is geprobeerd met tijdelijke admin override, maar
   GitHub branch protection bleef PR-only afdwingen. Branch/tag/release zijn
   wel gepubliceerd.
-- Public publish workflow voor `v3.1.111` is geslaagd.
-- Public assets voor `v3.1.111` zijn gepubliceerd:
-  - `djconnect-pi-3.1.111.tar.gz`
-  - `djconnect-pi-3.1.111.sha256`
+- Public publish workflow voor `v3.1.112` is geslaagd.
+- Public assets voor `v3.1.112` zijn gepubliceerd:
+  - `djconnect-pi-3.1.112.tar.gz`
+  - `djconnect-pi-3.1.112.sha256`
   - `djconnect-pi-latest.json`
-- Pi draait `3.1.111`. Deployment is gedaan via de gedocumenteerde public
+- Pi draait `3.1.112`. Deployment is gedaan via de gedocumenteerde public
   tarball installer-route:
-  `~/djconnect-install/djconnect-pi-3.1.111/scripts/install.sh`.
-- Validatie voor `v3.1.111`:
+  `~/djconnect-install/djconnect-pi-3.1.112/scripts/install.sh`.
+  De eerste installpogingen werden tijdens grote PySide6 stappen door een
+  gesloten SSH sessie onderbroken, maar de resumable install markers werkten;
+  herstarten van dezelfde installer rondde de installatie en activatie af.
+- Validatie voor `v3.1.112`:
   - `/Users/pcvantol/.platformio/penv/bin/pytest tests/test_ha.py tests/test_app_backend.py tests/test_qml.py tests/test_i18n.py -q`
-    -> ok, 135 passed
+    -> ok, 143 passed
   - `python3 -m py_compile src/djconnect_pi/app.py src/djconnect_pi/ha.py src/djconnect_pi/i18n.py tests/test_ha.py tests/test_app_backend.py tests/test_qml.py tests/test_i18n.py` -> ok
   - `bash -n scripts/install.sh scripts/bootstrap_raspberry_pi_os.sh cleanup_old_releases.sh release.sh` -> ok
   - `git diff --check` -> ok
-  - GitHub Actions publish workflow voor `v3.1.111` -> success
+  - GitHub Actions publish workflow voor `v3.1.112` -> success
   - Pi services na install: `djconnect-api.service`,
     `djconnect-client.service` en `djconnect-updater.timer` active
+  - Pi local API `/api/device/info` op `127.0.0.1:18080` meldt
+    `version/app_version/firmware` als `3.1.112`
 
 Openstaande gewenste workflow:
 - Controleer na elke release de public publish workflow:
