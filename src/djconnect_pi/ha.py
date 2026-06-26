@@ -19,6 +19,14 @@ class BackendUnavailable(DJConnectError):
     pass
 
 
+class UnsupportedBackendCapability(DJConnectError):
+    pass
+
+
+class StaleBackendAction(DJConnectError):
+    pass
+
+
 class AuthenticationError(DJConnectError):
     pass
 
@@ -45,6 +53,18 @@ class Playback:
     output_devices: tuple[str, ...] = ()
 
 
+@dataclass
+class MusicBackendSummary:
+    backend: str = ""
+    name: str = ""
+    available: bool = True
+    revision: int = 0
+    capabilities: dict[str, bool] | None = None
+    target_player_id: str = ""
+    target_player_name: str = ""
+    error: str = ""
+
+
 class HAClient:
     def __init__(self, cfg: Config, timeout: float = 4.0) -> None:
         self.cfg = cfg
@@ -58,6 +78,7 @@ class HAClient:
         response = requests.post(url, json=payload, timeout=self.timeout)
         _LOGGER.debug("POST %s returned HTTP %s in %.0fms", url, response.status_code, _elapsed_ms(started))
         data = self._json(response)
+        self.update_backend_summary(data)
         self._validate_ha_version(data)
         token = data.get("device_token") or data.get("token")
         if token:
@@ -118,6 +139,7 @@ class HAClient:
         )
         _LOGGER.debug("POST %s returned HTTP %s in %.0fms", url, response.status_code, _elapsed_ms(started))
         data = self._json(response)
+        self.update_backend_summary(data)
         self._validate_ha_version(data)
         return data
 
@@ -143,6 +165,7 @@ class HAClient:
         _LOGGER.debug("POST %s command=%s returned HTTP %s in %.0fms", url, command, response.status_code, _elapsed_ms(started))
         data = self._json(response)
         _LOGGER.debug("Decoded command=%s response_shape=%s", command, _response_shape(data))
+        self.update_backend_summary(data)
         self._validate_ha_version(data)
         return data
 
@@ -153,6 +176,7 @@ class HAClient:
         response = requests.get(url, headers=self._headers(), timeout=self.timeout)
         _LOGGER.debug("GET %s returned HTTP %s in %.0fms", url, response.status_code, _elapsed_ms(started))
         data = self._json(response)
+        self.update_backend_summary(data)
         self._validate_ha_version(data)
         return data
 
@@ -168,6 +192,7 @@ class HAClient:
         response = requests.post(url, json=body, headers=self._headers(), timeout=self.timeout)
         _LOGGER.debug("POST %s returned HTTP %s in %.0fms", url, response.status_code, _elapsed_ms(started))
         data = self._json(response)
+        self.update_backend_summary(data)
         self._validate_ha_version(data)
         return data
 
@@ -179,6 +204,7 @@ class HAClient:
         response = requests.post(url, json=body, headers=self._headers(), timeout=self.timeout)
         _LOGGER.debug("POST %s returned HTTP %s in %.0fms", url, response.status_code, _elapsed_ms(started))
         data = self._json(response)
+        self.update_backend_summary(data)
         self._validate_ha_version(data)
         return data
 
@@ -272,6 +298,24 @@ class HAClient:
             output_devices=tuple(output_devices),
         )
 
+    def update_backend_summary(self, data: dict[str, Any]) -> MusicBackendSummary:
+        summary = music_backend_summary_from(data)
+        if not _has_backend_summary(data):
+            return summary
+        self.cfg.music_backend = summary.backend
+        self.cfg.music_backend_name = summary.name
+        self.cfg.music_backend_available = summary.available
+        self.cfg.music_backend_revision = summary.revision
+        self.cfg.music_backend_capabilities = dict(summary.capabilities or {})
+        target_player: dict[str, str] = {}
+        if summary.target_player_id:
+            target_player["id"] = summary.target_player_id
+        if summary.target_player_name:
+            target_player["name"] = summary.target_player_name
+        self.cfg.music_target_player = target_player
+        self.cfg.music_backend_error = summary.error
+        return summary
+
     def _base_payload(self, **extra: Any) -> dict[str, Any]:
         return {
             "device_id": self.cfg.device_id,
@@ -360,11 +404,37 @@ class HAClient:
         if not response.content:
             _LOGGER.warning("Home Assistant returned empty HTTP %s response body; this violates the DJConnect JSON contract", response.status_code)
             raise DJConnectError("Home Assistant returned empty JSON response")
+        if data.get("success") is False and str(data.get("error") or "") in {
+            "unauthorized",
+            "forbidden",
+            "not_configured",
+            "stale_pairing",
+            "stale_token",
+            "invalid_token",
+        }:
+            error = str(data.get("message") or data.get("error") or "authentication failed")
+            _LOGGER.warning("Home Assistant rejected pairing/auth state: error=%s", data.get("error"))
+            raise AuthenticationError(error)
         if data.get("success") is False and data.get("backend_available") is False:
             error = str(data.get("error") or "playback backend unavailable")
             message = str(data.get("message") or error)
             _LOGGER.warning("Home Assistant playback backend unavailable: error=%s message=%s", error, message)
             raise BackendUnavailable(error)
+        if data.get("success") is False and data.get("error") == "unsupported_backend_capability":
+            capability = str(data.get("capability") or "unknown")
+            backend = str(data.get("backend") or data.get("music_backend") or "unknown")
+            message = str(data.get("message") or f"Backend {backend} does not support {capability}")
+            _LOGGER.warning("Home Assistant backend capability unsupported: backend=%s capability=%s message=%s", backend, capability, message)
+            raise UnsupportedBackendCapability(message)
+        if data.get("success") is False and str(data.get("error") or "") in {
+            "music_backend_revision_mismatch",
+            "stale_backend_action",
+            "stale_music_backend_action",
+            "stale_music_backend_revision",
+        }:
+            message = str(data.get("message") or "Music backend changed; ask DJ again before using this action.")
+            _LOGGER.warning("Home Assistant rejected stale backend action: error=%s message=%s", data.get("error"), message)
+            raise StaleBackendAction(message)
         _LOGGER.debug("Home Assistant JSON response keys=%s", sorted(data))
         return data
 
@@ -554,6 +624,43 @@ def _response_shape(data: dict[str, Any]) -> dict[str, Any]:
         shape["error"] = data.get("error", "")
         shape["message"] = data.get("message", "")
     return shape
+
+
+def music_backend_summary_from(data: dict[str, Any]) -> MusicBackendSummary:
+    target = data.get("music_target_player") if isinstance(data.get("music_target_player"), dict) else {}
+    capabilities = data.get("music_backend_capabilities") if isinstance(data.get("music_backend_capabilities"), dict) else {}
+    return MusicBackendSummary(
+        backend=str(data.get("music_backend") or ""),
+        name=str(data.get("music_backend_name") or data.get("music_backend") or ""),
+        available=bool(data.get("music_backend_available", data.get("backend_available", True))),
+        revision=_int_value(data.get("music_backend_revision"), 0),
+        capabilities={str(key): bool(value) for key, value in capabilities.items()},
+        target_player_id=str(target.get("id") or ""),
+        target_player_name=str(target.get("name") or ""),
+        error=str(data.get("music_backend_error") or ""),
+    )
+
+
+def _has_backend_summary(data: dict[str, Any]) -> bool:
+    return any(
+        key in data
+        for key in (
+            "music_backend",
+            "music_backend_name",
+            "music_backend_available",
+            "music_backend_revision",
+            "music_backend_capabilities",
+            "music_target_player",
+            "music_backend_error",
+        )
+    )
+
+
+def _int_value(value: Any, default: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
 
 
 def _compatible_ha_version(client_version: str, ha_version: str) -> bool:

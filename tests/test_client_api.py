@@ -51,6 +51,9 @@ def test_client_api_info_and_pairing_info(tmp_path: Path) -> None:
 
     assert info["client_type"] == "raspberry_pi"
     assert info["app_version"] == cfg.version
+    assert info["transport"] == "local_only"
+    assert info["ha_local_url"] == ""
+    assert "ha_remote_url" not in info
     assert info["local_url"] == cfg.local_url
     assert info["paired"] is False
     assert info["ha_pairing_status"] == "pending"
@@ -67,6 +70,11 @@ def test_client_api_info_and_pairing_info(tmp_path: Path) -> None:
     assert pairing["pairing_token"] == "123456"
     assert pairing["device_id"] == cfg.device_id
     assert pairing["client_type"] == "raspberry_pi"
+    assert pairing["transport"] == "local_only"
+    assert pairing["capabilities"]["ask_dj_mode"] == "text_actions"
+    assert pairing["capabilities"]["voice_supported"] is False
+    assert pairing["music_backend"] == ""
+    assert pairing["music_backend_capabilities"] == {}
 
 
 def test_client_api_log_message_formats_http_server_args(caplog) -> None:
@@ -175,6 +183,8 @@ def test_mdns_properties_include_ha_discovery_fields() -> None:
         "pair_code": cfg.pairing_code,
         "paired": "false",
     }
+    assert "ha_url" not in properties
+    assert "ha_remote_url" not in properties
 
 
 def test_mdns_is_not_advertised_when_already_paired(tmp_path: Path, monkeypatch) -> None:
@@ -282,7 +292,7 @@ def test_mdns_stops_after_pair_and_returns_after_forget(tmp_path: Path, monkeypa
     assert len(registered) == 2
 
 
-def test_client_api_pair_stores_token_and_ha_url(tmp_path: Path) -> None:
+def test_client_api_pair_stores_token_and_local_ha_url(tmp_path: Path) -> None:
     api, cfg, events = start_api(tmp_path)
     config_path = tmp_path / "config.json"
     try:
@@ -293,6 +303,7 @@ def test_client_api_pair_stores_token_and_ha_url(tmp_path: Path) -> None:
                 "client_type": "raspberry_pi",
                 "device_token": "token-1",
                 "ha_local_url": "http://ha:8123",
+                "ha_remote_url": "https://remote.ui.nabu.casa",
             },
             timeout=3,
         )
@@ -303,8 +314,62 @@ def test_client_api_pair_stores_token_and_ha_url(tmp_path: Path) -> None:
     assert response.status_code == 200
     assert saved.device_token == "token-1"
     assert saved.ha_url == "http://ha:8123"
+    assert "remote" not in saved.ha_url
     assert saved.paired is True
     assert "paired" in events
+
+
+def test_client_api_pair_requires_local_ha_url_and_ignores_remote_url(tmp_path: Path) -> None:
+    api, cfg, events = start_api(tmp_path)
+    config_path = tmp_path / "config.json"
+    try:
+        response = requests.post(
+            f"{cfg.local_url}/api/device/pair",
+            json={
+                "device_id": cfg.device_id,
+                "client_type": "raspberry_pi",
+                "device_token": "token-1",
+                "ha_remote_url": "https://remote.ui.nabu.casa",
+            },
+            timeout=3,
+        )
+    finally:
+        api.stop()
+
+    saved = load_config(config_path)
+    assert response.status_code == 400
+    assert response.json()["error"] == "missing_pairing_fields"
+    assert saved.device_token == ""
+    assert saved.ha_url == ""
+    assert events == []
+
+
+def test_device_info_exposes_local_only_backend_summary(tmp_path: Path) -> None:
+    api, cfg, events = start_api(tmp_path)
+    config_path = tmp_path / "config.json"
+    saved = load_config(config_path)
+    saved.ha_url = "http://ha.local:8123"
+    saved.paired = True
+    saved.music_backend = "music_assistant"
+    saved.music_backend_name = "Music Assistant"
+    saved.music_backend_revision = 4
+    saved.music_backend_capabilities = {"supports_queue": True}
+    saved.music_target_player = {"id": "media_player.mass_woonkamer", "name": "Woonkamer"}
+    save_config(config_path, saved)
+    try:
+        info = requests.get(f"{cfg.local_url}/api/device/info", timeout=3).json()
+    finally:
+        api.stop()
+
+    assert info["client_type"] == "raspberry_pi"
+    assert info["transport"] == "local_only"
+    assert info["ha_local_url"] == "http://ha.local:8123"
+    assert "ha_remote_url" not in info
+    assert info["music_backend"] == "music_assistant"
+    assert info["music_backend_name"] == "Music Assistant"
+    assert info["music_backend_revision"] == 4
+    assert info["music_backend_capabilities"] == {"supports_queue": True}
+    assert info["music_target_player"] == {"id": "media_player.mass_woonkamer", "name": "Woonkamer"}
 
 
 @pytest.mark.parametrize(

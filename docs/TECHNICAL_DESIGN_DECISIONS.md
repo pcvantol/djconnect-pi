@@ -128,7 +128,7 @@ mainly by tests plus `compileall`.
 | `GET /api/debug/screen` is loopback-only | `client_api.py`, `app.py`, `Main.qml` | Allows post-deploy screenshot automation without exposing screen-control routes on the LAN. |
 | Pi power endpoints are explicit and Pi-only | `POST /api/device/restart`, `POST /api/device/shutdown` in `client_api.py` | HA can expose Raspberry Pi restart/shutdown buttons without introducing ESP-only `/api/device/reboot` or OTA behavior. |
 | Text DJ responses are toast-only | `app.py`, `client_api_daemon.py` | Product decision: no local Pi audio/DJ response playback. |
-| HA version compatibility is major/minor bounded | `ha.py` | Client `3.1.z` accepts HA `>=3.1.0` and `<3.2.0`. |
+| HA version compatibility is major/minor bounded | `ha.py` | Client `3.2.z` accepts HA `>=3.2.0` and `<3.3.0`. |
 | Queue row playback uses `play_context_at` | `media_item_payload`, `MediaListPanel`, `web_portal.py` | Matches the Apple/HACS contract, starts rows from direct Spotify `uri` values and treats queue context as optional. |
 | Output-device selector uses status plus devices fallback | `app.py`, `ha.py` | Bediening must let users switch HA-provided playback devices even when the status response omits the device list. |
 | Output-device changes are optimistic but validated | `_set_output_worker` | The UI feels responsive, but if HA rejects or normalizes the selected output device the client rolls back and logs the rejection. |
@@ -241,7 +241,7 @@ state. License metadata is maintained by Debian/Raspberry Pi packages in
 | --- | --- | --- | --- |
 | GitHub Releases | private source release and public Pi distribution release | SaaS API; not pinned | https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases |
 | GitHub Actions | publish tagged source releases to public release repo | SaaS runner; workflow-defined | https://docs.github.com/en/actions |
-| Home Assistant DJConnect integration | pairing, status and playback command contract | compatible `3.1.x` integration expected | https://www.home-assistant.io/ |
+| Home Assistant DJConnect integration | pairing, status and playback command contract | compatible `3.2.x` integration expected | https://www.home-assistant.io/ |
 | Raspberry Pi OS Lite 64-bit | target operating system | image/repository state controlled outside repo | https://www.raspberrypi.com/software/operating-systems/ |
 
 ## Release Maintenance Rule

@@ -47,8 +47,8 @@ Implemented:
   candidate in Home Assistant.
 - Full-screen startup splash with DJConnect banner and spinner
 - Blocking first-run pairing screen with Client adres and pairing code input
-- Blocking Home Assistant version-mismatch screen. For example, client `3.1.z`
-  accepts HA `>=3.1.0` and `<3.2.0`; mismatch triggers
+- Blocking Home Assistant version-mismatch screen. For example, client `3.2.z`
+  accepts HA `>=3.2.0` and `<3.3.0`; mismatch triggers
   `djconnect-updater.service` once.
 - Backend-driven notification toast for short user/action feedback. Textual DJ
   responses from HA are shown as an auto-dismissing 10-second toast, not as a

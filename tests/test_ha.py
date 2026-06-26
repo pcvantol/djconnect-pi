@@ -14,7 +14,10 @@ from djconnect_pi.ha import (
     HAClient,
     Playback,
     ProtocolVersionMismatch,
+    StaleBackendAction,
+    UnsupportedBackendCapability,
     _compatible_ha_version,
+    music_backend_summary_from,
 )
 
 
@@ -468,6 +471,89 @@ def test_backend_unavailable_response_raises_specific_error(caplog) -> None:
     assert "playback backend unavailable" in caplog.text
 
 
+def test_backend_summary_parses_ha_32_fields() -> None:
+    summary = music_backend_summary_from(
+        {
+            "music_backend": "music_assistant",
+            "music_backend_name": "Music Assistant",
+            "music_backend_available": True,
+            "music_backend_revision": 4,
+            "music_backend_capabilities": {"supports_queue": True, "supports_top_items": False},
+            "music_target_player": {"id": "media_player.mass_woonkamer", "name": "Woonkamer"},
+            "music_backend_error": None,
+        }
+    )
+
+    assert summary.backend == "music_assistant"
+    assert summary.name == "Music Assistant"
+    assert summary.available is True
+    assert summary.revision == 4
+    assert summary.capabilities == {"supports_queue": True, "supports_top_items": False}
+    assert summary.target_player_id == "media_player.mass_woonkamer"
+    assert summary.target_player_name == "Woonkamer"
+
+
+def test_command_response_updates_backend_summary() -> None:
+    cfg = Config(ha_url="http://ha", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1")
+    client = HAClient(cfg)
+
+    def fake_post(url: str, **kwargs: Any) -> FakeResponse:
+        return FakeResponse(
+            200,
+            {
+                "success": True,
+                "music_backend": "music_assistant",
+                "music_backend_name": "Music Assistant",
+                "music_backend_revision": 4,
+                "music_backend_capabilities": {"supports_queue": True},
+                "music_target_player": {"id": "media_player.mass_woonkamer", "name": "Woonkamer"},
+            },
+        )
+
+    with patch("djconnect_pi.ha.requests.post", side_effect=fake_post):
+        client.command("status")
+
+    assert cfg.music_backend == "music_assistant"
+    assert cfg.music_backend_name == "Music Assistant"
+    assert cfg.music_backend_revision == 4
+    assert cfg.music_backend_capabilities == {"supports_queue": True}
+    assert cfg.music_target_player == {"id": "media_player.mass_woonkamer", "name": "Woonkamer"}
+
+
+def test_unsupported_backend_capability_response_is_specific_error() -> None:
+    client = HAClient(Config(ha_url="http://ha"))
+
+    with pytest.raises(UnsupportedBackendCapability, match="Top items are unavailable"):
+        client._json(
+            FakeResponse(
+                200,
+                {
+                    "success": False,
+                    "error": "unsupported_backend_capability",
+                    "capability": "supports_top_items",
+                    "backend": "music_assistant",
+                    "message": "Top items are unavailable for Music Assistant.",
+                },
+            )
+        )
+
+
+def test_stale_backend_action_response_is_specific_error() -> None:
+    client = HAClient(Config(ha_url="http://ha"))
+
+    with pytest.raises(StaleBackendAction, match="Ask DJ opnieuw"):
+        client._json(
+            FakeResponse(
+                200,
+                {
+                    "success": False,
+                    "error": "music_backend_revision_mismatch",
+                    "message": "Ask DJ opnieuw voordat je deze actie gebruikt.",
+                },
+            )
+        )
+
+
 def test_status_has_playback_false_decodes_without_backend_unavailable() -> None:
     playback = HAClient(Config()).playback_from_status(
         {
@@ -519,6 +605,14 @@ def test_auth_stale_http_statuses_raise_authentication_error(status_code: int) -
         client._json(FakeResponse(status_code, {"success": False, "error": "unauthorized"}))
 
 
+@pytest.mark.parametrize("error", ["not_configured", "stale_pairing", "stale_token", "invalid_token"])
+def test_auth_stale_success_false_errors_raise_authentication_error(error: str) -> None:
+    client = HAClient(Config(ha_url="http://ha"))
+
+    with pytest.raises(AuthenticationError):
+        client._json(FakeResponse(200, {"success": False, "error": error}))
+
+
 def test_empty_2xx_response_is_contract_error(caplog) -> None:
     client = HAClient(Config(ha_url="http://ha"))
     caplog.set_level("WARNING")
@@ -536,23 +630,23 @@ def test_devices_accept_outputs_alias() -> None:
 
 
 def test_ha_version_compatibility_uses_major_minor_range() -> None:
-    assert _compatible_ha_version("3.1.2", "3.1.0") is True
-    assert _compatible_ha_version("3.1.2", "3.1.99") is True
-    assert _compatible_ha_version("3.1.2", "3.2.0") is False
-    assert _compatible_ha_version("3.1.2", "3.0.9") is False
+    assert _compatible_ha_version("3.2.2", "3.2.0") is True
+    assert _compatible_ha_version("3.2.2", "3.2.99") is True
+    assert _compatible_ha_version("3.2.2", "3.1.99") is False
+    assert _compatible_ha_version("3.2.2", "3.3.0") is False
 
 
 def test_ha_version_mismatch_raises_protocol_error() -> None:
-    client = HAClient(Config(version="3.1.2"))
+    client = HAClient(Config(version="3.2.2"))
 
     with pytest.raises(ProtocolVersionMismatch) as exc:
-        client._validate_ha_version({"ha_version": "3.2.0"})
+        client._validate_ha_version({"ha_version": "3.1.112"})
 
-    assert exc.value.client_version == "3.1.2"
-    assert exc.value.ha_version == "3.2.0"
+    assert exc.value.client_version == "3.2.2"
+    assert exc.value.ha_version == "3.1.112"
 
 
 def test_ha_major_minor_response_is_accepted() -> None:
-    client = HAClient(Config(version="3.1.2"))
+    client = HAClient(Config(version="3.2.2"))
 
-    client._validate_ha_version({"ha_major_minor": "3.1"})
+    client._validate_ha_version({"ha_major_minor": "3.2"})

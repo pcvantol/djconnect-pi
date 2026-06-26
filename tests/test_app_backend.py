@@ -8,7 +8,7 @@ from unittest.mock import Mock, patch
 import pytest
 from PySide6.QtCore import QCoreApplication
 
-from djconnect_pi.config import load_config, save_config
+from djconnect_pi.config import Config, load_config, save_config
 from djconnect_pi.app import (
     DJConnectBackend,
     SaveCurrentTrackError,
@@ -22,7 +22,7 @@ from djconnect_pi.app import (
     parse_queue_items,
     prepare_media_artwork,
 )
-from djconnect_pi.ha import AuthenticationError, HAClient, Playback
+from djconnect_pi.ha import AuthenticationError, HAClient, Playback, ProtocolVersionMismatch, StaleBackendAction, UnsupportedBackendCapability
 
 
 def ensure_app() -> QCoreApplication:
@@ -983,6 +983,65 @@ def test_ask_dj_action_tap_sends_structured_payload_only(tmp_path: Path) -> None
     backend.client.ask_dj_action.assert_called_once_with({"kind": "confirmation", "response_value": "yes"})
 
 
+def test_ask_dj_action_accepts_music_assistant_payload_without_spotify_uri(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token-1"
+    backend.client.cfg = backend.cfg
+    action = {
+        "kind": "track",
+        "command": "ask_dj_play_recommendation",
+        "music_backend": "music_assistant",
+        "backend_revision": 4,
+        "value": {"item_id": "mass-track-1", "provider": "library", "player_id": "media_player.mass_woonkamer"},
+    }
+    backend.client.ask_dj_action = Mock(return_value={"success": True, "messages": []})
+
+    backend._send_ask_dj_action_worker(action)
+
+    backend.client.ask_dj_action.assert_called_once_with(action)
+
+
+def test_ask_dj_action_surfaces_unsupported_capability(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.client.ask_dj_action = Mock(side_effect=UnsupportedBackendCapability("Top items unavailable"))
+
+    with pytest.raises(UnsupportedBackendCapability, match="Top items unavailable"):
+        backend._send_ask_dj_action_worker({"kind": "track", "command": "top_items"})
+
+
+def test_ask_dj_action_surfaces_stale_backend_action(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.client.ask_dj_action = Mock(side_effect=StaleBackendAction("Ask DJ opnieuw"))
+
+    with pytest.raises(StaleBackendAction, match="Ask DJ opnieuw"):
+        backend._send_ask_dj_action_worker({"kind": "track", "backend_revision": 3})
+
+
+def test_version_mismatch_does_not_clear_pairing_or_token(tmp_path: Path) -> None:
+    ensure_app()
+    config_path = tmp_path / "config.json"
+    cfg = Config(
+        device_id="djconnect-raspberry-pi-ABCDEF123456",
+        device_token="token-1",
+        paired=True,
+        ha_url="http://ha.local:8123",
+    )
+    save_config(config_path, cfg)
+    backend = DJConnectBackend(config_path)
+    backend.client.command = Mock(side_effect=ProtocolVersionMismatch("3.2.0", "3.1.112"))
+
+    with pytest.raises(ProtocolVersionMismatch), patch.object(backend, "_trigger_update_service"):
+        backend._refresh_worker()
+
+    saved = load_config(config_path)
+    assert saved.device_token == "token-1"
+    assert saved.paired is True
+
+
 def test_save_current_track_worker_raises_specific_error_on_success_false(tmp_path: Path) -> None:
     ensure_app()
     backend = DJConnectBackend(tmp_path / "config.json")
@@ -1506,11 +1565,17 @@ def test_backend_toast_can_be_shown_and_hidden(tmp_path: Path) -> None:
     assert backend.toastText == ""
 
 
-def test_backend_auth_error_marks_backend_unavailable_and_shows_toast(tmp_path: Path) -> None:
+def test_backend_auth_error_clears_pairing_and_shows_ready_to_pair(tmp_path: Path) -> None:
     ensure_app()
-    backend = DJConnectBackend(tmp_path / "config.json")
-    backend.cfg.paired = True
-    backend.cfg.device_token = "token-1"
+    config_path = tmp_path / "config.json"
+    cfg = Config(
+        device_id="djconnect-raspberry-pi-ABCDEF123456",
+        device_token="token-1",
+        paired=True,
+        ha_url="http://ha.local:8123",
+    )
+    save_config(config_path, cfg)
+    backend = DJConnectBackend(config_path)
 
     class FakeExecutor:
         def submit(self, worker):
@@ -1519,10 +1584,14 @@ def test_backend_auth_error_marks_backend_unavailable_and_shows_toast(tmp_path: 
     backend._executor = FakeExecutor()  # type: ignore[assignment]
     backend._run("refresh", lambda: (_ for _ in ()).throw(AuthenticationError("unauthorized")))
 
+    saved = load_config(config_path)
     assert backend.backendAvailable is False
-    assert backend.statusText == backend.t("ha_auth_failed")
+    assert backend.paired is False
+    assert saved.paired is False
+    assert saved.device_token == ""
+    assert backend.statusText == backend.t("ready_to_pair")
     assert backend.toastVisible is True
-    assert backend.toastText == backend.t("ha_auth_failed")
+    assert backend.toastText == backend.t("ready_to_pair")
 
 
 def test_backend_auth_error_does_not_toast_while_waiting_for_pairing(tmp_path: Path) -> None:

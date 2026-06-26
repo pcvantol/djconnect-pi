@@ -21,7 +21,7 @@ from PySide6.QtQuickControls2 import QQuickStyle
 import requests
 
 from .config import CLIENT_TYPE, DEFAULT_CONFIG_PATH, DEFAULT_LOG_PATH, Config, load_config, save_config
-from .ha import AuthenticationError, BackendUnavailable, DJConnectError, HAClient, Playback, ProtocolVersionMismatch
+from .ha import AuthenticationError, BackendUnavailable, DJConnectError, HAClient, Playback, ProtocolVersionMismatch, StaleBackendAction, UnsupportedBackendCapability
 from .i18n import LANGUAGES, normalize_language, translate
 from .logging_config import setup_logging
 from .system_info import log_raspberry_pi_system_info
@@ -269,6 +269,45 @@ class DJConnectBackend(QObject):
     @Property(str, constant=True)
     def version(self) -> str:
         return self.cfg.version
+
+    @Property(str, constant=True)
+    def protocolVersion(self) -> str:
+        return self.cfg.version
+
+    @Property(str, constant=True)
+    def clientType(self) -> str:
+        return CLIENT_TYPE
+
+    @Property(str, constant=True)
+    def transportMode(self) -> str:
+        return "Local only"
+
+    @Property(str, notify=settingsChanged)
+    def musicBackendName(self) -> str:
+        return self.cfg.music_backend_name or self.cfg.music_backend
+
+    @Property(str, notify=settingsChanged)
+    def musicBackendId(self) -> str:
+        return self.cfg.music_backend
+
+    @Property(str, notify=settingsChanged)
+    def musicTargetPlayerName(self) -> str:
+        target = self.cfg.music_target_player or {}
+        return str(target.get("name") or target.get("id") or "")
+
+    @Property(str, notify=settingsChanged)
+    def musicTargetPlayerId(self) -> str:
+        target = self.cfg.music_target_player or {}
+        return str(target.get("id") or "")
+
+    @Property(str, notify=settingsChanged)
+    def musicBackendCapabilitiesLabel(self) -> str:
+        capabilities = self.cfg.music_backend_capabilities or {}
+        return ", ".join(key.replace("supports_", "") for key, value in sorted(capabilities.items()) if value)
+
+    @Property(str, notify=settingsChanged)
+    def musicBackendError(self) -> str:
+        return self.cfg.music_backend_error
 
     @Property(str, notify=settingsChanged)
     def screenshotFile(self) -> str:
@@ -999,6 +1038,7 @@ class DJConnectBackend(QObject):
         started = time.monotonic()
         _LOGGER.debug("Refreshing playback status")
         data = self.client.command("status") if self.paired else self.client.status()
+        self._persist_backend_summary()
         playback = self.client.playback_from_status(data)
         if self._pending_output_device and time.monotonic() < self._pending_output_until:
             if not playback.output_devices or self._pending_output_device in playback.output_devices:
@@ -1011,6 +1051,7 @@ class DJConnectBackend(QObject):
         if self.paired and (not playback.output_devices or not playback.output_device):
             try:
                 devices_data = self.client.command("devices")
+                self._persist_backend_summary()
                 devices_playback = self.client.playback_from_status(devices_data)
                 if devices_playback.output_devices:
                     playback.output_devices = devices_playback.output_devices
@@ -1022,6 +1063,7 @@ class DJConnectBackend(QObject):
                 _LOGGER.warning("Output devices refresh failed: %s", exc)
         if self.paired:
             self.client.status(playback, queue_items=self._queue_items)
+            self._persist_backend_summary()
         if playback.image_url:
             playback.image_url = cached_image_url(playback.image_url, timeout_seconds=3)
         self._playbackReady.emit(playback)
@@ -1031,6 +1073,7 @@ class DJConnectBackend(QObject):
         started = time.monotonic()
         _LOGGER.info("Sending playback command: %s", command)
         data = self.client.command(command, **payload)
+        self._persist_backend_summary()
         self._playbackReady.emit(self.client.playback_from_status(data))
         _LOGGER.info("Playback command %s completed in %.0fms", command, _elapsed_ms(started))
 
@@ -1038,6 +1081,7 @@ class DJConnectBackend(QObject):
         started = time.monotonic()
         try:
             data = self.client.command("save_current_track")
+            self._persist_backend_summary()
         except (AuthenticationError, ProtocolVersionMismatch, BackendUnavailable):
             raise
         except DJConnectError as exc:
@@ -1054,6 +1098,7 @@ class DJConnectBackend(QObject):
         started = time.monotonic()
         _LOGGER.info("Sending media item command: %s", command)
         data = self.client.command(command, **payload)
+        self._persist_backend_summary()
         self._suppress_next_playback_navigation = command == "play_context_at"
         self._playbackReady.emit(self.client.playback_from_status(data))
         if command == "start_playlist":
@@ -1066,6 +1111,7 @@ class DJConnectBackend(QObject):
         started = time.monotonic()
         try:
             data = self.client.command("set_output", value=value)
+            self._persist_backend_summary()
             playback = self.client.playback_from_status(data)
             if playback.output_devices and value not in playback.output_devices:
                 raise DJConnectError(f"Output device not available: {value}")
@@ -1089,6 +1135,7 @@ class DJConnectBackend(QObject):
         started = time.monotonic()
         _LOGGER.info("Loading queue from Home Assistant")
         data = self.client.command("queue", limit=100)
+        self._persist_backend_summary()
         items = parse_queue_items(data)
         _LOGGER.info("Loaded %s queue items from Home Assistant", len(items))
         self._mediaListReady.emit("queue", items)
@@ -1099,6 +1146,7 @@ class DJConnectBackend(QObject):
         started = time.monotonic()
         _LOGGER.info("Loading playlists from Home Assistant")
         data = self.client.command("playlists", limit=100)
+        self._persist_backend_summary()
         items = parse_playlist_items(data)
         _LOGGER.info("Loaded %s playlists from Home Assistant", len(items))
         self._mediaListReady.emit("playlists", items)
@@ -1108,6 +1156,7 @@ class DJConnectBackend(QObject):
     def _load_ask_dj_history_worker(self) -> None:
         try:
             data = self.client.ask_dj_history(self._ask_dj_history_revision)
+            self._persist_backend_summary()
         except (DJConnectError, requests.RequestException) as exc:
             raise BackendUnavailable("Ask DJ unavailable") from exc
         self._askDjReady.emit(data)
@@ -1117,13 +1166,17 @@ class DJConnectBackend(QObject):
             data = self.client.ask_dj_action(action)
         except (AuthenticationError, ProtocolVersionMismatch):
             raise
+        except (UnsupportedBackendCapability, StaleBackendAction):
+            raise
         except (DJConnectError, requests.RequestException) as exc:
             raise BackendUnavailable("Ask DJ unavailable") from exc
+        self._persist_backend_summary()
         self._askDjReady.emit(data)
 
     def _send_ask_dj_message_worker(self, text: str, client_message_id: str) -> None:
         try:
             data = self.client.ask_dj_message(text, client_message_id)
+            self._persist_backend_summary()
         except (DJConnectError, requests.RequestException) as exc:
             raise BackendUnavailable("Ask DJ unavailable") from exc
         self._askDjReady.emit(data)
@@ -1131,6 +1184,7 @@ class DJConnectBackend(QObject):
     def _clear_ask_dj_history_worker(self) -> None:
         try:
             data = self.client.ask_dj_clear_history()
+            self._persist_backend_summary()
         except (DJConnectError, requests.RequestException) as exc:
             raise BackendUnavailable("Ask DJ unavailable") from exc
         self._askDjReady.emit(data)
@@ -1149,6 +1203,7 @@ class DJConnectBackend(QObject):
     def _poll_ask_dj_history_worker(self) -> None:
         try:
             data = self.client.ask_dj_history(self._ask_dj_history_revision)
+            self._persist_backend_summary()
         except (AuthenticationError, ProtocolVersionMismatch, BackendUnavailable, DJConnectError, requests.RequestException) as exc:
             self._ask_dj_poll_error_count = min(self._ask_dj_poll_error_count + 1, 6)
             delay = min(300, 10 * (2 ** (self._ask_dj_poll_error_count - 1)))
@@ -1246,6 +1301,9 @@ class DJConnectBackend(QObject):
                     _LOGGER.info("Suppressing authentication toast while DJConnect is waiting for pairing")
                     self._statusReady.emit(self.tr_key("ready_to_pair"))
                     return
+                _LOGGER.info("Clearing local pairing after Home Assistant rejected the device token")
+                self._forget_pairing()
+                message = self.tr_key("ready_to_pair")
                 self._statusReady.emit(message)
                 self._toastReady.emit(message, 5000)
             except BackendUnavailable as exc:
@@ -1256,6 +1314,18 @@ class DJConnectBackend(QObject):
                     _LOGGER.info("Suppressing backend-unavailable toast while DJConnect is waiting for pairing")
                     self._statusReady.emit(self.tr_key("ready_to_pair"))
                     return
+                self._statusReady.emit(message)
+                self._toastReady.emit(message, 5000)
+            except UnsupportedBackendCapability as exc:
+                self._backendAvailableReady.emit(True)
+                message = str(exc)
+                _LOGGER.warning("%s unsupported backend capability: %s", label, message)
+                self._statusReady.emit(message)
+                self._toastReady.emit(message, 5000)
+            except StaleBackendAction as exc:
+                self._backendAvailableReady.emit(True)
+                message = str(exc)
+                _LOGGER.warning("%s stale backend action: %s", label, message)
                 self._statusReady.emit(message)
                 self._toastReady.emit(message, 5000)
             except SaveCurrentTrackError as exc:
@@ -1406,6 +1476,13 @@ class DJConnectBackend(QObject):
             return
         self._backend_available = value
         self.backendAvailableChanged.emit()
+
+    def _persist_backend_summary(self) -> None:
+        try:
+            save_config(self.config_path, self.cfg)
+            self.settingsChanged.emit()
+        except Exception as exc:
+            _LOGGER.warning("Could not persist music backend summary: %s", exc)
 
     def _set_busy(self, value: bool) -> None:
         if self._busy == value:

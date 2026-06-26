@@ -12,7 +12,7 @@ import uuid
 from .i18n import normalize_language
 
 CLIENT_TYPE = "raspberry_pi"
-PROTOCOL_VERSION = "3.1.112"
+PROTOCOL_VERSION = "3.2.0"
 DEFAULT_CONFIG_PATH = Path.home() / ".config" / "djconnect-pi" / "config.json"
 DEFAULT_LOG_PATH = Path.home() / ".local" / "state" / "djconnect-pi" / "client.log"
 
@@ -35,6 +35,13 @@ class Config:
     screen_brightness_percent: int = 100
     language: str = field(default_factory=lambda: default_language_from_system())
     log_file: str = str(DEFAULT_LOG_PATH)
+    music_backend: str = ""
+    music_backend_name: str = ""
+    music_backend_available: bool = True
+    music_backend_revision: int = 0
+    music_backend_capabilities: dict[str, bool] = field(default_factory=dict)
+    music_target_player: dict[str, str] = field(default_factory=dict)
+    music_backend_error: str = ""
     dj_response_file: str = str(DEFAULT_LOG_PATH.parent / "dj-response.json")
     command_event_file: str = str(DEFAULT_LOG_PATH.parent / "command-event.json")
     screenshot_event_file: str = str(DEFAULT_LOG_PATH.parent / "screenshot-request.json")

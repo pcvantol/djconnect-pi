@@ -1,5 +1,5 @@
 {
-  "version": "3.1.x",
+  "version": "3.2.x",
   "description": "DJConnect spoken music intent examples for the post-STT PTT pipeline.",
   "handling_order": [
     "current_track",

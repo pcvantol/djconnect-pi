@@ -45,6 +45,9 @@ This file records the first pass review for the wall-mounted Pi client.
   display.
 - The local Client API is a separate daemon, so HTTP/mDNS work cannot block or
   restart the Qt scene.
+- Pairing is stable across UI restarts because the local API daemon owns
+  `/api/device/info`, `/api/device/pairing-info` and unpaired mDNS
+  advertisement independently from the kiosk process.
 - The Pi does not expose a local DJ-response endpoint. If Home Assistant returns
   DJ response text in normal command/status responses, the touch UI may display
   that text without adding a local audio or voice path.
@@ -56,6 +59,9 @@ This file records the first pass review for the wall-mounted Pi client.
   writes are atomic and stored with `0600` permissions.
 - Pair/status/command requests include `client_type: raspberry_pi` and app-like
   capabilities that explicitly disable voice/audio/local response handling.
+- The Pi is local-only: it stores the local Home Assistant URL, ignores
+  accidental remote/Nabu Casa runtime URLs and does not advertise HA URLs in
+  mDNS TXT records.
 - Ask DJ is advertised as `text_actions`: the Pi can send typed text to Home
   Assistant, poll shared history and send HA-provided structured action
   payloads, while microphone input, wake word, TTS and local Ask DJ audio

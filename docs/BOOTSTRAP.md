@@ -13,7 +13,9 @@ Hardware:
 - microSD card, 16 GB minimum, 32 GB or larger recommended
 - Wi-Fi network with access to Home Assistant
 - Home Assistant with the DJConnect integration installed
-- Spotify Premium configured in the DJConnect Home Assistant integration
+- A DJConnect music backend configured in Home Assistant, such as Music
+  Assistant or Spotify Direct. Spotify credentials, when used, stay in Home
+  Assistant and are never stored on the Pi.
 
 Software:
 
@@ -185,9 +187,9 @@ completed:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.112.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.2.0.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.112
+cd djconnect-pi-3.2.0
 sudo ./scripts/install.sh
 ```
 
@@ -215,9 +217,9 @@ development checkout:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.112.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.2.0.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.112
+cd djconnect-pi-3.2.0
 sudo ./scripts/install.sh
 ```
 
@@ -369,10 +371,14 @@ journalctl -u djconnect-client.service -f
 3. On the Pi screen, enter the Home Assistant URL if prompted.
 4. Enter the pairing code.
 5. Confirm the Pi reports `client_type: raspberry_pi`.
-6. Confirm `/api/device/info` reports Ask DJ as `text_actions`, with
+6. Confirm `/api/device/info` reports `transport:"local_only"` and only the
+   local Home Assistant URL (`ha_local_url`), not any remote/Nabu Casa URL.
+7. Confirm `/api/device/info` reports Ask DJ as `text_actions`, with
    `ask_dj_free_input_supported:true`, `ask_dj_actions_supported:true`,
    `voice_supported:false`, `tts_supported:false` and
    `local_audio_supported:false`.
+8. Confirm the music backend summary shows the HA backend name, target player,
+   availability/error and compact capabilities.
 
 The Pi should then show now-playing status and basic playback controls.
 

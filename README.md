@@ -1,6 +1,6 @@
 # DJConnect Pi
 
-Version: `3.1.112`
+Version: `3.2.0`
 
 Raspberry Pi Zero 2 W touch-display client for DJConnect. This client uses
 Qt Quick/QML with a PySide6 backend and is meant for a Pimoroni HyperPixel 4.0
@@ -27,10 +27,22 @@ The same local API daemon serves the Raspberry Pi web portal at the Pi web
 address, so the portal is installed with the app release and starts
 automatically on boot through `djconnect-api.service`.
 
+The 3.2 Pi contract focuses on stable wall-device behavior: local-only
+pairing, `_djconnect._tcp` mDNS while unpaired, `/api/device/pairing-info` for
+explicit Home Assistant pairing, capability reporting that keeps voice/audio
+off, kiosk-safe screen behavior and update/diagnostics surfaces that keep
+running separately from the touch UI.
+
 ## Client Contract
 
 - `client_type`: `raspberry_pi`
 - Device ID: `djconnect-raspberry-pi-XXXXXXXXXXXX`
+- Protocol: `3.2.x`
+- Transport: local only. Pairing stores and uses only `ha_local_url`; the Pi
+  ignores any accidental `ha_remote_url`/Nabu Casa URL fields.
+- Music backend selection is Home Assistant-side. The Pi displays the backend
+  summary returned by HA and does not store Spotify credentials or assume
+  Spotify Direct over Music Assistant.
 - Home Assistant endpoints:
   - `POST /api/djconnect/pair`
   - `POST /api/djconnect/status`
@@ -56,6 +68,7 @@ automatically on boot through `djconnect-api.service`.
   - `_djconnect._tcp` while unpaired only
   - TXT: `device_id`, `client_type=raspberry_pi`, `version`, `app_version`,
     `device_name`, `local_url`, `pair_code`, `paired`
+  - no Home Assistant local or remote URL is advertised through mDNS
 - Supported commands:
   - `status`
   - `play`
@@ -71,10 +84,10 @@ automatically on boot through `djconnect-api.service`.
   - `start_playlist` for playlist rows
   - `ask_dj_action` for HA-provided structured Ask DJ action buttons
 - Version compatibility:
-  - client `3.1.z` works with DJConnect HA `>=3.1.0` and `<3.2.0`
+  - client `3.2.z` works with DJConnect HA `>=3.2.0` and `<3.3.0`
   - HA responses may include `ha_version` or `ha_major_minor`
   - incompatible HA versions show a blocking screen and trigger
-    `djconnect-updater.service`
+    `djconnect-updater.service` without clearing the pairing token
 
 ## UI Shape
 
@@ -145,13 +158,11 @@ The initial language is detected from the Raspberry Pi OS locale and then stored
 locally. Home Assistant does not provision UI language for Raspberry Pi clients;
 only ESP clients use HA language provisioning.
 
-Queue row playback follows the app/HACS contract. A row is playable when it has
-a non-empty Spotify `uri`. The Pi sends `command:"play_context_at"` with
-`{"value":{"uri":"spotify:..."}, "play":true}`. When Home Assistant supplies a
-queue context, the Pi includes `value.context_uri`; it includes
-`value.offset_uri` only for Spotify playlist, album and show contexts. Direct
-podcast episodes such as `spotify:episode:*` and direct tracks such as
-`spotify:track:*` stay selectable without queue context.
+Queue row playback follows the app/HACS contract. A row is playable when Home
+Assistant provides a backend item reference. Spotify Direct rows may use
+Spotify URIs; Music Assistant rows may use MA item/player references. The Pi
+sends the structured value back to Home Assistant and does not call
+Spotify-specific fallback endpoints.
 
 ## Quick Start
 
@@ -183,9 +194,9 @@ not a private source clone:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.112.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.2.0.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.112
+cd djconnect-pi-3.2.0
 sudo ./scripts/install.sh
 ```
 
@@ -296,9 +307,9 @@ installer:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.1.112.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.2.0.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.1.112
+cd djconnect-pi-3.2.0
 sudo ./scripts/install.sh
 ```
 

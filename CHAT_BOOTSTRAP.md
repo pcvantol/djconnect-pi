@@ -21,44 +21,50 @@ Belangrijke context:
 - Geen lokale `SYNC_PROMPTS.md` of `PRODUCT_ROADMAP.md`; die staan canoniek in `pcvantol/djconnect`.
 
 Huidige stand:
-- Laatste release in deze werkronde is `v3.1.112`.
+- Laatste release in deze werkronde is `v3.2.0`.
 - Public updater assets staan in `pcvantol/djconnect-pi-releases`, inclusief
   `djconnect-pi-latest.json`.
-- Release `v3.1.112` voegt Raspberry Pi client support toe voor Ask DJ
-  technical track analysis contract v2: responses met
-  `intent.intent=="technical_track_analysis"` of `action=="track_analysis"`
-  renderen read-only analysis sections, optionele timeline, DJ tips en
-  limitations; v1 `measured`/`inferred` fallback blijft ondersteund zonder
-  prose uit `text`/`dj_text` te parsen; expliciete `playback_actions[]` blijven
-  de enige technische analyse playback controls.
+- Release `v3.2.0` upgrade de Raspberry Pi client naar protocol `3.2.x`:
+  Pi blijft local-only, pairing gebruikt alleen `ha_local_url`, accidental
+  `ha_remote_url`/Nabu Casa runtime URLs worden genegeerd, en de client blijft
+  `client_type: raspberry_pi`.
+- `v3.2.0` parseert de HA music-backend summary:
+  `music_backend`, `music_backend_name`, `music_backend_available`,
+  `music_backend_revision`, `music_backend_capabilities`,
+  `music_target_player` en `music_backend_error`. About/status/diagnostics
+  tonen transport Local only, backend, target player, availability/error en
+  compacte capabilities.
+- Ask DJ blijft tekst-only via `/api/djconnect/ask_dj/message`, stuurt
+  identity (`client_type`, `device_id`, `device_name`) mee, accepteert
+  backend-aware `playback_actions[]` zonder Spotify URI te vereisen en toont
+  unsupported capability/stale backend action responses als nette meldingen
+  zonder Spotify-specific fallbacks.
 - Source release is aangemaakt:
-  - source repo tag/release: `v3.1.112`
-  - source PR naar `main`: `#17`
-- Directe push naar `main` is geprobeerd met tijdelijke admin override, maar
-  GitHub branch protection bleef PR-only afdwingen. Branch/tag/release zijn
-  wel gepubliceerd.
-- Public publish workflow voor `v3.1.112` is geslaagd.
-- Public assets voor `v3.1.112` zijn gepubliceerd:
-  - `djconnect-pi-3.1.112.tar.gz`
-  - `djconnect-pi-3.1.112.sha256`
+  - source repo tag/release: `v3.2.0`
+- Directe push naar `main` is gedaan met tijdelijke branch-protection/admin
+  policy override voor de release push; policy is daarna teruggezet.
+- Public publish workflow voor `v3.2.0` is gecontroleerd na release.
+- Public assets voor `v3.2.0` zijn gepubliceerd:
+  - `djconnect-pi-3.2.0.tar.gz`
+  - `djconnect-pi-3.2.0.sha256`
   - `djconnect-pi-latest.json`
-- Pi draait `3.1.112`. Deployment is gedaan via de gedocumenteerde public
+- Pi deployment moet nog worden uitgevoerd/geverifieerd na public publish via
+  de gedocumenteerde public tarball installer-route:
+  `~/djconnect-install/djconnect-pi-3.2.0/scripts/install.sh`.
+- Vorige Pi deployment draaide `3.1.112`. Deployment was gedaan via de public
   tarball installer-route:
   `~/djconnect-install/djconnect-pi-3.1.112/scripts/install.sh`.
   De eerste installpogingen werden tijdens grote PySide6 stappen door een
   gesloten SSH sessie onderbroken, maar de resumable install markers werkten;
   herstarten van dezelfde installer rondde de installatie en activatie af.
-- Validatie voor `v3.1.112`:
-  - `/Users/pcvantol/.platformio/penv/bin/pytest tests/test_ha.py tests/test_app_backend.py tests/test_qml.py tests/test_i18n.py -q`
-    -> ok, 143 passed
-  - `python3 -m py_compile src/djconnect_pi/app.py src/djconnect_pi/ha.py src/djconnect_pi/i18n.py tests/test_ha.py tests/test_app_backend.py tests/test_qml.py tests/test_i18n.py` -> ok
+- Validatie voor `v3.2.0`:
+  - `/Users/pcvantol/.platformio/penv/bin/pytest -q`
+    -> ok, 265 passed, 12 skipped
+  - `python3 -m py_compile src/djconnect_pi/config.py src/djconnect_pi/ha.py src/djconnect_pi/client_api.py src/djconnect_pi/app.py src/djconnect_pi/i18n.py tests/test_ha.py tests/test_client_api.py tests/test_app_backend.py tests/test_installation_contract.py` -> ok
   - `bash -n scripts/install.sh scripts/bootstrap_raspberry_pi_os.sh cleanup_old_releases.sh release.sh` -> ok
   - `git diff --check` -> ok
-  - GitHub Actions publish workflow voor `v3.1.112` -> success
-  - Pi services na install: `djconnect-api.service`,
-    `djconnect-client.service` en `djconnect-updater.timer` active
-  - Pi local API `/api/device/info` op `127.0.0.1:18080` meldt
-    `version/app_version/firmware` als `3.1.112`
+  - GitHub Actions publish workflow voor `v3.2.0` -> gecontroleerd na release
+  - Public release assets voor `v3.2.0` -> gecontroleerd na release
 
 Openstaande gewenste workflow:
 - Controleer na elke release de public publish workflow:

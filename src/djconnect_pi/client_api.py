@@ -158,11 +158,13 @@ class ClientAPIHandler(BaseHTTPRequestHandler):
     def _handle_pair(self, payload: dict[str, Any]) -> None:
         self.server.state.reload_config()
         token = str(payload.get("device_token") or payload.get("token") or payload.get("bearer_token") or "").strip()
-        ha_url = str(payload.get("ha_local_url") or payload.get("ha_url") or "").strip()
+        ha_url = str(payload.get("ha_local_url") or "").strip()
         if not token or not ha_url:
             _LOGGER.warning("Client API pair request missing required fields")
             self._write_json({"success": False, "error": "missing_pairing_fields"}, HTTPStatus.BAD_REQUEST)
             return
+        if payload.get("ha_remote_url"):
+            _LOGGER.info("Client API pair request ignored ha_remote_url because Raspberry Pi transport is local-only")
         cfg = self.server.state.cfg
         requested_client_type = str(payload.get("client_type") or CLIENT_TYPE).strip()
         if requested_client_type != CLIENT_TYPE:
@@ -200,7 +202,17 @@ class ClientAPIHandler(BaseHTTPRequestHandler):
             "paired": cfg.paired,
             "ha_pairing_status": "paired" if cfg.paired else "pending",
             "local_url": cfg.local_url,
+            "transport": "local_only",
+            "ha_url": cfg.ha_url,
+            "ha_local_url": cfg.ha_url,
             "capabilities": _capabilities(),
+            "music_backend": cfg.music_backend,
+            "music_backend_name": cfg.music_backend_name,
+            "music_backend_available": cfg.music_backend_available,
+            "music_backend_revision": cfg.music_backend_revision,
+            "music_backend_capabilities": cfg.music_backend_capabilities,
+            "music_target_player": cfg.music_target_player,
+            "music_backend_error": cfg.music_backend_error,
             "playback": playback,
         }
 
@@ -228,7 +240,7 @@ class ClientAPIHandler(BaseHTTPRequestHandler):
                 "about": _portal_about(cfg),
                 "diagnostics": [
                     {"name": "Local Client API", "status": "running", "detail": cfg.local_url},
-                    {"name": "Home Assistant API", "status": "running" if cfg.paired else "stopped", "detail": cfg.ha_url},
+                    {"name": "Home Assistant API", "status": "running" if cfg.paired else "stopped", "detail": f"Local only: {cfg.ha_url}"},
                 ],
             }
         return self.server.state.portal_state_provider(include)
@@ -460,13 +472,27 @@ def _portal_settings(cfg: Config) -> dict[str, Any]:
 
 
 def _portal_about(cfg: Config) -> dict[str, str]:
+    target = cfg.music_target_player or {}
+    capabilities = ", ".join(
+        key.replace("supports_", "")
+        for key, value in sorted((cfg.music_backend_capabilities or {}).items())
+        if value
+    )
     return {
-        "Versie": cfg.version,
+        "App version": cfg.version,
+        "Protocol version": cfg.version,
         "Apparaatnaam": cfg.device_name,
         "Device ID": cfg.device_id,
+        "Client type": CLIENT_TYPE,
+        "Pairing": "Gekoppeld" if cfg.paired else "Niet gekoppeld",
+        "Transport": "Local only",
         "Client adres": cfg.local_url,
-        "Home Assistant": cfg.ha_url,
-        "Home Assistant": "Gekoppeld" if cfg.paired else "Niet gekoppeld",
+        "HA URL": cfg.ha_url,
+        "Music backend": cfg.music_backend_name or cfg.music_backend or "-",
+        "Target player": str(target.get("name") or target.get("id") or "-"),
+        "Backend available": "Ja" if cfg.music_backend_available else "Nee",
+        "Backend error": cfg.music_backend_error,
+        "Capabilities": capabilities or "-",
     }
 
 

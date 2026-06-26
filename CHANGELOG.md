@@ -1,5 +1,19 @@
 # Changelog
 
+## 3.2.0
+
+- Upgrade the Raspberry Pi client protocol to 3.2.x while preserving
+  `client_type: raspberry_pi` in pair/status/command/Ask DJ payloads.
+- Keep Raspberry Pi transport local-only: pairing stores only `ha_local_url`,
+  ignores accidental `ha_remote_url` values and exposes Local only in
+  diagnostics/About output.
+- Parse the Home Assistant music backend summary, including backend name,
+  availability, revision, target player, error and capabilities, and show it in
+  status/about/diagnostics surfaces without storing Spotify credentials.
+- Surface unsupported backend capability and stale backend action responses as
+  user-facing Ask DJ/backend messages instead of attempting Spotify-specific
+  fallbacks.
+
 ## 3.1.112
 
 - Add Ask DJ technical track analysis contract v2 support with read-only

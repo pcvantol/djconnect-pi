@@ -158,7 +158,7 @@ The Pi client is an app-like DJConnect client.
   "device_id": "djconnect-raspberry-pi-XXXXXXXXXXXX",
   "device_name": "DJConnect",
   "client_type": "raspberry_pi",
-  "version": "3.1.112",
+  "version": "3.2.0",
   "capabilities": {
     "touch": true,
     "voice": false,
@@ -239,7 +239,7 @@ credentials, local Spotify Web API calls or client-side playback backend logic
 for these examples.
 
 HA responses may include `ha_version` or `ha_major_minor`. The Pi enforces
-major/minor compatibility: client `3.1.z` accepts HA `>=3.1.0` and `<3.2.0`.
+major/minor compatibility: client `3.2.z` accepts HA `>=3.2.0` and `<3.3.0`.
 When HA reports an incompatible version, the touch UI shows a blocking
 version-mismatch screen and starts `djconnect-updater.service` once in the
 background to try downloading a compatible client release.
@@ -278,4 +278,6 @@ local `/api/device/dj_response` endpoint. DJ response text may still be shown
 on the wall screen when it arrives through normal Home Assistant command or
 status response payloads.
 
-Spotify credentials remain in Home Assistant.
+Spotify credentials remain in Home Assistant. Raspberry Pi clients are
+local-only and store only the local Home Assistant URL supplied as
+`ha_local_url`; remote/Nabu Casa runtime URLs are ignored.
