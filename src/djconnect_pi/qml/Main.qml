@@ -2284,8 +2284,8 @@ Window {
                                             Layout.fillWidth: true
                                             Layout.preferredHeight: technicalSectionContent.implicitHeight + 16
                                             radius: 8
-                                            color: "#3324145f"
-                                            border.color: (modelData.source === "inferred" || modelData.source === "local_fallback" || modelData.source === "unavailable" || modelData.confidence === "low") ? "#b6a46a" : "#7f67ff"
+                                            color: modelData.metadataContext ? "#33334857" : "#3324145f"
+                                            border.color: modelData.metadataContext ? "#6aa0b9c8" : ((modelData.source === "inferred" || modelData.source === "local_fallback" || modelData.source === "unavailable" || modelData.confidence === "low") ? "#b6a46a" : "#7f67ff")
                                             border.width: 1
 
                                             ColumnLayout {
@@ -2298,7 +2298,7 @@ Window {
 
                                                 Text {
                                                     text: modelData.title || modelData.id || modelData.kind || ""
-                                                    color: "#ffffff"
+                                                    color: modelData.metadataContext ? "#d8f3ff" : "#ffffff"
                                                     font.pixelSize: 16
                                                     font.bold: true
                                                     elide: Text.ElideRight
@@ -2379,6 +2379,32 @@ Window {
                                                 visible: text.length > 0
                                                 Layout.preferredWidth: 118
                                             }
+                                        }
+                                    }
+                                }
+
+                                ColumnLayout {
+                                    visible: modelData.technicalAnalysis && modelData.analysis && modelData.analysis.metadata && modelData.analysis.metadata.details && modelData.analysis.metadata.details.length > 0
+                                    Layout.fillWidth: true
+                                    spacing: 3
+
+                                    Text {
+                                        text: root.tr("analysis_context")
+                                        color: "#d8f3ff"
+                                        font.pixelSize: 13
+                                        font.bold: true
+                                        Layout.fillWidth: true
+                                    }
+
+                                    Repeater {
+                                        model: modelData.analysis && modelData.analysis.metadata && modelData.analysis.metadata.details ? modelData.analysis.metadata.details : []
+
+                                        Text {
+                                            text: "• " + modelData
+                                            color: "#9fb2d0"
+                                            font.pixelSize: 13
+                                            wrapMode: Text.WordWrap
+                                            Layout.fillWidth: true
                                         }
                                     }
                                 }

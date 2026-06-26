@@ -298,7 +298,7 @@ def test_ask_dj_memory_summary_is_text_only_with_memory_source() -> None:
     assert messages[0]["images"] == []
     assert messages[0]["actions"] == []
     assert messages[0]["audioUrl"] == ""
-    assert messages[0]["links"] == [{"title": "djconnect_memory", "url": "", "kind": "djconnect_memory"}]
+    assert messages[0]["links"] == [{"title": "djconnect_memory", "url": "", "kind": "djconnect_memory", "source": "djconnect_memory"}]
 
 
 def test_ask_dj_recently_played_items_render_as_compact_rows_without_actions(monkeypatch) -> None:
@@ -527,6 +527,67 @@ def test_ask_dj_technical_track_analysis_v2_keeps_provider_diagnostics_separate(
     assert messages[0]["actions"] == []
 
 
+def test_ask_dj_technical_track_analysis_metabrainz_metadata_is_context_only() -> None:
+    messages = parse_ask_dj_messages(
+        {
+            "id": "analysis-metabrainz",
+            "role": "assistant",
+            "text": "Technische analyse met open metadata.",
+            "intent": {"intent": "technical_track_analysis"},
+            "analysis": {
+                "contract_version": 2,
+                "mode": "measured_plus_knowledge",
+                "sections": [
+                    {"id": "rhythm_bpm", "kind": "metric", "title": "Ritme", "body": "128 BPM", "source": "spotify_audio_features"},
+                    {"id": "buildup", "title": "Opbouw", "body": "Lange spanningsboog.", "source": "ha_conversation"},
+                    {
+                        "id": "metadata_context",
+                        "body": "Open metadata match gevonden.",
+                        "source": "metabrainz_metadata",
+                        "confidence": "medium",
+                        "details": ["Publieke MusicBrainz en ListenBrainz context."],
+                    },
+                ],
+                "timeline": [{"kind": "intro", "label": "Intro", "start_ms": 0, "end_ms": 32000}],
+                "dj_tips": [{"kind": "mix", "text": "Mix uit rond de break."}],
+                "metadata": {
+                    "musicbrainz_recording_id": "mb-rec-1",
+                    "match_score": 96,
+                    "recording_title": "Strobe",
+                    "artist": "deadmau5",
+                    "first_release_date": "2009-09-03",
+                    "release": {"title": "For Lack of a Better Name", "date": "2009-09-22", "country": "US", "status": "Official"},
+                    "genres": ["progressive house"],
+                    "tags": ["electronic", "progressive"],
+                    "listenbrainz_listen_count": 1234,
+                    "raw_prompt": "must-not-render",
+                },
+                "providers": [{"provider_id": "metabrainz_metadata", "display_name": "MusicBrainz / ListenBrainz", "status": "used"}],
+            },
+            "sources": [{"source": "metabrainz_metadata", "title": "MusicBrainz / ListenBrainz", "kind": "source"}],
+            "playback_actions": [],
+        }
+    )
+
+    analysis = messages[0]["analysis"]
+    assert [section["id"] for section in analysis["sections"]] == ["rhythm_bpm", "buildup", "metadata_context"]
+    assert analysis["sections"][2]["title"] == "Context"
+    assert analysis["sections"][2]["metadataContext"] is True
+    assert analysis["timeline"] == [{"id": "", "kind": "intro", "label": "Intro", "start": "0:00", "end": "0:32", "duration": "", "source": "", "confidence": ""}]
+    assert analysis["metadata"]["musicbrainzRecordingId"] == "mb-rec-1"
+    assert analysis["metadata"]["matchScore"] == 96
+    assert analysis["metadata"]["release"]["title"] == "For Lack of a Better Name"
+    assert analysis["metadata"]["genres"] == ["progressive house"]
+    assert analysis["metadata"]["tags"] == ["electronic", "progressive"]
+    assert analysis["metadata"]["listenbrainzListenCount"] == 1234
+    assert "raw_prompt" not in analysis["metadata"]
+    assert "MusicBrainz: mb-rec-1" in analysis["metadata"]["details"]
+    assert "ListenBrainz listens: 1234" in analysis["metadata"]["details"]
+    assert analysis["providers"][0]["providerId"] == "metabrainz_metadata"
+    assert messages[0]["links"][0]["source"] == "metabrainz_metadata"
+    assert messages[0]["actions"] == []
+
+
 def test_ask_dj_technical_track_analysis_v2_without_timeline_keeps_sections_and_tips() -> None:
     messages = parse_ask_dj_messages(
         {
@@ -547,6 +608,7 @@ def test_ask_dj_technical_track_analysis_v2_without_timeline_keeps_sections_and_
     assert messages[0]["analysis"]["timeline"] == []
     assert messages[0]["analysis"]["djTips"][0]["text"] == "Gebruik lange blends."
     assert messages[0]["analysis"]["providers"] == []
+    assert messages[0]["analysis"]["metadata"] == {}
 
 
 def test_ask_dj_technical_track_analysis_unknown_provider_values_are_plain_text() -> None:
@@ -573,6 +635,63 @@ def test_ask_dj_technical_track_analysis_unknown_provider_values_are_plain_text(
     assert messages[0]["analysis"]["providers"][1]["providerId"] == "Unknown"
     assert messages[0]["analysis"]["providers"][1]["status"] == "Unknown"
     assert messages[0]["analysis"]["providers"][1]["label"] == "Naam zonder id"
+
+
+def test_ask_dj_technical_track_analysis_metabrainz_provider_statuses_are_diagnostics() -> None:
+    for status, reason in (("skipped", "rate_limited"), ("error", "timeout")):
+        messages = parse_ask_dj_messages(
+            {
+                "text": "Analyse blijft beschikbaar.",
+                "intent": {"intent": "technical_track_analysis"},
+                "analysis": {
+                    "contract_version": 2,
+                    "sections": [{"id": "rhythm_bpm", "body": "128 BPM"}],
+                    "providers": [{"provider_id": "metabrainz_metadata", "status": status, "reason": reason}],
+                },
+                "playback_actions": [],
+            }
+        )
+
+        assert messages[0]["analysis"]["sections"][0]["id"] == "rhythm_bpm"
+        assert messages[0]["analysis"]["providers"][0]["providerId"] == "metabrainz_metadata"
+        assert messages[0]["analysis"]["providers"][0]["status"] == status
+        assert messages[0]["analysis"]["providers"][0]["reason"] == reason
+        assert messages[0]["analysis"]["metadata"] == {}
+        assert messages[0]["actions"] == []
+
+
+def test_ask_dj_technical_track_analysis_metadata_context_does_not_create_timeline_or_actions() -> None:
+    messages = parse_ask_dj_messages(
+        {
+            "messages": [
+                {
+                    "id": "old-action",
+                    "role": "assistant",
+                    "text": "Speel deze track.",
+                    "playback_actions": [{"kind": "track", "title": "Play Now", "uri": "spotify:track:old"}],
+                },
+                {
+                    "id": "metadata-only",
+                    "role": "assistant",
+                    "text": "Alleen context.",
+                    "intent": {"intent": "technical_track_analysis"},
+                    "analysis": {
+                        "contract_version": 2,
+                        "sections": [{"id": "metadata_context", "body": "Publieke metadata.", "source": "metabrainz_metadata"}],
+                        "metadata": {"recording_title": "Track", "unknown_private_blob": {"secret": "nope"}},
+                    },
+                    "playback_actions": [],
+                },
+            ]
+        }
+    )
+
+    assert messages[0]["actions"][0]["title"] == "Play Now"
+    assert messages[1]["actions"] == []
+    assert messages[1]["analysis"]["sections"][0]["metadataContext"] is True
+    assert messages[1]["analysis"]["timeline"] == []
+    assert messages[1]["items"] == []
+    assert "unknown_private_blob" not in messages[1]["analysis"]["metadata"]
 
 
 def test_ask_dj_technical_track_analysis_explicit_playback_actions_are_preserved() -> None:

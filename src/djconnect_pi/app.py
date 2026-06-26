@@ -1963,9 +1963,10 @@ def _ask_dj_links(*values: object) -> list[dict[str, object]]:
                 links.append({"title": item, "url": item, "kind": "link"})
             elif isinstance(item, dict):
                 url = str(item.get("url") or item.get("href") or "").strip()
-                title = str(item.get("title") or item.get("label") or item.get("name") or item.get("source") or item.get("kind") or url).strip()
+                source = str(item.get("source") or "").strip()
+                title = str(item.get("title") or item.get("label") or item.get("name") or source or item.get("kind") or url).strip()
                 if url or title:
-                    links.append({"title": title, "url": url, "kind": str(item.get("kind") or item.get("source") or "source")})
+                    links.append({"title": title, "url": url, "kind": str(item.get("kind") or source or "source"), "source": source})
     return links[:8]
 
 
@@ -2037,6 +2038,7 @@ def _ask_dj_analysis(value: object) -> dict[str, object]:
     dj_tips = _ask_dj_analysis_tips(value.get("dj_tips") or value.get("djTips"))
     limitations = _ask_dj_analysis_limitations(value.get("limitations"))
     providers = _ask_dj_analysis_providers(value.get("providers"))
+    metadata = _ask_dj_analysis_metadata(value.get("metadata"))
     if not sections and not timeline and not dj_tips:
         sections = _ask_dj_v1_analysis_sections(measured if isinstance(measured, dict) else {}, inferred if isinstance(inferred, dict) else {})
         if not timeline and isinstance(measured, dict):
@@ -2054,6 +2056,7 @@ def _ask_dj_analysis(value: object) -> dict[str, object]:
         "inferred": inferred if isinstance(inferred, dict) else {},
         "limitations": limitations,
         "providers": providers,
+        "metadata": metadata,
     }
 
 
@@ -2066,6 +2069,8 @@ def _ask_dj_analysis_sections(value: object) -> list[dict[str, object]]:
             continue
         section_id = str(item.get("id") or item.get("section_id") or item.get("kind") or item.get("title") or "").strip()
         title = str(item.get("title") or item.get("label") or section_id.replace("_", " ").title()).strip()
+        if section_id == "metadata_context" and not (item.get("title") or item.get("label")):
+            title = "Context"
         body = str(item.get("body") or item.get("text") or item.get("description") or item.get("value") or "").strip()
         source = str(item.get("source") or item.get("provider") or "").strip()
         confidence = str(item.get("confidence") or "").strip()
@@ -2080,6 +2085,7 @@ def _ask_dj_analysis_sections(value: object) -> list[dict[str, object]]:
                     "source": source,
                     "confidence": confidence,
                     "details": details,
+                    "metadataContext": section_id == "metadata_context" or source == "metabrainz_metadata",
                 }
             )
     return sections[:12]
@@ -2183,6 +2189,52 @@ def _ask_dj_analysis_providers(value: object) -> list[dict[str, object]]:
         provider["label"] = display_name or provider["providerId"]
         providers.append(provider)
     return providers[:8]
+
+
+def _ask_dj_analysis_metadata(value: object) -> dict[str, object]:
+    if not isinstance(value, dict):
+        return {}
+    release = value.get("release")
+    release_data: dict[str, object] = {}
+    if isinstance(release, dict):
+        release_data = {
+            "title": str(release.get("title") or "").strip(),
+            "date": str(release.get("date") or "").strip(),
+            "country": str(release.get("country") or "").strip(),
+            "status": str(release.get("status") or "").strip(),
+        }
+    match_score = value.get("match_score") if "match_score" in value else value.get("matchScore")
+    listen_count = value.get("listenbrainz_listen_count") if "listenbrainz_listen_count" in value else value.get("listenbrainzListenCount")
+    metadata: dict[str, object] = {
+        "musicbrainzRecordingId": str(value.get("musicbrainz_recording_id") or value.get("musicbrainzRecordingId") or "").strip(),
+        "matchScore": _optional_int(match_score),
+        "recordingTitle": str(value.get("recording_title") or value.get("recordingTitle") or "").strip(),
+        "artist": str(value.get("artist") or "").strip(),
+        "firstReleaseDate": str(value.get("first_release_date") or value.get("firstReleaseDate") or "").strip(),
+        "release": release_data,
+        "genres": _string_list(value.get("genres")),
+        "tags": _string_list(value.get("tags")),
+        "listenbrainzListenCount": _optional_int(listen_count),
+    }
+    details: list[str] = []
+    if metadata["musicbrainzRecordingId"]:
+        details.append(f"MusicBrainz: {metadata['musicbrainzRecordingId']}")
+    if metadata["firstReleaseDate"]:
+        details.append(f"First release: {metadata['firstReleaseDate']}")
+    release_title = release_data.get("title") if release_data else ""
+    if release_title:
+        details.append(f"Release: {release_title}")
+    genres = metadata["genres"]
+    if isinstance(genres, list) and genres:
+        details.append(f"Genres: {', '.join(str(item) for item in genres[:4])}")
+    tags = metadata["tags"]
+    if isinstance(tags, list) and tags:
+        details.append(f"Tags: {', '.join(str(item) for item in tags[:4])}")
+    listen_count = metadata["listenbrainzListenCount"]
+    if listen_count is not None:
+        details.append(f"ListenBrainz listens: {listen_count}")
+    metadata["details"] = details[:8]
+    return metadata
 
 
 def _ask_dj_v1_analysis_sections(measured: dict[str, object], inferred: dict[str, object]) -> list[dict[str, object]]:

@@ -394,8 +394,11 @@ def test_qml_ask_dj_technical_analysis_has_compact_readonly_rendering() -> None:
     assert "[modelData.source || \"\", modelData.confidence || \"\"].filter" in ask_dj_block
     assert "modelData.analysis.sections && modelData.analysis.sections.length > 0" in ask_dj_block
     assert "modelData.title || modelData.id || modelData.kind" in ask_dj_block
+    assert "modelData.metadataContext ? \"#33334857\" : \"#3324145f\"" in ask_dj_block
     assert "modelData.analysis.timeline && modelData.analysis.timeline.length > 0" in ask_dj_block
     assert "modelData.start || \"\", modelData.end || \"\"" in ask_dj_block
+    assert "modelData.analysis.metadata && modelData.analysis.metadata.details" in ask_dj_block
+    assert 'root.tr("analysis_context")' in ask_dj_block
     assert "modelData.analysis.djTips && modelData.analysis.djTips.length > 0" in ask_dj_block
     assert "!modelData.technicalAnalysis && modelData.items && modelData.items.length > 0" in ask_dj_block
     assert "modelData.technicalAnalysis && modelData.analysis && modelData.analysis.limitations" in ask_dj_block
