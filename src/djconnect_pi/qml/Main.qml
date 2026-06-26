@@ -2301,6 +2301,15 @@ Window {
                                     }
                                 }
 
+                                AskDjGradientButton {
+                                    visible: modelData.audioUrl && modelData.audioUrl.length > 0
+                                    text: root.tr("replay_audio")
+                                    font.pixelSize: 17
+                                    Layout.preferredWidth: 220
+                                    Layout.preferredHeight: 44
+                                    onClicked: Qt.openUrlExternally(modelData.audioUrl)
+                                }
+
                                 ColumnLayout {
                                     visible: modelData.actions && modelData.actions.length > 0
                                     Layout.fillWidth: true

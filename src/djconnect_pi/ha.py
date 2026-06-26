@@ -160,7 +160,7 @@ class HAClient:
         body = self._ask_dj_payload(
             text=text,
             client_message_id=client_message_id,
-            audio_response="never",
+            audio_response="auto",
         )
         url = self._url("/api/djconnect/ask_dj/message")
         _LOGGER.debug("POST %s client_type=%s device_id=%s client_message_id=%s", url, CLIENT_TYPE, self.cfg.device_id, client_message_id)
@@ -195,10 +195,8 @@ class HAClient:
                 command = str(action.get("action") or action.get("type") or "control").strip()
             else:
                 command = "ask_dj_play_recommendation"
-        if command == "save_current_track":
-            return self.command(command)
-        play = bool(action.get("play")) or kind in {"track", "album", "artist", "playlist", "track_mix"} or action_style == "play_now"
-        return self.command(command, value=action, play=play)
+        value: Any = action.get("value") if command == "set_output" and kind == "output" else action
+        return self.command(command, value=value)
 
     def playback_from_status(self, data: dict[str, Any]) -> Playback:
         playback = data.get("playback") if isinstance(data.get("playback"), dict) else data

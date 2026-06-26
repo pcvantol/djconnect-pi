@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.1.111
+
+- Align Raspberry Pi Ask DJ with the server-side contract: typed prompts send
+  `audio_response:"auto"`, backend-returned actions are posted back without
+  client-side playback inference, output actions use the returned value, and
+  audio replay is shown only when the backend response includes `audio_url`.
+- Document the Ask DJ rendering and action boundaries so the Pi never parses
+  visible text, reuses previous artwork, stores DJ Memory locally or creates
+  local TTS bubbles.
+
 ## 3.1.110
 
 - Open the Ask DJ touch keyboard as an overlay directly below the prompt field

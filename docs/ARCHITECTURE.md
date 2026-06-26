@@ -158,7 +158,7 @@ The Pi client is an app-like DJConnect client.
   "device_id": "djconnect-raspberry-pi-XXXXXXXXXXXX",
   "device_name": "DJConnect",
   "client_type": "raspberry_pi",
-  "version": "3.1.110",
+  "version": "3.1.111",
   "capabilities": {
     "touch": true,
     "voice": false,
@@ -188,14 +188,18 @@ Pairing, status and command payloads all include the stable `device_id` and
 `client_type=raspberry_pi`. Command payloads also include the command name and
 any command-specific value fields.
 
-Ask DJ on Raspberry Pi is `text_actions`. The touch UI sends typed text
-questions to Home Assistant, renders shared assistant, system, status and
-other-client user messages from Home Assistant, uses the returned `revision`
-cursor to avoid duplicate polling, and never shows push-to-talk, wake word, TTS
-or local audio playback controls. When Home Assistant includes structured Ask
-DJ action buttons, the Pi may send `command:"ask_dj_action"` through the normal
-command endpoint with the exact structured `action` payload. It must not
-reconstruct intents, follow-ups, memory or playback actions locally.
+Ask DJ on Raspberry Pi is `text_actions` and remains server-side. The touch UI
+sends typed text to Home Assistant with `audio_response:"auto"`, renders
+`messages[]` when present and otherwise renders the legacy `user_message` then
+`assistant_message` fields. It only shows images, rows, buttons, sources and
+audio returned on the current backend message. It never parses visible text,
+reuses previous artwork, stores DJ Memory locally, reconstructs prompts or
+infers playback actions. Playback starts only when Home Assistant returns or
+executes an explicit action. Returned Play Now and speaker actions are posted
+back to `/api/djconnect/command` with the backend action payload; plain output
+selection uses the returned `value` with `set_output`. If a message includes
+`audio_url`, the UI shows a "DJ antwoord afspelen" button for that URL, but it
+does not create local TTS or audio bubbles.
 
 Media browsing commands use explicit bounded limits: `queue` sends
 `{"command":"queue","limit":100}` and `playlists` sends

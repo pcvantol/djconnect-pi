@@ -169,7 +169,7 @@ def test_ask_dj_history_gets_since_revision() -> None:
     assert captured["headers"]["X-DJConnect-Client-Type"] == "raspberry_pi"
 
 
-def test_ask_dj_message_posts_text_identity_and_no_audio_request() -> None:
+def test_ask_dj_message_posts_text_identity_and_auto_audio_response() -> None:
     cfg = Config(ha_url="http://ha", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1")
     client = HAClient(cfg)
     captured: dict[str, Any] = {}
@@ -190,7 +190,7 @@ def test_ask_dj_message_posts_text_identity_and_no_audio_request() -> None:
     assert captured["json"]["client_id"] == "djconnect-raspberry-pi-ABCDEF123456"
     assert captured["json"]["client_message_id"] == "msg-1"
     assert captured["json"]["text"] == "Wat speelt er?"
-    assert captured["json"]["audio_response"] == "never"
+    assert captured["json"]["audio_response"] == "auto"
     assert captured["json"]["identity"]["client_type"] == "raspberry_pi"
     assert "message" not in captured["json"]
     assert "prompt" not in captured["json"]
@@ -233,8 +233,8 @@ def test_ask_dj_action_uses_structured_command_payload() -> None:
 
     assert captured["url"] == "http://ha/api/djconnect/command"
     assert captured["json"]["command"] == "ask_dj_followup_response"
-    assert captured["json"]["play"] is False
     assert captured["json"]["value"] == {"kind": "confirmation", "response_value": "yes", "memory_key": "followup-1"}
+    assert "play" not in captured["json"]
     assert "prompt" not in captured["json"]
     assert "text" not in captured["json"]
 
@@ -255,14 +255,40 @@ def test_ask_dj_play_action_uses_action_command_or_play_recommendation() -> None
         client.ask_dj_action({"kind": "output", "command": "set_output", "title": "Keuken", "value": "Keuken"})
 
     assert captured[0]["command"] == "ask_dj_play_recommendation"
-    assert captured[0]["play"] is True
     assert captured[0]["value"]["uri"] == "spotify:playlist:1"
+    assert "play" not in captured[0]
     assert captured[1]["command"] == "custom_action"
-    assert captured[1]["play"] is True
+    assert captured[1]["value"]["uri"] == "spotify:track:1"
+    assert "play" not in captured[1]
     assert captured[2]["command"] == "pause"
-    assert captured[2]["play"] is False
+    assert captured[2]["value"]["title"] == "Pauze"
+    assert "play" not in captured[2]
     assert captured[3]["command"] == "set_output"
-    assert captured[3]["play"] is False
+    assert captured[3]["value"] == "Keuken"
+    assert "play" not in captured[3]
+
+
+def test_ask_dj_speaker_replay_action_posts_full_backend_action() -> None:
+    cfg = Config(ha_url="http://ha", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1")
+    client = HAClient(cfg)
+    captured: dict[str, Any] = {}
+    action = {
+        "kind": "output",
+        "command": "ask_dj_play_recommendation_on_output",
+        "title": "Keuken",
+        "value": {"output": "Keuken", "original_request": {"kind": "track", "uri": "spotify:track:1"}},
+    }
+
+    def fake_post(url: str, **kwargs: Any) -> FakeResponse:
+        captured["json"] = kwargs["json"]
+        return FakeResponse(200, {"success": True, "messages": []})
+
+    with patch("djconnect_pi.ha.requests.post", side_effect=fake_post):
+        client.ask_dj_action(action)
+
+    assert captured["json"]["command"] == "ask_dj_play_recommendation_on_output"
+    assert captured["json"]["value"] == action
+    assert "play" not in captured["json"]
 
 
 def test_ask_dj_save_current_track_action_posts_direct_command_payload() -> None:
@@ -286,7 +312,7 @@ def test_ask_dj_save_current_track_action_posts_direct_command_payload() -> None
     assert captured["json"]["device_id"] == "djconnect-raspberry-pi-ABCDEF123456"
     assert captured["json"]["client_type"] == "raspberry_pi"
     assert captured["json"]["command"] == "save_current_track"
-    assert "value" not in captured["json"]
+    assert captured["json"]["value"] == {"kind": "control", "command": "save_current_track", "button_label": "Zet in favorieten"}
     assert "play" not in captured["json"]
 
 

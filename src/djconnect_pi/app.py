@@ -1113,19 +1113,11 @@ class DJConnectBackend(QObject):
         self._askDjReady.emit(data)
 
     def _send_ask_dj_action_worker(self, action: dict[str, object]) -> None:
-        is_save_current_track = str(action.get("command") or "").strip() == "save_current_track"
         try:
             data = self.client.ask_dj_action(action)
-            if is_save_current_track:
-                if data.get("success") is False:
-                    error = str(data.get("error") or data.get("message") or "save_current_track_failed")
-                    raise SaveCurrentTrackError(error)
-                self._toastReady.emit(self.tr_key("favorite_saved"), 2200)
-        except (SaveCurrentTrackError, AuthenticationError, ProtocolVersionMismatch):
+        except (AuthenticationError, ProtocolVersionMismatch):
             raise
         except (DJConnectError, requests.RequestException) as exc:
-            if is_save_current_track and not isinstance(exc, BackendUnavailable):
-                raise SaveCurrentTrackError(str(exc)) from exc
             raise BackendUnavailable("Ask DJ unavailable") from exc
         self._askDjReady.emit(data)
 

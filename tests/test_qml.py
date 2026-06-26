@@ -345,8 +345,9 @@ def test_qml_ask_dj_screen_sends_text_without_audio_controls() -> None:
     assert "function deleteAskDjText()" in ask_dj_block
     assert 'model: ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"]' in ask_dj_block
     assert 'displayText: root.tr("keyboard_space")' in ask_dj_block
-    assert 'root.tr("replay_audio")' not in ask_dj_block
-    assert "Qt.openUrlExternally(modelData.audioUrl)" not in ask_dj_block
+    assert 'root.tr("replay_audio")' in ask_dj_block
+    assert "visible: modelData.audioUrl && modelData.audioUrl.length > 0" in ask_dj_block
+    assert "Qt.openUrlExternally(modelData.audioUrl)" in ask_dj_block
     assert "id: askDjPollTimer" in main_qml
     assert 'running: root.activeScreen === "askdj" && djconnect.paired && !djconnect.demoMode' in main_qml
     assert "onTriggered: djconnect.pollAskDjHistory()" in main_qml
