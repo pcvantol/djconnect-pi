@@ -2036,6 +2036,7 @@ def _ask_dj_analysis(value: object) -> dict[str, object]:
     timeline = _ask_dj_analysis_timeline(value.get("timeline"))
     dj_tips = _ask_dj_analysis_tips(value.get("dj_tips") or value.get("djTips"))
     limitations = _ask_dj_analysis_limitations(value.get("limitations"))
+    providers = _ask_dj_analysis_providers(value.get("providers"))
     if not sections and not timeline and not dj_tips:
         sections = _ask_dj_v1_analysis_sections(measured if isinstance(measured, dict) else {}, inferred if isinstance(inferred, dict) else {})
         if not timeline and isinstance(measured, dict):
@@ -2052,6 +2053,7 @@ def _ask_dj_analysis(value: object) -> dict[str, object]:
         "measured": measured if isinstance(measured, dict) else {},
         "inferred": inferred if isinstance(inferred, dict) else {},
         "limitations": limitations,
+        "providers": providers,
     }
 
 
@@ -2157,6 +2159,30 @@ def _ask_dj_analysis_limitations(value: object) -> list[dict[str, object]]:
                     }
                 )
     return limitations[:8]
+
+
+def _ask_dj_analysis_providers(value: object) -> list[dict[str, object]]:
+    if not isinstance(value, list):
+        return []
+    providers: list[dict[str, object]] = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        provider_id = str(item.get("provider_id") or item.get("providerId") or "").strip()
+        status = str(item.get("status") or "").strip()
+        display_name = str(item.get("display_name") or item.get("displayName") or "").strip()
+        reason = str(item.get("reason") or "").strip()
+        requires_config = item.get("requires_config") if "requires_config" in item else item.get("requiresConfig")
+        provider: dict[str, object] = {
+            "providerId": provider_id or "Unknown",
+            "displayName": display_name,
+            "status": status or "Unknown",
+            "reason": reason,
+            "requiresConfig": requires_config if isinstance(requires_config, bool) else None,
+        }
+        provider["label"] = display_name or provider["providerId"]
+        providers.append(provider)
+    return providers[:8]
 
 
 def _ask_dj_v1_analysis_sections(measured: dict[str, object], inferred: dict[str, object]) -> list[dict[str, object]]:

@@ -2520,6 +2520,32 @@ Window {
                                 }
 
                                 ColumnLayout {
+                                    visible: modelData.technicalAnalysis && modelData.analysis && modelData.analysis.providers && modelData.analysis.providers.length > 0
+                                    Layout.fillWidth: true
+                                    spacing: 3
+
+                                    Text {
+                                        text: root.tr("analysis_diagnostics")
+                                        color: "#9fb2d0"
+                                        font.pixelSize: 13
+                                        font.bold: true
+                                        Layout.fillWidth: true
+                                    }
+
+                                    Repeater {
+                                        model: modelData.analysis && modelData.analysis.providers ? modelData.analysis.providers : []
+
+                                        Text {
+                                            text: "• " + [modelData.label || modelData.providerId || "Unknown", modelData.status || "Unknown", modelData.reason || ""].filter(function(value) { return value.length > 0 }).join(" · ")
+                                            color: "#9fb2d0"
+                                            font.pixelSize: 12
+                                            wrapMode: Text.WordWrap
+                                            Layout.fillWidth: true
+                                        }
+                                    }
+                                }
+
+                                ColumnLayout {
                                     visible: modelData.links && modelData.links.length > 0
                                     Layout.fillWidth: true
                                     spacing: 4

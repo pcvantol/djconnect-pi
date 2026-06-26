@@ -8,6 +8,9 @@
 - Keep technical analysis rendering forward-compatible for unknown section,
   source and tip kinds, and preserve v1 measured/inferred fallback rendering
   without parsing timestamps or DJ tips from prose.
+- Render optional technical analysis `providers[]` as compact source diagnostics
+  separate from the main analysis card, without exposing unrelated provider
+  payload fields.
 
 ## 3.1.111
 

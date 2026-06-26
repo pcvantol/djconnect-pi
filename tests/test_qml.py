@@ -401,6 +401,9 @@ def test_qml_ask_dj_technical_analysis_has_compact_readonly_rendering() -> None:
     assert "modelData.technicalAnalysis && modelData.analysis && modelData.analysis.limitations" in ask_dj_block
     assert "modelData.text || modelData" in ask_dj_block
     assert 'root.tr("analysis_limitations")' in ask_dj_block
+    assert "modelData.technicalAnalysis && modelData.analysis && modelData.analysis.providers" in ask_dj_block
+    assert 'root.tr("analysis_diagnostics")' in ask_dj_block
+    assert "modelData.label || modelData.providerId || \"Unknown\"" in ask_dj_block
 
 
 def test_qml_now_playing_can_save_current_track() -> None:

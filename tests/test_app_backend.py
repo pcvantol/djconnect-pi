@@ -469,6 +469,64 @@ def test_ask_dj_technical_track_analysis_v2_sections_timeline_tips_order_data() 
     assert analysis["limitations"][0]["source"] == "inferred"
 
 
+def test_ask_dj_technical_track_analysis_v2_keeps_provider_diagnostics_separate() -> None:
+    messages = parse_ask_dj_messages(
+        {
+            "id": "analysis-v2-providers",
+            "role": "assistant",
+            "text": "Technische analyse.",
+            "intent": {"intent": "technical_track_analysis"},
+            "analysis": {
+                "contract_version": 2,
+                "mode": "measured_plus_knowledge",
+                "sections": [{"id": "rhythm_bpm", "title": "Ritme", "body": "128 BPM", "source": "measured"}],
+                "timeline": [{"kind": "intro", "label": "Intro", "start_ms": 0, "end_ms": 32000}],
+                "dj_tips": [{"kind": "mix", "text": "Mix uit rond de tweede break."}],
+                "providers": [
+                    {"provider_id": "spotify_measured", "display_name": "Spotify measured", "status": "used", "requires_config": False},
+                    {"provider_id": "ha_conversation", "status": "skipped", "reason": "not_needed", "private_payload": "must-not-render"},
+                    {"provider_id": "local_fallback", "status": "used"},
+                ],
+            },
+            "items": [{"kind": "technical_metric", "title": "BPM", "value": "128"}],
+            "playback_actions": [],
+        }
+    )
+
+    analysis = messages[0]["analysis"]
+    assert [section["id"] for section in analysis["sections"]] == ["rhythm_bpm"]
+    assert analysis["timeline"][0]["label"] == "Intro"
+    assert analysis["djTips"][0]["text"] == "Mix uit rond de tweede break."
+    assert analysis["providers"] == [
+        {
+            "providerId": "spotify_measured",
+            "displayName": "Spotify measured",
+            "status": "used",
+            "reason": "",
+            "requiresConfig": False,
+            "label": "Spotify measured",
+        },
+        {
+            "providerId": "ha_conversation",
+            "displayName": "",
+            "status": "skipped",
+            "reason": "not_needed",
+            "requiresConfig": None,
+            "label": "ha_conversation",
+        },
+        {
+            "providerId": "local_fallback",
+            "displayName": "",
+            "status": "used",
+            "reason": "",
+            "requiresConfig": None,
+            "label": "local_fallback",
+        },
+    ]
+    assert "private_payload" not in analysis["providers"][1]
+    assert messages[0]["actions"] == []
+
+
 def test_ask_dj_technical_track_analysis_v2_without_timeline_keeps_sections_and_tips() -> None:
     messages = parse_ask_dj_messages(
         {
@@ -488,6 +546,33 @@ def test_ask_dj_technical_track_analysis_v2_without_timeline_keeps_sections_and_
     assert messages[0]["analysis"]["sections"][0]["id"] == "instrumentation"
     assert messages[0]["analysis"]["timeline"] == []
     assert messages[0]["analysis"]["djTips"][0]["text"] == "Gebruik lange blends."
+    assert messages[0]["analysis"]["providers"] == []
+
+
+def test_ask_dj_technical_track_analysis_unknown_provider_values_are_plain_text() -> None:
+    messages = parse_ask_dj_messages(
+        {
+            "text": "Nieuwe analysevorm.",
+            "intent": {"intent": "technical_track_analysis"},
+            "analysis": {
+                "contract_version": 2,
+                "sections": [{"id": "rhythm_bpm", "body": "128 BPM"}],
+                "providers": [
+                    {"provider_id": "future_provider", "status": "warming_up", "reason": "future_reason"},
+                    {"display_name": "Naam zonder id"},
+                ],
+            },
+            "playback_actions": [],
+        }
+    )
+
+    assert messages[0]["analysis"]["sections"][0]["id"] == "rhythm_bpm"
+    assert messages[0]["analysis"]["providers"][0]["providerId"] == "future_provider"
+    assert messages[0]["analysis"]["providers"][0]["status"] == "warming_up"
+    assert messages[0]["analysis"]["providers"][0]["reason"] == "future_reason"
+    assert messages[0]["analysis"]["providers"][1]["providerId"] == "Unknown"
+    assert messages[0]["analysis"]["providers"][1]["status"] == "Unknown"
+    assert messages[0]["analysis"]["providers"][1]["label"] == "Naam zonder id"
 
 
 def test_ask_dj_technical_track_analysis_explicit_playback_actions_are_preserved() -> None:
@@ -571,7 +656,15 @@ def test_ask_dj_technical_track_analysis_unavailable_is_text_only() -> None:
         {
             "text": "Er speelt nu geen track om technisch te analyseren.",
             "intent": {"intent": "technical_track_analysis"},
-            "analysis": {"mode": "unavailable", "confidence": "low"},
+            "analysis": {
+                "mode": "unavailable",
+                "confidence": "low",
+                "providers": [
+                    {"provider_id": "spotify_measured", "status": "skipped", "reason": "no_track"},
+                    {"provider_id": "ha_conversation", "status": "skipped", "reason": "no_track"},
+                    {"provider_id": "local_fallback", "status": "skipped", "reason": "no_track"},
+                ],
+            },
             "images": [],
             "playback_actions": [],
         }
@@ -583,6 +676,7 @@ def test_ask_dj_technical_track_analysis_unavailable_is_text_only() -> None:
     assert messages[0]["items"] == []
     assert messages[0]["actions"] == []
     assert messages[0]["analysis"]["modeLabel"] == "Niet beschikbaar"
+    assert [provider["status"] for provider in messages[0]["analysis"]["providers"]] == ["skipped", "skipped", "skipped"]
 
 
 def test_ask_dj_parser_prefers_canonical_response_messages() -> None:
