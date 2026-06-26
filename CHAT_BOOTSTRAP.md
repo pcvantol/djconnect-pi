@@ -43,11 +43,16 @@ Huidige stand:
   - source repo tag/release: `v3.2.0`
 - Directe push naar `main` is gedaan met tijdelijke branch-protection/admin
   policy override voor de release push; policy is daarna teruggezet.
-- Public publish workflow voor `v3.2.0` is gecontroleerd na release.
+- Public publish workflow voor `v3.2.0` is geslaagd:
+  - run `28266055285`
 - Public assets voor `v3.2.0` zijn gepubliceerd:
   - `djconnect-pi-3.2.0.tar.gz`
   - `djconnect-pi-3.2.0.sha256`
   - `djconnect-pi-latest.json`
+- Release cleanup is uitgevoerd met `--keep 1 --public --execute`.
+  Source releases/tags `v3.1.112` en `v3.1.111` zijn verwijderd. Public
+  distribution releases/tags `v3.1.112` en `v3.1.111` zijn verwijderd; de
+  public tag cleanup is na een HTTPS git-auth fout afgemaakt via de GitHub API.
 - Pi deployment moet nog worden uitgevoerd/geverifieerd na public publish via
   de gedocumenteerde public tarball installer-route:
   `~/djconnect-install/djconnect-pi-3.2.0/scripts/install.sh`.
@@ -63,8 +68,9 @@ Huidige stand:
   - `python3 -m py_compile src/djconnect_pi/config.py src/djconnect_pi/ha.py src/djconnect_pi/client_api.py src/djconnect_pi/app.py src/djconnect_pi/i18n.py tests/test_ha.py tests/test_client_api.py tests/test_app_backend.py tests/test_installation_contract.py` -> ok
   - `bash -n scripts/install.sh scripts/bootstrap_raspberry_pi_os.sh cleanup_old_releases.sh release.sh` -> ok
   - `git diff --check` -> ok
-  - GitHub Actions publish workflow voor `v3.2.0` -> gecontroleerd na release
-  - Public release assets voor `v3.2.0` -> gecontroleerd na release
+  - GitHub Actions publish workflow voor `v3.2.0` -> success
+  - Source release assets voor `v3.2.0` -> gepubliceerd
+  - Public release assets voor `v3.2.0` -> gepubliceerd
 
 Openstaande gewenste workflow:
 - Controleer na elke release de public publish workflow:
