@@ -1,0 +1,11 @@
+name: Semgrep
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  semgrep:
+    uses: pcvantol/djconnect/.github/workflows/djconnect-semgrep-ci.yml@main
+    with:
+      continue-on-error: true

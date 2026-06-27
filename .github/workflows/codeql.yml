@@ -1,0 +1,13 @@
+name: CodeQL
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "24 4 * * 1"
+
+jobs:
+  codeql:
+    uses: pcvantol/djconnect/.github/workflows/djconnect-codeql-ci.yml@main
+    with:
+      languages: python

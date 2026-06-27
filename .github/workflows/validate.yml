@@ -1,0 +1,18 @@
+name: Validate
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    uses: pcvantol/djconnect/.github/workflows/djconnect-python-ci.yml@main
+    with:
+      source-path: src
+      test-path: tests
+      test-command: python -m pytest
+      ruff-continue-on-error: true
+      bandit-continue-on-error: true

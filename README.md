@@ -346,6 +346,14 @@ architecture, Python version, writable install paths, GitHub release
 reachability and Raspberry Pi thermal/throttling status when `vcgencmd` is
 available.
 
+## Continuous Integration
+
+This repo uses the shared DJConnect CI baseline from
+`pcvantol/djconnect/.github/workflows/`: `validate.yml` calls the reusable
+Python workflow with `source-path: src`, `test-path: tests` and
+`test-command: python -m pytest`; `codeql.yml` runs shared CodeQL for Python;
+`semgrep.yml` runs the shared DJConnect Semgrep rules as an advisory check.
+
 ## Documentation
 
 - [Architecture](docs/ARCHITECTURE.md)
