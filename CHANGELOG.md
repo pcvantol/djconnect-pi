@@ -1,5 +1,20 @@
 # Changelog
 
+## 3.2.1
+
+- Sync the Raspberry Pi client with the Home Assistant 3.2 backend contract:
+  typed Ask DJ messages now explicitly request text-only responses with
+  `audio_response:"never"`, while replay UI remains available only when HA
+  returns an `audio_url`.
+- Report `ask_dj_voice_supported:false` and
+  `ask_dj_audio_response_supported:false` in pair/info capabilities so Home
+  Assistant does not infer Pi voice, PTT, local TTS or audio response support.
+- Normalize safe object-shaped `music_backend_error` values into compact
+  code/message text for About, diagnostics and local API output.
+- Document the intentional Raspberry Pi contract choice: typed text-only Ask
+  DJ via Home Assistant, no Pi-local `/api/device/dj_response`, no voice/PTT
+  and no local DJ response audio.
+
 ## 3.2.0
 
 - Upgrade the Raspberry Pi client protocol to 3.2.x while preserving
