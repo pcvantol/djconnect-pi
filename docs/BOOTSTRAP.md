@@ -375,6 +375,7 @@ journalctl -u djconnect-client.service -f
    local Home Assistant URL (`ha_local_url`), not any remote/Nabu Casa URL.
 7. Confirm `/api/device/info` reports Ask DJ as `text_actions`, with
    `ask_dj_free_input_supported:true`, `ask_dj_actions_supported:true`,
+   `ask_dj_voice_supported:false`, `ask_dj_audio_response_supported:false`,
    `voice_supported:false`, `tts_supported:false` and
    `local_audio_supported:false`.
 8. Confirm the music backend summary shows the HA backend name, target player,

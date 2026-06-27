@@ -184,7 +184,7 @@ class HAClient:
         body = self._ask_dj_payload(
             text=text,
             client_message_id=client_message_id,
-            audio_response="auto",
+            audio_response="never",
         )
         url = self._url("/api/djconnect/ask_dj/message")
         _LOGGER.debug("POST %s client_type=%s device_id=%s client_message_id=%s", url, CLIENT_TYPE, self.cfg.device_id, client_message_id)
@@ -338,6 +338,8 @@ class HAClient:
                 "ask_dj_mode": "text_actions",
                 "ask_dj_free_input_supported": True,
                 "ask_dj_actions_supported": True,
+                "ask_dj_voice_supported": False,
+                "ask_dj_audio_response_supported": False,
             },
             **extra,
         }
@@ -637,7 +639,7 @@ def music_backend_summary_from(data: dict[str, Any]) -> MusicBackendSummary:
         capabilities={str(key): bool(value) for key, value in capabilities.items()},
         target_player_id=str(target.get("id") or ""),
         target_player_name=str(target.get("name") or ""),
-        error=str(data.get("music_backend_error") or ""),
+        error=_backend_error_text(data.get("music_backend_error")),
     )
 
 
@@ -661,6 +663,18 @@ def _int_value(value: Any, default: int = 0) -> int:
         return int(value)
     except (TypeError, ValueError):
         return default
+
+
+def _backend_error_text(value: Any) -> str:
+    if value is None or value == "":
+        return ""
+    if isinstance(value, dict):
+        code = str(value.get("code") or value.get("error") or "").strip()
+        message = str(value.get("message") or value.get("detail") or "").strip()
+        if code and message:
+            return f"{code}: {message}"
+        return message or code
+    return str(value)
 
 
 def _compatible_ha_version(client_version: str, ha_version: str) -> bool:

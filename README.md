@@ -43,6 +43,9 @@ running separately from the touch UI.
 - Music backend selection is Home Assistant-side. The Pi displays the backend
   summary returned by HA and does not store Spotify credentials or assume
   Spotify Direct over Music Assistant.
+- Ask DJ is typed text-only. The Pi posts `/api/djconnect/ask_dj/message` with
+  `audio_response:"never"` and reports `ask_dj_voice_supported:false` plus
+  `ask_dj_audio_response_supported:false`.
 - Home Assistant endpoints:
   - `POST /api/djconnect/pair`
   - `POST /api/djconnect/status`

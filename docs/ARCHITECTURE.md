@@ -189,7 +189,7 @@ Pairing, status and command payloads all include the stable `device_id` and
 any command-specific value fields.
 
 Ask DJ on Raspberry Pi is `text_actions` and remains server-side. The touch UI
-sends typed text to Home Assistant with `audio_response:"auto"`, renders
+sends typed text to Home Assistant with `audio_response:"never"`, renders
 `messages[]` when present and otherwise renders the legacy `user_message` then
 `assistant_message` fields. It only shows images, rows, buttons, sources and
 audio returned on the current backend message. It never parses visible text,
@@ -200,6 +200,13 @@ back to `/api/djconnect/command` with the backend action payload; plain output
 selection uses the returned `value` with `set_output`. If a message includes
 `audio_url`, the UI shows a "DJ antwoord afspelen" button for that URL, but it
 does not create local TTS or audio bubbles.
+
+The canonical Home Assistant `SYNC_PROMPTS.md` still contains an older
+Raspberry Pi paragraph that describes Ask DJ as read-only/no free prompt input
+and mentions a Pi-local `/api/device/dj_response` route. The current product
+decision for this repo is the newer 3.2 client contract: Pi Ask DJ is typed
+text-only via `/api/djconnect/ask_dj/message`, with no voice/PTT, no local TTS
+generation and no Pi-local `/api/device/dj_response` endpoint.
 
 Media browsing commands use explicit bounded limits: `queue` sends
 `{"command":"queue","limit":100}` and `playlists` sends

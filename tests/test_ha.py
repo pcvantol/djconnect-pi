@@ -68,6 +68,8 @@ def test_pair_sends_raspberry_pi_identity_and_stores_token() -> None:
     assert captured["json"]["capabilities"]["ask_dj_mode"] == "text_actions"
     assert captured["json"]["capabilities"]["ask_dj_free_input_supported"] is True
     assert captured["json"]["capabilities"]["ask_dj_actions_supported"] is True
+    assert captured["json"]["capabilities"]["ask_dj_voice_supported"] is False
+    assert captured["json"]["capabilities"]["ask_dj_audio_response_supported"] is False
     assert captured["json"]["capabilities"]["local_dj_response_endpoint"] is False
     assert "device_type" not in captured["json"]
     assert "device_language" not in captured["json"]
@@ -172,7 +174,7 @@ def test_ask_dj_history_gets_since_revision() -> None:
     assert captured["headers"]["X-DJConnect-Client-Type"] == "raspberry_pi"
 
 
-def test_ask_dj_message_posts_text_identity_and_auto_audio_response() -> None:
+def test_ask_dj_message_posts_text_identity_and_never_audio_response() -> None:
     cfg = Config(ha_url="http://ha", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1")
     client = HAClient(cfg)
     captured: dict[str, Any] = {}
@@ -193,7 +195,7 @@ def test_ask_dj_message_posts_text_identity_and_auto_audio_response() -> None:
     assert captured["json"]["client_id"] == "djconnect-raspberry-pi-ABCDEF123456"
     assert captured["json"]["client_message_id"] == "msg-1"
     assert captured["json"]["text"] == "Wat speelt er?"
-    assert captured["json"]["audio_response"] == "auto"
+    assert captured["json"]["audio_response"] == "never"
     assert captured["json"]["identity"]["client_type"] == "raspberry_pi"
     assert "message" not in captured["json"]
     assert "prompt" not in captured["json"]
@@ -491,6 +493,17 @@ def test_backend_summary_parses_ha_32_fields() -> None:
     assert summary.capabilities == {"supports_queue": True, "supports_top_items": False}
     assert summary.target_player_id == "media_player.mass_woonkamer"
     assert summary.target_player_name == "Woonkamer"
+
+
+def test_backend_summary_parses_safe_error_object() -> None:
+    summary = music_backend_summary_from(
+        {
+            "music_backend": "music_assistant",
+            "music_backend_error": {"code": "target_unavailable", "message": "Target player is offline"},
+        }
+    )
+
+    assert summary.error == "target_unavailable: Target player is offline"
 
 
 def test_command_response_updates_backend_summary() -> None:

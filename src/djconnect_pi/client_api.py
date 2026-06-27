@@ -458,6 +458,8 @@ def _capabilities() -> dict[str, object]:
         "ask_dj_mode": "text_actions",
         "ask_dj_free_input_supported": True,
         "ask_dj_actions_supported": True,
+        "ask_dj_voice_supported": False,
+        "ask_dj_audio_response_supported": False,
     }
 
 
