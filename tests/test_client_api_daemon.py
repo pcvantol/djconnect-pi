@@ -155,6 +155,7 @@ def test_client_api_daemon_portal_state_includes_fast_path_diagnostics(tmp_path:
         def diagnostics(self) -> dict[str, object]:
             return {
                 "fastPathTransport": "websocket",
+                "websocketEnabled": True,
                 "websocketConnected": True,
                 "websocketCommands": ["play", "djconnect/track_insight"],
                 "lastWebSocketError": "",
@@ -171,7 +172,7 @@ def test_client_api_daemon_portal_state_includes_fast_path_diagnostics(tmp_path:
 
     fast_path = next(item for item in state["diagnostics"] if item["name"] == "HA WebSocket fast path")
     assert fast_path["status"] == "running"
-    assert fast_path["detail"] == "transport=websocket, commands=2"
+    assert fast_path["detail"] == "enabled=true, transport=websocket, commands=2"
     assert "token" not in fast_path["detail"]
 
 

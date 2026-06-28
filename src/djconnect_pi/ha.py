@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
+import ipaddress
 import json
 import logging
 import time
@@ -446,6 +447,8 @@ class HAClient:
     def diagnostics(self) -> dict[str, Any]:
         return {
             "fastPathTransport": self.fast_path_transport,
+            "websocketEnabled": self.cfg.websocket_fast_path_enabled,
+            "websocketAuthConfigured": bool(self.cfg.ha_websocket_token),
             "websocketConnected": self.websocket_connected,
             "lastWebSocketError": self.last_websocket_error,
             "lastCapabilityRefresh": self.last_capability_refresh,
@@ -479,6 +482,10 @@ class HAClient:
         return data
 
     def _websocket_allowed(self, command: str) -> bool:
+        if not self.cfg.websocket_fast_path_enabled:
+            return False
+        if not self.cfg.ha_websocket_token:
+            return False
         if not self.cfg.device_token or not self.cfg.ha_url:
             return False
         if time.monotonic() < self._websocket_unhealthy_until:
@@ -488,6 +495,8 @@ class HAClient:
         except ValueError:
             return False
         if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            return False
+        if not _is_local_ha_url(parsed.hostname or ""):
             return False
         if not self.websocket_commands or time.monotonic() - self.last_capability_refresh > 300:
             try:
@@ -500,8 +509,12 @@ class HAClient:
     def _refresh_websocket_capabilities(self, *, timeout: float) -> None:
         response = self._websocket_exchange("djconnect/capabilities", {}, timeout=timeout, requires_djconnect_auth=False)
         commands = response.get("commands")
+        transports = response.get("transports")
+        websocket_transport = isinstance(transports, dict) and transports.get("websocket") is True
         if response.get("success") is False:
             raise DJConnectError("WebSocket capabilities rejected")
+        if response.get("websocket_supported") is not True or not websocket_transport:
+            raise DJConnectError("WebSocket capability is not enabled by Home Assistant")
         if not isinstance(commands, list):
             raise DJConnectError("WebSocket capabilities missing commands")
         self.websocket_commands = tuple(str(item) for item in commands if isinstance(item, str))
@@ -523,7 +536,7 @@ class HAClient:
             auth_required = _websocket_recv_json(ws)
             if auth_required.get("type") != "auth_required":
                 raise DJConnectError("Home Assistant WebSocket auth_required was not received")
-            ws.send(json.dumps({"type": "auth", "access_token": self.cfg.device_token}))
+            ws.send(json.dumps({"type": "auth", "access_token": self.cfg.ha_websocket_token}))
             auth_response = _websocket_recv_json(ws)
             if auth_response.get("type") != "auth_ok":
                 raise AuthenticationError("Home Assistant WebSocket auth failed")
@@ -833,6 +846,19 @@ def _websocket_create_connection(url: str, *, timeout: float) -> Any:
     except ImportError as exc:
         raise DJConnectError("websocket-client is not installed") from exc
     return websocket.create_connection(url, timeout=timeout)
+
+
+def _is_local_ha_url(hostname: str) -> bool:
+    host = hostname.strip().lower().strip("[]")
+    if not host:
+        return False
+    if host == "localhost" or host.endswith(".local") or "." not in host:
+        return True
+    try:
+        address = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    return address.is_private or address.is_loopback or address.is_link_local
 
 
 def _websocket_recv_json(ws: Any) -> dict[str, Any]:

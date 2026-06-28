@@ -40,11 +40,12 @@ running separately from the touch UI.
 - Protocol: `3.2.x`
 - Transport: local only. Pairing stores and uses only `ha_local_url`; the Pi
   ignores any accidental `ha_remote_url`/Nabu Casa URL fields.
-- Local Home Assistant sessions may use the native `/api/websocket` fast path
-  for latency-sensitive commands, Ask DJ messages and Track Insight when HA
-  advertises the matching DJConnect capabilities. HTTP remains the canonical
-  fallback and is still used for pairing, status, Ask DJ history and remote
-  sessions.
+- HTTP is the safe default. The native Home Assistant `/api/websocket` fast
+  path is disabled unless explicitly opted in and configured with a valid HA
+  websocket auth token/mechanism. After HA websocket auth succeeds, the Pi
+  checks `djconnect/capabilities` and only uses websocket when HA advertises
+  websocket support and the needed command. HTTP remains the canonical fallback
+  for every action.
 - Music backend selection is Home Assistant-side. The Pi displays the backend
   summary returned by HA and does not store Spotify credentials or assume
   Spotify Direct over Music Assistant.

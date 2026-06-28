@@ -188,14 +188,16 @@ Pairing, status and command payloads all include the stable `device_id` and
 `client_type=raspberry_pi`. Command payloads also include the command name and
 any command-specific value fields.
 
-For local HA URLs the client can opportunistically use Home Assistant's native
-`/api/websocket` fast path for latency-sensitive DJConnect command, Ask DJ
-message and Track Insight calls. It first authenticates with the HA websocket
-flow, checks `djconnect/capabilities`, includes the paired DJConnect
-`device_token` in each DJConnect message and falls back to the existing HTTP
-request immediately on any websocket error, timeout, disconnect, auth rejection
-or missing capability. Remote/Nabu Casa style sessions and HTTP-only routes
-stay on HTTP.
+HTTP is the safe default. For local HA URLs the client can use Home
+Assistant's native `/api/websocket` fast path only when it is explicitly
+enabled and a valid HA websocket auth token/mechanism is configured. HA
+websocket authentication happens first; the paired DJConnect `device_token` is
+then included only inside DJConnect websocket messages. The client checks
+`djconnect/capabilities` and requires `websocket_supported:true`,
+`transports.websocket:true` and the needed command before using websocket. It
+falls back to the existing HTTP request immediately on any websocket error,
+timeout, disconnect, auth rejection, malformed result or missing capability.
+Remote/Nabu Casa style sessions and HTTP-only routes stay on HTTP.
 
 Ask DJ on Raspberry Pi is `text_actions` and remains server-side. The touch UI
 sends typed text to Home Assistant with `audio_response:"never"` and treats

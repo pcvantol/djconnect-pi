@@ -722,7 +722,17 @@ def _ws_capabilities(commands: list[str]) -> list[dict[str, Any]]:
     return [
         {"type": "auth_required"},
         {"type": "auth_ok"},
-        {"id": 1, "type": "result", "success": True, "result": {"success": True, "commands": commands}},
+        {
+            "id": 1,
+            "type": "result",
+            "success": True,
+            "result": {
+                "success": True,
+                "websocket_supported": True,
+                "transports": {"websocket": True},
+                "commands": commands,
+            },
+        },
     ]
 
 
@@ -734,22 +744,59 @@ def _ws_result(result: dict[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
-def test_websocket_capability_detection_success_sets_diagnostics() -> None:
+def test_websocket_fast_path_is_disabled_by_default() -> None:
     cfg = Config(ha_url="http://ha.local:8123", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1")
+    client = HAClient(cfg)
+
+    with (
+        patch("djconnect_pi.ha._websocket_create_connection") as connect,
+        patch("djconnect_pi.ha.requests.post", return_value=FakeResponse(200, {"success": True, "transport": "http"})) as post,
+    ):
+        data = client.command("play")
+
+    assert data["transport"] == "http"
+    assert connect.call_count == 0
+    assert post.call_count == 1
+    assert client.diagnostics()["websocketEnabled"] is False
+
+
+def test_websocket_fast_path_requires_ha_websocket_auth_token() -> None:
+    cfg = Config(
+        ha_url="http://ha.local:8123",
+        device_id="djconnect-raspberry-pi-ABCDEF123456",
+        device_token="token-1",
+        websocket_fast_path_enabled=True,
+    )
+    client = HAClient(cfg)
+
+    with (
+        patch("djconnect_pi.ha._websocket_create_connection") as connect,
+        patch("djconnect_pi.ha.requests.post", return_value=FakeResponse(200, {"success": True, "transport": "http"})) as post,
+    ):
+        data = client.command("play")
+
+    assert data["transport"] == "http"
+    assert connect.call_count == 0
+    assert post.call_count == 1
+    assert client.diagnostics()["websocketAuthConfigured"] is False
+
+
+def test_websocket_capability_detection_success_sets_diagnostics() -> None:
+    cfg = Config(ha_url="http://ha.local:8123", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1", websocket_fast_path_enabled=True, ha_websocket_token="ha-token")
     client = HAClient(cfg)
     sockets = [FakeWebSocket(_ws_capabilities(["play", "djconnect/ask_dj/message"]))]
 
     with patch("djconnect_pi.ha._websocket_create_connection", side_effect=sockets):
         assert client._websocket_allowed("play") is True
 
-    assert sockets[0].sent[0] == {"type": "auth", "access_token": "token-1"}
+    assert sockets[0].sent[0] == {"type": "auth", "access_token": "ha-token"}
     assert sockets[0].sent[1]["type"] == "djconnect/capabilities"
     assert client.diagnostics()["websocketConnected"] is True
     assert client.diagnostics()["websocketCommands"] == ["play", "djconnect/ask_dj/message"]
 
 
 def test_command_websocket_success_uses_fast_path_payload_identity() -> None:
-    cfg = Config(ha_url="http://ha.local:8123", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1")
+    cfg = Config(ha_url="http://ha.local:8123", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1", websocket_fast_path_enabled=True, ha_websocket_token="ha-token")
     client = HAClient(cfg)
     sockets = [
         FakeWebSocket(_ws_capabilities(["play"])),
@@ -774,7 +821,7 @@ def test_command_websocket_success_uses_fast_path_payload_identity() -> None:
 
 
 def test_missing_websocket_capability_falls_back_to_http_once() -> None:
-    cfg = Config(ha_url="http://ha.local:8123", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1")
+    cfg = Config(ha_url="http://ha.local:8123", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1", websocket_fast_path_enabled=True, ha_websocket_token="ha-token")
     client = HAClient(cfg)
     sockets = [FakeWebSocket(_ws_capabilities(["pause"]))]
 
@@ -790,7 +837,7 @@ def test_missing_websocket_capability_falls_back_to_http_once() -> None:
 
 
 def test_ask_dj_message_websocket_success_returns_messages_and_revisions() -> None:
-    cfg = Config(ha_url="http://ha.local:8123", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1")
+    cfg = Config(ha_url="http://ha.local:8123", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1", websocket_fast_path_enabled=True, ha_websocket_token="ha-token")
     client = HAClient(cfg)
     sockets = [
         FakeWebSocket(_ws_capabilities(["djconnect/ask_dj/message"])),
@@ -814,7 +861,7 @@ def test_ask_dj_message_websocket_success_returns_messages_and_revisions() -> No
 
 
 def test_track_insight_websocket_success_returns_normalized_result() -> None:
-    cfg = Config(ha_url="https://ha.local", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1")
+    cfg = Config(ha_url="https://ha.local", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1", websocket_fast_path_enabled=True, ha_websocket_token="ha-token")
     client = HAClient(cfg)
     sockets = [
         FakeWebSocket(_ws_capabilities(["djconnect/track_insight"])),
@@ -838,7 +885,7 @@ def test_track_insight_websocket_success_returns_normalized_result() -> None:
 
 
 def test_websocket_timeout_falls_back_to_http_exactly_once() -> None:
-    cfg = Config(ha_url="http://ha.local:8123", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1")
+    cfg = Config(ha_url="http://ha.local:8123", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1", websocket_fast_path_enabled=True, ha_websocket_token="ha-token")
     client = HAClient(cfg)
     sockets = [FakeWebSocket(_ws_capabilities(["play"])), FakeWebSocket([])]
 
@@ -855,7 +902,14 @@ def test_websocket_timeout_falls_back_to_http_exactly_once() -> None:
 
 
 def test_websocket_auth_error_falls_back_to_http_without_clearing_pairing() -> None:
-    cfg = Config(ha_url="http://ha.local:8123", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1", paired=True)
+    cfg = Config(
+        ha_url="http://ha.local:8123",
+        device_id="djconnect-raspberry-pi-ABCDEF123456",
+        device_token="token-1",
+        paired=True,
+        websocket_fast_path_enabled=True,
+        ha_websocket_token="ha-token",
+    )
     client = HAClient(cfg)
     sockets = [FakeWebSocket([{"type": "auth_required"}, {"type": "auth_invalid", "message": "bad"}])]
 
@@ -871,8 +925,38 @@ def test_websocket_auth_error_falls_back_to_http_without_clearing_pairing() -> N
     assert cfg.device_token == "token-1"
 
 
+def test_websocket_missing_server_support_flags_falls_back_to_http() -> None:
+    cfg = Config(
+        ha_url="http://ha.local:8123",
+        device_id="djconnect-raspberry-pi-ABCDEF123456",
+        device_token="token-1",
+        websocket_fast_path_enabled=True,
+        ha_websocket_token="ha-token",
+    )
+    client = HAClient(cfg)
+    sockets = [
+        FakeWebSocket(
+            [
+                {"type": "auth_required"},
+                {"type": "auth_ok"},
+                {"id": 1, "type": "result", "success": True, "result": {"success": True, "commands": ["play"]}},
+            ]
+        )
+    ]
+
+    with (
+        patch("djconnect_pi.ha._websocket_create_connection", side_effect=sockets),
+        patch("djconnect_pi.ha.requests.post", return_value=FakeResponse(200, {"success": True, "fallback": True})) as post,
+    ):
+        data = client.command("play")
+
+    assert data["fallback"] is True
+    assert post.call_count == 1
+    assert client.diagnostics()["fastPathTransport"] == "http"
+
+
 def test_websocket_error_result_falls_back_to_http() -> None:
-    cfg = Config(ha_url="http://ha.local:8123", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1")
+    cfg = Config(ha_url="http://ha.local:8123", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1", websocket_fast_path_enabled=True, ha_websocket_token="ha-token")
     client = HAClient(cfg)
     sockets = [
         FakeWebSocket(_ws_capabilities(["play"])),
@@ -910,8 +994,35 @@ def test_remote_or_non_http_url_stays_http() -> None:
     assert post.call_count == 1
 
 
+def test_remote_https_url_stays_http_even_when_websocket_is_enabled() -> None:
+    cfg = Config(
+        ha_url="https://example.ui.nabu.casa",
+        device_id="djconnect-raspberry-pi-ABCDEF123456",
+        device_token="token-1",
+        websocket_fast_path_enabled=True,
+        ha_websocket_token="ha-token",
+    )
+    client = HAClient(cfg)
+
+    with (
+        patch("djconnect_pi.ha._websocket_create_connection") as connect,
+        patch("djconnect_pi.ha.requests.post", return_value=FakeResponse(200, {"success": True})) as post,
+    ):
+        data = client.command("play")
+
+    assert data["success"] is True
+    assert connect.call_count == 0
+    assert post.call_count == 1
+
+
 def test_websocket_failure_logging_omits_tokens_and_raw_prompt(caplog) -> None:
-    cfg = Config(ha_url="http://ha.local:8123", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="secret-token")
+    cfg = Config(
+        ha_url="http://ha.local:8123",
+        device_id="djconnect-raspberry-pi-ABCDEF123456",
+        device_token="secret-token",
+        websocket_fast_path_enabled=True,
+        ha_websocket_token="ha-secret-token",
+    )
     client = HAClient(cfg)
     caplog.set_level("DEBUG")
     sockets = [FakeWebSocket(_ws_capabilities(["djconnect/ask_dj/message"])), FakeWebSocket([])]
@@ -923,4 +1034,5 @@ def test_websocket_failure_logging_omits_tokens_and_raw_prompt(caplog) -> None:
         client.ask_dj_message("raw private prompt", "msg-1")
 
     assert "secret-token" not in caplog.text
+    assert "ha-secret-token" not in caplog.text
     assert "raw private prompt" not in caplog.text

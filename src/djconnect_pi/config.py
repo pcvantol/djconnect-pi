@@ -43,6 +43,8 @@ class Config:
     music_target_player: dict[str, str] = field(default_factory=dict)
     music_backend_error: str = ""
     music_dna_key: str = ""
+    websocket_fast_path_enabled: bool = False
+    ha_websocket_token: str = ""
     dj_response_file: str = str(DEFAULT_LOG_PATH.parent / "dj-response.json")
     command_event_file: str = str(DEFAULT_LOG_PATH.parent / "command-event.json")
     screenshot_event_file: str = str(DEFAULT_LOG_PATH.parent / "screenshot-request.json")

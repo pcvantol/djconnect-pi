@@ -223,11 +223,12 @@ class ClientAPIDaemon:
         ]
         if fast_path:
             transport = str(fast_path.get("fastPathTransport") or "http")
+            enabled = bool(fast_path.get("websocketEnabled"))
             connected = bool(fast_path.get("websocketConnected"))
             commands = fast_path.get("websocketCommands")
             command_count = len(commands) if isinstance(commands, list) else 0
             error = str(fast_path.get("lastWebSocketError") or "")
-            detail_parts = [f"transport={transport}", f"commands={command_count}"]
+            detail_parts = [f"enabled={str(enabled).lower()}", f"transport={transport}", f"commands={command_count}"]
             if error:
                 detail_parts.append(f"last_error={error}")
             diagnostics.append(

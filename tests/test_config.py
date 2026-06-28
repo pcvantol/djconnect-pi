@@ -15,6 +15,8 @@ def test_default_config_uses_raspberry_pi_client_type(tmp_path: Path) -> None:
     assert cfg.screen_timeout_seconds == 120
     assert cfg.update_repo == "pcvantol/djconnect-pi-releases"
     assert cfg.device_name == "DJConnect"
+    assert cfg.websocket_fast_path_enabled is False
+    assert cfg.ha_websocket_token == ""
 
 
 def test_save_and_load_config_roundtrip(tmp_path: Path) -> None:
@@ -26,6 +28,8 @@ def test_save_and_load_config_roundtrip(tmp_path: Path) -> None:
             device_id="djconnect-raspberry-pi-ABCDEF123456",
             device_token="secret",
             paired=True,
+            websocket_fast_path_enabled=True,
+            ha_websocket_token="ha-secret",
         ),
     )
 
@@ -35,6 +39,8 @@ def test_save_and_load_config_roundtrip(tmp_path: Path) -> None:
     assert loaded.device_id == "djconnect-raspberry-pi-ABCDEF123456"
     assert loaded.device_token == "secret"
     assert loaded.paired is True
+    assert loaded.websocket_fast_path_enabled is True
+    assert loaded.ha_websocket_token == "ha-secret"
     assert len(loaded.pairing_code) == 6
     assert loaded.pairing_code.isdigit()
 
