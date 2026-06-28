@@ -1,6 +1,6 @@
 # DJConnect Pi
 
-Version: `3.2.1`
+Version: `3.2.2`
 
 Raspberry Pi Zero 2 W touch-display client for DJConnect. This client uses
 Qt Quick/QML with a PySide6 backend and is meant for a Pimoroni HyperPixel 4.0
@@ -40,6 +40,11 @@ running separately from the touch UI.
 - Protocol: `3.2.x`
 - Transport: local only. Pairing stores and uses only `ha_local_url`; the Pi
   ignores any accidental `ha_remote_url`/Nabu Casa URL fields.
+- Local Home Assistant sessions may use the native `/api/websocket` fast path
+  for latency-sensitive commands, Ask DJ messages and Track Insight when HA
+  advertises the matching DJConnect capabilities. HTTP remains the canonical
+  fallback and is still used for pairing, status, Ask DJ history and remote
+  sessions.
 - Music backend selection is Home Assistant-side. The Pi displays the backend
   summary returned by HA and does not store Spotify credentials or assume
   Spotify Direct over Music Assistant.
@@ -51,6 +56,7 @@ running separately from the touch UI.
   - `POST /api/djconnect/status`
   - `POST /api/djconnect/command`
   - `POST /api/djconnect/ask_dj/message`
+  - `POST /api/djconnect/track_insight`
   - `GET /api/djconnect/ask_dj/history?since_revision=<revision>`
   - `POST /api/djconnect/ask_dj/history/clear`
 - Local Client API endpoints:
@@ -197,9 +203,9 @@ not a private source clone:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.2.1.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.2.2.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.2.1
+cd djconnect-pi-3.2.2
 sudo ./scripts/install.sh
 ```
 
@@ -310,9 +316,9 @@ installer:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.2.1.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.2.2.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.2.1
+cd djconnect-pi-3.2.2
 sudo ./scripts/install.sh
 ```
 

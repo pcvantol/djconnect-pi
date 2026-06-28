@@ -193,6 +193,7 @@ def test_technical_design_decisions_document_is_part_of_docs() -> None:
     assert "## Dependency Inventory" in doc
     assert "PySide6" in doc
     assert "requests" in doc
+    assert "websocket-client" in doc
     assert "zeroconf" in doc
     assert "## Release Maintenance Rule" in doc
     assert "clean stale files from `screenshots/`" in doc
@@ -346,6 +347,7 @@ def test_install_script_can_resume_after_reboot_or_interruption() -> None:
     assert '${release_state_dir}/pyside6_addons_installed' in script
     assert '${release_state_dir}/pyside6_installed' in script
     assert '${release_state_dir}/requests_installed' in script
+    assert '${release_state_dir}/websocket_client_installed' in script
     assert '${release_state_dir}/zeroconf_installed' in script
     assert '${release_state_dir}/wheel_installed' in script
     assert '"PySide6>=6.7" "requests>=2.31" "zeroconf>=0.132"' not in script

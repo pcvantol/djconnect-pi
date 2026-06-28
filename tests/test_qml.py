@@ -382,31 +382,20 @@ def test_qml_ask_dj_screen_sends_text_without_audio_controls() -> None:
     assert "playAskDjAction" not in ask_dj_block
 
 
-def test_qml_ask_dj_technical_analysis_has_compact_readonly_rendering() -> None:
+def test_qml_ask_dj_track_insight_has_compact_readonly_rendering() -> None:
     main_qml = files("djconnect_pi.qml").joinpath("Main.qml").read_text(encoding="utf-8")
     ask_dj_block = main_qml[main_qml.index("id: askDjPanel") : main_qml.index("GamesPanel {")]
 
-    assert "modelData.technicalAnalysis && modelData.analysis && modelData.analysis.modeLabel" in ask_dj_block
-    assert "modelData.analysis ? [modelData.analysis.modeLabel || \"\", modelData.analysis.source || \"\", modelData.analysis.confidence || \"\"].filter" in ask_dj_block
-    assert "modelData.technicalAnalysis && modelData.items && modelData.items.length > 0" in ask_dj_block
-    assert "modelData.arrangement ? \"#33334857\" : \"#3324145f\"" in ask_dj_block
+    assert "modelData.trackInsight && modelData.musicDnaMatch" in ask_dj_block
+    assert 'root.tr("music_dna_match") + " " + (modelData.musicDnaMatch || "")' in ask_dj_block
+    assert "modelData.trackInsight && modelData.items && modelData.items.length > 0" in ask_dj_block
+    assert "modelData.musicDna ? \"#33334857\" : \"#3324145f\"" in ask_dj_block
     assert "modelData.value || \"\"" in ask_dj_block
     assert "[modelData.source || \"\", modelData.confidence || \"\"].filter" in ask_dj_block
     assert "modelData.analysis.sections && modelData.analysis.sections.length > 0" in ask_dj_block
     assert "modelData.title || modelData.id || modelData.kind" in ask_dj_block
     assert "modelData.metadataContext ? \"#33334857\" : \"#3324145f\"" in ask_dj_block
-    assert "modelData.analysis.timeline && modelData.analysis.timeline.length > 0" in ask_dj_block
-    assert "modelData.start || \"\", modelData.end || \"\"" in ask_dj_block
-    assert "modelData.analysis.metadata && modelData.analysis.metadata.details" in ask_dj_block
-    assert 'root.tr("analysis_context")' in ask_dj_block
-    assert "modelData.analysis.djTips && modelData.analysis.djTips.length > 0" in ask_dj_block
-    assert "!modelData.technicalAnalysis && modelData.items && modelData.items.length > 0" in ask_dj_block
-    assert "modelData.technicalAnalysis && modelData.analysis && modelData.analysis.limitations" in ask_dj_block
-    assert "modelData.text || modelData" in ask_dj_block
-    assert 'root.tr("analysis_limitations")' in ask_dj_block
-    assert "modelData.technicalAnalysis && modelData.analysis && modelData.analysis.providers" in ask_dj_block
-    assert 'root.tr("analysis_diagnostics")' in ask_dj_block
-    assert "modelData.label || modelData.providerId || \"Unknown\"" in ask_dj_block
+    assert "!modelData.trackInsight && modelData.items && modelData.items.length > 0" in ask_dj_block
 
 
 def test_qml_now_playing_can_save_current_track() -> None:
@@ -415,6 +404,8 @@ def test_qml_now_playing_can_save_current_track() -> None:
 
     assert 'root.tr("add_to_favorites")' in now_block
     assert "djconnect.saveCurrentTrack()" in now_block
+    assert 'root.tr("track_insight")' in now_block
+    assert "djconnect.openTrackInsight()" in now_block
 
 
 def test_qml_stop_demo_button_returns_to_pairing_flow() -> None:

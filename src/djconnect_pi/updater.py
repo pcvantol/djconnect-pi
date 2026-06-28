@@ -284,6 +284,7 @@ def install_python_dependencies(release_dir: Path, version: str, status: UpdateS
         ("pyside6_addons_installed", "PySide6 Addons installeren", "PySide6_Addons>=6.7", 74),
         ("pyside6_installed", "PySide6 afronden", "PySide6>=6.7", 82),
         ("requests_installed", "Requests installeren", "requests>=2.31", 88),
+        ("websocket_client_installed", "WebSocket client installeren", "websocket-client>=1.8", 90),
         ("zeroconf_installed", "Zeroconf installeren", "zeroconf>=0.132", 92),
     ):
         _run_once(

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DJCONNECT_VERSION="${DJCONNECT_VERSION:-3.2.1}"
+DJCONNECT_VERSION="${DJCONNECT_VERSION:-3.2.2}"
 DJCONNECT_REPO="${DJCONNECT_REPO:-pcvantol/djconnect-pi-releases}"
 DJCONNECT_HA_URL="${DJCONNECT_HA_URL:-http://homeassistant.local:8123}"
 DJCONNECT_RUNTIME_USER="${DJCONNECT_RUNTIME_USER:-djconnect}"
@@ -412,6 +412,10 @@ install_python_dependencies() {
     TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --upgrade --only-binary=:all: "requests>=2.31"
     printf 'ok\n' >"${release_state_dir}/requests_installed"
   fi
+  if [[ ! -f "${release_state_dir}/websocket_client_installed" ]]; then
+    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --upgrade --only-binary=:all: "websocket-client>=1.8"
+    printf 'ok\n' >"${release_state_dir}/websocket_client_installed"
+  fi
   if [[ ! -f "${release_state_dir}/zeroconf_installed" ]]; then
     TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --upgrade --only-binary=:all: "zeroconf>=0.132"
     printf 'ok\n' >"${release_state_dir}/zeroconf_installed"
@@ -460,7 +464,7 @@ payload = {
     "device_name": "DJConnect Pi",
     "device_token": "",
     "paired": False,
-    "version": "3.2.1",
+    "version": "3.2.2",
     "update_repo": "pcvantol/djconnect-pi-releases",
     "update_channel": "stable",
     "screen_timeout_seconds": 120,

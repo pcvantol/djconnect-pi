@@ -1135,6 +1135,18 @@ Window {
                     onClicked: djconnect.saveCurrentTrack()
                 }
 
+                PurpleButton {
+                    text: root.tr("track_insight")
+                    font.pixelSize: 16
+                    Layout.preferredWidth: 132
+                    Layout.preferredHeight: 48
+                    enabled: djconnect.paired && (djconnect.title.length > 0 || djconnect.artist.length > 0)
+                    onClicked: {
+                        root.activeScreen = "askdj"
+                        djconnect.openTrackInsight()
+                    }
+                }
+
             }
 
             Item {
@@ -2160,12 +2172,12 @@ Window {
                                 }
 
                                 Flow {
-                                    visible: modelData.technicalAnalysis && modelData.analysis && modelData.analysis.modeLabel
+                                    visible: modelData.trackInsight && modelData.musicDnaMatch && modelData.musicDnaMatch.length > 0
                                     spacing: 8
                                     Layout.fillWidth: true
 
                                     Rectangle {
-                                        width: technicalModeLabel.implicitWidth + 24
+                                        width: trackInsightModeLabel.implicitWidth + 24
                                         height: 30
                                         radius: 8
                                         color: "#33434a57"
@@ -2173,9 +2185,9 @@ Window {
                                         border.width: 1
 
                                         Text {
-                                            id: technicalModeLabel
+                                            id: trackInsightModeLabel
                                             anchors.centerIn: parent
-                                            text: modelData.analysis ? [modelData.analysis.modeLabel || "", modelData.analysis.source || "", modelData.analysis.confidence || ""].filter(function(value) { return value.length > 0 }).join(" · ") : ""
+                                            text: root.tr("music_dna_match") + " " + (modelData.musicDnaMatch || "")
                                             color: "#d8f3ff"
                                             font.pixelSize: 15
                                             font.bold: true
@@ -2211,7 +2223,7 @@ Window {
                                 }
 
                                 Flow {
-                                    visible: modelData.technicalAnalysis && modelData.items && modelData.items.length > 0
+                                    visible: modelData.trackInsight && modelData.items && modelData.items.length > 0
                                     spacing: 8
                                     Layout.fillWidth: true
 
@@ -2219,16 +2231,16 @@ Window {
                                         model: modelData.items || []
 
                                         Rectangle {
-                                            width: Math.min(askDjScroll.availableWidth, Math.max(132, technicalMetricContent.implicitWidth + 24))
+                                            width: Math.min(askDjScroll.availableWidth, Math.max(132, trackInsightMetricContent.implicitWidth + 24))
                                             height: 58
                                             radius: 8
-                                            color: modelData.arrangement ? "#33334857" : "#3324145f"
-                                            border.color: modelData.arrangement ? "#6aa0b9c8" : "#7f67ff"
+                                            color: modelData.musicDna ? "#33334857" : "#3324145f"
+                                            border.color: modelData.musicDna ? "#6aa0b9c8" : "#7f67ff"
                                             border.width: 1
                                             clip: true
 
                                             ColumnLayout {
-                                                id: technicalMetricContent
+                                                id: trackInsightMetricContent
                                                 anchors.fill: parent
                                                 anchors.margins: 8
                                                 spacing: 1
@@ -2273,7 +2285,7 @@ Window {
                                 }
 
                                 ColumnLayout {
-                                    visible: modelData.technicalAnalysis && modelData.analysis && modelData.analysis.sections && modelData.analysis.sections.length > 0
+                                    visible: modelData.trackInsight && modelData.analysis && modelData.analysis.sections && modelData.analysis.sections.length > 0
                                     Layout.fillWidth: true
                                     spacing: 6
 
@@ -2282,14 +2294,14 @@ Window {
 
                                         Rectangle {
                                             Layout.fillWidth: true
-                                            Layout.preferredHeight: technicalSectionContent.implicitHeight + 16
+                                            Layout.preferredHeight: trackInsightSectionContent.implicitHeight + 16
                                             radius: 8
                                             color: modelData.metadataContext ? "#33334857" : "#3324145f"
                                             border.color: modelData.metadataContext ? "#6aa0b9c8" : ((modelData.source === "inferred" || modelData.source === "local_fallback" || modelData.source === "unavailable" || modelData.confidence === "low") ? "#b6a46a" : "#7f67ff")
                                             border.width: 1
 
                                             ColumnLayout {
-                                                id: technicalSectionContent
+                                                id: trackInsightSectionContent
                                                 anchors.left: parent.left
                                                 anchors.right: parent.right
                                                 anchors.top: parent.top
@@ -2341,7 +2353,7 @@ Window {
                                 }
 
                                 ColumnLayout {
-                                    visible: modelData.technicalAnalysis && modelData.analysis && modelData.analysis.timeline && modelData.analysis.timeline.length > 0
+                                    visible: modelData.trackInsight && modelData.analysis && modelData.analysis.timeline && modelData.analysis.timeline.length > 0
                                     Layout.fillWidth: true
                                     spacing: 4
 
@@ -2384,7 +2396,7 @@ Window {
                                 }
 
                                 ColumnLayout {
-                                    visible: modelData.technicalAnalysis && modelData.analysis && modelData.analysis.metadata && modelData.analysis.metadata.details && modelData.analysis.metadata.details.length > 0
+                                    visible: modelData.trackInsight && modelData.analysis && modelData.analysis.metadata && modelData.analysis.metadata.details && modelData.analysis.metadata.details.length > 0
                                     Layout.fillWidth: true
                                     spacing: 3
 
@@ -2410,7 +2422,7 @@ Window {
                                 }
 
                                 ColumnLayout {
-                                    visible: modelData.technicalAnalysis && modelData.analysis && modelData.analysis.djTips && modelData.analysis.djTips.length > 0
+                                    visible: modelData.trackInsight && modelData.analysis && modelData.analysis.djTips && modelData.analysis.djTips.length > 0
                                     Layout.fillWidth: true
                                     spacing: 4
 
@@ -2428,7 +2440,7 @@ Window {
                                 }
 
                                 ColumnLayout {
-                                    visible: !modelData.technicalAnalysis && modelData.items && modelData.items.length > 0
+                                    visible: !modelData.trackInsight && modelData.items && modelData.items.length > 0
                                     Layout.fillWidth: true
                                     spacing: 8
 
@@ -2520,7 +2532,7 @@ Window {
                                 }
 
                                 ColumnLayout {
-                                    visible: modelData.technicalAnalysis && modelData.analysis && modelData.analysis.limitations && modelData.analysis.limitations.length > 0
+                                    visible: modelData.trackInsight && modelData.analysis && modelData.analysis.limitations && modelData.analysis.limitations.length > 0
                                     Layout.fillWidth: true
                                     spacing: 3
 
@@ -2546,7 +2558,7 @@ Window {
                                 }
 
                                 ColumnLayout {
-                                    visible: modelData.technicalAnalysis && modelData.analysis && modelData.analysis.providers && modelData.analysis.providers.length > 0
+                                    visible: modelData.trackInsight && modelData.analysis && modelData.analysis.providers && modelData.analysis.providers.length > 0
                                     Layout.fillWidth: true
                                     spacing: 3
 

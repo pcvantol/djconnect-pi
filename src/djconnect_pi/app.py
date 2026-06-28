@@ -580,6 +580,15 @@ class DJConnectBackend(QObject):
         _LOGGER.info("User requested saving the current track")
         self._run("save_current_track", self._save_current_track_worker)
 
+    @Slot()
+    def openTrackInsight(self) -> None:
+        self._sync_config_from_disk()
+        if self._demo_mode or not self.paired or self._ask_dj_busy:
+            return
+        _LOGGER.info("User requested Track Insight for current track")
+        self._set_ask_dj_busy(True)
+        self._run(self.tr_key("track_insight"), self._track_insight_worker, done=lambda: self._set_ask_dj_busy(False))
+
     @Slot(int)
     def setVolume(self, value: int) -> None:
         value = max(0, min(60, int(value)))
@@ -1179,6 +1188,14 @@ class DJConnectBackend(QObject):
             self._persist_backend_summary()
         except (DJConnectError, requests.RequestException) as exc:
             raise BackendUnavailable("Ask DJ unavailable") from exc
+        self._askDjReady.emit(data)
+
+    def _track_insight_worker(self) -> None:
+        try:
+            data = self.client.track_insight(self.playback)
+            self._persist_backend_summary()
+        except (DJConnectError, requests.RequestException) as exc:
+            raise BackendUnavailable("Track Insight unavailable") from exc
         self._askDjReady.emit(data)
 
     def _clear_ask_dj_history_worker(self) -> None:
@@ -1940,7 +1957,10 @@ def _ask_dj_message(item: dict[str, object]) -> dict[str, object] | None:
     user_text = str(item.get("user_message") or "").strip()
     role = str(item.get("role") or item.get("sender") or "").strip().lower()
     kind = str(item.get("message_kind") or item.get("kind") or "").strip().lower()
-    if not text and not user_text and not any(isinstance(item.get(key), list) and item.get(key) for key in ("images", "items", "links", "sources", "playback_actions", "confirmation_actions")):
+    track_insight = _is_track_insight(item)
+    if not text and track_insight:
+        text = _track_insight_text(item)
+    if not text and not user_text and not track_insight and not any(isinstance(item.get(key), list) and item.get(key) for key in ("images", "items", "links", "sources", "playback_actions", "confirmation_actions")):
         return None
     if role not in {"user", "assistant", "system", "status"}:
         role = "user" if user_text and not text else ("status" if kind == "status" else ("system" if kind == "system" else "assistant"))
@@ -1948,12 +1968,12 @@ def _ask_dj_message(item: dict[str, object]) -> dict[str, object] | None:
         text = user_text
     if kind == "system":
         role = "system"
-    technical_analysis = _is_technical_track_analysis(item)
-    if technical_analysis:
+    if track_insight:
         actions = _ask_dj_actions(item.get("playback_actions"), None) if isinstance(item.get("playback_actions"), list) else []
     else:
         actions = _ask_dj_actions(item.get("playback_actions"), item.get("confirmation_actions"))
     text = _ask_dj_display_text(text, actions)
+    track_insight_data = _track_insight_data(item) if track_insight else {}
     message: dict[str, object] = {
         "id": str(item.get("id") or item.get("message_id") or item.get("server_id") or ""),
         "client_message_id": str(item.get("client_message_id") or ""),
@@ -1967,19 +1987,21 @@ def _ask_dj_message(item: dict[str, object]) -> dict[str, object] | None:
         "text": text,
         "created_at": str(item.get("created_at") or item.get("timestamp") or item.get("server_time") or ""),
         "images": _ask_dj_images(item.get("images")),
-        "items": _ask_dj_items(item.get("items"), technical_analysis=technical_analysis),
+        "items": _track_insight_items(track_insight_data) if track_insight else _ask_dj_items(item.get("items")),
         "links": _ask_dj_links(item.get("links"), item.get("sources")),
         "actions": actions,
         "audioUrl": str(item.get("audio_url") or item.get("audioUrl") or ""),
         "audioType": str(item.get("audio_type") or item.get("audioType") or ""),
-        "technicalAnalysis": technical_analysis,
-        "analysis": _ask_dj_analysis(item.get("analysis")) if technical_analysis else {},
+        "trackInsight": track_insight,
+        "trackInsightData": track_insight_data,
+        "musicDnaMatch": _track_insight_music_dna_match(track_insight_data) if track_insight else "",
+        "analysis": _track_insight_analysis(track_insight_data) if track_insight else {},
         "rawResponse": item,
     }
     return message
 
 
-def _is_technical_track_analysis(item: dict[str, object]) -> bool:
+def _is_track_insight(item: dict[str, object]) -> bool:
     intent = item.get("intent")
     intent_name = ""
     intent_action = ""
@@ -1989,7 +2011,85 @@ def _is_technical_track_analysis(item: dict[str, object]) -> bool:
     elif isinstance(intent, str):
         intent_name = intent.strip()
     action = str(item.get("action") or intent_action or "").strip()
-    return intent_name == "technical_track_analysis" or action == "track_analysis"
+    response_type = str(item.get("type") or "").strip()
+    open_screen = str(item.get("open_screen") or "").strip()
+    return (
+        intent_name == "track_insight"
+        or action == "track_insight"
+        or response_type == "track_insight"
+        or open_screen == "track_insight"
+        or isinstance(item.get("track_insight"), dict)
+    )
+
+
+def _track_insight_payload(item: dict[str, object]) -> dict[str, object]:
+    payload = item.get("track_insight")
+    return payload if isinstance(payload, dict) else item
+
+
+def _track_insight_text(item: dict[str, object]) -> str:
+    payload = _track_insight_payload(item)
+    error = str(payload.get("error") or item.get("error") or "").strip()
+    if error == "no_track_playing":
+        return "No track playing."
+    track = payload.get("track")
+    if isinstance(track, dict):
+        title = str(track.get("title") or track.get("name") or "").strip()
+        artist = str(track.get("artist") or track.get("artists") or "").strip()
+        if title and artist:
+            return f"Track Insight: {artist} - {title}"
+        if title:
+            return f"Track Insight: {title}"
+    return "Track Insight"
+
+
+def _track_insight_data(item: dict[str, object]) -> dict[str, object]:
+    payload = _track_insight_payload(item)
+    return {
+        "track": payload.get("track") if isinstance(payload.get("track"), dict) else {},
+        "analysis": payload.get("analysis") if isinstance(payload.get("analysis"), dict) else {},
+        "music_dna": payload.get("music_dna") if isinstance(payload.get("music_dna"), dict) else {},
+        "visual_profile": payload.get("visual_profile") if isinstance(payload.get("visual_profile"), dict) else {},
+        "cache": payload.get("cache") if isinstance(payload.get("cache"), dict) else {},
+        "error": str(payload.get("error") or item.get("error") or "").strip(),
+    }
+
+
+def _track_insight_music_dna_match(data: dict[str, object]) -> str:
+    music_dna = data.get("music_dna")
+    if not isinstance(music_dna, dict):
+        return ""
+    raw = music_dna.get("match_percent")
+    if isinstance(raw, (int, float)):
+        return f"{max(0, min(100, int(raw)))}%"
+    return str(raw or "").strip()
+
+
+def _track_insight_analysis(data: dict[str, object]) -> dict[str, object]:
+    analysis = data.get("analysis")
+    music_dna = data.get("music_dna")
+    sections: list[dict[str, object]] = []
+    if isinstance(analysis, dict):
+        vibe = str(analysis.get("vibe") or analysis.get("mood") or analysis.get("summary") or "").strip()
+        why = _string_list(analysis.get("why_it_fits") or analysis.get("whyItFits") or analysis.get("reasons"))
+        if vibe:
+            sections.append({"id": "vibe", "kind": "vibe", "title": "Vibe", "body": vibe, "source": "", "confidence": "", "details": [], "metadataContext": False})
+        if why:
+            sections.append({"id": "why_it_fits", "kind": "music_dna", "title": "Why it fits you", "body": "", "source": "", "confidence": "", "details": why, "metadataContext": False})
+        for section in _ask_dj_analysis_sections(analysis.get("sections")):
+            sections.append(section)
+    if isinstance(music_dna, dict):
+        summary = str(music_dna.get("summary") or "").strip()
+        if summary:
+            sections.append({"id": "music_dna", "kind": "music_dna", "title": "This expands your Music DNA.", "body": summary, "source": "", "confidence": "", "details": [], "metadataContext": False})
+    return {
+        "sections": sections[:12],
+        "timeline": [],
+        "djTips": [],
+        "limitations": [],
+        "providers": [],
+        "metadata": {},
+    }
 
 
 def _ask_dj_legacy_response_messages(data: dict[str, object]) -> list[dict[str, object]]:
@@ -2047,7 +2147,7 @@ def _ask_dj_links(*values: object) -> list[dict[str, object]]:
     return links[:8]
 
 
-def _ask_dj_items(value: object, *, technical_analysis: bool = False) -> list[dict[str, object]]:
+def _ask_dj_items(value: object) -> list[dict[str, object]]:
     if not isinstance(value, list):
         return []
     items: list[dict[str, object]] = []
@@ -2056,26 +2156,6 @@ def _ask_dj_items(value: object, *, technical_analysis: bool = False) -> list[di
             continue
         title = str(item.get("title") or item.get("name") or item.get("track") or item.get("album") or item.get("artist") or "").strip()
         item_kind = str(item.get("kind") or item.get("type") or "").strip()
-        if technical_analysis and item_kind in {"technical_metric", "arrangement"}:
-            value_text = str(item.get("value") or item.get("description") or item.get("subtitle") or "").strip()
-            source = str(item.get("source") or item.get("provider") or "").strip()
-            confidence = str(item.get("confidence") or "").strip()
-            if title or value_text:
-                items.append(
-                    {
-                        "title": title,
-                        "subtitle": "",
-                        "value": value_text,
-                        "time": "",
-                        "kind": item_kind,
-                        "source": source,
-                        "confidence": confidence,
-                        "imageUrl": "",
-                        "technicalMetric": item_kind == "technical_metric",
-                        "arrangement": item_kind == "arrangement",
-                    }
-                )
-            continue
         subtitle = str(item.get("subtitle") or item.get("artist") or item.get("album") or item.get("description") or "").strip()
         when = str(item.get("played_at") or item.get("time") or item.get("timestamp") or item.get("created_at") or "").strip()
         image_url = _image_url_from(item)
@@ -2090,8 +2170,66 @@ def _ask_dj_items(value: object, *, technical_analysis: bool = False) -> list[di
                     "source": "",
                     "confidence": "",
                     "imageUrl": cached_image_url(image_url) if image_url else "",
-                    "technicalMetric": False,
-                    "arrangement": False,
+                    "trackInsightMetric": False,
+                    "musicDna": False,
+                }
+            )
+    return items[:20]
+
+
+def _track_insight_items(data: dict[str, object]) -> list[dict[str, object]]:
+    items: list[dict[str, object]] = []
+    music_dna = data.get("music_dna")
+    analysis = data.get("analysis")
+    match_percent = _track_insight_music_dna_match(data)
+    if match_percent:
+        items.append(
+            {
+                "title": "Music DNA Match",
+                "subtitle": "",
+                "value": match_percent,
+                "time": "",
+                "kind": "music_dna_match",
+                "source": "",
+                "confidence": "",
+                "imageUrl": "",
+                "trackInsightMetric": True,
+                "musicDna": True,
+            }
+        )
+    if isinstance(analysis, dict):
+        for key, title in (("bpm", "BPM"), ("key", "Key"), ("energy", "Energy"), ("danceability", "Danceability")):
+            raw = analysis.get(key)
+            if raw not in (None, ""):
+                items.append(
+                    {
+                        "title": title,
+                        "subtitle": "",
+                        "value": str(raw),
+                        "time": "",
+                        "kind": "track_insight_metric",
+                        "source": "",
+                        "confidence": "",
+                        "imageUrl": "",
+                        "trackInsightMetric": True,
+                        "musicDna": False,
+                    }
+                )
+    if isinstance(music_dna, dict):
+        traits = _string_list(music_dna.get("traits") or music_dna.get("signals"))
+        for trait in traits[:4]:
+            items.append(
+                {
+                    "title": trait,
+                    "subtitle": "",
+                    "value": "",
+                    "time": "",
+                    "kind": "music_dna_trait",
+                    "source": "",
+                    "confidence": "",
+                    "imageUrl": "",
+                    "trackInsightMetric": False,
+                    "musicDna": True,
                 }
             )
     return items[:20]

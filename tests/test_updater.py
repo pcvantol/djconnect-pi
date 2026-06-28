@@ -189,7 +189,8 @@ def test_install_python_dependencies_uses_pip_cache_env(tmp_path: Path) -> None:
     assert run.call_args_list[5].args[0][-1] == "PySide6_Addons>=6.7"
     assert run.call_args_list[6].args[0][-1] == "PySide6>=6.7"
     assert run.call_args_list[7].args[0][-1] == "requests>=2.31"
-    assert run.call_args_list[8].args[0][-1] == "zeroconf>=0.132"
+    assert run.call_args_list[8].args[0][-1] == "websocket-client>=1.8"
+    assert run.call_args_list[9].args[0][-1] == "zeroconf>=0.132"
 
 
 def test_install_python_dependencies_can_force_pip_upgrade(tmp_path: Path, monkeypatch) -> None:
@@ -239,9 +240,11 @@ def test_install_python_dependencies_resumes_completed_steps(tmp_path: Path) -> 
     assert all("PySide6_Addons>=6.7" not in command for command in commands)
     assert all("shiboken6>=6.7" not in command for command in commands)
     assert commands[0][-1] == "requests>=2.31"
-    assert commands[1][-1] == "zeroconf>=0.132"
-    assert commands[2][-1].endswith("djconnect_pi-0.2.0-py3-none-any.whl")
+    assert commands[1][-1] == "websocket-client>=1.8"
+    assert commands[2][-1] == "zeroconf>=0.132"
+    assert commands[3][-1].endswith("djconnect_pi-0.2.0-py3-none-any.whl")
     assert (state_dir / "requests_installed").exists()
+    assert (state_dir / "websocket_client_installed").exists()
     assert (state_dir / "zeroconf_installed").exists()
     assert (state_dir / "wheel_installed").exists()
 

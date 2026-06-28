@@ -1,5 +1,16 @@
 # Changelog
 
+## 3.2.2
+
+- Align Ask DJ and Now Playing with the HA Track Insight contract:
+  `/api/djconnect/track_insight`, `intent/action/type/open_screen:
+  "track_insight"` and normalized `track_insight` rendering.
+- Use Music DNA terminology and `music_dna_key` / `X-DJConnect-Music-DNA-Key`
+  throughout client-facing payloads and headers.
+- Render Track Insight as read-only unless the backend explicitly returns
+  `playback_actions[]`; show Music DNA Match from
+  `track_insight.music_dna.match_percent`.
+
 ## 3.2.1
 
 - Sync the Raspberry Pi client with the Home Assistant 3.2 backend contract:
@@ -29,18 +40,6 @@
   user-facing Ask DJ/backend messages instead of attempting Spotify-specific
   fallbacks.
 
-## 3.1.112
-
-- Add Ask DJ technical track analysis contract v2 support with read-only
-  analysis cards for sections, timeline, DJ tips and limitations, while keeping
-  explicit backend `playback_actions[]` as the only allowed playback controls.
-- Keep technical analysis rendering forward-compatible for unknown section,
-  source and tip kinds, and preserve v1 measured/inferred fallback rendering
-  without parsing timestamps or DJ tips from prose.
-- Render optional technical analysis `providers[]` as compact source diagnostics
-  separate from the main analysis card, without exposing unrelated provider
-  payload fields.
-
 ## 3.1.111
 
 - Align Raspberry Pi Ask DJ with the server-side contract: typed prompts send
@@ -48,7 +47,7 @@
   client-side playback inference, output actions use the returned value, and
   audio replay is shown only when the backend response includes `audio_url`.
 - Document the Ask DJ rendering and action boundaries so the Pi never parses
-  visible text, reuses previous artwork, stores DJ Memory locally or creates
+  visible text, reuses previous artwork, stores Music DNA locally or creates
   local TTS bubbles.
 
 ## 3.1.110

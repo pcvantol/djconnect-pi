@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "djconnect-pi"
-version = "3.2.1"
+version = "3.2.2"
 description = "Raspberry Pi touch display client for DJConnect"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -15,6 +15,7 @@ classifiers = [
 dependencies = [
   "PySide6>=6.7",
   "requests>=2.31",
+  "websocket-client>=1.8",
   "zeroconf>=0.132",
 ]
 

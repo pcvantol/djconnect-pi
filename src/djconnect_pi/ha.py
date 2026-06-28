@@ -2,13 +2,34 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
+import json
 import logging
 import time
 import requests
+from urllib.parse import urlparse, urlunparse
 
 from .config import CLIENT_TYPE, Config
 
 _LOGGER = logging.getLogger(__name__)
+WEBSOCKET_COMMANDS = {
+    "play",
+    "pause",
+    "next",
+    "previous",
+    "status",
+    "devices",
+    "queue",
+    "playlists",
+    "set_volume",
+    "volume_delta",
+    "set_shuffle",
+    "set_repeat",
+    "set_output",
+    "ask_dj_followup_response",
+    "ask_dj_play_recommendation",
+    "ask_dj_play_recommendation_on_output",
+    "ask_dj_play_request_on_output",
+}
 
 
 class DJConnectError(RuntimeError):
@@ -69,6 +90,13 @@ class HAClient:
     def __init__(self, cfg: Config, timeout: float = 4.0) -> None:
         self.cfg = cfg
         self.timeout = timeout
+        self.fast_path_transport = "http"
+        self.websocket_connected = False
+        self.last_websocket_error = ""
+        self.last_capability_refresh = 0.0
+        self.websocket_commands: tuple[str, ...] = ()
+        self._websocket_unhealthy_until = 0.0
+        self._websocket_message_id = 0
 
     def pair(self, pair_code: str) -> dict[str, Any]:
         payload = self._base_payload(pair_code=pair_code, ha_pairing_status="pending")
@@ -145,6 +173,12 @@ class HAClient:
 
     def command(self, command: str, **payload: Any) -> dict[str, Any]:
         body = self._base_payload(command=command, **payload)
+        if command in WEBSOCKET_COMMANDS:
+            data = self._try_websocket("djconnect/command", body, command=command, timeout=_command_timeout(command, self.timeout))
+            if data is not None:
+                self.update_backend_summary(data)
+                self._validate_ha_version(data)
+                return data
         url = self._url("/api/djconnect/command")
         _LOGGER.debug(
             "POST %s command=%s client_type=%s device_id=%s requested_limit=%s payload_keys=%s",
@@ -186,8 +220,43 @@ class HAClient:
             client_message_id=client_message_id,
             audio_response="never",
         )
+        data = self._try_websocket("djconnect/ask_dj/message", body, command="djconnect/ask_dj/message", timeout=max(self.timeout, 10.0))
+        if data is not None:
+            self.update_backend_summary(data)
+            self._validate_ha_version(data)
+            return data
         url = self._url("/api/djconnect/ask_dj/message")
         _LOGGER.debug("POST %s client_type=%s device_id=%s client_message_id=%s", url, CLIENT_TYPE, self.cfg.device_id, client_message_id)
+        started = time.monotonic()
+        response = requests.post(url, json=body, headers=self._headers(), timeout=self.timeout)
+        _LOGGER.debug("POST %s returned HTTP %s in %.0fms", url, response.status_code, _elapsed_ms(started))
+        data = self._json(response)
+        self.update_backend_summary(data)
+        self._validate_ha_version(data)
+        return data
+
+    def track_insight(self, playback: Playback | None = None, *, force_refresh: bool = False, include_visual_profile: bool = True) -> dict[str, Any]:
+        body = self._base_payload(
+            force_refresh=force_refresh,
+            include_visual_profile=include_visual_profile,
+            locale=self.cfg.language,
+        )
+        if playback is not None:
+            if playback.title:
+                body["title"] = playback.title
+            if playback.artist:
+                body["artist"] = playback.artist
+            if self.cfg.music_target_player.get("id"):
+                body["player_id"] = self.cfg.music_target_player["id"]
+            if self.cfg.music_backend:
+                body["music_backend"] = self.cfg.music_backend
+        data = self._try_websocket("djconnect/track_insight", body, command="djconnect/track_insight", timeout=max(self.timeout, 10.0))
+        if data is not None:
+            self.update_backend_summary(data)
+            self._validate_ha_version(data)
+            return data
+        url = self._url("/api/djconnect/track_insight")
+        _LOGGER.debug("POST %s client_type=%s device_id=%s", url, CLIENT_TYPE, self.cfg.device_id)
         started = time.monotonic()
         response = requests.post(url, json=body, headers=self._headers(), timeout=self.timeout)
         _LOGGER.debug("POST %s returned HTTP %s in %.0fms", url, response.status_code, _elapsed_ms(started))
@@ -370,12 +439,142 @@ class HAClient:
         }
         if self.cfg.device_token:
             headers["Authorization"] = f"Bearer {self.cfg.device_token}"
+        if self.cfg.music_dna_key:
+            headers["X-DJConnect-Music-DNA-Key"] = self.cfg.music_dna_key
         return headers
+
+    def diagnostics(self) -> dict[str, Any]:
+        return {
+            "fastPathTransport": self.fast_path_transport,
+            "websocketConnected": self.websocket_connected,
+            "lastWebSocketError": self.last_websocket_error,
+            "lastCapabilityRefresh": self.last_capability_refresh,
+            "websocketCommands": list(self.websocket_commands),
+        }
 
     def _url(self, path: str) -> str:
         if not self.cfg.ha_url:
             raise DJConnectError("Home Assistant URL is not configured")
         return f"{self.cfg.ha_url.rstrip('/')}{path}"
+
+    def _websocket_url(self) -> str:
+        parsed = urlparse(self.cfg.ha_url)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            raise DJConnectError("WebSocket fast path requires a local HTTP(S) Home Assistant URL")
+        scheme = "wss" if parsed.scheme == "https" else "ws"
+        return urlunparse((scheme, parsed.netloc, "/api/websocket", "", "", ""))
+
+    def _try_websocket(self, message_type: str, body: dict[str, Any], *, command: str, timeout: float) -> dict[str, Any] | None:
+        self.fast_path_transport = "http"
+        if not self._websocket_allowed(command):
+            return None
+        try:
+            data = self._websocket_request(message_type, body, command=command, timeout=timeout)
+        except Exception as exc:
+            self._mark_websocket_unhealthy(exc)
+            return None
+        self.fast_path_transport = "websocket"
+        self.websocket_connected = True
+        self.last_websocket_error = ""
+        return data
+
+    def _websocket_allowed(self, command: str) -> bool:
+        if not self.cfg.device_token or not self.cfg.ha_url:
+            return False
+        if time.monotonic() < self._websocket_unhealthy_until:
+            return False
+        try:
+            parsed = urlparse(self.cfg.ha_url)
+        except ValueError:
+            return False
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            return False
+        if not self.websocket_commands or time.monotonic() - self.last_capability_refresh > 300:
+            try:
+                self._refresh_websocket_capabilities(timeout=min(5.0, max(1.0, self.timeout)))
+            except Exception as exc:
+                self._mark_websocket_unhealthy(exc)
+                return False
+        return command in self.websocket_commands
+
+    def _refresh_websocket_capabilities(self, *, timeout: float) -> None:
+        response = self._websocket_exchange("djconnect/capabilities", {}, timeout=timeout, requires_djconnect_auth=False)
+        commands = response.get("commands")
+        if response.get("success") is False:
+            raise DJConnectError("WebSocket capabilities rejected")
+        if not isinstance(commands, list):
+            raise DJConnectError("WebSocket capabilities missing commands")
+        self.websocket_commands = tuple(str(item) for item in commands if isinstance(item, str))
+        self.last_capability_refresh = time.time()
+        self.websocket_connected = True
+        self.last_websocket_error = ""
+
+    def _websocket_request(self, message_type: str, body: dict[str, Any], *, command: str, timeout: float) -> dict[str, Any]:
+        response = self._websocket_exchange(message_type, body, timeout=timeout, requires_djconnect_auth=True)
+        if response.get("success") is False and str(response.get("error") or "") in {"unauthorized", "forbidden", "not_configured", "stale_pairing", "stale_token", "invalid_token"}:
+            raise AuthenticationError(str(response.get("message") or response.get("error") or "authentication failed"))
+        if response.get("success") is False:
+            raise DJConnectError(str(response.get("error") or "websocket_error"))
+        return response
+
+    def _websocket_exchange(self, message_type: str, body: dict[str, Any], *, timeout: float, requires_djconnect_auth: bool) -> dict[str, Any]:
+        ws = _websocket_create_connection(self._websocket_url(), timeout=timeout)
+        try:
+            auth_required = _websocket_recv_json(ws)
+            if auth_required.get("type") != "auth_required":
+                raise DJConnectError("Home Assistant WebSocket auth_required was not received")
+            ws.send(json.dumps({"type": "auth", "access_token": self.cfg.device_token}))
+            auth_response = _websocket_recv_json(ws)
+            if auth_response.get("type") != "auth_ok":
+                raise AuthenticationError("Home Assistant WebSocket auth failed")
+            message = {
+                "id": self._next_websocket_id(),
+                "type": message_type,
+                **body,
+            }
+            if requires_djconnect_auth:
+                message.update(
+                    {
+                        "device_id": self.cfg.device_id,
+                        "client_id": self.cfg.device_id,
+                        "device_name": self.cfg.device_name,
+                        "client_type": CLIENT_TYPE,
+                        "device_token": self.cfg.device_token,
+                    }
+                )
+                if self.cfg.music_dna_key:
+                    message["music_dna_key"] = self.cfg.music_dna_key
+            ws.send(json.dumps(message))
+            response = _websocket_recv_json(ws)
+            if response.get("type") == "result":
+                if response.get("success") is False:
+                    error = response.get("error")
+                    if isinstance(error, dict):
+                        return {"success": False, "error": str(error.get("code") or "websocket_error"), "message": str(error.get("message") or "")}
+                    return {"success": False, "error": "websocket_error"}
+                result = response.get("result")
+                if isinstance(result, dict):
+                    return result
+                return {"success": True}
+            if response.get("type") == message_type:
+                return response
+            raise DJConnectError("Unexpected Home Assistant WebSocket response")
+        finally:
+            try:
+                ws.close()
+            except Exception:
+                pass
+
+    def _next_websocket_id(self) -> int:
+        self._websocket_message_id += 1
+        return self._websocket_message_id
+
+    def _mark_websocket_unhealthy(self, exc: Exception) -> None:
+        self.fast_path_transport = "http"
+        self.websocket_connected = False
+        self.last_websocket_error = exc.__class__.__name__
+        self._websocket_unhealthy_until = time.monotonic() + 30
+        _LOGGER.debug("WebSocket fast path unavailable; falling back to HTTP: %s", exc.__class__.__name__)
 
     def _json(self, response: requests.Response) -> dict[str, Any]:
         if response.status_code == 426:
@@ -626,6 +825,33 @@ def _response_shape(data: dict[str, Any]) -> dict[str, Any]:
         shape["error"] = data.get("error", "")
         shape["message"] = data.get("message", "")
     return shape
+
+
+def _websocket_create_connection(url: str, *, timeout: float) -> Any:
+    try:
+        import websocket
+    except ImportError as exc:
+        raise DJConnectError("websocket-client is not installed") from exc
+    return websocket.create_connection(url, timeout=timeout)
+
+
+def _websocket_recv_json(ws: Any) -> dict[str, Any]:
+    raw = ws.recv()
+    if not isinstance(raw, str):
+        raise DJConnectError("Home Assistant WebSocket returned a non-text frame")
+    try:
+        data = json.loads(raw)
+    except ValueError as exc:
+        raise DJConnectError("Home Assistant WebSocket returned invalid JSON") from exc
+    if not isinstance(data, dict):
+        raise DJConnectError("Home Assistant WebSocket returned non-object JSON")
+    return data
+
+
+def _command_timeout(command: str, default: float) -> float:
+    if command in {"status", "devices", "queue", "playlists"}:
+        return max(default, 5.0)
+    return min(max(default, 2.0), 5.0)
 
 
 def music_backend_summary_from(data: dict[str, Any]) -> MusicBackendSummary:
