@@ -83,6 +83,7 @@ class ClientAPIDaemon:
         logs = ""
         backend_available = bool(self.cfg.paired and self.cfg.device_token)
         status_text = "Verbonden" if backend_available else "Niet gekoppeld"
+        fast_path_diagnostics: dict[str, object] = {}
         if self.cfg.paired and self.cfg.device_token and self.cfg.ha_url:
             client = HAClient(self.cfg)
             try:
@@ -113,6 +114,8 @@ class ClientAPIDaemon:
                 backend_available = False
                 status_text = f"Portal status mislukt: {exc}"
                 _LOGGER.warning("Portal state refresh failed: %s", exc)
+            finally:
+                fast_path_diagnostics = client.diagnostics()
         if "logs" in include:
             logs = _read_tail_text(Path(self.cfg.log_file), 48_000)
         return {
@@ -139,7 +142,7 @@ class ClientAPIDaemon:
                 "Home Assistant": self.cfg.ha_url,
                 "Home Assistant": "Gekoppeld" if self.cfg.paired else "Niet gekoppeld",
             },
-            "diagnostics": self._diagnostics(backend_available=backend_available),
+            "diagnostics": self._diagnostics(backend_available=backend_available, fast_path=fast_path_diagnostics),
         }
 
     def _fallback_playback(self) -> dict[str, object]:
@@ -200,7 +203,7 @@ class ClientAPIDaemon:
             time.sleep(0.2)
         return {"success": False, "error": "screenshot_timeout", "path": str(target)}
 
-    def _diagnostics(self, *, backend_available: bool) -> list[dict[str, object]]:
+    def _diagnostics(self, *, backend_available: bool, fast_path: dict[str, object] | None = None) -> list[dict[str, object]]:
         diagnostics = [
             {
                 "name": "Home Assistant API",
@@ -218,6 +221,22 @@ class ClientAPIDaemon:
                 "detail": "paired" if self.cfg.paired else "waiting for pairing",
             },
         ]
+        if fast_path:
+            transport = str(fast_path.get("fastPathTransport") or "http")
+            connected = bool(fast_path.get("websocketConnected"))
+            commands = fast_path.get("websocketCommands")
+            command_count = len(commands) if isinstance(commands, list) else 0
+            error = str(fast_path.get("lastWebSocketError") or "")
+            detail_parts = [f"transport={transport}", f"commands={command_count}"]
+            if error:
+                detail_parts.append(f"last_error={error}")
+            diagnostics.append(
+                {
+                    "name": "HA WebSocket fast path",
+                    "status": "running" if connected else "stopped",
+                    "detail": ", ".join(detail_parts),
+                }
+            )
         diagnostics.extend(_systemd_unit_status(label, unit) for label, unit in DIAGNOSTIC_UNITS)
         return diagnostics
 

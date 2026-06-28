@@ -118,6 +118,9 @@ def test_client_api_daemon_portal_state_loads_output_devices_when_status_omits_t
         def playback_from_status(self, data: dict[str, object]) -> object:
             return parser.playback_from_status(data)
 
+        def diagnostics(self) -> dict[str, object]:
+            return {"fastPathTransport": "http", "websocketConnected": False, "websocketCommands": [], "lastWebSocketError": ""}
+
     monkeypatch.setattr(client_api_daemon, "HAClient", FakeHAClient)
     monkeypatch.setattr(
         client_api_daemon,
@@ -131,6 +134,45 @@ def test_client_api_daemon_portal_state_loads_output_devices_when_status_omits_t
     assert state["backend_available"] is True
     assert state["playback"]["output_devices"] == ["Woonkamer", "Keuken"]
     assert state["playback"]["output_device"] == ""
+
+
+def test_client_api_daemon_portal_state_includes_fast_path_diagnostics(tmp_path: Path, monkeypatch) -> None:
+    config_path = tmp_path / "config.json"
+    save_config(config_path, Config(ha_url="http://ha:8123", paired=True, device_token="token"))
+    daemon = ClientAPIDaemon(config_path)
+    parser = HAClient(Config())
+
+    class FakeHAClient:
+        def __init__(self, cfg: Config) -> None:
+            self.cfg = cfg
+
+        def command(self, command: str, **payload: object) -> dict[str, object]:
+            return {"playback": {"title": "Song"}}
+
+        def playback_from_status(self, data: dict[str, object]) -> object:
+            return parser.playback_from_status(data)
+
+        def diagnostics(self) -> dict[str, object]:
+            return {
+                "fastPathTransport": "websocket",
+                "websocketConnected": True,
+                "websocketCommands": ["play", "djconnect/track_insight"],
+                "lastWebSocketError": "",
+            }
+
+    monkeypatch.setattr(client_api_daemon, "HAClient", FakeHAClient)
+    monkeypatch.setattr(
+        client_api_daemon,
+        "_systemd_unit_status",
+        lambda label, unit: {"name": label, "status": "running", "detail": f"{unit}: active"},
+    )
+
+    state = daemon._portal_state(set())
+
+    fast_path = next(item for item in state["diagnostics"] if item["name"] == "HA WebSocket fast path")
+    assert fast_path["status"] == "running"
+    assert fast_path["detail"] == "transport=websocket, commands=2"
+    assert "token" not in fast_path["detail"]
 
 
 def test_client_api_daemon_portal_state_requests_playlists_with_safe_limit(tmp_path: Path, monkeypatch) -> None:
@@ -154,6 +196,9 @@ def test_client_api_daemon_portal_state_requests_playlists_with_safe_limit(tmp_p
 
         def playback_from_status(self, data: dict[str, object]) -> object:
             return parser.playback_from_status(data)
+
+        def diagnostics(self) -> dict[str, object]:
+            return {"fastPathTransport": "http", "websocketConnected": False, "websocketCommands": [], "lastWebSocketError": ""}
 
     monkeypatch.setattr(client_api_daemon, "HAClient", FakeHAClient)
     monkeypatch.setattr(
