@@ -3897,6 +3897,8 @@ Window {
                     Text { text: djconnect.paired ? root.tr("paired") : root.tr("not_paired"); color: "#ffffff"; font.pixelSize: 20; Layout.fillWidth: true }
                     Text { text: root.tr("transport"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
                     Text { text: djconnect.transportMode; color: "#ffffff"; font.pixelSize: 20; Layout.fillWidth: true }
+                    Text { text: root.tr("connection_type"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
+                    Text { text: djconnect.connectionType; color: "#ffffff"; font.pixelSize: 20; Layout.fillWidth: true; elide: Text.ElideRight }
                     Text { text: root.tr("music_backend"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
                     Text { text: djconnect.paired ? root.tr("connected_value") : root.tr("not_connected_value"); color: djconnect.paired ? "#32d35a" : "#ff3b30"; font.pixelSize: 20; font.bold: true; Layout.fillWidth: true }
                     Text { text: root.tr("backend_name"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }

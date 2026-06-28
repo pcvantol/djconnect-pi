@@ -283,6 +283,15 @@ class DJConnectBackend(QObject):
         return "Local only"
 
     @Property(str, notify=settingsChanged)
+    def connectionType(self) -> str:
+        if not self.paired:
+            return self.tr_key("not_connected_value")
+        diagnostics = self.client.diagnostics()
+        if diagnostics.get("websocketConnected") is True or diagnostics.get("fastPathTransport") == "websocket":
+            return "Local WebSocket fast path"
+        return "Local HTTP fallback"
+
+    @Property(str, notify=settingsChanged)
     def musicBackendName(self) -> str:
         return self.cfg.music_backend_name or self.cfg.music_backend
 

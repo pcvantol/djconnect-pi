@@ -38,6 +38,17 @@ def test_backend_exposes_initial_config(tmp_path: Path) -> None:
     assert backend.paired is False
     assert backend.busy is False
     assert backend.title == "Niets speelt af"
+    assert backend.connectionType == "Niet verbonden"
+
+
+def test_backend_connection_type_reports_websocket_fast_path(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token"
+    backend.client.diagnostics = Mock(return_value={"fastPathTransport": "websocket", "websocketConnected": True})  # type: ignore[method-assign]
+
+    assert backend.connectionType == "Local WebSocket fast path"
 
 
 def test_log_display_uses_compact_touch_prefix() -> None:

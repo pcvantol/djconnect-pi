@@ -136,6 +136,8 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "cache: true" in now_block
     assert 'root.tr("about")' in main_qml
     assert "aboutScroll.availableWidth" in main_qml
+    assert 'root.tr("connection_type")' in main_qml
+    assert "djconnect.connectionType" in main_qml
     assert 'text: "https://djconnect.dev"' in main_qml
     assert 'root.tr("reset_pairing_confirm_title")' in main_qml
     assert 'root.tr("reset_pairing_confirm_message")' in main_qml
