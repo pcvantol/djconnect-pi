@@ -749,7 +749,7 @@ def test_websocket_fast_path_is_disabled_by_default() -> None:
     client = HAClient(cfg)
 
     with (
-        patch("djconnect_pi.ha._websocket_create_connection") as connect,
+        patch("djconnect_pi.ha_websocket._websocket_create_connection") as connect,
         patch("djconnect_pi.ha.requests.post", return_value=FakeResponse(200, {"success": True, "transport": "http"})) as post,
     ):
         data = client.command("play")
@@ -770,7 +770,7 @@ def test_websocket_fast_path_requires_ha_websocket_auth_token() -> None:
     client = HAClient(cfg)
 
     with (
-        patch("djconnect_pi.ha._websocket_create_connection") as connect,
+        patch("djconnect_pi.ha_websocket._websocket_create_connection") as connect,
         patch("djconnect_pi.ha.requests.post", return_value=FakeResponse(200, {"success": True, "transport": "http"})) as post,
     ):
         data = client.command("play")
@@ -786,8 +786,8 @@ def test_websocket_capability_detection_success_sets_diagnostics() -> None:
     client = HAClient(cfg)
     sockets = [FakeWebSocket(_ws_capabilities(["play", "djconnect/ask_dj/message"]))]
 
-    with patch("djconnect_pi.ha._websocket_create_connection", side_effect=sockets):
-        assert client._websocket_allowed("play") is True
+    with patch("djconnect_pi.ha_websocket._websocket_create_connection", side_effect=sockets):
+        assert client.fast_path.can_handle("play") is True
 
     assert sockets[0].sent[0] == {"type": "auth", "access_token": "ha-token"}
     assert sockets[0].sent[1]["type"] == "djconnect/capabilities"
@@ -804,7 +804,7 @@ def test_command_websocket_success_uses_fast_path_payload_identity() -> None:
     ]
 
     with (
-        patch("djconnect_pi.ha._websocket_create_connection", side_effect=sockets),
+        patch("djconnect_pi.ha_websocket._websocket_create_connection", side_effect=sockets),
         patch("djconnect_pi.ha.requests.post") as post,
     ):
         data = client.command("play")
@@ -826,7 +826,7 @@ def test_missing_websocket_capability_falls_back_to_http_once() -> None:
     sockets = [FakeWebSocket(_ws_capabilities(["pause"]))]
 
     with (
-        patch("djconnect_pi.ha._websocket_create_connection", side_effect=sockets),
+        patch("djconnect_pi.ha_websocket._websocket_create_connection", side_effect=sockets),
         patch("djconnect_pi.ha.requests.post", return_value=FakeResponse(200, {"success": True, "playback": {"title": "HTTP"}})) as post,
     ):
         data = client.command("play")
@@ -845,7 +845,7 @@ def test_ask_dj_message_websocket_success_returns_messages_and_revisions() -> No
     ]
 
     with (
-        patch("djconnect_pi.ha._websocket_create_connection", side_effect=sockets),
+        patch("djconnect_pi.ha_websocket._websocket_create_connection", side_effect=sockets),
         patch("djconnect_pi.ha.requests.post") as post,
     ):
         data = client.ask_dj_message("Tell me about this track", "msg-1")
@@ -869,7 +869,7 @@ def test_track_insight_websocket_success_returns_normalized_result() -> None:
     ]
 
     with (
-        patch("djconnect_pi.ha._websocket_create_connection", side_effect=sockets) as connect,
+        patch("djconnect_pi.ha_websocket._websocket_create_connection", side_effect=sockets) as connect,
         patch("djconnect_pi.ha.requests.post") as post,
     ):
         data = client.track_insight(Playback(title="Strobe", artist="deadmau5"))
@@ -890,7 +890,7 @@ def test_websocket_timeout_falls_back_to_http_exactly_once() -> None:
     sockets = [FakeWebSocket(_ws_capabilities(["play"])), FakeWebSocket([])]
 
     with (
-        patch("djconnect_pi.ha._websocket_create_connection", side_effect=sockets),
+        patch("djconnect_pi.ha_websocket._websocket_create_connection", side_effect=sockets),
         patch("djconnect_pi.ha.requests.post", return_value=FakeResponse(200, {"success": True, "fallback": True})) as post,
     ):
         data = client.command("play")
@@ -914,7 +914,7 @@ def test_websocket_auth_error_falls_back_to_http_without_clearing_pairing() -> N
     sockets = [FakeWebSocket([{"type": "auth_required"}, {"type": "auth_invalid", "message": "bad"}])]
 
     with (
-        patch("djconnect_pi.ha._websocket_create_connection", side_effect=sockets),
+        patch("djconnect_pi.ha_websocket._websocket_create_connection", side_effect=sockets),
         patch("djconnect_pi.ha.requests.post", return_value=FakeResponse(200, {"success": True})) as post,
     ):
         data = client.command("play")
@@ -945,7 +945,7 @@ def test_websocket_missing_server_support_flags_falls_back_to_http() -> None:
     ]
 
     with (
-        patch("djconnect_pi.ha._websocket_create_connection", side_effect=sockets),
+        patch("djconnect_pi.ha_websocket._websocket_create_connection", side_effect=sockets),
         patch("djconnect_pi.ha.requests.post", return_value=FakeResponse(200, {"success": True, "fallback": True})) as post,
     ):
         data = client.command("play")
@@ -970,7 +970,7 @@ def test_websocket_error_result_falls_back_to_http() -> None:
     ]
 
     with (
-        patch("djconnect_pi.ha._websocket_create_connection", side_effect=sockets),
+        patch("djconnect_pi.ha_websocket._websocket_create_connection", side_effect=sockets),
         patch("djconnect_pi.ha.requests.post", return_value=FakeResponse(200, {"success": True, "fallback": True})) as post,
     ):
         data = client.command("play")
@@ -984,7 +984,7 @@ def test_remote_or_non_http_url_stays_http() -> None:
     client = HAClient(cfg)
 
     with (
-        patch("djconnect_pi.ha._websocket_create_connection") as connect,
+        patch("djconnect_pi.ha_websocket._websocket_create_connection") as connect,
         patch("djconnect_pi.ha.requests.post", return_value=FakeResponse(200, {"success": True})) as post,
     ):
         data = client.command("play")
@@ -1005,7 +1005,7 @@ def test_remote_https_url_stays_http_even_when_websocket_is_enabled() -> None:
     client = HAClient(cfg)
 
     with (
-        patch("djconnect_pi.ha._websocket_create_connection") as connect,
+        patch("djconnect_pi.ha_websocket._websocket_create_connection") as connect,
         patch("djconnect_pi.ha.requests.post", return_value=FakeResponse(200, {"success": True})) as post,
     ):
         data = client.command("play")
@@ -1028,7 +1028,7 @@ def test_websocket_failure_logging_omits_tokens_and_raw_prompt(caplog) -> None:
     sockets = [FakeWebSocket(_ws_capabilities(["djconnect/ask_dj/message"])), FakeWebSocket([])]
 
     with (
-        patch("djconnect_pi.ha._websocket_create_connection", side_effect=sockets),
+        patch("djconnect_pi.ha_websocket._websocket_create_connection", side_effect=sockets),
         patch("djconnect_pi.ha.requests.post", return_value=FakeResponse(200, {"success": True})),
     ):
         client.ask_dj_message("raw private prompt", "msg-1")
