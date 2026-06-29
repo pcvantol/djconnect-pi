@@ -77,7 +77,8 @@ running separately from the touch UI.
 - mDNS service:
   - `_djconnect._tcp` while unpaired only
   - TXT: `device_id`, `client_type=raspberry_pi`, `version`, `app_version`,
-    `device_name`, `local_url`, `pair_code`, `paired`
+    `device_name`, `local_url`, `pair_code`, `pairing_code`, `pairing_path`,
+    `pair_path`, `paired`
   - no Home Assistant local or remote URL is advertised through mDNS
 - Supported commands:
   - `status`

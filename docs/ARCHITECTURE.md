@@ -68,7 +68,8 @@ Responsibilities:
 - request screenshots from the UI process through a local screenshot event file
   and return the saved PNG path once QML `grabToImage` completes
 - advertise `device_id`, `client_type=raspberry_pi`, `version`,
-  `device_name` and `local_url` through mDNS only while unpaired
+  `device_name`, `local_url`, pairing code aliases and pairing paths through
+  mDNS only while unpaired
 - reject oversized HTTP request bodies
 - reload the shared config before serving info/pairing-info or accepting local
   pairing so reset-pairing code rotation is reflected immediately

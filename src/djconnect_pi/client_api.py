@@ -157,15 +157,20 @@ class ClientAPIHandler(BaseHTTPRequestHandler):
 
     def _handle_pair(self, payload: dict[str, Any]) -> None:
         self.server.state.reload_config()
+        cfg = self.server.state.cfg
         token = str(payload.get("device_token") or payload.get("token") or payload.get("bearer_token") or "").strip()
         ha_url = str(payload.get("ha_local_url") or "").strip()
         if not token or not ha_url:
             _LOGGER.warning("Client API pair request missing required fields")
             self._write_json({"success": False, "error": "missing_pairing_fields"}, HTTPStatus.BAD_REQUEST)
             return
+        pair_code = str(payload.get("pair_code") or payload.get("pairing_code") or payload.get("pairing_token") or "").strip()
+        if pair_code != cfg.pairing_code:
+            _LOGGER.warning("Client API pair request rejected for invalid pairing code")
+            self._write_json({"success": False, "error": "invalid_pair_code"}, HTTPStatus.FORBIDDEN)
+            return
         if payload.get("ha_remote_url"):
             _LOGGER.info("Client API pair request ignored ha_remote_url because Raspberry Pi transport is local-only")
-        cfg = self.server.state.cfg
         requested_client_type = str(payload.get("client_type") or CLIENT_TYPE).strip()
         if requested_client_type != CLIENT_TYPE:
             _LOGGER.warning("Client API pair request rejected for client_type=%s", requested_client_type)
@@ -184,7 +189,15 @@ class ClientAPIHandler(BaseHTTPRequestHandler):
         if self.server.state.mdns_refresh_handler is not None:
             self.server.state.mdns_refresh_handler()
         _LOGGER.info("Client API paired device_id=%s ha_url=%s", cfg.device_id, ha_url)
-        self._write_json({"success": True, "device_id": cfg.device_id, "client_type": CLIENT_TYPE})
+        self._write_json(
+            {
+                "success": True,
+                "device_id": cfg.device_id,
+                "client_type": CLIENT_TYPE,
+                "paired": True,
+                "ha_pairing_status": "paired",
+            }
+        )
 
     def _info(self) -> dict[str, Any]:
         self.server.state.reload_config()
@@ -221,6 +234,8 @@ class ClientAPIHandler(BaseHTTPRequestHandler):
         info["pair_code"] = self.server.state.cfg.pairing_code
         info["pairing_code"] = self.server.state.cfg.pairing_code
         info["pairing_token"] = self.server.state.cfg.pairing_code
+        info["pairing_path"] = "/api/device/pairing-info"
+        info["pair_path"] = "/api/device/pair"
         return info
 
     def _portal_state(self, include: set[str]) -> dict[str, Any]:
@@ -507,6 +522,9 @@ def _mdns_properties(cfg: Config, local_url: str) -> dict[str, str]:
         "device_name": cfg.device_name,
         "local_url": local_url,
         "pair_code": cfg.pairing_code,
+        "pairing_code": cfg.pairing_code,
+        "pairing_path": "/api/device/pairing-info",
+        "pair_path": "/api/device/pair",
         "paired": "true" if cfg.paired else "false",
     }
 

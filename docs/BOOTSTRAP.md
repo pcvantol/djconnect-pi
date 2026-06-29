@@ -370,7 +370,8 @@ journalctl -u djconnect-client.service -f
 2. Start pairing for a Raspberry Pi/client device.
 3. On the Pi screen, enter the Home Assistant URL if prompted.
 4. Enter the pairing code.
-5. Confirm the Pi reports `client_type: raspberry_pi`.
+5. Confirm the Pi validates the pairing code and reports
+   `client_type: raspberry_pi`.
 6. Confirm `/api/device/info` reports `transport:"local_only"` and only the
    local Home Assistant URL (`ha_local_url`), not any remote/Nabu Casa URL.
 7. Confirm `/api/device/info` reports Ask DJ as `text_actions`, with
