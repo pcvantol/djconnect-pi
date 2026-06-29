@@ -41,6 +41,11 @@ Implemented:
 - Local API pairing stops mDNS immediately; local API forget/reset clears the
   token, marks the device unpaired, rotates the pairing code and allows mDNS
   rediscovery again.
+- Local API pairing follows the shared HA local-device contract used by ESP32:
+  `/api/device/pairing-info` and mDNS expose pairing paths, code aliases,
+  model/api/version metadata and `client_type: raspberry_pi`; `/api/device/pair`
+  validates the temporary pairing code before storing the per-device token and
+  local Home Assistant URL.
 - `_djconnect._tcp` mDNS advertisement from `djconnect-api.service` only while
   the Pi is not paired. After successful pairing the local API keeps running,
   but discovery is stopped so the device no longer appears as a pairing

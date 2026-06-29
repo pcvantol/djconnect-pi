@@ -76,10 +76,13 @@ running separately from the touch UI.
   - `docs/postman/DJConnect Pi Local Client API.postman_collection.json`
 - mDNS service:
   - `_djconnect._tcp` while unpaired only
-  - TXT: `device_id`, `client_type=raspberry_pi`, `version`, `app_version`,
-    `device_name`, `local_url`, `pair_code`, `pairing_code`, `pairing_path`,
-    `pair_path`, `paired`
+  - TXT: `name`, `device_name`, `device_id`, `client_type=raspberry_pi`,
+    `version`, `firmware`, `app_version`, `paired`, `api=/api/device`,
+    `local_url`, `pair_code`, `pairing_code`, `pairing_path`, `pair_path` and
+    `model=raspberry_pi`
   - no Home Assistant local or remote URL is advertised through mDNS
+  - `POST /api/device/pair` validates the temporary pairing code before
+    storing the per-device token and HA local URL
 - Supported commands:
   - `status`
   - `play`

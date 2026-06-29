@@ -2,6 +2,10 @@
 
 ## 3.2.2
 
+- Align the Raspberry Pi local-device pairing shape with the ESP32/HA contract:
+  pairing-info and mDNS now expose pairing paths, code aliases, model/api
+  metadata and firmware/version aliases, and `/api/device/pair` validates the
+  temporary pairing code before storing the device token.
 - Align Ask DJ and Now Playing with the HA Track Insight contract:
   `/api/djconnect/track_insight`, `intent/action/type/open_screen:
   "track_insight"` and normalized `track_insight` rendering.

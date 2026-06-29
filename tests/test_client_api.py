@@ -50,6 +50,9 @@ def test_client_api_info_and_pairing_info(tmp_path: Path) -> None:
         api.stop()
 
     assert info["client_type"] == "raspberry_pi"
+    assert info["model"] == "raspberry_pi"
+    assert info["api"] == "/api/device"
+    assert info["firmware"] == cfg.version
     assert info["app_version"] == cfg.version
     assert info["transport"] == "local_only"
     assert info["ha_local_url"] == ""
@@ -183,8 +186,12 @@ def test_mdns_properties_include_ha_discovery_fields() -> None:
         "device_id": "djconnect-raspberry-pi-ABCDEF123456",
         "client_type": "raspberry_pi",
         "version": cfg.version,
+        "firmware": cfg.version,
         "app_version": cfg.version,
+        "name": "Kitchen Pi",
         "device_name": "Kitchen Pi",
+        "model": "raspberry_pi",
+        "api": "/api/device",
         "local_url": "http://192.0.2.10:18080",
         "pair_code": cfg.pairing_code,
         "pairing_code": cfg.pairing_code,
