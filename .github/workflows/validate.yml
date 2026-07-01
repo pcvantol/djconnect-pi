@@ -13,6 +13,6 @@ jobs:
     with:
       source-path: src
       test-path: tests
-      test-command: python -m pytest
+      test-command: python -m pip install -e ".[dev]" && python -m pytest
       ruff-continue-on-error: true
       bandit-continue-on-error: true

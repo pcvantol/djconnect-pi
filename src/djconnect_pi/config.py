@@ -29,7 +29,8 @@ class Config:
     update_repo: str = "pcvantol/djconnect-pi-releases"
     update_channel: str = "stable"
     local_url: str = ""
-    local_api_host: str = "0.0.0.0"
+    # The Pi local API intentionally listens on the LAN by default.
+    local_api_host: str = "0.0.0.0"  # nosec B104
     local_api_port: int = 18080
     screen_timeout_seconds: int = 120
     screen_brightness_percent: int = 100

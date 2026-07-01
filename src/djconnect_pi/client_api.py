@@ -397,7 +397,8 @@ class ClientAPI:
             _LOGGER.warning("Client API port %s unavailable; falling back to an ephemeral port", cfg.local_api_port)
             self.server = ClientAPIServer((cfg.local_api_host, 0), ClientAPIHandler, self.state)
         host, port = self.server.server_address
-        advertised_host = _local_ip() if cfg.local_api_host in {"", "0.0.0.0"} else cfg.local_api_host
+        # Wildcard binds are converted to an advertised LAN IP for clients.
+        advertised_host = _local_ip() if cfg.local_api_host in {"", "0.0.0.0"} else cfg.local_api_host  # nosec B104
         local_url = f"http://{advertised_host}:{port}"
         cfg.local_api_port = int(port)
         cfg.local_url = local_url
@@ -425,7 +426,8 @@ class ClientAPI:
             _LOGGER.warning("zeroconf is not installed; mDNS discovery disabled")
             return
         cfg = self.state.cfg
-        ip = _local_ip() if cfg.local_api_host in {"", "0.0.0.0"} else cfg.local_api_host
+        # Wildcard binds are converted to an mDNS LAN IP for discovery.
+        ip = _local_ip() if cfg.local_api_host in {"", "0.0.0.0"} else cfg.local_api_host  # nosec B104
         service_type = "_djconnect._tcp.local."
         service_name = f"{cfg.device_name} {cfg.device_id}.{service_type}"
         properties = _mdns_properties(cfg, local_url)
