@@ -24,7 +24,8 @@ _LOGGER = logging.getLogger(__name__)
 
 def _local_ip_from_config(local_url: str) -> str:
     host = urlparse(local_url).hostname if local_url else ""
-    if host and host not in {"0.0.0.0", "127.0.0.1", "localhost"}:
+    # This filters wildcard/local placeholders, it does not bind a socket.
+    if host and host not in {"0.0.0.0", "127.0.0.1", "localhost"}:  # nosec B104
         return host
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:

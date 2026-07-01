@@ -623,6 +623,16 @@ def normalize_language(language: str) -> str:
     return primary if primary in SUPPORTED_LANGUAGES else "en"
 
 
+def locale_for_language(language: str) -> str:
+    return {
+        "en": "en-GB",
+        "nl": "nl-NL",
+        "de": "de-DE",
+        "fr": "fr-FR",
+        "es": "es-ES",
+    }[normalize_language(language)]
+
+
 def translate(language: str, key: str, **values: object) -> str:
     normalized = normalize_language(language)
     text = TRANSLATIONS.get(normalized, TRANSLATIONS["en"]).get(key)

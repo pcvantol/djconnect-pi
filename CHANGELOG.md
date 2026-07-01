@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.2.6
+
+- Send the current Raspberry Pi app language as BCP-47 DJConnect request
+  metadata for user-facing Ask DJ, command, status/capability and WebSocket
+  payloads, while keeping pairing/bootstrap payloads and protocol values
+  unchanged.
+- Add tests for HTTP and WebSocket locale propagation so Home Assistant can
+  resolve response language from client metadata before Assist/TTS defaults.
+
 ## 3.2.5
 
 - Remove the web portal's separate Dutch/English translation table by

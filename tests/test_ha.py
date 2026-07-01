@@ -61,7 +61,7 @@ class FakeWebSocket:
 
 
 def test_pair_sends_raspberry_pi_identity_and_stores_token() -> None:
-    cfg = Config(ha_url="http://ha", device_id="djconnect-raspberry-pi-ABCDEF123456")
+    cfg = Config(ha_url="http://ha", device_id="djconnect-raspberry-pi-ABCDEF123456", language="de")
     client = HAClient(cfg)
     captured: dict[str, Any] = {}
 
@@ -77,7 +77,6 @@ def test_pair_sends_raspberry_pi_identity_and_stores_token() -> None:
     assert captured["json"]["client_type"] == "raspberry_pi"
     assert captured["json"]["device_id"] == "djconnect-raspberry-pi-ABCDEF123456"
     assert captured["json"]["app_version"] == cfg.version
-    assert captured["json"]["language"] == cfg.language
     assert captured["json"]["pair_code"] == "123456"
     assert captured["json"]["capabilities"]["voice"] is False
     assert captured["json"]["capabilities"]["voice_supported"] is False
@@ -92,6 +91,7 @@ def test_pair_sends_raspberry_pi_identity_and_stores_token() -> None:
     assert captured["json"]["capabilities"]["local_dj_response_endpoint"] is False
     assert "device_type" not in captured["json"]
     assert "device_language" not in captured["json"]
+    assert "language" not in captured["json"]
     assert "voice_enabled" not in captured["json"]
     assert "wakeword_enabled" not in captured["json"]
     assert cfg.device_token == "token-1"
@@ -104,6 +104,7 @@ def test_status_uses_bearer_token_and_playback_fields() -> None:
         device_id="djconnect-raspberry-pi-ABCDEF123456",
         device_token="token-1",
         paired=True,
+        language="fr",
     )
     client = HAClient(cfg)
     captured: dict[str, Any] = {}
@@ -133,7 +134,7 @@ def test_status_uses_bearer_token_and_playback_fields() -> None:
     assert captured["json"]["artist"] == "Pearl Jam"
     assert captured["json"]["client_type"] == "raspberry_pi"
     assert captured["json"]["app_version"] == cfg.version
-    assert captured["json"]["language"] == cfg.language
+    assert captured["json"]["language"] == "fr-FR"
     assert captured["json"]["ha_pairing_status"] == "paired"
     assert captured["json"]["spotify_status"] == "playing"
     assert captured["json"]["volume"] == 37
@@ -154,7 +155,7 @@ def test_status_uses_bearer_token_and_playback_fields() -> None:
 
 
 def test_command_posts_generic_command_payload() -> None:
-    cfg = Config(ha_url="http://ha", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1")
+    cfg = Config(ha_url="http://ha", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1", language="es")
     client = HAClient(cfg)
     captured: dict[str, Any] = {}
 
@@ -168,6 +169,7 @@ def test_command_posts_generic_command_payload() -> None:
 
     assert captured["url"] == "http://ha/api/djconnect/command"
     assert captured["json"]["command"] == "set_volume"
+    assert captured["json"]["language"] == "es-ES"
     assert captured["json"]["value"] == 42
     assert captured["json"]["device_id"] == "djconnect-raspberry-pi-ABCDEF123456"
     assert captured["json"]["client_type"] == "raspberry_pi"
@@ -194,7 +196,7 @@ def test_ask_dj_history_gets_since_revision() -> None:
 
 
 def test_ask_dj_message_posts_text_identity_and_never_audio_response() -> None:
-    cfg = Config(ha_url="http://ha", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1")
+    cfg = Config(ha_url="http://ha", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1", language="nl")
     client = HAClient(cfg)
     captured: dict[str, Any] = {}
 
@@ -214,6 +216,7 @@ def test_ask_dj_message_posts_text_identity_and_never_audio_response() -> None:
     assert captured["json"]["client_id"] == "djconnect-raspberry-pi-ABCDEF123456"
     assert captured["json"]["client_message_id"] == "msg-1"
     assert captured["json"]["text"] == "Wat speelt er?"
+    assert captured["json"]["language"] == "nl-NL"
     assert captured["json"]["audio_response"] == "never"
     assert captured["json"]["identity"]["client_type"] == "raspberry_pi"
     assert "message" not in captured["json"]
@@ -239,10 +242,11 @@ def test_ask_dj_clear_history_posts_identity_payload() -> None:
     assert captured["json"]["client_type"] == "raspberry_pi"
     assert captured["json"]["device_id"] == "djconnect-raspberry-pi-ABCDEF123456"
     assert captured["json"]["identity"]["device_name"] == cfg.device_name
+    assert "language" not in captured["json"]
 
 
 def test_ask_dj_action_uses_structured_command_payload() -> None:
-    cfg = Config(ha_url="http://ha", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1")
+    cfg = Config(ha_url="http://ha", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1", language="en")
     client = HAClient(cfg)
     captured: dict[str, Any] = {}
 
@@ -257,6 +261,7 @@ def test_ask_dj_action_uses_structured_command_payload() -> None:
 
     assert captured["url"] == "http://ha/api/djconnect/command"
     assert captured["json"]["command"] == "ask_dj_followup_response"
+    assert captured["json"]["language"] == "en-GB"
     assert captured["json"]["value"] == {"kind": "confirmation", "response_value": "yes", "music_dna_key": "followup-1"}
     assert "play" not in captured["json"]
     assert "prompt" not in captured["json"]
@@ -293,7 +298,7 @@ def test_track_insight_posts_current_track_metadata_and_music_dna_headers() -> N
     assert captured["json"]["artist"] == "deadmau5"
     assert captured["json"]["player_id"] == "media_player.mass_woonkamer"
     assert captured["json"]["music_backend"] == "music_assistant"
-    assert captured["json"]["locale"] == "nl"
+    assert captured["json"]["locale"] == "nl-NL"
     assert captured["json"]["include_visual_profile"] is True
 
 
@@ -796,7 +801,14 @@ def test_websocket_capability_detection_success_sets_diagnostics() -> None:
 
 
 def test_command_websocket_success_uses_fast_path_payload_identity() -> None:
-    cfg = Config(ha_url="http://ha.local:8123", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1", websocket_fast_path_enabled=True, ha_websocket_token="ha-token")
+    cfg = Config(
+        ha_url="http://ha.local:8123",
+        device_id="djconnect-raspberry-pi-ABCDEF123456",
+        device_token="token-1",
+        websocket_fast_path_enabled=True,
+        ha_websocket_token="ha-token",
+        language="de",
+    )
     client = HAClient(cfg)
     sockets = [
         FakeWebSocket(_ws_capabilities(["play"])),
@@ -814,6 +826,7 @@ def test_command_websocket_success_uses_fast_path_payload_identity() -> None:
     payload = sockets[1].sent[1]
     assert payload["type"] == "djconnect/command"
     assert payload["command"] == "play"
+    assert payload["language"] == "de-DE"
     assert payload["client_type"] == "raspberry_pi"
     assert payload["device_id"] == "djconnect-raspberry-pi-ABCDEF123456"
     assert payload["device_token"] == "token-1"
@@ -837,7 +850,14 @@ def test_missing_websocket_capability_falls_back_to_http_once() -> None:
 
 
 def test_ask_dj_message_websocket_success_returns_messages_and_revisions() -> None:
-    cfg = Config(ha_url="http://ha.local:8123", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1", websocket_fast_path_enabled=True, ha_websocket_token="ha-token")
+    cfg = Config(
+        ha_url="http://ha.local:8123",
+        device_id="djconnect-raspberry-pi-ABCDEF123456",
+        device_token="token-1",
+        websocket_fast_path_enabled=True,
+        ha_websocket_token="ha-token",
+        language="nl",
+    )
     client = HAClient(cfg)
     sockets = [
         FakeWebSocket(_ws_capabilities(["djconnect/ask_dj/message"])),
@@ -857,6 +877,7 @@ def test_ask_dj_message_websocket_success_returns_messages_and_revisions() -> No
     assert payload["type"] == "djconnect/ask_dj/message"
     assert payload["client_message_id"] == "msg-1"
     assert payload["text"] == "Tell me about this track"
+    assert payload["language"] == "nl-NL"
     assert payload["audio_response"] == "never"
 
 
