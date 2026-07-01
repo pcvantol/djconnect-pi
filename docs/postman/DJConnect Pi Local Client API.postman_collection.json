@@ -19,6 +19,10 @@
       "value": "djconnect-raspberry-pi-ABCDEF123456"
     },
     {
+      "key": "pair_code",
+      "value": "123456"
+    },
+    {
       "key": "ha_url",
       "value": "http://homeassistant.local:8123"
     }
@@ -72,7 +76,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"device_token\": \"{{device_token}}\",\n  \"ha_local_url\": \"{{ha_url}}\"\n}"
+          "raw": "{\n  \"device_token\": \"{{device_token}}\",\n  \"ha_local_url\": \"{{ha_url}}\",\n  \"pair_code\": \"{{pair_code}}\"\n}"
         },
         "url": {
           "raw": "{{client_api_url}}/api/device/pair",

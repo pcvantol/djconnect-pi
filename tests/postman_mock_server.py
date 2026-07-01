@@ -29,6 +29,7 @@ def main() -> None:
         cfg = Config(
             device_id="djconnect-raspberry-pi-ABCDEF123456",
             device_name="DJConnect CI",
+            pairing_code="123456",
             device_token=args.token,
             ha_url="http://homeassistant.local:8123",
             paired=True,

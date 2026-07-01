@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.2.4
+
+- Include the temporary pairing code in the Postman local Client API pairing
+  request and CI mock server so the release publish workflow exercises the
+  current `/api/device/pair` validation contract successfully.
+
 ## 3.2.3
 
 - Add Raspberry Pi client localization support for English, Dutch, German,
