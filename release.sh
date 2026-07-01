@@ -4,7 +4,7 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  ./release.sh <version> [--dry-run]
+  ./release.sh <version> [--dry-run] [--no-push-main]
 
 Examples:
   ./release.sh 0.1.0
@@ -12,10 +12,14 @@ Examples:
 
 The script updates version metadata, builds a wheel-based release tarball and
 sha256 file, commits, tags, pushes main and creates a GitHub release.
+
+Use --no-push-main when GitHub branch protection requires the release commit to
+land through a pull request. In that mode the script still pushes the tag and
+creates the GitHub release from the built assets.
 EOF
 }
 
-if [[ $# -lt 1 || $# -gt 2 ]]; then
+if [[ $# -lt 1 ]]; then
   usage
   exit 64
 fi
@@ -23,14 +27,23 @@ fi
 VERSION="${1#v}"
 TAG="v${VERSION}"
 DRY_RUN=false
+PUSH_MAIN=true
 
-if [[ $# -eq 2 ]]; then
-  if [[ "$2" != "--dry-run" ]]; then
-    usage
-    exit 64
-  fi
-  DRY_RUN=true
-fi
+shift
+for arg in "$@"; do
+  case "$arg" in
+    --dry-run)
+      DRY_RUN=true
+      ;;
+    --no-push-main)
+      PUSH_MAIN=false
+      ;;
+    *)
+      usage
+      exit 64
+      ;;
+  esac
+done
 
 if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   echo "Invalid version: $1. Use semantic version format, for example 0.1.0." >&2
@@ -140,16 +153,46 @@ build_assets() {
   fi
 }
 
+write_release_notes() {
+  echo "+ write release notes for ${VERSION}"
+  VERSION="$VERSION" DRY_RUN="$DRY_RUN" python3 - <<'PY'
+import os
+from pathlib import Path
+
+version = os.environ["VERSION"]
+dry_run = os.environ["DRY_RUN"] == "true"
+text = Path("CHANGELOG.md").read_text(encoding="utf-8")
+heading = f"## {version}"
+start = text.find(heading)
+if start < 0:
+    if dry_run:
+        print(f"  would write dist/djconnect-pi-{version}-release-notes.md")
+        raise SystemExit(0)
+    raise SystemExit(f"Missing changelog section for {version}")
+next_start = text.find("\n## ", start + len(heading))
+section = text[start: next_start if next_start >= 0 else len(text)].strip() + "\n"
+path = Path("dist") / f"djconnect-pi-{version}-release-notes.md"
+print(f"  write {path}")
+if not dry_run:
+    path.write_text(section, encoding="utf-8")
+PY
+}
+
 bump_versions
 build_assets
 run git add .
 run git commit -m "Release DJConnect Pi ${TAG}"
 run git tag "$TAG"
-run git push origin main
+if [[ "$PUSH_MAIN" == true ]]; then
+  run git push origin main
+else
+  echo "+ skip git push origin main (--no-push-main)"
+fi
 run git push origin "$TAG"
+write_release_notes
 run gh release create "$TAG" \
   --title "DJConnect Pi ${TAG}" \
-  --notes-file CHANGELOG.md \
+  --notes-file "dist/djconnect-pi-${VERSION}-release-notes.md" \
   "dist/djconnect-pi-${VERSION}.tar.gz" \
   "dist/djconnect-pi-${VERSION}.sha256"
 

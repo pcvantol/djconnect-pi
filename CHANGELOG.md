@@ -1,5 +1,16 @@
 # Changelog
 
+## 3.2.5
+
+- Remove the web portal's separate Dutch/English translation table by
+  generating portal strings from the central `src/djconnect_pi/i18n.py`
+  resources for `en`, `nl`, `de`, `fr` and `es`.
+- Add web portal translation-key coverage tests so future portal labels stay in
+  sync with the supported locale set.
+- Update the release script for protected-main repositories with
+  `--no-push-main` and per-version release notes instead of publishing the full
+  changelog as every GitHub release body.
+
 ## 3.2.4
 
 - Include the temporary pairing code in the Postman local Client API pairing

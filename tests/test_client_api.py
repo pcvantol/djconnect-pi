@@ -157,13 +157,20 @@ def test_web_portal_has_local_games_with_sound_hooks() -> None:
     assert "function sfx(kind)" in html
     assert "AudioContext" in html
     assert "navigator.vibrate" in html
-    assert "game_help_asteroids:'Beweeg links en rechts. Schiet om meteorieten te raken.'" in html
-    assert "game_help_asteroids:'Move left and right. Fire to hit meteors.'" in html
+    assert '"nl":{' in html
+    assert '"en":{' in html
+    assert '"de":{' in html
+    assert '"fr":{' in html
+    assert '"es":{' in html
+    assert '"game_help_asteroids":"Beweeg links en rechts. Schiet om meteorieten te raken."' in html
+    assert '"game_help_asteroids":"Move left and right. Fire to hit meteors."' in html
     assert "power:[0,7,24,31]" in html
     assert "setInterval(gameTick,33)" in html
-    assert "Gekopieerd naar klembord" in html
     assert "const I18N" in html
     assert 'data-i18n="settings"' in html
+    assert '<option value="de">Deutsch</option>' in html
+    assert '<option value="fr">Français</option>' in html
+    assert '<option value="es">Español</option>' in html
     assert "translateStatic()" in html
     assert "adjustVolume(-10)" in html
     assert "adjustVolume(10)" in html

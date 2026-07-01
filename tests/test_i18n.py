@@ -5,6 +5,7 @@ from importlib.resources import files
 from string import Formatter
 
 from djconnect_pi.i18n import SUPPORTED_LANGUAGES, TRANSLATIONS, normalize_language, translate
+from djconnect_pi.web_portal import PORTAL_I18N_KEYS
 
 
 def test_translation_languages_have_same_keys() -> None:
@@ -36,6 +37,11 @@ def test_qml_translation_keys_exist() -> None:
     )
     keys = set(re.findall(r'(?:root\.tr|djconnect\.t|updater\.t|updater\.tf)\("([^"]+)"', qml_text))
     assert keys <= set(TRANSLATIONS["en"])
+
+
+def test_web_portal_translation_keys_exist_for_all_languages() -> None:
+    for language in SUPPORTED_LANGUAGES:
+        assert set(PORTAL_I18N_KEYS) <= set(TRANSLATIONS[language])
 
 
 def test_language_normalization_defaults_to_english() -> None:

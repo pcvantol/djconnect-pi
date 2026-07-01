@@ -181,6 +181,17 @@ def test_release_assets_include_installation_materials() -> None:
         assert "cp scripts/bootstrap_raspberry_pi_os.sh" not in text
 
 
+def test_release_script_supports_protected_main_flow() -> None:
+    release_script = ROOT.joinpath("release.sh").read_text(encoding="utf-8")
+
+    assert "--no-push-main" in release_script
+    assert "PUSH_MAIN=false" in release_script
+    assert "skip git push origin main (--no-push-main)" in release_script
+    assert "djconnect-pi-${VERSION}-release-notes.md" in release_script
+    assert "--notes-file \"dist/djconnect-pi-${VERSION}-release-notes.md\"" in release_script
+    assert "--notes-file CHANGELOG.md" not in release_script
+
+
 def test_technical_design_decisions_document_is_part_of_docs() -> None:
     readme = ROOT.joinpath("README.md").read_text(encoding="utf-8")
     doc = ROOT.joinpath("docs/TECHNICAL_DESIGN_DECISIONS.md").read_text(encoding="utf-8")

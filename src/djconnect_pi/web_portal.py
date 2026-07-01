@@ -1,13 +1,89 @@
 from __future__ import annotations
 
 from html import escape
+import json
 import re
+
+from .i18n import LANGUAGES, SUPPORTED_LANGUAGES, TRANSLATIONS
+
+PORTAL_I18N_KEYS = (
+    "loading",
+    "connected",
+    "not_paired",
+    "nothing_playing",
+    "volume",
+    "output_device",
+    "none",
+    "refresh",
+    "refreshing",
+    "queue",
+    "playlists",
+    "settings",
+    "language",
+    "log_level",
+    "brightness",
+    "screen_off",
+    "check_updates",
+    "reset_pairing",
+    "reboot_device",
+    "shutdown_device",
+    "about",
+    "copy_logs",
+    "refresh_logs",
+    "logs_missing",
+    "command_sent",
+    "command_failed",
+    "refreshed",
+    "status_failed",
+    "logs_refreshed",
+    "logs_failed",
+    "copied",
+    "copy_failed",
+    "settings_saved",
+    "save_failed",
+    "language_saved",
+    "log_level_saved",
+    "brightness_saved",
+    "screen_timeout_saved",
+    "empty_queue",
+    "empty_playlists",
+    "no_diagnostics",
+    "reset_pairing_confirm",
+    "reboot_confirm",
+    "shutdown_confirm",
+    "games",
+    "score",
+    "high",
+    "game_pong",
+    "game_asteroids",
+    "game_fly",
+    "game_pacman",
+    "up",
+    "down",
+    "left",
+    "right",
+    "fire",
+    "reset",
+    "game_help_pong",
+    "game_help_asteroids",
+    "game_help_fly",
+    "game_help_pacman",
+)
 
 
 def index_html(version: str) -> bytes:
     version_text = escape(version)
+    portal_i18n = {
+        language: {key: TRANSLATIONS[language][key] for key in PORTAL_I18N_KEYS}
+        for language in SUPPORTED_LANGUAGES
+    }
+    portal_i18n_json = json.dumps(portal_i18n, ensure_ascii=False, sort_keys=True)
+    language_options = "".join(
+        f'<option value="{escape(language)}">{escape(LANGUAGES[language])}</option>'
+        for language in SUPPORTED_LANGUAGES
+    )
     html = f"""<!doctype html>
-<html lang="nl">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -138,7 +214,7 @@ def index_html(version: str) -> bytes:
     <section>
       <h2 data-i18n="settings">Instellingen</h2>
       <div class="grid">
-        <label><span data-i18n="language">Taal</span> <select id="language" onchange="saveSettings(t('language_saved'))"><option value="nl">Nederlands</option><option value="en">English</option></select></label>
+        <label><span data-i18n="language">Language</span> <select id="language" onchange="saveSettings(t('language_saved'))">{language_options}</select></label>
         <label><span data-i18n="log_level">Logniveau</span> <select id="logLevel" onchange="saveSettings(t('log_level_saved'))"><option>DEBUG</option><option>INFO</option><option>WARNING</option><option>ERROR</option></select></label>
         <label><span data-i18n="brightness">Schermhelderheid</span> <input id="brightness" type="range" min="10" max="100" oninput="saveSettingsDebounced(t('brightness_saved'))" onchange="saveSettings(t('brightness_saved'))"></label>
         <label><span data-i18n="screen_off">Scherm uit na seconden</span> <select id="timeout" onchange="saveSettings(t('screen_timeout_saved'))"><option>30</option><option>60</option><option>90</option><option>120</option><option>180</option><option>240</option><option>300</option><option>600</option></select></label>
@@ -167,50 +243,9 @@ def index_html(version: str) -> bytes:
 let state = {{}};
 let settingsTimer = 0;
 let toastTimer = 0;
-const I18N = {{
-  nl: {{
-    loading:'Laden...', connected:'Verbonden', not_paired:'Niet gekoppeld', nothing_playing:'Niets speelt af',
-    volume:'Volume', output_device:'Uitvoerapparaat', none:'Geen', refresh:'Verversen', refreshing:'Verversen...',
-    queue:'Wachtrij', playlists:'Afspeellijsten', settings:'Instellingen', language:'Taal', log_level:'Logniveau',
-    brightness:'Schermhelderheid', screen_off:'Scherm uit na seconden', check_updates:'Controleer op updates',
-    reset_pairing:'Opnieuw koppelen', reboot_device:'Apparaat herstarten', shutdown_device:'Apparaat uitschakelen',
-    about:'Over', copy_logs:'Logs kopiëren', refresh_logs:'Logs verversen', logs_loading:'Logs laden...',
-    command_sent:'Commando verzonden', command_failed:'Mislukt', refreshed:'Verversd', status_failed:'Status mislukt',
-    logs_refreshed:'Logs ververst', logs_failed:'Logs mislukt', copied:'Gekopieerd naar klembord', copy_failed:'Kopieren mislukt',
-    settings_saved:'Instellingen opgeslagen', save_failed:'Opslaan mislukt', language_saved:'Taal opgeslagen',
-    log_level_saved:'Logniveau opgeslagen', brightness_saved:'Helderheid opgeslagen', screen_timeout_saved:'Schermtijd opgeslagen',
-    empty_queue:'Geen wachtrij', empty_playlists:'Geen afspeellijsten', no_diagnostics:'Geen diagnostics beschikbaar',
-    reset_pairing_confirm:'Opnieuw koppelen?', reboot_confirm:'Apparaat herstarten?', shutdown_confirm:'Apparaat uitschakelen?',
-    games:'Games', score:'Score', high:'Beste', game_pong:'Paddle Rally', game_asteroids:'Meteor Run', game_fly:'Sky Dash', game_pacman:'Maze Chase',
-    up:'Omhoog', down:'Omlaag', left:'Links', right:'Rechts', fire:'Schiet', reset:'Reset',
-    game_help_pong:'Beweeg het batje omhoog en omlaag.',
-    game_help_asteroids:'Beweeg links en rechts. Schiet om meteorieten te raken.',
-    game_help_fly:'Vlieg omhoog of omlaag. Schiet obstakels kapot.',
-    game_help_pacman:'Eet bolletjes. Power-bolletjes maken het spookje kwetsbaar.'
-  }},
-  en: {{
-    loading:'Loading...', connected:'Connected', not_paired:'Not paired', nothing_playing:'Nothing playing',
-    volume:'Volume', output_device:'Output device', none:'None', refresh:'Refresh', refreshing:'Refreshing...',
-    queue:'Queue', playlists:'Playlists', settings:'Settings', language:'Language', log_level:'Log level',
-    brightness:'Screen brightness', screen_off:'Screen off after seconds', check_updates:'Check for updates',
-    reset_pairing:'Reset pairing', reboot_device:'Restart device', shutdown_device:'Shut down device',
-    about:'About', copy_logs:'Copy logs', refresh_logs:'Refresh logs', logs_loading:'Loading logs...',
-    command_sent:'Command sent', command_failed:'Failed', refreshed:'Refreshed', status_failed:'Status failed',
-    logs_refreshed:'Logs refreshed', logs_failed:'Logs failed', copied:'Copied to clipboard', copy_failed:'Copy failed',
-    settings_saved:'Settings saved', save_failed:'Save failed', language_saved:'Language saved',
-    log_level_saved:'Log level saved', brightness_saved:'Brightness saved', screen_timeout_saved:'Screen timeout saved',
-    empty_queue:'No queue', empty_playlists:'No playlists', no_diagnostics:'No diagnostics available',
-    reset_pairing_confirm:'Reset pairing?', reboot_confirm:'Restart device?', shutdown_confirm:'Shut down device?',
-    games:'Games', score:'Score', high:'High', game_pong:'Paddle Rally', game_asteroids:'Meteor Run', game_fly:'Sky Dash', game_pacman:'Maze Chase',
-    up:'Up', down:'Down', left:'Left', right:'Right', fire:'Fire', reset:'Reset',
-    game_help_pong:'Move the paddle up and down.',
-    game_help_asteroids:'Move left and right. Fire to hit meteors.',
-    game_help_fly:'Fly up or down. Shoot obstacles apart.',
-    game_help_pacman:'Eat pellets. Power pellets make the ghost vulnerable.'
-  }}
-}};
-function currentLanguage() {{ return (state.settings && state.settings.language) || document.getElementById('language')?.value || 'nl'; }}
-function t(key) {{ const lang = currentLanguage(); return (I18N[lang] && I18N[lang][key]) || I18N.nl[key] || key; }}
+const I18N = {portal_i18n_json};
+function currentLanguage() {{ return (state.settings && state.settings.language) || document.getElementById('language')?.value || 'en'; }}
+function t(key) {{ const lang = currentLanguage(); return (I18N[lang] && I18N[lang][key]) || I18N.en[key] || key; }}
 function translateStatic() {{
   document.documentElement.lang = currentLanguage();
   for (const el of document.querySelectorAll('[data-i18n]')) el.textContent = t(el.dataset.i18n);
@@ -448,7 +483,7 @@ function render(data) {{
   }}
   document.getElementById('queue').innerHTML = (data.queue || []).length ? data.queue.map(i => itemHtml(i,'play_context_at')).join('') : `<div class="sub">${{t('empty_queue')}}</div>`;
   document.getElementById('playlists').innerHTML = (data.playlists || []).length ? data.playlists.map(i => itemHtml(i,'start_playlist')).join('') : `<div class="sub">${{t('empty_playlists')}}</div>`;
-  document.getElementById('language').value = data.settings?.language || 'nl';
+  document.getElementById('language').value = data.settings?.language || 'en';
   document.getElementById('logLevel').value = data.settings?.log_level || 'INFO';
   document.getElementById('brightness').value = data.settings?.screen_brightness_percent || 100;
   document.getElementById('timeout').value = String(data.settings?.screen_timeout_seconds ?? 120);
