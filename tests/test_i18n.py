@@ -4,7 +4,7 @@ import re
 from importlib.resources import files
 from string import Formatter
 
-from djconnect_pi.i18n import SUPPORTED_LANGUAGES, TRANSLATIONS, normalize_language, translate
+from djconnect_pi.i18n import SUPPORTED_LANGUAGES, TRANSLATIONS, locale_for_language, normalize_language, translate
 from djconnect_pi.web_portal import PORTAL_I18N_KEYS
 
 
@@ -49,6 +49,15 @@ def test_language_normalization_defaults_to_english() -> None:
     assert normalize_language("it_IT") == "en"
     assert normalize_language("de_DE.UTF-8") == "de"
     assert normalize_language("fr-FR") == "fr"
+
+
+def test_transport_locale_uses_bcp47_values() -> None:
+    assert locale_for_language("en") == "en-GB"
+    assert locale_for_language("nl") == "nl-NL"
+    assert locale_for_language("de_DE.UTF-8") == "de-DE"
+    assert locale_for_language("fr-FR") == "fr-FR"
+    assert locale_for_language("es") == "es-ES"
+    assert locale_for_language("it_IT") == "en-GB"
 
 
 def test_user_facing_translation_updates() -> None:

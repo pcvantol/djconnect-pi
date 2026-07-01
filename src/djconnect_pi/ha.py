@@ -8,6 +8,7 @@ import requests
 
 from .config import CLIENT_TYPE, Config
 from .ha_websocket import WebSocketFastPath
+from .i18n import locale_for_language
 
 _LOGGER = logging.getLogger(__name__)
 WEBSOCKET_COMMANDS = {
@@ -92,7 +93,7 @@ class HAClient:
         self.fast_path = WebSocketFastPath(cfg, default_timeout=timeout)
 
     def pair(self, pair_code: str) -> dict[str, Any]:
-        payload = self._base_payload(pair_code=pair_code, ha_pairing_status="pending")
+        payload = self._base_payload(include_language=False, pair_code=pair_code, ha_pairing_status="pending")
         url = self._url("/api/djconnect/pair")
         _LOGGER.debug("POST %s for device_id=%s client_type=%s", url, self.cfg.device_id, CLIENT_TYPE)
         started = time.monotonic()
@@ -232,7 +233,7 @@ class HAClient:
         body = self._base_payload(
             force_refresh=force_refresh,
             include_visual_profile=include_visual_profile,
-            locale=self.cfg.language,
+            locale=self._locale(),
         )
         if playback is not None:
             if playback.title:
@@ -259,7 +260,7 @@ class HAClient:
         return data
 
     def ask_dj_clear_history(self) -> dict[str, Any]:
-        body = self._ask_dj_payload()
+        body = self._ask_dj_payload(include_language=False)
         url = self._url("/api/djconnect/ask_dj/history/clear")
         _LOGGER.debug("POST %s client_type=%s device_id=%s", url, CLIENT_TYPE, self.cfg.device_id)
         started = time.monotonic()
@@ -378,8 +379,8 @@ class HAClient:
         self.cfg.music_backend_error = summary.error
         return summary
 
-    def _base_payload(self, **extra: Any) -> dict[str, Any]:
-        return {
+    def _base_payload(self, *, include_language: bool = True, **extra: Any) -> dict[str, Any]:
+        payload = {
             "device_id": self.cfg.device_id,
             "device_name": self.cfg.device_name,
             "client_type": CLIENT_TYPE,
@@ -387,7 +388,6 @@ class HAClient:
             "app_version": self.cfg.version,
             "firmware": self.cfg.version,
             "local_url": self.cfg.local_url,
-            "language": self.cfg.language,
             "capabilities": {
                 "touch": True,
                 "voice": False,
@@ -405,14 +405,17 @@ class HAClient:
             },
             **extra,
         }
+        if include_language:
+            payload["language"] = self._locale()
+        return payload
 
-    def _ask_dj_payload(self, **extra: Any) -> dict[str, Any]:
+    def _ask_dj_payload(self, *, include_language: bool = True, **extra: Any) -> dict[str, Any]:
         identity = {
             "client_type": CLIENT_TYPE,
             "device_id": self.cfg.device_id,
             "device_name": self.cfg.device_name,
         }
-        return {
+        payload = {
             "identity": identity,
             "client_id": self.cfg.device_id,
             "device_id": self.cfg.device_id,
@@ -420,9 +423,11 @@ class HAClient:
             "client_type": CLIENT_TYPE,
             "version": self.cfg.version,
             "app_version": self.cfg.version,
-            "language": self.cfg.language,
             **extra,
         }
+        if include_language:
+            payload["language"] = self._locale()
+        return payload
 
     def _headers(self) -> dict[str, str]:
         headers = {
@@ -435,6 +440,9 @@ class HAClient:
         if self.cfg.music_dna_key:
             headers["X-DJConnect-Music-DNA-Key"] = self.cfg.music_dna_key
         return headers
+
+    def _locale(self) -> str:
+        return locale_for_language(self.cfg.language)
 
     def diagnostics(self) -> dict[str, Any]:
         self.fast_path.update_config(self.cfg)
