@@ -10,6 +10,7 @@ import threading
 from urllib.parse import parse_qs, urlparse
 
 from .config import CLIENT_TYPE, Config, load_config, save_config
+from .i18n import translate
 from .web_portal import index_html
 
 try:
@@ -248,7 +249,7 @@ class ClientAPIHandler(BaseHTTPRequestHandler):
                 "success": True,
                 "paired": cfg.paired,
                 "backend_available": cfg.paired,
-                "status_text": "Verbonden" if cfg.paired else "Niet gekoppeld",
+                "status_text": translate(cfg.language, "connected" if cfg.paired else "not_paired"),
                 "playback": playback,
                 "queue": [],
                 "playlists": [],
@@ -257,7 +258,7 @@ class ClientAPIHandler(BaseHTTPRequestHandler):
                 "about": _portal_about(cfg),
                 "diagnostics": [
                     {"name": "Local Client API", "status": "running", "detail": cfg.local_url},
-                    {"name": "Home Assistant API", "status": "running" if cfg.paired else "stopped", "detail": f"Local only: {cfg.ha_url}"},
+                    {"name": "Home Assistant API", "status": "running" if cfg.paired else "stopped", "detail": f"{translate(cfg.language, 'local_only')}: {cfg.ha_url}"},
                 ],
             }
         return self.server.state.portal_state_provider(include)
@@ -498,20 +499,20 @@ def _portal_about(cfg: Config) -> dict[str, str]:
         if value
     )
     return {
-        "App version": cfg.version,
-        "Protocol version": cfg.version,
-        "Apparaatnaam": cfg.device_name,
-        "Device ID": cfg.device_id,
-        "Client type": CLIENT_TYPE,
-        "Pairing": "Gekoppeld" if cfg.paired else "Niet gekoppeld",
-        "Transport": "Local only",
-        "Client adres": cfg.local_url,
-        "HA URL": cfg.ha_url,
-        "Music backend": cfg.music_backend_name or cfg.music_backend or "-",
-        "Target player": str(target.get("name") or target.get("id") or "-"),
-        "Backend available": "Ja" if cfg.music_backend_available else "Nee",
-        "Backend error": cfg.music_backend_error,
-        "Capabilities": capabilities or "-",
+        translate(cfg.language, "version"): cfg.version,
+        translate(cfg.language, "protocol_version"): cfg.version,
+        translate(cfg.language, "device_name"): cfg.device_name,
+        translate(cfg.language, "device_id"): cfg.device_id,
+        translate(cfg.language, "client_type"): CLIENT_TYPE,
+        translate(cfg.language, "pairing_status"): translate(cfg.language, "paired" if cfg.paired else "not_paired"),
+        translate(cfg.language, "transport"): translate(cfg.language, "local_only"),
+        translate(cfg.language, "client_api_url_label"): cfg.local_url,
+        translate(cfg.language, "ha_local_url"): cfg.ha_url,
+        translate(cfg.language, "music_backend"): cfg.music_backend_name or cfg.music_backend or "-",
+        translate(cfg.language, "target_player"): str(target.get("name") or target.get("id") or "-"),
+        translate(cfg.language, "backend_name"): translate(cfg.language, "connected_value" if cfg.music_backend_available else "not_connected_value"),
+        translate(cfg.language, "backend_error"): cfg.music_backend_error,
+        translate(cfg.language, "capabilities"): capabilities or "-",
     }
 
 

@@ -37,6 +37,13 @@ Window {
         return djconnect.t(key)
     }
 
+    function languageIndex() {
+        for (var i = 0; i < languageBox.model.length; i++) {
+            if (languageBox.model[i].code === djconnect.language) return i
+        }
+        return 0
+    }
+
     function repeatLabel(value) {
         if (value === "track") return root.tr("repeat_one")
         if (value === "context") return root.tr("repeat")
@@ -1746,12 +1753,15 @@ Window {
                     id: languageBox
                     font.pixelSize: 28
                     model: [
+                        { code: "en", label: "English" },
                         { code: "nl", label: "Nederlands" },
-                        { code: "en", label: "English" }
+                        { code: "de", label: "Deutsch" },
+                        { code: "fr", label: "Français" },
+                        { code: "es", label: "Español" }
                     ]
                     textRole: "label"
                     valueRole: "code"
-                    currentIndex: djconnect.language === "en" ? 1 : 0
+                    currentIndex: root.languageIndex()
                     delegate: ItemDelegate {
                         width: languageBox.width
                         text: modelData.label
@@ -2574,7 +2584,7 @@ Window {
                                         model: modelData.analysis && modelData.analysis.providers ? modelData.analysis.providers : []
 
                                         Text {
-                                            text: "• " + [modelData.label || modelData.providerId || "Unknown", modelData.status || "Unknown", modelData.reason || ""].filter(function(value) { return value.length > 0 }).join(" · ")
+                                            text: "• " + [modelData.label || modelData.providerId || root.tr("unknown"), modelData.status || root.tr("unknown"), modelData.reason || ""].filter(function(value) { return value.length > 0 }).join(" · ")
                                             color: "#9fb2d0"
                                             font.pixelSize: 12
                                             wrapMode: Text.WordWrap
@@ -2727,7 +2737,7 @@ Window {
 
                                                 AskDjGradientButton {
                                                     id: askDjActionButton
-                                                    text: modelData.isOutput ? root.tr("activate") : (modelData.isMedia ? "Play Now" : (modelData.title || root.tr("start")))
+                                                    text: modelData.isOutput ? root.tr("activate") : (modelData.isMedia ? root.tr("play_now") : (modelData.title || root.tr("start")))
                                                     font.pixelSize: (modelData.isMedia || modelData.isOutput) ? 16 : 18
                                                     Layout.fillWidth: !(modelData.isMedia || modelData.isOutput)
                                                     Layout.preferredWidth: (modelData.isMedia || modelData.isOutput) ? 118 : 0

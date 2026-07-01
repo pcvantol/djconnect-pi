@@ -1,5 +1,19 @@
 # Changelog
 
+## 3.2.3
+
+- Add Raspberry Pi client localization support for English, Dutch, German,
+  French and Spanish across touch UI, update UI, setup/status strings, Ask DJ
+  fallback labels and local API display payloads.
+- Default unsupported language settings to English while still detecting
+  supported Raspberry Pi OS locales locally; Home Assistant language
+  provisioning remains ESP-only.
+- Add translation validation for supported locale key parity, placeholder
+  parity and QML translation-key coverage so future user-facing strings must be
+  added consistently.
+- Extend Raspberry Pi OS bootstrap locale generation to include the supported
+  UI language families.
+
 ## 3.2.2
 
 - Align the Raspberry Pi local-device pairing shape with the ESP32/HA contract:

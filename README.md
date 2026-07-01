@@ -1,6 +1,6 @@
 # DJConnect Pi
 
-Version: `3.2.2`
+Version: `3.2.3`
 
 Raspberry Pi Zero 2 W touch-display client for DJConnect. This client uses
 Qt Quick/QML with a PySide6 backend and is meant for a Pimoroni HyperPixel 4.0
@@ -148,8 +148,8 @@ The app is a 720x720 fullscreen touch remote:
   blanked state returns to Speelt nu and refreshes playback immediately, and
   screen navigation restarts the idle timer
 - touch-only local games: Paddle Rally, Meteor Run, Sky Dash and Maze Chase
-- Dutch/English user-facing text, including game labels and fallback playback
-  text
+- English, Dutch, German, French and Spanish user-facing text, including game
+  labels and fallback playback text
 - visible Client adres for Home Assistant pairing
 - DJ response text overlay
 - logs viewer
@@ -169,8 +169,9 @@ The app is a 720x720 fullscreen touch remote:
 - separate nightly reboot timer at 04:30 for wall-device freshness
 
 The initial language is detected from the Raspberry Pi OS locale and then stored
-locally. Home Assistant does not provision UI language for Raspberry Pi clients;
-only ESP clients use HA language provisioning.
+locally. Supported UI languages are `en`, `nl`, `de`, `fr` and `es`; unsupported
+locales fall back to English. Home Assistant does not provision UI language for
+Raspberry Pi clients; only ESP clients use HA language provisioning.
 
 Queue row playback follows the app/HACS contract. A row is playable when Home
 Assistant provides a backend item reference. Spotify Direct rows may use
@@ -208,9 +209,9 @@ not a private source clone:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.2.2.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.2.3.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.2.2
+cd djconnect-pi-3.2.3
 sudo ./scripts/install.sh
 ```
 
@@ -321,9 +322,9 @@ installer:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.2.2.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.2.3.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.2.2
+cd djconnect-pi-3.2.3
 sudo ./scripts/install.sh
 ```
 

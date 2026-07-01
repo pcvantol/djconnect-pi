@@ -119,7 +119,7 @@ Window {
                 spacing: 2
 
                 Text {
-                    text: "Huidige versie"
+                    text: updater.t("current_version")
                     color: "#b9c9e8"
                     font.pixelSize: 12
                     font.bold: true
@@ -145,7 +145,7 @@ Window {
                 spacing: 2
 
                 Text {
-                    text: "Updaten naar"
+                    text: updater.t("target_version")
                     color: "#b9c9e8"
                     font.pixelSize: 12
                     font.bold: true
@@ -198,7 +198,7 @@ Window {
                 }
 
                 Text {
-                    text: "Voortgang: " + updater.progress + "%"
+                    text: updater.tf("progress_percent", updater.progress.toString())
                     color: "#b9c9e8"
                     font.pixelSize: 22
                     font.bold: true
@@ -209,7 +209,7 @@ Window {
 
         Button {
             id: detailsButton
-            text: updater.detailsOpen ? "Details verbergen" : "Meer details"
+            text: updater.detailsOpen ? updater.t("hide_update_details") : updater.t("update_details")
             font.pixelSize: 18
             font.bold: true
             Layout.fillWidth: true
@@ -244,7 +244,7 @@ Window {
             spacing: 8
 
             Text {
-                text: "Installer logs"
+                text: updater.t("installer_logs")
                 color: "#f4f8f8"
                 font.pixelSize: 18
                 font.bold: true
@@ -294,7 +294,7 @@ Window {
             spacing: 4
 
             Text {
-                text: "Remote meekijken"
+                text: updater.t("remote_viewing")
                 color: "#f4f8f8"
                 font.pixelSize: 14
                 font.bold: true
@@ -302,7 +302,7 @@ Window {
             }
 
             Text {
-                text: "SSH: " + updater.sshCommand
+                text: updater.tf("ssh_label", updater.sshCommand)
                 color: "#d7e2e4"
                 font.family: "monospace"
                 font.pixelSize: 14
@@ -311,7 +311,7 @@ Window {
             }
 
             Text {
-                text: "VNC tunnel: " + updater.vncCommand
+                text: updater.tf("vnc_tunnel_label", updater.vncCommand)
                 color: "#d7e2e4"
                 font.family: "monospace"
                 font.pixelSize: 14

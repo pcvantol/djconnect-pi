@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DJCONNECT_BOOTSTRAP_VERSION="${DJCONNECT_BOOTSTRAP_VERSION:-3.2.2}"
+DJCONNECT_BOOTSTRAP_VERSION="${DJCONNECT_BOOTSTRAP_VERSION:-3.2.3}"
 DJCONNECT_TIMEZONE="${DJCONNECT_TIMEZONE:-Europe/Amsterdam}"
 DJCONNECT_INSTALL_HYPERPIXEL="${DJCONNECT_INSTALL_HYPERPIXEL:-1}"
 DJCONNECT_HYPERPIXEL_MODEL="${DJCONNECT_HYPERPIXEL_MODEL:-square}"
@@ -218,8 +218,11 @@ configure_locale() {
     sed -i \
       -e 's/^# *en_GB.UTF-8 UTF-8/en_GB.UTF-8 UTF-8/' \
       -e 's/^# *nl_NL.UTF-8 UTF-8/nl_NL.UTF-8 UTF-8/' \
+      -e 's/^# *de_DE.UTF-8 UTF-8/de_DE.UTF-8 UTF-8/' \
+      -e 's/^# *fr_FR.UTF-8 UTF-8/fr_FR.UTF-8 UTF-8/' \
+      -e 's/^# *es_ES.UTF-8 UTF-8/es_ES.UTF-8 UTF-8/' \
       /etc/locale.gen
-    locale-gen en_GB.UTF-8 nl_NL.UTF-8
+    locale-gen en_GB.UTF-8 nl_NL.UTF-8 de_DE.UTF-8 fr_FR.UTF-8 es_ES.UTF-8
   fi
 
   update-locale LANG=en_GB.UTF-8 LC_CTYPE=en_GB.UTF-8

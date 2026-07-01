@@ -84,7 +84,8 @@ pass to `1` in `/etc/fstab`, enables periodic ext filesystem checks with
 `tune2fs`, enables NTP with `timedatectl set-ntp true` and
 `systemd-timesyncd.service` when present, enables SSH, runs an optional apt
 full-upgrade, installs minimal X11/kiosk dependencies, Qt runtime libraries,
-generates `en_GB.UTF-8` and `nl_NL.UTF-8` locales, attempts Raspberry Pi
+generates `en_GB.UTF-8`, `nl_NL.UTF-8`, `de_DE.UTF-8`, `fr_FR.UTF-8` and
+`es_ES.UTF-8` locales, attempts Raspberry Pi
 Connect, installs a localhost-only `x11vnc` screen-sharing service, configures
 the nightly reboot timer and configures HyperPixel. It is intentionally not
 included in DJConnect Pi release tarballs and is not part of the app release
@@ -187,9 +188,9 @@ completed:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.2.2.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.2.3.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.2.2
+cd djconnect-pi-3.2.3
 sudo ./scripts/install.sh
 ```
 
@@ -217,9 +218,9 @@ development checkout:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.2.2.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.2.3.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.2.2
+cd djconnect-pi-3.2.3
 sudo ./scripts/install.sh
 ```
 
@@ -391,8 +392,9 @@ Open `Setup` on the touch screen and configure:
 - `Screen off`: seconds of inactivity before the UI blanks to black. Use `0` to
   disable blanking. The default is 120 seconds; tap the screen to wake it.
 - `Brightness`: app-level visual brightness from 10% to 100%.
-- `Language`: Nederlands or English. The first value is read from Raspberry Pi
-  OS locale and is not provisioned by Home Assistant.
+- `Language`: English, Nederlands, Deutsch, Français or Español. The first
+  value is read from Raspberry Pi OS locale and is not provisioned by Home
+  Assistant.
 - `Updates`: `stable` for normal GitHub releases, `beta` to allow prereleases.
 - `Client adres`: enter this in the Home Assistant pairing flow when HA asks
   for it. HA may also discover the Pi through `_djconnect._tcp` mDNS.

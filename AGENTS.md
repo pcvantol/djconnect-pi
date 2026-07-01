@@ -13,3 +13,8 @@
   roadmap source is `pcvantol/djconnect/PRODUCT_ROADMAP.md`.
 - For cross-repo contract changes originating here, make a follow-up
   change/commit in `pcvantol/djconnect`.
+- User-facing touch UI, web portal, updater UI, setup/status/toast/API-display
+  strings must use stable keys in `src/djconnect_pi/i18n.py` and be present for
+  every supported locale: `en`, `nl`, `de`, `fr`, `es`. Keep protocol values,
+  endpoint paths, JSON keys, command names, auth tokens, machine-parsed error
+  codes and developer log tokens unlocalized.

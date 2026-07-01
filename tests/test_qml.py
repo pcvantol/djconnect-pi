@@ -378,7 +378,7 @@ def test_qml_ask_dj_screen_sends_text_without_audio_controls() -> None:
     assert "modelData.items || []" in ask_dj_block
     assert "modelData.time ||" in ask_dj_block
     assert 'source: modelData.imageUrl && modelData.imageUrl.length > 0 ? modelData.imageUrl : ""' in ask_dj_block
-    assert 'text: modelData.isOutput ? root.tr("activate") : (modelData.isMedia ? "Play Now" : (modelData.title || root.tr("start")))' in ask_dj_block
+    assert 'text: modelData.isOutput ? root.tr("activate") : (modelData.isMedia ? root.tr("play_now") : (modelData.title || root.tr("start")))' in ask_dj_block
     assert 'onClicked: djconnect.sendAskDjAction(modelData.payload || "{}")' in ask_dj_block
     assert "requestAskDjIdleSuggestion" not in ask_dj_block
     assert "playAskDjAction" not in ask_dj_block
@@ -512,8 +512,8 @@ def test_qml_has_update_progress_view_with_expandable_logs() -> None:
     assert "updater.logs" in update_qml
     assert "updater.currentVersion" in update_qml
     assert "updater.targetVersion" in update_qml
-    assert "Huidige versie" in update_qml
-    assert "Updaten naar" in update_qml
+    assert 'updater.t("current_version")' in update_qml
+    assert 'updater.t("target_version")' in update_qml
     assert 'text: "->"' in update_qml
     assert "id: updateProgressBar" in update_qml
     assert "updateProgressBar.visualPosition" in update_qml
@@ -522,13 +522,13 @@ def test_qml_has_update_progress_view_with_expandable_logs() -> None:
     assert "id: detailsButton" in update_qml
     assert "Layout.preferredHeight: 54" in update_qml
     assert "#d433ff" in update_qml
-    assert "Remote meekijken" in update_qml
+    assert 'updater.t("remote_viewing")' in update_qml
     assert "visible: !updater.detailsOpen" in update_qml
     assert "anchors.bottom: parent.bottom" in update_qml
     assert "updater.sshCommand" in update_qml
     assert "updater.vncCommand" in update_qml
     assert "updater.vncInstruction" in update_qml
-    assert '"VNC tunnel: "' in update_qml
+    assert 'updater.tf("vnc_tunnel_label", updater.vncCommand)' in update_qml
 
 
 def test_qml_uses_dark_djconnect_gradient_theme() -> None:

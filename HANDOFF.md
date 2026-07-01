@@ -159,9 +159,11 @@ Implemented:
   percentage.
 - Local language setting. First value comes from Raspberry Pi OS locale, not
   Home Assistant pairing provisioning.
-- Dutch/English translations are kept in `src/djconnect_pi/i18n.py`; tests
-  assert key parity. QML game titles use translation keys, not hardcoded
-  display strings.
+- Supported UI languages are English, Dutch, German, French and Spanish
+  (`en`, `nl`, `de`, `fr`, `es`); unsupported locales fall back to English.
+- Translations are kept in `src/djconnect_pi/i18n.py`; tests assert key parity,
+  placeholder parity and QML key coverage. QML game titles use translation
+  keys, not hardcoded display strings.
 - Shared spoken intent examples live in `examples/voice_intents.json` for docs
   and website alignment. `current_track` and `playback_control` examples are
   handled by Home Assistant after STT; the Pi keeps `voice:false` and does not
@@ -317,9 +319,9 @@ Not implemented by design:
   not the Desktop/GUI image.
 - Keep language client-owned for Raspberry Pi, just like iOS/macOS. Only ESP
   should consume HA language provisioning.
-- When adding user-facing text, add both Dutch and English translations and
-  avoid hardcoded display strings in QML except brand names and icon-like
-  controls such as `x`.
+- When adding user-facing text, add translations for all supported languages
+  (`en`, `nl`, `de`, `fr`, `es`) and avoid hardcoded display strings in QML
+  except brand names and icon-like controls such as `x`.
 - Keep local games client-only. They must not require HA pairing, keyboard input
   or backend traffic.
 - Screen blanking is implemented in the QML layer as a black wake-on-tap

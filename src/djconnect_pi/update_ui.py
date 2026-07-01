@@ -16,6 +16,7 @@ from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
 
 from .config import DEFAULT_CONFIG_PATH, load_config
+from .i18n import normalize_language, translate
 from .logging_config import setup_logging
 
 _LOGGER = logging.getLogger(__name__)
@@ -47,16 +48,17 @@ def wake_display() -> None:
 class UpdateUiBackend(QObject):
     statusChanged = Signal()
 
-    def __init__(self, status_file: Path, local_url: str) -> None:
+    def __init__(self, status_file: Path, local_url: str, language: str = "en") -> None:
         super().__init__()
         self.status_file = status_file
         self._device_address = _local_ip_from_config(local_url)
         self._ssh_command = f"ssh pi@{self._device_address}"
         self._vnc_command = f"ssh -L 5901:127.0.0.1:5901 pi@{self._device_address}"
-        self._vnc_instruction = "Open je VNC client naar localhost:5901"
+        self._language = normalize_language(language)
+        self._vnc_instruction = self.tr("vnc_instruction")
         self._mtime = 0.0
-        self._title = "DJConnect wordt bijgewerkt..."
-        self._message = "DJConnect installeert een nieuwe versie. Laat de Pi aan staan."
+        self._title = self.tr("app_update_title")
+        self._message = self.tr("app_update_message")
         self._progress = 0
         self._current_version = ""
         self._target_version = ""
@@ -67,6 +69,17 @@ class UpdateUiBackend(QObject):
         self._timer.timeout.connect(self.refresh)
         self._timer.start()
         self.refresh()
+
+    def tr(self, key: str, **values: object) -> str:
+        return translate(self._language, key, **values)
+
+    @Slot(str, result=str)
+    def t(self, key: str) -> str:
+        return self.tr(key)
+
+    @Slot(str, str, result=str)
+    def tf(self, key: str, value: str) -> str:
+        return self.tr(key, command=value, progress=value)
 
     @Property(str, notify=statusChanged)
     def title(self) -> str:
@@ -135,8 +148,8 @@ class UpdateUiBackend(QObject):
         except (TypeError, ValueError):
             progress = 0
         self._mtime = stat.st_mtime
-        self._title = str(data.get("title") or "DJConnect wordt bijgewerkt...")
-        self._message = str(data.get("message") or "DJConnect installeert een nieuwe versie. Laat de Pi aan staan.")
+        self._title = str(data.get("title") or self.tr("app_update_title"))
+        self._message = str(data.get("message") or self.tr("app_update_message"))
         self._progress = max(0, min(100, progress))
         self._current_version = str(data.get("current_version") or "")
         self._target_version = str(data.get("target_version") or "")
@@ -158,7 +171,7 @@ def main() -> None:
     QQuickStyle.setStyle("Basic")
     app = QGuiApplication(sys.argv)
     engine = QQmlApplicationEngine()
-    backend = UpdateUiBackend(Path(cfg.updater_status_file), cfg.local_url)
+    backend = UpdateUiBackend(Path(cfg.updater_status_file), cfg.local_url, cfg.language)
     engine.rootContext().setContextProperty("updater", backend)
     engine.rootContext().setContextProperty("startWindowed", args.windowed)
     engine.load(str(files("djconnect_pi.qml").joinpath("UpdateProgress.qml")))

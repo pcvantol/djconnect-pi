@@ -45,7 +45,7 @@ def test_backend_monkey_touch_actions_do_not_break_state(tmp_path: Path, monkeyp
         assert 0 <= backend.screenTimeoutSeconds
         assert 10 <= backend.screenBrightnessPercent <= 100
         assert backend.updateChannel in {"stable", "beta"}
-        assert backend.language in {"nl", "en"}
+        assert backend.language in {"en", "nl", "de", "fr", "es"}
         assert backend.repeat in {"off", "context", "track"}
         assert isinstance(backend.statusText, str)
         assert isinstance(backend.title, str)

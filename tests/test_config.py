@@ -92,7 +92,7 @@ def test_load_config_normalizes_runtime_settings(tmp_path: Path) -> None:
     assert loaded.screen_timeout_seconds == 0
     assert loaded.screen_brightness_percent == 100
     assert loaded.update_channel == "stable"
-    assert loaded.language == "nl"
+    assert loaded.language == "de"
     assert loaded.device_name == "DJConnect"
     assert loaded.version == PROTOCOL_VERSION
 
@@ -104,10 +104,13 @@ def test_default_language_uses_raspberry_pi_locale() -> None:
     with patch("djconnect_pi.config.locale.getlocale", return_value=("en_GB", "UTF-8")):
         assert default_language_from_system() == "en"
 
+    with patch("djconnect_pi.config.locale.getlocale", return_value=("de_DE", "UTF-8")):
+        assert default_language_from_system() == "de"
+
 
 def test_default_language_falls_back_to_english_for_unknown_locale() -> None:
     with (
-        patch("djconnect_pi.config.locale.getlocale", return_value=("de_DE", "UTF-8")),
+        patch("djconnect_pi.config.locale.getlocale", return_value=("it_IT", "UTF-8")),
         patch.dict("djconnect_pi.config.os.environ", {}, clear=True),
     ):
         assert default_language_from_system() == "en"

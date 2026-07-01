@@ -280,7 +280,7 @@ class DJConnectBackend(QObject):
 
     @Property(str, constant=True)
     def transportMode(self) -> str:
-        return "Local only"
+        return self.tr_key("local_only")
 
     @Property(str, notify=settingsChanged)
     def connectionType(self) -> str:
@@ -288,8 +288,8 @@ class DJConnectBackend(QObject):
             return self.tr_key("not_connected_value")
         diagnostics = self.client.diagnostics()
         if diagnostics.get("websocketConnected") is True or diagnostics.get("fastPathTransport") == "websocket":
-            return "Local WebSocket fast path"
-        return "Local HTTP fallback"
+            return self.tr_key("local_websocket_fast_path")
+        return self.tr_key("local_http_fallback")
 
     @Property(str, notify=settingsChanged)
     def musicBackendName(self) -> str:
@@ -2404,9 +2404,9 @@ def _ask_dj_analysis_providers(value: object) -> list[dict[str, object]]:
         reason = str(item.get("reason") or "").strip()
         requires_config = item.get("requires_config") if "requires_config" in item else item.get("requiresConfig")
         provider: dict[str, object] = {
-            "providerId": provider_id or "Unknown",
+            "providerId": provider_id or translate("en", "unknown"),
             "displayName": display_name,
-            "status": status or "Unknown",
+            "status": status or translate("en", "unknown"),
             "reason": reason,
             "requiresConfig": requires_config if isinstance(requires_config, bool) else None,
         }
@@ -2519,11 +2519,11 @@ def _ask_dj_actions(playback_actions: object, confirmation_actions: object) -> l
             title = str(item.get("button_label") or item.get("label") or item.get("title") or item.get("name") or "").strip()
             subtitle = str(item.get("subtitle") or item.get("artist") or item.get("description") or "").strip()
             if kind == "confirmation" or str(item.get("action_style") or "") == "confirmation":
-                title = title or ("Ja" if str(item.get("response_value") or "").lower() == "yes" else "Nee")
+                title = title or translate("en", "yes" if str(item.get("response_value") or "").lower() == "yes" else "no")
             elif not title and kind == "control" and str(item.get("command") or "").strip() == "save_current_track":
-                title = "Zet in favorieten"
+                title = translate("en", "favorite_action")
             elif not title:
-                title = "Play Now"
+                title = translate("en", "play_now")
             is_output = _is_output_action(item)
             is_confirmation = kind == "confirmation" or str(item.get("action_style") or "") == "confirmation"
             is_recommendation = kind in {"track", "album", "artist", "playlist", "track_mix"} or str(item.get("action_style") or "") == "play_now"

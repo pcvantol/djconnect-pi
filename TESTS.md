@@ -22,7 +22,8 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 ## Coverage Areas
 
 - config creation, persistence and device ID backfill
-- Dutch/English translation key parity and selected user-facing copy checks
+- English/Dutch/German/French/Spanish translation key parity, placeholder
+  parity, QML key coverage and selected user-facing copy checks
 - Home Assistant pairing/status/command payloads
 - Home Assistant command payloads include `device_id` and
   `client_type=raspberry_pi`

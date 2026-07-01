@@ -14,6 +14,7 @@ import time
 from .client_api import ClientAPI, ClientAPIState
 from .config import DEFAULT_CONFIG_PATH, Config, generate_pairing_code, load_config, save_config
 from .ha import AuthenticationError, BackendUnavailable, DJConnectError, HAClient, Playback
+from .i18n import translate
 from .logging_config import setup_logging
 from .system_info import log_raspberry_pi_system_info
 
@@ -82,7 +83,7 @@ class ClientAPIDaemon:
         playlists: list[dict[str, object]] = []
         logs = ""
         backend_available = bool(self.cfg.paired and self.cfg.device_token)
-        status_text = "Verbonden" if backend_available else "Niet gekoppeld"
+        status_text = translate(self.cfg.language, "connected" if backend_available else "not_paired")
         fast_path_diagnostics: dict[str, object] = {}
         if self.cfg.paired and self.cfg.device_token and self.cfg.ha_url:
             client = HAClient(self.cfg)
@@ -135,12 +136,12 @@ class ClientAPIDaemon:
                 "update_channel": self.cfg.update_channel,
             },
             "about": {
-                "Versie": self.cfg.version,
-                "Apparaatnaam": self.cfg.device_name,
-                "Device ID": self.cfg.device_id,
-                "Client adres": self.cfg.local_url,
-                "Home Assistant": self.cfg.ha_url,
-                "Home Assistant": "Gekoppeld" if self.cfg.paired else "Niet gekoppeld",
+                translate(self.cfg.language, "version"): self.cfg.version,
+                translate(self.cfg.language, "device_name"): self.cfg.device_name,
+                translate(self.cfg.language, "device_id"): self.cfg.device_id,
+                translate(self.cfg.language, "client_api_url_label"): self.cfg.local_url,
+                translate(self.cfg.language, "home_assistant"): translate(self.cfg.language, "paired" if self.cfg.paired else "not_paired"),
+                translate(self.cfg.language, "ha_local_url"): self.cfg.ha_url,
             },
             "diagnostics": self._diagnostics(backend_available=backend_available, fast_path=fast_path_diagnostics),
         }

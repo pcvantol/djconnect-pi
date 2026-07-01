@@ -985,13 +985,15 @@ def test_backend_persists_language_and_translates(tmp_path: Path) -> None:
     assert reloaded.language == "en"
 
 
-def test_backend_rejects_unknown_language(tmp_path: Path) -> None:
+def test_backend_accepts_supported_language_and_rejects_unknown_language(tmp_path: Path) -> None:
     ensure_app()
     backend = DJConnectBackend(tmp_path / "config.json")
 
     backend.setLanguage("de")
+    assert backend.language == "de"
 
-    assert backend.language == "nl"
+    backend.setLanguage("it")
+    assert backend.language == "en"
 
 
 def test_backend_quit_app_requests_qcoreapplication_quit(tmp_path: Path) -> None:

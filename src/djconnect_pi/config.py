@@ -12,7 +12,7 @@ import uuid
 from .i18n import normalize_language
 
 CLIENT_TYPE = "raspberry_pi"
-PROTOCOL_VERSION = "3.2.2"
+PROTOCOL_VERSION = "3.2.3"
 DEFAULT_CONFIG_PATH = Path.home() / ".config" / "djconnect-pi" / "config.json"
 DEFAULT_LOG_PATH = Path.home() / ".local" / "state" / "djconnect-pi" / "client.log"
 
@@ -75,11 +75,7 @@ def default_language_from_system() -> str:
         if candidate:
             language = candidate.lower()
             break
-    if language.startswith("nl"):
-        return "nl"
-    if language.startswith("en"):
-        return "en"
-    return "en"
+    return normalize_language(language)
 
 
 def load_config(path: Path) -> Config:

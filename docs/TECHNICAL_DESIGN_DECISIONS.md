@@ -55,7 +55,7 @@ not install apt packages.
 | No broad framework dependency injection container | Objects are composed explicitly from config/client classes. |
 | HTTP timeouts are mandatory on external requests | HA client and updater use `requests` with explicit timeouts. |
 | HA/UI performance paths log elapsed milliseconds | `ha.py` and `app.py` use `time.monotonic()` around HTTP calls and UI workers. |
-| User-facing strings go through translation keys | `src/djconnect_pi/i18n.py`; QML calls `djconnect.t(...)`; tests assert translation parity. |
+| User-facing strings go through translation keys | `src/djconnect_pi/i18n.py`; QML calls `djconnect.t(...)`; tests assert translation key parity, placeholder parity and QML key coverage for `en`, `nl`, `de`, `fr` and `es`. |
 | Sensitive runtime state is kept outside release directories | Config/logs live under `/opt/djconnect/config` and `/opt/djconnect/logs`; releases live under `/opt/djconnect/releases/<version>`. |
 | Console entrypoints are declared in package metadata | `pyproject.toml` `[project.scripts]`. |
 | Tests prefer focused contract assertions | `tests/test_installation_contract.py`, `tests/test_qml.py`, `tests/test_client_api.py`. |
@@ -221,7 +221,7 @@ state. License metadata is maintained by Debian/Raspberry Pi packages in
 | `libxcb-shape0` | OS repository managed | Qt xcb platform plugin runtime | https://packages.debian.org/trixie/libxcb-shape0 |
 | `libxcb-xinerama0` | OS repository managed | Qt xcb platform plugin runtime | https://packages.debian.org/trixie/libxcb-xinerama0 |
 | `libxcb-xinput0` | OS repository managed | Qt xcb touch/input runtime | https://packages.debian.org/trixie/libxcb-xinput0 |
-| `locales` | OS repository managed | `en_GB.UTF-8`, `nl_NL.UTF-8` locale generation | https://packages.debian.org/trixie/locales |
+| `locales` | OS repository managed | `en_GB.UTF-8`, `nl_NL.UTF-8`, `de_DE.UTF-8`, `fr_FR.UTF-8`, `es_ES.UTF-8` locale generation | https://packages.debian.org/trixie/locales |
 | `python3-pip` | OS repository managed | bootstrap/venv package tooling | https://packages.debian.org/trixie/python3-pip |
 | `python3-venv` | OS repository managed | release virtualenv creation | https://packages.debian.org/trixie/python3-venv |
 | `ssh` | OS repository managed | remote maintenance and deploy access | https://packages.debian.org/trixie/ssh |

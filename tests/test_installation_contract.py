@@ -233,7 +233,7 @@ def test_repo_only_os_bootstrap_targets_lite_with_minimal_kiosk_runtime() -> Non
     assert "raspi-config nonint do_ssh 0" in script
     assert "apt-get -y full-upgrade" in script
     assert "locales" in script
-    assert "locale-gen en_GB.UTF-8 nl_NL.UTF-8" in script
+    assert "locale-gen en_GB.UTF-8 nl_NL.UTF-8 de_DE.UTF-8 fr_FR.UTF-8 es_ES.UTF-8" in script
     assert "update-locale LANG=en_GB.UTF-8 LC_CTYPE=en_GB.UTF-8" in script
     assert "xinit" in script
     assert "xserver-xorg" in script
