@@ -745,6 +745,82 @@ def test_queue_parser_preserves_optional_context_and_episode_uri() -> None:
     assert queue[1]["index"] == 4
 
 
+def test_queue_parser_renders_artist_album_identity_and_artwork_aliases() -> None:
+    queue = parse_queue_items(
+        {
+            "queue": [
+                {
+                    "title": "Nothing Else Matters",
+                    "artist": "Scala & Kolacny Brothers",
+                    "artist_name": "Fallback Artist",
+                    "subtitle": "Fallback Subtitle",
+                    "album": "Scala On The Rocks",
+                    "album_name": "Fallback Album",
+                    "id": "spotify:track:nothing-else",
+                    "duration_ms": 388000,
+                    "album_image_url": "https://example.test/album.jpg",
+                    "image_url": "https://example.test/image.jpg",
+                    "thumbnail_url": "https://example.test/thumb.jpg",
+                }
+            ]
+        }
+    )
+
+    assert queue == [
+        {
+            "title": "Nothing Else Matters",
+            "subtitle": "Scala & Kolacny Brothers",
+            "artist": "Scala & Kolacny Brothers",
+            "album": "Scala On The Rocks",
+            "uri": "spotify:track:nothing-else",
+            "imageUrl": "https://example.test/album.jpg",
+            "tint": "#38bdf8",
+            "contextUri": "",
+            "index": None,
+        }
+    ]
+
+
+def test_queue_parser_accepts_nested_items_and_preserves_container_context() -> None:
+    queue = parse_queue_items(
+        {
+            "queue": {
+                "context": "ignored display context",
+                "contextUri": "spotify:playlist:context-1",
+                "items": [
+                    {
+                        "title": "Track One",
+                        "artist_name": "Artist One",
+                        "album_name": "Album One",
+                        "uri": "spotify:track:1",
+                        "image_url": "https://example.test/image.jpg",
+                    },
+                    {
+                        "title": "Track Two",
+                        "subtitle": "Artist Two",
+                        "uri": "spotify:track:2",
+                        "thumbnail_url": "https://example.test/thumb.jpg",
+                        "context_uri": "spotify:album:item-context",
+                    },
+                ],
+            }
+        }
+    )
+
+    assert [item["title"] for item in queue] == ["Track One", "Track Two"]
+    assert queue[0]["subtitle"] == "Artist One"
+    assert queue[0]["album"] == "Album One"
+    assert queue[0]["imageUrl"] == "https://example.test/image.jpg"
+    assert queue[0]["contextUri"] == "spotify:playlist:context-1"
+    assert queue[1]["subtitle"] == "Artist Two"
+    assert queue[1]["imageUrl"] == "https://example.test/thumb.jpg"
+    assert queue[1]["contextUri"] == "spotify:album:item-context"
+
+
+def test_queue_parser_ignores_top_level_items_without_queue_container() -> None:
+    assert parse_queue_items({"items": [{"title": "Recommendation", "artist": "Artist", "uri": "spotify:track:1"}]}) == []
+
+
 def test_media_item_payload_allows_queue_item_without_context() -> None:
     payload = media_item_payload(
         "play_context_at",

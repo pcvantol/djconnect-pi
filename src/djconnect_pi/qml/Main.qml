@@ -793,6 +793,7 @@ Window {
                 title: item.title || "",
                 subtitle: item.subtitle || "",
                 artist: item.artist || "",
+                album: item.album || "",
                 uri: item.uri || "",
                 value: item.value || "",
                 contextUri: item.contextUri || "",
@@ -941,6 +942,15 @@ Window {
                                         visible: modelData.subtitle.length > 0
                                         color: "#b7c2d8"
                                         font.pixelSize: 17
+                                        elide: Text.ElideRight
+                                        width: parent.width
+                                    }
+
+                                    Text {
+                                        text: modelData.album || ""
+                                        visible: modelData.album && modelData.album.length > 0 && modelData.album !== modelData.subtitle
+                                        color: "#8fa0bf"
+                                        font.pixelSize: 14
                                         elide: Text.ElideRight
                                         width: parent.width
                                     }

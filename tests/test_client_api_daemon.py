@@ -28,6 +28,33 @@ def test_client_api_daemon_queue_parser_hides_repeated_current_track() -> None:
     assert queue == []
 
 
+def test_client_api_daemon_queue_parser_accepts_nested_artist_contract() -> None:
+    queue = client_api_daemon._parse_queue_items(
+        {
+            "queue": {
+                "context_uri": "spotify:playlist:context",
+                "items": [
+                    {
+                        "title": "Nothing Else Matters",
+                        "artist": "Scala & Kolacny Brothers",
+                        "album_name": "Scala On The Rocks",
+                        "id": "spotify:track:nothing-else",
+                        "album_image_url": "https://example.test/album.jpg",
+                    }
+                ],
+            }
+        }
+    )
+
+    assert queue[0]["title"] == "Nothing Else Matters"
+    assert queue[0]["subtitle"] == "Scala & Kolacny Brothers"
+    assert queue[0]["artist"] == "Scala & Kolacny Brothers"
+    assert queue[0]["album"] == "Scala On The Rocks"
+    assert queue[0]["uri"] == "spotify:track:nothing-else"
+    assert queue[0]["contextUri"] == "spotify:playlist:context"
+    assert queue[0]["imageUrl"] == "https://example.test/album.jpg"
+
+
 def test_client_api_daemon_writes_dj_response_event(tmp_path: Path) -> None:
     config_path = tmp_path / "config.json"
     event_file = tmp_path / "dj-response.json"

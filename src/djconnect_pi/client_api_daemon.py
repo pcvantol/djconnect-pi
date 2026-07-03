@@ -331,15 +331,17 @@ def _playback_payload(playback: Playback) -> dict[str, object]:
 
 def _parse_queue_items(data: dict[str, object]) -> list[dict[str, object]]:
     raw_queue = _first_present(data, ("queue",))
+    context_uri = str(_first_present(data, ("context_uri", "contextUri")) or "")
     if isinstance(raw_queue, dict):
         raw_items = raw_queue.get("items")
+        context_uri = str(raw_queue.get("context_uri") or raw_queue.get("contextUri") or raw_queue.get("queue_context") or raw_queue.get("queueContext") or context_uri)
     elif isinstance(raw_queue, list):
         raw_items = raw_queue
     else:
-        raw_items = _first_present(data, ("items",))
+        raw_items = None
     if not isinstance(raw_items, list):
         return []
-    return _dedupe_queue_items([parsed for item in raw_items[:100] if isinstance(item, dict) and (parsed := _media_item(item))])
+    return _dedupe_queue_items([parsed for item in raw_items[:100] if isinstance(item, dict) and (parsed := _queue_item(item, context_uri))])
 
 
 def _parse_playlist_items(data: dict[str, object]) -> list[dict[str, object]]:
@@ -400,6 +402,27 @@ def _media_item(item: dict[str, object], playlist: bool = False) -> dict[str, ob
         result["contextUri"] = context_uri
         result["index"] = index if isinstance(index, int) else None
     return result
+
+
+def _queue_item(item: dict[str, object], queue_context_uri: str = "") -> dict[str, object] | None:
+    title = str(item.get("title") or item.get("name") or item.get("display_title") or item.get("track_name") or "")
+    artist = str(item.get("artist") or item.get("artist_name") or item.get("subtitle") or "")
+    album = str(item.get("album") or item.get("album_name") or "")
+    uri = str(item.get("uri") or item.get("id") or item.get("track_uri") or "")
+    context_uri = str(item.get("context_uri") or item.get("contextUri") or item.get("queue_context") or item.get("queueContext") or queue_context_uri)
+    index = item.get("index")
+    image_url = str(item.get("album_image_url") or item.get("image_url") or item.get("thumbnail_url") or item.get("imageUrl") or "")
+    return {
+        "title": title,
+        "subtitle": artist,
+        "artist": artist,
+        "album": album,
+        "uri": uri,
+        "imageUrl": image_url,
+        "tint": "#38bdf8",
+        "contextUri": context_uri,
+        "index": index if isinstance(index, int) else None,
+    }
 
 
 def _first_present(data: dict[str, object], keys: tuple[str, ...]) -> object:
