@@ -151,6 +151,17 @@ def test_release_workflow_runs_postman_collection_with_newman() -> None:
     assert "DJConnect Pi Local Client API.postman_collection.json" in workflow
 
 
+def test_ci_and_release_flows_refresh_packaging_tools() -> None:
+    validate = ROOT.joinpath(".github/workflows/validate.yml").read_text(encoding="utf-8")
+    publish = ROOT.joinpath(".github/workflows/publish-release.yml").read_text(encoding="utf-8")
+    release_script = ROOT.joinpath("release.sh").read_text(encoding="utf-8")
+
+    expected = "python -m pip install --upgrade pip setuptools wheel"
+    assert expected in validate
+    assert expected in publish
+    assert "python3 -m pip install --upgrade pip setuptools wheel" in release_script
+
+
 def test_cleanup_script_removes_completed_actions_runs_for_deleted_tags() -> None:
     script = ROOT.joinpath("cleanup_old_releases.sh").read_text(encoding="utf-8")
 
@@ -208,6 +219,8 @@ def test_technical_design_decisions_document_is_part_of_docs() -> None:
     assert "zeroconf" in doc
     assert "## Release Maintenance Rule" in doc
     assert "clean stale files from `screenshots/`" in doc
+    assert "refresh and review third-party Python package constraints" in doc
+    assert "pip`, `setuptools`, `wheel" in doc
     assert "regenerate the representative\n  720x720 screen set" in doc
     assert "Clean out stale files in\n`screenshots/`" in contributing
 

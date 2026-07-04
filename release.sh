@@ -132,6 +132,7 @@ PY
 build_assets() {
   echo "+ build release assets"
   local dist="dist/djconnect-pi-${VERSION}"
+  run python3 -m pip install --upgrade pip setuptools wheel
   run rm -rf "$dist" "dist/djconnect-pi-${VERSION}.tar.gz" "dist/djconnect-pi-${VERSION}.sha256"
   run mkdir -p "$dist"
   run cp -R LICENSE README.md CHANGELOG.md docs examples systemd "$dist/"

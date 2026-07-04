@@ -129,6 +129,9 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
   both the touch UI and web portal state endpoint
 - installer/updater contract that pip self-upgrade is skipped by default and can
   still be forced with `DJCONNECT_UPGRADE_PIP=1`
+- CI/release contract that packaging tools (`pip`, `setuptools`, `wheel`) are
+  refreshed before test/build/wheel steps, and release docs require reviewing
+  third-party packages, GitHub Actions/Node tooling and OS/bootstrap packages
 - shared `examples/voice_intents.json` availability for website/docs alignment
   without enabling local Raspberry Pi voice capture
 - HA major/minor version compatibility checks and blocking mismatch behavior

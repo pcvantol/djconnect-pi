@@ -331,6 +331,13 @@ Also update `CHAT_BOOTSTRAP.md` after each release so the next Codex session
 has the current release number, validation status, public asset status and next
 expected action.
 
+Before each release, deliberately refresh and review third-party dependencies
+and tools: Python package constraints in `pyproject.toml`, installer/updater pip
+steps, `pip`/`setuptools`/`wheel`, GitHub Actions versions, Node/Newman tooling
+and Raspberry Pi OS/bootstrap package lists. Update
+`docs/TECHNICAL_DESIGN_DECISIONS.md` when dependency constraints, observed
+versions or tool choices change.
+
 See `systemd/` for service and timer templates.
 
 ## Manual Pi Software Update

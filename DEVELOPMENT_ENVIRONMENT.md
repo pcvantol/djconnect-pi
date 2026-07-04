@@ -192,6 +192,22 @@ writes checksums, commits, tags, pushes and creates the source GitHub release.
 The source release workflow publishes public install artifacts to
 `pcvantol/djconnect-pi-releases`.
 
+As part of release preparation, refresh third-party dependencies and tooling
+deliberately:
+
+- review Python package constraints in `pyproject.toml` and installer/updater
+  pip steps for PySide6, requests, websocket-client, zeroconf, pytest and build
+  tooling
+- upgrade local/CI packaging tools with `python -m pip install --upgrade pip
+  setuptools wheel` before building wheels
+- review GitHub Actions tool versions such as `actions/checkout`,
+  `actions/setup-python`, `actions/setup-node` and the `newman` CLI used by the
+  Postman contract test
+- review Raspberry Pi OS/bootstrap package lists when runtime libraries or
+  device tooling change
+- update `docs/TECHNICAL_DESIGN_DECISIONS.md` dependency inventory whenever
+  constraints, observed versions, tools or OS packages change
+
 After a successful release or install, update repo hygiene docs when relevant,
 including:
 

@@ -253,6 +253,10 @@ For every future DJConnect Pi release:
 - update this document if code structure, patterns, service boundaries,
   dependencies, dependency versions, OS package requirements, packaging or
   release flow changes
+- refresh and review third-party Python package constraints, packaging tools
+  (`pip`, `setuptools`, `wheel`), GitHub Actions tool versions, Node/Newman
+  tooling and Raspberry Pi OS/bootstrap package lists before cutting the
+  release
 - update `README.md`, `CHANGELOG.md`, `HANDOFF.md`, `TESTS.md`, `TODO.md`,
   `ISSUES.md`, `CHAT_BOOTSTRAP.md` and relevant `docs/` files
 - extend tests when a design decision becomes a regression risk
