@@ -44,6 +44,7 @@ class Config:
     music_target_player: dict[str, str] = field(default_factory=dict)
     music_backend_error: str = ""
     music_dna_key: str = ""
+    mood: int | None = None
     websocket_fast_path_enabled: bool = False
     ha_websocket_token: str = ""
     dj_response_file: str = str(DEFAULT_LOG_PATH.parent / "dj-response.json")
@@ -97,11 +98,21 @@ def load_config(path: Path) -> Config:
         cfg.pairing_code = generate_pairing_code()
     cfg.screen_timeout_seconds = max(0, int(cfg.screen_timeout_seconds))
     cfg.screen_brightness_percent = max(10, min(100, int(cfg.screen_brightness_percent)))
+    cfg.mood = _optional_mood(cfg.mood)
     cfg.local_api_port = max(1, min(65535, int(cfg.local_api_port)))
     cfg.language = normalize_language(cfg.language)
     if cfg.update_channel not in {"stable", "beta"}:
         cfg.update_channel = "stable"
     return cfg
+
+
+def _optional_mood(value: object) -> int | None:
+    if value in (None, ""):
+        return None
+    try:
+        return max(0, min(100, int(value)))
+    except (TypeError, ValueError):
+        return None
 
 
 def save_config(path: Path, cfg: Config) -> None:

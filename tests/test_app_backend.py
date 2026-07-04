@@ -361,8 +361,13 @@ def test_ask_dj_track_insight_renders_music_dna_without_playback_actions() -> No
             "track_insight": {
                 "track": {"title": "Strobe", "artist": "deadmau5", "album": "For Lack of a Better Name"},
                 "analysis": {
+                    "summary": "A progressive electronic slow burn.",
+                    "genre": "Progressive house",
+                    "subgenre": "Melodic progressive",
                     "vibe": "Long progressive build with a patient emotional payoff.",
                     "why_it_fits": ["Melodic tension", "Late-night electronic focus"],
+                    "energy": 81,
+                    "danceability": 68,
                     "bpm": 128,
                     "key": "C minor",
                 },
@@ -388,16 +393,21 @@ def test_ask_dj_track_insight_renders_music_dna_without_playback_actions() -> No
     assert messages[0]["trackInsightData"]["visual_profile"] == {"palette": ["blue", "violet"]}
     assert messages[0]["items"][0]["title"] == "Music DNA Match"
     assert messages[0]["items"][0]["value"] == "92%"
-    assert messages[0]["analysis"]["sections"][0]["title"] == "Vibe"
-    assert messages[0]["analysis"]["sections"][1]["title"] == "Why it fits you"
-    assert messages[0]["analysis"]["sections"][2]["title"] == "This expands your Music DNA."
+    item_titles = [item["title"] for item in messages[0]["items"]]
+    assert "BPM" not in item_titles
+    assert "Key" not in item_titles
+    assert "Energy" in item_titles
+    assert "Danceability" in item_titles
+    section_titles = [section["title"] for section in messages[0]["analysis"]["sections"]]
+    assert section_titles[:4] == ["Summary", "Genre", "Vibe", "Why it fits you"]
+    assert "This expands your Music DNA." in section_titles
 
 
 def test_ask_dj_track_insight_no_track_playing_is_empty_state() -> None:
     messages = parse_ask_dj_messages({"intent": "track_insight", "track_insight": {"error": "no_track_playing"}})
 
     assert messages[0]["trackInsight"] is True
-    assert messages[0]["text"] == "No track playing."
+    assert messages[0]["text"] == "Er speelt nu geen track."
     assert messages[0]["actions"] == []
     assert messages[0]["items"] == []
 

@@ -195,8 +195,8 @@ def test_ask_dj_history_gets_since_revision() -> None:
     assert captured["headers"]["X-DJConnect-Client-Type"] == "raspberry_pi"
 
 
-def test_ask_dj_message_posts_text_identity_and_never_audio_response() -> None:
-    cfg = Config(ha_url="http://ha", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1", language="nl")
+def test_ask_dj_message_posts_text_identity_mood_and_auto_audio_response() -> None:
+    cfg = Config(ha_url="http://ha", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1", language="nl", mood=72)
     client = HAClient(cfg)
     captured: dict[str, Any] = {}
 
@@ -211,13 +211,19 @@ def test_ask_dj_message_posts_text_identity_and_never_audio_response() -> None:
 
     assert captured["url"] == "http://ha/api/djconnect/ask_dj/message"
     assert captured["headers"]["Authorization"] == "Bearer token-1"
+    assert captured["headers"]["Accept-Language"] == "nl-NL"
+    assert captured["headers"]["X-DJConnect-Language"] == "nl-NL"
+    assert captured["headers"]["X-DJConnect-Locale"] == "nl-NL"
+    assert captured["headers"]["X-DJConnect-Mood"] == "72"
     assert captured["json"]["client_type"] == "raspberry_pi"
     assert captured["json"]["device_id"] == "djconnect-raspberry-pi-ABCDEF123456"
     assert captured["json"]["client_id"] == "djconnect-raspberry-pi-ABCDEF123456"
     assert captured["json"]["client_message_id"] == "msg-1"
     assert captured["json"]["text"] == "Wat speelt er?"
     assert captured["json"]["language"] == "nl-NL"
-    assert captured["json"]["audio_response"] == "never"
+    assert captured["json"]["locale"] == "nl-NL"
+    assert captured["json"]["mood"] == 72
+    assert captured["json"]["audio_response"] == "auto"
     assert captured["json"]["identity"]["client_type"] == "raspberry_pi"
     assert "message" not in captured["json"]
     assert "prompt" not in captured["json"]
@@ -268,6 +274,28 @@ def test_ask_dj_action_uses_structured_command_payload() -> None:
     assert "text" not in captured["json"]
 
 
+def test_status_and_command_forward_optional_mood() -> None:
+    cfg = Config(ha_url="http://ha", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1", mood=12)
+    client = HAClient(cfg)
+    captured: list[dict[str, Any]] = []
+
+    def fake_post(url: str, **kwargs: Any) -> FakeResponse:
+        captured.append({"url": url, "json": kwargs["json"], "headers": kwargs["headers"]})
+        return FakeResponse(200, {"success": True})
+
+    with patch("djconnect_pi.ha.requests.post", side_effect=fake_post):
+        client.status(Playback(title="Track", artist="Artist"))
+        client.command("ask_dj_play_recommendation", value={"uri": "spotify:track:1"})
+
+    assert captured[0]["url"] == "http://ha/api/djconnect/status"
+    assert captured[0]["json"]["mood"] == 12
+    assert captured[0]["headers"]["X-DJConnect-Mood"] == "12"
+    assert captured[1]["url"] == "http://ha/api/djconnect/command"
+    assert captured[1]["json"]["command"] == "ask_dj_play_recommendation"
+    assert captured[1]["json"]["mood"] == 12
+    assert captured[1]["headers"]["X-DJConnect-Mood"] == "12"
+
+
 def test_track_insight_posts_current_track_metadata_and_music_dna_headers() -> None:
     cfg = Config(
         ha_url="http://ha",
@@ -275,6 +303,7 @@ def test_track_insight_posts_current_track_metadata_and_music_dna_headers() -> N
         device_token="token-1",
         language="nl",
         music_dna_key="music-dna-1",
+        mood=88,
     )
     cfg.music_backend = "music_assistant"
     cfg.music_target_player = {"id": "media_player.mass_woonkamer", "name": "Woonkamer"}
@@ -294,12 +323,47 @@ def test_track_insight_posts_current_track_metadata_and_music_dna_headers() -> N
     assert captured["headers"]["Authorization"] == "Bearer token-1"
     assert captured["headers"]["X-DJConnect-Device-ID"] == "djconnect-raspberry-pi-ABCDEF123456"
     assert captured["headers"]["X-DJConnect-Music-DNA-Key"] == "music-dna-1"
+    assert captured["headers"]["X-DJConnect-Mood"] == "88"
     assert captured["json"]["title"] == "Strobe"
     assert captured["json"]["artist"] == "deadmau5"
+    assert captured["json"]["track"] == {"title": "Strobe", "artist": "deadmau5"}
     assert captured["json"]["player_id"] == "media_player.mass_woonkamer"
     assert captured["json"]["music_backend"] == "music_assistant"
+    assert captured["json"]["language"] == "nl-NL"
     assert captured["json"]["locale"] == "nl-NL"
+    assert captured["json"]["mood"] == 88
     assert captured["json"]["include_visual_profile"] is True
+
+
+def test_music_dna_profile_posts_identity_language_mood_and_key() -> None:
+    cfg = Config(
+        ha_url="http://ha",
+        device_id="djconnect-raspberry-pi-ABCDEF123456",
+        device_token="token-1",
+        language="es",
+        music_dna_key="dna-1",
+        mood=35,
+    )
+    client = HAClient(cfg)
+    captured: dict[str, Any] = {}
+
+    def fake_post(url: str, **kwargs: Any) -> FakeResponse:
+        captured["url"] = url
+        captured["json"] = kwargs["json"]
+        captured["headers"] = kwargs["headers"]
+        return FakeResponse(200, {"success": True, "enabled": True, "summary": "Perfil"})
+
+    with patch("djconnect_pi.ha.requests.post", side_effect=fake_post):
+        client.music_dna_profile()
+
+    assert captured["url"] == "http://ha/api/djconnect/music_dna/profile"
+    assert captured["headers"]["X-DJConnect-Music-DNA-Key"] == "dna-1"
+    assert captured["headers"]["X-DJConnect-Mood"] == "35"
+    assert captured["json"]["client_type"] == "raspberry_pi"
+    assert captured["json"]["language"] == "es-ES"
+    assert captured["json"]["locale"] == "es-ES"
+    assert captured["json"]["mood"] == 35
+    assert captured["json"]["music_dna_key"] == "dna-1"
 
 
 def test_ask_dj_play_action_uses_action_command_or_play_recommendation() -> None:
@@ -878,7 +942,8 @@ def test_ask_dj_message_websocket_success_returns_messages_and_revisions() -> No
     assert payload["client_message_id"] == "msg-1"
     assert payload["text"] == "Tell me about this track"
     assert payload["language"] == "nl-NL"
-    assert payload["audio_response"] == "never"
+    assert payload["locale"] == "nl-NL"
+    assert payload["audio_response"] == "auto"
 
 
 def test_track_insight_websocket_success_returns_normalized_result() -> None:

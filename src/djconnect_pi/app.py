@@ -2063,7 +2063,7 @@ def _track_insight_text(item: dict[str, object]) -> str:
     payload = _track_insight_payload(item)
     error = str(payload.get("error") or item.get("error") or "").strip()
     if error == "no_track_playing":
-        return "No track playing."
+        return "Er speelt nu geen track."
     track = payload.get("track")
     if isinstance(track, dict):
         title = str(track.get("title") or track.get("name") or "").strip()
@@ -2100,12 +2100,34 @@ def _track_insight_music_dna_match(data: dict[str, object]) -> str:
 def _track_insight_analysis(data: dict[str, object]) -> dict[str, object]:
     analysis = data.get("analysis")
     music_dna = data.get("music_dna")
+    track = data.get("track")
     sections: list[dict[str, object]] = []
     if isinstance(analysis, dict):
-        vibe = str(analysis.get("vibe") or analysis.get("mood") or analysis.get("summary") or "").strip()
+        summary = str(analysis.get("summary") or analysis.get("full_text") or analysis.get("fullText") or "").strip()
+        genre = str(analysis.get("genre") or "").strip()
+        subgenre = str(analysis.get("subgenre") or "").strip()
+        track_genres = _string_list(track.get("genres")) if isinstance(track, dict) else []
+        genre_details = [value for value in [subgenre, *track_genres] if value and value != genre]
+        vibe = str(analysis.get("vibe") or analysis.get("mood") or analysis.get("texture") or analysis.get("emotional_tone") or "").strip()
         why = _string_list(analysis.get("why_it_fits") or analysis.get("whyItFits") or analysis.get("reasons"))
+        if summary:
+            sections.append({"id": "summary", "kind": "summary", "title": "Summary", "body": summary, "source": "", "confidence": "", "details": [], "metadataContext": False})
+        if genre or genre_details:
+            sections.append({"id": "genre", "kind": "genre", "title": "Genre", "body": genre, "source": "", "confidence": "", "details": genre_details, "metadataContext": False})
         if vibe:
             sections.append({"id": "vibe", "kind": "vibe", "title": "Vibe", "body": vibe, "source": "", "confidence": "", "details": [], "metadataContext": False})
+        for key, title in (
+            ("production_notes", "Production"),
+            ("instrumentation", "Instrumentation"),
+            ("arrangement_notes", "Arrangement"),
+            ("listening_cues", "Listening cues"),
+            ("similar_tracks", "Similar tracks"),
+            ("visual_profile", "Visual profile"),
+        ):
+            details = _string_list(analysis.get(key))
+            body = str(analysis.get(key) or "").strip() if not details else ""
+            if body or details:
+                sections.append({"id": key, "kind": key, "title": title, "body": body, "source": "", "confidence": "", "details": details, "metadataContext": False})
         if why:
             sections.append({"id": "why_it_fits", "kind": "music_dna", "title": "Why it fits you", "body": "", "source": "", "confidence": "", "details": why, "metadataContext": False})
         for section in _ask_dj_analysis_sections(analysis.get("sections")):
@@ -2230,7 +2252,7 @@ def _track_insight_items(data: dict[str, object]) -> list[dict[str, object]]:
             }
         )
     if isinstance(analysis, dict):
-        for key, title in (("bpm", "BPM"), ("key", "Key"), ("energy", "Energy"), ("danceability", "Danceability")):
+        for key, title in (("energy", "Energy"), ("danceability", "Danceability"), ("intensity", "Intensity"), ("confidence", "Confidence")):
             raw = analysis.get(key)
             if raw not in (None, ""):
                 items.append(
@@ -2487,7 +2509,7 @@ def _ask_dj_analysis_metadata(value: object) -> dict[str, object]:
 def _ask_dj_v1_analysis_sections(measured: dict[str, object], inferred: dict[str, object]) -> list[dict[str, object]]:
     sections: list[dict[str, object]] = []
     metric_parts = []
-    for label, key in (("BPM", "bpm"), ("Key", "key"), ("Energy", "energy"), ("Danceability", "danceability")):
+    for label, key in (("Energy", "energy"), ("Danceability", "danceability")):
         raw = measured.get(key)
         if raw not in (None, ""):
             metric_parts.append(f"{label}: {raw}")

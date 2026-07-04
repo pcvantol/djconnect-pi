@@ -93,7 +93,7 @@ class HAClient:
         self.fast_path = WebSocketFastPath(cfg, default_timeout=timeout)
 
     def pair(self, pair_code: str) -> dict[str, Any]:
-        payload = self._base_payload(include_language=False, pair_code=pair_code, ha_pairing_status="pending")
+        payload = self._base_payload(include_language=False, include_mood=False, pair_code=pair_code, ha_pairing_status="pending")
         url = self._url("/api/djconnect/pair")
         _LOGGER.debug("POST %s for device_id=%s client_type=%s", url, self.cfg.device_id, CLIENT_TYPE)
         started = time.monotonic()
@@ -212,7 +212,7 @@ class HAClient:
         body = self._ask_dj_payload(
             text=text,
             client_message_id=client_message_id,
-            audio_response="never",
+            audio_response="auto",
         )
         data = self._try_websocket("djconnect/ask_dj/message", body, command="djconnect/ask_dj/message", timeout=max(self.timeout, 10.0))
         if data is not None:
@@ -233,13 +233,19 @@ class HAClient:
         body = self._base_payload(
             force_refresh=force_refresh,
             include_visual_profile=include_visual_profile,
-            locale=self._locale(),
         )
         if playback is not None:
+            track: dict[str, Any] = {}
             if playback.title:
                 body["title"] = playback.title
+                track["title"] = playback.title
             if playback.artist:
                 body["artist"] = playback.artist
+                track["artist"] = playback.artist
+            if playback.image_url:
+                track["artwork_url"] = playback.image_url
+            if track:
+                body["track"] = track
             if self.cfg.music_target_player.get("id"):
                 body["player_id"] = self.cfg.music_target_player["id"]
             if self.cfg.music_backend:
@@ -250,6 +256,28 @@ class HAClient:
             self._validate_ha_version(data)
             return data
         url = self._url("/api/djconnect/track_insight")
+        _LOGGER.debug("POST %s client_type=%s device_id=%s", url, CLIENT_TYPE, self.cfg.device_id)
+        started = time.monotonic()
+        response = requests.post(url, json=body, headers=self._headers(), timeout=self.timeout)
+        _LOGGER.debug("POST %s returned HTTP %s in %.0fms", url, response.status_code, _elapsed_ms(started))
+        data = self._json(response)
+        self.update_backend_summary(data)
+        self._validate_ha_version(data)
+        return data
+
+    def music_dna_profile(self) -> dict[str, Any]:
+        return self._music_dna_request("/api/djconnect/music_dna/profile", self._base_payload())
+
+    def music_dna_settings(self, **settings: Any) -> dict[str, Any]:
+        return self._music_dna_request("/api/djconnect/music_dna/settings", self._base_payload(**settings))
+
+    def music_dna_clear(self) -> dict[str, Any]:
+        return self._music_dna_request("/api/djconnect/music_dna/clear", self._base_payload())
+
+    def _music_dna_request(self, path: str, body: dict[str, Any]) -> dict[str, Any]:
+        if self.cfg.music_dna_key:
+            body["music_dna_key"] = self.cfg.music_dna_key
+        url = self._url(path)
         _LOGGER.debug("POST %s client_type=%s device_id=%s", url, CLIENT_TYPE, self.cfg.device_id)
         started = time.monotonic()
         response = requests.post(url, json=body, headers=self._headers(), timeout=self.timeout)
@@ -379,7 +407,7 @@ class HAClient:
         self.cfg.music_backend_error = summary.error
         return summary
 
-    def _base_payload(self, *, include_language: bool = True, **extra: Any) -> dict[str, Any]:
+    def _base_payload(self, *, include_language: bool = True, include_mood: bool = True, **extra: Any) -> dict[str, Any]:
         payload = {
             "device_id": self.cfg.device_id,
             "device_name": self.cfg.device_name,
@@ -406,7 +434,9 @@ class HAClient:
             **extra,
         }
         if include_language:
-            payload["language"] = self._locale()
+            payload.update(self._language_payload())
+        if include_mood:
+            self._add_mood(payload)
         return payload
 
     def _ask_dj_payload(self, *, include_language: bool = True, **extra: Any) -> dict[str, Any]:
@@ -426,23 +456,48 @@ class HAClient:
             **extra,
         }
         if include_language:
-            payload["language"] = self._locale()
+            payload.update(self._language_payload())
+        self._add_mood(payload)
+        if self.cfg.music_dna_key:
+            payload["music_dna_key"] = self.cfg.music_dna_key
         return payload
 
     def _headers(self) -> dict[str, str]:
+        locale = self._locale()
         headers = {
             "Content-Type": "application/json",
             "X-DJConnect-Device-ID": self.cfg.device_id,
             "X-DJConnect-Client-Type": CLIENT_TYPE,
+            "Accept-Language": locale,
+            "X-DJConnect-Language": locale,
+            "X-DJConnect-Locale": locale,
         }
         if self.cfg.device_token:
             headers["Authorization"] = f"Bearer {self.cfg.device_token}"
         if self.cfg.music_dna_key:
             headers["X-DJConnect-Music-DNA-Key"] = self.cfg.music_dna_key
+        mood = self._mood()
+        if mood is not None:
+            headers["X-DJConnect-Mood"] = str(mood)
         return headers
 
     def _locale(self) -> str:
         return locale_for_language(self.cfg.language)
+
+    def _language_payload(self) -> dict[str, str]:
+        locale = self._locale()
+        return {"language": locale, "locale": locale}
+
+    def _mood(self) -> int | None:
+        mood = self.cfg.mood
+        if isinstance(mood, int) and 0 <= mood <= 100:
+            return mood
+        return None
+
+    def _add_mood(self, payload: dict[str, Any]) -> None:
+        mood = self._mood()
+        if mood is not None:
+            payload["mood"] = mood
 
     def diagnostics(self) -> dict[str, Any]:
         self.fast_path.update_config(self.cfg)
