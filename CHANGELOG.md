@@ -1,6 +1,6 @@
 # Changelog
 
-## 3.2.8
+## 3.2.9
 
 - Add the server-authoritative Music DNA dashboard/opt-in flow on Raspberry Pi,
   including profile/settings/clear UI, hidden empty dashboard blocks and no
