@@ -12,13 +12,22 @@ Implemented:
 - Dark DJConnect touch UI with blue/purple gradient backgrounds across the main
   screens, splash, games, logs and blocking overlays
 - Bottom navigation is a larger touch-friendly icon+label bar ordered Speelt
-  nu, Bediening, Wachtrij, Afspeellijsten, Games, Instellingen.
+  nu, Ask DJ, Track Insight, Ontdek, Music DNA and Meer. Meer keeps Bediening,
+  Wachtrij, Afspeellijsten, Games, Instellingen, Logs and Over reachable.
 - Speelt nu is display-focused: refresh, large unobstructed album art and
   title/artist overlay. It no longer sends hidden playback commands from cover
   taps, swipes or an album-art play/pause overlay.
 - Bediening is the dedicated touch-control screen with enlarged previous,
   play/pause, next, track progress, volume, output-device, shuffle and repeat
   controls.
+- Music DNA and Ontdek are renderer/controller surfaces for Home Assistant
+  data. The Pi never calculates Music DNA locally and does not store profile
+  data as a source of truth.
+- Ontdek checks Music DNA consent before loading recommendations. Accepting
+  consent enables Music DNA through HA, then loads the server feed; rejecting
+  consent shows the compact "Ontdek werkt alleen als Music DNA is geactiveerd"
+  state. Recommendation Play Now actions post to HA so HA can record the
+  interaction as a Music DNA signal.
 - Volume control is capped at HA value 60. The UI presents value 60 as 100% so
   the wall device cannot accidentally exceed the intended maximum loudness.
 - Screen timeout is a fixed dropdown with 30, 60, 90, 120, 180, 240, 300 and

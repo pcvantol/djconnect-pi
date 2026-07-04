@@ -266,17 +266,72 @@ class HAClient:
         return data
 
     def music_dna_profile(self) -> dict[str, Any]:
-        return self._music_dna_request("/api/djconnect/music_dna/profile", self._base_payload())
+        return self._music_dna_request("djconnect/music_dna/profile", "/api/djconnect/music_dna/profile", self._base_payload())
 
     def music_dna_settings(self, **settings: Any) -> dict[str, Any]:
-        return self._music_dna_request("/api/djconnect/music_dna/settings", self._base_payload(**settings))
+        return self._music_dna_request("djconnect/music_dna/settings", "/api/djconnect/music_dna/settings", self._base_payload(**settings))
 
     def music_dna_clear(self) -> dict[str, Any]:
-        return self._music_dna_request("/api/djconnect/music_dna/clear", self._base_payload())
+        return self._music_dna_request("djconnect/music_dna/clear", "/api/djconnect/music_dna/clear", self._base_payload())
 
-    def _music_dna_request(self, path: str, body: dict[str, Any]) -> dict[str, Any]:
+    def _music_dna_request(self, message_type: str, path: str, body: dict[str, Any]) -> dict[str, Any]:
         if self.cfg.music_dna_key:
             body["music_dna_key"] = self.cfg.music_dna_key
+        data = self._try_websocket(message_type, body, command=message_type, timeout=max(self.timeout, 10.0))
+        if data is not None:
+            self.update_backend_summary(data)
+            self._validate_ha_version(data)
+            return data
+        url = self._url(path)
+        _LOGGER.debug("POST %s client_type=%s device_id=%s", url, CLIENT_TYPE, self.cfg.device_id)
+        started = time.monotonic()
+        response = requests.post(url, json=body, headers=self._headers(), timeout=self.timeout)
+        _LOGGER.debug("POST %s returned HTTP %s in %.0fms", url, response.status_code, _elapsed_ms(started))
+        data = self._json(response)
+        self.update_backend_summary(data)
+        self._validate_ha_version(data)
+        return data
+
+    def music_discovery_feed(self) -> dict[str, Any]:
+        body = self._base_payload()
+        data = self._try_websocket("djconnect/music_discovery/feed", body, command="djconnect/music_discovery/feed", timeout=max(self.timeout, 10.0))
+        if data is not None:
+            self.update_backend_summary(data)
+            self._validate_ha_version(data)
+            return data
+        url = self._url("/api/djconnect/music_discovery")
+        params = {
+            "client_type": CLIENT_TYPE,
+            "client_id": self.cfg.device_id,
+            "device_id": self.cfg.device_id,
+            "device_name": self.cfg.device_name,
+        }
+        _LOGGER.debug("GET %s client_type=%s device_id=%s", url, CLIENT_TYPE, self.cfg.device_id)
+        started = time.monotonic()
+        response = requests.get(url, params=params, headers=self._headers(), timeout=self.timeout)
+        _LOGGER.debug("GET %s returned HTTP %s in %.0fms", url, response.status_code, _elapsed_ms(started))
+        data = self._json(response)
+        self.update_backend_summary(data)
+        self._validate_ha_version(data)
+        return data
+
+    def music_discovery_refresh(self) -> dict[str, Any]:
+        return self._music_discovery_request("djconnect/music_discovery/refresh", "/api/djconnect/music_discovery/refresh", self._base_payload())
+
+    def music_discovery_play(self, item: dict[str, Any]) -> dict[str, Any]:
+        body = self._base_payload(source="music_discovery", context="music_discovery")
+        for key in ("id", "recommendation_id", "item_id", "uri", "type", "kind", "title", "subtitle", "artist"):
+            value = item.get(key)
+            if value not in (None, ""):
+                body[key] = value
+        return self._music_discovery_request("djconnect/music_discovery/play", "/api/djconnect/music_discovery/play", body)
+
+    def _music_discovery_request(self, message_type: str, path: str, body: dict[str, Any]) -> dict[str, Any]:
+        data = self._try_websocket(message_type, body, command=message_type, timeout=max(self.timeout, 10.0))
+        if data is not None:
+            self.update_backend_summary(data)
+            self._validate_ha_version(data)
+            return data
         url = self._url(path)
         _LOGGER.debug("POST %s client_type=%s device_id=%s", url, CLIENT_TYPE, self.cfg.device_id)
         started = time.monotonic()

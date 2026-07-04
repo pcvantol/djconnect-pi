@@ -366,6 +366,79 @@ def test_music_dna_profile_posts_identity_language_mood_and_key() -> None:
     assert captured["json"]["music_dna_key"] == "dna-1"
 
 
+def test_music_dna_settings_enable_disable_payloads() -> None:
+    cfg = Config(ha_url="http://ha", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1")
+    client = HAClient(cfg)
+    captured: list[dict[str, Any]] = []
+
+    def fake_post(url: str, **kwargs: Any) -> FakeResponse:
+        captured.append(kwargs["json"])
+        return FakeResponse(200, {"success": True, "enabled": kwargs["json"]["enabled"], "profile": {"summary": "ok"}})
+
+    with patch("djconnect_pi.ha.requests.post", side_effect=fake_post):
+        client.music_dna_settings(enabled=True)
+        client.music_dna_settings(enabled=False)
+
+    assert captured[0]["enabled"] is True
+    assert captured[0]["client_type"] == "raspberry_pi"
+    assert captured[0]["device_id"] == "djconnect-raspberry-pi-ABCDEF123456"
+    assert captured[1]["enabled"] is False
+
+
+def test_music_dna_clear_keeps_enabled_state_from_backend_response() -> None:
+    cfg = Config(ha_url="http://ha", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1")
+    client = HAClient(cfg)
+
+    with patch("djconnect_pi.ha.requests.post", return_value=FakeResponse(200, {"success": True, "enabled": True, "profile": {"summary": "Fresh start"}})):
+        data = client.music_dna_clear()
+
+    assert data["enabled"] is True
+    assert data["profile"]["summary"] == "Fresh start"
+
+
+def test_music_discovery_feed_get_sends_pi_identity() -> None:
+    cfg = Config(ha_url="http://ha", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1")
+    client = HAClient(cfg)
+    captured: dict[str, Any] = {}
+
+    def fake_get(url: str, **kwargs: Any) -> FakeResponse:
+        captured["url"] = url
+        captured["params"] = kwargs["params"]
+        captured["headers"] = kwargs["headers"]
+        return FakeResponse(200, {"success": True, "items": []})
+
+    with patch("djconnect_pi.ha.requests.get", side_effect=fake_get):
+        client.music_discovery_feed()
+
+    assert captured["url"] == "http://ha/api/djconnect/music_discovery"
+    assert captured["headers"]["Authorization"] == "Bearer token-1"
+    assert captured["params"]["client_type"] == "raspberry_pi"
+    assert captured["params"]["client_id"] == "djconnect-raspberry-pi-ABCDEF123456"
+    assert captured["params"]["device_id"] == "djconnect-raspberry-pi-ABCDEF123456"
+
+
+def test_music_discovery_refresh_and_play_use_contract_endpoints() -> None:
+    cfg = Config(ha_url="http://ha", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1")
+    client = HAClient(cfg)
+    captured: list[tuple[str, dict[str, Any]]] = []
+
+    def fake_post(url: str, **kwargs: Any) -> FakeResponse:
+        captured.append((url, kwargs["json"]))
+        return FakeResponse(200, {"success": True})
+
+    with patch("djconnect_pi.ha.requests.post", side_effect=fake_post):
+        client.music_discovery_refresh()
+        client.music_discovery_play({"id": "rec-1", "kind": "track", "uri": "spotify:track:1", "title": "Track"})
+
+    assert captured[0][0] == "http://ha/api/djconnect/music_discovery/refresh"
+    assert captured[0][1]["client_type"] == "raspberry_pi"
+    assert captured[1][0] == "http://ha/api/djconnect/music_discovery/play"
+    assert captured[1][1]["id"] == "rec-1"
+    assert captured[1][1]["uri"] == "spotify:track:1"
+    assert captured[1][1]["source"] == "music_discovery"
+    assert captured[1][1]["client_type"] == "raspberry_pi"
+
+
 def test_ask_dj_play_action_uses_action_command_or_play_recommendation() -> None:
     cfg = Config(ha_url="http://ha", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1")
     client = HAClient(cfg)
@@ -968,6 +1041,65 @@ def test_track_insight_websocket_success_returns_normalized_result() -> None:
     assert payload["title"] == "Strobe"
     assert payload["artist"] == "deadmau5"
     assert payload["include_visual_profile"] is True
+
+
+def test_music_dna_profile_websocket_uses_advertised_fast_path() -> None:
+    cfg = Config(
+        ha_url="http://ha.local:8123",
+        device_id="djconnect-raspberry-pi-ABCDEF123456",
+        device_token="token-1",
+        websocket_fast_path_enabled=True,
+        ha_websocket_token="ha-token",
+        music_dna_key="dna-1",
+    )
+    client = HAClient(cfg)
+    sockets = [
+        FakeWebSocket(_ws_capabilities(["djconnect/music_dna/profile"])),
+        FakeWebSocket(_ws_result({"success": True, "enabled": False, "profile": {}})),
+    ]
+
+    with (
+        patch("djconnect_pi.ha_websocket._websocket_create_connection", side_effect=sockets),
+        patch("djconnect_pi.ha.requests.post") as post,
+    ):
+        data = client.music_dna_profile()
+
+    assert data["enabled"] is False
+    assert post.call_count == 0
+    payload = sockets[1].sent[1]
+    assert payload["type"] == "djconnect/music_dna/profile"
+    assert payload["client_type"] == "raspberry_pi"
+    assert payload["device_id"] == "djconnect-raspberry-pi-ABCDEF123456"
+    assert payload["device_token"] == "token-1"
+    assert payload["music_dna_key"] == "dna-1"
+
+
+def test_music_discovery_refresh_websocket_uses_advertised_fast_path() -> None:
+    cfg = Config(
+        ha_url="http://ha.local:8123",
+        device_id="djconnect-raspberry-pi-ABCDEF123456",
+        device_token="token-1",
+        websocket_fast_path_enabled=True,
+        ha_websocket_token="ha-token",
+    )
+    client = HAClient(cfg)
+    sockets = [
+        FakeWebSocket(_ws_capabilities(["djconnect/music_discovery/refresh"])),
+        FakeWebSocket(_ws_result({"success": True, "items": [{"id": "t1", "kind": "track", "title": "Track"}]})),
+    ]
+
+    with (
+        patch("djconnect_pi.ha_websocket._websocket_create_connection", side_effect=sockets),
+        patch("djconnect_pi.ha.requests.post") as post,
+    ):
+        data = client.music_discovery_refresh()
+
+    assert data["items"][0]["title"] == "Track"
+    assert post.call_count == 0
+    payload = sockets[1].sent[1]
+    assert payload["type"] == "djconnect/music_discovery/refresh"
+    assert payload["client_type"] == "raspberry_pi"
+    assert payload["device_id"] == "djconnect-raspberry-pi-ABCDEF123456"
 
 
 def test_websocket_timeout_falls_back_to_http_exactly_once() -> None:

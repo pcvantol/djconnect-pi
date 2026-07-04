@@ -163,7 +163,7 @@ curl -fsS 'http://127.0.0.1:18080/api/debug/screenshot'
 Supported debug screen names are:
 
 ```text
-now control queue playlists games settings logs about
+now control queue playlists games settings logs about askdj discover musicdna
 ```
 
 When running these from another machine, execute the curl command through SSH so

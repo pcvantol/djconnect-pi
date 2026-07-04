@@ -78,6 +78,10 @@ Window {
         root.askDjKeyboardShift = false
         if (root.activeScreen === "askdj") {
             root.scrollAskDjToBottom()
+        } else if (root.activeScreen === "musicdna") {
+            djconnect.loadMusicDna()
+        } else if (root.activeScreen === "discover") {
+            djconnect.loadMusicDiscovery()
         }
     }
 
@@ -291,6 +295,15 @@ Window {
             } else if (iconName === "playlists") {
                 line(10, 7, 22, 7); line(8, 10, 24, 10)
                 roundRect(7, 12, 18, 13, 2)
+            } else if (iconName === "musicdna") {
+                ctx.beginPath()
+                ctx.moveTo(px(8), py(8))
+                ctx.bezierCurveTo(px(24), py(8), px(8), py(24), px(24), py(24))
+                ctx.moveTo(px(24), py(8))
+                ctx.bezierCurveTo(px(8), py(8), px(24), py(24), px(8), py(24))
+                ctx.stroke()
+                line(10, 13, 22, 13)
+                line(10, 19, 22, 19)
             } else if (iconName === "gamepad") {
                 ctx.beginPath()
                 ctx.moveTo(px(8), py(20))
@@ -1932,12 +1945,36 @@ Window {
                     spacing: 0
 
                     MoreMenuButton {
+                        text: root.tr("control")
+                        iconName: "control"
+                        onClicked: root.activeScreen = "control"
+                    }
+                    Rectangle { Layout.fillWidth: true; Layout.leftMargin: 122; Layout.preferredHeight: 1; color: "#4d4a68" }
+
+                    MoreMenuButton {
+                        text: root.tr("queue")
+                        iconName: "queue"
+                        onClicked: {
+                            root.activeScreen = "queue"
+                            djconnect.loadQueue()
+                        }
+                    }
+                    Rectangle { Layout.fillWidth: true; Layout.leftMargin: 122; Layout.preferredHeight: 1; color: "#4d4a68" }
+
+                    MoreMenuButton {
                         text: root.tr("playlists")
                         iconName: "playlists"
                         onClicked: {
                             root.activeScreen = "playlists"
                             djconnect.loadPlaylists()
                         }
+                    }
+                    Rectangle { Layout.fillWidth: true; Layout.leftMargin: 122; Layout.preferredHeight: 1; color: "#4d4a68" }
+
+                    MoreMenuButton {
+                        text: root.tr("music_dna")
+                        iconName: "musicdna"
+                        onClicked: root.activeScreen = "musicdna"
                     }
                     Rectangle { Layout.fillWidth: true; Layout.leftMargin: 122; Layout.preferredHeight: 1; color: "#4d4a68" }
 
@@ -1971,6 +2008,393 @@ Window {
             }
 
             Item { Layout.fillHeight: true }
+        }
+    }
+
+    Rectangle {
+        id: musicDiscoveryPanel
+        anchors.fill: parent
+        color: "#070b16"
+        visible: root.activeScreen === "discover"
+        z: 17
+
+        AppBackground {}
+        ModalBlocker {}
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.leftMargin: 20
+            anchors.topMargin: 20
+            anchors.rightMargin: 20
+            anchors.bottomMargin: root.edge + 126
+            spacing: 12
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 10
+
+                Text {
+                    text: root.tr("music_discovery")
+                    color: "#f4f8f8"
+                    font.pixelSize: 42
+                    font.bold: true
+                    elide: Text.ElideRight
+                    Layout.fillWidth: true
+                }
+
+                LoadingSpinner {
+                    visible: djconnect.musicDiscoveryBusy
+                    running: visible
+                    Layout.preferredWidth: 38
+                    Layout.preferredHeight: 38
+                }
+
+                PurpleButton {
+                    text: root.tr("refresh")
+                    enabled: djconnect.musicDnaEnabled && !djconnect.musicDiscoveryBusy
+                    font.pixelSize: 17
+                    Layout.preferredWidth: 126
+                    Layout.preferredHeight: 48
+                    onClicked: djconnect.refreshMusicDiscovery()
+                }
+            }
+
+            Rectangle {
+                visible: !djconnect.musicDnaEnabled || djconnect.musicDiscoveryConsentRejected
+                Layout.fillWidth: true
+                Layout.preferredHeight: consentColumn.implicitHeight + 28
+                radius: root.standardButtonRadius
+                color: "#182034"
+                border.color: "#574b87"
+                border.width: 1
+
+                ColumnLayout {
+                    id: consentColumn
+                    anchors.fill: parent
+                    anchors.margins: 14
+                    spacing: 10
+
+                    Text {
+                        text: root.tr("music_discovery_requires_music_dna")
+                        color: "#ffffff"
+                        font.pixelSize: 21
+                        wrapMode: Text.WordWrap
+                        Layout.fillWidth: true
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 10
+
+                        PurpleButton {
+                            text: root.tr("music_discovery_enable")
+                            enabled: !djconnect.musicDiscoveryBusy
+                            font.pixelSize: 17
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 48
+                            onClicked: djconnect.acceptMusicDiscoveryConsent()
+                        }
+
+                        DangerButton {
+                            text: root.tr("cancel")
+                            enabled: !djconnect.musicDiscoveryBusy
+                            font.pixelSize: 17
+                            Layout.preferredWidth: 130
+                            Layout.preferredHeight: 48
+                            onClicked: djconnect.rejectMusicDiscoveryConsent()
+                        }
+                    }
+                }
+            }
+
+            Text {
+                visible: djconnect.musicDnaEnabled && djconnect.musicDiscoveryItems.length === 0 && !djconnect.musicDiscoveryBusy
+                text: djconnect.musicDiscoveryError.length > 0 ? djconnect.musicDiscoveryError : (djconnect.musicDiscoveryEmptyText.length > 0 ? djconnect.musicDiscoveryEmptyText : root.tr("music_discovery_empty"))
+                color: "#d8e3ee"
+                font.pixelSize: 20
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+
+            ScrollView {
+                id: discoveryScroll
+                visible: djconnect.musicDnaEnabled && djconnect.musicDiscoveryItems.length > 0
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                clip: true
+                ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                contentWidth: availableWidth
+
+                GridLayout {
+                    width: Math.max(0, discoveryScroll.availableWidth)
+                    columns: width >= 640 ? 2 : 1
+                    columnSpacing: 10
+                    rowSpacing: 10
+
+                    Repeater {
+                        model: djconnect.musicDiscoveryItems
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 132
+                            radius: root.standardButtonRadius
+                            color: discoveryTap.activeFocus ? "#23385f" : "#172033"
+                            border.color: discoveryTap.activeFocus ? "#f5d0fe" : "#3b4a6e"
+                            border.width: discoveryTap.activeFocus ? 2 : 1
+                            clip: true
+
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.margins: 10
+                                spacing: 10
+
+                                Image {
+                                    source: modelData.imageUrl && modelData.imageUrl.length > 0 ? modelData.imageUrl : ""
+                                    visible: source.toString().length > 0
+                                    Layout.preferredWidth: 78
+                                    Layout.preferredHeight: 78
+                                    fillMode: Image.PreserveAspectCrop
+                                    smooth: true
+                                }
+
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    Layout.fillHeight: true
+                                    spacing: 4
+
+                                    Text {
+                                        text: modelData.title || ""
+                                        color: "#ffffff"
+                                        font.pixelSize: 20
+                                        font.bold: true
+                                        elide: Text.ElideRight
+                                        maximumLineCount: 1
+                                        Layout.fillWidth: true
+                                    }
+
+                                    Text {
+                                        text: [modelData.kindLabel || "", modelData.subtitle || ""].filter(function(v) { return v && v.length > 0 }).join(" · ")
+                                        color: "#cbd6ed"
+                                        font.pixelSize: 16
+                                        elide: Text.ElideRight
+                                        maximumLineCount: 1
+                                        Layout.fillWidth: true
+                                    }
+
+                                    Text {
+                                        visible: modelData.relevance && modelData.relevance.length > 0
+                                        text: modelData.relevance || ""
+                                        color: "#b6c6ff"
+                                        font.pixelSize: 14
+                                        elide: Text.ElideRight
+                                        Layout.fillWidth: true
+                                    }
+
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        Layout.fillHeight: true
+                                        spacing: 8
+
+                                        PurpleButton {
+                                            text: root.tr("play_now")
+                                            enabled: !djconnect.musicDiscoveryBusy
+                                            font.pixelSize: 16
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: 42
+                                            onClicked: djconnect.playMusicDiscoveryItem(modelData.payload || "{}")
+                                        }
+
+                                        PurpleButton {
+                                            visible: modelData.hasReason
+                                            text: root.tr("music_discovery_reason")
+                                            enabled: modelData.hasReason
+                                            font.pixelSize: 15
+                                            Layout.preferredWidth: 98
+                                            Layout.preferredHeight: 42
+                                            onClicked: djconnect.showToast(modelData.reason || "")
+                                        }
+                                    }
+                                }
+                            }
+
+                            MouseArea {
+                                id: discoveryTap
+                                anchors.fill: parent
+                                acceptedButtons: Qt.LeftButton
+                                activeFocusOnTab: true
+                                Keys.onReturnPressed: djconnect.playMusicDiscoveryItem(modelData.payload || "{}")
+                                Keys.onEnterPressed: djconnect.playMusicDiscoveryItem(modelData.payload || "{}")
+                                onClicked: djconnect.playMusicDiscoveryItem(modelData.payload || "{}")
+                                onPressAndHold: {
+                                    if (modelData.hasReason) {
+                                        djconnect.showToast(modelData.reason || "")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Rectangle {
+        id: musicDnaPanel
+        anchors.fill: parent
+        color: "#070b16"
+        visible: root.activeScreen === "musicdna"
+        z: 17
+
+        AppBackground {}
+        ModalBlocker {}
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.leftMargin: 24
+            anchors.topMargin: 22
+            anchors.rightMargin: 24
+            anchors.bottomMargin: root.edge + 126
+            spacing: 14
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 12
+
+                Text {
+                    text: root.tr("music_dna")
+                    color: "#f4f8f8"
+                    font.pixelSize: 42
+                    font.bold: true
+                    elide: Text.ElideRight
+                    Layout.fillWidth: true
+                }
+
+                LoadingSpinner {
+                    visible: djconnect.musicDnaBusy
+                    running: visible
+                    Layout.preferredWidth: 38
+                    Layout.preferredHeight: 38
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 10
+
+                Text {
+                    text: djconnect.musicDnaEnabled ? root.tr("music_dna_enabled") : root.tr("music_dna_disabled")
+                    color: djconnect.musicDnaEnabled ? "#7bed9f" : "#d9c4ff"
+                    font.pixelSize: 21
+                    font.bold: true
+                    elide: Text.ElideRight
+                    Layout.fillWidth: true
+                }
+
+                PurpleButton {
+                    text: djconnect.musicDnaEnabled ? root.tr("disable") : root.tr("enable")
+                    enabled: !djconnect.musicDnaBusy
+                    font.pixelSize: 18
+                    Layout.preferredWidth: 150
+                    Layout.preferredHeight: 48
+                    onClicked: djconnect.setMusicDnaEnabled(!djconnect.musicDnaEnabled)
+                }
+            }
+
+            Text {
+                visible: !djconnect.musicDnaEnabled
+                text: root.tr("music_dna_opt_in")
+                color: "#cfd7ef"
+                font.pixelSize: 20
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+
+            Text {
+                visible: djconnect.musicDnaEnabled && djconnect.musicDnaSummary.length > 0
+                text: djconnect.musicDnaSummary
+                color: "#ffffff"
+                font.pixelSize: 22
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+
+            ScrollView {
+                id: musicDnaScroll
+                visible: djconnect.musicDnaEnabled
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                clip: true
+                ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                contentWidth: availableWidth
+
+                ColumnLayout {
+                    width: Math.max(0, musicDnaScroll.availableWidth)
+                    spacing: 10
+
+                    Repeater {
+                        model: djconnect.musicDnaSections
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: sectionColumn.implicitHeight + 22
+                            radius: root.standardButtonRadius
+                            color: "#182034"
+                            border.color: "#3b4a6e"
+                            border.width: 1
+
+                            ColumnLayout {
+                                id: sectionColumn
+                                anchors.fill: parent
+                                anchors.margins: 11
+                                spacing: 5
+
+                                Text {
+                                    text: modelData.title || ""
+                                    color: "#f2d8ff"
+                                    font.pixelSize: 19
+                                    font.bold: true
+                                    elide: Text.ElideRight
+                                    Layout.fillWidth: true
+                                }
+
+                                Repeater {
+                                    model: modelData.lines || []
+                                    Text {
+                                        text: modelData
+                                        color: "#d8e3ee"
+                                        font.pixelSize: 17
+                                        wrapMode: Text.WordWrap
+                                        Layout.fillWidth: true
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 10
+
+                PurpleButton {
+                    text: root.tr("refresh")
+                    enabled: !djconnect.musicDnaBusy
+                    font.pixelSize: 18
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 50
+                    onClicked: djconnect.loadMusicDna()
+                }
+
+                DangerButton {
+                    text: root.tr("music_dna_clear")
+                    enabled: djconnect.musicDnaEnabled && !djconnect.musicDnaBusy
+                    font.pixelSize: 18
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 50
+                    onClicked: djconnect.clearMusicDna()
+                }
+            }
         }
     }
 
@@ -2989,16 +3413,6 @@ Window {
             }
 
             NavButton {
-                text: root.tr("control")
-                iconName: "control"
-                checkable: true
-                checked: root.activeScreen === "control"
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                onClicked: root.activeScreen = "control"
-            }
-
-            NavButton {
                 text: root.tr("ask_dj")
                 iconName: "chat"
                 checkable: true
@@ -3012,23 +3426,43 @@ Window {
             }
 
             NavButton {
-                text: root.tr("queue")
-                iconName: "queue"
+                text: root.tr("track_insight")
+                iconName: "info"
                 checkable: true
-                checked: root.activeScreen === "queue"
+                checked: false
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 onClicked: {
-                    root.activeScreen = "queue"
-                    djconnect.loadQueue()
+                    root.activeScreen = "askdj"
+                    djconnect.openTrackInsight()
                 }
+            }
+
+            NavButton {
+                text: root.tr("music_discovery")
+                iconName: "musicdna"
+                checkable: true
+                checked: root.activeScreen === "discover"
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                onClicked: root.activeScreen = "discover"
+            }
+
+            NavButton {
+                text: root.tr("music_dna")
+                iconName: "musicdna"
+                checkable: true
+                checked: root.activeScreen === "musicdna"
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                onClicked: root.activeScreen = "musicdna"
             }
 
             NavButton {
                 text: root.tr("more")
                 iconName: "more"
                 checkable: true
-                checked: root.activeScreen === "more" || root.activeScreen === "playlists" || root.activeScreen === "games" || root.activeScreen === "settings"
+                checked: root.activeScreen === "more" || root.activeScreen === "playlists" || root.activeScreen === "games" || root.activeScreen === "settings" || root.activeScreen === "queue" || root.activeScreen === "control"
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 onClicked: root.activeScreen = "more"

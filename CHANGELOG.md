@@ -2,6 +2,15 @@
 
 ## 3.2.8
 
+- Add the server-authoritative Music DNA dashboard/opt-in flow on Raspberry Pi,
+  including profile/settings/clear UI, hidden empty dashboard blocks and no
+  local Music DNA aggregation.
+- Add the Ontdek / Music Discovery main navigation page with Music DNA consent
+  gating, HA-provided recommendation rendering, reason details and Play Now
+  calls through `/api/djconnect/music_discovery/play`.
+- Add HTTP and websocket client coverage for Music DNA and Music Discovery
+  contracts, plus QML/nav/parser tests and updated docs for the new feature
+  boundary.
 - Sync the Raspberry Pi Ask DJ client with the current Home Assistant
   integration contract by forwarding language, locale and optional mood
   metadata on Ask DJ, command, status, Track Insight and Music DNA requests.

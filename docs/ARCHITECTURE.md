@@ -201,7 +201,7 @@ timeout, disconnect, auth rejection, malformed result or missing capability.
 Remote/Nabu Casa style sessions and HTTP-only routes stay on HTTP.
 
 Ask DJ on Raspberry Pi is `text_actions` and remains server-side. The touch UI
-sends typed text to Home Assistant with `audio_response:"never"` and treats
+sends typed text to Home Assistant with `audio_response:"auto"` and treats
 backend responses as authoritative. It only shows images, rows, buttons,
 sources and audio returned on the current backend message. It never parses
 visible text, reuses previous artwork, stores Music DNA locally, reconstructs
@@ -215,6 +215,31 @@ opened from Now Playing through `/api/djconnect/track_insight` and Ask DJ
 responses with `intent/action/type/open_screen:"track_insight"` render the
 normalized `track_insight` object, including Music DNA Match from
 `track_insight.music_dna.match_percent`.
+
+Music DNA on Raspberry Pi is a server-authoritative settings/dashboard surface.
+The Pi uses authenticated `POST /api/djconnect/music_dna/profile`,
+`/settings` and `/clear` calls, or websocket message types
+`djconnect/music_dna/profile`, `djconnect/music_dna/settings` and
+`djconnect/music_dna/clear` when Home Assistant advertises them. The Pi never
+calculates Music DNA locally and never stores profile data as a source of
+truth. Disabled profiles render the opt-in state; enabled profiles render
+`profile.summary` and only non-empty optional blocks, with `eligible:false`
+conditional blocks hidden.
+
+Music Discovery (`Ontdek`) is also Home Assistant authoritative and is gated by
+Music DNA consent. Opening Ontdek first checks Music DNA profile state. If
+Music DNA is disabled, the Pi shows the consent/gating UI and does not request
+recommendations. Accepting consent posts `enabled:true` to
+`/api/djconnect/music_dna/settings` and then loads the feed. The discovery feed
+comes from `GET /api/djconnect/music_discovery`, refresh uses
+`POST /api/djconnect/music_discovery/refresh`, and Play Now uses
+`POST /api/djconnect/music_discovery/play`. The websocket fast path uses
+`djconnect/music_discovery/feed`, `djconnect/music_discovery/refresh` and
+`djconnect/music_discovery/play` only when advertised. Recommendation cards are
+limited to HA-provided track, album, artist and playlist items; reason text is
+shown only through an explicit details/long-press action and is never inferred
+locally. Play Now payloads include Pi identity and `source/context:
+"music_discovery"` so HA can record the interaction as a Music DNA signal.
 
 The canonical Home Assistant `SYNC_PROMPTS.md` still contains an older
 Raspberry Pi paragraph that describes Ask DJ as read-only/no free prompt input

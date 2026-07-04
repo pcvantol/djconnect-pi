@@ -29,14 +29,30 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
   `client_type=raspberry_pi`
 - Ask DJ capability payloads advertise `text_actions`, structured actions
   support, typed text input and no voice, TTS or local audio support
+- Ask DJ, Track Insight, Music DNA and Music Discovery payloads propagate
+  language/locale, Pi identity and optional Music DNA context without adding
+  local voice, TTS or profile aggregation
 - Ask DJ history polling uses bearer auth, Pi identity headers, the revision
   cursor and pairing/auth/version guards with quiet backoff on unavailable
   backend states
 - Ask DJ QML renders assistant, system, status and other-client user messages
-  plus HA-provided action buttons, while free prompt/send-message controls stay
-  absent
+  plus HA-provided action buttons, typed prompt input and send-message controls
 - Ask DJ action taps send only the structured action payload through the normal
   HA command contract
+- Music DNA profile parser coverage for disabled profiles, enabled summary-only
+  profiles, optional dashboard blocks, hidden empty cards and hidden
+  `eligible:false` blocks
+- Music DNA settings and clear endpoint coverage, including enable/disable
+  payloads and backend-preserved enabled state after clear
+- Music Discovery gating coverage so disabled Music DNA opens consent/empty
+  state, consent accept enables Music DNA before loading the feed and consent
+  reject shows the compact gating block
+- Music Discovery parser coverage for HA-provided track, album, artist and
+  playlist recommendations with artwork, relevance/confidence and reason
+  visibility, while unsupported kinds are ignored
+- Music Discovery HTTP and websocket contract coverage for feed, refresh and
+  Play Now endpoints/message types, including `client_type=raspberry_pi`,
+  `device_id`, `client_id` and `source/context=music_discovery`
 - local Client API info, pairing-info, pair, command, DJ response auth and mDNS
   TXT properties
 - Raspberry Pi-specific local Client API restart/shutdown endpoints, including
@@ -135,8 +151,9 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 - Games screen full-background touch blocking so Speelt nu controls cannot be
   tapped through transparent game areas
 - touch-friendly icon bottom navigation order, height, selected-state checks,
-  consistent QML Canvas menu icons, the dedicated Bediening tab and the Meer
-  overflow screen for secondary destinations
+  consistent QML Canvas menu icons, primary tabs for Speelt nu, Ask DJ, Track
+  Insight, Ontdek, Music DNA and Meer, plus the Meer overflow screen for
+  Bediening, Wachtrij and secondary destinations
 - shared AppBackground gradient, display-only Speelt nu checks and enlarged
   Bediening playback-control sizing checks, including that Speelt nu album art
   has no play/pause overlay

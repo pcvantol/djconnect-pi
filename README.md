@@ -5,8 +5,8 @@ Version: `3.2.8`
 Raspberry Pi Zero 2 W touch-display client for DJConnect. This client uses
 Qt Quick/QML with a PySide6 backend and is meant for a Pimoroni HyperPixel 4.0
 Square Touch style kiosk remote: pairing, status, now playing and touch
-playback control, plus Ask DJ text questions, conversation display and
-structured touch actions.
+playback control, Ask DJ text questions, conversation display, structured touch
+actions, server-backed Music DNA and Music Discovery.
 
 It intentionally does not implement PTT, microphone upload, local DJ response
 audio, a Pi-local DJ response endpoint, ESP firmware OTA, ESP battery sensors
@@ -50,14 +50,27 @@ running separately from the touch UI.
   summary returned by HA and does not store Spotify credentials or assume
   Spotify Direct over Music Assistant.
 - Ask DJ is typed text-only. The Pi posts `/api/djconnect/ask_dj/message` with
-  `audio_response:"never"` and reports `ask_dj_voice_supported:false` plus
-  `ask_dj_audio_response_supported:false`.
+  `audio_response:"auto"` and reports `ask_dj_voice_supported:false` plus
+  `ask_dj_audio_response_supported:false`; any audio URL is backend-provided
+  and externally opened, never generated locally.
+- Music DNA is Home Assistant authoritative. The Pi can call profile, settings
+  and clear endpoints, but it does not calculate, store or replay Music DNA as
+  a local source of truth.
+- Music Discovery is Home Assistant authoritative and gated behind Music DNA
+  consent. The Pi renders server recommendations, sends refresh/play requests
+  and posts Play Now selections back to HA as Music Discovery interactions.
 - Home Assistant endpoints:
   - `POST /api/djconnect/pair`
   - `POST /api/djconnect/status`
   - `POST /api/djconnect/command`
   - `POST /api/djconnect/ask_dj/message`
   - `POST /api/djconnect/track_insight`
+  - `POST /api/djconnect/music_dna/profile`
+  - `POST /api/djconnect/music_dna/settings`
+  - `POST /api/djconnect/music_dna/clear`
+  - `GET /api/djconnect/music_discovery`
+  - `POST /api/djconnect/music_discovery/refresh`
+  - `POST /api/djconnect/music_discovery/play`
   - `GET /api/djconnect/ask_dj/history?since_revision=<revision>`
   - `POST /api/djconnect/ask_dj/history/clear`
 - Local Client API endpoints:
@@ -132,8 +145,15 @@ The app is a 720x720 fullscreen touch remote:
   shared conversation feed, decodes assistant, system, status and other-client
   user messages, and renders HA-provided structured action buttons without any
   voice, PTT, TTS or local audio path
-- fixed bottom menu bar for Speelt nu, Bediening, Ask DJ, Wachtrij and Meer;
-  Meer contains Afspeellijsten, Games, Instellingen, Logs and Over
+- Ontdek screen that works only after Music DNA consent, renders HA-provided
+  track, album, artist and playlist recommendations, shows backend reason text
+  only through an explicit details action and sends Play Now through
+  `/api/djconnect/music_discovery/play`
+- Music DNA screen for server-backed opt-in, disable, clear and compact profile
+  display; optional dashboard blocks are hidden when absent or ineligible
+- fixed bottom menu bar for Speelt nu, Ask DJ, Track Insight, Ontdek, Music DNA
+  and Meer; Meer contains Bediening, Wachtrij, Afspeellijsten, Games,
+  Instellingen, Logs and Over
 - settings for screen blanking, brightness, language, logs, pairing reset,
   update checks, reboot/shutdown with confirmation and stable/beta update
   channel

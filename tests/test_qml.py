@@ -282,10 +282,11 @@ def test_qml_has_bottom_navigation_bar() -> None:
     assert "anchors.top: parent.top" not in nav_button
     assert "visible: navControl.checked" not in nav_button
     assert 'iconName: "music"' in bottom_nav
-    assert 'iconName: "control"' in bottom_nav
     assert 'iconName: "chat"' in bottom_nav
-    assert 'iconName: "queue"' in bottom_nav
+    assert 'iconName: "musicdna"' in bottom_nav
     assert 'iconName: "more"' in bottom_nav
+    assert 'iconName: "control"' in more_panel
+    assert 'iconName: "queue"' in more_panel
     assert 'iconName: "playlists"' in more_panel
     assert 'iconName: "gamepad"' in more_panel
     assert 'iconName: "settings"' in more_panel
@@ -293,19 +294,25 @@ def test_qml_has_bottom_navigation_bar() -> None:
     assert 'iconName: "info"' in more_panel
     assert "iconSymbol" not in main_qml
     assert 'root.tr("now_playing")' in main_qml
-    assert 'root.tr("control")' in bottom_nav
+    assert 'root.tr("control")' in more_panel
     assert 'root.tr("ask_dj")' in bottom_nav
-    assert 'root.tr("queue")' in bottom_nav
+    assert 'root.tr("track_insight")' in bottom_nav
+    assert 'root.tr("music_discovery")' in bottom_nav
+    assert 'root.tr("music_dna")' in bottom_nav
+    assert 'root.tr("queue")' in more_panel
     assert 'root.tr("more")' in bottom_nav
     assert 'root.tr("playlists")' in more_panel
     assert 'root.tr("games")' in main_qml
     assert 'root.tr("setup")' in main_qml
     assert 'root.tr("logs")' in more_panel
     assert 'root.tr("about")' in more_panel
-    assert bottom_nav.index('text: root.tr("now_playing")') < bottom_nav.index('text: root.tr("control")')
-    assert bottom_nav.index('text: root.tr("control")') < bottom_nav.index('text: root.tr("ask_dj")')
-    assert bottom_nav.index('text: root.tr("ask_dj")') < bottom_nav.index('text: root.tr("queue")')
-    assert bottom_nav.index('text: root.tr("queue")') < bottom_nav.index('text: root.tr("more")')
+    assert bottom_nav.index('text: root.tr("now_playing")') < bottom_nav.index('text: root.tr("ask_dj")')
+    assert bottom_nav.index('text: root.tr("ask_dj")') < bottom_nav.index('text: root.tr("track_insight")')
+    assert bottom_nav.index('text: root.tr("track_insight")') < bottom_nav.index('text: root.tr("music_discovery")')
+    assert bottom_nav.index('text: root.tr("music_discovery")') < bottom_nav.index('text: root.tr("music_dna")')
+    assert bottom_nav.index('text: root.tr("music_dna")') < bottom_nav.index('text: root.tr("more")')
+    assert more_panel.index('text: root.tr("control")') < more_panel.index('text: root.tr("queue")')
+    assert more_panel.index('text: root.tr("queue")') < more_panel.index('text: root.tr("playlists")')
     assert more_panel.index('text: root.tr("playlists")') < more_panel.index('text: root.tr("games")')
     assert more_panel.index('text: root.tr("games")') < more_panel.index('text: root.tr("setup")')
     assert more_panel.index('text: root.tr("setup")') < more_panel.index('text: root.tr("logs")')
@@ -411,6 +418,24 @@ def test_qml_now_playing_can_save_current_track() -> None:
     assert "djconnect.saveCurrentTrack()" in now_block
     assert 'root.tr("track_insight")' in now_block
     assert "djconnect.openTrackInsight()" in now_block
+
+
+def test_qml_music_discovery_nav_and_panel() -> None:
+    main_qml = files("djconnect_pi.qml").joinpath("Main.qml").read_text(encoding="utf-8")
+    nav_block = main_qml[main_qml.index("id: bottomNav") : main_qml.index("id: pairingPanel")]
+    discover_block = main_qml[main_qml.index("id: musicDiscoveryPanel") : main_qml.index("id: musicDnaPanel")]
+
+    assert 'root.tr("music_discovery")' in nav_block
+    assert 'checked: root.activeScreen === "discover"' in nav_block
+    assert 'onClicked: root.activeScreen = "discover"' in nav_block
+    assert "djconnect.loadMusicDiscovery()" in main_qml
+    assert 'root.tr("music_discovery_requires_music_dna")' in discover_block
+    assert "djconnect.acceptMusicDiscoveryConsent()" in discover_block
+    assert "djconnect.rejectMusicDiscoveryConsent()" in discover_block
+    assert "djconnect.refreshMusicDiscovery()" in discover_block
+    assert "djconnect.playMusicDiscoveryItem(modelData.payload || \"{}\")" in discover_block
+    assert "visible: modelData.hasReason" in discover_block
+    assert "djconnect.showToast(modelData.reason || \"\")" in discover_block
 
 
 def test_qml_stop_demo_button_returns_to_pairing_flow() -> None:

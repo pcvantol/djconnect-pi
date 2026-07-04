@@ -18,6 +18,8 @@ from djconnect_pi.app import (
     cached_image_url,
     media_item_payload,
     parse_ask_dj_messages,
+    parse_music_discovery_feed,
+    parse_music_dna_profile,
     parse_playlist_items,
     parse_queue_items,
     prepare_media_artwork,
@@ -51,6 +53,47 @@ def test_backend_connection_type_reports_websocket_fast_path(tmp_path: Path) -> 
     assert backend.connectionType == "Local WebSocket fast path"
 
 
+def test_music_discovery_disabled_profile_opens_gating_without_feed(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token"
+    backend.client.music_dna_profile = Mock(return_value={"success": True, "enabled": False, "profile": {}})  # type: ignore[method-assign]
+    backend.client.music_discovery_feed = Mock()  # type: ignore[method-assign]
+
+    backend._music_discovery_feed_worker()
+
+    backend.client.music_discovery_feed.assert_not_called()
+    assert backend.musicDiscoveryItems == []
+    assert backend.musicDiscoveryEmptyText
+
+
+def test_music_discovery_accept_enables_music_dna_and_loads_feed(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token"
+    backend.client.music_dna_settings = Mock(return_value={"success": True, "enabled": True, "profile": {"summary": "Ready"}})  # type: ignore[method-assign]
+    backend.client.music_discovery_feed = Mock(return_value={"success": True, "items": [{"id": "t1", "kind": "track", "title": "Track"}]})  # type: ignore[method-assign]
+
+    backend._music_discovery_accept_worker()
+
+    backend.client.music_dna_settings.assert_called_once_with(enabled=True)
+    backend.client.music_discovery_feed.assert_called_once()
+    assert backend.musicDnaEnabled is True
+    assert backend.musicDiscoveryItems[0]["title"] == "Track"
+
+
+def test_music_discovery_reject_shows_gating_state(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+
+    backend.rejectMusicDiscoveryConsent()
+
+    assert backend.musicDiscoveryConsentRejected is True
+    assert backend.musicDiscoveryEmptyText
+
+
 def test_log_display_uses_compact_touch_prefix() -> None:
     text = _format_logs_for_display(
         "2026-06-13 17:53:49,528 INFO djconnect_pi.app: Started\n"
@@ -77,6 +120,90 @@ def test_duration_format_for_now_playing_progress() -> None:
     assert _format_duration(0) == "0:00"
     assert _format_duration(138) == "2:18"
     assert _format_duration(210) == "3:30"
+
+
+def test_music_dna_parser_accepts_disabled_profile() -> None:
+    parsed = parse_music_dna_profile({"success": True, "enabled": False, "profile": {}})
+
+    assert parsed == {"enabled": False, "summary": "", "sections": []}
+
+
+def test_music_dna_parser_accepts_enabled_summary_only_profile() -> None:
+    parsed = parse_music_dna_profile({"success": True, "enabled": True, "profile": {"summary": "You lean toward warm synths."}})
+
+    assert parsed["enabled"] is True
+    assert parsed["summary"] == "You lean toward warm synths."
+    assert parsed["sections"] == []
+
+
+def test_music_dna_parser_renders_optional_blocks_and_hides_empty_cards() -> None:
+    parsed = parse_music_dna_profile(
+        {
+            "success": True,
+            "enabled": True,
+            "profile": {
+                "summary": "Eclectic.",
+                "favorite_genres": ["house", "indie"],
+                "recent_favorite_tracks": [{"title": "Strobe", "artist": "deadmau5"}],
+                "playtime": {"total_seconds": 3661, "formatted_total": "1h 1m", "top_artists": [{"name": "Robyn"}], "top_albums": ["Body Talk"]},
+                "listening_rhythm": {"sample_count": 3, "top_daypart": "evening", "top_weekday": "Friday", "distribution": {"evening": 3}},
+                "mood_mix": {"sample_count": 1, "chill": 1, "groove": 2, "energy": 3, "party": 4},
+                "repeat_magnets": {"eligible": True, "items": [{"title": "Ever Again"}]},
+                "explicit_positives": {"eligible": True, "items": ["Saved favorites"]},
+                "taste_anchors": {"eligible": True, "items": ["Nordic pop"]},
+                "recommendation_signals": [],
+            },
+        }
+    )
+
+    titles = [section["title"] for section in parsed["sections"]]
+    assert "Favorite genres" in titles
+    assert "Recent favorites" in titles
+    assert "Playtime" in titles
+    assert "Listening rhythm" in titles
+    assert "Mood mix" in titles
+    assert "Blijft terugkomen" in titles
+    assert "Waar je ja tegen zei" in titles
+    assert "Smaakankers" in titles
+    assert "Recommendation signals" not in titles
+    assert all(section["lines"] for section in parsed["sections"])
+
+
+def test_music_dna_parser_hides_ineligible_blocks() -> None:
+    parsed = parse_music_dna_profile(
+        {
+            "success": True,
+            "enabled": True,
+            "profile": {
+                "summary": "Minimal.",
+                "repeat_magnets": {"eligible": False, "reason": "not_enough_data", "items": ["Hidden"]},
+                "explicit_positives": {"eligible": False, "items": ["Hidden"]},
+                "taste_anchors": {"eligible": False, "items": ["Hidden"]},
+            },
+        }
+    )
+
+    assert parsed["sections"] == []
+
+
+def test_music_discovery_feed_renders_supported_kinds_with_artwork_and_reason() -> None:
+    parsed = parse_music_discovery_feed(
+        {
+            "recommendations": [
+                {"id": "t1", "kind": "track", "title": "Track", "artist": "Artist", "image_url": "https://example.test/t.jpg", "reason": "Because HA said so", "confidence": "high"},
+                {"id": "a1", "kind": "album", "title": "Album", "subtitle": "Artist", "image_url": "https://example.test/a.jpg"},
+                {"id": "ar1", "kind": "artist", "title": "Artist", "image_url": "https://example.test/ar.jpg"},
+                {"id": "p1", "kind": "playlist", "title": "Playlist", "context": "For tonight", "image_url": "https://example.test/p.jpg"},
+                {"id": "x1", "kind": "podcast", "title": "Hidden"},
+            ]
+        }
+    )
+
+    assert [item["kind"] for item in parsed["items"]] == ["track", "album", "artist", "playlist"]
+    assert parsed["items"][0]["imageUrl"] == "https://example.test/t.jpg"
+    assert parsed["items"][0]["reason"] == "Because HA said so"
+    assert parsed["items"][0]["hasReason"] is True
+    assert parsed["items"][1]["hasReason"] is False
 
 
 def test_cached_image_url_reuses_24_hour_cache(tmp_path: Path, monkeypatch) -> None:
