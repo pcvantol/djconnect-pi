@@ -21,7 +21,7 @@ Belangrijke context:
 - Geen lokale `SYNC_PROMPTS.md` of `PRODUCT_ROADMAP.md`; die staan canoniek in `pcvantol/djconnect`.
 
 Huidige stand:
-- Laatste release in deze werkronde is `v3.2.7`.
+- Laatste release in deze werkronde is `v3.2.8`.
 - Public updater assets staan in `pcvantol/djconnect-pi-releases`, inclusief
   `djconnect-pi-latest.json`.
 - Release `v3.2.0` upgrade de Raspberry Pi client naar protocol `3.2.x`:
@@ -50,38 +50,45 @@ Huidige stand:
   artist metadata wordt getoond via `artist ?? artist_name ?? subtitle`, album
   metadata wordt meegenomen en artwork gebruikt `album_image_url ?? image_url
   ?? thumbnail_url`.
+- Release `v3.2.8` sync't de Pi met het actuele HA Ask DJ/Music DNA/Track
+  Insight contract: relevante requests sturen taal/locale en optionele mood
+  mee, Ask DJ gebruikt `audio_response:"auto"`, Music DNA profile/settings/clear
+  client calls zijn server-backed, Track Insight stuurt actuele trackmetadata
+  mee en toont geen BPM/toonsoort meer.
 - Source release is aangemaakt:
-  - source repo tag/release: `v3.2.7`
+  - source repo tag/release: `v3.2.8`
 - Directe push naar `main` is gedaan met tijdelijke branch-protection/admin
   policy override/bypass voor de release push.
-- Public publish workflow voor `v3.2.7` is geslaagd:
-  - run `28695888184`
-- Public assets voor `v3.2.7` zijn gepubliceerd:
-  - `djconnect-pi-3.2.7.tar.gz`
-  - `djconnect-pi-3.2.7.sha256`
+- Public publish workflow voor `v3.2.8` is geslaagd:
+  - run `28696698790`
+- Public assets voor `v3.2.8` zijn gepubliceerd:
+  - `djconnect-pi-3.2.8.tar.gz`
+  - `djconnect-pi-3.2.8.sha256`
   - `djconnect-pi-latest.json`
 - Release cleanup is uitgevoerd met `--keep 1 --public --execute`.
-  Oude source releases/tags `v3.2.1` t/m `v3.2.6` zijn verwijderd. Public
-  cleanup verwijderde `v3.2.6` release maar liep vast op HTTPS git-auth bij
-  public tag deletion; verdere destructieve public cleanup via API is niet
-  uitgevoerd omdat expliciete gebruikerstoestemming nodig is.
+  Oude source release/tag `v3.2.7` is verwijderd. Public cleanup verwijderde
+  public release `v3.2.7` maar liep vast op HTTPS git-auth bij public tag
+  deletion; verdere destructieve public cleanup via API is niet uitgevoerd
+  omdat expliciete gebruikerstoestemming nodig is. Oudere public releases
+  `v3.2.5`, `v3.2.4`, `v3.2.2` en `v3.2.1` stonden al open uit de vorige
+  cleanup.
 - Pi deployment moet nog worden uitgevoerd/geverifieerd na public publish via
   de gedocumenteerde public tarball installer-route:
-  `~/djconnect-install/djconnect-pi-3.2.7/scripts/install.sh`.
+  `~/djconnect-install/djconnect-pi-3.2.8/scripts/install.sh`.
 - Vorige Pi deployment draaide `3.1.112`. Deployment was gedaan via de public
   tarball installer-route:
   `~/djconnect-install/djconnect-pi-3.1.112/scripts/install.sh`.
   De eerste installpogingen werden tijdens grote PySide6 stappen door een
   gesloten SSH sessie onderbroken, maar de resumable install markers werkten;
   herstarten van dezelfde installer rondde de installatie en activatie af.
-- Validatie voor `v3.2.7`:
+- Validatie voor `v3.2.8`:
   - `/Users/pcvantol/.platformio/penv/bin/pytest -q`
-    -> ok, 288 passed, 13 skipped
+    -> ok, 287 passed, 13 skipped
   - `bash -n scripts/install.sh scripts/bootstrap_raspberry_pi_os.sh cleanup_old_releases.sh release.sh` -> ok
   - `git diff --check` -> ok
-  - GitHub Actions publish workflow voor `v3.2.7` -> success
-  - Source release assets voor `v3.2.7` -> gepubliceerd
-  - Public release assets voor `v3.2.7` -> gepubliceerd
+  - GitHub Actions publish workflow voor `v3.2.8` -> success
+  - Source release assets voor `v3.2.8` -> gepubliceerd
+  - Public release assets voor `v3.2.8` -> gepubliceerd
 
 Openstaande gewenste workflow:
 - Controleer na elke release de public publish workflow:
