@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.2.7
+
+- Render Home Assistant queue metadata on the Raspberry Pi client by showing
+  returned track artists and album details instead of title-only rows.
+- Accept both flat `queue: [...]` and nested `queue.items` queue payloads while
+  preserving queue context and avoiding playlist/search result lists.
+- Prefer backend artwork aliases in queue rows, including `album_image_url`,
+  `image_url` and `thumbnail_url`.
+
 ## 3.2.6
 
 - Send the current Raspberry Pi app language as BCP-47 DJConnect request
