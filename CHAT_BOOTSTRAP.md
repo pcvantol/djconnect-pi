@@ -21,7 +21,7 @@ Belangrijke context:
 - Geen lokale `SYNC_PROMPTS.md` of `PRODUCT_ROADMAP.md`; die staan canoniek in `pcvantol/djconnect`.
 
 Huidige stand:
-- Laatste release in deze werkronde is `v3.2.1`.
+- Laatste release in deze werkronde is `v3.2.7`.
 - Public updater assets staan in `pcvantol/djconnect-pi-releases`, inclusief
   `djconnect-pi-latest.json`.
 - Release `v3.2.0` upgrade de Raspberry Pi client naar protocol `3.2.x`:
@@ -44,37 +44,44 @@ Huidige stand:
   rapporteren expliciet `ask_dj_voice_supported:false` en
   `ask_dj_audio_response_supported:false`, en object-vormige
   `music_backend_error` waarden worden veilig als code/message tekst getoond.
+- Release `v3.2.7` fixt Raspberry Pi queue rendering voor het actuele
+  HA/backend queuecontract: flat `queue:[...]` en nested `queue.items` worden
+  geaccepteerd, playlist/search `items` worden niet als queue behandeld,
+  artist metadata wordt getoond via `artist ?? artist_name ?? subtitle`, album
+  metadata wordt meegenomen en artwork gebruikt `album_image_url ?? image_url
+  ?? thumbnail_url`.
 - Source release is aangemaakt:
-  - source repo tag/release: `v3.2.1`
+  - source repo tag/release: `v3.2.7`
 - Directe push naar `main` is gedaan met tijdelijke branch-protection/admin
-  policy override voor de release push; policy is daarna teruggezet.
-- Public publish workflow voor `v3.2.1` is geslaagd:
-  - run `28279973929`
-- Public assets voor `v3.2.1` zijn gepubliceerd:
-  - `djconnect-pi-3.2.1.tar.gz`
-  - `djconnect-pi-3.2.1.sha256`
+  policy override/bypass voor de release push.
+- Public publish workflow voor `v3.2.7` is geslaagd:
+  - run `28695888184`
+- Public assets voor `v3.2.7` zijn gepubliceerd:
+  - `djconnect-pi-3.2.7.tar.gz`
+  - `djconnect-pi-3.2.7.sha256`
   - `djconnect-pi-latest.json`
 - Release cleanup is uitgevoerd met `--keep 1 --public --execute`.
-  Oude source/public release en tag `v3.2.0` zijn verwijderd; de
-  public tag cleanup is na een HTTPS git-auth fout afgemaakt via de GitHub API.
+  Oude source releases/tags `v3.2.1` t/m `v3.2.6` zijn verwijderd. Public
+  cleanup verwijderde `v3.2.6` release maar liep vast op HTTPS git-auth bij
+  public tag deletion; verdere destructieve public cleanup via API is niet
+  uitgevoerd omdat expliciete gebruikerstoestemming nodig is.
 - Pi deployment moet nog worden uitgevoerd/geverifieerd na public publish via
   de gedocumenteerde public tarball installer-route:
-  `~/djconnect-install/djconnect-pi-3.2.1/scripts/install.sh`.
+  `~/djconnect-install/djconnect-pi-3.2.7/scripts/install.sh`.
 - Vorige Pi deployment draaide `3.1.112`. Deployment was gedaan via de public
   tarball installer-route:
   `~/djconnect-install/djconnect-pi-3.1.112/scripts/install.sh`.
   De eerste installpogingen werden tijdens grote PySide6 stappen door een
   gesloten SSH sessie onderbroken, maar de resumable install markers werkten;
   herstarten van dezelfde installer rondde de installatie en activatie af.
-- Validatie voor `v3.2.1`:
+- Validatie voor `v3.2.7`:
   - `/Users/pcvantol/.platformio/penv/bin/pytest -q`
-    -> ok, 266 passed, 12 skipped
-  - `python3 -m py_compile src/djconnect_pi/config.py src/djconnect_pi/ha.py src/djconnect_pi/client_api.py src/djconnect_pi/app.py src/djconnect_pi/i18n.py tests/test_ha.py tests/test_client_api.py tests/test_app_backend.py tests/test_installation_contract.py` -> ok
+    -> ok, 288 passed, 13 skipped
   - `bash -n scripts/install.sh scripts/bootstrap_raspberry_pi_os.sh cleanup_old_releases.sh release.sh` -> ok
   - `git diff --check` -> ok
-  - GitHub Actions publish workflow voor `v3.2.1` -> success
-  - Source release assets voor `v3.2.1` -> gepubliceerd
-  - Public release assets voor `v3.2.1` -> gepubliceerd
+  - GitHub Actions publish workflow voor `v3.2.7` -> success
+  - Source release assets voor `v3.2.7` -> gepubliceerd
+  - Public release assets voor `v3.2.7` -> gepubliceerd
 
 Openstaande gewenste workflow:
 - Controleer na elke release de public publish workflow:
