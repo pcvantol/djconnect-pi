@@ -1,5 +1,16 @@
 # Changelog
 
+## 3.2.8
+
+- Sync the Raspberry Pi Ask DJ client with the current Home Assistant
+  integration contract by forwarding language, locale and optional mood
+  metadata on Ask DJ, command, status, Track Insight and Music DNA requests.
+- Add server-backed Music DNA profile/settings/clear client calls while keeping
+  the Raspberry Pi renderer/controller-only with no local Music DNA analysis or
+  Spotify OAuth credentials.
+- Update Track Insight rendering to show backend interpretation fields such as
+  summary, genre, vibe and production context while removing BPM/key display.
+
 ## 3.2.7
 
 - Render Home Assistant queue metadata on the Raspberry Pi client by showing

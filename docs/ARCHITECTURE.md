@@ -159,7 +159,7 @@ The Pi client is an app-like DJConnect client.
   "device_id": "djconnect-raspberry-pi-XXXXXXXXXXXX",
   "device_name": "DJConnect",
   "client_type": "raspberry_pi",
-  "version": "3.2.7",
+  "version": "3.2.8",
   "capabilities": {
     "touch": true,
     "voice": false,
