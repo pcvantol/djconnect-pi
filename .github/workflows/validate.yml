@@ -60,44 +60,60 @@ jobs:
         run: |
           set -euo pipefail
 
-          current_workflow_id="$(
+          current_workflow_name="$(
             gh api "repos/${GH_REPO}/actions/runs/${CURRENT_RUN_ID}" \
-              --jq '.workflow_id'
+              --jq '.name'
+          )"
+          runs_json="$(
+            gh api --paginate --slurp \
+              "repos/${GH_REPO}/actions/runs?status=completed&per_page=100"
           )"
 
-          gh api --paginate "repos/${GH_REPO}/actions/workflows" \
-            --jq '.workflows[] | select(.state == "active") | [.id, .name] | @tsv' |
-          while IFS=$'\t' read -r workflow_id workflow_name; do
-            if [[ -z "${workflow_id}" ]]; then
+          mapfile -t workflow_names < <(
+            jq -r '[.[].workflow_runs[]?.name] | unique[]' <<< "${runs_json}"
+          )
+
+          for workflow_name in "${workflow_names[@]}"; do
+            if [[ -z "${workflow_name}" ]]; then
               continue
             fi
 
             keep_limit="${KEEP_RUNS}"
-            if [[ "${workflow_id}" == "${current_workflow_id}" ]]; then
+            if [[ "${workflow_name}" == "${current_workflow_name}" ]]; then
               keep_limit=$((KEEP_RUNS - 1))
             fi
 
-            kept_runs=0
+            mapfile -t run_ids < <(
+              jq -r --arg workflow_name "${workflow_name}" '
+                [.[].workflow_runs[]? | select(.name == $workflow_name)]
+                | sort_by(.created_at)
+                | reverse
+                | .[].id
+              ' <<< "${runs_json}"
+            )
+
+            if ((${#run_ids[@]} <= keep_limit)); then
+              echo "Deleted 0 old completed run(s) for ${workflow_name}."
+              continue
+            fi
+
             deleted_runs=0
-            while IFS= read -r run_id; do
+            for index in "${!run_ids[@]}"; do
+              run_id="${run_ids[$index]}"
               if [[ "${run_id}" == "${CURRENT_RUN_ID}" ]]; then
                 continue
               fi
 
-              kept_runs=$((kept_runs + 1))
-              if (( kept_runs <= keep_limit )); then
+              if ((index < keep_limit)); then
                 continue
               fi
 
-              gh api \
-                --method DELETE \
-                "repos/${GH_REPO}/actions/runs/${run_id}" >/dev/null
-              deleted_runs=$((deleted_runs + 1))
-            done < <(
-              gh api --paginate \
-                "repos/${GH_REPO}/actions/workflows/${workflow_id}/runs?status=completed&per_page=100" \
-                --jq '.workflow_runs[].id'
-            )
+              if gh api --method DELETE "repos/${GH_REPO}/actions/runs/${run_id}" >/dev/null; then
+                deleted_runs=$((deleted_runs + 1))
+              else
+                echo "Run ${run_id} was already unavailable; continuing." >&2
+              fi
+            done
 
             echo "Deleted ${deleted_runs} old completed run(s) for ${workflow_name}."
           done
