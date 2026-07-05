@@ -21,7 +21,7 @@ Belangrijke context:
 - Geen lokale `SYNC_PROMPTS.md` of `PRODUCT_ROADMAP.md`; die staan canoniek in `pcvantol/djconnect`.
 
 Huidige stand:
-- Laatste release in deze werkronde is `v3.2.9`.
+- Laatste release in deze werkronde is `v3.2.10`.
 - Public updater assets staan in `pcvantol/djconnect-pi-releases`, inclusief
   `djconnect-pi-latest.json`.
 - Release `v3.2.0` upgrade de Raspberry Pi client naar protocol `3.2.x`:
@@ -60,24 +60,27 @@ Huidige stand:
   na Music DNA consent, rendert uitsluitend HA-aanbevelingen/reasons, gebruikt
   `/api/djconnect/v1/music_discovery` plus refresh/play endpoints en ondersteunt
   de geadverteerde websocket message types met HTTP fallback.
+- Release `v3.2.10` zet alle Raspberry Pi Home Assistant DJConnect HTTP-routes
+  op de canonical `/api/djconnect/v1/...` prefix, behoudt
+  `client_type: raspberry_pi` en tekst-only Ask DJ, en voegt regressietest toe
+  tegen oude `/api/djconnect/...` routes zonder `/v1`.
 - Source release is aangemaakt:
-  - source repo tag/release: `v3.2.9`
+  - source repo tag/release: `v3.2.10`
 - Directe push naar `main` is gedaan met tijdelijke branch-protection/admin
   policy override/bypass voor de release push.
-- Public publish workflow voor `v3.2.9` is geslaagd:
-  - run `28714545369`
-- Public assets voor `v3.2.9` zijn gepubliceerd:
-  - `djconnect-pi-3.2.9.tar.gz`
-  - `djconnect-pi-3.2.9.sha256`
+- Public publish workflow voor `v3.2.10` is geslaagd:
+  - run `28731485777`
+- Public assets voor `v3.2.10` zijn gepubliceerd:
+  - `djconnect-pi-3.2.10.tar.gz`
+  - `djconnect-pi-3.2.10.sha256`
   - `djconnect-pi-latest.json`
 - Release cleanup is uitgevoerd met `--keep 1 --public --execute`.
-  Oude source release/tag `v3.2.8`, public release/tag `v3.2.8` en completed
-  publish/action runs voor `v3.2.8` zijn verwijderd. Lokaal is ook de oude tag
-  `v3.1.107` verwijderd; lokaal, source releases en public releases houden nu
-  alleen `v3.2.9` over.
+  Oude source release/tag `v3.2.9`, public release/tag `v3.2.9` en completed
+  publish/action runs voor `v3.2.9` zijn verwijderd; lokaal, source releases
+  en public releases houden nu alleen `v3.2.10` over.
 - Pi deployment moet nog worden uitgevoerd/geverifieerd via de public tarball
   installer-route:
-  `~/djconnect-install/djconnect-pi-3.2.9/scripts/install.sh`.
+  `~/djconnect-install/djconnect-pi-3.2.10/scripts/install.sh`.
   Deploypoging na release werd geblokkeerd omdat `rbpi-djconnect.local` niet
   resolveerde, de DJConnect API-poort `18080` niet zichtbaar was op het lokale
   LAN en de enige SSH-hostkandidaat `192.168.3.64` de `pi` login weigerde.
@@ -87,15 +90,15 @@ Huidige stand:
   De eerste installpogingen werden tijdens grote PySide6 stappen door een
   gesloten SSH sessie onderbroken, maar de resumable install markers werkten;
   herstarten van dezelfde installer rondde de installatie en activatie af.
-- Validatie voor `v3.2.9`:
+- Validatie voor `v3.2.10`:
   - `/Users/pcvantol/.platformio/penv/bin/pytest -q`
-    -> ok, 302 passed, 13 skipped
+    -> ok, 304 passed, 13 skipped
   - `python -m compileall src tests` -> ok
   - `bash -n scripts/install.sh scripts/bootstrap_raspberry_pi_os.sh cleanup_old_releases.sh release.sh` -> ok
   - `git diff --check` -> ok
-  - GitHub Actions publish workflow voor `v3.2.9` -> success
-  - Source release assets voor `v3.2.9` -> gepubliceerd
-  - Public release assets voor `v3.2.9` -> gepubliceerd
+  - GitHub Actions publish workflow voor `v3.2.10` -> success
+  - Source release assets voor `v3.2.10` -> gepubliceerd
+  - Public release assets voor `v3.2.10` -> gepubliceerd
 
 Openstaande gewenste workflow:
 - Controleer na elke release de public publish workflow:
