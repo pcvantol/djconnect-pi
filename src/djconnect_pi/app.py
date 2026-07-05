@@ -851,7 +851,8 @@ class DJConnectBackend(QObject):
             return
         self._set_music_dna_busy(True)
         if action == "settings":
-            worker = lambda: self._music_dna_settings_worker(**payload)
+            def worker() -> None:
+                self._music_dna_settings_worker(**payload)
         elif action == "clear":
             worker = self._music_dna_clear_worker
         else:
