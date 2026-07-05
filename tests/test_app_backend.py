@@ -620,6 +620,46 @@ def test_ask_dj_parser_prefers_canonical_response_messages() -> None:
     assert [message["exchange_order"] for message in messages] == [0, 1]
 
 
+def test_ask_dj_parser_accepts_assistant_message_object_items() -> None:
+    messages = parse_ask_dj_messages(
+        {
+            "assistant_message": {
+                "text": "Dit zijn je recent afgespeelde tracks.",
+                "items": [
+                    {
+                        "title": "Song A",
+                        "artist": "Artist A",
+                        "type": "tracks",
+                        "played_at": "2026-07-05T08:00:00Z",
+                        "source": "spotify_recently_played",
+                    }
+                ],
+            },
+            "intent": {"intent": "recently_played_history", "item_type": "tracks"},
+            "images": [],
+            "playback_actions": [],
+        }
+    )
+
+    assert len(messages) == 1
+    assert messages[0]["text"] == "Dit zijn je recent afgespeelde tracks."
+    assert messages[0]["items"] == [
+        {
+            "title": "Song A",
+            "subtitle": "Artist A",
+            "value": "",
+            "time": "2026-07-05T08:00:00Z",
+            "kind": "tracks",
+            "source": "spotify_recently_played",
+            "confidence": "",
+            "imageUrl": "",
+            "trackInsightMetric": False,
+            "musicDna": False,
+        }
+    ]
+    assert messages[0]["actions"] == []
+
+
 def test_ask_dj_parser_keeps_legacy_user_before_assistant() -> None:
     messages = parse_ask_dj_messages(
         {
@@ -727,6 +767,30 @@ def test_ask_dj_history_limit_is_applied_from_server(tmp_path: Path) -> None:
     assert [message["id"] for message in backend.askDjMessages] == ["m2", "m3"]
 
 
+def test_ask_dj_clear_and_trim_revisions_are_server_authoritative(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend._apply_ask_dj_data(
+        {
+            "history_revision": 10,
+            "messages": [
+                {"id": "m1", "role": "assistant", "text": "Een", "created_at": "2026-07-05T08:00:01Z"},
+                {"id": "m2", "role": "assistant", "text": "Twee", "created_at": "2026-07-05T08:00:02Z"},
+                {"id": "m3", "role": "assistant", "text": "Drie", "created_at": "2026-07-05T08:00:03Z"},
+            ],
+        }
+    )
+
+    backend._apply_ask_dj_data({"history_revision": 11, "history_trimmed_count": 1, "messages": []})
+    assert [message["id"] for message in backend.askDjMessages] == ["m2", "m3"]
+    assert backend._ask_dj_history_revision == 11
+
+    backend._apply_ask_dj_data({"clear_revision": 2, "history_revision": 12, "messages": []})
+    assert backend.askDjMessages == []
+    assert backend._ask_dj_clear_revision == 2
+    assert backend._ask_dj_history_revision == 12
+
+
 def test_ask_dj_poll_requires_pairing_and_token(tmp_path: Path) -> None:
     ensure_app()
     backend = DJConnectBackend(tmp_path / "config.json")
@@ -831,6 +895,33 @@ def test_version_mismatch_does_not_clear_pairing_or_token(tmp_path: Path) -> Non
     saved = load_config(config_path)
     assert saved.device_token == "token-1"
     assert saved.paired is True
+
+
+def test_authentication_error_clears_pairing_and_ask_dj_cache(tmp_path: Path) -> None:
+    ensure_app()
+    config_path = tmp_path / "config.json"
+    cfg = Config(
+        device_id="djconnect-raspberry-pi-ABCDEF123456",
+        device_token="token-1",
+        paired=True,
+        ha_url="http://ha.local:8123",
+    )
+    save_config(config_path, cfg)
+    backend = DJConnectBackend(config_path)
+    backend._ask_dj_messages = [{"id": "m1", "role": "assistant", "text": "Cached"}]
+    backend._ask_dj_history_revision = 9
+    backend._ask_dj_clear_revision = 4
+
+    backend.client.command = Mock(side_effect=AuthenticationError("stale pairing"))
+    backend._run("status", lambda: backend.client.command("status"))
+    backend._executor.shutdown(wait=True)
+
+    saved = load_config(config_path)
+    assert saved.device_token == ""
+    assert saved.paired is False
+    assert backend.askDjMessages == []
+    assert backend._ask_dj_history_revision == 0
+    assert backend._ask_dj_clear_revision == 0
 
 
 def test_save_current_track_worker_raises_specific_error_on_success_false(tmp_path: Path) -> None:

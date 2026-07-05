@@ -1496,6 +1496,7 @@ class DJConnectBackend(QObject):
         self.cfg.paired = False
         self._queue_items = []
         self._playlist_items = []
+        self._clear_ask_dj_cache()
         from .config import generate_pairing_code
 
         self.cfg.pairing_code = generate_pairing_code()
@@ -1636,11 +1637,14 @@ class DJConnectBackend(QObject):
             return
         clear_revision = _int_value(data.get("clear_revision"), self._ask_dj_clear_revision)
         if clear_revision > self._ask_dj_clear_revision:
-            self._ask_dj_messages = []
+            self._clear_ask_dj_cache(reset_revisions=False)
             self._ask_dj_clear_revision = clear_revision
         trimmed_before = str(data.get("history_trimmed_before") or "").strip()
         if trimmed_before:
             self._ask_dj_messages = [m for m in self._ask_dj_messages if str(m.get("created_at") or m.get("server_time") or "") >= trimmed_before]
+        trimmed_count = _int_value(data.get("history_trimmed_count"), 0)
+        if trimmed_count > 0:
+            self._ask_dj_messages = _sort_ask_dj_messages(self._ask_dj_messages)[trimmed_count:]
         messages = parse_ask_dj_messages(data)
         if messages:
             self._merge_ask_dj_messages(messages, limit=_int_value(data.get("history_limit"), 100))
@@ -1669,6 +1673,16 @@ class DJConnectBackend(QObject):
                 for key in _ask_dj_message_keys(message):
                     index_by_key[key] = len(merged) - 1
         self._ask_dj_messages = _sort_ask_dj_messages(merged)[-max(1, limit):]
+        self.askDjChanged.emit()
+
+    def _clear_ask_dj_cache(self, *, reset_revisions: bool = True) -> None:
+        self._ask_dj_messages = []
+        self._ask_dj_poll_error_count = 0
+        self._ask_dj_poll_in_flight = False
+        self._ask_dj_unavailable_until = 0.0
+        if reset_revisions:
+            self._ask_dj_history_revision = 0
+            self._ask_dj_clear_revision = 0
         self.askDjChanged.emit()
 
     def _set_ask_dj_busy(self, value: bool) -> None:
@@ -2238,7 +2252,18 @@ def _contains_playback_payload(data: dict[str, object]) -> bool:
 
 
 def _ask_dj_message(item: dict[str, object]) -> dict[str, object] | None:
-    text = str(item.get("text") or item.get("dj_text") or item.get("message") or item.get("assistant_message") or item.get("content") or "").strip()
+    assistant_message = item.get("assistant_message")
+    assistant_payload = assistant_message if isinstance(assistant_message, dict) else {}
+    assistant_text = assistant_payload.get("text") or assistant_payload.get("dj_text") or assistant_payload.get("message")
+    text = str(
+        item.get("text")
+        or item.get("dj_text")
+        or item.get("message")
+        or assistant_text
+        or (assistant_message if isinstance(assistant_message, str) else "")
+        or item.get("content")
+        or ""
+    ).strip()
     user_text = str(item.get("user_message") or "").strip()
     role = str(item.get("role") or item.get("sender") or "").strip().lower()
     kind = str(item.get("message_kind") or item.get("kind") or "").strip().lower()
@@ -2272,7 +2297,7 @@ def _ask_dj_message(item: dict[str, object]) -> dict[str, object] | None:
         "text": text,
         "created_at": str(item.get("created_at") or item.get("timestamp") or item.get("server_time") or ""),
         "images": _ask_dj_images(item.get("images")),
-        "items": _track_insight_items(track_insight_data) if track_insight else _ask_dj_items(item.get("items")),
+        "items": _track_insight_items(track_insight_data) if track_insight else _ask_dj_items(_first_present(item, ("items",)), assistant_payload.get("items")),
         "links": _ask_dj_links(item.get("links"), item.get("sources")),
         "actions": actions,
         "audioUrl": str(item.get("audio_url") or item.get("audioUrl") or ""),
@@ -2401,7 +2426,19 @@ def _track_insight_analysis(data: dict[str, object]) -> dict[str, object]:
 
 def _ask_dj_legacy_response_messages(data: dict[str, object]) -> list[dict[str, object]]:
     user_text = str(data.get("user_message") or "").strip()
-    assistant_text = str(data.get("assistant_message") or data.get("dj_text") or data.get("text") or data.get("message") or data.get("content") or "").strip()
+    assistant_message = data.get("assistant_message")
+    assistant_payload = assistant_message if isinstance(assistant_message, dict) else {}
+    assistant_text = str(
+        assistant_payload.get("text")
+        or assistant_payload.get("dj_text")
+        or assistant_payload.get("message")
+        or (assistant_message if isinstance(assistant_message, str) else "")
+        or data.get("dj_text")
+        or data.get("text")
+        or data.get("message")
+        or data.get("content")
+        or ""
+    ).strip()
     messages: list[dict[str, object]] = []
     if user_text:
         user = _ask_dj_message({**data, "role": "user", "text": user_text, "assistant_message": "", "message": "", "content": ""})
@@ -2454,33 +2491,34 @@ def _ask_dj_links(*values: object) -> list[dict[str, object]]:
     return links[:8]
 
 
-def _ask_dj_items(value: object) -> list[dict[str, object]]:
-    if not isinstance(value, list):
-        return []
+def _ask_dj_items(*values: object) -> list[dict[str, object]]:
     items: list[dict[str, object]] = []
-    for item in value:
-        if not isinstance(item, dict):
+    for value in values:
+        if not isinstance(value, list):
             continue
-        title = str(item.get("title") or item.get("name") or item.get("track") or item.get("album") or item.get("artist") or "").strip()
-        item_kind = str(item.get("kind") or item.get("type") or "").strip()
-        subtitle = str(item.get("subtitle") or item.get("artist") or item.get("album") or item.get("description") or "").strip()
-        when = str(item.get("played_at") or item.get("time") or item.get("timestamp") or item.get("created_at") or "").strip()
-        image_url = _image_url_from(item)
-        if title or subtitle or image_url:
-            items.append(
-                {
-                    "title": title,
-                    "subtitle": subtitle,
-                    "value": "",
-                    "time": when,
-                    "kind": item_kind,
-                    "source": "",
-                    "confidence": "",
-                    "imageUrl": cached_image_url(image_url) if image_url else "",
-                    "trackInsightMetric": False,
-                    "musicDna": False,
-                }
-            )
+        for item in value:
+            if not isinstance(item, dict):
+                continue
+            title = str(item.get("title") or item.get("name") or item.get("track") or item.get("album") or item.get("artist") or "").strip()
+            item_kind = str(item.get("kind") or item.get("type") or "").strip()
+            subtitle = str(item.get("subtitle") or item.get("artist") or item.get("album") or item.get("description") or "").strip()
+            when = str(item.get("played_at") or item.get("time") or item.get("timestamp") or item.get("created_at") or "").strip()
+            image_url = _image_url_from(item)
+            if title or subtitle or image_url:
+                items.append(
+                    {
+                        "title": title,
+                        "subtitle": subtitle,
+                        "value": "",
+                        "time": when,
+                        "kind": item_kind,
+                        "source": str(item.get("source") or "").strip(),
+                        "confidence": "",
+                        "imageUrl": cached_image_url(image_url) if image_url else "",
+                        "trackInsightMetric": False,
+                        "musicDna": False,
+                    }
+                )
     return items[:20]
 
 

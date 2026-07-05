@@ -98,6 +98,41 @@ def test_home_assistant_djconnect_routes_use_v1_prefix() -> None:
     assert violations == []
 
 
+def test_client_contract_does_not_use_raw_ask_dj_or_old_search_aliases() -> None:
+    scanned_roots = [
+        ROOT / "src",
+        ROOT / "docs",
+        ROOT / "README.md",
+        ROOT / "HANDOFF.md",
+        ROOT / "CHAT_BOOTSTRAP.md",
+        ROOT / "TESTS.md",
+    ]
+    forbidden_patterns = {
+        "raw Ask DJ route": re.compile(r"/api/djconnect/v1/ask_dj(?:[\"'`\s]|$)"),
+        "HA Ask DJ service": re.compile(r"\bdjconnect\.ask_dj\b"),
+        "spotify search alias": re.compile(r"\bspotify_search_query\b"),
+        "last spotify search alias": re.compile(r"\blast_spotify_search\b"),
+    }
+    violations: list[str] = []
+    for root in scanned_roots:
+        paths = root.rglob("*") if root.is_dir() else [root]
+        for path in paths:
+            if (
+                path.is_dir()
+                or path.name.startswith(".")
+                or path.suffix not in ROUTE_SCAN_SUFFIXES
+                or any(part.endswith(".egg-info") for part in path.parts)
+            ):
+                continue
+            text = path.read_text(encoding="utf-8")
+            for line_no, line in enumerate(text.splitlines(), start=1):
+                for label, pattern in forbidden_patterns.items():
+                    if pattern.search(line):
+                        violations.append(f"{path.relative_to(ROOT)}:{line_no}: {label}: {line.strip()}")
+
+    assert violations == []
+
+
 def test_pair_sends_raspberry_pi_identity_and_stores_token() -> None:
     cfg = Config(ha_url="http://ha", device_id="djconnect-raspberry-pi-ABCDEF123456", language="de")
     client = HAClient(cfg)
