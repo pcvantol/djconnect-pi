@@ -60,11 +60,21 @@ jobs:
         run: |
           set -euo pipefail
 
+          current_workflow_id="$(
+            gh api "repos/${GH_REPO}/actions/runs/${CURRENT_RUN_ID}" \
+              --jq '.workflow_id'
+          )"
+
           gh api --paginate "repos/${GH_REPO}/actions/workflows" \
             --jq '.workflows[] | select(.state == "active") | [.id, .name] | @tsv' |
           while IFS=$'\t' read -r workflow_id workflow_name; do
             if [[ -z "${workflow_id}" ]]; then
               continue
+            fi
+
+            keep_limit="${KEEP_RUNS}"
+            if [[ "${workflow_id}" == "${current_workflow_id}" ]]; then
+              keep_limit=$((KEEP_RUNS - 1))
             fi
 
             kept_runs=0
@@ -75,7 +85,7 @@ jobs:
               fi
 
               kept_runs=$((kept_runs + 1))
-              if (( kept_runs <= KEEP_RUNS )); then
+              if (( kept_runs <= keep_limit )); then
                 continue
               fi
 
