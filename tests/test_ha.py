@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 import json
+import re
 from unittest.mock import patch
 
 import pytest
@@ -20,6 +22,10 @@ from djconnect_pi.ha import (
     _compatible_ha_version,
     music_backend_summary_from,
 )
+
+
+ROOT = Path(__file__).resolve().parents[1]
+ROUTE_SCAN_SUFFIXES = {"", ".json", ".md", ".py", ".qml", ".sh", ".service", ".timer", ".toml", ".txt"}
 
 
 @dataclass
@@ -60,6 +66,38 @@ class FakeWebSocket:
         self.closed = True
 
 
+def test_home_assistant_djconnect_routes_use_v1_prefix() -> None:
+    route_prefix = "/api/" + "djconnect/"
+    old_route = re.compile(re.escape(route_prefix) + r"(?!v1(?:/|\b))")
+    scanned_roots = [
+        ROOT / "src",
+        ROOT / "tests",
+        ROOT / "docs",
+        ROOT / "README.md",
+        ROOT / "HANDOFF.md",
+        ROOT / "CHAT_BOOTSTRAP.md",
+        ROOT / "TESTS.md",
+        ROOT / "CHANGELOG.md",
+    ]
+    violations: list[str] = []
+    for root in scanned_roots:
+        paths = root.rglob("*") if root.is_dir() else [root]
+        for path in paths:
+            if (
+                path.is_dir()
+                or path.name.startswith(".")
+                or path.suffix not in ROUTE_SCAN_SUFFIXES
+                or any(part.endswith(".egg-info") for part in path.parts)
+            ):
+                continue
+            text = path.read_text(encoding="utf-8")
+            for line_no, line in enumerate(text.splitlines(), start=1):
+                if old_route.search(line):
+                    violations.append(f"{path.relative_to(ROOT)}:{line_no}: {line.strip()}")
+
+    assert violations == []
+
+
 def test_pair_sends_raspberry_pi_identity_and_stores_token() -> None:
     cfg = Config(ha_url="http://ha", device_id="djconnect-raspberry-pi-ABCDEF123456", language="de")
     client = HAClient(cfg)
@@ -73,7 +111,7 @@ def test_pair_sends_raspberry_pi_identity_and_stores_token() -> None:
     with patch("djconnect_pi.ha.requests.post", side_effect=fake_post):
         client.pair("123456")
 
-    assert captured["url"] == "http://ha/api/djconnect/pair"
+    assert captured["url"] == "http://ha/api/djconnect/v1/pair"
     assert captured["json"]["client_type"] == "raspberry_pi"
     assert captured["json"]["device_id"] == "djconnect-raspberry-pi-ABCDEF123456"
     assert captured["json"]["app_version"] == cfg.version
@@ -167,7 +205,7 @@ def test_command_posts_generic_command_payload() -> None:
     with patch("djconnect_pi.ha.requests.post", side_effect=fake_post):
         result = client.command("set_volume", value=42)
 
-    assert captured["url"] == "http://ha/api/djconnect/command"
+    assert captured["url"] == "http://ha/api/djconnect/v1/command"
     assert captured["json"]["command"] == "set_volume"
     assert captured["json"]["language"] == "es-ES"
     assert captured["json"]["value"] == 42
@@ -189,7 +227,7 @@ def test_ask_dj_history_gets_since_revision() -> None:
     with patch("djconnect_pi.ha.requests.get", side_effect=fake_get):
         client.ask_dj_history(12)
 
-    assert captured["url"] == "http://ha/api/djconnect/ask_dj/history?since_revision=12"
+    assert captured["url"] == "http://ha/api/djconnect/v1/ask_dj/history?since_revision=12"
     assert captured["headers"]["Authorization"] == "Bearer token-1"
     assert captured["headers"]["X-DJConnect-Device-ID"] == "djconnect-raspberry-pi-ABCDEF123456"
     assert captured["headers"]["X-DJConnect-Client-Type"] == "raspberry_pi"
@@ -209,7 +247,7 @@ def test_ask_dj_message_posts_text_identity_mood_and_auto_audio_response() -> No
     with patch("djconnect_pi.ha.requests.post", side_effect=fake_post):
         client.ask_dj_message("Wat speelt er?", "msg-1")
 
-    assert captured["url"] == "http://ha/api/djconnect/ask_dj/message"
+    assert captured["url"] == "http://ha/api/djconnect/v1/ask_dj/message"
     assert captured["headers"]["Authorization"] == "Bearer token-1"
     assert captured["headers"]["Accept-Language"] == "nl-NL"
     assert captured["headers"]["X-DJConnect-Language"] == "nl-NL"
@@ -243,7 +281,7 @@ def test_ask_dj_clear_history_posts_identity_payload() -> None:
     with patch("djconnect_pi.ha.requests.post", side_effect=fake_post):
         client.ask_dj_clear_history()
 
-    assert captured["url"] == "http://ha/api/djconnect/ask_dj/history/clear"
+    assert captured["url"] == "http://ha/api/djconnect/v1/ask_dj/history/clear"
     assert captured["headers"]["Authorization"] == "Bearer token-1"
     assert captured["json"]["client_type"] == "raspberry_pi"
     assert captured["json"]["device_id"] == "djconnect-raspberry-pi-ABCDEF123456"
@@ -265,7 +303,7 @@ def test_ask_dj_action_uses_structured_command_payload() -> None:
     with patch("djconnect_pi.ha.requests.post", side_effect=fake_post):
         client.ask_dj_action({"kind": "confirmation", "response_value": "yes", "music_dna_key": "followup-1"})
 
-    assert captured["url"] == "http://ha/api/djconnect/command"
+    assert captured["url"] == "http://ha/api/djconnect/v1/command"
     assert captured["json"]["command"] == "ask_dj_followup_response"
     assert captured["json"]["language"] == "en-GB"
     assert captured["json"]["value"] == {"kind": "confirmation", "response_value": "yes", "music_dna_key": "followup-1"}
@@ -287,10 +325,10 @@ def test_status_and_command_forward_optional_mood() -> None:
         client.status(Playback(title="Track", artist="Artist"))
         client.command("ask_dj_play_recommendation", value={"uri": "spotify:track:1"})
 
-    assert captured[0]["url"] == "http://ha/api/djconnect/status"
+    assert captured[0]["url"] == "http://ha/api/djconnect/v1/status"
     assert captured[0]["json"]["mood"] == 12
     assert captured[0]["headers"]["X-DJConnect-Mood"] == "12"
-    assert captured[1]["url"] == "http://ha/api/djconnect/command"
+    assert captured[1]["url"] == "http://ha/api/djconnect/v1/command"
     assert captured[1]["json"]["command"] == "ask_dj_play_recommendation"
     assert captured[1]["json"]["mood"] == 12
     assert captured[1]["headers"]["X-DJConnect-Mood"] == "12"
@@ -319,7 +357,7 @@ def test_track_insight_posts_current_track_metadata_and_music_dna_headers() -> N
     with patch("djconnect_pi.ha.requests.post", side_effect=fake_post):
         client.track_insight(Playback(title="Strobe", artist="deadmau5"))
 
-    assert captured["url"] == "http://ha/api/djconnect/track_insight"
+    assert captured["url"] == "http://ha/api/djconnect/v1/track_insight"
     assert captured["headers"]["Authorization"] == "Bearer token-1"
     assert captured["headers"]["X-DJConnect-Device-ID"] == "djconnect-raspberry-pi-ABCDEF123456"
     assert captured["headers"]["X-DJConnect-Music-DNA-Key"] == "music-dna-1"
@@ -356,7 +394,7 @@ def test_music_dna_profile_posts_identity_language_mood_and_key() -> None:
     with patch("djconnect_pi.ha.requests.post", side_effect=fake_post):
         client.music_dna_profile()
 
-    assert captured["url"] == "http://ha/api/djconnect/music_dna/profile"
+    assert captured["url"] == "http://ha/api/djconnect/v1/music_dna/profile"
     assert captured["headers"]["X-DJConnect-Music-DNA-Key"] == "dna-1"
     assert captured["headers"]["X-DJConnect-Mood"] == "35"
     assert captured["json"]["client_type"] == "raspberry_pi"
@@ -410,7 +448,7 @@ def test_music_discovery_feed_get_sends_pi_identity() -> None:
     with patch("djconnect_pi.ha.requests.get", side_effect=fake_get):
         client.music_discovery_feed()
 
-    assert captured["url"] == "http://ha/api/djconnect/music_discovery"
+    assert captured["url"] == "http://ha/api/djconnect/v1/music_discovery"
     assert captured["headers"]["Authorization"] == "Bearer token-1"
     assert captured["params"]["client_type"] == "raspberry_pi"
     assert captured["params"]["client_id"] == "djconnect-raspberry-pi-ABCDEF123456"
@@ -430,9 +468,9 @@ def test_music_discovery_refresh_and_play_use_contract_endpoints() -> None:
         client.music_discovery_refresh()
         client.music_discovery_play({"id": "rec-1", "kind": "track", "uri": "spotify:track:1", "title": "Track"})
 
-    assert captured[0][0] == "http://ha/api/djconnect/music_discovery/refresh"
+    assert captured[0][0] == "http://ha/api/djconnect/v1/music_discovery/refresh"
     assert captured[0][1]["client_type"] == "raspberry_pi"
-    assert captured[1][0] == "http://ha/api/djconnect/music_discovery/play"
+    assert captured[1][0] == "http://ha/api/djconnect/v1/music_discovery/play"
     assert captured[1][1]["id"] == "rec-1"
     assert captured[1][1]["uri"] == "spotify:track:1"
     assert captured[1][1]["source"] == "music_discovery"
@@ -505,7 +543,7 @@ def test_ask_dj_save_current_track_action_posts_direct_command_payload() -> None
     with patch("djconnect_pi.ha.requests.post", side_effect=fake_post):
         client.ask_dj_action({"kind": "control", "command": "save_current_track", "button_label": "Zet in favorieten"})
 
-    assert captured["url"] == "http://ha/api/djconnect/command"
+    assert captured["url"] == "http://ha/api/djconnect/v1/command"
     assert captured["headers"]["Authorization"] == "Bearer token-1"
     assert captured["headers"]["X-DJConnect-Device-ID"] == "djconnect-raspberry-pi-ABCDEF123456"
     assert captured["headers"]["Content-Type"] == "application/json"

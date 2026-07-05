@@ -34,7 +34,7 @@ Huidige stand:
   `music_target_player` en `music_backend_error`. About/status/diagnostics
   tonen transport Local only, backend, target player, availability/error en
   compacte capabilities.
-- Ask DJ blijft tekst-only via `/api/djconnect/ask_dj/message`, stuurt
+- Ask DJ blijft tekst-only via `/api/djconnect/v1/ask_dj/message`, stuurt
   identity (`client_type`, `device_id`, `device_name`) mee, accepteert
   backend-aware `playback_actions[]` zonder Spotify URI te vereisen en toont
   unsupported capability/stale backend action responses als nette meldingen
@@ -58,7 +58,7 @@ Huidige stand:
 - Release `v3.2.9` voegt de server-authoritative Music DNA dashboard/opt-in
   flow en de hoofdnav-pagina Ontdek/Music Discovery toe. Ontdek werkt alleen
   na Music DNA consent, rendert uitsluitend HA-aanbevelingen/reasons, gebruikt
-  `/api/djconnect/music_discovery` plus refresh/play endpoints en ondersteunt
+  `/api/djconnect/v1/music_discovery` plus refresh/play endpoints en ondersteunt
   de geadverteerde websocket message types met HTTP fallback.
 - Source release is aangemaakt:
   - source repo tag/release: `v3.2.9`

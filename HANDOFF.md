@@ -275,7 +275,7 @@ Not implemented by design:
 
 - PTT
 - microphone capture
-- raw WAV upload to `/api/djconnect/voice`
+- raw WAV upload to `/api/djconnect/v1/voice`
 - local TTS/DJ response audio playback
 - ESP-only OTA, reboot, battery, Wi-Fi RSSI or screen entities
 

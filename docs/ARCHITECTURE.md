@@ -159,7 +159,7 @@ The Pi client is an app-like DJConnect client.
   "device_id": "djconnect-raspberry-pi-XXXXXXXXXXXX",
   "device_name": "DJConnect",
   "client_type": "raspberry_pi",
-  "version": "3.2.9",
+  "version": "3.2.10",
   "capabilities": {
     "touch": true,
     "voice": false,
@@ -178,12 +178,12 @@ The Pi client is an app-like DJConnect client.
 
 Runtime traffic uses:
 
-- `POST /api/djconnect/pair`
-- `POST /api/djconnect/status`
-- `POST /api/djconnect/command`
-- `POST /api/djconnect/ask_dj/message`
-- `GET /api/djconnect/ask_dj/history?since_revision=<revision>`
-- `POST /api/djconnect/ask_dj/history/clear`
+- `POST /api/djconnect/v1/pair`
+- `POST /api/djconnect/v1/status`
+- `POST /api/djconnect/v1/command`
+- `POST /api/djconnect/v1/ask_dj/message`
+- `GET /api/djconnect/v1/ask_dj/history?since_revision=<revision>`
+- `POST /api/djconnect/v1/ask_dj/history/clear`
 
 Pairing, status and command payloads all include the stable `device_id` and
 `client_type=raspberry_pi`. Command payloads also include the command name and
@@ -207,17 +207,17 @@ sources and audio returned on the current backend message. It never parses
 visible text, reuses previous artwork, stores Music DNA locally, reconstructs
 prompts or infers playback actions. Playback starts only when Home Assistant
 returns or executes an explicit action. Returned Play Now and speaker actions
-are posted back to `/api/djconnect/command` with the backend action payload;
+are posted back to `/api/djconnect/v1/command` with the backend action payload;
 plain output selection uses the returned `value` with `set_output`. If a
 message includes `audio_url`, the UI shows a "DJ antwoord afspelen" button for
 that URL, but it does not create local TTS or audio bubbles. Track Insight is
-opened from Now Playing through `/api/djconnect/track_insight` and Ask DJ
+opened from Now Playing through `/api/djconnect/v1/track_insight` and Ask DJ
 responses with `intent/action/type/open_screen:"track_insight"` render the
 normalized `track_insight` object, including Music DNA Match from
 `track_insight.music_dna.match_percent`.
 
 Music DNA on Raspberry Pi is a server-authoritative settings/dashboard surface.
-The Pi uses authenticated `POST /api/djconnect/music_dna/profile`,
+The Pi uses authenticated `POST /api/djconnect/v1/music_dna/profile`,
 `/settings` and `/clear` calls, or websocket message types
 `djconnect/music_dna/profile`, `djconnect/music_dna/settings` and
 `djconnect/music_dna/clear` when Home Assistant advertises them. The Pi never
@@ -230,10 +230,10 @@ Music Discovery (`Ontdek`) is also Home Assistant authoritative and is gated by
 Music DNA consent. Opening Ontdek first checks Music DNA profile state. If
 Music DNA is disabled, the Pi shows the consent/gating UI and does not request
 recommendations. Accepting consent posts `enabled:true` to
-`/api/djconnect/music_dna/settings` and then loads the feed. The discovery feed
-comes from `GET /api/djconnect/music_discovery`, refresh uses
-`POST /api/djconnect/music_discovery/refresh`, and Play Now uses
-`POST /api/djconnect/music_discovery/play`. The websocket fast path uses
+`/api/djconnect/v1/music_dna/settings` and then loads the feed. The discovery feed
+comes from `GET /api/djconnect/v1/music_discovery`, refresh uses
+`POST /api/djconnect/v1/music_discovery/refresh`, and Play Now uses
+`POST /api/djconnect/v1/music_discovery/play`. The websocket fast path uses
 `djconnect/music_discovery/feed`, `djconnect/music_discovery/refresh` and
 `djconnect/music_discovery/play` only when advertised. Recommendation cards are
 limited to HA-provided track, album, artist and playlist items; reason text is
@@ -245,7 +245,7 @@ The canonical Home Assistant `SYNC_PROMPTS.md` still contains an older
 Raspberry Pi paragraph that describes Ask DJ as read-only/no free prompt input
 and mentions a Pi-local `/api/device/dj_response` route. The current product
 decision for this repo is the newer 3.2 client contract: Pi Ask DJ is typed
-text-only via `/api/djconnect/ask_dj/message`, with no voice/PTT, no local TTS
+text-only via `/api/djconnect/v1/ask_dj/message`, with no voice/PTT, no local TTS
 generation and no Pi-local `/api/device/dj_response` endpoint.
 
 Media browsing commands use explicit bounded limits: `queue` sends

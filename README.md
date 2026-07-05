@@ -1,6 +1,6 @@
 # DJConnect Pi
 
-Version: `3.2.9`
+Version: `3.2.10`
 
 Raspberry Pi Zero 2 W touch-display client for DJConnect. This client uses
 Qt Quick/QML with a PySide6 backend and is meant for a Pimoroni HyperPixel 4.0
@@ -49,7 +49,7 @@ running separately from the touch UI.
 - Music backend selection is Home Assistant-side. The Pi displays the backend
   summary returned by HA and does not store Spotify credentials or assume
   Spotify Direct over Music Assistant.
-- Ask DJ is typed text-only. The Pi posts `/api/djconnect/ask_dj/message` with
+- Ask DJ is typed text-only. The Pi posts `/api/djconnect/v1/ask_dj/message` with
   `audio_response:"auto"` and reports `ask_dj_voice_supported:false` plus
   `ask_dj_audio_response_supported:false`; any audio URL is backend-provided
   and externally opened, never generated locally.
@@ -60,19 +60,19 @@ running separately from the touch UI.
   consent. The Pi renders server recommendations, sends refresh/play requests
   and posts Play Now selections back to HA as Music Discovery interactions.
 - Home Assistant endpoints:
-  - `POST /api/djconnect/pair`
-  - `POST /api/djconnect/status`
-  - `POST /api/djconnect/command`
-  - `POST /api/djconnect/ask_dj/message`
-  - `POST /api/djconnect/track_insight`
-  - `POST /api/djconnect/music_dna/profile`
-  - `POST /api/djconnect/music_dna/settings`
-  - `POST /api/djconnect/music_dna/clear`
-  - `GET /api/djconnect/music_discovery`
-  - `POST /api/djconnect/music_discovery/refresh`
-  - `POST /api/djconnect/music_discovery/play`
-  - `GET /api/djconnect/ask_dj/history?since_revision=<revision>`
-  - `POST /api/djconnect/ask_dj/history/clear`
+  - `POST /api/djconnect/v1/pair`
+  - `POST /api/djconnect/v1/status`
+  - `POST /api/djconnect/v1/command`
+  - `POST /api/djconnect/v1/ask_dj/message`
+  - `POST /api/djconnect/v1/track_insight`
+  - `POST /api/djconnect/v1/music_dna/profile`
+  - `POST /api/djconnect/v1/music_dna/settings`
+  - `POST /api/djconnect/v1/music_dna/clear`
+  - `GET /api/djconnect/v1/music_discovery`
+  - `POST /api/djconnect/v1/music_discovery/refresh`
+  - `POST /api/djconnect/v1/music_discovery/play`
+  - `GET /api/djconnect/v1/ask_dj/history?since_revision=<revision>`
+  - `POST /api/djconnect/v1/ask_dj/history/clear`
 - Local Client API endpoints:
   - `GET /api/device/info`
   - `GET /api/device/pairing-info`
@@ -148,7 +148,7 @@ The app is a 720x720 fullscreen touch remote:
 - Ontdek screen that works only after Music DNA consent, renders HA-provided
   track, album, artist and playlist recommendations, shows backend reason text
   only through an explicit details action and sends Play Now through
-  `/api/djconnect/music_discovery/play`
+  `/api/djconnect/v1/music_discovery/play`
 - Music DNA screen for server-backed opt-in, disable, clear and compact profile
   display; optional dashboard blocks are hidden when absent or ineligible
 - fixed bottom menu bar for Speelt nu, Ask DJ, Track Insight, Ontdek, Music DNA
@@ -229,9 +229,9 @@ not a private source clone:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.2.9.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.2.10.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.2.9
+cd djconnect-pi-3.2.10
 sudo ./scripts/install.sh
 ```
 
@@ -349,9 +349,9 @@ installer:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.2.9.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.2.10.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.2.9
+cd djconnect-pi-3.2.10
 sudo ./scripts/install.sh
 ```
 

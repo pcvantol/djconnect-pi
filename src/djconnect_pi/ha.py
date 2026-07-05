@@ -11,6 +11,7 @@ from .ha_websocket import WebSocketFastPath
 from .i18n import locale_for_language
 
 _LOGGER = logging.getLogger(__name__)
+DJCONNECT_API_PREFIX = "/api/djconnect/v1"
 WEBSOCKET_COMMANDS = {
     "play",
     "pause",
@@ -94,7 +95,7 @@ class HAClient:
 
     def pair(self, pair_code: str) -> dict[str, Any]:
         payload = self._base_payload(include_language=False, include_mood=False, pair_code=pair_code, ha_pairing_status="pending")
-        url = self._url("/api/djconnect/pair")
+        url = self._djconnect_url("pair")
         _LOGGER.debug("POST %s for device_id=%s client_type=%s", url, self.cfg.device_id, CLIENT_TYPE)
         started = time.monotonic()
         response = requests.post(url, json=payload, timeout=self.timeout)
@@ -150,7 +151,7 @@ class HAClient:
                 payload["output"] = playback.output_device
         if queue_items is not None:
             payload["queue"] = {"items": queue_items}
-        url = self._url("/api/djconnect/status")
+        url = self._djconnect_url("status")
         _LOGGER.debug("POST %s paired=%s playback_included=%s", url, self.cfg.paired, playback is not None)
         started = time.monotonic()
         response = requests.post(
@@ -173,7 +174,7 @@ class HAClient:
                 self.update_backend_summary(data)
                 self._validate_ha_version(data)
                 return data
-        url = self._url("/api/djconnect/command")
+        url = self._djconnect_url("command")
         _LOGGER.debug(
             "POST %s command=%s client_type=%s device_id=%s requested_limit=%s payload_keys=%s",
             url,
@@ -198,7 +199,7 @@ class HAClient:
         return data
 
     def ask_dj_history(self, since_revision: int = 0) -> dict[str, Any]:
-        url = self._url(f"/api/djconnect/ask_dj/history?since_revision={max(0, int(since_revision))}")
+        url = self._djconnect_url(f"ask_dj/history?since_revision={max(0, int(since_revision))}")
         _LOGGER.debug("GET %s client_type=%s device_id=%s", url, CLIENT_TYPE, self.cfg.device_id)
         started = time.monotonic()
         response = requests.get(url, headers=self._headers(), timeout=self.timeout)
@@ -219,7 +220,7 @@ class HAClient:
             self.update_backend_summary(data)
             self._validate_ha_version(data)
             return data
-        url = self._url("/api/djconnect/ask_dj/message")
+        url = self._djconnect_url("ask_dj/message")
         _LOGGER.debug("POST %s client_type=%s device_id=%s client_message_id=%s", url, CLIENT_TYPE, self.cfg.device_id, client_message_id)
         started = time.monotonic()
         response = requests.post(url, json=body, headers=self._headers(), timeout=self.timeout)
@@ -255,7 +256,7 @@ class HAClient:
             self.update_backend_summary(data)
             self._validate_ha_version(data)
             return data
-        url = self._url("/api/djconnect/track_insight")
+        url = self._djconnect_url("track_insight")
         _LOGGER.debug("POST %s client_type=%s device_id=%s", url, CLIENT_TYPE, self.cfg.device_id)
         started = time.monotonic()
         response = requests.post(url, json=body, headers=self._headers(), timeout=self.timeout)
@@ -266,13 +267,13 @@ class HAClient:
         return data
 
     def music_dna_profile(self) -> dict[str, Any]:
-        return self._music_dna_request("djconnect/music_dna/profile", "/api/djconnect/music_dna/profile", self._base_payload())
+        return self._music_dna_request("djconnect/music_dna/profile", "music_dna/profile", self._base_payload())
 
     def music_dna_settings(self, **settings: Any) -> dict[str, Any]:
-        return self._music_dna_request("djconnect/music_dna/settings", "/api/djconnect/music_dna/settings", self._base_payload(**settings))
+        return self._music_dna_request("djconnect/music_dna/settings", "music_dna/settings", self._base_payload(**settings))
 
     def music_dna_clear(self) -> dict[str, Any]:
-        return self._music_dna_request("djconnect/music_dna/clear", "/api/djconnect/music_dna/clear", self._base_payload())
+        return self._music_dna_request("djconnect/music_dna/clear", "music_dna/clear", self._base_payload())
 
     def _music_dna_request(self, message_type: str, path: str, body: dict[str, Any]) -> dict[str, Any]:
         if self.cfg.music_dna_key:
@@ -282,7 +283,7 @@ class HAClient:
             self.update_backend_summary(data)
             self._validate_ha_version(data)
             return data
-        url = self._url(path)
+        url = self._djconnect_url(path)
         _LOGGER.debug("POST %s client_type=%s device_id=%s", url, CLIENT_TYPE, self.cfg.device_id)
         started = time.monotonic()
         response = requests.post(url, json=body, headers=self._headers(), timeout=self.timeout)
@@ -299,7 +300,7 @@ class HAClient:
             self.update_backend_summary(data)
             self._validate_ha_version(data)
             return data
-        url = self._url("/api/djconnect/music_discovery")
+        url = self._djconnect_url("music_discovery")
         params = {
             "client_type": CLIENT_TYPE,
             "client_id": self.cfg.device_id,
@@ -316,7 +317,7 @@ class HAClient:
         return data
 
     def music_discovery_refresh(self) -> dict[str, Any]:
-        return self._music_discovery_request("djconnect/music_discovery/refresh", "/api/djconnect/music_discovery/refresh", self._base_payload())
+        return self._music_discovery_request("djconnect/music_discovery/refresh", "music_discovery/refresh", self._base_payload())
 
     def music_discovery_play(self, item: dict[str, Any]) -> dict[str, Any]:
         body = self._base_payload(source="music_discovery", context="music_discovery")
@@ -324,7 +325,7 @@ class HAClient:
             value = item.get(key)
             if value not in (None, ""):
                 body[key] = value
-        return self._music_discovery_request("djconnect/music_discovery/play", "/api/djconnect/music_discovery/play", body)
+        return self._music_discovery_request("djconnect/music_discovery/play", "music_discovery/play", body)
 
     def _music_discovery_request(self, message_type: str, path: str, body: dict[str, Any]) -> dict[str, Any]:
         data = self._try_websocket(message_type, body, command=message_type, timeout=max(self.timeout, 10.0))
@@ -332,7 +333,7 @@ class HAClient:
             self.update_backend_summary(data)
             self._validate_ha_version(data)
             return data
-        url = self._url(path)
+        url = self._djconnect_url(path)
         _LOGGER.debug("POST %s client_type=%s device_id=%s", url, CLIENT_TYPE, self.cfg.device_id)
         started = time.monotonic()
         response = requests.post(url, json=body, headers=self._headers(), timeout=self.timeout)
@@ -344,7 +345,7 @@ class HAClient:
 
     def ask_dj_clear_history(self) -> dict[str, Any]:
         body = self._ask_dj_payload(include_language=False)
-        url = self._url("/api/djconnect/ask_dj/history/clear")
+        url = self._djconnect_url("ask_dj/history/clear")
         _LOGGER.debug("POST %s client_type=%s device_id=%s", url, CLIENT_TYPE, self.cfg.device_id)
         started = time.monotonic()
         response = requests.post(url, json=body, headers=self._headers(), timeout=self.timeout)
@@ -562,6 +563,9 @@ class HAClient:
         if not self.cfg.ha_url:
             raise DJConnectError("Home Assistant URL is not configured")
         return f"{self.cfg.ha_url.rstrip('/')}{path}"
+
+    def _djconnect_url(self, route: str) -> str:
+        return self._url(f"{DJCONNECT_API_PREFIX}/{route.lstrip('/')}")
 
     def _try_websocket(self, message_type: str, body: dict[str, Any], *, command: str, timeout: float) -> dict[str, Any] | None:
         self.fast_path.update_config(self.cfg)

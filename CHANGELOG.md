@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.2.10
+
+- Update all Raspberry Pi Home Assistant DJConnect HTTP client routes to the
+  canonical `/api/djconnect/v1/...` prefix while preserving the
+  `client_type=raspberry_pi` identity contract and text-only Ask DJ behavior.
+- Add regression coverage that fails if source, tests or docs reintroduce a
+  hardcoded Home Assistant DJConnect route without the `/v1` prefix.
+- Refresh route references in architecture, bootstrap, handoff and README
+  documentation while leaving local Pi `/api/device/*` routes unchanged.
+
 ## 3.2.9
 
 - Add the server-authoritative Music DNA dashboard/opt-in flow on Raspberry Pi,
@@ -7,7 +17,7 @@
   local Music DNA aggregation.
 - Add the Ontdek / Music Discovery main navigation page with Music DNA consent
   gating, HA-provided recommendation rendering, reason details and Play Now
-  calls through `/api/djconnect/music_discovery/play`.
+  calls through `/api/djconnect/v1/music_discovery/play`.
 - Add HTTP and websocket client coverage for Music DNA and Music Discovery
   contracts, plus QML/nav/parser tests and updated docs for the new feature
   boundary.
@@ -76,7 +86,7 @@
   metadata and firmware/version aliases, and `/api/device/pair` validates the
   temporary pairing code before storing the device token.
 - Align Ask DJ and Now Playing with the HA Track Insight contract:
-  `/api/djconnect/track_insight`, `intent/action/type/open_screen:
+  `/api/djconnect/v1/track_insight`, `intent/action/type/open_screen:
   "track_insight"` and normalized `track_insight` rendering.
 - Use Music DNA terminology and `music_dna_key` / `X-DJConnect-Music-DNA-Key`
   throughout client-facing payloads and headers.
@@ -149,13 +159,13 @@
 ## 3.1.107
 
 - Update Raspberry Pi Ask DJ for the Home Assistant v3.1.92 contract: typed
-  text messages use `/api/djconnect/ask_dj/message`, history sync keeps
-  `since_revision`, history clearing uses `/api/djconnect/ask_dj/history/clear`
+  text messages use `/api/djconnect/v1/ask_dj/message`, history sync keeps
+  `since_revision`, history clearing uses `/api/djconnect/v1/ask_dj/history/clear`
   and capabilities advertise text actions while voice/PTT/TTS/local audio stay
   disabled.
 - Render Ask DJ response `items[]` as compact rows, keep memory summaries
   text-only and route HA-provided control, output, confirmation and Play Now
-  actions through `/api/djconnect/command` without local intent reconstruction.
+  actions through `/api/djconnect/v1/command` without local intent reconstruction.
 
 ## 3.1.106
 
