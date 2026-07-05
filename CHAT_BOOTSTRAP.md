@@ -63,7 +63,7 @@ Huidige stand:
 - Release `v3.2.10` zet alle Raspberry Pi Home Assistant DJConnect HTTP-routes
   op de canonical `/api/djconnect/v1/...` prefix, behoudt
   `client_type: raspberry_pi` en tekst-only Ask DJ, en voegt regressietest toe
-  tegen oude `/api/djconnect/...` routes zonder `/v1`.
+  zodat DJConnect API-routes altijd de canonical `/v1` prefix gebruiken.
 - Source release is aangemaakt:
   - source repo tag/release: `v3.2.10`
 - Directe push naar `main` is gedaan met tijdelijke branch-protection/admin
