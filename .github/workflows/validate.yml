@@ -3,6 +3,7 @@ name: Validate
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -33,3 +34,60 @@ jobs:
         python -m pytest
       ruff-continue-on-error: true
       bandit-continue-on-error: true
+
+  cleanup-workflow-runs:
+    name: Cleanup workflow runs
+    needs: python
+    if: >-
+      ${{
+        always() &&
+        needs.python.result == 'success' &&
+        github.event_name != 'pull_request' &&
+        (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main')
+      }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      CURRENT_RUN_ID: ${{ github.run_id }}
+      KEEP_RUNS: "2"
+    steps:
+      - name: Delete old completed workflow runs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          gh api --paginate "repos/${GH_REPO}/actions/workflows" \
+            --jq '.workflows[] | select(.state == "active") | [.id, .name] | @tsv' |
+          while IFS=$'\t' read -r workflow_id workflow_name; do
+            if [[ -z "${workflow_id}" ]]; then
+              continue
+            fi
+
+            kept_runs=0
+            deleted_runs=0
+            while IFS= read -r run_id; do
+              if [[ "${run_id}" == "${CURRENT_RUN_ID}" ]]; then
+                continue
+              fi
+
+              kept_runs=$((kept_runs + 1))
+              if (( kept_runs <= KEEP_RUNS )); then
+                continue
+              fi
+
+              gh api \
+                --method DELETE \
+                "repos/${GH_REPO}/actions/runs/${run_id}" >/dev/null
+              deleted_runs=$((deleted_runs + 1))
+            done < <(
+              gh api --paginate \
+                "repos/${GH_REPO}/actions/workflows/${workflow_id}/runs?status=completed&per_page=100" \
+                --jq '.workflow_runs[].id'
+            )
+
+            echo "Deleted ${deleted_runs} old completed run(s) for ${workflow_name}."
+          done

@@ -327,6 +327,9 @@ completed tag workflow runs:
 ./cleanup_old_releases.sh --keep 1 --public --execute
 ```
 
+The normal `Validate` CI workflow also removes older completed GitHub Actions
+runs on `main` and manual dispatches, keeping the newest 2 runs per workflow.
+
 Also update `CHAT_BOOTSTRAP.md` after each release so the next Codex session
 has the current release number, validation status, public asset status and next
 expected action.
