@@ -143,6 +143,23 @@ jobs:
             "checksum": "https://github.com/pcvantol/djconnect-pi-releases/releases/download/${tag}/djconnect-pi-${version}.sha256"
           }
           EOF
+          VERSION="${version}" python - <<'PY'
+          import os
+          from pathlib import Path
+
+          version = os.environ["VERSION"]
+          text = Path("CHANGELOG.md").read_text(encoding="utf-8")
+          heading = f"## {version}"
+          start = text.find(heading)
+          if start < 0:
+              raise SystemExit(f"Missing changelog section for {version}")
+          next_start = text.find("\n## ", start + len(heading))
+          section = text[start: next_start if next_start >= 0 else len(text)].strip() + "\n"
+          Path(f"dist/djconnect-pi-{version}-release-notes.md").write_text(
+              section,
+              encoding="utf-8",
+          )
+          PY
 
       - name: Publish to public release repository
         env:
@@ -164,7 +181,7 @@ jobs:
             release create "${tag}"
             --repo pcvantol/djconnect-pi-releases
             --title "DJConnect Pi ${tag}"
-            --notes-file CHANGELOG.md
+            --notes-file "dist/djconnect-pi-${version}-release-notes.md"
           )
           if [[ "${prerelease}" == "true" ]]; then
             args+=(--prerelease)

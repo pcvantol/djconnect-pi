@@ -194,13 +194,21 @@ def test_release_assets_include_installation_materials() -> None:
 
 def test_release_script_supports_protected_main_flow() -> None:
     release_script = ROOT.joinpath("release.sh").read_text(encoding="utf-8")
+    workflow = ROOT.joinpath(".github/workflows/publish-release.yml").read_text(encoding="utf-8")
 
     assert "--no-push-main" in release_script
     assert "PUSH_MAIN=false" in release_script
-    assert "skip git push origin main (--no-push-main)" in release_script
+    assert "git fetch origin main" in release_script
+    assert "git merge-base --is-ancestor origin/main HEAD" in release_script
+    assert "git push origin HEAD:main" in release_script
+    assert "git push origin main" not in release_script
+    assert "skip git push origin HEAD:main (--no-push-main)" in release_script
     assert "djconnect-pi-${VERSION}-release-notes.md" in release_script
     assert "--notes-file \"dist/djconnect-pi-${VERSION}-release-notes.md\"" in release_script
     assert "--notes-file CHANGELOG.md" not in release_script
+    assert "djconnect-pi-${version}-release-notes.md" in workflow
+    assert '--notes-file "dist/djconnect-pi-${version}-release-notes.md"' in workflow
+    assert "--notes-file CHANGELOG.md" not in workflow
 
 
 def test_technical_design_decisions_document_is_part_of_docs() -> None:
