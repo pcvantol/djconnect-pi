@@ -21,7 +21,7 @@ Belangrijke context:
 - Geen lokale `SYNC_PROMPTS.md` of `PRODUCT_ROADMAP.md`; die staan canoniek in `pcvantol/djconnect`.
 
 Huidige stand:
-- Laatste voorbereide release in deze werkronde is `v3.2.12`.
+- Laatste release/deployment in deze werkronde is `v3.2.12`.
 - Public updater assets staan in `pcvantol/djconnect-pi-releases`, inclusief
   `djconnect-pi-latest.json`.
 - Release `v3.2.0` upgrade de Raspberry Pi client naar protocol `3.2.x`:
@@ -75,32 +75,42 @@ Huidige stand:
 - Release `v3.2.12` corrigeert de Ask DJ capability voor `readonly_actions`:
   `ask_dj_free_input_supported:false` in zowel de lokale device API als
   Home Assistant pairing/status payloads.
-- Source release voor `v3.2.12` moet nog worden afgerond als deze bootstrap in
-  een half-afgebroken release-run wordt gelezen. Controleer:
-  `git tag --list v3.2.12`.
-- Public publish workflow en public assets voor `v3.2.12` moeten na de
-  source release worden gecontroleerd:
+- Source release is aangemaakt:
+  - source repo tag/release: `v3.2.12`
+- Directe push naar `main` is gedaan met tijdelijke branch-protection/admin
+  policy override/bypass voor de release push.
+- Public publish workflow voor `v3.2.12` is geslaagd:
+  - run `28851332315`
+- Public assets voor `v3.2.12` zijn gepubliceerd:
   - `djconnect-pi-3.2.12.tar.gz`
   - `djconnect-pi-3.2.12.sha256`
   - `djconnect-pi-latest.json`
-- Pi deployment voor `v3.2.12` moet nog worden uitgevoerd/geverifieerd via de
-  public tarball installer-route:
-  `~/djconnect-install/djconnect-pi-3.2.12/scripts/install.sh`.
-- Vorige Pi deployment draaide `3.1.112`. Deployment was gedaan via de public
+- Release cleanup is uitgevoerd met `--keep 1 --public --execute`.
+  Oude source release/tag `v3.2.11` en `v3.2.10`, public release/tag
+  `v3.2.11` en `v3.2.10` en completed publish/action runs voor `v3.2.11` en
+  `v3.2.10` zijn verwijderd; lokaal, source releases en public releases houden
+  nu alleen `v3.2.12` over.
+- Pi deployment voor `v3.2.12` is uitgevoerd en geverifieerd via de public
   tarball installer-route:
-  `~/djconnect-install/djconnect-pi-3.1.112/scripts/install.sh`.
-  De eerste installpogingen werden tijdens grote PySide6 stappen door een
-  gesloten SSH sessie onderbroken, maar de resumable install markers werkten;
-  herstarten van dezelfde installer rondde de installatie en activatie af.
+  `~/djconnect-install/djconnect-pi-3.2.12/scripts/install.sh`.
+- Pi eindvalidatie:
+  - `/opt/djconnect/current` -> `/opt/djconnect/releases/3.2.12`
+  - Python package version -> `3.2.12`
+  - `djconnect-client.service` -> `active`
+  - `djconnect-api.service` -> `active`
+  - `/api/device/info` -> `version/app_version/firmware: 3.2.12`,
+    `client_type: raspberry_pi`, paired, `ask_dj_mode:"readonly_actions"` en
+    `ask_dj_free_input_supported:false`.
 - Validatie voor `v3.2.12`:
   - `/Users/pcvantol/.platformio/penv/bin/pytest -q`
     -> ok, 314 passed, 13 skipped
   - `python -m compileall src tests` -> ok
   - `bash -n scripts/install.sh scripts/bootstrap_raspberry_pi_os.sh cleanup_old_releases.sh release.sh` -> ok
   - `git diff --check` -> ok
-  - GitHub Actions publish workflow voor `v3.2.12` -> nog controleren na release
-  - Source release assets voor `v3.2.12` -> nog controleren na release
-  - Public release assets voor `v3.2.12` -> nog controleren na release
+  - GitHub Actions publish workflow voor `v3.2.12` -> success, run `28851332315`
+  - Source release assets voor `v3.2.12` -> gepubliceerd
+  - Public release assets voor `v3.2.12` -> gepubliceerd
+  - Pi public tarball deployment voor `v3.2.12` -> geverifieerd
 
 Openstaande gewenste workflow:
 - Controleer na elke release de public publish workflow:
