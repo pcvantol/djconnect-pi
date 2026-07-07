@@ -1,5 +1,19 @@
 # Changelog
 
+## 3.2.13
+
+- Move Music DNA enable/disable and listening-profile clear controls into the
+  Settings screen with dedicated Music DNA labels and localized copy.
+- Add the Raspberry Pi control-screen favorite heart action with backend-owned
+  favorite state/capability handling, while keeping it off the Now Playing
+  screen.
+- Keep Now Playing focused by removing the Track Insight shortcut and keeping
+  Track Insight available from its dedicated navigation surface.
+- Improve screen wake behavior so tapping an already-awake screen does not jump
+  back to Now Playing unless the screen had actually been dimmed.
+- Extend contextual toast icon support and make Track Insight HTTP fallback
+  tolerate slower backend responses.
+
 ## 3.2.12
 
 - Correct the Raspberry Pi Ask DJ capability payload for `readonly_actions` by

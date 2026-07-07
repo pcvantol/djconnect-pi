@@ -1476,6 +1476,70 @@ def test_backend_wakes_screen_for_previous_next(tmp_path: Path) -> None:
     assert calls == [("previous", {}), ("next", {})]
 
 
+def test_backend_wake_display_resets_x11_dpms(tmp_path: Path, monkeypatch) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    commands: list[list[str]] = []
+
+    def fake_run(command, **kwargs):
+        commands.append(command)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    backend.wakeDisplay()
+
+    assert ["xset", "dpms", "force", "on"] in commands
+    assert ["xset", "s", "reset"] in commands
+
+
+def test_backend_favorite_state_requires_capability_and_track_uri(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token-1"
+    backend.cfg.music_backend_capabilities = {"supports_favorites": True}
+
+    assert backend.favoriteAvailable is False
+
+    backend._apply_playback(Playback(title="Track", artist="Artist", uri="backend:track:1", is_favorite=True))
+
+    assert backend.favoriteAvailable is True
+    assert backend.currentTrackFavorite is True
+
+    backend._apply_playback(Playback(title="Other", artist="Artist", uri="backend:track:2"))
+
+    assert backend.favoriteAvailable is True
+    assert backend.currentTrackFavorite is False
+
+
+def test_backend_save_current_track_uses_existing_command_route_and_busy_state(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token-1"
+    backend.cfg.music_backend_capabilities = {"supports_favorites": True}
+    backend.playback = Playback(title="Track", artist="Artist", uri="backend:track:1")
+    calls: list[tuple[str, dict[str, object]]] = []
+    backend._sync_config_from_disk = lambda: None  # type: ignore[method-assign]
+    backend._run = lambda label, worker, done=None: (worker(), done and done())  # type: ignore[method-assign]
+
+    def fake_command(command: str, **payload: object) -> dict[str, object]:
+        calls.append((command, payload))
+        assert backend.favoriteBusy is True
+        return {
+            "success": True,
+            "playback": {"title": "Track", "artist": "Artist", "uri": "backend:track:1", "is_liked": True},
+        }
+
+    backend.client.command = fake_command  # type: ignore[method-assign]
+
+    backend.saveCurrentTrack()
+
+    assert calls == [("save_current_track", {})]
+    assert backend.favoriteBusy is False
+    assert backend.currentTrackFavorite is True
+
+
 def test_backend_requests_temporary_wake_for_backend_track_change(tmp_path: Path) -> None:
     ensure_app()
     backend = DJConnectBackend(tmp_path / "config.json")
@@ -1632,11 +1696,19 @@ def test_backend_toast_can_be_shown_and_hidden(tmp_path: Path) -> None:
 
     assert backend.toastVisible is True
     assert backend.toastText == "Opgeslagen"
+    assert backend.toastIcon == "music"
+
+    backend.showToastForContext("Wachtrij", "queue")
+
+    assert backend.toastVisible is True
+    assert backend.toastText == "Wachtrij"
+    assert backend.toastIcon == "queue"
 
     backend.hideToast()
 
     assert backend.toastVisible is False
     assert backend.toastText == ""
+    assert backend.toastIcon == "music"
 
 
 def test_backend_auth_error_clears_pairing_and_shows_ready_to_pair(tmp_path: Path) -> None:

@@ -227,6 +227,37 @@ def test_status_uses_bearer_token_and_playback_fields() -> None:
         assert esp_only not in captured["json"]
 
 
+def test_playback_from_status_reads_current_track_favorite_aliases() -> None:
+    cfg = Config()
+    client = HAClient(cfg)
+
+    liked = client.playback_from_status(
+        {
+            "success": True,
+            "playback": {
+                "title": "Track",
+                "artist": "Artist",
+                "uri": "backend:track:1",
+                "is_liked": True,
+            },
+        }
+    )
+    unliked = client.playback_from_status(
+        {
+            "success": True,
+            "playback": {
+                "title": "Track",
+                "artist": "Artist",
+                "uri": "backend:track:2",
+                "favorite_status": False,
+            },
+        }
+    )
+
+    assert liked.is_favorite is True
+    assert unliked.is_favorite is False
+
+
 def test_command_posts_generic_command_payload() -> None:
     cfg = Config(ha_url="http://ha", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1", language="es")
     client = HAClient(cfg)
@@ -331,6 +362,7 @@ def test_track_insight_posts_current_track_metadata_and_music_dna_headers() -> N
         captured["url"] = url
         captured["json"] = kwargs["json"]
         captured["headers"] = kwargs["headers"]
+        captured["timeout"] = kwargs["timeout"]
         return FakeResponse(200, {"success": True, "track_insight": {"track": {"title": "Strobe"}}})
 
     with patch("djconnect_pi.ha.requests.post", side_effect=fake_post):
@@ -345,6 +377,20 @@ def test_track_insight_posts_current_track_metadata_and_music_dna_headers() -> N
     assert captured["headers"]["X-DJConnect-Music-DNA-Key"] == "music-dna-1"
     assert captured["headers"]["X-DJConnect-Mood"] == "88"
     assert captured["json"]["title"] == "Strobe"
+    assert captured["json"]["include_visual_profile"] is True
+    assert captured["json"]["force_refresh"] is False
+    assert captured["json"]["track"] == {
+        "title": "Strobe",
+        "artist": "deadmau5",
+        "album": "For Lack of a Better Name",
+        "artwork_url": "https://example.test/art.jpg",
+        "uri": "spotify:track:1",
+        "genres": ["progressive house"],
+    }
+    assert captured["json"]["player_id"] == "media_player.mass_woonkamer"
+    assert captured["json"]["music_backend"] == "music_assistant"
+    assert captured["json"]["mood"] == 88
+    assert captured["timeout"] == 10.0
     assert captured["json"]["artist"] == "deadmau5"
     assert captured["json"]["album"] == "For Lack of a Better Name"
     assert captured["json"]["artwork_url"] == "https://example.test/art.jpg"

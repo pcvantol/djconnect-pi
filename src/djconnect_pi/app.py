@@ -35,6 +35,23 @@ GAME_SOUND_SAMPLE_RATE = 16_000
 MEDIA_ARTWORK_CACHE_LIMIT = 6
 QT_PIXMAP_CACHE_LIMIT_KB = 4096
 UI_WORKER_COUNT = 1
+TOAST_ICON_FALLBACK = "music"
+TOAST_CONTEXT_ICONS = {
+    "playback": "music",
+    "now": "music",
+    "queue": "queue",
+    "playlists": "playlists",
+    "settings": "settings",
+    "connectivity": "info",
+    "home_assistant": "info",
+    "updates": "logs",
+    "diagnostics": "logs",
+    "logs": "logs",
+    "askdj": "chat",
+    "discover": "musicdna",
+    "musicdna": "musicdna",
+    "games": "gamepad",
+}
 
 
 class SaveCurrentTrackError(DJConnectError):
@@ -48,6 +65,8 @@ class DJConnectBackend(QObject):
     artistChanged = Signal()
     imageUrlChanged = Signal()
     playingChanged = Signal()
+    favoriteChanged = Signal()
+    favoriteBusyChanged = Signal()
     volumeChanged = Signal()
     shuffleChanged = Signal()
     repeatChanged = Signal()
@@ -89,7 +108,7 @@ class DJConnectBackend(QObject):
     _mediaListReady = Signal(str, object)
     _outputDeviceRejected = Signal(str, str)
     _backendAvailableReady = Signal(bool)
-    _toastReady = Signal(str, int)
+    _toastReady = Signal(str, int, str)
     _askDjReady = Signal(object)
     _musicDnaReady = Signal(object)
     _musicDiscoveryReady = Signal(object)
@@ -104,12 +123,14 @@ class DJConnectBackend(QObject):
         self._dj_response_text = ""
         self._dj_response_visible = False
         self._toast_text = ""
+        self._toast_icon = TOAST_ICON_FALLBACK
         self._toast_visible = False
         self._translation_version = 0
         self._version_mismatch_visible = False
         self._version_mismatch_text = ""
         self._pairing_success_visible = False
         self._update_service_triggered = False
+        self._favorite_busy = False
         self._toast_timer = QTimer(self)
         self._toast_timer.setInterval(2000)
         self._toast_timer.setSingleShot(True)
@@ -291,6 +312,19 @@ class DJConnectBackend(QObject):
     def playing(self) -> bool:
         return self.playback.is_playing
 
+    @Property(bool, notify=favoriteChanged)
+    def currentTrackFavorite(self) -> bool:
+        return self.playback.is_favorite
+
+    @Property(bool, notify=favoriteChanged)
+    def favoriteAvailable(self) -> bool:
+        capabilities = self.cfg.music_backend_capabilities or {}
+        return bool(self.paired and capabilities.get("supports_favorites") and self.playback.uri)
+
+    @Property(bool, notify=favoriteBusyChanged)
+    def favoriteBusy(self) -> bool:
+        return self._favorite_busy
+
     @Property(int, notify=volumeChanged)
     def volume(self) -> int:
         return self.playback.volume
@@ -466,6 +500,10 @@ class DJConnectBackend(QObject):
     def toastText(self) -> str:
         return self._toast_text
 
+    @Property(str, notify=toastChanged)
+    def toastIcon(self) -> str:
+        return self._toast_icon
+
     @Property(bool, notify=toastChanged)
     def toastVisible(self) -> bool:
         return self._toast_visible
@@ -499,7 +537,7 @@ class DJConnectBackend(QObject):
         save_config(self.config_path, self.cfg)
         self.settingsChanged.emit()
         _LOGGER.info("User saved Home Assistant URL setting")
-        self.showToast(self.tr_key("ha_url_saved"))
+        self.showToastForContext(self.tr_key("ha_url_saved"), "connectivity")
         self._set_status_text(self.tr_key("ha_url_saved"))
 
     @Slot(int)
@@ -512,7 +550,7 @@ class DJConnectBackend(QObject):
         self.screenTimeoutChanged.emit()
         self.settingsChanged.emit()
         _LOGGER.info("User set screen timeout to %s seconds", value)
-        self.showToast(self.tr_key("screen_timeout_saved"))
+        self.showToastForContext(self.tr_key("screen_timeout_saved"), "settings")
         self._set_status_text(self.tr_key("screen_timeout_saved"))
 
     @Slot(int)
@@ -525,7 +563,7 @@ class DJConnectBackend(QObject):
         self.screenBrightnessChanged.emit()
         self.settingsChanged.emit()
         _LOGGER.info("User set app brightness to %s%%", value)
-        self.showToast(self.tr_key("brightness_saved"))
+        self.showToastForContext(self.tr_key("brightness_saved"), "settings")
         self._set_status_text(self.tr_key("brightness_saved"))
 
     @Slot(str)
@@ -541,7 +579,7 @@ class DJConnectBackend(QObject):
         self.settingsChanged.emit()
         self.titleChanged.emit()
         _LOGGER.info("User changed language to %s", language)
-        self.showToast(self.tr_key("language_saved"))
+        self.showToastForContext(self.tr_key("language_saved"), "settings")
         self._set_status_text(self.tr_key("language_saved"))
 
     @Slot(str)
@@ -556,7 +594,7 @@ class DJConnectBackend(QObject):
         self.updateChannelChanged.emit()
         self.settingsChanged.emit()
         _LOGGER.info("User changed update channel to %s", channel)
-        self.showToast(self.tr_key("update_channel", channel=channel))
+        self.showToastForContext(self.tr_key("update_channel", channel=channel), "updates")
         self._set_status_text(self.tr_key("update_channel", channel=channel))
 
     @Slot(str)
@@ -572,7 +610,7 @@ class DJConnectBackend(QObject):
         self.logLevelChanged.emit()
         self.settingsChanged.emit()
         _LOGGER.info("User changed log level to %s", level)
-        self.showToast(self.tr_key("log_level_saved", level=level))
+        self.showToastForContext(self.tr_key("log_level_saved", level=level), "diagnostics")
 
     @Slot(str)
     def pair(self, pair_code: str) -> None:
@@ -581,10 +619,10 @@ class DJConnectBackend(QObject):
         code = pair_code.strip()
         if not code:
             self._set_status_text(self.tr_key("enter_pairing_code"))
-            self.showToast(self.tr_key("enter_pairing_code"))
+            self.showToastForContext(self.tr_key("enter_pairing_code"), "connectivity")
             return
         _LOGGER.info("User started pairing from touch UI")
-        self.showToast(self.tr_key("pairing"))
+        self.showToastForContext(self.tr_key("pairing"), "connectivity")
         self._run(self.tr_key("pairing"), lambda: self._pair_worker(code))
 
     @Slot()
@@ -650,11 +688,22 @@ class DJConnectBackend(QObject):
             self.playback.is_playing = not self.playback.is_playing
             self.playingChanged.emit()
             _LOGGER.info("User toggled demo playback to playing=%s", self.playback.is_playing)
-            self.showToast(self.tr_key("pause") if self.playback.is_playing else self.tr_key("play"))
+            self.showToastForContext(self.tr_key("pause") if self.playback.is_playing else self.tr_key("play"), "playback")
             return
         _LOGGER.info("User requested playback toggle")
-        self.showToast(self.tr_key("pause") if self.playback.is_playing else self.tr_key("play"))
+        self.showToastForContext(self.tr_key("pause") if self.playback.is_playing else self.tr_key("play"), "playback")
         self.command("pause" if self.playback.is_playing else "play")
+
+    @Slot()
+    def wakeDisplay(self) -> None:
+        for command in (
+            ["xset", "dpms", "force", "on"],
+            ["xset", "s", "reset"],
+        ):
+            try:
+                subprocess.run(command, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except OSError as exc:
+                _LOGGER.debug("Could not run display wake command %s: %s", command, exc)
 
     @Slot()
     def previous(self) -> None:
@@ -662,10 +711,10 @@ class DJConnectBackend(QObject):
         if self._demo_mode:
             self._apply_demo_track("Blue Monday", "New Order")
             _LOGGER.info("User selected previous demo track")
-            self.showToast(self.tr_key("previous"))
+            self.showToastForContext(self.tr_key("previous"), "playback")
             return
         _LOGGER.info("User requested previous track")
-        self.showToast(self.tr_key("previous"))
+        self.showToastForContext(self.tr_key("previous"), "playback")
         self.command("previous")
 
     @Slot()
@@ -674,19 +723,20 @@ class DJConnectBackend(QObject):
         if self._demo_mode:
             self._apply_demo_track("Around the World", "Daft Punk")
             _LOGGER.info("User selected next demo track")
-            self.showToast(self.tr_key("next"))
+            self.showToastForContext(self.tr_key("next"), "playback")
             return
         _LOGGER.info("User requested next track")
-        self.showToast(self.tr_key("next"))
+        self.showToastForContext(self.tr_key("next"), "playback")
         self.command("next")
 
     @Slot()
     def saveCurrentTrack(self) -> None:
         self._sync_config_from_disk()
-        if self._demo_mode or not self.paired:
+        if self._demo_mode or not self.favoriteAvailable or self._favorite_busy:
             return
         _LOGGER.info("User requested saving the current track")
-        self._run("save_current_track", self._save_current_track_worker)
+        self._set_favorite_busy(True)
+        self._run("save_current_track", self._save_current_track_worker, done=lambda: self._set_favorite_busy(False))
 
     @Slot()
     def openTrackInsight(self) -> None:
@@ -706,7 +756,7 @@ class DJConnectBackend(QObject):
         self.playback.volume = value
         self.volumeChanged.emit()
         _LOGGER.info("User set volume to %s", value)
-        self.showToast(f"{self.tr_key('vol')} {value}")
+        self.showToastForContext(f"{self.tr_key('vol')} {value}", "playback")
         if self._demo_mode:
             return
         self.command("set_volume", value=value)
@@ -720,7 +770,7 @@ class DJConnectBackend(QObject):
         self.playback.shuffle = not self.playback.shuffle
         self.shuffleChanged.emit()
         _LOGGER.info("User toggled shuffle to %s", self.playback.shuffle)
-        self.showToast(self.tr_key("shuffle"))
+        self.showToastForContext(self.tr_key("shuffle"), "playback")
         if self._demo_mode:
             return
         self.command("set_shuffle", value=self.playback.shuffle)
@@ -731,7 +781,7 @@ class DJConnectBackend(QObject):
         self.playback.repeat = next_value
         self.repeatChanged.emit()
         _LOGGER.info("User changed repeat mode to %s", next_value)
-        self.showToast(self.tr_key("repeat"))
+        self.showToastForContext(self.tr_key("repeat"), "playback")
         if self._demo_mode:
             return
         self.command("set_repeat", value=next_value)
@@ -743,7 +793,7 @@ class DJConnectBackend(QObject):
             self.playback.output_device = ""
             self.outputDeviceChanged.emit()
             _LOGGER.info("User cleared output device selection from touch UI")
-            self.showToast(self.tr_key("none"))
+            self.showToastForContext(self.tr_key("none"), "playback")
             return
         previous = self.playback.output_device
         self.playback.output_device = value
@@ -751,7 +801,7 @@ class DJConnectBackend(QObject):
         self._pending_output_until = time.monotonic() + 20
         self.outputDeviceChanged.emit()
         _LOGGER.info("User selected output device: %s", value)
-        self.showToast(value)
+        self.showToastForContext(value, "playback")
         if self._demo_mode:
             return
         self._run("set_output", lambda: self._set_output_worker(value, previous))
@@ -770,7 +820,7 @@ class DJConnectBackend(QObject):
         self.outputDeviceChanged.emit()
         self._apply_demo_track("Midnight City", "M83")
         _LOGGER.info("User entered local demo mode")
-        self.showToast(self.tr_key("demo_active"))
+        self.showToastForContext(self.tr_key("demo_active"), "playback")
         self._set_status_text(self.tr_key("demo_active"))
 
     @Slot()
@@ -792,7 +842,7 @@ class DJConnectBackend(QObject):
         self.repeatChanged.emit()
         self.outputDeviceChanged.emit()
         _LOGGER.info("User exited local demo mode")
-        self.showToast(self.tr_key("exit_demo"))
+        self.showToastForContext(self.tr_key("exit_demo"), "connectivity")
         self._set_status_text(self.tr_key("ready_to_pair"))
 
     @Slot()
@@ -813,7 +863,7 @@ class DJConnectBackend(QObject):
     @Slot()
     def manualRefresh(self) -> None:
         _LOGGER.info("User requested manual refresh")
-        self.showToast(self.tr_key("refreshing"))
+        self.showToastForContext(self.tr_key("refreshing"), "playback")
         self._pending_output_device = ""
         self._pending_output_until = 0.0
         self.refresh()
@@ -832,7 +882,7 @@ class DJConnectBackend(QObject):
             return
         _LOGGER.info("User %s Ask DJ history", action)
         if show_toast:
-            self.showToast(self.tr_key("refreshing"))
+            self.showToastForContext(self.tr_key("refreshing"), "askdj")
         self._set_ask_dj_busy(True)
         self._run(self.tr_key("ask_dj"), self._load_ask_dj_history_worker, done=lambda: self._set_ask_dj_busy(False))
 
@@ -938,7 +988,7 @@ class DJConnectBackend(QObject):
     def resetPairing(self) -> None:
         _LOGGER.info("User requested pairing reset from touch UI")
         self._forget_pairing()
-        self.showToast(self.tr_key("ready_to_pair"))
+        self.showToastForContext(self.tr_key("ready_to_pair"), "connectivity")
         self._set_status_text(self.tr_key("ready_to_pair"))
 
     @Slot()
@@ -977,7 +1027,7 @@ class DJConnectBackend(QObject):
     def checkForUpdates(self) -> None:
         _LOGGER.info("User requested update check from touch UI")
         self._set_status_text(self.tr_key("checking_updates"))
-        self.showToast(self.tr_key("checking_updates"))
+        self.showToastForContext(self.tr_key("checking_updates"), "updates")
         commands = (
             ["sudo", "-n", "/usr/bin/systemctl", "start", "djconnect-updater.service"],
             ["sudo", "-n", "/bin/systemctl", "start", "djconnect-updater.service"],
@@ -988,7 +1038,7 @@ class DJConnectBackend(QObject):
                 _LOGGER.info("Starting update check command: %s", " ".join(command))
                 subprocess.run(command, check=True, timeout=8, capture_output=True, text=True)
                 self._set_status_text(self.tr_key("update_check_started"))
-                self.showToast(self.tr_key("update_check_started"))
+                self.showToastForContext(self.tr_key("update_check_started"), "updates")
                 return
             except subprocess.CalledProcessError as exc:
                 detail = (exc.stderr or exc.stdout or str(exc)).strip()
@@ -999,11 +1049,11 @@ class DJConnectBackend(QObject):
                 _LOGGER.warning("Update check command failed: %s: %s", " ".join(command), exc)
         message = self.tr_key("update_check_failed", error=last_error)
         self._set_status_text(message)
-        self._show_toast(message, 5000)
+        self._show_toast(message, 5000, "updates")
 
     def _run_power_command(self, *, action: str, status_key: str, failure_key: str, commands: tuple[list[str], ...]) -> None:
         self._set_status_text(self.tr_key(status_key))
-        self.showToast(self.tr_key(status_key))
+        self.showToastForContext(self.tr_key(status_key), "updates")
         last_error: str = "unknown error"
         for command in commands:
             try:
@@ -1019,7 +1069,7 @@ class DJConnectBackend(QObject):
                 _LOGGER.warning("%s command failed: %s: %s", action.capitalize(), " ".join(command), exc)
         message = self.tr_key(failure_key, error=last_error)
         self._set_status_text(message)
-        self._show_toast(message, 5000)
+        self._show_toast(message, 5000, "updates")
 
     @Slot(str, str)
     def playMediaItem(self, command: str, item: str) -> None:
@@ -1031,13 +1081,13 @@ class DJConnectBackend(QObject):
             _LOGGER.warning("Ignoring unsupported media item command from touch UI: %s", command)
             return
         _LOGGER.info("User requested %s from touch UI", command)
-        self.showToast(self.tr_key("play"))
+        self.showToastForContext(self.tr_key("play"), "playback")
         self._run(command, lambda: self._play_media_item_worker(command, payload))
 
     @Slot()
     def showLogs(self) -> None:
         _LOGGER.info("User opened logs view")
-        self.showToast(self.tr_key("logs"))
+        self.showToastForContext(self.tr_key("logs"), "diagnostics")
         path = Path(self.cfg.log_file)
         try:
             if path.exists():
@@ -1054,7 +1104,7 @@ class DJConnectBackend(QObject):
     def copyLogs(self) -> None:
         _LOGGER.info("User copied logs from touch UI")
         QGuiApplication.clipboard().setText(self._logs_text)
-        self.showToast(self.tr_key("logs_copied"))
+        self.showToastForContext(self.tr_key("logs_copied"), "diagnostics")
 
     @Slot()
     def clearLogs(self) -> None:
@@ -1064,7 +1114,7 @@ class DJConnectBackend(QObject):
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text("", encoding="utf-8")
             self._logs_text = self.tr_key("logs_cleared")
-            self.showToast(self.tr_key("logs_cleared"))
+            self.showToastForContext(self.tr_key("logs_cleared"), "diagnostics")
         except Exception as exc:
             self._logs_text = self.tr_key("logs_failed", error=exc)
         self.logsChanged.emit()
@@ -1078,6 +1128,10 @@ class DJConnectBackend(QObject):
     @Slot(str)
     def showToast(self, text: str) -> None:
         self._show_toast(text, 2000)
+
+    @Slot(str, str)
+    def showToastForContext(self, text: str, context: str) -> None:
+        self._show_toast(text, 2000, context)
 
     @Slot(str)
     def playGameSound(self, kind: str) -> None:
@@ -1133,11 +1187,12 @@ class DJConnectBackend(QObject):
         finally:
             self._game_sound_objects = [(s, b) for s, b in self._game_sound_objects if s is not sink and b is not buffer]
 
-    def _show_toast(self, text: str, duration_ms: int = 2000) -> None:
+    def _show_toast(self, text: str, duration_ms: int = 2000, context: str = "") -> None:
         text = text.strip()
         if not text:
             return
         self._toast_text = text
+        self._toast_icon = _toast_icon_for_context(context)
         self._toast_visible = True
         self.toastChanged.emit()
         self._toast_timer.setInterval(duration_ms)
@@ -1149,6 +1204,7 @@ class DJConnectBackend(QObject):
             return
         self._toast_visible = False
         self._toast_text = ""
+        self._toast_icon = TOAST_ICON_FALLBACK
         self.toastChanged.emit()
 
     def command(self, command: str, **payload: object) -> None:
@@ -1162,12 +1218,12 @@ class DJConnectBackend(QObject):
         if not uri:
             return
         _LOGGER.info("User requested play_uri from touch UI")
-        self.showToast(self.tr_key("play"))
+        self.showToastForContext(self.tr_key("play"), "playback")
         self.command("play_uri", uri=uri)
 
     @Slot()
     def loadQueue(self) -> None:
-        self.showToast(self.tr_key("refreshing"))
+        self.showToastForContext(self.tr_key("refreshing"), "queue")
         if self._demo_mode:
             self._queue_items = demo_queue_items()
             self.mediaListsChanged.emit()
@@ -1184,7 +1240,7 @@ class DJConnectBackend(QObject):
 
     @Slot()
     def loadPlaylists(self) -> None:
-        self.showToast(self.tr_key("refreshing"))
+        self.showToastForContext(self.tr_key("refreshing"), "playlists")
         if self._demo_mode:
             self._playlist_items = demo_playlist_items()
             self.mediaListsChanged.emit()
@@ -1264,7 +1320,7 @@ class DJConnectBackend(QObject):
         if data.get("success") is False:
             error = str(data.get("error") or data.get("message") or "save_current_track_failed")
             raise SaveCurrentTrackError(error)
-        self._toastReady.emit(self.tr_key("favorite_saved"), 2200)
+        self._toastReady.emit(self.tr_key("favorite_saved"), 2200, "playback")
         if _contains_playback_payload(data):
             self._playbackReady.emit(self.client.playback_from_status(data))
         _LOGGER.info("Save current track completed in %.0fms", _elapsed_ms(started))
@@ -1432,7 +1488,7 @@ class DJConnectBackend(QObject):
             raise BackendUnavailable("Music Discovery unavailable") from exc
         if _contains_playback_payload(data):
             self._playbackReady.emit(self.client.playback_from_status(data))
-        self._toastReady.emit(self.tr_key("play"), 1800)
+        self._toastReady.emit(self.tr_key("play"), 1800, "playback")
 
     @Slot()
     def pollAskDjHistory(self) -> None:
@@ -1551,7 +1607,7 @@ class DJConnectBackend(QObject):
                 self._forget_pairing()
                 message = self.tr_key("ready_to_pair")
                 self._statusReady.emit(message)
-                self._toastReady.emit(message, 5000)
+                self._toastReady.emit(message, 5000, "connectivity")
             except BackendUnavailable as exc:
                 self._backendAvailableReady.emit(False)
                 _LOGGER.warning("%s backend unavailable: %s", label, exc)
@@ -1561,24 +1617,24 @@ class DJConnectBackend(QObject):
                     self._statusReady.emit(self.tr_key("ready_to_pair"))
                     return
                 self._statusReady.emit(message)
-                self._toastReady.emit(message, 5000)
+                self._toastReady.emit(message, 5000, "connectivity")
             except UnsupportedBackendCapability as exc:
                 self._backendAvailableReady.emit(True)
                 message = str(exc)
                 _LOGGER.warning("%s unsupported backend capability: %s", label, message)
                 self._statusReady.emit(message)
-                self._toastReady.emit(message, 5000)
+                self._toastReady.emit(message, 5000, "connectivity")
             except StaleBackendAction as exc:
                 self._backendAvailableReady.emit(True)
                 message = str(exc)
                 _LOGGER.warning("%s stale backend action: %s", label, message)
                 self._statusReady.emit(message)
-                self._toastReady.emit(message, 5000)
+                self._toastReady.emit(message, 5000, "connectivity")
             except SaveCurrentTrackError as exc:
                 _LOGGER.warning("%s failed: %s", label, exc)
                 message = self.tr_key("favorite_save_failed")
                 self._statusReady.emit(message)
-                self._toastReady.emit(message, 3500)
+                self._toastReady.emit(message, 3500, "connectivity")
             except DJConnectError as exc:
                 self._backendAvailableReady.emit(False)
                 _LOGGER.warning("%s failed: %s", label, exc)
@@ -1615,6 +1671,8 @@ class DJConnectBackend(QObject):
             self.imageUrlChanged.emit()
         if old.is_playing != playback.is_playing:
             self.playingChanged.emit()
+        if old.is_favorite != playback.is_favorite or old.uri != playback.uri:
+            self.favoriteChanged.emit()
         if old.volume != playback.volume:
             self.volumeChanged.emit()
         if old.shuffle != playback.shuffle:
@@ -1715,6 +1773,12 @@ class DJConnectBackend(QObject):
             return
         self._music_discovery_busy = value
         self.musicDiscoveryChanged.emit()
+
+    def _set_favorite_busy(self, value: bool) -> None:
+        if self._favorite_busy == value:
+            return
+        self._favorite_busy = value
+        self.favoriteBusyChanged.emit()
 
     def _clear_music_discovery_playing(self) -> None:
         self._music_discovery_playing_id = ""
@@ -1859,6 +1923,7 @@ class DJConnectBackend(QObject):
         try:
             save_config(self.config_path, self.cfg)
             self.settingsChanged.emit()
+            self.favoriteChanged.emit()
         except Exception as exc:
             _LOGGER.warning("Could not persist music backend summary: %s", exc)
 
@@ -1878,7 +1943,7 @@ class DJConnectBackend(QObject):
         )
         self._version_mismatch_visible = True
         self.versionMismatchChanged.emit()
-        self.showToast(self.tr_key("version_mismatch_title"))
+        self.showToastForContext(self.tr_key("version_mismatch_title"), "updates")
         self._trigger_update_service()
 
     def _trigger_update_service(self) -> None:
@@ -3203,6 +3268,10 @@ def _optional_int(value: object) -> int | None:
 
 def _context_supports_offset(context_uri: str) -> bool:
     return context_uri.startswith(("spotify:playlist:", "spotify:album:", "spotify:show:"))
+
+
+def _toast_icon_for_context(context: str) -> str:
+    return TOAST_CONTEXT_ICONS.get(context.strip().lower(), TOAST_ICON_FALLBACK)
 
 
 def _first_present(data: dict[str, object], keys: tuple[str, ...]) -> object:

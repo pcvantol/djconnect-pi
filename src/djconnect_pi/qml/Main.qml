@@ -52,6 +52,9 @@ Window {
         var wasBlanked = root.screenBlanked
         root.forceBrightnessFull = false
         root.restartIdleTimer()
+        if (root.forceScreenAwake && forcedWakeTimer.running) {
+            forcedWakeTimer.restart()
+        }
         if (wasBlanked) {
             root.hideTransientUi()
             root.activeScreen = "now"
@@ -67,6 +70,7 @@ Window {
     }
 
     function wakeDisplay() {
+        djconnect.wakeDisplay()
         root.recordActivity()
     }
 
@@ -103,7 +107,8 @@ Window {
     }
 
     function temporaryWake(seconds, navigateNow) {
-        if (navigateNow) {
+        var wasBlanked = root.screenBlanked
+        if (navigateNow && wasBlanked) {
             root.hideTransientUi()
             root.activeScreen = "now"
         }
@@ -696,6 +701,20 @@ Window {
                     ctx.bezierCurveTo(cx - s * 0.10, cy + s * 0.19, cx + s * 0.02, cy - s * 0.19, cx + s * 0.32, cy - s * 0.19)
                     ctx.stroke()
                     arrowHead(cx + s * 0.34, cy - s * 0.19, 1)
+                } else if (control.iconName === "heart" || control.iconName === "heartFilled") {
+                    ctx.lineWidth = Math.max(4, s * 0.075)
+                    ctx.beginPath()
+                    ctx.moveTo(cx, cy + s * 0.28)
+                    ctx.bezierCurveTo(cx - s * 0.40, cy + s * 0.02, cx - s * 0.34, cy - s * 0.33, cx - s * 0.10, cy - s * 0.28)
+                    ctx.bezierCurveTo(cx - s * 0.01, cy - s * 0.26, cx, cy - s * 0.16, cx, cy - s * 0.16)
+                    ctx.bezierCurveTo(cx, cy - s * 0.16, cx + s * 0.01, cy - s * 0.26, cx + s * 0.10, cy - s * 0.28)
+                    ctx.bezierCurveTo(cx + s * 0.34, cy - s * 0.33, cx + s * 0.40, cy + s * 0.02, cx, cy + s * 0.28)
+                    ctx.closePath()
+                    if (control.iconName === "heartFilled") {
+                        ctx.fill()
+                    } else {
+                        ctx.stroke()
+                    }
                 } else if (control.iconName === "repeat" || control.iconName === "repeatOne" || control.iconName === "repeatOff") {
                     ctx.lineWidth = Math.max(5, s * 0.09)
                     ctx.beginPath()
@@ -1105,27 +1124,6 @@ Window {
                     onClicked: djconnect.manualRefresh()
                 }
 
-                PurpleButton {
-                    text: root.tr("add_to_favorites")
-                    font.pixelSize: 17
-                    Layout.preferredWidth: 126
-                    Layout.preferredHeight: 48
-                    enabled: djconnect.paired && (djconnect.title.length > 0 || djconnect.artist.length > 0)
-                    onClicked: djconnect.saveCurrentTrack()
-                }
-
-                PurpleButton {
-                    text: root.tr("track_insight")
-                    font.pixelSize: 16
-                    Layout.preferredWidth: 132
-                    Layout.preferredHeight: 48
-                    enabled: djconnect.paired && (djconnect.title.length > 0 || djconnect.artist.length > 0)
-                    onClicked: {
-                        root.activeScreen = "trackinsight"
-                        djconnect.openTrackInsight()
-                    }
-                }
-
             }
 
             Item {
@@ -1522,6 +1520,14 @@ Window {
                 }
 
                 IconButton {
+                    iconName: djconnect.currentTrackFavorite ? "heartFilled" : "heart"
+                    active: djconnect.currentTrackFavorite
+                    enabled: djconnect.favoriteAvailable && !djconnect.favoriteBusy
+                    opacity: djconnect.favoriteAvailable ? (djconnect.favoriteBusy ? 0.55 : 1.0) : 0.0
+                    onClicked: djconnect.saveCurrentTrack()
+                }
+
+                IconButton {
                     iconName: djconnect.repeat === "track" ? "repeatOne" : djconnect.repeat === "context" ? "repeat" : "repeatOff"
                     active: djconnect.repeat !== "off"
                     onClicked: djconnect.cycleRepeat()
@@ -1770,6 +1776,86 @@ Window {
                 }
             }
 
+            Text {
+                text: root.tr("music_dna")
+                color: "#f4f8f8"
+                font.pixelSize: 26
+                font.bold: true
+                Layout.fillWidth: true
+                Layout.topMargin: 8
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 14
+
+                Text {
+                    text: root.tr("music_dna_settings_status")
+                    color: "#d7e2e4"
+                    font.pixelSize: 22
+                    font.bold: true
+                    Layout.preferredWidth: 176
+                }
+
+                Text {
+                    text: djconnect.musicDnaEnabled ? root.tr("music_dna_settings_enabled_description") : root.tr("music_dna_settings_disabled_description")
+                    color: "#b9b5d4"
+                    font.pixelSize: 22
+                    font.bold: true
+                    wrapMode: Text.WordWrap
+                    horizontalAlignment: Text.AlignRight
+                    Layout.fillWidth: true
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 14
+
+                Text {
+                    text: root.tr("music_dna")
+                    color: "#f4f8f8"
+                    font.pixelSize: 22
+                    font.bold: true
+                    Layout.preferredWidth: 176
+                }
+
+                Item { Layout.fillWidth: true }
+
+                PurpleButton {
+                    text: djconnect.musicDnaEnabled ? root.tr("music_dna_disable") : root.tr("music_dna_enable")
+                    enabled: !djconnect.musicDnaBusy
+                    font.pixelSize: 22
+                    Layout.preferredWidth: 190
+                    Layout.preferredHeight: 52
+                    onClicked: djconnect.setMusicDnaEnabled(!djconnect.musicDnaEnabled)
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 14
+
+                Text {
+                    text: root.tr("music_dna_settings_profile")
+                    color: "#f4f8f8"
+                    font.pixelSize: 22
+                    font.bold: true
+                    Layout.preferredWidth: 176
+                }
+
+                Item { Layout.fillWidth: true }
+
+                DangerButton {
+                    text: root.tr("music_dna_clear")
+                    enabled: djconnect.musicDnaEnabled && !djconnect.musicDnaBusy
+                    font.pixelSize: 22
+                    Layout.preferredWidth: 150
+                    Layout.preferredHeight: 52
+                    onClicked: djconnect.clearMusicDna()
+                }
+            }
+
             PurpleButton {
                 text: root.tr("view_logs")
                 font.pixelSize: 24
@@ -1830,7 +1916,7 @@ Window {
         visible: root.activeScreen === "queue"
         heading: root.tr("queue")
         emptyText: root.tr("empty_queue")
-        playCommand: "play_context_at"
+        playCommand: "start_queue_item"
         items: djconnect.queueItems
         onRefreshRequested: djconnect.loadQueue()
     }
@@ -2407,7 +2493,7 @@ Window {
                                             font.pixelSize: 15
                                             Layout.preferredWidth: 98
                                             Layout.preferredHeight: 42
-                                            onClicked: djconnect.showToast(modelData.reason || "")
+                                            onClicked: djconnect.showToastForContext(modelData.reason || "", "discover")
                                         }
                                     }
                                 }
@@ -2435,7 +2521,7 @@ Window {
                                 }
                                 onPressAndHold: {
                                     if (modelData.hasReason) {
-                                        djconnect.showToast(modelData.reason || "")
+                                        djconnect.showToastForContext(modelData.reason || "", "discover")
                                     }
                                 }
                             }
@@ -2498,14 +2584,6 @@ Window {
                     Layout.fillWidth: true
                 }
 
-                PurpleButton {
-                    text: djconnect.musicDnaEnabled ? root.tr("disable") : root.tr("enable")
-                    enabled: !djconnect.musicDnaBusy
-                    font.pixelSize: 18
-                    Layout.preferredWidth: 150
-                    Layout.preferredHeight: 48
-                    onClicked: djconnect.setMusicDnaEnabled(!djconnect.musicDnaEnabled)
-                }
             }
 
             Text {
@@ -2593,15 +2671,6 @@ Window {
                     Layout.preferredHeight: 50
                     onClicked: djconnect.loadMusicDna()
                 }
-
-                DangerButton {
-                    text: root.tr("music_dna_clear")
-                    enabled: djconnect.musicDnaEnabled && !djconnect.musicDnaBusy
-                    font.pixelSize: 18
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 50
-                    onClicked: djconnect.clearMusicDna()
-                }
             }
         }
     }
@@ -2651,15 +2720,6 @@ Window {
                     onClicked: djconnect.refreshAskDjHistory()
                 }
 
-            }
-
-            Text {
-                text: root.tr("ask_dj_readonly_hint")
-                color: "#b7c2d8"
-                font.pixelSize: 17
-                font.bold: true
-                wrapMode: Text.WordWrap
-                Layout.fillWidth: true
             }
 
             ScrollView {
@@ -3780,21 +3840,13 @@ Window {
             anchors.centerIn: parent
             spacing: 16
 
-            Canvas {
+            MenuIcon {
                 width: 28
                 height: 28
+                iconName: djconnect.toastIcon
+                iconColor: "#ffffff"
+                strokeWidth: 2.8
                 anchors.verticalCenter: parent.verticalCenter
-                onPaint: {
-                    var ctx = getContext("2d")
-                    ctx.reset()
-                    ctx.fillStyle = "#ffffff"
-                    ctx.beginPath()
-                    ctx.moveTo(6, 4)
-                    ctx.lineTo(6, 24)
-                    ctx.lineTo(24, 14)
-                    ctx.closePath()
-                    ctx.fill()
-                }
             }
 
             Text {
@@ -4404,6 +4456,17 @@ Window {
 
         TapHandler {
             onTapped: djconnect.clearDjResponse()
+        }
+    }
+
+    MouseArea {
+        anchors.fill: parent
+        acceptedButtons: Qt.AllButtons
+        propagateComposedEvents: true
+        z: 199
+        onPressed: function(mouse) {
+            root.recordActivity()
+            mouse.accepted = false
         }
     }
 

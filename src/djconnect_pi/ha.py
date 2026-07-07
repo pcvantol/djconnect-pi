@@ -25,6 +25,7 @@ WEBSOCKET_COMMANDS = {
     "volume_delta",
     "set_shuffle",
     "set_repeat",
+    "save_current_track",
     "set_output",
     "ask_dj_followup_response",
     "ask_dj_play_recommendation",
@@ -76,6 +77,7 @@ class Playback:
     duration_seconds: int = 0
     output_device: str = ""
     output_devices: tuple[str, ...] = ()
+    is_favorite: bool = False
 
 
 @dataclass
@@ -252,7 +254,7 @@ class HAClient:
         url = self._djconnect_url("track_insight")
         _LOGGER.debug("POST %s client_type=%s device_id=%s", url, CLIENT_TYPE, self.cfg.device_id)
         started = time.monotonic()
-        response = requests.post(url, json=body, headers=self._headers(), timeout=self.timeout)
+        response = requests.post(url, json=body, headers=self._headers(), timeout=max(self.timeout, 10.0))
         _LOGGER.debug("POST %s returned HTTP %s in %.0fms", url, response.status_code, _elapsed_ms(started))
         data = self._json(response)
         self.update_backend_summary(data)
@@ -418,6 +420,16 @@ class HAClient:
             image_url=_image_url_from(playback),
             uri=str(playback.get("uri") or playback.get("track_uri") or playback.get("media_content_id") or ""),
             genres=tuple(_string_values(playback.get("genres"))),
+            is_favorite=_bool_from_playback(
+                playback,
+                data,
+                "is_favorite",
+                "is_liked",
+                "liked",
+                "favorite",
+                "favorite_status",
+                "current_track_is_liked",
+            ),
             is_playing=bool(playback.get("is_playing") or playback.get("playing")),
             volume=int(playback.get("volume") or playback.get("volume_percent") or 50),
             shuffle=bool(playback.get("shuffle")),
@@ -877,6 +889,24 @@ def _string_values(value: Any) -> list[str]:
         if text:
             result.append(text)
     return result
+
+
+def _bool_from_playback(playback: dict[str, Any], data: dict[str, Any], *keys: str) -> bool:
+    for source in (playback, data):
+        for key in keys:
+            if key not in source:
+                continue
+            value = source.get(key)
+            if isinstance(value, bool):
+                return value
+            if isinstance(value, (int, float)):
+                return bool(value)
+            text = str(value or "").strip().lower()
+            if text in {"true", "1", "yes", "on", "liked", "favorite", "saved"}:
+                return True
+            if text in {"false", "0", "no", "off", "unliked", "unsaved"}:
+                return False
+    return False
 
 
 def _backend_error_text(value: Any) -> str:
