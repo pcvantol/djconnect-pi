@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.2.12
+
+- Correct the Raspberry Pi Ask DJ capability payload for `readonly_actions` by
+  advertising `ask_dj_free_input_supported:false` in both the local device API
+  and Home Assistant pairing/status payloads.
+
 ## 3.2.11
 
 - Make the Raspberry Pi Track Insight surface contract-complete for the current

@@ -21,7 +21,7 @@ Belangrijke context:
 - Geen lokale `SYNC_PROMPTS.md` of `PRODUCT_ROADMAP.md`; die staan canoniek in `pcvantol/djconnect`.
 
 Huidige stand:
-- Laatste voorbereide release in deze werkronde is `v3.2.11`.
+- Laatste voorbereide release in deze werkronde is `v3.2.12`.
 - Public updater assets staan in `pcvantol/djconnect-pi-releases`, inclusief
   `djconnect-pi-latest.json`.
 - Release `v3.2.0` upgrade de Raspberry Pi client naar protocol `3.2.x`:
@@ -72,32 +72,35 @@ Huidige stand:
   counts en stuurt play uitsluitend via
   `/api/djconnect/v1/music_discovery/play` met `section_id` en
   `discovery_item_id`.
-- Source release voor `v3.2.11` moet nog worden afgerond als deze bootstrap in
+- Release `v3.2.12` corrigeert de Ask DJ capability voor `readonly_actions`:
+  `ask_dj_free_input_supported:false` in zowel de lokale device API als
+  Home Assistant pairing/status payloads.
+- Source release voor `v3.2.12` moet nog worden afgerond als deze bootstrap in
   een half-afgebroken release-run wordt gelezen. Controleer:
-  `git tag --list v3.2.11`.
-- Public publish workflow en public assets voor `v3.2.11` moeten na de
+  `git tag --list v3.2.12`.
+- Public publish workflow en public assets voor `v3.2.12` moeten na de
   source release worden gecontroleerd:
-  - `djconnect-pi-3.2.11.tar.gz`
-  - `djconnect-pi-3.2.11.sha256`
+  - `djconnect-pi-3.2.12.tar.gz`
+  - `djconnect-pi-3.2.12.sha256`
   - `djconnect-pi-latest.json`
-- Pi deployment voor `v3.2.11` moet nog worden uitgevoerd/geverifieerd via de
+- Pi deployment voor `v3.2.12` moet nog worden uitgevoerd/geverifieerd via de
   public tarball installer-route:
-  `~/djconnect-install/djconnect-pi-3.2.11/scripts/install.sh`.
+  `~/djconnect-install/djconnect-pi-3.2.12/scripts/install.sh`.
 - Vorige Pi deployment draaide `3.1.112`. Deployment was gedaan via de public
   tarball installer-route:
   `~/djconnect-install/djconnect-pi-3.1.112/scripts/install.sh`.
   De eerste installpogingen werden tijdens grote PySide6 stappen door een
   gesloten SSH sessie onderbroken, maar de resumable install markers werkten;
   herstarten van dezelfde installer rondde de installatie en activatie af.
-- Validatie voor `v3.2.11`:
+- Validatie voor `v3.2.12`:
   - `/Users/pcvantol/.platformio/penv/bin/pytest -q`
     -> ok, 314 passed, 13 skipped
   - `python -m compileall src tests` -> ok
   - `bash -n scripts/install.sh scripts/bootstrap_raspberry_pi_os.sh cleanup_old_releases.sh release.sh` -> ok
   - `git diff --check` -> ok
-  - GitHub Actions publish workflow voor `v3.2.11` -> nog controleren na release
-  - Source release assets voor `v3.2.11` -> nog controleren na release
-  - Public release assets voor `v3.2.11` -> nog controleren na release
+  - GitHub Actions publish workflow voor `v3.2.12` -> nog controleren na release
+  - Source release assets voor `v3.2.12` -> nog controleren na release
+  - Public release assets voor `v3.2.12` -> nog controleren na release
 
 Openstaande gewenste workflow:
 - Controleer na elke release de public publish workflow:

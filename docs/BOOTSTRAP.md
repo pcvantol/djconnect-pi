@@ -188,9 +188,9 @@ completed:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.2.11.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.2.12.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.2.11
+cd djconnect-pi-3.2.12
 sudo ./scripts/install.sh
 ```
 
@@ -218,9 +218,9 @@ development checkout:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.2.11.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.2.12.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.2.11
+cd djconnect-pi-3.2.12
 sudo ./scripts/install.sh
 ```
 
@@ -376,7 +376,7 @@ journalctl -u djconnect-client.service -f
 6. Confirm `/api/device/info` reports `transport:"local_only"` and only the
    local Home Assistant URL (`ha_local_url`), not any remote/Nabu Casa URL.
 7. Confirm `/api/device/info` reports Ask DJ as `readonly_actions`, with
-   `ask_dj_free_input_supported:true`, `ask_dj_actions_supported:true`,
+   `ask_dj_free_input_supported:false`, `ask_dj_actions_supported:true`,
    `ask_dj_voice_supported:false`, `ask_dj_audio_response_supported:false`,
    `voice_supported:false`, `tts_supported:false` and
    `local_audio_supported:false`.
