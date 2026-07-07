@@ -64,7 +64,10 @@ class ProtocolVersionMismatch(DJConnectError):
 class Playback:
     title: str = ""
     artist: str = ""
+    album: str = ""
     image_url: str = ""
+    uri: str = ""
+    genres: tuple[str, ...] = ()
     is_playing: bool = False
     volume: int = 50
     shuffle: bool = False
@@ -209,27 +212,6 @@ class HAClient:
         self._validate_ha_version(data)
         return data
 
-    def ask_dj_message(self, text: str, client_message_id: str) -> dict[str, Any]:
-        body = self._ask_dj_payload(
-            text=text,
-            client_message_id=client_message_id,
-            audio_response="auto",
-        )
-        data = self._try_websocket("djconnect/ask_dj/message", body, command="djconnect/ask_dj/message", timeout=max(self.timeout, 10.0))
-        if data is not None:
-            self.update_backend_summary(data)
-            self._validate_ha_version(data)
-            return data
-        url = self._djconnect_url("ask_dj/message")
-        _LOGGER.debug("POST %s client_type=%s device_id=%s client_message_id=%s", url, CLIENT_TYPE, self.cfg.device_id, client_message_id)
-        started = time.monotonic()
-        response = requests.post(url, json=body, headers=self._headers(), timeout=self.timeout)
-        _LOGGER.debug("POST %s returned HTTP %s in %.0fms", url, response.status_code, _elapsed_ms(started))
-        data = self._json(response)
-        self.update_backend_summary(data)
-        self._validate_ha_version(data)
-        return data
-
     def track_insight(self, playback: Playback | None = None, *, force_refresh: bool = False, include_visual_profile: bool = True) -> dict[str, Any]:
         body = self._base_payload(
             force_refresh=force_refresh,
@@ -243,8 +225,19 @@ class HAClient:
             if playback.artist:
                 body["artist"] = playback.artist
                 track["artist"] = playback.artist
+            if playback.album:
+                body["album"] = playback.album
+                track["album"] = playback.album
             if playback.image_url:
+                body["artwork_url"] = playback.image_url
+                body["image_url"] = playback.image_url
                 track["artwork_url"] = playback.image_url
+            if playback.uri:
+                body["uri"] = playback.uri
+                track["uri"] = playback.uri
+            if playback.genres:
+                body["genres"] = list(playback.genres)
+                track["genres"] = list(playback.genres)
             if track:
                 body["track"] = track
             if self.cfg.music_target_player.get("id"):
@@ -307,6 +300,8 @@ class HAClient:
             "device_id": self.cfg.device_id,
             "device_name": self.cfg.device_name,
         }
+        if self.cfg.music_dna_key:
+            params["music_dna_key"] = self.cfg.music_dna_key
         _LOGGER.debug("GET %s client_type=%s device_id=%s", url, CLIENT_TYPE, self.cfg.device_id)
         started = time.monotonic()
         response = requests.get(url, params=params, headers=self._headers(), timeout=self.timeout)
@@ -321,6 +316,19 @@ class HAClient:
 
     def music_discovery_play(self, item: dict[str, Any]) -> dict[str, Any]:
         body = self._base_payload(source="music_discovery", context="music_discovery")
+        discovery_item_id = str(
+            item.get("discovery_item_id")
+            or item.get("id")
+            or item.get("recommendation_id")
+            or item.get("item_id")
+            or item.get("uri")
+            or ""
+        ).strip()
+        if discovery_item_id:
+            body["discovery_item_id"] = discovery_item_id
+        section_id = str(item.get("section_id") or item.get("sectionId") or "").strip()
+        if section_id:
+            body["section_id"] = section_id
         for key in ("id", "recommendation_id", "item_id", "uri", "type", "kind", "title", "subtitle", "artist"):
             value = item.get(key)
             if value not in (None, ""):
@@ -334,18 +342,6 @@ class HAClient:
             self._validate_ha_version(data)
             return data
         url = self._djconnect_url(path)
-        _LOGGER.debug("POST %s client_type=%s device_id=%s", url, CLIENT_TYPE, self.cfg.device_id)
-        started = time.monotonic()
-        response = requests.post(url, json=body, headers=self._headers(), timeout=self.timeout)
-        _LOGGER.debug("POST %s returned HTTP %s in %.0fms", url, response.status_code, _elapsed_ms(started))
-        data = self._json(response)
-        self.update_backend_summary(data)
-        self._validate_ha_version(data)
-        return data
-
-    def ask_dj_clear_history(self) -> dict[str, Any]:
-        body = self._ask_dj_payload(include_language=False)
-        url = self._djconnect_url("ask_dj/history/clear")
         _LOGGER.debug("POST %s client_type=%s device_id=%s", url, CLIENT_TYPE, self.cfg.device_id)
         started = time.monotonic()
         response = requests.post(url, json=body, headers=self._headers(), timeout=self.timeout)
@@ -418,7 +414,10 @@ class HAClient:
         return Playback(
             title=str(playback.get("title") or playback.get("track") or playback.get("track_name") or playback.get("last_track") or ""),
             artist=str(playback.get("artist") or playback.get("artists") or playback.get("album_artist") or ""),
+            album=str(playback.get("album") or playback.get("album_name") or playback.get("media_album") or ""),
             image_url=_image_url_from(playback),
+            uri=str(playback.get("uri") or playback.get("track_uri") or playback.get("media_content_id") or ""),
+            genres=tuple(_string_values(playback.get("genres"))),
             is_playing=bool(playback.get("is_playing") or playback.get("playing")),
             volume=int(playback.get("volume") or playback.get("volume_percent") or 50),
             shuffle=bool(playback.get("shuffle")),
@@ -481,7 +480,7 @@ class HAClient:
                 "local_audio_supported": False,
                 "local_dj_response_endpoint": False,
                 "ask_dj_supported": True,
-                "ask_dj_mode": "text_actions",
+                "ask_dj_mode": "readonly_actions",
                 "ask_dj_free_input_supported": True,
                 "ask_dj_actions_supported": True,
                 "ask_dj_voice_supported": False,
@@ -594,6 +593,10 @@ class HAClient:
         if response.status_code >= 400:
             error = str(data.get("error") or data.get("message") or response.text or f"HTTP {response.status_code}")
             _LOGGER.warning("Home Assistant returned HTTP %s: %s", response.status_code, error)
+            if response.status_code == 404 and error == "no_track_playing":
+                return {**data, "success": False, "error": "no_track_playing"}
+            if response.status_code == 429 and error == "rate_limited":
+                return {**data, "success": False, "error": "rate_limited"}
             if response.status_code in {401, 403, 404}:
                 raise AuthenticationError(error)
             raise DJConnectError(f"Home Assistant returned HTTP {response.status_code}: {error}")
@@ -863,6 +866,17 @@ def _int_value(value: Any, default: int = 0) -> int:
         return int(value)
     except (TypeError, ValueError):
         return default
+
+
+def _string_values(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    result: list[str] = []
+    for item in value:
+        text = str(item.get("name") if isinstance(item, dict) else item).strip()
+        if text:
+            result.append(text)
+    return result
 
 
 def _backend_error_text(value: Any) -> str:

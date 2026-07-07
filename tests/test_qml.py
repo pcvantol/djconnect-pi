@@ -319,13 +319,14 @@ def test_qml_has_bottom_navigation_bar() -> None:
     assert more_panel.index('text: root.tr("logs")') < more_panel.index('text: root.tr("about")')
     assert 'root.activeScreen = "now"' in main_qml
     assert 'root.activeScreen = "control"' in main_qml
+    assert 'root.activeScreen = "trackinsight"' in main_qml
     assert 'root.activeScreen = "playlists"' in main_qml
     assert 'root.activeScreen = "games"' in main_qml
     assert 'root.activeScreen = "settings"' in main_qml
     assert 'root.activeScreen = "more"' in main_qml
 
 
-def test_qml_ask_dj_screen_sends_text_without_audio_controls() -> None:
+def test_qml_ask_dj_screen_is_readonly_actions_without_free_input() -> None:
     main_qml = files("djconnect_pi.qml").joinpath("Main.qml").read_text(encoding="utf-8")
     ask_dj_block = main_qml[main_qml.index("id: askDjPanel") : main_qml.index("GamesPanel {")]
 
@@ -337,40 +338,18 @@ def test_qml_ask_dj_screen_sends_text_without_audio_controls() -> None:
     assert "id: askDjRefreshButton" in ask_dj_block
     assert "AskDjGradientButton" in ask_dj_block
     assert "Layout.preferredWidth: 132" in ask_dj_block
-    assert "djconnect.clearAskDjHistory()" in ask_dj_block
     assert 'root.tr("ask_dj_readonly_hint")' in ask_dj_block
-    assert "TextField" in ask_dj_block
-    assert 'root.tr("ask_dj_input_placeholder")' in ask_dj_block
-    assert 'root.tr("send")' in ask_dj_block
-    assert "djconnect.sendAskDjMessage(message)" in ask_dj_block
-    assert "component AskDjKeyButton" in main_qml
-    key_button_block = main_qml[main_qml.index("component AskDjKeyButton") : main_qml.index("component MenuIcon")]
-    assert "propagateComposedEvents: false" in key_button_block
-    assert "preventStealing: true" in key_button_block
-    assert "keyButton.clicked()" in key_button_block
-    assert "id: askDjKeyboard" in ask_dj_block
-    keyboard_block = ask_dj_block[ask_dj_block.index("id: askDjKeyboard") : ask_dj_block.index("GamesPanel {") if "GamesPanel {" in ask_dj_block else len(ask_dj_block)]
-    assert "propagateComposedEvents: false" in keyboard_block
-    assert "preventStealing: true" in keyboard_block
-    assert "askDjInput.forceActiveFocus()" in keyboard_block
-    assert "property bool askDjKeyboardOpen: false" in main_qml
-    assert "root.askDjKeyboardOpen = true" in ask_dj_block
-    assert "root.askDjKeyboardOpen = false" in ask_dj_block
-    assert "TapHandler" in ask_dj_block
-    assert "visible: root.askDjKeyboardOpen" in ask_dj_block
-    assert "askDjInput.mapToItem(askDjPanel, 0, askDjInput.height).y + 8" in ask_dj_block
-    assert "height: 216" in ask_dj_block
-    assert "z: 40" in ask_dj_block
-    assert "function insertAskDjKey(value)" in ask_dj_block
-    assert "function deleteAskDjText()" in ask_dj_block
-    insert_block = ask_dj_block[ask_dj_block.index("function insertAskDjText") : ask_dj_block.index("function insertAskDjKey")]
-    delete_block = ask_dj_block[ask_dj_block.index("function deleteAskDjText") : ask_dj_block.index("AppBackground {}")]
-    text_field_block = ask_dj_block[ask_dj_block.index("id: askDjInput") : ask_dj_block.index("AskDjGradientButton {\n                        text: root.tr(\"send\")")]
-    assert "djconnect.askDjBusy" not in insert_block
-    assert "djconnect.askDjBusy" not in delete_block
-    assert "enabled: !djconnect.askDjBusy" not in text_field_block
-    assert 'model: ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"]' in ask_dj_block
-    assert 'displayText: root.tr("keyboard_space")' in ask_dj_block
+    assert "djconnect.sendAskDjAction(modelData.payload" in ask_dj_block
+    assert "TextField" not in ask_dj_block
+    assert 'root.tr("ask_dj_input_placeholder")' not in ask_dj_block
+    assert 'root.tr("send")' not in ask_dj_block
+    assert "djconnect.sendAskDjMessage" not in ask_dj_block
+    assert "djconnect.clearAskDjHistory" not in ask_dj_block
+    assert "component AskDjKeyButton" not in main_qml
+    assert "id: askDjKeyboard" not in ask_dj_block
+    assert "property bool askDjKeyboardOpen" not in main_qml
+    assert "function insertAskDjKey" not in ask_dj_block
+    assert "function deleteAskDjText" not in ask_dj_block
     assert 'root.tr("replay_audio")' in ask_dj_block
     assert "visible: modelData.audioUrl && modelData.audioUrl.length > 0" in ask_dj_block
     assert "Qt.openUrlExternally(modelData.audioUrl)" in ask_dj_block
@@ -417,7 +396,29 @@ def test_qml_now_playing_can_save_current_track() -> None:
     assert 'root.tr("add_to_favorites")' in now_block
     assert "djconnect.saveCurrentTrack()" in now_block
     assert 'root.tr("track_insight")' in now_block
+    assert 'root.activeScreen = "trackinsight"' in now_block
     assert "djconnect.openTrackInsight()" in now_block
+
+
+def test_qml_track_insight_panel_renders_contract_fields() -> None:
+    main_qml = files("djconnect_pi.qml").joinpath("Main.qml").read_text(encoding="utf-8")
+    panel = main_qml[main_qml.index("id: trackInsightPanel") : main_qml.index("id: musicDiscoveryPanel")]
+
+    assert 'visible: root.activeScreen === "trackinsight"' in panel
+    assert "djconnect.openTrackInsight()" in panel
+    assert 'root.tr("track_insight_empty")' in panel
+    assert "djconnect.trackInsightError" in panel
+    assert "djconnect.trackInsightTitle" in panel
+    assert "djconnect.trackInsightArtist" in panel
+    assert "djconnect.trackInsightAlbum" in panel
+    assert "djconnect.trackInsightImageUrl" in panel
+    assert "djconnect.trackInsightText" in panel
+    assert "djconnect.trackInsightItems" in panel
+    assert "djconnect.trackInsightSections" in panel
+    assert "modelData.value || \"\"" in panel
+    assert "modelData.details || []" in panel
+    assert "bpm" not in panel.casefold()
+    assert "key-signature" not in panel.casefold()
 
 
 def test_qml_music_discovery_nav_and_panel() -> None:
@@ -434,6 +435,10 @@ def test_qml_music_discovery_nav_and_panel() -> None:
     assert "djconnect.rejectMusicDiscoveryConsent()" in discover_block
     assert "djconnect.refreshMusicDiscovery()" in discover_block
     assert "djconnect.playMusicDiscoveryItem(modelData.payload || \"{}\")" in discover_block
+    assert "modelData.sectionTitle" in discover_block
+    assert "modelData.countText" in discover_block
+    assert "visible: modelData.playable" in discover_block
+    assert "if (modelData.playable)" in discover_block
     assert "visible: modelData.hasReason" in discover_block
     assert "djconnect.showToast(modelData.reason || \"\")" in discover_block
 

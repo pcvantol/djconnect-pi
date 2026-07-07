@@ -62,10 +62,10 @@ This file records the first pass review for the wall-mounted Pi client.
 - The Pi is local-only: it stores the local Home Assistant URL, ignores
   accidental remote/Nabu Casa runtime URLs and does not advertise HA URLs in
   mDNS TXT records.
-- Ask DJ is advertised as `text_actions`: the Pi can send typed text to Home
-  Assistant, poll shared history and send HA-provided structured action
-  payloads, while microphone input, wake word, TTS and local Ask DJ audio
-  playback remain unsupported.
+- Ask DJ is advertised as `readonly_actions`: the Pi polls shared history and
+  sends HA-provided structured action payloads, while free prompt input,
+  microphone input, wake word, TTS and local Ask DJ audio playback remain
+  unsupported.
 - Persistent logging uses rotating files and redacts messages that obviously
   contain tokens, bearer auth, passwords or secrets.
 - Startup logs include Raspberry Pi system information such as OS, kernel,

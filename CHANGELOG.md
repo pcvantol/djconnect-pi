@@ -1,10 +1,31 @@
 # Changelog
 
+## 3.2.11
+
+- Make the Raspberry Pi Track Insight surface contract-complete for the current
+  Home Assistant server-side response shape: direct and wrapped responses
+  decode to the same UI model, language/locale/mood/Music DNA context and
+  current track metadata are sent with `/api/djconnect/v1/track_insight`, and
+  404 `no_track_playing` plus 429 `rate_limited` clear stale analysis into
+  retryable empty states.
+- Keep Track Insight rendering within the central contract by showing
+  summary/full text, genre/subgenre, visual/mood context, production,
+  instrumentation, arrangement, listening cues and 0..1 metrics as
+  percentages, while filtering BPM/key/model-style fields out of the UI model.
+- Tighten Raspberry Pi Ontdek / Music Discovery against the current central
+  contract: render backend `sections[].items[]` without local recommendation
+  generation, dedupe repeated `id`/`uri` items, show compact repeated-play or
+  based-on counts and keep disabled feeds as empty/degraded states.
+- Send Music Discovery Play Now actions only through
+  `/api/djconnect/v1/music_discovery/play` with Pi identity plus `section_id`
+  and `discovery_item_id`; non-playable recommendation rows no longer trigger
+  generic playback from the card.
+
 ## 3.2.10
 
 - Update all Raspberry Pi Home Assistant DJConnect HTTP client routes to the
   canonical `/api/djconnect/v1/...` prefix while preserving the
-  `client_type=raspberry_pi` identity contract and text-only Ask DJ behavior.
+  `client_type=raspberry_pi` identity contract.
 - Add regression coverage that fails if source, tests or docs reintroduce a
   hardcoded Home Assistant DJConnect route without the `/v1` prefix.
 - Refresh route references in architecture, bootstrap, handoff and README

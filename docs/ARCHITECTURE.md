@@ -159,7 +159,7 @@ The Pi client is an app-like DJConnect client.
   "device_id": "djconnect-raspberry-pi-XXXXXXXXXXXX",
   "device_name": "DJConnect",
   "client_type": "raspberry_pi",
-  "version": "3.2.10",
+  "version": "3.2.11",
   "capabilities": {
     "touch": true,
     "voice": false,
@@ -169,7 +169,7 @@ The Pi client is an app-like DJConnect client.
     "local_audio_supported": false,
     "local_dj_response_endpoint": false,
     "ask_dj_supported": true,
-    "ask_dj_mode": "text_actions",
+    "ask_dj_mode": "readonly_actions",
     "ask_dj_free_input_supported": true,
     "ask_dj_actions_supported": true
   }
@@ -181,9 +181,7 @@ Runtime traffic uses:
 - `POST /api/djconnect/v1/pair`
 - `POST /api/djconnect/v1/status`
 - `POST /api/djconnect/v1/command`
-- `POST /api/djconnect/v1/ask_dj/message`
 - `GET /api/djconnect/v1/ask_dj/history?since_revision=<revision>`
-- `POST /api/djconnect/v1/ask_dj/history/clear`
 
 Pairing, status and command payloads all include the stable `device_id` and
 `client_type=raspberry_pi`. Command payloads also include the command name and
@@ -200,20 +198,31 @@ falls back to the existing HTTP request immediately on any websocket error,
 timeout, disconnect, auth rejection, malformed result or missing capability.
 Remote/Nabu Casa style sessions and HTTP-only routes stay on HTTP.
 
-Ask DJ on Raspberry Pi is `text_actions` and remains server-side. The touch UI
-sends typed text to Home Assistant with `audio_response:"auto"` and treats
-backend responses as authoritative. It only shows images, rows, buttons,
-sources and audio returned on the current backend message. It never parses
-visible text, reuses previous artwork, stores Music DNA locally, reconstructs
-prompts or infers playback actions. Playback starts only when Home Assistant
-returns or executes an explicit action. Returned Play Now and speaker actions
-are posted back to `/api/djconnect/v1/command` with the backend action payload;
+Ask DJ on Raspberry Pi is `readonly_actions` and remains server-side. The touch
+UI polls Home Assistant history/status, renders backend responses as
+authoritative and sends only HA-provided structured action payloads. It does
+not expose free prompt input, local history clear, voice/PTT, local TTS or
+local audio playback. It only shows images, rows, buttons and sources returned
+on the current backend message. It never parses visible text, reuses previous
+artwork, stores Music DNA locally, reconstructs prompts or infers playback
+actions. Playback starts only when Home Assistant returns or executes an
+explicit action. Returned Play Now and speaker actions are posted back to
+`/api/djconnect/v1/command` with the backend action payload;
 plain output selection uses the returned `value` with `set_output`. If a
 message includes `audio_url`, the UI shows a "DJ antwoord afspelen" button for
 that URL, but it does not create local TTS or audio bubbles. Track Insight is
-opened from Now Playing through `/api/djconnect/v1/track_insight` and Ask DJ
-responses with `intent/action/type/open_screen:"track_insight"` render the
-normalized `track_insight` object, including Music DNA Match from
+opened from Now Playing through `/api/djconnect/v1/track_insight`; the request
+includes Pi identity, language/locale, optional mood/Music DNA key and current
+track metadata when available. The Pi renders direct top-level
+`track`/`analysis` responses and wrapped `track_insight.track` /
+`track_insight.analysis` responses through the same view model. It shows
+summary/full text, genre/subgenre, visual and mood context, production,
+instrumentation, arrangement and listening cues, and renders 0..1 analysis
+metrics as percentages. It does not render BPM, tempo, key, model fields or
+placeholder analysis. `no_track_playing`, `rate_limited` and track changes
+clear previous analysis instead of reusing stale data. Ask DJ responses with
+`intent/action/type/open_screen:"track_insight"` render the same normalized
+`track_insight` object, including Music DNA Match from
 `track_insight.music_dna.match_percent`.
 
 Music DNA on Raspberry Pi is a server-authoritative settings/dashboard surface.
@@ -236,17 +245,19 @@ comes from `GET /api/djconnect/v1/music_discovery`, refresh uses
 `POST /api/djconnect/v1/music_discovery/play`. The websocket fast path uses
 `djconnect/music_discovery/feed`, `djconnect/music_discovery/refresh` and
 `djconnect/music_discovery/play` only when advertised. Recommendation cards are
-limited to HA-provided track, album, artist and playlist items; reason text is
-shown only through an explicit details/long-press action and is never inferred
-locally. Play Now payloads include Pi identity and `source/context:
+rendered from HA-provided `sections[].items[]` for track, album, artist and
+playlist items. Repeated `id`/`uri` rows are deduped, repeated-play or based-on
+counts are shown compactly and reason text is shown only through an explicit
+details/long-press action. Reasons, based-on lists and fallback
+recommendations are never inferred locally. Play Now payloads include Pi
+identity, `section_id`, `discovery_item_id` and `source/context:
 "music_discovery"` so HA can record the interaction as a Music DNA signal.
 
-The canonical Home Assistant `SYNC_PROMPTS.md` still contains an older
-Raspberry Pi paragraph that describes Ask DJ as read-only/no free prompt input
-and mentions a Pi-local `/api/device/dj_response` route. The current product
-decision for this repo is the newer 3.2 client contract: Pi Ask DJ is typed
-text-only via `/api/djconnect/v1/ask_dj/message`, with no voice/PTT, no local TTS
-generation and no Pi-local `/api/device/dj_response` endpoint.
+The canonical Home Assistant `SYNC_PROMPTS.md` is the source of truth for the
+current Pi Ask DJ contract: `readonly_actions` via server-side history and
+structured actions, with no free prompt input, no local clear action, no
+voice/PTT, no local TTS generation and no Pi-local `/api/device/dj_response`
+endpoint.
 
 Media browsing commands use explicit bounded limits: `queue` sends
 `{"command":"queue","limit":100}` and `playlists` sends

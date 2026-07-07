@@ -27,16 +27,22 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 - Home Assistant pairing/status/command payloads
 - Home Assistant command payloads include `device_id` and
   `client_type=raspberry_pi`
-- Ask DJ capability payloads advertise `text_actions`, structured actions
-  support, typed text input and no voice, TTS or local audio support
+- Ask DJ capability payloads advertise `readonly_actions`, structured actions
+  support, no free prompt input and no voice, TTS or local audio support
 - Ask DJ, Track Insight, Music DNA and Music Discovery payloads propagate
   language/locale, Pi identity and optional Music DNA context without adding
   local voice, TTS or profile aggregation
+- Track Insight request and response coverage for
+  `/api/djconnect/v1/track_insight`, canonical `client_type=raspberry_pi`,
+  language/locale/mood headers, current track metadata, direct and wrapped
+  response decoding, no BPM/key/model fields, no-track/rate-limit retry states,
+  stale analysis clearing and secret-safe logging
 - Ask DJ history polling uses bearer auth, Pi identity headers, the revision
   cursor and pairing/auth/version guards with quiet backoff on unavailable
   backend states
 - Ask DJ QML renders assistant, system, status and other-client user messages
-  plus HA-provided action buttons, typed prompt input and send-message controls
+  plus HA-provided action buttons, without typed prompt input, send-message
+  controls or local history clear
 - Ask DJ action taps send only the structured action payload through the normal
   HA command contract
 - Music DNA profile parser coverage for disabled profiles, enabled summary-only
@@ -48,11 +54,13 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
   state, consent accept enables Music DNA before loading the feed and consent
   reject shows the compact gating block
 - Music Discovery parser coverage for HA-provided track, album, artist and
-  playlist recommendations with artwork, relevance/confidence and reason
+  playlist recommendations with artwork, section labels, dedupe by `id`/`uri`,
+  compact repeated-play/based-on count text, relevance/confidence and reason
   visibility, while unsupported kinds are ignored
 - Music Discovery HTTP and websocket contract coverage for feed, refresh and
   Play Now endpoints/message types, including `client_type=raspberry_pi`,
-  `device_id`, `client_id` and `source/context=music_discovery`
+  `device_id`, `client_id`, optional `music_dna_key`, `section_id`,
+  `discovery_item_id` and `source/context=music_discovery`
 - local Client API info, pairing-info, pair, command, DJ response auth and mDNS
   TXT properties
 - Raspberry Pi-specific local Client API restart/shutdown endpoints, including

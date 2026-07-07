@@ -94,6 +94,18 @@ def test_music_discovery_reject_shows_gating_state(tmp_path: Path) -> None:
     assert backend.musicDiscoveryEmptyText
 
 
+def test_music_discovery_play_ignores_non_playable_items(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token-1"
+    backend.client.music_discovery_play = Mock()  # type: ignore[method-assign]
+
+    backend.playMusicDiscoveryItem(json.dumps({"id": "artist-1", "section_id": "daily", "discovery_item_id": "artist-1"}))
+
+    backend.client.music_discovery_play.assert_not_called()
+
+
 def test_log_display_uses_compact_touch_prefix() -> None:
     text = _format_logs_for_display(
         "2026-06-13 17:53:49,528 INFO djconnect_pi.app: Started\n"
@@ -189,12 +201,25 @@ def test_music_dna_parser_hides_ineligible_blocks() -> None:
 def test_music_discovery_feed_renders_supported_kinds_with_artwork_and_reason() -> None:
     parsed = parse_music_discovery_feed(
         {
-            "recommendations": [
-                {"id": "t1", "kind": "track", "title": "Track", "artist": "Artist", "image_url": "https://example.test/t.jpg", "reason": "Because HA said so", "confidence": "high"},
-                {"id": "a1", "kind": "album", "title": "Album", "subtitle": "Artist", "image_url": "https://example.test/a.jpg"},
-                {"id": "ar1", "kind": "artist", "title": "Artist", "image_url": "https://example.test/ar.jpg"},
-                {"id": "p1", "kind": "playlist", "title": "Playlist", "context": "For tonight", "image_url": "https://example.test/p.jpg"},
-                {"id": "x1", "kind": "podcast", "title": "Hidden"},
+            "sections": [
+                {
+                    "id": "daily",
+                    "title": "Vandaag",
+                    "items": [
+                        {"id": "t1", "kind": "track", "title": "Track", "artist": "Artist", "uri": "spotify:track:1", "image_url": "https://example.test/t.jpg", "reason": "Because HA said so", "confidence": "high", "play_count": 4},
+                        {"id": "a1", "kind": "album", "title": "Album", "subtitle": "Artist", "uri": "spotify:album:1", "image_url": "https://example.test/a.jpg"},
+                        {"id": "dup", "kind": "track", "title": "Duplicate", "uri": "spotify:track:1"},
+                    ],
+                },
+                {
+                    "id": "more",
+                    "title": "Meer",
+                    "items": [
+                        {"id": "ar1", "kind": "artist", "title": "Artist", "image_url": "https://example.test/ar.jpg", "based_on_count": 3},
+                        {"id": "p1", "kind": "playlist", "title": "Playlist", "context": "For tonight", "uri": "spotify:playlist:1", "image_url": "https://example.test/p.jpg"},
+                        {"id": "x1", "kind": "podcast", "title": "Hidden"},
+                    ],
+                },
             ]
         }
     )
@@ -203,7 +228,25 @@ def test_music_discovery_feed_renders_supported_kinds_with_artwork_and_reason() 
     assert parsed["items"][0]["imageUrl"] == "https://example.test/t.jpg"
     assert parsed["items"][0]["reason"] == "Because HA said so"
     assert parsed["items"][0]["hasReason"] is True
+    assert parsed["items"][0]["sectionId"] == "daily"
+    assert parsed["items"][0]["sectionTitle"] == "Vandaag"
+    assert parsed["items"][0]["countText"] == "4x afgespeeld"
+    assert parsed["items"][0]["playable"] is True
+    assert json.loads(str(parsed["items"][0]["payload"]))["section_id"] == "daily"
+    assert json.loads(str(parsed["items"][0]["payload"]))["discovery_item_id"] == "t1"
     assert parsed["items"][1]["hasReason"] is False
+    assert parsed["items"][2]["countText"] == "3 bronnen"
+    assert parsed["items"][2]["playable"] is False
+
+
+def test_music_discovery_disabled_reason_does_not_fabricate_recommendations(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+
+    backend._apply_music_discovery_data({"enabled": False, "reason": "music_dna_disabled", "sections": [{"items": [{"id": "fake", "kind": "track", "title": "Fake", "uri": "spotify:track:fake"}]}]})
+
+    assert backend.musicDiscoveryItems == []
+    assert backend.musicDiscoveryEmptyText == "music_dna_disabled"
 
 
 def test_cached_image_url_reuses_24_hour_cache(tmp_path: Path, monkeypatch) -> None:
@@ -525,9 +568,48 @@ def test_ask_dj_track_insight_renders_music_dna_without_playback_actions() -> No
     assert "Key" not in item_titles
     assert "Energy" in item_titles
     assert "Danceability" in item_titles
+    assert messages[0]["items"][1]["value"] == "81%"
+    assert messages[0]["items"][2]["value"] == "68%"
     section_titles = [section["title"] for section in messages[0]["analysis"]["sections"]]
     assert section_titles[:4] == ["Summary", "Genre", "Vibe", "Why it fits you"]
     assert "This expands your Music DNA." in section_titles
+    serialized = json.dumps(messages[0], sort_keys=True)
+    assert "128" not in serialized
+    assert "C minor" not in serialized
+
+
+def test_track_insight_direct_and_wrapped_response_decode_same_contract() -> None:
+    direct = parse_ask_dj_messages(
+        {
+            "success": True,
+            "track": {"title": "Strobe", "artist": "deadmau5", "genres": ["progressive house"]},
+            "analysis": {"summary": "A long build.", "genre": "Progressive house", "subgenre": "Melodic", "confidence": 0.77},
+            "visual_profile": {"motion_style": "slow_pulse", "seed": "ignored"},
+            "mood_context": {"zone": "energy"},
+        }
+    )[0]
+    wrapped = parse_ask_dj_messages(
+        {
+            "success": True,
+            "track_insight": {
+                "track": {"title": "Strobe", "artist": "deadmau5", "genres": ["progressive house"]},
+                "analysis": {"summary": "A long build.", "genre": "Progressive house", "subgenre": "Melodic", "confidence": 0.77},
+                "visual_profile": {"motion_style": "slow_pulse", "seed": "ignored"},
+                "mood_context": {"zone": "energy"},
+            },
+        }
+    )[0]
+
+    for message in (direct, wrapped):
+        assert message["trackInsight"] is True
+        assert message["trackInsightData"]["track"]["title"] == "Strobe"
+        assert message["items"][0]["title"] == "Confidence"
+        assert message["items"][0]["value"] == "77%"
+        titles = [section["title"] for section in message["analysis"]["sections"]]
+        assert "Summary" in titles
+        assert "Genre" in titles
+        assert "Visual profile" in titles
+        assert "Mood context" in titles
 
 
 def test_ask_dj_track_insight_no_track_playing_is_empty_state() -> None:
@@ -537,6 +619,38 @@ def test_ask_dj_track_insight_no_track_playing_is_empty_state() -> None:
     assert messages[0]["text"] == "Er speelt nu geen track."
     assert messages[0]["actions"] == []
     assert messages[0]["items"] == []
+
+
+def test_track_insight_no_track_and_rate_limit_clear_previous_view(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend._apply_track_insight_data({"track": {"title": "Strobe", "artist": "deadmau5"}, "analysis": {"summary": "A long build."}})
+
+    assert backend.trackInsightTitle == "Strobe"
+
+    backend._apply_track_insight_data({"success": False, "error": "no_track_playing"})
+    assert backend.trackInsightTitle == ""
+    assert backend.trackInsightItems == []
+    assert backend.trackInsightError == backend.tr_key("track_insight_no_track")
+
+    backend._apply_track_insight_data({"track": {"title": "Track"}, "analysis": {"summary": "Fresh"}})
+    backend._apply_track_insight_data({"success": False, "error": "rate_limited"})
+    assert backend.trackInsightText == ""
+    assert backend.trackInsightError == backend.tr_key("track_insight_rate_limited")
+
+
+def test_track_insight_clears_when_current_track_changes(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend._apply_playback(Playback(title="Old Track", artist="Artist", image_url="https://example.test/old.jpg"))
+    backend._apply_track_insight_data({"track": {"title": "Old Track", "artist": "Artist"}, "analysis": {"summary": "Old analysis"}})
+
+    assert backend.trackInsightText
+
+    backend._apply_playback(Playback(title="New Track", artist="Artist", image_url="https://example.test/new.jpg"))
+
+    assert backend.trackInsightText == ""
+    assert backend.trackInsightSections == []
 
 
 def test_ask_dj_track_insight_explicit_playback_actions_are_preserved() -> None:

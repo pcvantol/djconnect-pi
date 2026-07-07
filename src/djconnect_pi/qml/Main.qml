@@ -25,8 +25,6 @@ Window {
     property bool forceScreenAwake: false
     property bool forceBrightnessFull: false
     property bool suppressNextNowPanelTap: false
-    property bool askDjKeyboardShift: false
-    property bool askDjKeyboardOpen: false
     property int standardButtonRadius: 8
     property bool screenBlanked: djconnect.screenTimeoutSeconds > 0 && !idleTimer.running && !root.forceScreenAwake
     property real brightnessOverlayOpacity: root.screenBlanked || root.forceBrightnessFull ? 0 : 1 - (djconnect.screenBrightnessPercent / 100.0)
@@ -74,8 +72,6 @@ Window {
 
     onActiveScreenChanged: {
         root.restartIdleTimer()
-        root.askDjKeyboardOpen = false
-        root.askDjKeyboardShift = false
         if (root.activeScreen === "askdj") {
             root.scrollAskDjToBottom()
         } else if (root.activeScreen === "musicdna") {
@@ -165,53 +161,6 @@ Window {
                 GradientStop { position: 1.0; color: askDjButton.enabled ? "#c33cff" : "#4b3d65" }
             }
             opacity: askDjButton.down ? 0.78 : (askDjButton.enabled ? 1.0 : 0.62)
-        }
-    }
-
-    component AskDjKeyButton: Button {
-        id: keyButton
-        property string keyText: ""
-        property string displayText: keyText
-        property bool active: false
-
-        text: displayText
-        font.pixelSize: 19
-        font.bold: true
-        Layout.fillWidth: true
-        Layout.fillHeight: true
-        contentItem: Text {
-            text: keyButton.text
-            font: keyButton.font
-            color: keyButton.enabled ? "#ffffff" : "#93a0b8"
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
-            elide: Text.ElideRight
-            maximumLineCount: 1
-        }
-        background: Rectangle {
-            radius: root.standardButtonRadius
-            color: keyButton.active ? "#3f66d8" : (keyButton.down ? "#4a326e" : "#231a3c")
-            border.color: keyButton.active ? "#d8e0ff" : "#4b557d"
-            border.width: 1
-            opacity: keyButton.enabled ? 1.0 : 0.56
-        }
-
-        MouseArea {
-            anchors.fill: parent
-            acceptedButtons: Qt.AllButtons
-            preventStealing: true
-            propagateComposedEvents: false
-            onPressed: function(mouse) {
-                root.recordActivity()
-                mouse.accepted = true
-            }
-            onReleased: function(mouse) {
-                mouse.accepted = true
-            }
-            onClicked: function(mouse) {
-                keyButton.clicked()
-                mouse.accepted = true
-            }
         }
     }
 
@@ -1172,7 +1121,7 @@ Window {
                     Layout.preferredHeight: 48
                     enabled: djconnect.paired && (djconnect.title.length > 0 || djconnect.artist.length > 0)
                     onClicked: {
-                        root.activeScreen = "askdj"
+                        root.activeScreen = "trackinsight"
                         djconnect.openTrackInsight()
                     }
                 }
@@ -2012,6 +1961,241 @@ Window {
     }
 
     Rectangle {
+        id: trackInsightPanel
+        anchors.fill: parent
+        color: "#070b16"
+        visible: root.activeScreen === "trackinsight"
+        z: 17
+
+        AppBackground {}
+        ModalBlocker {}
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.leftMargin: 20
+            anchors.topMargin: 20
+            anchors.rightMargin: 20
+            anchors.bottomMargin: root.edge + 126
+            spacing: 12
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 10
+
+                Text {
+                    text: root.tr("track_insight")
+                    color: "#f4f8f8"
+                    font.pixelSize: 40
+                    font.bold: true
+                    elide: Text.ElideRight
+                    Layout.fillWidth: true
+                }
+
+                LoadingSpinner {
+                    visible: djconnect.askDjBusy
+                    running: visible
+                    Layout.preferredWidth: 38
+                    Layout.preferredHeight: 38
+                }
+
+                PurpleButton {
+                    text: root.tr("refresh")
+                    enabled: djconnect.paired && !djconnect.askDjBusy
+                    font.pixelSize: 17
+                    Layout.preferredWidth: 126
+                    Layout.preferredHeight: 48
+                    onClicked: djconnect.openTrackInsight()
+                }
+            }
+
+            Text {
+                visible: djconnect.trackInsightError.length > 0
+                text: djconnect.trackInsightError
+                color: "#d8e3ee"
+                font.pixelSize: 20
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+
+            Text {
+                visible: djconnect.trackInsightError.length === 0 && djconnect.trackInsightText.length === 0 && djconnect.trackInsightItems.length === 0 && !djconnect.askDjBusy
+                text: root.tr("track_insight_empty")
+                color: "#d8e3ee"
+                font.pixelSize: 20
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+
+            Rectangle {
+                visible: djconnect.trackInsightTitle.length > 0 || djconnect.trackInsightArtist.length > 0 || djconnect.trackInsightImageUrl.length > 0
+                Layout.fillWidth: true
+                Layout.preferredHeight: 104
+                radius: root.standardButtonRadius
+                color: "#172033"
+                border.color: "#3b4a6e"
+                border.width: 1
+                clip: true
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.margins: 10
+                    spacing: 10
+
+                    Image {
+                        source: djconnect.trackInsightImageUrl
+                        visible: source.toString().length > 0
+                        Layout.preferredWidth: 76
+                        Layout.preferredHeight: 76
+                        fillMode: Image.PreserveAspectCrop
+                        smooth: true
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 4
+
+                        Text {
+                            text: djconnect.trackInsightTitle
+                            color: "#ffffff"
+                            font.pixelSize: 22
+                            font.bold: true
+                            elide: Text.ElideRight
+                            maximumLineCount: 1
+                            Layout.fillWidth: true
+                        }
+
+                        Text {
+                            text: [djconnect.trackInsightArtist, djconnect.trackInsightAlbum].filter(function(v) { return v && v.length > 0 }).join(" · ")
+                            color: "#cbd6ed"
+                            font.pixelSize: 17
+                            elide: Text.ElideRight
+                            maximumLineCount: 1
+                            Layout.fillWidth: true
+                        }
+                    }
+                }
+            }
+
+            Text {
+                visible: djconnect.trackInsightText.length > 0
+                text: djconnect.trackInsightText
+                color: "#ffffff"
+                font.pixelSize: 21
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+
+            Flow {
+                visible: djconnect.trackInsightItems.length > 0
+                spacing: 8
+                Layout.fillWidth: true
+
+                Repeater {
+                    model: djconnect.trackInsightItems
+
+                    Rectangle {
+                        width: Math.max(132, trackMetricContent.implicitWidth + 24)
+                        height: 64
+                        radius: root.standardButtonRadius
+                        color: modelData.musicDna ? "#33334857" : "#3324145f"
+                        border.color: modelData.musicDna ? "#6aa0b9c8" : "#7f67ff"
+                        border.width: 1
+
+                        ColumnLayout {
+                            id: trackMetricContent
+                            anchors.fill: parent
+                            anchors.margins: 8
+                            spacing: 1
+
+                            Text {
+                                text: modelData.title || ""
+                                color: "#ffffff"
+                                font.pixelSize: 15
+                                font.bold: true
+                                elide: Text.ElideRight
+                                Layout.fillWidth: true
+                            }
+
+                            Text {
+                                text: modelData.value || ""
+                                color: "#d8e3ee"
+                                font.pixelSize: 19
+                                font.bold: true
+                                elide: Text.ElideRight
+                                Layout.fillWidth: true
+                            }
+                        }
+                    }
+                }
+            }
+
+            ScrollView {
+                id: trackInsightScroll
+                visible: djconnect.trackInsightSections.length > 0
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                clip: true
+                ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                contentWidth: availableWidth
+
+                ColumnLayout {
+                    width: Math.max(0, trackInsightScroll.availableWidth)
+                    spacing: 10
+
+                    Repeater {
+                        model: djconnect.trackInsightSections
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: trackSectionContent.implicitHeight + 18
+                            radius: root.standardButtonRadius
+                            color: modelData.metadataContext ? "#33334857" : "#172033"
+                            border.color: modelData.metadataContext ? "#6aa0b9c8" : "#3b4a6e"
+                            border.width: 1
+
+                            ColumnLayout {
+                                id: trackSectionContent
+                                anchors.fill: parent
+                                anchors.margins: 9
+                                spacing: 5
+
+                                Text {
+                                    text: modelData.title || ""
+                                    color: "#f2d8ff"
+                                    font.pixelSize: 18
+                                    font.bold: true
+                                    elide: Text.ElideRight
+                                    Layout.fillWidth: true
+                                }
+
+                                Text {
+                                    visible: modelData.body && modelData.body.length > 0
+                                    text: modelData.body || ""
+                                    color: "#ffffff"
+                                    font.pixelSize: 17
+                                    wrapMode: Text.WordWrap
+                                    Layout.fillWidth: true
+                                }
+
+                                Repeater {
+                                    model: modelData.details || []
+                                    Text {
+                                        text: "- " + modelData
+                                        color: "#d8e3ee"
+                                        font.pixelSize: 16
+                                        wrapMode: Text.WordWrap
+                                        Layout.fillWidth: true
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Rectangle {
         id: musicDiscoveryPanel
         anchors.fill: parent
         color: "#070b16"
@@ -2163,6 +2347,17 @@ Window {
                                     spacing: 4
 
                                     Text {
+                                        visible: modelData.sectionTitle && modelData.sectionTitle.length > 0
+                                        text: modelData.sectionTitle || ""
+                                        color: "#f2d8ff"
+                                        font.pixelSize: 14
+                                        font.bold: true
+                                        elide: Text.ElideRight
+                                        maximumLineCount: 1
+                                        Layout.fillWidth: true
+                                    }
+
+                                    Text {
                                         text: modelData.title || ""
                                         color: "#ffffff"
                                         font.pixelSize: 20
@@ -2182,8 +2377,8 @@ Window {
                                     }
 
                                     Text {
-                                        visible: modelData.relevance && modelData.relevance.length > 0
-                                        text: modelData.relevance || ""
+                                        visible: (modelData.countText && modelData.countText.length > 0) || (modelData.relevance && modelData.relevance.length > 0)
+                                        text: [modelData.countText || "", modelData.relevance || ""].filter(function(v) { return v && v.length > 0 }).join(" · ")
                                         color: "#b6c6ff"
                                         font.pixelSize: 14
                                         elide: Text.ElideRight
@@ -2197,7 +2392,8 @@ Window {
 
                                         PurpleButton {
                                             text: root.tr("play_now")
-                                            enabled: !djconnect.musicDiscoveryBusy
+                                            visible: modelData.playable
+                                            enabled: modelData.playable && !djconnect.musicDiscoveryBusy
                                             font.pixelSize: 16
                                             Layout.fillWidth: true
                                             Layout.preferredHeight: 42
@@ -2222,9 +2418,21 @@ Window {
                                 anchors.fill: parent
                                 acceptedButtons: Qt.LeftButton
                                 activeFocusOnTab: true
-                                Keys.onReturnPressed: djconnect.playMusicDiscoveryItem(modelData.payload || "{}")
-                                Keys.onEnterPressed: djconnect.playMusicDiscoveryItem(modelData.payload || "{}")
-                                onClicked: djconnect.playMusicDiscoveryItem(modelData.payload || "{}")
+                                Keys.onReturnPressed: {
+                                    if (modelData.playable) {
+                                        djconnect.playMusicDiscoveryItem(modelData.payload || "{}")
+                                    }
+                                }
+                                Keys.onEnterPressed: {
+                                    if (modelData.playable) {
+                                        djconnect.playMusicDiscoveryItem(modelData.payload || "{}")
+                                    }
+                                }
+                                onClicked: {
+                                    if (modelData.playable) {
+                                        djconnect.playMusicDiscoveryItem(modelData.payload || "{}")
+                                    }
+                                }
                                 onPressAndHold: {
                                     if (modelData.hasReason) {
                                         djconnect.showToast(modelData.reason || "")
@@ -2405,49 +2613,6 @@ Window {
         visible: root.activeScreen === "askdj"
         z: 17
 
-        function sendAskDjInput() {
-            var message = askDjInput.text.trim()
-            if (message.length > 0 && !djconnect.askDjBusy) {
-                askDjInput.text = ""
-                root.askDjKeyboardShift = false
-                root.askDjKeyboardOpen = false
-                djconnect.sendAskDjMessage(message)
-            }
-        }
-
-        function insertAskDjText(value) {
-            if (value.length === 0) {
-                return
-            }
-            var pos = Math.max(0, askDjInput.cursorPosition)
-            askDjInput.text = askDjInput.text.slice(0, pos) + value + askDjInput.text.slice(pos)
-            askDjInput.cursorPosition = pos + value.length
-            root.askDjKeyboardOpen = true
-            askDjInput.forceActiveFocus()
-        }
-
-        function insertAskDjKey(value) {
-            askDjPanel.insertAskDjText(root.askDjKeyboardShift ? value.toUpperCase() : value)
-            if (root.askDjKeyboardShift) {
-                root.askDjKeyboardShift = false
-            }
-        }
-
-        function deleteAskDjText() {
-            var start = askDjInput.selectionStart
-            var end = askDjInput.selectionEnd
-            if (start !== end) {
-                askDjInput.text = askDjInput.text.slice(0, start) + askDjInput.text.slice(end)
-                askDjInput.cursorPosition = start
-            } else if (askDjInput.cursorPosition > 0) {
-                var pos = askDjInput.cursorPosition
-                askDjInput.text = askDjInput.text.slice(0, pos - 1) + askDjInput.text.slice(pos)
-                askDjInput.cursorPosition = pos - 1
-            }
-            root.askDjKeyboardOpen = true
-            askDjInput.forceActiveFocus()
-        }
-
         AppBackground {}
         ModalBlocker {}
 
@@ -2486,13 +2651,6 @@ Window {
                     onClicked: djconnect.refreshAskDjHistory()
                 }
 
-                AskDjGradientButton {
-                    text: root.tr("clear")
-                    font.pixelSize: 18
-                    Layout.preferredWidth: 112
-                    Layout.preferredHeight: 48
-                    onClicked: djconnect.clearAskDjHistory()
-                }
             }
 
             Text {
@@ -2502,61 +2660,6 @@ Window {
                 font.bold: true
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
-            }
-
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 58
-                radius: 8
-                color: "#3324145f"
-                border.color: "#5c4d95"
-                border.width: 1
-
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.margins: 8
-                    spacing: 8
-
-                    TextField {
-                        id: askDjInput
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        placeholderText: root.tr("ask_dj_input_placeholder")
-                        color: "#ffffff"
-                        placeholderTextColor: "#91a0bd"
-                        font.pixelSize: 20
-                        selectByMouse: false
-                        maximumLength: 500
-                        background: Rectangle {
-                            radius: 8
-                            color: "#22070b16"
-                            border.color: askDjInput.activeFocus ? "#a5b4fc" : "#39415f"
-                            border.width: 1
-                        }
-                        onActiveFocusChanged: {
-                            if (activeFocus) {
-                                root.askDjKeyboardOpen = true
-                            }
-                        }
-                        onAccepted: askDjPanel.sendAskDjInput()
-
-                        TapHandler {
-                            onTapped: {
-                                root.askDjKeyboardOpen = true
-                                askDjInput.forceActiveFocus()
-                            }
-                        }
-                    }
-
-                    AskDjGradientButton {
-                        text: root.tr("send")
-                        enabled: !djconnect.askDjBusy && askDjInput.text.trim().length > 0
-                        font.pixelSize: 18
-                        Layout.preferredWidth: 112
-                        Layout.fillHeight: true
-                        onClicked: askDjPanel.sendAskDjInput()
-                    }
-                }
             }
 
             ScrollView {
@@ -3223,159 +3326,6 @@ Window {
             }
         }
 
-        Rectangle {
-            id: askDjKeyboard
-            visible: root.askDjKeyboardOpen
-            x: Math.max(16, askDjInput.mapToItem(askDjPanel, 0, 0).x)
-            y: askDjInput.mapToItem(askDjPanel, 0, askDjInput.height).y + 8
-            width: Math.min(askDjPanel.width - x - 16, Math.max(420, askDjInput.width))
-            height: 216
-            radius: 8
-            color: "#f20b1024"
-            border.color: "#6573aa"
-            border.width: 1
-            clip: true
-            z: 40
-
-            MouseArea {
-                anchors.fill: parent
-                acceptedButtons: Qt.AllButtons
-                preventStealing: true
-                propagateComposedEvents: false
-                onPressed: function(mouse) {
-                    root.recordActivity()
-                    mouse.accepted = true
-                }
-                onReleased: function(mouse) {
-                    mouse.accepted = true
-                }
-                onClicked: function(mouse) {
-                    askDjInput.forceActiveFocus()
-                    mouse.accepted = true
-                }
-                onWheel: function(wheel) {
-                    wheel.accepted = true
-                }
-            }
-
-            ColumnLayout {
-                anchors.fill: parent
-                anchors.margins: 8
-                spacing: 7
-                z: 1
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    spacing: 6
-
-                    Repeater {
-                        model: ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"]
-
-                        AskDjKeyButton {
-                            keyText: modelData
-                            displayText: root.askDjKeyboardShift ? keyText.toUpperCase() : keyText
-                            onClicked: askDjPanel.insertAskDjKey(keyText)
-                        }
-                    }
-                }
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    Layout.leftMargin: 18
-                    Layout.rightMargin: 18
-                    spacing: 6
-
-                    Repeater {
-                        model: ["a", "s", "d", "f", "g", "h", "j", "k", "l"]
-
-                        AskDjKeyButton {
-                            keyText: modelData
-                            displayText: root.askDjKeyboardShift ? keyText.toUpperCase() : keyText
-                            onClicked: askDjPanel.insertAskDjKey(keyText)
-                        }
-                    }
-                }
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    spacing: 6
-
-                    AskDjKeyButton {
-                        displayText: "⇧"
-                        active: root.askDjKeyboardShift
-                        Layout.preferredWidth: 72
-                        Layout.fillWidth: false
-                        onClicked: {
-                            root.askDjKeyboardShift = !root.askDjKeyboardShift
-                            root.askDjKeyboardOpen = true
-                            askDjInput.forceActiveFocus()
-                        }
-                    }
-
-                    Repeater {
-                        model: ["z", "x", "c", "v", "b", "n", "m"]
-
-                        AskDjKeyButton {
-                            keyText: modelData
-                            displayText: root.askDjKeyboardShift ? keyText.toUpperCase() : keyText
-                            onClicked: askDjPanel.insertAskDjKey(keyText)
-                        }
-                    }
-
-                    AskDjKeyButton {
-                        displayText: "⌫"
-                        Layout.preferredWidth: 72
-                        Layout.fillWidth: false
-                        onClicked: askDjPanel.deleteAskDjText()
-                    }
-                }
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    spacing: 6
-
-                    AskDjKeyButton {
-                        displayText: "?"
-                        Layout.preferredWidth: 70
-                        Layout.fillWidth: false
-                        onClicked: askDjPanel.insertAskDjText("?")
-                    }
-
-                    AskDjKeyButton {
-                        displayText: root.tr("keyboard_space")
-                        Layout.fillWidth: true
-                        onClicked: askDjPanel.insertAskDjText(" ")
-                    }
-
-                    AskDjKeyButton {
-                        displayText: "."
-                        Layout.preferredWidth: 58
-                        Layout.fillWidth: false
-                        onClicked: askDjPanel.insertAskDjText(".")
-                    }
-
-                    AskDjKeyButton {
-                        displayText: ","
-                        Layout.preferredWidth: 58
-                        Layout.fillWidth: false
-                        onClicked: askDjPanel.insertAskDjText(",")
-                    }
-
-                    AskDjGradientButton {
-                        text: root.tr("send")
-                        enabled: !djconnect.askDjBusy && askDjInput.text.trim().length > 0
-                        font.pixelSize: 17
-                        Layout.preferredWidth: 116
-                        Layout.fillHeight: true
-                        onClicked: askDjPanel.sendAskDjInput()
-                    }
-                }
-            }
-        }
     }
 
     GamesPanel {
@@ -3429,11 +3379,11 @@ Window {
                 text: root.tr("track_insight")
                 iconName: "info"
                 checkable: true
-                checked: false
+                checked: root.activeScreen === "trackinsight"
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 onClicked: {
-                    root.activeScreen = "askdj"
+                    root.activeScreen = "trackinsight"
                     djconnect.openTrackInsight()
                 }
             }

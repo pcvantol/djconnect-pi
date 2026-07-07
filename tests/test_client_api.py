@@ -61,7 +61,7 @@ def test_client_api_info_and_pairing_info(tmp_path: Path) -> None:
     assert info["ha_pairing_status"] == "pending"
     assert info["capabilities"]["local_dj_response_endpoint"] is False
     assert info["capabilities"]["ask_dj_supported"] is True
-    assert info["capabilities"]["ask_dj_mode"] == "text_actions"
+    assert info["capabilities"]["ask_dj_mode"] == "readonly_actions"
     assert info["capabilities"]["ask_dj_free_input_supported"] is True
     assert info["capabilities"]["ask_dj_actions_supported"] is True
     assert info["capabilities"]["ask_dj_voice_supported"] is False
@@ -77,7 +77,7 @@ def test_client_api_info_and_pairing_info(tmp_path: Path) -> None:
     assert pairing["device_id"] == cfg.device_id
     assert pairing["client_type"] == "raspberry_pi"
     assert pairing["transport"] == "local_only"
-    assert pairing["capabilities"]["ask_dj_mode"] == "text_actions"
+    assert pairing["capabilities"]["ask_dj_mode"] == "readonly_actions"
     assert pairing["capabilities"]["voice_supported"] is False
     assert pairing["capabilities"]["ask_dj_voice_supported"] is False
     assert pairing["capabilities"]["ask_dj_audio_response_supported"] is False

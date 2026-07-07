@@ -1,12 +1,12 @@
 # DJConnect Pi
 
-Version: `3.2.10`
+Version: `3.2.11`
 
 Raspberry Pi Zero 2 W touch-display client for DJConnect. This client uses
 Qt Quick/QML with a PySide6 backend and is meant for a Pimoroni HyperPixel 4.0
 Square Touch style kiosk remote: pairing, status, now playing and touch
-playback control, Ask DJ text questions, conversation display, structured touch
-actions, server-backed Music DNA and Music Discovery.
+playback control, Ask DJ history display with structured touch actions,
+server-backed Music DNA and Music Discovery.
 
 It intentionally does not implement PTT, microphone upload, local DJ response
 audio, a Pi-local DJ response endpoint, ESP firmware OTA, ESP battery sensors
@@ -49,21 +49,30 @@ running separately from the touch UI.
 - Music backend selection is Home Assistant-side. The Pi displays the backend
   summary returned by HA and does not store Spotify credentials or assume
   Spotify Direct over Music Assistant.
-- Ask DJ is typed text-only. The Pi posts `/api/djconnect/v1/ask_dj/message` with
-  `audio_response:"auto"` and reports `ask_dj_voice_supported:false` plus
-  `ask_dj_audio_response_supported:false`; any audio URL is backend-provided
-  and externally opened, never generated locally.
+- Ask DJ is `readonly_actions`. The Pi polls server-side history, displays
+  assistant/system/status/user bubbles and sends only Home Assistant-provided
+  structured action payloads through `/api/djconnect/v1/command`. It reports
+  `ask_dj_voice_supported:false` plus
+  `ask_dj_audio_response_supported:false` and does not expose local message
+  input, history clear, voice/PTT, TTS or local audio playback.
+- Track Insight is server-side in Home Assistant. The Pi posts current track
+  metadata, language/locale, optional mood and optional Music DNA key to
+  `/api/djconnect/v1/track_insight`, renders direct or wrapped
+  `track`/`analysis` responses, clears old analysis on track changes and never
+  shows BPM/key/model fields.
 - Music DNA is Home Assistant authoritative. The Pi can call profile, settings
   and clear endpoints, but it does not calculate, store or replay Music DNA as
   a local source of truth.
 - Music Discovery is Home Assistant authoritative and gated behind Music DNA
-  consent. The Pi renders server recommendations, sends refresh/play requests
-  and posts Play Now selections back to HA as Music Discovery interactions.
+  consent. The Pi renders backend `sections[].items[]`, dedupes repeated
+  `id`/`uri` rows, shows compact repeated-play/based-on counts, sends
+  refresh/play requests and posts Play Now selections back to HA as Music
+  Discovery interactions. It does not fabricate recommendations, reasons or
+  based-on lists locally.
 - Home Assistant endpoints:
   - `POST /api/djconnect/v1/pair`
   - `POST /api/djconnect/v1/status`
   - `POST /api/djconnect/v1/command`
-  - `POST /api/djconnect/v1/ask_dj/message`
   - `POST /api/djconnect/v1/track_insight`
   - `POST /api/djconnect/v1/music_dna/profile`
   - `POST /api/djconnect/v1/music_dna/settings`
@@ -72,7 +81,6 @@ running separately from the touch UI.
   - `POST /api/djconnect/v1/music_discovery/refresh`
   - `POST /api/djconnect/v1/music_discovery/play`
   - `GET /api/djconnect/v1/ask_dj/history?since_revision=<revision>`
-  - `POST /api/djconnect/v1/ask_dj/history/clear`
 - Local Client API endpoints:
   - `GET /api/device/info`
   - `GET /api/device/pairing-info`
@@ -141,14 +149,19 @@ The app is a 720x720 fullscreen touch remote:
 - bottom navigation and Meer menu icons are drawn as consistent QML Canvas
   outline icons, matching the macOS-style menu language without depending on
   platform-specific Unicode glyph rendering
-- Ask DJ screen that sends typed text questions to Home Assistant, displays the
-  shared conversation feed, decodes assistant, system, status and other-client
-  user messages, and renders HA-provided structured action buttons without any
-  voice, PTT, TTS or local audio path
+- Ask DJ screen that displays the shared Home Assistant conversation feed,
+  decodes assistant, system, status and other-client user messages, and renders
+  HA-provided structured action buttons without free prompt input, local
+  history clear, voice, PTT, TTS or local audio path
+- Track Insight screen that refreshes the current-track analysis from Home
+  Assistant, shows title/artist/artwork, summary, genre/subgenre, energy,
+  danceability, intensity, confidence, production/instrumentation/arrangement
+  notes and clean retry states for no-track/rate-limit responses
 - Ontdek screen that works only after Music DNA consent, renders HA-provided
   track, album, artist and playlist recommendations, shows backend reason text
   only through an explicit details action and sends Play Now through
-  `/api/djconnect/v1/music_discovery/play`
+  `/api/djconnect/v1/music_discovery/play` with `section_id` and
+  `discovery_item_id`
 - Music DNA screen for server-backed opt-in, disable, clear and compact profile
   display; optional dashboard blocks are hidden when absent or ineligible
 - fixed bottom menu bar for Speelt nu, Ask DJ, Track Insight, Ontdek, Music DNA
@@ -229,9 +242,9 @@ not a private source clone:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.2.10.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.2.11.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.2.10
+cd djconnect-pi-3.2.11
 sudo ./scripts/install.sh
 ```
 
@@ -352,9 +365,9 @@ installer:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.2.10.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.2.11.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.2.10
+cd djconnect-pi-3.2.11
 sudo ./scripts/install.sh
 ```
 

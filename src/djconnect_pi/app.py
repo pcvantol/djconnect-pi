@@ -11,7 +11,6 @@ import re
 import subprocess
 import sys
 import time
-import uuid
 from urllib.parse import urlparse
 
 from PySide6.QtCore import QByteArray, QBuffer, QCoreApplication, QIODevice, QObject, Property, QTimer, Signal, Slot
@@ -68,6 +67,7 @@ class DJConnectBackend(QObject):
     askDjChanged = Signal()
     musicDnaChanged = Signal()
     musicDiscoveryChanged = Signal()
+    trackInsightChanged = Signal()
     demoModeChanged = Signal()
     screenTimeoutChanged = Signal()
     screenBrightnessChanged = Signal()
@@ -93,6 +93,7 @@ class DJConnectBackend(QObject):
     _askDjReady = Signal(object)
     _musicDnaReady = Signal(object)
     _musicDiscoveryReady = Signal(object)
+    _trackInsightReady = Signal(object)
 
     def __init__(self, config_path: Path) -> None:
         super().__init__()
@@ -132,6 +133,15 @@ class DJConnectBackend(QObject):
         self._music_discovery_busy = False
         self._music_discovery_playing_id = ""
         self._music_discovery_consent_rejected = False
+        self._track_insight_title = ""
+        self._track_insight_artist = ""
+        self._track_insight_album = ""
+        self._track_insight_image_url = ""
+        self._track_insight_text = ""
+        self._track_insight_error = ""
+        self._track_insight_items: list[dict[str, object]] = []
+        self._track_insight_sections: list[dict[str, object]] = []
+        self._track_insight_track_key = ""
         self._ask_dj_unavailable_until = 0.0
         self._ask_dj_poll_error_count = 0
         self._ask_dj_poll_in_flight = False
@@ -165,6 +175,7 @@ class DJConnectBackend(QObject):
         self._askDjReady.connect(self._apply_ask_dj_data)
         self._musicDnaReady.connect(self._apply_music_dna_data)
         self._musicDiscoveryReady.connect(self._apply_music_discovery_data)
+        self._trackInsightReady.connect(self._apply_track_insight_data)
         QTimer.singleShot(250, self.refresh)
         _LOGGER.info("DJConnect Pi client backend started for %s", self.cfg.device_id)
 
@@ -243,6 +254,38 @@ class DJConnectBackend(QObject):
     @Property(bool, notify=musicDiscoveryChanged)
     def musicDiscoveryConsentRejected(self) -> bool:
         return self._music_discovery_consent_rejected
+
+    @Property(str, notify=trackInsightChanged)
+    def trackInsightTitle(self) -> str:
+        return self._track_insight_title
+
+    @Property(str, notify=trackInsightChanged)
+    def trackInsightArtist(self) -> str:
+        return self._track_insight_artist
+
+    @Property(str, notify=trackInsightChanged)
+    def trackInsightAlbum(self) -> str:
+        return self._track_insight_album
+
+    @Property(str, notify=trackInsightChanged)
+    def trackInsightImageUrl(self) -> str:
+        return self._track_insight_image_url
+
+    @Property(str, notify=trackInsightChanged)
+    def trackInsightText(self) -> str:
+        return self._track_insight_text
+
+    @Property(str, notify=trackInsightChanged)
+    def trackInsightError(self) -> str:
+        return self._track_insight_error
+
+    @Property("QVariantList", notify=trackInsightChanged)
+    def trackInsightItems(self) -> list[dict[str, object]]:
+        return self._track_insight_items
+
+    @Property("QVariantList", notify=trackInsightChanged)
+    def trackInsightSections(self) -> list[dict[str, object]]:
+        return self._track_insight_sections
 
     @Property(bool, notify=playingChanged)
     def playing(self) -> bool:
@@ -651,6 +694,7 @@ class DJConnectBackend(QObject):
         if self._demo_mode or not self.paired or self._ask_dj_busy:
             return
         _LOGGER.info("User requested Track Insight for current track")
+        self._clear_track_insight_if_track_changed()
         self._set_ask_dj_busy(True)
         self._run(self.tr_key("track_insight"), self._track_insight_worker, done=lambda: self._set_ask_dj_busy(False))
 
@@ -809,30 +853,6 @@ class DJConnectBackend(QObject):
         self._set_ask_dj_busy(True)
         self._run(self.tr_key("ask_dj"), lambda: self._send_ask_dj_action_worker(action), done=lambda: self._set_ask_dj_busy(False))
 
-    @Slot(str)
-    def sendAskDjMessage(self, text: str) -> None:
-        self._sync_config_from_disk()
-        message = str(text or "").strip()
-        if self._demo_mode or not self.paired or self._ask_dj_busy or not message:
-            return
-        client_message_id = f"{self.cfg.device_id}-{uuid.uuid4().hex}"
-        _LOGGER.info("User sent Ask DJ text message client_message_id=%s", client_message_id)
-        self._set_ask_dj_busy(True)
-        self._run(
-            self.tr_key("ask_dj"),
-            lambda: self._send_ask_dj_message_worker(message, client_message_id),
-            done=lambda: self._set_ask_dj_busy(False),
-        )
-
-    @Slot()
-    def clearAskDjHistory(self) -> None:
-        self._sync_config_from_disk()
-        if self._demo_mode or not self.paired or self._ask_dj_busy:
-            return
-        _LOGGER.info("User cleared Ask DJ history")
-        self._set_ask_dj_busy(True)
-        self._run(self.tr_key("ask_dj"), self._clear_ask_dj_history_worker, done=lambda: self._set_ask_dj_busy(False))
-
     @Slot()
     def loadMusicDna(self) -> None:
         self._music_dna_request("profile")
@@ -891,6 +911,9 @@ class DJConnectBackend(QObject):
             _LOGGER.warning("Ignoring malformed Music Discovery play payload")
             return
         if not isinstance(item, dict):
+            return
+        if not str(item.get("uri") or "").strip():
+            _LOGGER.info("Ignoring non-playable Music Discovery item")
             return
         item_id = str(item.get("id") or item.get("recommendation_id") or item.get("item_id") or item.get("uri") or "").strip()
         self._music_discovery_playing_id = item_id
@@ -1325,29 +1348,17 @@ class DJConnectBackend(QObject):
         self._persist_backend_summary()
         self._askDjReady.emit(data)
 
-    def _send_ask_dj_message_worker(self, text: str, client_message_id: str) -> None:
-        try:
-            data = self.client.ask_dj_message(text, client_message_id)
-            self._persist_backend_summary()
-        except (DJConnectError, requests.RequestException) as exc:
-            raise BackendUnavailable("Ask DJ unavailable") from exc
-        self._askDjReady.emit(data)
-
     def _track_insight_worker(self) -> None:
         try:
             data = self.client.track_insight(self.playback)
             self._persist_backend_summary()
+        except (AuthenticationError, ProtocolVersionMismatch):
+            raise
         except (DJConnectError, requests.RequestException) as exc:
-            raise BackendUnavailable("Track Insight unavailable") from exc
-        self._askDjReady.emit(data)
-
-    def _clear_ask_dj_history_worker(self) -> None:
-        try:
-            data = self.client.ask_dj_clear_history()
-            self._persist_backend_summary()
-        except (DJConnectError, requests.RequestException) as exc:
-            raise BackendUnavailable("Ask DJ unavailable") from exc
-        self._askDjReady.emit(data)
+            _LOGGER.warning("Track Insight unavailable; showing retry state: %s", exc.__class__.__name__)
+            self._trackInsightReady.emit({"success": False, "error": "transient"})
+            return
+        self._trackInsightReady.emit(data)
 
     def _music_dna_profile_worker(self) -> None:
         try:
@@ -1592,7 +1603,9 @@ class DJConnectBackend(QObject):
             self.versionMismatchChanged.emit()
         old = self.playback
         self.playback = playback
-        track_changed = old.title != playback.title or old.artist != playback.artist or old.image_url != playback.image_url
+        track_changed = old.title != playback.title or old.artist != playback.artist or old.image_url != playback.image_url or old.uri != playback.uri
+        if track_changed:
+            self._clear_track_insight()
         resumed_playback = not old.is_playing and playback.is_playing
         if old.title != playback.title:
             self.titleChanged.emit()
@@ -1726,7 +1739,7 @@ class DJConnectBackend(QObject):
         if data.get("enabled") is False or str(data.get("error") or "") == "music_dna_disabled":
             self._music_discovery_items = []
             self._music_discovery_error = ""
-            self._music_discovery_empty_text = str(data.get("empty_text") or data.get("message") or self.tr_key("music_discovery_requires_music_dna"))
+            self._music_discovery_empty_text = str(data.get("reason") or data.get("empty_text") or data.get("message") or self.tr_key("music_discovery_requires_music_dna"))
             self.musicDiscoveryChanged.emit()
             return
         parsed = parse_music_discovery_feed(data)
@@ -1735,6 +1748,78 @@ class DJConnectBackend(QObject):
         self._music_discovery_error = ""
         self._set_backend_available(True)
         self.musicDiscoveryChanged.emit()
+
+    @Slot(object)
+    def _apply_track_insight_data(self, data: object) -> None:
+        if not isinstance(data, dict):
+            return
+        error = str(data.get("error") or "").strip()
+        if error == "no_track_playing":
+            self._clear_track_insight(error=self.tr_key("track_insight_no_track"))
+            return
+        if error == "rate_limited":
+            self._clear_track_insight(error=self.tr_key("track_insight_rate_limited"))
+            return
+        if error:
+            self._clear_track_insight(error=self.tr_key("track_insight_retry"))
+            return
+        messages = parse_ask_dj_messages(data)
+        message = next((item for item in messages if item.get("trackInsight")), None)
+        if not isinstance(message, dict):
+            self._clear_track_insight(error=self.tr_key("track_insight_empty"))
+            return
+        track = message.get("trackInsightData")
+        track_data = track.get("track") if isinstance(track, dict) and isinstance(track.get("track"), dict) else {}
+        analysis = message.get("analysis") if isinstance(message.get("analysis"), dict) else {}
+        image_url = _image_url_from(track_data) if isinstance(track_data, dict) else ""
+        self._track_insight_title = str(track_data.get("title") or self.playback.title or "").strip() if isinstance(track_data, dict) else self.playback.title
+        self._track_insight_artist = str(track_data.get("artist") or self.playback.artist or "").strip() if isinstance(track_data, dict) else self.playback.artist
+        self._track_insight_album = str(track_data.get("album") or "").strip() if isinstance(track_data, dict) else ""
+        self._track_insight_image_url = cached_image_url(image_url) if image_url else self.playback.image_url
+        self._track_insight_text = str(message.get("text") or "").strip()
+        self._track_insight_error = ""
+        self._track_insight_items = list(message.get("items")) if isinstance(message.get("items"), list) else []
+        self._track_insight_sections = list(analysis.get("sections")) if isinstance(analysis.get("sections"), list) else []
+        self._track_insight_track_key = self._current_track_key()
+        self._set_backend_available(True)
+        self.trackInsightChanged.emit()
+
+    def _current_track_key(self) -> str:
+        return "|".join(
+            value.strip().casefold()
+            for value in (self.playback.uri, self.playback.title, self.playback.artist, self.playback.image_url)
+            if value
+        )
+
+    def _clear_track_insight_if_track_changed(self) -> None:
+        if self._track_insight_track_key and self._track_insight_track_key != self._current_track_key():
+            self._clear_track_insight()
+
+    def _clear_track_insight(self, *, error: str = "") -> None:
+        changed = any(
+            (
+                self._track_insight_title,
+                self._track_insight_artist,
+                self._track_insight_album,
+                self._track_insight_image_url,
+                self._track_insight_text,
+                self._track_insight_error,
+                self._track_insight_items,
+                self._track_insight_sections,
+                self._track_insight_track_key,
+            )
+        )
+        self._track_insight_title = ""
+        self._track_insight_artist = ""
+        self._track_insight_album = ""
+        self._track_insight_image_url = ""
+        self._track_insight_text = ""
+        self._track_insight_error = error
+        self._track_insight_items = []
+        self._track_insight_sections = []
+        self._track_insight_track_key = ""
+        if changed or error:
+            self.trackInsightChanged.emit()
 
     @Slot(str, str)
     def _apply_output_device_rejection(self, previous: str, attempted: str) -> None:
@@ -2306,7 +2391,6 @@ def _ask_dj_message(item: dict[str, object]) -> dict[str, object] | None:
         "trackInsightData": track_insight_data,
         "musicDnaMatch": _track_insight_music_dna_match(track_insight_data) if track_insight else "",
         "analysis": _track_insight_analysis(track_insight_data) if track_insight else {},
-        "rawResponse": item,
     }
     return message
 
@@ -2329,6 +2413,7 @@ def _is_track_insight(item: dict[str, object]) -> bool:
         or response_type == "track_insight"
         or open_screen == "track_insight"
         or isinstance(item.get("track_insight"), dict)
+        or (isinstance(item.get("track"), dict) and isinstance(item.get("analysis"), dict))
     )
 
 
@@ -2342,6 +2427,8 @@ def _track_insight_text(item: dict[str, object]) -> str:
     error = str(payload.get("error") or item.get("error") or "").strip()
     if error == "no_track_playing":
         return "Er speelt nu geen track."
+    if error == "rate_limited":
+        return "Track Insight is even beperkt. Probeer het zo opnieuw."
     track = payload.get("track")
     if isinstance(track, dict):
         title = str(track.get("title") or track.get("name") or "").strip()
@@ -2355,14 +2442,45 @@ def _track_insight_text(item: dict[str, object]) -> str:
 
 def _track_insight_data(item: dict[str, object]) -> dict[str, object]:
     payload = _track_insight_payload(item)
+    analysis = payload.get("analysis") if isinstance(payload.get("analysis"), dict) else {}
     return {
         "track": payload.get("track") if isinstance(payload.get("track"), dict) else {},
-        "analysis": payload.get("analysis") if isinstance(payload.get("analysis"), dict) else {},
+        "analysis": _track_insight_allowed_analysis(analysis),
         "music_dna": payload.get("music_dna") if isinstance(payload.get("music_dna"), dict) else {},
         "visual_profile": payload.get("visual_profile") if isinstance(payload.get("visual_profile"), dict) else {},
+        "mood_context": payload.get("mood_context") if isinstance(payload.get("mood_context"), dict) else {},
+        "language": str(payload.get("language") or item.get("language") or "").strip(),
         "cache": payload.get("cache") if isinstance(payload.get("cache"), dict) else {},
         "error": str(payload.get("error") or item.get("error") or "").strip(),
     }
+
+
+def _track_insight_allowed_analysis(analysis: dict[str, object]) -> dict[str, object]:
+    allowed = {
+        "summary",
+        "full_text",
+        "fullText",
+        "genre",
+        "subgenre",
+        "mood",
+        "vibe",
+        "texture",
+        "emotional_tone",
+        "energy",
+        "danceability",
+        "intensity",
+        "confidence",
+        "production_notes",
+        "instrumentation",
+        "arrangement_notes",
+        "listening_cues",
+        "similar_tracks",
+        "why_it_fits",
+        "whyItFits",
+        "reasons",
+        "sections",
+    }
+    return {key: value for key, value in analysis.items() if key in allowed}
 
 
 def _track_insight_music_dna_match(data: dict[str, object]) -> str:
@@ -2379,6 +2497,8 @@ def _track_insight_analysis(data: dict[str, object]) -> dict[str, object]:
     analysis = data.get("analysis")
     music_dna = data.get("music_dna")
     track = data.get("track")
+    visual_profile = data.get("visual_profile")
+    mood_context = data.get("mood_context")
     sections: list[dict[str, object]] = []
     if isinstance(analysis, dict):
         summary = str(analysis.get("summary") or analysis.get("full_text") or analysis.get("fullText") or "").strip()
@@ -2400,7 +2520,6 @@ def _track_insight_analysis(data: dict[str, object]) -> dict[str, object]:
             ("arrangement_notes", "Arrangement"),
             ("listening_cues", "Listening cues"),
             ("similar_tracks", "Similar tracks"),
-            ("visual_profile", "Visual profile"),
         ):
             details = _string_list(analysis.get(key))
             body = str(analysis.get(key) or "").strip() if not details else ""
@@ -2410,6 +2529,18 @@ def _track_insight_analysis(data: dict[str, object]) -> dict[str, object]:
             sections.append({"id": "why_it_fits", "kind": "music_dna", "title": "Why it fits you", "body": "", "source": "", "confidence": "", "details": why, "metadataContext": False})
         for section in _ask_dj_analysis_sections(analysis.get("sections")):
             sections.append(section)
+    if isinstance(visual_profile, dict):
+        details = [
+            f"{str(key).replace('_', ' ').title()}: {value}"
+            for key, value in visual_profile.items()
+            if key in {"palette", "motion_style", "pulse_speed", "wave_amplitude", "particle_density", "glow_strength", "spectrum_bias"} and value not in (None, "")
+        ]
+        if details:
+            sections.append({"id": "visual_profile", "kind": "visual_profile", "title": "Visual profile", "body": "", "source": "", "confidence": "", "details": details, "metadataContext": True})
+    if isinstance(mood_context, dict):
+        zone = str(mood_context.get("zone") or mood_context.get("mood_zone") or mood_context.get("label") or "").strip()
+        if zone:
+            sections.append({"id": "mood_context", "kind": "mood_context", "title": "Mood context", "body": zone, "source": "", "confidence": "", "details": [], "metadataContext": True})
     if isinstance(music_dna, dict):
         summary = str(music_dna.get("summary") or "").strip()
         if summary:
@@ -2546,11 +2677,12 @@ def _track_insight_items(data: dict[str, object]) -> list[dict[str, object]]:
         for key, title in (("energy", "Energy"), ("danceability", "Danceability"), ("intensity", "Intensity"), ("confidence", "Confidence")):
             raw = analysis.get(key)
             if raw not in (None, ""):
+                value = _metric_percent(raw)
                 items.append(
                     {
                         "title": title,
                         "subtitle": "",
-                        "value": str(raw),
+                        "value": value,
                         "time": "",
                         "kind": "track_insight_metric",
                         "source": "",
@@ -2843,6 +2975,16 @@ def _time_label(value: object) -> str:
     return str(value).strip()
 
 
+def _metric_percent(value: object) -> str:
+    if isinstance(value, (int, float)):
+        numeric = float(value)
+        if 0.0 <= numeric <= 1.0:
+            return f"{int(round(numeric * 100))}%"
+        if 1.0 < numeric <= 100.0:
+            return f"{int(round(numeric))}%"
+    return str(value).strip()
+
+
 def _ask_dj_actions(playback_actions: object, confirmation_actions: object) -> list[dict[str, object]]:
     actions: list[dict[str, object]] = []
     for value in (playback_actions, confirmation_actions):
@@ -3101,22 +3243,52 @@ def parse_music_dna_profile(data: dict[str, object]) -> dict[str, object]:
 
 
 def parse_music_discovery_feed(data: dict[str, object]) -> dict[str, object]:
-    items_source = data.get("items") or data.get("recommendations") or data.get("feed")
-    if isinstance(items_source, dict):
-        items_source = items_source.get("items") or items_source.get("recommendations")
     items: list[dict[str, object]] = []
-    if isinstance(items_source, list):
-        for raw in items_source:
-            if not isinstance(raw, dict):
+    seen: set[str] = set()
+    sections_source = data.get("sections")
+    if isinstance(sections_source, list):
+        for section_index, section in enumerate(sections_source):
+            if not isinstance(section, dict):
                 continue
-            item = _music_discovery_item(raw)
-            if item:
+            section_id = str(section.get("id") or section.get("section_id") or f"section-{section_index + 1}").strip()
+            section_title = str(section.get("title") or section.get("name") or "").strip()
+            raw_items = section.get("items")
+            if not isinstance(raw_items, list):
+                continue
+            for raw in raw_items:
+                if not isinstance(raw, dict):
+                    continue
+                item = _music_discovery_item(raw, section_id=section_id, section_title=section_title)
+                if not item:
+                    continue
+                dedupe_key = str(item.get("dedupeKey") or item.get("id") or "").strip()
+                if dedupe_key and dedupe_key in seen:
+                    continue
+                if dedupe_key:
+                    seen.add(dedupe_key)
+                items.append(item)
+    else:
+        items_source = data.get("items") or data.get("recommendations") or data.get("feed")
+        if isinstance(items_source, dict):
+            items_source = items_source.get("items") or items_source.get("recommendations")
+        if isinstance(items_source, list):
+            for raw in items_source:
+                if not isinstance(raw, dict):
+                    continue
+                item = _music_discovery_item(raw, section_id="", section_title="")
+                if not item:
+                    continue
+                dedupe_key = str(item.get("dedupeKey") or item.get("id") or "").strip()
+                if dedupe_key and dedupe_key in seen:
+                    continue
+                if dedupe_key:
+                    seen.add(dedupe_key)
                 items.append(item)
     empty_text = str(data.get("empty_text") or data.get("empty_message") or data.get("message") or "").strip()
     return {"items": items, "empty_text": empty_text}
 
 
-def _music_discovery_item(raw: dict[str, object]) -> dict[str, object] | None:
+def _music_discovery_item(raw: dict[str, object], *, section_id: str, section_title: str) -> dict[str, object] | None:
     kind = str(raw.get("kind") or raw.get("type") or "").strip().lower()
     if kind not in {"track", "album", "artist", "playlist"}:
         return None
@@ -3125,29 +3297,50 @@ def _music_discovery_item(raw: dict[str, object]) -> dict[str, object] | None:
         return None
     subtitle = str(raw.get("subtitle") or raw.get("artist") or raw.get("context") or raw.get("description") or "").strip()
     item_id = str(raw.get("id") or raw.get("recommendation_id") or raw.get("item_id") or raw.get("uri") or title).strip()
+    discovery_item_id = str(raw.get("discovery_item_id") or raw.get("id") or raw.get("recommendation_id") or raw.get("item_id") or item_id).strip()
+    uri = str(raw.get("uri") or raw.get("spotify_uri") or "").strip()
     reason = str(raw.get("reason") or raw.get("music_dna_reason") or "").strip()
     relevance = str(raw.get("relevance") or raw.get("confidence") or raw.get("score") or "").strip()
+    play_count = max(0, _int_value(raw.get("play_count"), 0))
+    based_on_count = max(0, _int_value(raw.get("based_on_count"), 0))
+    count_text = ""
+    if play_count > 1:
+        count_text = f"{play_count}x afgespeeld"
+    elif based_on_count > 1:
+        count_text = f"{based_on_count} bronnen"
+    playable = bool(uri)
     payload = {
         "id": item_id,
+        "section_id": section_id,
+        "discovery_item_id": discovery_item_id,
         "recommendation_id": str(raw.get("recommendation_id") or item_id),
         "item_id": str(raw.get("item_id") or item_id),
         "kind": kind,
         "type": str(raw.get("type") or kind),
-        "uri": str(raw.get("uri") or raw.get("spotify_uri") or ""),
+        "uri": uri,
         "title": title,
         "subtitle": subtitle,
         "artist": str(raw.get("artist") or ""),
     }
+    dedupe_key = uri or item_id
     return {
         "id": item_id,
+        "dedupeKey": dedupe_key,
+        "sectionId": section_id,
+        "sectionTitle": section_title,
+        "discoveryItemId": discovery_item_id,
         "title": title,
         "subtitle": subtitle,
         "kind": kind,
         "kindLabel": kind.title(),
         "imageUrl": _queue_image_url_from(raw),
         "relevance": relevance,
+        "countText": count_text,
+        "playCount": play_count,
+        "basedOnCount": based_on_count,
         "reason": reason,
         "hasReason": bool(reason),
+        "playable": playable,
         "payload": json.dumps(payload, ensure_ascii=True),
     }
 

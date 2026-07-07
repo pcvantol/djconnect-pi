@@ -21,7 +21,7 @@ Belangrijke context:
 - Geen lokale `SYNC_PROMPTS.md` of `PRODUCT_ROADMAP.md`; die staan canoniek in `pcvantol/djconnect`.
 
 Huidige stand:
-- Laatste release in deze werkronde is `v3.2.10`.
+- Laatste voorbereide release in deze werkronde is `v3.2.11`.
 - Public updater assets staan in `pcvantol/djconnect-pi-releases`, inclusief
   `djconnect-pi-latest.json`.
 - Release `v3.2.0` upgrade de Raspberry Pi client naar protocol `3.2.x`:
@@ -34,14 +34,12 @@ Huidige stand:
   `music_target_player` en `music_backend_error`. About/status/diagnostics
   tonen transport Local only, backend, target player, availability/error en
   compacte capabilities.
-- Ask DJ blijft tekst-only via `/api/djconnect/v1/ask_dj/message`, stuurt
-  identity (`client_type`, `device_id`, `device_name`) mee, accepteert
-  backend-aware `playback_actions[]` zonder Spotify URI te vereisen en toont
-  unsupported capability/stale backend action responses als nette meldingen
-  zonder Spotify-specific fallbacks.
+- Ask DJ is `readonly_actions`: de Pi pollt server-side history/status, toont
+  assistant/system/status/user bubbles en stuurt alleen HA-provided structured
+  action payloads via `/api/djconnect/v1/command`. Geen vrije prompt input,
+  lokale history-clear, voice/PTT, TTS of lokale audio playback toevoegen.
 - Release `v3.2.1` sync't de Pi verder met het HA 3.2 backendcontract:
-  typed Ask DJ requests sturen nu `audio_response:"never"`, capabilities
-  rapporteren expliciet `ask_dj_voice_supported:false` en
+  capabilities rapporteren expliciet `ask_dj_voice_supported:false` en
   `ask_dj_audio_response_supported:false`, en object-vormige
   `music_backend_error` waarden worden veilig als code/message tekst getoond.
 - Release `v3.2.7` fixt Raspberry Pi queue rendering voor het actuele
@@ -62,43 +60,44 @@ Huidige stand:
   de geadverteerde websocket message types met HTTP fallback.
 - Release `v3.2.10` zet alle Raspberry Pi Home Assistant DJConnect HTTP-routes
   op de canonical `/api/djconnect/v1/...` prefix, behoudt
-  `client_type: raspberry_pi` en tekst-only Ask DJ, en voegt regressietest toe
-  zodat DJConnect API-routes altijd de canonical `/v1` prefix gebruiken.
-- Source release is aangemaakt:
-  - source repo tag/release: `v3.2.10`
-- Directe push naar `main` is gedaan met tijdelijke branch-protection/admin
-  policy override/bypass voor de release push.
-- Public publish workflow voor `v3.2.10` is geslaagd:
-  - run `28731485777`
-- Public assets voor `v3.2.10` zijn gepubliceerd:
-  - `djconnect-pi-3.2.10.tar.gz`
-  - `djconnect-pi-3.2.10.sha256`
+  `client_type: raspberry_pi` en voegt regressietest toe zodat DJConnect
+  API-routes altijd de canonical `/v1` prefix gebruiken.
+- Release `v3.2.11` maakt Track Insight contract-complete voor de server-side
+  Home Assistant response, inclusief direct/wrapped response decoding,
+  taal/locale/mood/Music DNA context, actuele trackmetadata, nette
+  `no_track_playing`/`rate_limited` states en geen BPM/key/modelvelden in het
+  UI-model.
+- Release `v3.2.11` hardent Ontdek/Music Discovery: de Pi rendert alleen
+  backend `sections[].items[]`, dedupet op `id`/`uri`, toont compacte repeated
+  counts en stuurt play uitsluitend via
+  `/api/djconnect/v1/music_discovery/play` met `section_id` en
+  `discovery_item_id`.
+- Source release voor `v3.2.11` moet nog worden afgerond als deze bootstrap in
+  een half-afgebroken release-run wordt gelezen. Controleer:
+  `git tag --list v3.2.11`.
+- Public publish workflow en public assets voor `v3.2.11` moeten na de
+  source release worden gecontroleerd:
+  - `djconnect-pi-3.2.11.tar.gz`
+  - `djconnect-pi-3.2.11.sha256`
   - `djconnect-pi-latest.json`
-- Release cleanup is uitgevoerd met `--keep 1 --public --execute`.
-  Oude source release/tag `v3.2.9`, public release/tag `v3.2.9` en completed
-  publish/action runs voor `v3.2.9` zijn verwijderd; lokaal, source releases
-  en public releases houden nu alleen `v3.2.10` over.
-- Pi deployment moet nog worden uitgevoerd/geverifieerd via de public tarball
-  installer-route:
-  `~/djconnect-install/djconnect-pi-3.2.10/scripts/install.sh`.
-  Deploypoging na release werd geblokkeerd omdat `rbpi-djconnect.local` niet
-  resolveerde, de DJConnect API-poort `18080` niet zichtbaar was op het lokale
-  LAN en de enige SSH-hostkandidaat `192.168.3.64` de `pi` login weigerde.
+- Pi deployment voor `v3.2.11` moet nog worden uitgevoerd/geverifieerd via de
+  public tarball installer-route:
+  `~/djconnect-install/djconnect-pi-3.2.11/scripts/install.sh`.
 - Vorige Pi deployment draaide `3.1.112`. Deployment was gedaan via de public
   tarball installer-route:
   `~/djconnect-install/djconnect-pi-3.1.112/scripts/install.sh`.
   De eerste installpogingen werden tijdens grote PySide6 stappen door een
   gesloten SSH sessie onderbroken, maar de resumable install markers werkten;
   herstarten van dezelfde installer rondde de installatie en activatie af.
-- Validatie voor `v3.2.10`:
+- Validatie voor `v3.2.11`:
   - `/Users/pcvantol/.platformio/penv/bin/pytest -q`
-    -> ok, 304 passed, 13 skipped
+    -> ok, 314 passed, 13 skipped
   - `python -m compileall src tests` -> ok
   - `bash -n scripts/install.sh scripts/bootstrap_raspberry_pi_os.sh cleanup_old_releases.sh release.sh` -> ok
   - `git diff --check` -> ok
-  - GitHub Actions publish workflow voor `v3.2.10` -> success
-  - Source release assets voor `v3.2.10` -> gepubliceerd
-  - Public release assets voor `v3.2.10` -> gepubliceerd
+  - GitHub Actions publish workflow voor `v3.2.11` -> nog controleren na release
+  - Source release assets voor `v3.2.11` -> nog controleren na release
+  - Public release assets voor `v3.2.11` -> nog controleren na release
 
 Openstaande gewenste workflow:
 - Controleer na elke release de public publish workflow:

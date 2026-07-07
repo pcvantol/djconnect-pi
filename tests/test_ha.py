@@ -156,7 +156,7 @@ def test_pair_sends_raspberry_pi_identity_and_stores_token() -> None:
     assert captured["json"]["capabilities"]["tts_supported"] is False
     assert captured["json"]["capabilities"]["local_audio_supported"] is False
     assert captured["json"]["capabilities"]["ask_dj_supported"] is True
-    assert captured["json"]["capabilities"]["ask_dj_mode"] == "text_actions"
+    assert captured["json"]["capabilities"]["ask_dj_mode"] == "readonly_actions"
     assert captured["json"]["capabilities"]["ask_dj_free_input_supported"] is True
     assert captured["json"]["capabilities"]["ask_dj_actions_supported"] is True
     assert captured["json"]["capabilities"]["ask_dj_voice_supported"] is False
@@ -268,62 +268,6 @@ def test_ask_dj_history_gets_since_revision() -> None:
     assert captured["headers"]["X-DJConnect-Client-Type"] == "raspberry_pi"
 
 
-def test_ask_dj_message_posts_text_identity_mood_and_auto_audio_response() -> None:
-    cfg = Config(ha_url="http://ha", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1", language="nl", mood=72)
-    client = HAClient(cfg)
-    captured: dict[str, Any] = {}
-
-    def fake_post(url: str, **kwargs: Any) -> FakeResponse:
-        captured["url"] = url
-        captured["json"] = kwargs["json"]
-        captured["headers"] = kwargs["headers"]
-        return FakeResponse(200, {"success": True, "messages": []})
-
-    with patch("djconnect_pi.ha.requests.post", side_effect=fake_post):
-        client.ask_dj_message("Wat speelt er?", "msg-1")
-
-    assert captured["url"] == "http://ha/api/djconnect/v1/ask_dj/message"
-    assert captured["headers"]["Authorization"] == "Bearer token-1"
-    assert captured["headers"]["Accept-Language"] == "nl-NL"
-    assert captured["headers"]["X-DJConnect-Language"] == "nl-NL"
-    assert captured["headers"]["X-DJConnect-Locale"] == "nl-NL"
-    assert captured["headers"]["X-DJConnect-Mood"] == "72"
-    assert captured["json"]["client_type"] == "raspberry_pi"
-    assert captured["json"]["device_id"] == "djconnect-raspberry-pi-ABCDEF123456"
-    assert captured["json"]["client_id"] == "djconnect-raspberry-pi-ABCDEF123456"
-    assert captured["json"]["client_message_id"] == "msg-1"
-    assert captured["json"]["text"] == "Wat speelt er?"
-    assert captured["json"]["language"] == "nl-NL"
-    assert captured["json"]["locale"] == "nl-NL"
-    assert captured["json"]["mood"] == 72
-    assert captured["json"]["audio_response"] == "auto"
-    assert captured["json"]["identity"]["client_type"] == "raspberry_pi"
-    assert "message" not in captured["json"]
-    assert "prompt" not in captured["json"]
-
-
-def test_ask_dj_clear_history_posts_identity_payload() -> None:
-    cfg = Config(ha_url="http://ha", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1")
-    client = HAClient(cfg)
-    captured: dict[str, Any] = {}
-
-    def fake_post(url: str, **kwargs: Any) -> FakeResponse:
-        captured["url"] = url
-        captured["json"] = kwargs["json"]
-        captured["headers"] = kwargs["headers"]
-        return FakeResponse(200, {"success": True, "clear_revision": 3, "messages": []})
-
-    with patch("djconnect_pi.ha.requests.post", side_effect=fake_post):
-        client.ask_dj_clear_history()
-
-    assert captured["url"] == "http://ha/api/djconnect/v1/ask_dj/history/clear"
-    assert captured["headers"]["Authorization"] == "Bearer token-1"
-    assert captured["json"]["client_type"] == "raspberry_pi"
-    assert captured["json"]["device_id"] == "djconnect-raspberry-pi-ABCDEF123456"
-    assert captured["json"]["identity"]["device_name"] == cfg.device_name
-    assert "language" not in captured["json"]
-
-
 def test_ask_dj_action_uses_structured_command_payload() -> None:
     cfg = Config(ha_url="http://ha", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1", language="en")
     client = HAClient(cfg)
@@ -390,22 +334,65 @@ def test_track_insight_posts_current_track_metadata_and_music_dna_headers() -> N
         return FakeResponse(200, {"success": True, "track_insight": {"track": {"title": "Strobe"}}})
 
     with patch("djconnect_pi.ha.requests.post", side_effect=fake_post):
-        client.track_insight(Playback(title="Strobe", artist="deadmau5"))
+        client.track_insight(Playback(title="Strobe", artist="deadmau5", album="For Lack of a Better Name", image_url="https://example.test/art.jpg", uri="spotify:track:1", genres=("progressive house",)))
 
     assert captured["url"] == "http://ha/api/djconnect/v1/track_insight"
     assert captured["headers"]["Authorization"] == "Bearer token-1"
+    assert captured["headers"]["Accept-Language"] == "nl-NL"
+    assert captured["headers"]["X-DJConnect-Language"] == "nl-NL"
+    assert captured["headers"]["X-DJConnect-Locale"] == "nl-NL"
     assert captured["headers"]["X-DJConnect-Device-ID"] == "djconnect-raspberry-pi-ABCDEF123456"
     assert captured["headers"]["X-DJConnect-Music-DNA-Key"] == "music-dna-1"
     assert captured["headers"]["X-DJConnect-Mood"] == "88"
     assert captured["json"]["title"] == "Strobe"
     assert captured["json"]["artist"] == "deadmau5"
-    assert captured["json"]["track"] == {"title": "Strobe", "artist": "deadmau5"}
+    assert captured["json"]["album"] == "For Lack of a Better Name"
+    assert captured["json"]["artwork_url"] == "https://example.test/art.jpg"
+    assert captured["json"]["uri"] == "spotify:track:1"
+    assert captured["json"]["genres"] == ["progressive house"]
+    assert captured["json"]["track"] == {
+        "title": "Strobe",
+        "artist": "deadmau5",
+        "album": "For Lack of a Better Name",
+        "artwork_url": "https://example.test/art.jpg",
+        "uri": "spotify:track:1",
+        "genres": ["progressive house"],
+    }
     assert captured["json"]["player_id"] == "media_player.mass_woonkamer"
     assert captured["json"]["music_backend"] == "music_assistant"
     assert captured["json"]["language"] == "nl-NL"
     assert captured["json"]["locale"] == "nl-NL"
     assert captured["json"]["mood"] == 88
     assert captured["json"]["include_visual_profile"] is True
+
+
+def test_track_insight_no_track_and_rate_limit_are_retryable_states() -> None:
+    cfg = Config(ha_url="http://ha", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1")
+    client = HAClient(cfg)
+
+    with patch("djconnect_pi.ha.requests.post", return_value=FakeResponse(404, {"success": False, "error": "no_track_playing"})):
+        no_track = client.track_insight(Playback())
+    with patch("djconnect_pi.ha.requests.post", return_value=FakeResponse(429, {"success": False, "error": "rate_limited"})):
+        limited = client.track_insight(Playback(title="Track"))
+
+    assert no_track["error"] == "no_track_playing"
+    assert limited["error"] == "rate_limited"
+
+
+def test_track_insight_logging_omits_tokens_and_temporary_urls(caplog) -> None:
+    cfg = Config(ha_url="http://ha", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="secret-token")
+    client = HAClient(cfg)
+    caplog.set_level("DEBUG")
+
+    with patch(
+        "djconnect_pi.ha.requests.post",
+        return_value=FakeResponse(200, {"success": True, "track": {"title": "Track", "artwork_url": "https://temporary.example.test/art.jpg"}, "analysis": {"summary": "Private-ish text"}}),
+    ):
+        client.track_insight(Playback(title="Track", image_url="https://temporary.example.test/art.jpg"))
+
+    assert "secret-token" not in caplog.text
+    assert "temporary.example.test" not in caplog.text
+    assert "Private-ish text" not in caplog.text
 
 
 def test_music_dna_profile_posts_identity_language_mood_and_key() -> None:
@@ -470,7 +457,7 @@ def test_music_dna_clear_keeps_enabled_state_from_backend_response() -> None:
 
 
 def test_music_discovery_feed_get_sends_pi_identity() -> None:
-    cfg = Config(ha_url="http://ha", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1")
+    cfg = Config(ha_url="http://ha", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1", music_dna_key="dna-1")
     client = HAClient(cfg)
     captured: dict[str, Any] = {}
 
@@ -488,6 +475,7 @@ def test_music_discovery_feed_get_sends_pi_identity() -> None:
     assert captured["params"]["client_type"] == "raspberry_pi"
     assert captured["params"]["client_id"] == "djconnect-raspberry-pi-ABCDEF123456"
     assert captured["params"]["device_id"] == "djconnect-raspberry-pi-ABCDEF123456"
+    assert captured["params"]["music_dna_key"] == "dna-1"
 
 
 def test_music_discovery_refresh_and_play_use_contract_endpoints() -> None:
@@ -501,15 +489,42 @@ def test_music_discovery_refresh_and_play_use_contract_endpoints() -> None:
 
     with patch("djconnect_pi.ha.requests.post", side_effect=fake_post):
         client.music_discovery_refresh()
-        client.music_discovery_play({"id": "rec-1", "kind": "track", "uri": "spotify:track:1", "title": "Track"})
+        client.music_discovery_play(
+            {
+                "section_id": "daily",
+                "discovery_item_id": "rec-1",
+                "id": "rec-1",
+                "kind": "track",
+                "uri": "spotify:track:1",
+                "title": "Track",
+            }
+        )
 
     assert captured[0][0] == "http://ha/api/djconnect/v1/music_discovery/refresh"
     assert captured[0][1]["client_type"] == "raspberry_pi"
     assert captured[1][0] == "http://ha/api/djconnect/v1/music_discovery/play"
+    assert captured[1][1]["section_id"] == "daily"
+    assert captured[1][1]["discovery_item_id"] == "rec-1"
     assert captured[1][1]["id"] == "rec-1"
     assert captured[1][1]["uri"] == "spotify:track:1"
     assert captured[1][1]["source"] == "music_discovery"
     assert captured[1][1]["client_type"] == "raspberry_pi"
+    assert captured[1][1]["device_id"] == "djconnect-raspberry-pi-ABCDEF123456"
+
+
+def test_music_discovery_logging_omits_tokens_and_temporary_urls(caplog) -> None:
+    cfg = Config(ha_url="http://ha", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="secret-token")
+    client = HAClient(cfg)
+    caplog.set_level("DEBUG")
+
+    with patch(
+        "djconnect_pi.ha.requests.get",
+        return_value=FakeResponse(200, {"success": True, "sections": [{"items": [{"id": "rec-1", "kind": "track", "title": "Track", "image_url": "https://temporary.example.test/image.jpg"}]}]}),
+    ):
+        client.music_discovery_feed()
+
+    assert "secret-token" not in caplog.text
+    assert "temporary.example.test" not in caplog.text
 
 
 def test_ask_dj_play_action_uses_action_command_or_play_recommendation() -> None:
@@ -999,7 +1014,7 @@ def test_websocket_fast_path_requires_ha_websocket_auth_token() -> None:
 def test_websocket_capability_detection_success_sets_diagnostics() -> None:
     cfg = Config(ha_url="http://ha.local:8123", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1", websocket_fast_path_enabled=True, ha_websocket_token="ha-token")
     client = HAClient(cfg)
-    sockets = [FakeWebSocket(_ws_capabilities(["play", "djconnect/ask_dj/message"]))]
+    sockets = [FakeWebSocket(_ws_capabilities(["play", "djconnect/command"]))]
 
     with patch("djconnect_pi.ha_websocket._websocket_create_connection", side_effect=sockets):
         assert client.fast_path.can_handle("play") is True
@@ -1007,7 +1022,7 @@ def test_websocket_capability_detection_success_sets_diagnostics() -> None:
     assert sockets[0].sent[0] == {"type": "auth", "access_token": "ha-token"}
     assert sockets[0].sent[1]["type"] == "djconnect/capabilities"
     assert client.diagnostics()["websocketConnected"] is True
-    assert client.diagnostics()["websocketCommands"] == ["play", "djconnect/ask_dj/message"]
+    assert client.diagnostics()["websocketCommands"] == ["play", "djconnect/command"]
 
 
 def test_command_websocket_success_uses_fast_path_payload_identity() -> None:
@@ -1057,39 +1072,6 @@ def test_missing_websocket_capability_falls_back_to_http_once() -> None:
     assert data["playback"]["title"] == "HTTP"
     assert post.call_count == 1
     assert client.diagnostics()["fastPathTransport"] == "http"
-
-
-def test_ask_dj_message_websocket_success_returns_messages_and_revisions() -> None:
-    cfg = Config(
-        ha_url="http://ha.local:8123",
-        device_id="djconnect-raspberry-pi-ABCDEF123456",
-        device_token="token-1",
-        websocket_fast_path_enabled=True,
-        ha_websocket_token="ha-token",
-        language="nl",
-    )
-    client = HAClient(cfg)
-    sockets = [
-        FakeWebSocket(_ws_capabilities(["djconnect/ask_dj/message"])),
-        FakeWebSocket(_ws_result({"success": True, "history_revision": 4, "messages": [{"id": "a1", "role": "assistant", "text": "Hoi"}]})),
-    ]
-
-    with (
-        patch("djconnect_pi.ha_websocket._websocket_create_connection", side_effect=sockets),
-        patch("djconnect_pi.ha.requests.post") as post,
-    ):
-        data = client.ask_dj_message("Tell me about this track", "msg-1")
-
-    assert data["history_revision"] == 4
-    assert data["messages"][0]["text"] == "Hoi"
-    assert post.call_count == 0
-    payload = sockets[1].sent[1]
-    assert payload["type"] == "djconnect/ask_dj/message"
-    assert payload["client_message_id"] == "msg-1"
-    assert payload["text"] == "Tell me about this track"
-    assert payload["language"] == "nl-NL"
-    assert payload["locale"] == "nl-NL"
-    assert payload["audio_response"] == "auto"
 
 
 def test_track_insight_websocket_success_returns_normalized_result() -> None:
@@ -1316,13 +1298,13 @@ def test_websocket_failure_logging_omits_tokens_and_raw_prompt(caplog) -> None:
     )
     client = HAClient(cfg)
     caplog.set_level("DEBUG")
-    sockets = [FakeWebSocket(_ws_capabilities(["djconnect/ask_dj/message"])), FakeWebSocket([])]
+    sockets = [FakeWebSocket(_ws_capabilities(["djconnect/command"])), FakeWebSocket([])]
 
     with (
         patch("djconnect_pi.ha_websocket._websocket_create_connection", side_effect=sockets),
         patch("djconnect_pi.ha.requests.post", return_value=FakeResponse(200, {"success": True})),
     ):
-        client.ask_dj_message("raw private prompt", "msg-1")
+        client.command("ask_dj_followup_response", value={"text": "raw private prompt"})
 
     assert "secret-token" not in caplog.text
     assert "ha-secret-token" not in caplog.text
