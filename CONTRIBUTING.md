@@ -117,6 +117,11 @@ Before opening a PR:
 3. Describe what changed.
 4. List the checks you ran.
 5. Note any impact on other DJConnect repositories.
+6. For release or Ask DJ/status behavior changes, review this repo against the
+   `DJ Announcement Output Sync` section in
+   `pcvantol/djconnect/SYNC_PROMPTS.md`. For Raspberry Pi, confirm only
+   `text_only` and, when HA reports a configured speaker, `ha_speaker` are
+   exposed, and never add local TTS/audio playback.
 
 ## Releases
 

@@ -19,6 +19,9 @@ Belangrijke context:
 - Geen PTT/mic/local DJ response audio of Pi-local `/api/device/dj_response`
   endpoint toevoegen.
 - Geen lokale `SYNC_PROMPTS.md` of `PRODUCT_ROADMAP.md`; die staan canoniek in `pcvantol/djconnect`.
+- Nieuwe review/QA-stap: check deze Pi-repo bij release- of
+  Ask DJ/status-werk tegen de `DJ Announcement Output Sync` sectie in
+  `pcvantol/djconnect/SYNC_PROMPTS.md`.
 
 Huidige stand:
 - Laatste release/deployment in deze werkronde is `v3.2.12`.
