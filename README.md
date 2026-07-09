@@ -40,12 +40,12 @@ running separately from the touch UI.
 - Protocol: `3.2.x`
 - Transport: local only. Pairing stores and uses only `ha_local_url`; the Pi
   ignores any accidental `ha_remote_url`/Nabu Casa URL fields.
-- HTTP is the safe default. The native Home Assistant `/api/websocket` fast
-  path is disabled unless explicitly opted in and configured with a valid HA
-  websocket auth token/mechanism. After HA websocket auth succeeds, the Pi
-  checks `djconnect/capabilities` and only uses websocket when HA advertises
-  websocket support and the needed command. HTTP remains the canonical fallback
-  for every action.
+- HTTP is the canonical fallback. The native Home Assistant `/api/websocket`
+  fast path is enabled by default for the Pi's local Home Assistant connection.
+  The Pi bootstraps a short-lived websocket token through DJConnect bearer auth,
+  checks `djconnect/capabilities` and only uses websocket when HA advertises the
+  needed `djconnect/*` command. HTTP remains the one-shot fallback for every
+  websocket failure or missing capability.
 - Music backend selection is Home Assistant-side. The Pi displays the backend
   summary returned by HA and does not store Spotify credentials or assume
   Spotify Direct over Music Assistant.
@@ -81,6 +81,8 @@ running separately from the touch UI.
   - `POST /api/djconnect/v1/pair`
   - `POST /api/djconnect/v1/status`
   - `POST /api/djconnect/v1/command`
+  - `POST /api/djconnect/v1/event`
+  - `POST /api/djconnect/v1/voice`
   - `POST /api/djconnect/v1/websocket/session`
   - `POST /api/djconnect/v1/track_insight`
   - `POST /api/djconnect/v1/music_dna/profile`
@@ -92,7 +94,39 @@ running separately from the touch UI.
   - `POST /api/djconnect/v1/music_discovery/refresh`
   - `POST /api/djconnect/v1/music_discovery/play`
   - `POST /api/djconnect/v1/music_discovery/feedback`
+  - `POST /api/djconnect/v1/ask_dj` (fixture-only legacy contract coverage;
+    the Pi client uses message/history routes)
+  - `POST /api/djconnect/v1/ask_dj/message`
+  - `POST /api/djconnect/v1/ask_dj/clear`
+  - `POST /api/djconnect/v1/ask_dj/idle_suggestion`
   - `GET /api/djconnect/v1/ask_dj/history?since_revision=<revision>`
+  - `POST /api/djconnect/v1/ask_dj/history/clear`
+  - `POST /api/djconnect/v1/ask_dj/history/export`
+  - `POST /api/djconnect/v1/ask_dj/history_state`
+  - `GET /api/djconnect/v1/vibecast`
+  - `GET /api/djconnect/v1/tts/{token}.{extension}`
+  - `GET /api/djconnect/v1/image_proxy/{token}`
+  - `GET /api/djconnect/v1/debug/last_voice.wav`
+- Home Assistant websocket commands covered by CI:
+  - `djconnect/command`
+  - `djconnect/ask_dj/message`
+  - `djconnect/ask_dj/history`
+  - `djconnect/ask_dj/history/clear`
+  - `djconnect/ask_dj/history/state`
+  - `djconnect/ask_dj/idle_suggestion`
+  - `djconnect/track_insight`
+  - `djconnect/music_dna/profile`
+  - `djconnect/music_dna/settings`
+  - `djconnect/music_dna/clear`
+  - `djconnect/music_dna/import`
+  - `djconnect/music_dna/export`
+  - `djconnect/music_discovery/feed`
+  - `djconnect/music_discovery/refresh`
+  - `djconnect/music_discovery/play`
+  - `djconnect/music_discovery/feedback`
+- VibeCast is HTTP-only in the current Home Assistant contract. The Pi must not
+  request or assume a `djconnect/vibecast` websocket command unless HA starts
+  advertising one.
 - Local Client API endpoints:
   - `GET /api/device/info`
   - `GET /api/device/pairing-info`
@@ -107,6 +141,16 @@ running separately from the touch UI.
   - `POST /api/portal/command`
 - Postman collection:
   - `docs/postman/DJConnect Pi Local Client API.postman_collection.json`
+- Autonomous HA contract fixture:
+  - `node Tools/http_e2e_contract.js`
+  - `node Tools/websocket_e2e_contract.js`
+  - `node Tools/validate_ha_contract_fixture_security.js`
+  - Source-of-truth files are the Home Assistant `pcvantol/djconnect`
+    contract files: `custom_components/djconnect/const.py`,
+    `custom_components/djconnect/http.py`,
+    `custom_components/djconnect/api_handlers.py`,
+    `custom_components/djconnect/websocket_api.py` and the relevant tests in
+    that repo.
 - mDNS service:
   - `_djconnect._tcp` while unpaired only
   - TXT: `name`, `device_name`, `device_id`, `client_type=raspberry_pi`,

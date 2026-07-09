@@ -25,6 +25,8 @@ behavior here unless the product decision changes.
 - `systemd/`: service and timer units installed on the Pi.
 - `tests/`: Python and contract tests for UI, API, installer, updater and
   release behavior.
+- `Tools/`: autonomous Node.js Home Assistant contract fixture and e2e scripts
+  for HTTP/WebSocket CI coverage without a local HA dev server.
 - `docs/`: architecture, bootstrap, security/performance and design notes.
 - `examples/voice_intents.json`: shared spoken intent examples for docs and
   website alignment only. `current_track` and `playback_control` are handled by
@@ -83,6 +85,26 @@ bootstrap, systemd, release or updater behavior:
 ```sh
 python3 -m pytest tests/test_installation_contract.py tests/test_updater.py -q
 ```
+
+Run the autonomous Home Assistant contract fixture checks when touching
+`src/djconnect_pi/ha.py`, `src/djconnect_pi/ha_websocket.py`, Music DNA,
+Discovery, Ask DJ, Track Insight or VibeCast behavior:
+
+```sh
+node Tools/http_e2e_contract.js
+node Tools/websocket_e2e_contract.js
+node Tools/validate_ha_contract_fixture_security.js
+```
+
+The fixture starts an in-process Node.js server on `127.0.0.1` with a dynamic
+port, then shuts it down after each script. It does not need ngrok, a local Home
+Assistant instance, Central API, Spotify or Music Assistant. Its contract
+snapshot is derived from the Home Assistant `pcvantol/djconnect` files
+`custom_components/djconnect/const.py`, `custom_components/djconnect/http.py`,
+`custom_components/djconnect/api_handlers.py`,
+`custom_components/djconnect/websocket_api.py` and the relevant HA tests. In
+the current HA contract VibeCast is covered as HTTP-only; no
+`djconnect/vibecast` websocket command is advertised.
 
 See `TESTS.md` for the full coverage map.
 

@@ -3508,7 +3508,7 @@ def _music_discovery_item(raw: dict[str, object], *, section_id: str, section_ti
     reason_sources = _string_list(raw.get("reason_sources"))
     quality_score = raw.get("quality_score")
     quality_band = str(raw.get("quality_band") or "").strip()
-    quality_factors = raw.get("quality_factors") if isinstance(raw.get("quality_factors"), dict) else {}
+    quality_factors = raw.get("quality_factors") if isinstance(raw.get("quality_factors"), (dict, list)) else {}
     playable = bool(uri)
     payload = {
         "section_id": section_id,

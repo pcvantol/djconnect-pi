@@ -19,6 +19,21 @@ python3 -m compileall src tests
 QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms 1500
 ```
 
+Run the autonomous Home Assistant contract fixture:
+
+```sh
+node Tools/http_e2e_contract.js
+node Tools/websocket_e2e_contract.js
+node Tools/validate_ha_contract_fixture_security.js
+```
+
+The fixture is based on the Home Assistant `pcvantol/djconnect` contract files:
+`custom_components/djconnect/const.py`, `custom_components/djconnect/http.py`,
+`custom_components/djconnect/api_handlers.py`,
+`custom_components/djconnect/websocket_api.py` and the relevant HA tests. It
+starts and stops itself on `127.0.0.1` with a dynamic port and keeps VibeCast
+HTTP-only unless HA advertises a websocket command for it.
+
 ## Coverage Areas
 
 - config creation, persistence and device ID backfill
@@ -73,6 +88,12 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
   `device_id`, `client_id`, optional `music_dna_key`, `section_id` and
   `discovery_item_id`, with no local `uri`/title/action reconstruction in the
   websocket play payload
+- autonomous Node.js HA contract fixture coverage for pair, status, command,
+  event, voice, Ask DJ, Music DNA, Music Discovery, Track Insight and VibeCast
+  HTTP routes; HA-style websocket auth/session bootstrap; advertised websocket
+  command dispatch; HTTP fallback expectations; and redaction checks that keep
+  tokens, proofs, APNs/install identifiers and bearer secrets out of fixture
+  state/output
 - local Client API info, pairing-info, pair, command, DJ response auth and mDNS
   TXT properties
 - Raspberry Pi-specific local Client API restart/shutdown endpoints, including

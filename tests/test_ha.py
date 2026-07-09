@@ -128,6 +128,8 @@ def test_client_contract_does_not_use_raw_ask_dj_or_old_search_aliases() -> None
             text = path.read_text(encoding="utf-8")
             for line_no, line in enumerate(text.splitlines(), start=1):
                 for label, pattern in forbidden_patterns.items():
+                    if label == "raw Ask DJ route" and "fixture-only legacy contract coverage" in line:
+                        continue
                     if pattern.search(line):
                         violations.append(f"{path.relative_to(ROOT)}:{line_no}: {label}: {line.strip()}")
 
@@ -1173,6 +1175,8 @@ def test_websocket_fast_path_uses_session_bootstrap_without_persisted_ha_token()
     assert posts[0][1]["device_id"] == "djconnect-raspberry-pi-ABCDEF123456"
     assert posts[0][1]["client_type"] == "raspberry_pi"
     assert "requested_commands" in posts[0][1]
+    assert "djconnect/command" in posts[0][1]["requested_commands"]
+    assert "djconnect/vibecast" not in posts[0][1]["requested_commands"]
     assert "access_token" not in posts[0][1]
     assert posts[0][2]["Authorization"] == "Bearer token-1"
     assert sockets[0].sent[0] == {"type": "auth", "access_token": "short-lived-ha-token"}

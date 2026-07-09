@@ -34,7 +34,6 @@ REQUESTED_COMMANDS: tuple[str, ...] = (
     "djconnect/music_discovery/play",
     "djconnect/music_discovery/feedback",
     "djconnect/track_insight",
-    "djconnect/vibecast",
 )
 
 
