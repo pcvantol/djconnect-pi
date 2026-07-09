@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import "MoodTheme.js" as MoodTheme
 
 Button {
     id: control
@@ -19,9 +20,9 @@ Button {
         scale: control.down ? 0.96 : 1.0
         gradient: Gradient {
             orientation: Gradient.Horizontal
-            GradientStop { position: 0.0; color: control.enabled ? "#247fff" : "#33415f" }
-            GradientStop { position: 0.58; color: control.enabled ? "#7757ff" : "#3c3f61" }
-            GradientStop { position: 1.0; color: control.enabled ? "#c33cff" : "#4b3d65" }
+            GradientStop { position: 0.0; color: control.enabled ? MoodTheme.color(djconnect.moodValue, "gradientStart") : MoodTheme.disabled("start") }
+            GradientStop { position: 0.58; color: control.enabled ? MoodTheme.color(djconnect.moodValue, "gradientMid") : MoodTheme.disabled("mid") }
+            GradientStop { position: 1.0; color: control.enabled ? MoodTheme.color(djconnect.moodValue, "gradientEnd") : MoodTheme.disabled("end") }
         }
 
         Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutCubic } }

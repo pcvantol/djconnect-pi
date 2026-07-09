@@ -32,6 +32,23 @@ def test_update_ui_uses_configured_local_url_for_remote_access() -> None:
     assert backend.vncInstruction == "Open your VNC client to localhost:5901"
 
 
+def test_update_ui_reboot_uses_passwordless_absolute_systemctl(monkeypatch, tmp_path) -> None:
+    backend = update_ui.UpdateUiBackend(status_file=tmp_path / "missing.json", local_url="")
+    calls: list[list[str]] = []
+
+    def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        calls.append(command)
+        if command == ["sudo", "-n", "/usr/bin/systemctl", "reboot"]:
+            return subprocess.CompletedProcess(command, 0)
+        raise subprocess.CalledProcessError(1, command)
+
+    monkeypatch.setattr(update_ui.subprocess, "run", fake_run)
+
+    backend.rebootDevice()
+
+    assert calls == [["sudo", "-n", "/usr/bin/systemctl", "reboot"]]
+
+
 def test_update_progress_uses_app_banner() -> None:
     update_qml = files("djconnect_pi.qml").joinpath("UpdateProgress.qml").read_text(encoding="utf-8")
 

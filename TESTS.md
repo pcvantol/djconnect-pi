@@ -27,6 +27,10 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 - Home Assistant pairing/status/command payloads
 - Home Assistant command payloads include `device_id` and
   `client_type=raspberry_pi`
+- Home Assistant WebSocket fast-path coverage for default-on config, the
+  user-disable setting, `/api/djconnect/v1/websocket/session` bootstrap with
+  DJConnect bearer auth, in-memory short-lived token caching, capabilities
+  dispatch, redacted diagnostics, one-shot HTTP fallback and secret-safe logs
 - Ask DJ capability payloads advertise `readonly_actions`, structured actions
   support, no free prompt input and no voice, TTS or local audio support
 - Ask DJ, Track Insight, Music DNA and Music Discovery payloads propagate
@@ -51,22 +55,24 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 - Music DNA settings and clear endpoint coverage, including enable/disable
   payloads, confirmation-driven touch actions, backend-preserved enabled state
   after clear and compact refresh/disabled-label behavior
+- Music DNA websocket coverage for profile/settings/clear and HTTP-only
+  coverage for export/import even when Music DNA websocket routes are
+  advertised
 - Music Discovery gating coverage so disabled Music DNA opens consent/empty
   state, consent accept enables Music DNA before loading the feed and consent
   reject shows the compact gating block
 - Music Discovery parser coverage for backend-provided `sections[].items[]`
-  track, album, artist and playlist recommendations with artwork, opaque
-  section labels/IDs, backend-order preservation, no top-level legacy item or
-  recent-history fallback rendering, compact repeated-play/based-on count text,
-  confidence, reason and `reason_sources` propagation, while unsupported kinds
-  are ignored
+  recommendations with artwork, opaque section labels/IDs, backend-order
+  preservation, no top-level legacy item or recent-history fallback rendering,
+  and direct backend quality, reason and `reason_sources` propagation
 - Music Discovery QML coverage for one-item-per-row recommendations, taller
   passive feed cards, Play Now-only playback routing and the full-screen
   Waarom reason details overlay
 - Music Discovery HTTP and websocket contract coverage for feed, refresh and
-  Play Now endpoints/message types, including `client_type=raspberry_pi`,
-  `device_id`, `client_id`, optional `music_dna_key`, `section_id`,
-  `discovery_item_id` and `source/context=music_discovery`
+  Play Now/feedback endpoints/message types, including `client_type=raspberry_pi`,
+  `device_id`, `client_id`, optional `music_dna_key`, `section_id` and
+  `discovery_item_id`, with no local `uri`/title/action reconstruction in the
+  websocket play payload
 - local Client API info, pairing-info, pair, command, DJ response auth and mDNS
   TXT properties
 - Raspberry Pi-specific local Client API restart/shutdown endpoints, including

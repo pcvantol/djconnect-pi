@@ -75,19 +75,18 @@ def test_backend_connection_type_reports_websocket_fast_path(tmp_path: Path) -> 
     assert backend.connectionType == "Local WebSocket fast path"
 
 
-def test_music_discovery_disabled_profile_opens_gating_without_feed(tmp_path: Path) -> None:
+def test_music_discovery_disabled_backend_reason_shows_empty_state(tmp_path: Path) -> None:
     ensure_app()
     backend = DJConnectBackend(tmp_path / "config.json")
     backend.cfg.paired = True
     backend.cfg.device_token = "token"
-    backend.client.music_dna_profile = Mock(return_value={"success": True, "enabled": False, "profile": {}})  # type: ignore[method-assign]
-    backend.client.music_discovery_feed = Mock()  # type: ignore[method-assign]
+    backend.client.music_discovery_feed = Mock(return_value={"success": True, "enabled": False, "reason": "music_dna_disabled"})  # type: ignore[method-assign]
 
     backend._music_discovery_feed_worker()
 
-    backend.client.music_discovery_feed.assert_not_called()
+    backend.client.music_discovery_feed.assert_called_once()
     assert backend.musicDiscoveryItems == []
-    assert backend.musicDiscoveryEmptyText
+    assert backend.musicDiscoveryEmptyText == "music_dna_disabled"
 
 
 def test_music_discovery_accept_enables_music_dna_and_loads_feed(tmp_path: Path) -> None:
@@ -116,14 +115,14 @@ def test_music_discovery_reject_shows_gating_state(tmp_path: Path) -> None:
     assert backend.musicDiscoveryEmptyText
 
 
-def test_music_discovery_play_ignores_non_playable_items(tmp_path: Path) -> None:
+def test_music_discovery_play_ignores_items_without_backend_id(tmp_path: Path) -> None:
     ensure_app()
     backend = DJConnectBackend(tmp_path / "config.json")
     backend.cfg.paired = True
     backend.cfg.device_token = "token-1"
     backend.client.music_discovery_play = Mock()  # type: ignore[method-assign]
 
-    backend.playMusicDiscoveryItem(json.dumps({"id": "artist-1", "section_id": "daily", "discovery_item_id": "artist-1"}))
+    backend.playMusicDiscoveryItem(json.dumps({"section_id": "daily"}))
 
     backend.client.music_discovery_play.assert_not_called()
 
@@ -187,6 +186,10 @@ def test_music_dna_parser_renders_optional_blocks_and_hides_empty_cards() -> Non
                 "repeat_magnets": {"eligible": True, "items": [{"title": "Ever Again"}]},
                 "explicit_positives": {"eligible": True, "items": ["Saved favorites"]},
                 "taste_anchors": {"eligible": True, "items": ["Nordic pop"]},
+                "top_tracks_by_range": {"short_term": [{"title": "A", "artist": "B"}]},
+                "snapshot_history": [{"title": "July", "favorite_genres": ["house"]}],
+                "discovery_feedback": {"accepted": [{"title": "Accepted"}], "negative": [{"title": "Skipped"}]},
+                "privacy_dashboard": {"stores_raw_audio": False, "stores_oauth_tokens": False, "raw_counts": {"tracks": 12}, "bearer_token": "secret"},
                 "recommendation_signals": [],
             },
         }
@@ -198,11 +201,18 @@ def test_music_dna_parser_renders_optional_blocks_and_hides_empty_cards() -> Non
     assert "Playtime" in titles
     assert "Listening rhythm" in titles
     assert "Mood mix" in titles
-    assert "Blijft terugkomen" in titles
-    assert "Waar je ja tegen zei" in titles
-    assert "Smaakankers" in titles
+    assert "Repeat magnets" in titles
+    assert "Accepted signals" in titles
+    assert "Taste anchors" in titles
+    assert "Top tracks" in titles
+    assert "Snapshot history" in titles
+    assert "Discovery feedback" in titles
+    assert "Privacy dashboard" in titles
     assert "Recommendation signals" not in titles
     assert all(section["lines"] for section in parsed["sections"])
+    privacy = next(section for section in parsed["sections"] if section["title"] == "Privacy dashboard")
+    assert any("Stores Raw Audio: False" in line for line in privacy["lines"])
+    assert not any("secret" in line for line in privacy["lines"])
 
 
 def test_music_dna_parser_hides_ineligible_blocks() -> None:
@@ -244,8 +254,9 @@ def test_music_discovery_feed_renders_backend_sections_in_order_without_assumed_
                             "image_url": "https://example.test/t.jpg",
                             "reason": "Because HA said so",
                             "reason_sources": ["seed:artist", "music_dna"],
-                            "confidence": "high",
-                            "play_count": 4,
+                            "quality_score": 0.91,
+                            "quality_band": "high",
+                            "quality_factors": {"seed_fit": 0.9},
                         },
                         {"id": "a1", "kind": "album", "title": "Album", "subtitle": "Artist", "uri": "spotify:album:1", "image_url": "https://example.test/a.jpg"},
                         {"id": "dup", "kind": "track", "title": "Duplicate", "uri": "spotify:track:1"},
@@ -264,25 +275,24 @@ def test_music_discovery_feed_renders_backend_sections_in_order_without_assumed_
         }
     )
 
-    assert [item["title"] for item in parsed["items"]] == ["Track", "Album", "Duplicate", "Artist", "Playlist"]
-    assert [item["kind"] for item in parsed["items"]] == ["track", "album", "track", "artist", "playlist"]
+    assert [item["title"] for item in parsed["items"]] == ["Track", "Album", "Duplicate", "Artist", "Playlist", "Hidden"]
+    assert [item["kind"] for item in parsed["items"]] == ["track", "album", "track", "artist", "playlist", "podcast"]
     assert parsed["items"][0]["imageUrl"] == "https://example.test/t.jpg"
     assert parsed["items"][0]["reason"] == "Because HA said so"
     assert parsed["items"][0]["reasonSources"] == ["seed:artist", "music_dna"]
-    assert parsed["items"][0]["confidence"] == "high"
+    assert parsed["items"][0]["qualityScore"] == 0.91
+    assert parsed["items"][0]["qualityBand"] == "high"
+    assert parsed["items"][0]["qualityFactors"] == {"seed_fit": 0.9}
     assert parsed["items"][0]["hasReason"] is True
     assert parsed["items"][0]["sectionId"] == "new_for_you"
     assert parsed["items"][0]["sectionTitle"] == "Nieuw voor jou"
-    assert parsed["items"][0]["countText"] == "4x afgespeeld"
     assert parsed["items"][0]["playable"] is True
     payload = json.loads(str(parsed["items"][0]["payload"]))
     assert payload["section_id"] == "new_for_you"
     assert payload["discovery_item_id"] == "t1"
-    assert payload["reason_sources"] == ["seed:artist", "music_dna"]
-    assert payload["confidence"] == "high"
+    assert set(payload) == {"section_id", "discovery_item_id"}
     assert parsed["items"][1]["hasReason"] is False
     assert parsed["items"][3]["sectionId"] == "opaque-backend-section"
-    assert parsed["items"][3]["countText"] == "3 bronnen"
     assert parsed["items"][3]["playable"] is False
 
 
@@ -543,7 +553,8 @@ def test_ask_dj_music_dna_summary_is_text_only_with_music_dna_source() -> None:
 
 
 def test_ask_dj_recently_played_items_render_as_compact_rows_without_actions(monkeypatch) -> None:
-    monkeypatch.setattr("djconnect_pi.app.cached_image_url", lambda url: f"file:///cache/{url.rsplit('/', 1)[-1]}")
+    cache_mock = Mock(side_effect=lambda url: f"file:///cache/{url.rsplit('/', 1)[-1]}")
+    monkeypatch.setattr("djconnect_pi.app.cached_image_url", cache_mock)
     messages = parse_ask_dj_messages(
         {
             "text": "Deze nummers heb je afgelopen uur afgespeeld.",
@@ -571,11 +582,12 @@ def test_ask_dj_recently_played_items_render_as_compact_rows_without_actions(mon
             "kind": "",
             "source": "",
             "confidence": "",
-            "imageUrl": "file:///cache/nightdrive.jpg",
+            "imageUrl": "https://example.test/nightdrive.jpg",
             "trackInsightMetric": False,
             "musicDna": False,
         }
     ]
+    cache_mock.assert_not_called()
 
 
 def test_ask_dj_track_insight_renders_music_dna_without_playback_actions() -> None:
@@ -1995,6 +2007,29 @@ def test_backend_track_insight_refresh_shows_toast(tmp_path: Path) -> None:
 
     assert backend.toastText == backend.t("refreshing")
     assert backend.toastIcon == "info"
+    assert calls
+    assert calls[0][0] == backend.t("track_insight")
+
+
+def test_backend_track_insight_auto_open_requires_playing_track(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token"
+    calls: list[tuple[str, object, object]] = []
+
+    def fake_run(label: str, worker, done=None) -> None:
+        calls.append((label, worker, done))
+
+    backend._run = fake_run  # type: ignore[method-assign]
+    backend._sync_config_from_disk = lambda: None  # type: ignore[method-assign]
+
+    backend.playback.is_playing = False
+    backend.openTrackInsight()
+    assert calls == []
+
+    backend.playback.is_playing = True
+    backend.openTrackInsight()
     assert calls
     assert calls[0][0] == backend.t("track_insight")
 

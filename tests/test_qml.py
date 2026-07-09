@@ -28,7 +28,7 @@ def test_qml_has_blocking_pairing_and_splash_views() -> None:
     assert 'source: "app-icon.png"' in main_qml
     assert "component AppBanner" in main_qml
     assert 'radius: 24\n        color: "#171029"' in main_qml
-    assert 'GradientStop { position: 0.72; color: "#37145a" }' in main_qml
+    assert 'GradientStop { position: 0.72; color: root.moodColor("surface") }' in main_qml
     assert 'detailText: "v" + djconnect.version' in main_qml
     assert "!djconnect.paired && !djconnect.demoMode" in main_qml
     assert "property int trVersion: djconnect.translationVersion" in main_qml
@@ -73,8 +73,8 @@ def test_qml_has_touch_games_panel() -> None:
     assert "id: gameSelector" in games_qml
     assert "id: gameSegment" in games_qml
     assert 'color: "#cc0a0522"' in games_qml
-    assert 'GradientStop { position: 0.0; color: gameSegment.checked ? "#247fff" : "#00000000" }' in games_qml
-    assert 'GradientStop { position: 1.0; color: gameSegment.checked ? "#c33cff" : "#00000000" }' in games_qml
+    assert 'GradientStop { position: 0.0; color: gameSegment.checked ? MoodTheme.color(djconnect.moodValue, "gradientStart") : "#00000000" }' in games_qml
+    assert 'GradientStop { position: 1.0; color: gameSegment.checked ? MoodTheme.color(djconnect.moodValue, "gradientEnd") : "#00000000" }' in games_qml
     assert "root.tr(modelData.titleKey)" in games_qml
     assert "MouseArea" in games_qml
     assert "preventStealing: true" in games_qml
@@ -84,11 +84,15 @@ def test_qml_has_touch_games_panel() -> None:
     assert "onPressed: function(mouse) { root.handleTouch(mouse.x, mouse.y) }" in games_qml
     assert "mouthOpen" in games_qml
     assert "ghostX - 4" in games_qml
-    assert "property var powerPellets: [0, 7, 24, 31]" in games_qml
+    assert "property int pacmanPelletColumns: 10" in games_qml
+    assert "property int pacmanPelletRows: 6" in games_qml
+    assert "property var powerPellets: [0, 9, 50, 59]" in games_qml
+    assert "function pacmanPelletX(pellet)" in games_qml
+    assert "function pacmanPelletY(pellet)" in games_qml
     assert "property int ghostVulnerableTicks" in games_qml
     assert "ghostVulnerableTicks = 210" in games_qml
-    assert "for (var i = 0; i < 32; i++) pellets.push(i)" in games_qml
-    assert "powerPellets = [0, 7, 24, 31]" in games_qml
+    assert "for (var i = 0; i < pacmanPelletColumns * pacmanPelletRows; i++) pellets.push(i)" in games_qml
+    assert "powerPellets = [0, 9, 50, 59]" in games_qml
     assert "anchors.leftMargin: 12" in games_qml
     assert "anchors.topMargin: 34" in games_qml
     assert "anchors.rightMargin: 12" in games_qml
@@ -117,9 +121,11 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "component MediaPlayButton" in main_qml
     assert "component MediaListPanel" in main_qml
     assert "component GlassButton" in games_qml
-    assert "#3324145f" in main_qml
-    assert "#247fff" in games_qml
-    assert "#c33cff" in games_qml
+    assert 'import "MoodTheme.js" as MoodTheme' in main_qml
+    assert 'import "MoodTheme.js" as MoodTheme' in games_qml
+    assert 'root.moodColor("chip")' in main_qml
+    assert 'MoodTheme.color(djconnect.moodValue, "gradientStart")' in games_qml
+    assert 'MoodTheme.color(djconnect.moodValue, "gradientEnd")' in games_qml
     assert 'color: "#ffffff"' in main_qml
     assert "id: settingsPanel" in main_qml
     assert "id: settingsScroll" in main_qml
@@ -227,7 +233,9 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "onRefreshRequested: djconnect.loadQueue()" in main_qml
     assert "onRefreshRequested: djconnect.loadPlaylists()" in main_qml
     assert "djconnect.manualRefresh()" in main_qml
-    assert main_qml.count("Layout.preferredWidth: 142") >= 2
+    assert "component RefreshIconButton" in main_qml
+    assert main_qml.count("RefreshIconButton {") >= 8
+    assert main_qml.count('text: root.tr("refresh")') == 1
     assert main_qml.count("Layout.preferredHeight: 48") >= 2
     assert "anchors.topMargin: 16" in main_qml
     assert 'djconnect.haUrl.length ? djconnect.haUrl : "http://homeassistant.local:8123"' in main_qml
@@ -247,10 +255,10 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert 'ToolTip.text: root.tr("mood_select")' in main_qml
     assert "id: moodPopover" in main_qml
     assert 'visible: root.activeScreen === "now" && root.moodPopoverOpen' in main_qml
-    assert "djconnect.setMoodValue(12)" in main_qml
-    assert "djconnect.setMoodValue(38)" in main_qml
-    assert "djconnect.setMoodValue(65)" in main_qml
-    assert "djconnect.setMoodValue(88)" in main_qml
+    assert "djconnect.setMoodValue(0)" in main_qml
+    assert "djconnect.setMoodValue(35)" in main_qml
+    assert "djconnect.setMoodValue(70)" in main_qml
+    assert "djconnect.setMoodValue(100)" in main_qml
     assert "id: controlPanel" in main_qml
     assert 'visible: root.activeScreen === "control"' in main_qml
     assert 'root.tr("control")' in main_qml
@@ -258,7 +266,7 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "function selectedIndex()" in main_qml
     assert "currentIndex: selectedIndex()" in main_qml
     assert 'text: "🔊"' not in main_qml
-    assert "wrapMode: TextEdit.Wrap" in main_qml
+    assert "wrapMode: TextEdit.NoWrap" in main_qml
     assert 'text: root.tr("log") + ": " + djconnect.logFile' in main_qml
     assert "djconnect.cachedImageUrl(modelData.imageUrl)" not in main_qml
     assert "source: modelData.imageUrl && modelData.imageUrl.length > 0 ? modelData.imageUrl : \"\"" in main_qml
@@ -302,6 +310,11 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "djconnect.setReturnToNowSeconds(root.returnToNowChoices[index])" in main_qml
     assert "logsArea.cursorPosition = 0" in main_qml
     assert "logsArea.cursorPosition = logsArea.length" not in main_qml
+    assert "function lineNumbers(text)" in main_qml
+    assert "id: logLineNumbers" in main_qml
+    assert "text: root.lineNumbers(djconnect.logsText)" in main_qml
+    assert 'color: "#9aa6ad"' in main_qml
+    assert "wrapMode: TextEdit.NoWrap" in main_qml
     assert "djconnect.copyLogs()" not in main_qml
     assert 'root.tr("copy_logs")' not in main_qml
     logs_start = main_qml.index("visible: djconnect.logsVisible")
@@ -329,9 +342,19 @@ def test_qml_has_bottom_navigation_bar() -> None:
 
     assert "id: bottomNav" in main_qml
     assert "component MenuIcon: Canvas" in main_qml
+    assert 'iconName === "trackInsight"' in main_qml
+    assert 'iconName === "discover"' in main_qml
+    assert 'iconName === "heart"' in main_qml
     assert "component NavButton" in main_qml
     assert "component MoreMenuButton" in main_qml
     assert "id: morePanel" in main_qml
+    more_button = main_qml[main_qml.index("component MoreMenuButton") : main_qml.index("component PlaybackButton")]
+    assert "Layout.preferredHeight: 66" in more_button
+    assert "anchors.leftMargin: 20" in more_button
+    assert "anchors.rightMargin: 16" in more_button
+    assert "anchors.topMargin: 7" in more_button
+    assert "anchors.bottomMargin: 7" in more_button
+    assert 'iconColor: moreControl.enabled ? "#ffffff" : "#93a0b8"' in more_button
     assert "height: 104" in main_qml
     assert "border.width: navControl.checked ? 2 : 0" in main_qml
     nav_button = main_qml[main_qml.index("component NavButton") : main_qml.index("component MoreMenuButton")]
@@ -340,11 +363,15 @@ def test_qml_has_bottom_navigation_bar() -> None:
     assert 'iconName: "music"' in bottom_nav
     assert 'iconName: "queue"' in bottom_nav
     assert 'iconName: "chat"' in bottom_nav
-    assert 'iconName: "musicdna"' in bottom_nav
+    assert 'iconName: "trackInsight"' in bottom_nav
+    assert 'iconName: "discover"' in bottom_nav
+    assert 'iconName: "musicdna"' not in bottom_nav
     assert 'iconName: "more"' in bottom_nav
     assert 'iconName: "control"' in more_panel
     assert 'iconName: "queue"' not in more_panel
     assert 'iconName: "playlists"' in more_panel
+    assert 'iconName: "heart"' in more_panel
+    assert 'iconName: "musicdna"' not in more_panel
     assert 'iconName: "gamepad"' in more_panel
     assert 'iconName: "settings"' in more_panel
     assert 'iconName: "logs"' in more_panel
@@ -389,12 +416,11 @@ def test_qml_ask_dj_screen_is_readonly_actions_without_free_input() -> None:
 
     assert 'visible: root.activeScreen === "askdj"' in ask_dj_block
     assert "component AskDjGradientButton" in main_qml
-    assert 'GradientStop { position: 0.0; color: askDjButton.enabled ? "#247fff" : "#33415f" }' in main_qml
-    assert 'GradientStop { position: 1.0; color: askDjButton.enabled ? "#c33cff" : "#4b3d65" }' in main_qml
+    assert 'GradientStop { position: 0.0; color: askDjButton.enabled ? root.moodColor("gradientStart") : root.moodDisabledColor("start") }' in main_qml
+    assert 'GradientStop { position: 1.0; color: askDjButton.enabled ? root.moodColor("gradientEnd") : root.moodDisabledColor("end") }' in main_qml
     assert "djconnect.refreshAskDjHistory()" in ask_dj_block
     assert "id: askDjRefreshButton" in ask_dj_block
-    assert "AskDjGradientButton" in ask_dj_block
-    assert "Layout.preferredWidth: 132" in ask_dj_block
+    assert "RefreshIconButton" in ask_dj_block
     assert 'root.tr("ask_dj_readonly_hint")' not in ask_dj_block
     assert "djconnect.sendAskDjAction(modelData.payload" in ask_dj_block
     assert "TextField" not in ask_dj_block
@@ -438,12 +464,13 @@ def test_qml_ask_dj_track_insight_has_compact_readonly_rendering() -> None:
     assert "modelData.trackInsight && modelData.musicDnaMatch" in ask_dj_block
     assert 'root.tr("music_dna_match") + " " + (modelData.musicDnaMatch || "")' in ask_dj_block
     assert "modelData.trackInsight && modelData.items && modelData.items.length > 0" in ask_dj_block
-    assert "modelData.musicDna ? \"#33334857\" : \"#3324145f\"" in ask_dj_block
+    assert 'modelData.musicDna ? "#33334857" : root.moodColor("chip")' in ask_dj_block
     assert "modelData.value || \"\"" in ask_dj_block
     assert "[modelData.source || \"\", modelData.confidence || \"\"].filter" in ask_dj_block
     assert "modelData.analysis.sections && modelData.analysis.sections.length > 0" in ask_dj_block
-    assert "modelData.title || modelData.id || modelData.kind" in ask_dj_block
-    assert "modelData.metadataContext ? \"#33334857\" : \"#3324145f\"" in ask_dj_block
+    assert "root.trackInsightLabel(modelData.title || modelData.kind || \"\")" in ask_dj_block
+    assert "root.trackInsightLabel(modelData.title || modelData.id || modelData.kind || \"\")" in ask_dj_block
+    assert 'modelData.metadataContext ? "#33334857" : root.moodColor("chip")' in ask_dj_block
     assert "!modelData.trackInsight && modelData.items && modelData.items.length > 0" in ask_dj_block
 
 
@@ -457,8 +484,7 @@ def test_qml_now_playing_hides_favorite_and_track_insight_buttons() -> None:
     assert 'root.activeScreen = "trackinsight"' not in now_block
     assert "djconnect.openTrackInsight()" not in now_block
     assert "id: nowRefreshButton" in now_block
-    assert 'iconName: "refresh"' in now_block
-    assert "Layout.preferredWidth: 48" in now_block
+    assert "RefreshIconButton" in now_block
     assert "onClicked: djconnect.manualRefresh()" in now_block
 
 
@@ -481,6 +507,17 @@ def test_qml_track_insight_panel_renders_contract_fields() -> None:
     panel = main_qml[main_qml.index("id: trackInsightPanel") : main_qml.index("id: musicDiscoveryPanel")]
 
     assert 'visible: root.activeScreen === "trackinsight"' in panel
+    assert "property bool autoInsightRequested: false" in panel
+    assert "onVisibleChanged:" in panel
+    assert "visible && !autoInsightRequested && djconnect.playing" in panel
+    assert "djconnect.openTrackInsight()" in panel
+    assert "function trackInsightLabel(value)" in main_qml
+    assert '"summary": "track_insight_summary"' in main_qml
+    assert '"energy": "track_insight_energy"' in main_qml
+    assert "root.trackInsightLabel(modelData.title || modelData.kind || \"\")" in panel
+    assert "root.trackInsightLabel(modelData.title || modelData.kind || modelData.id || \"\")" in panel
+    assert "visible: !trackInsightScroll.visible" in panel
+    assert "Layout.fillHeight: true" in panel
     assert "djconnect.refreshTrackInsight()" in panel
     assert 'root.tr("track_insight_empty")' in panel
     assert "djconnect.trackInsightError" in panel
@@ -511,13 +548,17 @@ def test_qml_music_discovery_nav_and_panel() -> None:
     assert "djconnect.rejectMusicDiscoveryConsent()" in discover_block
     assert "anchors.topMargin: 10" in discover_block
     assert "id: discoveryRefreshButton" in discover_block
-    assert 'iconName: "refresh"' in discover_block
-    assert "Layout.preferredWidth: 48" in discover_block
+    assert "RefreshIconButton" in discover_block
+    assert "enabled: !djconnect.musicDiscoveryBusy" in discover_block
     assert "djconnect.refreshMusicDiscovery()" in discover_block
     assert "columns: 1" in discover_block
     assert "columns: width >= 640 ? 2 : 1" not in discover_block
-    assert "Layout.preferredHeight: 178" in discover_block
+    assert "Layout.preferredHeight: djconnect.musicDiscoveryFeedbackSupported ? 226 : 178" in discover_block
     assert "Layout.preferredWidth: 132" in discover_block
+    assert "visible: !discoveryScroll.visible" in discover_block
+    assert "visible: djconnect.musicDiscoveryItems.length > 0" in discover_block
+    assert "visible: djconnect.musicDiscoveryItems.length === 0 && !djconnect.musicDiscoveryBusy && !djconnect.musicDiscoveryConsentRejected" in discover_block
+    assert "Layout.fillHeight: true" in discover_block
     assert "id: discoveryReasonPanel" in discover_block
     assert "visible: root.discoveryReasonOpen" in discover_block
     assert "root.discoveryReasonTitle = modelData.title || root.tr(\"music_discovery_reason\")" in discover_block
@@ -527,8 +568,12 @@ def test_qml_music_discovery_nav_and_panel() -> None:
     assert "djconnect.playMusicDiscoveryItem(modelData.payload || \"{}\")" in discover_block
     assert discover_block.count("djconnect.playMusicDiscoveryItem(modelData.payload || \"{}\")") == 1
     assert "modelData.sectionTitle" in discover_block
-    assert "modelData.countText" in discover_block
-    assert "modelData.confidence" in discover_block
+    assert "modelData.qualityBand" in discover_block
+    assert "modelData.qualityScore" in discover_block
+    assert "djconnect.musicDiscoveryFeedbackSupported" in discover_block
+    assert 'djconnect.sendMusicDiscoveryFeedback(modelData.payload || "{}", "not_for_me")' in discover_block
+    assert 'djconnect.sendMusicDiscoveryFeedback(modelData.payload || "{}", "less_like_this")' in discover_block
+    assert 'djconnect.sendMusicDiscoveryFeedback(modelData.payload || "{}", "hide_artist")' in discover_block
     assert "modelData.relevance" not in discover_block
     assert "visible: modelData.playable" in discover_block
     assert "if (modelData.playable)" not in discover_block
@@ -553,8 +598,7 @@ def test_qml_music_dna_actions_live_in_settings() -> None:
     assert 'text: root.tr("music_dna_disabled")' in music_dna_block
     assert 'root.tr("music_dna_enabled")' not in music_dna_block
     assert "id: musicDnaRefreshButton" in music_dna_block
-    assert 'iconName: "refresh"' in music_dna_block
-    assert "Layout.preferredWidth: 48" in music_dna_block
+    assert "RefreshIconButton" in music_dna_block
 
 
 def test_qml_stop_demo_button_returns_to_pairing_flow() -> None:
@@ -652,8 +696,8 @@ def test_qml_has_backend_toast_overlay() -> None:
     assert "iconName: djconnect.toastIcon" in toast_block
     assert "Canvas {" not in toast_block
     assert "Behavior on opacity" in main_qml
-    assert "#ff5a2e" in main_qml
-    assert "#b731ff" in main_qml
+    assert 'root.moodColor("toastStart")' in main_qml
+    assert 'root.moodColor("toastEnd")' in main_qml
 
 
 def test_qml_has_blocking_version_mismatch_view() -> None:
@@ -694,7 +738,18 @@ def test_qml_has_update_progress_view_with_expandable_logs() -> None:
     assert "id: detailsButton" in update_qml
     assert "Layout.preferredHeight: 54" in update_qml
     assert "#d433ff" in update_qml
+    assert "id: updaterRebootButtonShell" in update_qml
+    assert "anchors.bottom: remoteAccessPanel.top" in update_qml
+    assert "id: updaterRebootButton" in update_qml
+    assert 'text: updater.t("reboot_device")' in update_qml
+    assert "updateProgressRoot.rebootConfirmOpen = true" in update_qml
+    assert "visible: updateProgressRoot.rebootConfirmOpen" in update_qml
+    assert 'updater.t("reboot_confirm_title")' in update_qml
+    assert 'updater.t("reboot_confirm_message")' in update_qml
+    assert "updater.rebootDevice()" in update_qml
+    assert "id: cancelRebootButton" in update_qml
     assert 'updater.t("remote_viewing")' in update_qml
+    assert "id: remoteAccessPanel" in update_qml
     assert "visible: !updater.detailsOpen" in update_qml
     assert "anchors.bottom: parent.bottom" in update_qml
     assert "updater.sshCommand" in update_qml
@@ -710,11 +765,21 @@ def test_qml_uses_dark_djconnect_gradient_theme() -> None:
 
     for text in (main_qml, games_qml):
         assert "Gradient" in text
-        assert "#2f8cff" in text
-        assert "#8b5cf6" in text
-        assert "#070b16" in text
+        assert "MoodTheme" in text
     assert "id: splashPanel" in main_qml
-    assert "#24105c" in main_qml
+    mood_theme = qml_root.joinpath("MoodTheme.js").read_text(encoding="utf-8")
+    assert '"default"' in mood_theme
+    assert "#24105c" in mood_theme
+    assert "#4DA3FF" in mood_theme
+    assert "#2EC4B6" in mood_theme
+    assert "#8AC926" in mood_theme
+    assert "#FF2E63" in mood_theme
+    assert "#070b16" in mood_theme
+    assert "#ff5a2e" in mood_theme
+    assert '"chill"' in mood_theme
+    assert '"groove"' in mood_theme
+    assert '"energy"' in mood_theme
+    assert '"party"' in mood_theme
 
 
 def test_qml_offscreen_smoke_loads() -> None:

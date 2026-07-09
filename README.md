@@ -1,6 +1,6 @@
 # DJConnect Pi
 
-Version: `3.2.15`
+Version: `3.2.16`
 
 Raspberry Pi Zero 2 W touch-display client for DJConnect. This client uses
 Qt Quick/QML with a PySide6 backend and is meant for a Pimoroni HyperPixel 4.0
@@ -61,25 +61,37 @@ running separately from the touch UI.
   `track`/`analysis` responses, clears old analysis on track changes and never
   shows BPM/key/model fields.
 - Music DNA is Home Assistant authoritative. The Pi can call profile, settings
-  and clear endpoints, but it does not calculate, store or replay Music DNA as
-  a local source of truth.
+  and clear endpoints over HTTP or the advertised websocket fast path, but it
+  does not calculate, store or replay Music DNA as a local source of truth.
 - Music Discovery is Home Assistant authoritative and gated behind Music DNA
   consent. The Pi renders backend `sections[].items[]` in order, treats section
-  IDs as opaque backend values, shows compact repeated-play/based-on counts,
-  sends refresh/play requests and posts Play Now selections back to HA as Music
-  Discovery interactions. It does not fabricate recommendations, reasons,
-  based-on lists or items from recent listening history locally.
+  IDs as opaque backend values, renders backend quality/reason fields directly,
+  sends refresh/play/feedback requests and posts Play Now selections back to HA
+  as Music Discovery interactions. It does not fabricate recommendations,
+  reasons, quality scores, based-on lists or items from recent listening
+  history locally.
+- Home Assistant WebSocket fast path is enabled by default for the Pi's local HA
+  connection. The client bootstraps a short-lived HA websocket token with
+  `POST /api/djconnect/v1/websocket/session` using the paired DJConnect bearer
+  token, authenticates to `/api/websocket`, checks `djconnect/capabilities`,
+  uses only advertised `djconnect/*` routes and falls back once to HTTP on
+  websocket failures or missing capabilities. Short-lived websocket tokens are
+  cached only in memory and are never logged or exported.
 - Home Assistant endpoints:
   - `POST /api/djconnect/v1/pair`
   - `POST /api/djconnect/v1/status`
   - `POST /api/djconnect/v1/command`
+  - `POST /api/djconnect/v1/websocket/session`
   - `POST /api/djconnect/v1/track_insight`
   - `POST /api/djconnect/v1/music_dna/profile`
   - `POST /api/djconnect/v1/music_dna/settings`
   - `POST /api/djconnect/v1/music_dna/clear`
+  - `POST /api/djconnect/v1/music_dna/export`
+  - `POST /api/djconnect/v1/music_dna/import`
   - `GET /api/djconnect/v1/music_discovery`
   - `POST /api/djconnect/v1/music_discovery/refresh`
   - `POST /api/djconnect/v1/music_discovery/play`
+  - `POST /api/djconnect/v1/music_discovery/feedback`
   - `GET /api/djconnect/v1/ask_dj/history?since_revision=<revision>`
 - Local Client API endpoints:
   - `GET /api/device/info`
@@ -163,7 +175,8 @@ The app is a 720x720 fullscreen touch remote:
   track, album, artist and playlist recommendations as one large row per item,
   opens backend reason text in a full-screen Waarom details view and sends
   Play Now through `/api/djconnect/v1/music_discovery/play` with `section_id`
-  and `discovery_item_id`
+  and `discovery_item_id`; negative feedback controls appear only when HA
+  advertises feedback support
 - Music DNA screen for server-backed opt-in, disable, clear and compact profile
   display; optional dashboard blocks are hidden when absent or ineligible
 - fixed bottom menu bar for Speelt nu, Wachtrij, Ask DJ, Track Insight, Ontdek
@@ -171,8 +184,8 @@ The app is a 720x720 fullscreen touch remote:
   Instellingen, Logs and Over
 - settings for screen blanking, automatic return-to-Speelt-nu timeout
   (`30`, `60`, `120` seconds or `Uit`), brightness, language, logs, pairing
-  reset, update checks, reboot/shutdown with confirmation and stable/beta
-  update channel
+  reset, Home Assistant WebSocket fast path, update checks, reboot/shutdown
+  with confirmation and stable/beta update channel
 - Device ID and Home Assistant URL are shown on Over, not duplicated in
   Instellingen
 - settings save immediately when changed; there is no explicit save button on
@@ -246,9 +259,9 @@ not a private source clone:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.2.15.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.2.16.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.2.15
+cd djconnect-pi-3.2.16
 sudo ./scripts/install.sh
 ```
 
@@ -369,9 +382,9 @@ installer:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.2.15.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.2.16.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.2.15
+cd djconnect-pi-3.2.16
 sudo ./scripts/install.sh
 ```
 

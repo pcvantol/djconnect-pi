@@ -131,6 +131,21 @@ class UpdateUiBackend(QObject):
         self._details_open = not self._details_open
         self.statusChanged.emit()
 
+    @Slot()
+    def rebootDevice(self) -> None:
+        for command in (
+            ["sudo", "-n", "/usr/bin/systemctl", "reboot"],
+            ["sudo", "-n", "/bin/systemctl", "reboot"],
+            ["sudo", "-n", "/usr/bin/systemctl", "reboot", "-i"],
+            ["sudo", "-n", "/bin/systemctl", "reboot", "-i"],
+        ):
+            try:
+                subprocess.run(command, check=True)
+                return
+            except (OSError, subprocess.CalledProcessError) as exc:
+                _LOGGER.warning("Updater UI reboot command failed %s: %s", command, exc)
+        _LOGGER.error("Updater UI could not schedule reboot")
+
     def refresh(self) -> None:
         if not self.status_file.exists():
             return

@@ -308,6 +308,8 @@ class ClientAPIHandler(BaseHTTPRequestHandler):
             cfg.screen_brightness_percent = max(10, min(100, int(payload["screen_brightness_percent"])))
         if "screen_timeout_seconds" in payload:
             cfg.screen_timeout_seconds = max(0, int(payload["screen_timeout_seconds"]))
+        if "websocket_fast_path_enabled" in payload:
+            cfg.websocket_fast_path_enabled = bool(payload["websocket_fast_path_enabled"])
         save_config(self.server.state.config_path, cfg)
         self.server.state.cfg = cfg
         self.server.state.command_handler("settings", payload)
@@ -489,6 +491,8 @@ def _portal_settings(cfg: Config) -> dict[str, Any]:
         "screen_brightness_percent": cfg.screen_brightness_percent,
         "screen_timeout_seconds": cfg.screen_timeout_seconds,
         "update_channel": cfg.update_channel,
+        "mood": cfg.mood,
+        "websocket_fast_path_enabled": cfg.websocket_fast_path_enabled,
     }
 
 

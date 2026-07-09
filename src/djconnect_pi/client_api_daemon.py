@@ -133,6 +133,8 @@ class ClientAPIDaemon:
                 "screen_brightness_percent": self.cfg.screen_brightness_percent,
                 "screen_timeout_seconds": self.cfg.screen_timeout_seconds,
                 "update_channel": self.cfg.update_channel,
+                "mood": self.cfg.mood,
+                "websocket_fast_path_enabled": self.cfg.websocket_fast_path_enabled,
             },
             "about": {
                 translate(self.cfg.language, "version"): self.cfg.version,

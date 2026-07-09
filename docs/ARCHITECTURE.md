@@ -39,7 +39,8 @@ The app split is:
 
 ```text
 src/djconnect_pi/app.py       PySide6 backend, properties, slots, polling
-src/djconnect_pi/ha.py        Home Assistant outbound HTTP contract
+src/djconnect_pi/ha.py        Home Assistant outbound HTTP/websocket contract
+src/djconnect_pi/ha_websocket.py  WebSocket fast-path session/capability layer
 src/djconnect_pi/qml/*.qml    touch UI, gestures and animations
 ```
 
@@ -160,7 +161,7 @@ The Pi client is an app-like DJConnect client.
   "device_id": "djconnect-raspberry-pi-XXXXXXXXXXXX",
   "device_name": "DJConnect",
   "client_type": "raspberry_pi",
-  "version": "3.2.15",
+  "version": "3.2.16",
   "capabilities": {
     "touch": true,
     "voice": false,
@@ -182,22 +183,36 @@ Runtime traffic uses:
 - `POST /api/djconnect/v1/pair`
 - `POST /api/djconnect/v1/status`
 - `POST /api/djconnect/v1/command`
+- `POST /api/djconnect/v1/websocket/session`
 - `GET /api/djconnect/v1/ask_dj/history?since_revision=<revision>`
 
 Pairing, status and command payloads all include the stable `device_id` and
 `client_type=raspberry_pi`. Command payloads also include the command name and
 any command-specific value fields.
 
-HTTP is the safe default. For local HA URLs the client can use Home
-Assistant's native `/api/websocket` fast path only when it is explicitly
-enabled and a valid HA websocket auth token/mechanism is configured. HA
-websocket authentication happens first; the paired DJConnect `device_token` is
-then included only inside DJConnect websocket messages. The client checks
-`djconnect/capabilities` and requires `websocket_supported:true`,
-`transports.websocket:true` and the needed command before using websocket. It
-falls back to the existing HTTP request immediately on any websocket error,
-timeout, disconnect, auth rejection, malformed result or missing capability.
-Remote/Nabu Casa style sessions and HTTP-only routes stay on HTTP.
+HTTP remains the canonical fallback. On Raspberry Pi the Home Assistant
+WebSocket fast path is enabled by default because the client is intended to use
+a local HA connection. The setting can be disabled in Settings or the web
+portal. When enabled, the client first requests a short-lived HA websocket
+session with `POST /api/djconnect/v1/websocket/session` using the paired
+DJConnect bearer token. The request includes `device_id`,
+`client_type:"raspberry_pi"` and all Pi-relevant requested `djconnect/*`
+commands; it never sends a Home Assistant long-lived access token. The returned
+HA websocket `access_token`, optional `expires_at` and optional `websocket_url`
+are cached only in memory and are never logged or exported.
+
+After HA websocket auth, the client sends `djconnect/capabilities`, stores the
+advertised commands/features/fallbacks in memory and uses only routes that HA
+advertises. Supported websocket routes include `djconnect/command`, Ask DJ
+message/history/history clear, Music DNA profile/settings/clear, Music
+Discovery feed/refresh/play/feedback, Track Insight and Vibecast. Music DNA
+export/import remain HTTP-only. Any websocket auth failure, timeout,
+disconnect, malformed response, decode error, missing route or missing
+capability falls back exactly once to the existing HTTP flow and does not clear
+pairing or device tokens. Only the existing HTTP authentication stale/not
+configured flows can trigger pairing recovery. Diagnostics expose
+`fast_path_enabled`, `fast_path_transport`, `websocket_connected`, advertised
+commands, last capability refresh and a redacted last error.
 
 Ask DJ on Raspberry Pi is `readonly_actions` and remains server-side. The touch
 UI polls Home Assistant history/status, renders backend responses as
@@ -230,7 +245,9 @@ Music DNA on Raspberry Pi is a server-authoritative settings/dashboard surface.
 The Pi uses authenticated `POST /api/djconnect/v1/music_dna/profile`,
 `/settings` and `/clear` calls, or websocket message types
 `djconnect/music_dna/profile`, `djconnect/music_dna/settings` and
-`djconnect/music_dna/clear` when Home Assistant advertises them. The Pi never
+`djconnect/music_dna/clear` when Home Assistant advertises them. Music DNA
+export/import use `/api/djconnect/v1/music_dna/export` and `/import` over HTTP
+only. The Pi never
 calculates Music DNA locally and never stores profile data as a source of
 truth. Disabled profiles render the opt-in state; enabled profiles render
 `profile.summary` and only non-empty optional blocks, with `eligible:false`
@@ -243,20 +260,21 @@ recommendations. Accepting consent posts `enabled:true` to
 `/api/djconnect/v1/music_dna/settings` and then loads the feed. The discovery feed
 comes from `GET /api/djconnect/v1/music_discovery`, refresh uses
 `POST /api/djconnect/v1/music_discovery/refresh`, and Play Now uses
-`POST /api/djconnect/v1/music_discovery/play`. The websocket fast path uses
+`POST /api/djconnect/v1/music_discovery/play`; negative feedback uses
+`POST /api/djconnect/v1/music_discovery/feedback` only when HA advertises
+support. The websocket fast path uses
 `djconnect/music_discovery/feed`, `djconnect/music_discovery/refresh` and
-`djconnect/music_discovery/play` only when advertised. Recommendation cards are
-rendered from HA-provided `sections[].items[]` for track, album, artist and
-playlist items as one large row per item. Section IDs such as `new_for_you` and
+`djconnect/music_discovery/play`/`feedback` only when advertised.
+Recommendation cards are rendered from HA-provided `sections[].items[]` as one
+large row per item. Section IDs such as `new_for_you` and
 `accepted_recommendations` are treated as opaque backend values, empty sections
-may be omitted by HA and the Pi preserves backend section/item order.
-Repeated-play or based-on counts, confidence and reason text are shown from
-backend item fields only; reason text opens through an explicit full-screen
-Waarom details action. Reasons, based-on lists, fallback recommendations and
-recently played history are never inferred or reconstructed locally. Play Now
-payloads include Pi identity, `section_id`, `discovery_item_id` and
-`source/context: "music_discovery"` so HA can record the interaction as a Music
-DNA signal.
+may be omitted by HA and the Pi preserves backend section/item order. Quality,
+reason text and reason sources are shown from backend item fields only; reason
+text opens through an explicit full-screen Waarom details action. Reasons,
+quality scores, artwork/actions, fallback recommendations and recently played
+history are never inferred or reconstructed locally. Play Now websocket/HTTP
+payloads include Pi identity, `section_id` and `discovery_item_id` so HA can
+record the interaction as a Music DNA signal.
 
 The canonical Home Assistant `SYNC_PROMPTS.md` is the source of truth for the
 current Pi Ask DJ contract: `readonly_actions` via server-side history and

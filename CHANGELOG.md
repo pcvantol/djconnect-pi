@@ -1,7 +1,14 @@
 # Changelog
 
-## 3.2.15
+## 3.2.16
 
+- Enable the Home Assistant WebSocket fast path by default on Raspberry Pi,
+  backed by `/api/djconnect/v1/websocket/session`, in-memory short-lived HA
+  websocket tokens, capability-based route dispatch, diagnostics and reliable
+  one-shot HTTP fallback.
+- Extend websocket support across command, Ask DJ, Track Insight, Music DNA
+  profile/settings/clear, Music Discovery feed/refresh/play/feedback and
+  Vibecast routes, while keeping Music DNA import/export HTTP-only.
 - Add a compact mood selector to Speelt nu that stores the selected mood and
   sends it through the existing Home Assistant mood context paths.
 - Move Wachtrij into the primary bottom navigation next to Speelt nu, move
@@ -14,8 +21,9 @@
   toast.
 - Align Ontdek rendering with the current backend recommendation-feed contract:
   render only backend `sections[].items[]`, preserve backend order, treat
-  section IDs as opaque values, carry `confidence` and `reason_sources`, and
-  keep playback behind the explicit Play Now action.
+  section IDs as opaque values, carry backend quality/reason fields directly,
+  show feedback only when supported and keep playback behind the explicit Play
+  Now action.
 - Widen and lower the Games playfield and keep Maze Chase inside a fixed
   320:170 canvas aspect ratio.
 - Polish Ask DJ, Logs, About, Settings, Track Insight, Music DNA and Ontdek

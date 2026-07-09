@@ -157,6 +157,7 @@ class DJConnectBackend(QObject):
         self._music_discovery_error = ""
         self._music_discovery_busy = False
         self._music_discovery_playing_id = ""
+        self._music_discovery_feedback_supported = False
         self._music_discovery_consent_rejected = False
         self._track_insight_title = ""
         self._track_insight_artist = ""
@@ -275,6 +276,10 @@ class DJConnectBackend(QObject):
     @Property(str, notify=musicDiscoveryChanged)
     def musicDiscoveryPlayingId(self) -> str:
         return self._music_discovery_playing_id
+
+    @Property(bool, notify=musicDiscoveryChanged)
+    def musicDiscoveryFeedbackSupported(self) -> bool:
+        return self._music_discovery_feedback_supported
 
     @Property(bool, notify=musicDiscoveryChanged)
     def musicDiscoveryConsentRejected(self) -> bool:
@@ -489,6 +494,9 @@ class DJConnectBackend(QObject):
     def logLevel(self) -> str:
         return self.cfg.log_level
 
+    @Property(bool, notify=settingsChanged)
+    def websocketFastPathEnabled(self) -> bool:
+        return bool(self.cfg.websocket_fast_path_enabled)
 
     @Property(str, notify=languageChanged)
     def language(self) -> str:
@@ -644,6 +652,19 @@ class DJConnectBackend(QObject):
         _LOGGER.info("User changed log level to %s", level)
         self.showToastForContext(self.tr_key("log_level_saved", level=level), "diagnostics")
 
+    @Slot(bool)
+    def setWebSocketFastPathEnabled(self, enabled: bool) -> None:
+        value = bool(enabled)
+        if self.cfg.websocket_fast_path_enabled == value:
+            return
+        self.cfg.websocket_fast_path_enabled = value
+        save_config(self.config_path, self.cfg)
+        self.client.cfg = self.cfg
+        self.client.fast_path.update_config(self.cfg)
+        self.settingsChanged.emit()
+        _LOGGER.info("User changed WebSocket fast path setting to %s", value)
+        self.showToastForContext(self.tr_key("settings_saved"), "connectivity")
+
     @Slot(int)
     def setMoodValue(self, value: int) -> None:
         mood = max(0, min(100, int(value)))
@@ -786,6 +807,8 @@ class DJConnectBackend(QObject):
 
     @Slot()
     def openTrackInsight(self) -> None:
+        if not self.playback.is_playing:
+            return
         self._request_track_insight(show_toast=False)
 
     @Slot()
@@ -1023,13 +1046,35 @@ class DJConnectBackend(QObject):
             return
         if not isinstance(item, dict):
             return
-        if not str(item.get("uri") or "").strip():
-            _LOGGER.info("Ignoring non-playable Music Discovery item")
+        if not str(item.get("discovery_item_id") or item.get("id") or "").strip():
+            _LOGGER.info("Ignoring Music Discovery item without backend id")
             return
-        item_id = str(item.get("id") or item.get("recommendation_id") or item.get("item_id") or item.get("uri") or "").strip()
+        item_id = str(item.get("discovery_item_id") or item.get("id") or "").strip()
         self._music_discovery_playing_id = item_id
         self.musicDiscoveryChanged.emit()
         self._run(self.tr_key("music_discovery"), lambda: self._music_discovery_play_worker(item), done=lambda: self._clear_music_discovery_playing())
+
+    @Slot(str, str)
+    def sendMusicDiscoveryFeedback(self, payload: str, feedback: str) -> None:
+        self._sync_config_from_disk()
+        if self._demo_mode or not self.paired or self._music_discovery_busy or not self._music_discovery_feedback_supported:
+            return
+        feedback_value = str(feedback or "").strip()
+        if feedback_value not in {"not_for_me", "less_like_this", "hide_artist"}:
+            return
+        try:
+            item = json.loads(payload)
+        except json.JSONDecodeError:
+            _LOGGER.warning("Ignoring malformed Music Discovery feedback payload")
+            return
+        if not isinstance(item, dict):
+            return
+        self._set_music_discovery_busy(True)
+        self._run(
+            self.tr_key("music_discovery"),
+            lambda: self._music_discovery_feedback_worker(item, feedback_value),
+            done=lambda: self._set_music_discovery_busy(False),
+        )
 
     def _music_discovery_request(self, action: str) -> None:
         self._sync_config_from_disk()
@@ -1505,13 +1550,8 @@ class DJConnectBackend(QObject):
 
     def _music_discovery_feed_worker(self) -> None:
         try:
-            profile = self.client.music_dna_profile()
-            self._persist_backend_summary()
-            self._musicDnaReady.emit(profile)
-            if profile.get("enabled") is not True:
-                self._musicDiscoveryReady.emit({"success": True, "enabled": False, "items": [], "empty_text": self.tr_key("music_discovery_requires_music_dna")})
-                return
             data = self.client.music_discovery_feed()
+            data["_feedback_supported"] = self._supports_music_discovery_feedback()
             self._persist_backend_summary()
         except (DJConnectError, requests.RequestException) as exc:
             raise BackendUnavailable("Music Discovery unavailable") from exc
@@ -1523,6 +1563,7 @@ class DJConnectBackend(QObject):
             self._persist_backend_summary()
             self._musicDnaReady.emit(profile)
             data = self.client.music_discovery_feed()
+            data["_feedback_supported"] = self._supports_music_discovery_feedback()
             self._persist_backend_summary()
         except (DJConnectError, requests.RequestException) as exc:
             raise BackendUnavailable("Music Discovery unavailable") from exc
@@ -1530,14 +1571,8 @@ class DJConnectBackend(QObject):
 
     def _music_discovery_refresh_worker(self) -> None:
         try:
-            if not self._music_dna_enabled:
-                profile = self.client.music_dna_profile()
-                self._persist_backend_summary()
-                self._musicDnaReady.emit(profile)
-                if profile.get("enabled") is not True:
-                    self._musicDiscoveryReady.emit({"success": True, "enabled": False, "items": [], "empty_text": self.tr_key("music_discovery_requires_music_dna")})
-                    return
             data = self.client.music_discovery_refresh()
+            data["_feedback_supported"] = self._supports_music_discovery_feedback()
             self._persist_backend_summary()
         except (DJConnectError, requests.RequestException) as exc:
             raise BackendUnavailable("Music Discovery unavailable") from exc
@@ -1547,11 +1582,32 @@ class DJConnectBackend(QObject):
         try:
             data = self.client.music_discovery_play(item)
             self._persist_backend_summary()
+            feed = self.client.music_discovery_feed()
+            feed["_feedback_supported"] = self._supports_music_discovery_feedback()
+            self._persist_backend_summary()
         except (DJConnectError, requests.RequestException) as exc:
             raise BackendUnavailable("Music Discovery unavailable") from exc
         if _contains_playback_payload(data):
             self._playbackReady.emit(self.client.playback_from_status(data))
+        self._musicDiscoveryReady.emit(feed)
         self._toastReady.emit(self.tr_key("play"), 1800, "playback")
+
+    def _music_discovery_feedback_worker(self, item: dict[str, object], feedback: str) -> None:
+        try:
+            self.client.music_discovery_feedback(item, feedback)
+            self._persist_backend_summary()
+            feed = self.client.music_discovery_feed()
+            feed["_feedback_supported"] = self._supports_music_discovery_feedback()
+            self._persist_backend_summary()
+        except (DJConnectError, requests.RequestException) as exc:
+            raise BackendUnavailable("Music Discovery unavailable") from exc
+        self._musicDiscoveryReady.emit(feed)
+
+    def _supports_music_discovery_feedback(self) -> bool:
+        try:
+            return self.client.music_discovery_feedback_supported()
+        except (DJConnectError, requests.RequestException):
+            return False
 
     @Slot()
     def pollAskDjHistory(self) -> None:
@@ -1870,6 +1926,7 @@ class DJConnectBackend(QObject):
         self._music_discovery_consent_rejected = False
         if data.get("enabled") is False or str(data.get("error") or "") == "music_dna_disabled":
             self._music_discovery_items = []
+            self._music_discovery_feedback_supported = False
             self._music_discovery_error = ""
             self._music_discovery_empty_text = str(data.get("reason") or data.get("empty_text") or data.get("message") or self.tr_key("music_discovery_requires_music_dna"))
             self.musicDiscoveryChanged.emit()
@@ -1877,6 +1934,7 @@ class DJConnectBackend(QObject):
         parsed = parse_music_discovery_feed(data)
         self._music_discovery_items = parsed["items"]
         self._music_discovery_empty_text = parsed["empty_text"]
+        self._music_discovery_feedback_supported = bool(data.get("_feedback_supported") or data.get("feedback_supported") or data.get("supports_feedback"))
         self._music_discovery_error = ""
         self._set_backend_available(True)
         self.musicDiscoveryChanged.emit()
@@ -2485,6 +2543,7 @@ def _ask_dj_message(item: dict[str, object]) -> dict[str, object] | None:
     user_text = str(item.get("user_message") or "").strip()
     role = str(item.get("role") or item.get("sender") or "").strip().lower()
     kind = str(item.get("message_kind") or item.get("kind") or "").strip().lower()
+    recent_history = _is_recently_played_history(item)
     track_insight = _is_track_insight(item)
     if not text and track_insight:
         text = _track_insight_text(item)
@@ -2515,7 +2574,7 @@ def _ask_dj_message(item: dict[str, object]) -> dict[str, object] | None:
         "text": text,
         "created_at": str(item.get("created_at") or item.get("timestamp") or item.get("server_time") or ""),
         "images": _ask_dj_images(item.get("images")),
-        "items": _track_insight_items(track_insight_data) if track_insight else _ask_dj_items(_first_present(item, ("items",)), assistant_payload.get("items")),
+        "items": _track_insight_items(track_insight_data) if track_insight else (_ask_dj_recently_played_items(_first_present(item, ("items",)), assistant_payload.get("items")) if recent_history else _ask_dj_items(_first_present(item, ("items",)), assistant_payload.get("items"))),
         "links": _ask_dj_links(item.get("links"), item.get("sources")),
         "actions": actions,
         "audioUrl": str(item.get("audio_url") or item.get("audioUrl") or ""),
@@ -2527,6 +2586,13 @@ def _ask_dj_message(item: dict[str, object]) -> dict[str, object] | None:
     }
     message["displayTime"] = _ask_dj_display_time(message["created_at"])
     return message
+
+
+def _is_recently_played_history(item: dict[str, object]) -> bool:
+    intent = item.get("intent")
+    if isinstance(intent, dict):
+        return str(intent.get("intent") or "").strip() == "recently_played_history"
+    return str(intent or item.get("action") or "").strip() == "recently_played_history"
 
 
 def _is_track_insight(item: dict[str, object]) -> bool:
@@ -2775,6 +2841,35 @@ def _ask_dj_items(*values: object) -> list[dict[str, object]]:
                         "musicDna": False,
                     }
                 )
+    return items[:20]
+
+
+def _ask_dj_recently_played_items(*values: object) -> list[dict[str, object]]:
+    items: list[dict[str, object]] = []
+    for value in values:
+        if not isinstance(value, list):
+            continue
+        for item in value:
+            if not isinstance(item, dict):
+                continue
+            title = str(item.get("title") or "").strip()
+            subtitle = str(item.get("subtitle") or item.get("artist") or "").strip()
+            if not title and not subtitle:
+                continue
+            items.append(
+                {
+                    "title": title,
+                    "subtitle": subtitle,
+                    "value": str(item.get("value") or ""),
+                    "time": str(item.get("played_at") or item.get("time") or item.get("timestamp") or "").strip(),
+                    "kind": str(item.get("kind") or item.get("type") or "").strip(),
+                    "source": str(item.get("source") or "").strip(),
+                    "confidence": str(item.get("confidence") or ""),
+                    "imageUrl": str(item.get("image_url") or item.get("imageUrl") or ""),
+                    "trackInsightMetric": False,
+                    "musicDna": False,
+                }
+            )
     return items[:20]
 
 
@@ -3372,18 +3467,8 @@ def parse_music_dna_profile(data: dict[str, object]) -> dict[str, object]:
     summary = str(profile.get("summary") or data.get("summary") or "").strip() if enabled else ""
     sections: list[dict[str, object]] = []
     if enabled:
-        sections.extend(_music_dna_list_section(profile, "favorite_genres", "Favorite genres"))
-        sections.extend(_music_dna_list_section(profile, "favorite_artists", "Favorite artists"))
-        sections.extend(_music_dna_track_section(profile, "recent_tracks", "Recent tracks"))
-        sections.extend(_music_dna_track_section(profile, "recent_favorite_tracks", "Recent favorites"))
-        sections.extend(_music_dna_playtime_section(profile))
-        sections.extend(_music_dna_rhythm_section(profile))
-        sections.extend(_music_dna_mood_mix_section(profile))
-        sections.extend(_music_dna_list_section(profile, "energy_profile", "Energy profile"))
-        sections.extend(_music_dna_eligible_section(profile, "repeat_magnets", "Blijft terugkomen"))
-        sections.extend(_music_dna_eligible_section(profile, "explicit_positives", "Waar je ja tegen zei"))
-        sections.extend(_music_dna_eligible_section(profile, "taste_anchors", "Smaakankers"))
-        sections.extend(_music_dna_list_section(profile, "recommendation_signals", "Recommendation signals"))
+        for key, title in _MUSIC_DNA_RENDER_BLOCKS:
+            sections.extend(_music_dna_backend_section(profile, key, title))
     return {"enabled": enabled, "summary": summary, "sections": sections}
 
 
@@ -3411,47 +3496,26 @@ def parse_music_discovery_feed(data: dict[str, object]) -> dict[str, object]:
 
 
 def _music_discovery_item(raw: dict[str, object], *, section_id: str, section_title: str) -> dict[str, object] | None:
-    kind = str(raw.get("kind") or raw.get("type") or "").strip().lower()
-    if kind not in {"track", "album", "artist", "playlist"}:
-        return None
-    title = str(raw.get("title") or raw.get("name") or "").strip()
+    kind = str(raw.get("kind") or "").strip().lower()
+    title = str(raw.get("title") or "").strip()
     if not title:
         return None
-    subtitle = str(raw.get("subtitle") or raw.get("artist") or raw.get("context") or raw.get("description") or "").strip()
-    item_id = str(raw.get("id") or raw.get("recommendation_id") or raw.get("item_id") or raw.get("uri") or title).strip()
-    discovery_item_id = str(raw.get("discovery_item_id") or raw.get("id") or raw.get("recommendation_id") or raw.get("item_id") or item_id).strip()
-    uri = str(raw.get("uri") or raw.get("spotify_uri") or "").strip()
-    reason = str(raw.get("reason") or raw.get("music_dna_reason") or "").strip()
-    reason_sources = _string_list(raw.get("reason_sources") or raw.get("reasonSources"))
-    confidence = str(raw.get("confidence") or "").strip()
-    play_count = max(0, _int_value(raw.get("play_count"), 0))
-    based_on_count = max(0, _int_value(raw.get("based_on_count"), 0))
-    count_text = ""
-    if play_count > 1:
-        count_text = f"{play_count}x afgespeeld"
-    elif based_on_count > 1:
-        count_text = f"{based_on_count} bronnen"
+    subtitle = str(raw.get("subtitle") or "").strip()
+    item_id = str(raw.get("id") or "").strip()
+    discovery_item_id = str(raw.get("discovery_item_id") or raw.get("id") or "").strip()
+    uri = str(raw.get("uri") or "").strip()
+    reason = str(raw.get("reason") or "").strip()
+    reason_sources = _string_list(raw.get("reason_sources"))
+    quality_score = raw.get("quality_score")
+    quality_band = str(raw.get("quality_band") or "").strip()
+    quality_factors = raw.get("quality_factors") if isinstance(raw.get("quality_factors"), dict) else {}
     playable = bool(uri)
     payload = {
-        "id": item_id,
         "section_id": section_id,
         "discovery_item_id": discovery_item_id,
-        "recommendation_id": str(raw.get("recommendation_id") or item_id),
-        "item_id": str(raw.get("item_id") or item_id),
-        "kind": kind,
-        "type": str(raw.get("type") or kind),
-        "uri": uri,
-        "title": title,
-        "subtitle": subtitle,
-        "artist": str(raw.get("artist") or ""),
-        "reason": reason,
-        "reason_sources": reason_sources,
-        "confidence": confidence,
     }
-    dedupe_key = uri or item_id
     return {
         "id": item_id,
-        "dedupeKey": dedupe_key,
         "sectionId": section_id,
         "sectionTitle": section_title,
         "discoveryItemId": discovery_item_id,
@@ -3459,11 +3523,10 @@ def _music_discovery_item(raw: dict[str, object], *, section_id: str, section_ti
         "subtitle": subtitle,
         "kind": kind,
         "kindLabel": kind.title(),
-        "imageUrl": _queue_image_url_from(raw),
-        "confidence": confidence,
-        "countText": count_text,
-        "playCount": play_count,
-        "basedOnCount": based_on_count,
+        "imageUrl": str(raw.get("image_url") or ""),
+        "qualityScore": quality_score,
+        "qualityBand": quality_band,
+        "qualityFactors": quality_factors,
         "reason": reason,
         "reasonSources": reason_sources,
         "hasReason": bool(reason),
@@ -3477,6 +3540,103 @@ def _music_dna_section(title: str, lines: list[str]) -> list[dict[str, object]]:
     if not clean:
         return []
     return [{"title": title, "lines": clean}]
+
+
+_MUSIC_DNA_RENDER_BLOCKS: tuple[tuple[str, str], ...] = (
+    ("favorite_genres", "Favorite genres"),
+    ("favorite_artists", "Favorite artists"),
+    ("energy_profile", "Energy profile"),
+    ("playtime", "Playtime"),
+    ("listening_rhythm", "Listening rhythm"),
+    ("mood_mix", "Mood mix"),
+    ("repeat_magnets", "Repeat magnets"),
+    ("explicit_positives", "Accepted signals"),
+    ("taste_anchors", "Taste anchors"),
+    ("recent_tracks", "Recent signals"),
+    ("recent_favorite_tracks", "Recent favorites"),
+    ("top_tracks_by_range", "Top tracks"),
+    ("top_artists_by_range", "Top artists"),
+    ("snapshot_history", "Snapshot history"),
+    ("discovery_feedback", "Discovery feedback"),
+    ("privacy_dashboard", "Privacy dashboard"),
+    ("last_profile_refresh", "Last refresh"),
+    ("consent_updated_at", "Consent updated"),
+)
+
+_MUSIC_DNA_SENSITIVE_KEY_PARTS = (
+    "token",
+    "bearer",
+    "oauth",
+    "prompt",
+    "raw_audio",
+    "audio",
+    "full_history",
+)
+
+
+def _music_dna_backend_section(profile: dict[str, object], key: str, title: str) -> list[dict[str, object]]:
+    if key not in profile:
+        return []
+    value = profile.get(key)
+    if isinstance(value, dict) and value.get("eligible") is False:
+        reason = str(value.get("reason") or "").strip()
+        return _music_dna_section(title, [reason] if reason and key in {"privacy_dashboard"} else [])
+    return _music_dna_section(title, _music_dna_compact_lines(value, depth=0))
+
+
+def _music_dna_compact_lines(value: object, *, depth: int) -> list[str]:
+    if depth > 3:
+        return []
+    if value in (None, "", [], {}):
+        return []
+    if isinstance(value, (str, int, float, bool)):
+        return [str(value)]
+    if isinstance(value, list):
+        lines: list[str] = []
+        for item in value[:8]:
+            lines.extend(_music_dna_compact_lines(item, depth=depth + 1))
+        return lines
+    if isinstance(value, dict):
+        if value.get("eligible") is False:
+            return []
+        item_lines = _music_dna_named_item_lines(value)
+        if item_lines:
+            return item_lines
+        lines = []
+        for key, item in value.items():
+            key_text = str(key)
+            if _music_dna_is_sensitive_key(key_text):
+                continue
+            if key_text in {"eligible", "items", "values", "tracks", "artists", "genres", "signals"}:
+                nested = _music_dna_compact_lines(item, depth=depth + 1)
+                lines.extend(nested)
+                continue
+            nested_lines = _music_dna_compact_lines(item, depth=depth + 1)
+            if len(nested_lines) == 1:
+                lines.append(f"{key_text.replace('_', ' ').title()}: {nested_lines[0]}")
+            elif nested_lines:
+                lines.append(f"{key_text.replace('_', ' ').title()}: {', '.join(nested_lines[:4])}")
+        return lines[:10]
+    return [str(value)]
+
+
+def _music_dna_named_item_lines(value: dict[str, object]) -> list[str]:
+    title = str(value.get("title") or value.get("name") or value.get("label") or value.get("track") or "").strip()
+    subtitle = str(value.get("subtitle") or value.get("artist") or value.get("artist_name") or value.get("range") or "").strip()
+    if not title:
+        return []
+    score = value.get("percent") if value.get("percent") is not None else value.get("score")
+    text = f"{title} - {subtitle}" if subtitle else title
+    if score not in (None, ""):
+        text = f"{text} ({score})"
+    return [text]
+
+
+def _music_dna_is_sensitive_key(key: str) -> bool:
+    normalized = key.lower()
+    if normalized.startswith("stores_"):
+        return False
+    return any(part in normalized for part in _MUSIC_DNA_SENSITIVE_KEY_PARTS)
 
 
 def _music_dna_list_section(profile: dict[str, object], key: str, title: str) -> list[dict[str, object]]:

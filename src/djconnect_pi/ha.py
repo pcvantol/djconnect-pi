@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Any
 import logging
 import time
+from urllib.parse import urlparse
 import requests
 
 from .config import CLIENT_TYPE, Config
@@ -31,6 +32,20 @@ WEBSOCKET_COMMANDS = {
     "ask_dj_play_recommendation",
     "ask_dj_play_recommendation_on_output",
     "ask_dj_play_request_on_output",
+}
+WEBSOCKET_ROUTE_COMMANDS = {
+    "djconnect/ask_dj/message",
+    "djconnect/ask_dj/history",
+    "djconnect/ask_dj/history/clear",
+    "djconnect/music_dna/profile",
+    "djconnect/music_dna/settings",
+    "djconnect/music_dna/clear",
+    "djconnect/music_discovery/feed",
+    "djconnect/music_discovery/refresh",
+    "djconnect/music_discovery/play",
+    "djconnect/music_discovery/feedback",
+    "djconnect/track_insight",
+    "djconnect/vibecast",
 }
 
 
@@ -174,7 +189,7 @@ class HAClient:
     def command(self, command: str, **payload: Any) -> dict[str, Any]:
         body = self._base_payload(command=command, **payload)
         if command in WEBSOCKET_COMMANDS:
-            data = self._try_websocket("djconnect/command", body, command=command, timeout=_command_timeout(command, self.timeout))
+            data = self._try_websocket("djconnect/command", body, command="djconnect/command", timeout=_command_timeout(command, self.timeout))
             if data is not None:
                 self.update_backend_summary(data)
                 self._validate_ha_version(data)
@@ -262,23 +277,22 @@ class HAClient:
         return data
 
     def music_dna_profile(self) -> dict[str, Any]:
+        self._refresh_websocket_capabilities()
         return self._music_dna_request("djconnect/music_dna/profile", "music_dna/profile", self._base_payload())
 
     def music_dna_settings(self, **settings: Any) -> dict[str, Any]:
+        self._refresh_websocket_capabilities()
         return self._music_dna_request("djconnect/music_dna/settings", "music_dna/settings", self._base_payload(**settings))
 
     def music_dna_clear(self) -> dict[str, Any]:
+        self._refresh_websocket_capabilities()
         return self._music_dna_request("djconnect/music_dna/clear", "music_dna/clear", self._base_payload())
 
-    def _music_dna_request(self, message_type: str, path: str, body: dict[str, Any]) -> dict[str, Any]:
+    def music_dna_export(self) -> dict[str, Any]:
+        body = self._base_payload()
         if self.cfg.music_dna_key:
             body["music_dna_key"] = self.cfg.music_dna_key
-        data = self._try_websocket(message_type, body, command=message_type, timeout=max(self.timeout, 10.0))
-        if data is not None:
-            self.update_backend_summary(data)
-            self._validate_ha_version(data)
-            return data
-        url = self._djconnect_url(path)
+        url = self._djconnect_url("music_dna/export")
         _LOGGER.debug("POST %s client_type=%s device_id=%s", url, CLIENT_TYPE, self.cfg.device_id)
         started = time.monotonic()
         response = requests.post(url, json=body, headers=self._headers(), timeout=self.timeout)
@@ -288,14 +302,50 @@ class HAClient:
         self._validate_ha_version(data)
         return data
 
+    def music_dna_import(self, profile: dict[str, Any]) -> dict[str, Any]:
+        body = self._base_payload(profile=profile)
+        if self.cfg.music_dna_key:
+            body["music_dna_key"] = self.cfg.music_dna_key
+        url = self._djconnect_url("music_dna/import")
+        _LOGGER.debug("POST %s client_type=%s device_id=%s", url, CLIENT_TYPE, self.cfg.device_id)
+        started = time.monotonic()
+        response = requests.post(url, json=body, headers=self._headers(), timeout=self.timeout)
+        _LOGGER.debug("POST %s returned HTTP %s in %.0fms", url, response.status_code, _elapsed_ms(started))
+        data = self._json(response)
+        self.update_backend_summary(data)
+        self._apply_music_dna_key(data)
+        self._validate_ha_version(data)
+        return data
+
+    def _music_dna_request(self, message_type: str, path: str, body: dict[str, Any]) -> dict[str, Any]:
+        if self.cfg.music_dna_key:
+            body["music_dna_key"] = self.cfg.music_dna_key
+        data = self._try_websocket(message_type, body, command=message_type, timeout=max(self.timeout, 10.0))
+        if data is not None:
+            self.update_backend_summary(data)
+            self._apply_music_dna_key(data)
+            self._validate_ha_version(data)
+            return data
+        url = self._music_dna_fallback_url(message_type, path)
+        _LOGGER.debug("POST %s client_type=%s device_id=%s", url, CLIENT_TYPE, self.cfg.device_id)
+        started = time.monotonic()
+        response = requests.post(url, json=body, headers=self._headers(), timeout=self.timeout)
+        _LOGGER.debug("POST %s returned HTTP %s in %.0fms", url, response.status_code, _elapsed_ms(started))
+        data = self._json(response)
+        self.update_backend_summary(data)
+        self._apply_music_dna_key(data)
+        self._validate_ha_version(data)
+        return data
+
     def music_discovery_feed(self) -> dict[str, Any]:
         body = self._base_payload()
+        self._refresh_websocket_capabilities()
         data = self._try_websocket("djconnect/music_discovery/feed", body, command="djconnect/music_discovery/feed", timeout=max(self.timeout, 10.0))
         if data is not None:
             self.update_backend_summary(data)
             self._validate_ha_version(data)
             return data
-        url = self._djconnect_url("music_discovery")
+        url = self._music_discovery_fallback_url("music_discovery", "music_discovery")
         params = {
             "client_type": CLIENT_TYPE,
             "client_id": self.cfg.device_id,
@@ -314,16 +364,15 @@ class HAClient:
         return data
 
     def music_discovery_refresh(self) -> dict[str, Any]:
+        self._refresh_websocket_capabilities()
         return self._music_discovery_request("djconnect/music_discovery/refresh", "music_discovery/refresh", self._base_payload())
 
     def music_discovery_play(self, item: dict[str, Any]) -> dict[str, Any]:
-        body = self._base_payload(source="music_discovery", context="music_discovery")
+        self._refresh_websocket_capabilities()
+        body = self._base_payload()
         discovery_item_id = str(
             item.get("discovery_item_id")
             or item.get("id")
-            or item.get("recommendation_id")
-            or item.get("item_id")
-            or item.get("uri")
             or ""
         ).strip()
         if discovery_item_id:
@@ -331,11 +380,18 @@ class HAClient:
         section_id = str(item.get("section_id") or item.get("sectionId") or "").strip()
         if section_id:
             body["section_id"] = section_id
-        for key in ("id", "recommendation_id", "item_id", "uri", "type", "kind", "title", "subtitle", "artist"):
-            value = item.get(key)
-            if value not in (None, ""):
-                body[key] = value
         return self._music_discovery_request("djconnect/music_discovery/play", "music_discovery/play", body)
+
+    def music_discovery_feedback(self, item: dict[str, Any], feedback: str) -> dict[str, Any]:
+        self._refresh_websocket_capabilities()
+        body = self._base_payload(feedback=feedback)
+        discovery_item_id = str(item.get("discovery_item_id") or item.get("id") or "").strip()
+        if discovery_item_id:
+            body["discovery_item_id"] = discovery_item_id
+        section_id = str(item.get("section_id") or item.get("sectionId") or "").strip()
+        if section_id:
+            body["section_id"] = section_id
+        return self._music_discovery_request("djconnect/music_discovery/feedback", "music_discovery/feedback", body)
 
     def _music_discovery_request(self, message_type: str, path: str, body: dict[str, Any]) -> dict[str, Any]:
         data = self._try_websocket(message_type, body, command=message_type, timeout=max(self.timeout, 10.0))
@@ -343,7 +399,7 @@ class HAClient:
             self.update_backend_summary(data)
             self._validate_ha_version(data)
             return data
-        url = self._djconnect_url(path)
+        url = self._music_discovery_fallback_url(message_type, path)
         _LOGGER.debug("POST %s client_type=%s device_id=%s", url, CLIENT_TYPE, self.cfg.device_id)
         started = time.monotonic()
         response = requests.post(url, json=body, headers=self._headers(), timeout=self.timeout)
@@ -352,6 +408,58 @@ class HAClient:
         self.update_backend_summary(data)
         self._validate_ha_version(data)
         return data
+
+    def music_discovery_feedback_supported(self) -> bool:
+        self._refresh_websocket_capabilities()
+        return bool(
+            self.fast_path.features.get("music_discovery_feedback")
+            or "djconnect/music_discovery/feedback" in self.fast_path.commands
+            or self._music_discovery_fallback_url("music_discovery/feedback", "music_discovery/feedback") != self._djconnect_url("music_discovery/feedback")
+        )
+
+    def _refresh_websocket_capabilities(self) -> None:
+        if not self.fast_path.can_handle("__capability_probe__"):
+            return
+
+    def _music_discovery_fallback_url(self, key: str, path: str) -> str:
+        candidates = (
+            key,
+            key.replace("/", "_"),
+            f"djconnect/{key}",
+            f"djconnect/{key}".replace("/", "_"),
+            path,
+            path.replace("/", "_"),
+        )
+        fallback = next((self.fast_path.fallbacks.get(candidate) for candidate in candidates if self.fast_path.fallbacks.get(candidate)), "")
+        if fallback:
+            parsed = urlparse(fallback)
+            if parsed.scheme in {"http", "https"} and parsed.netloc:
+                return fallback
+            return self._url(fallback if fallback.startswith("/") else f"/{fallback}")
+        return self._djconnect_url(path)
+
+    def _music_dna_fallback_url(self, key: str, path: str) -> str:
+        candidates = (
+            key,
+            key.replace("/", "_"),
+            f"djconnect/{key}",
+            f"djconnect/{key}".replace("/", "_"),
+            path,
+            path.replace("/", "_"),
+            "music_dna",
+        )
+        fallback = next((self.fast_path.fallbacks.get(candidate) for candidate in candidates if self.fast_path.fallbacks.get(candidate)), "")
+        if fallback:
+            parsed = urlparse(fallback)
+            if parsed.scheme in {"http", "https"} and parsed.netloc:
+                return fallback
+            return self._url(fallback if fallback.startswith("/") else f"/{fallback}")
+        return self._djconnect_url(path)
+
+    def _apply_music_dna_key(self, data: dict[str, Any]) -> None:
+        key = str(data.get("music_dna_key") or data.get("resolved_music_dna_key") or "").strip()
+        if key:
+            self.cfg.music_dna_key = key
 
     def ask_dj_action(self, action: dict[str, Any]) -> dict[str, Any]:
         command = str(action.get("command") or "").strip()
