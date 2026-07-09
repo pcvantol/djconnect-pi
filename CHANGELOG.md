@@ -1,6 +1,6 @@
 # Changelog
 
-## 3.2.17
+## 3.2.18
 
 - Make Track Insight cards transparent so the screen background shows through
   while keeping subtle borders for structure.
