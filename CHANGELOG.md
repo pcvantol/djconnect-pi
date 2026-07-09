@@ -1,6 +1,6 @@
 # Changelog
 
-## 3.2.14
+## 3.2.15
 
 - Add a compact mood selector to Speelt nu that stores the selected mood and
   sends it through the existing Home Assistant mood context paths.
