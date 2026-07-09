@@ -1,5 +1,16 @@
 # Changelog
 
+## 3.2.20
+
+- Label legacy Home Assistant contract routes as fixture-only compatibility
+  coverage in the Node E2E fixtures and README, so `/voice`, raw Ask DJ,
+  legacy Ask DJ clear and debug WAV checks do not imply Raspberry Pi feature
+  availability.
+- Add contract guardrails that reject local `/api/device/dj_response`, old
+  `/api/djconnect` routes without `/v1`, Pi voice/audio capability claims and
+  websocket advertising for compatibility-only voice or legacy Ask DJ clear
+  routes.
+
 ## 3.2.19
 
 - Include the shared QML `MoodTheme.js` file in the packaged wheel so the

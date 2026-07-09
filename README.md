@@ -1,6 +1,6 @@
 # DJConnect Pi
 
-Version: `3.2.19`
+Version: `3.2.20`
 
 Raspberry Pi Zero 2 W touch-display client for DJConnect. This client uses
 Qt Quick/QML with a PySide6 backend and is meant for a Pimoroni HyperPixel 4.0
@@ -92,7 +92,8 @@ running separately from the touch UI.
   - `POST /api/djconnect/v1/status`
   - `POST /api/djconnect/v1/command`
   - `POST /api/djconnect/v1/event`
-  - `POST /api/djconnect/v1/voice`
+  - `POST /api/djconnect/v1/voice` (fixture-only compatibility coverage;
+    the Pi client does not advertise voice/PTT)
   - `POST /api/djconnect/v1/websocket/session`
   - `POST /api/djconnect/v1/track_insight`
   - `POST /api/djconnect/v1/music_dna/profile`
@@ -104,10 +105,11 @@ running separately from the touch UI.
   - `POST /api/djconnect/v1/music_discovery/refresh`
   - `POST /api/djconnect/v1/music_discovery/play`
   - `POST /api/djconnect/v1/music_discovery/feedback`
-  - `POST /api/djconnect/v1/ask_dj` (fixture-only legacy contract coverage;
+  - `POST /api/djconnect/v1/ask_dj` (fixture-only compatibility coverage;
     the Pi client uses message/history routes)
   - `POST /api/djconnect/v1/ask_dj/message`
-  - `POST /api/djconnect/v1/ask_dj/clear`
+  - `POST /api/djconnect/v1/ask_dj/clear` (fixture-only compatibility
+    coverage; the Pi client clears server-side history)
   - `POST /api/djconnect/v1/ask_dj/idle_suggestion`
   - `GET /api/djconnect/v1/ask_dj/history?since_revision=<revision>`
   - `POST /api/djconnect/v1/ask_dj/history/clear`
@@ -116,7 +118,8 @@ running separately from the touch UI.
   - `GET /api/djconnect/v1/vibecast`
   - `GET /api/djconnect/v1/tts/{token}.{extension}`
   - `GET /api/djconnect/v1/image_proxy/{token}`
-  - `GET /api/djconnect/v1/debug/last_voice.wav`
+  - `GET /api/djconnect/v1/debug/last_voice.wav` (fixture-only compatibility
+    coverage; the Pi client does not expose local DJ-response audio)
 - Home Assistant websocket commands covered by CI:
   - `djconnect/command`
   - `djconnect/ask_dj/message`
@@ -315,9 +318,9 @@ not a private source clone:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.2.19.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.2.20.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.2.19
+cd djconnect-pi-3.2.20
 sudo ./scripts/install.sh
 ```
 
@@ -438,9 +441,9 @@ installer:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.2.19.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.2.20.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.2.19
+cd djconnect-pi-3.2.20
 sudo ./scripts/install.sh
 ```
 

@@ -7,6 +7,13 @@ const DEVICE_TOKEN = "ci-device-token";
 const MUSIC_DNA_KEY = "user:ha-contract-fixture";
 const HA_VERSION = "3.2.46";
 
+const COMPATIBILITY_HTTP_ROUTES = [
+  "/api/djconnect/v1/voice",
+  "/api/djconnect/v1/ask_dj",
+  "/api/djconnect/v1/ask_dj/clear",
+  "/api/djconnect/v1/debug/last_voice.wav",
+];
+
 const HTTP_ROUTES = [
   ["POST", "/api/djconnect/v1/pair"],
   ["POST", "/api/djconnect/v1/status"],
@@ -143,6 +150,7 @@ module.exports = {
   DEVICE_TOKEN,
   MUSIC_DNA_KEY,
   HA_VERSION,
+  COMPATIBILITY_HTTP_ROUTES,
   HTTP_ROUTES,
   WS_COMMANDS,
   FALLBACKS,

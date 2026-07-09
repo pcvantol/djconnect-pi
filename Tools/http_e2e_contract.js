@@ -2,7 +2,7 @@
 
 const assert = require("assert/strict");
 const { contractFixture, requestJson } = require("./contract_fixture");
-const { CLIENT_TYPE, DEVICE_ID, DEVICE_NAME, DEVICE_TOKEN, HTTP_ROUTES, identity } = require("./ha_contract");
+const { CLIENT_TYPE, DEVICE_ID, DEVICE_NAME, DEVICE_TOKEN, COMPATIBILITY_HTTP_ROUTES, HTTP_ROUTES, identity } = require("./ha_contract");
 
 const postPayloads = {
   "/api/djconnect/v1/pair": { ...identity({ music_dna_key: undefined }), pair_code: "123456" },
@@ -35,6 +35,10 @@ function concrete(path) {
 
 (async () => {
   await contractFixture(async (fixture) => {
+    for (const route of COMPATIBILITY_HTTP_ROUTES) {
+      assert(HTTP_ROUTES.some(([, candidate]) => candidate === route), `${route} must be fixture-covered if listed as compatibility`);
+    }
+
     for (const [method, route] of HTTP_ROUTES) {
       const path = concrete(route);
       const isSession = route === "/api/djconnect/v1/websocket/session";

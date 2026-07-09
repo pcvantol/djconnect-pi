@@ -128,7 +128,9 @@ def test_client_contract_does_not_use_raw_ask_dj_or_old_search_aliases() -> None
             text = path.read_text(encoding="utf-8")
             for line_no, line in enumerate(text.splitlines(), start=1):
                 for label, pattern in forbidden_patterns.items():
-                    if label == "raw Ask DJ route" and "fixture-only legacy contract coverage" in line:
+                    if label == "raw Ask DJ route" and "fixture-only" in line and (
+                        "compatibility coverage" in line or "legacy contract coverage" in line
+                    ):
                         continue
                     if pattern.search(line):
                         violations.append(f"{path.relative_to(ROOT)}:{line_no}: {label}: {line.strip()}")
