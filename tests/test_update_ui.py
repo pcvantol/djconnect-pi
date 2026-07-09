@@ -70,5 +70,7 @@ def test_update_ui_wakes_display_with_xset(monkeypatch) -> None:
 
     update_ui.wake_display()
 
-    assert ["xset", "dpms", "force", "on"] in commands
-    assert ["xset", "s", "reset"] in commands
+    assert commands == [
+        ["xset", "s", "reset"],
+        ["xset", "dpms", "force", "on"],
+    ]

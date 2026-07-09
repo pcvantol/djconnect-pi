@@ -415,5 +415,6 @@ Open `Setup` on the touch screen and configure:
   logic on the Pi.
 - Ask DJ on the Pi displays the shared Home Assistant feed with optional
   structured touch action buttons supplied by Home Assistant. It does not
-  expose free prompt input, local history clear, push-to-talk, wake word, TTS
-  or local Ask DJ audio playback.
+  expose free prompt input, local-only history clear, push-to-talk, wake word,
+  TTS or local Ask DJ audio playback. Chat clear is confirmation-driven and
+  goes through the Home Assistant history clear route.

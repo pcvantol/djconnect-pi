@@ -302,6 +302,35 @@ def test_ask_dj_history_gets_since_revision() -> None:
     assert captured["headers"]["X-DJConnect-Client-Type"] == "raspberry_pi"
 
 
+def test_ask_dj_history_clear_posts_identity_and_music_dna_key() -> None:
+    cfg = Config(ha_url="http://ha", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1", device_name="Kitchen Pi", music_dna_key="dna-1", language="nl", websocket_fast_path_enabled=False)
+    client = HAClient(cfg)
+    captured: dict[str, Any] = {}
+
+    def fake_post(url: str, **kwargs: Any) -> FakeResponse:
+        captured["url"] = url
+        captured["json"] = kwargs["json"]
+        captured["headers"] = kwargs["headers"]
+        return FakeResponse(200, {"success": True, "cleared": True, "history_revision": 7, "clear_revision": 3, "messages": []})
+
+    with patch("djconnect_pi.ha.requests.post", side_effect=fake_post):
+        data = client.ask_dj_history_clear()
+
+    assert captured["url"] == "http://ha/api/djconnect/v1/ask_dj/history/clear"
+    assert captured["headers"]["Authorization"] == "Bearer token-1"
+    assert captured["json"]["client_type"] == "raspberry_pi"
+    assert captured["json"]["device_id"] == "djconnect-raspberry-pi-ABCDEF123456"
+    assert captured["json"]["device_name"] == "Kitchen Pi"
+    assert captured["json"]["identity"] == {
+        "client_type": "raspberry_pi",
+        "device_id": "djconnect-raspberry-pi-ABCDEF123456",
+        "device_name": "Kitchen Pi",
+    }
+    assert captured["json"]["music_dna_key"] == "dna-1"
+    assert captured["json"]["language"] == "nl-NL"
+    assert data["clear_revision"] == 3
+
+
 def test_ask_dj_action_uses_structured_command_payload() -> None:
     cfg = Config(ha_url="http://ha", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1", language="en")
     client = HAClient(cfg)
@@ -1267,6 +1296,61 @@ def test_missing_websocket_capability_falls_back_to_http_once() -> None:
 
     assert data["playback"]["title"] == "HTTP"
     assert [call.args[0] for call in post.call_args_list].count("http://ha.local:8123/api/djconnect/v1/command") == 1
+    assert client.diagnostics()["fastPathTransport"] == "http"
+
+
+def test_ask_dj_history_clear_uses_advertised_websocket_route() -> None:
+    cfg = Config(
+        ha_url="http://ha.local:8123",
+        device_id="djconnect-raspberry-pi-ABCDEF123456",
+        device_token="token-1",
+        websocket_fast_path_enabled=True,
+        ha_websocket_token="ha-token",
+        music_dna_key="dna-1",
+    )
+    client = HAClient(cfg)
+    sockets = [
+        FakeWebSocket(_ws_capabilities(["djconnect/ask_dj/history/clear"])),
+        FakeWebSocket(_ws_result({"success": True, "cleared": True, "history_revision": 4, "clear_revision": 2, "messages": []})),
+    ]
+
+    with (
+        patch("djconnect_pi.ha_websocket._websocket_create_connection", side_effect=sockets),
+        patch("djconnect_pi.ha.requests.post", return_value=_ws_session_response()) as post,
+    ):
+        data = client.ask_dj_history_clear()
+
+    assert data["cleared"] is True
+    assert post.call_count == 1
+    payload = sockets[1].sent[1]
+    assert payload["type"] == "djconnect/ask_dj/history/clear"
+    assert payload["client_type"] == "raspberry_pi"
+    assert payload["device_id"] == "djconnect-raspberry-pi-ABCDEF123456"
+    assert payload["music_dna_key"] == "dna-1"
+
+
+def test_ask_dj_history_clear_falls_back_to_http_when_websocket_fails() -> None:
+    cfg = Config(
+        ha_url="http://ha.local:8123",
+        device_id="djconnect-raspberry-pi-ABCDEF123456",
+        device_token="token-1",
+        websocket_fast_path_enabled=True,
+        ha_websocket_token="ha-token",
+    )
+    client = HAClient(cfg)
+    sockets = [
+        FakeWebSocket(_ws_capabilities(["djconnect/ask_dj/history/clear"])),
+        FakeWebSocket([{"type": "auth_required"}, {"type": "auth_ok"}, {"id": 2, "type": "result", "success": False, "error": {"message": "boom"}}]),
+    ]
+
+    with (
+        patch("djconnect_pi.ha_websocket._websocket_create_connection", side_effect=sockets),
+        patch("djconnect_pi.ha.requests.post", side_effect=_session_or_http_response({"success": True, "cleared": True, "history_revision": 4, "clear_revision": 2, "messages": []})) as post,
+    ):
+        data = client.ask_dj_history_clear()
+
+    assert data["cleared"] is True
+    assert [call.args[0] for call in post.call_args_list].count("http://ha.local:8123/api/djconnect/v1/ask_dj/history/clear") == 1
     assert client.diagnostics()["fastPathTransport"] == "http"
 
 

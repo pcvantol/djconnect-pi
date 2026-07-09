@@ -228,6 +228,23 @@ class HAClient:
         self._validate_ha_version(data)
         return data
 
+    def ask_dj_history_clear(self) -> dict[str, Any]:
+        body = self._ask_dj_payload()
+        data = self._try_websocket("djconnect/ask_dj/history/clear", body, command="djconnect/ask_dj/history/clear", timeout=self.timeout)
+        if data is not None:
+            self.update_backend_summary(data)
+            self._validate_ha_version(data)
+            return data
+        url = self._djconnect_url("ask_dj/history/clear")
+        _LOGGER.debug("POST %s action=ask_dj_history_clear client_type=%s device_id=%s", url, CLIENT_TYPE, self.cfg.device_id)
+        started = time.monotonic()
+        response = requests.post(url, json=body, headers=self._headers(), timeout=self.timeout)
+        _LOGGER.debug("POST %s action=ask_dj_history_clear returned HTTP %s in %.0fms", url, response.status_code, _elapsed_ms(started))
+        data = self._json(response)
+        self.update_backend_summary(data)
+        self._validate_ha_version(data)
+        return data
+
     def track_insight(self, playback: Playback | None = None, *, force_refresh: bool = False, include_visual_profile: bool = True) -> dict[str, Any]:
         body = self._base_payload(
             force_refresh=force_refresh,

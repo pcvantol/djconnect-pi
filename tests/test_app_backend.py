@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 import json
+import os
 import subprocess
+import time
 from unittest.mock import Mock, patch
 
 import pytest
@@ -12,6 +14,7 @@ from djconnect_pi.config import Config, load_config, save_config
 from djconnect_pi.app import (
     DJConnectBackend,
     SaveCurrentTrackError,
+    _ask_dj_display_time,
     _format_duration,
     _format_logs_for_display,
     _read_tail_text,
@@ -24,7 +27,7 @@ from djconnect_pi.app import (
     parse_queue_items,
     prepare_media_artwork,
 )
-from djconnect_pi.ha import AuthenticationError, HAClient, Playback, ProtocolVersionMismatch, StaleBackendAction, UnsupportedBackendCapability
+from djconnect_pi.ha import AuthenticationError, BackendUnavailable, DJConnectError, HAClient, Playback, ProtocolVersionMismatch, StaleBackendAction, UnsupportedBackendCapability
 
 
 def ensure_app() -> QCoreApplication:
@@ -684,6 +687,82 @@ def test_track_insight_direct_and_wrapped_response_decode_same_contract() -> Non
         assert "Mood context" in titles
 
 
+def test_track_insight_visualizer_decodes_backend_visualisation_payload(tmp_path: Path, monkeypatch) -> None:
+    ensure_app()
+    monkeypatch.setattr("djconnect_pi.app.cached_image_url", lambda url: f"file:///cache/{url.rsplit('/', 1)[-1]}")
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.client.track_insight = Mock()
+
+    backend._apply_track_insight_data(
+        {
+            "track": {"title": "Midnight City", "artist": "M83", "album": "Hurry Up", "artwork_url": "https://example.test/m83.jpg"},
+            "analysis": {"summary": "Bright synthwave.", "energy": 0.82, "mood": "dreamy", "genre": "Synthpop"},
+            "visualisation": {
+                "bars": [0.1, 0.4, 0.9, {"value": 0.6}],
+                "palette": ["#4DA3FF", "#7B61FF", "#D184FF"],
+            },
+        }
+    )
+
+    visualizer = backend.trackInsightVisualizer
+    assert backend.client.track_insight.call_count == 0
+    assert backend.trackInsightTitle == "Midnight City"
+    assert backend.trackInsightArtist == "M83"
+    assert backend.trackInsightImageUrl
+    assert visualizer["available"] is True
+    assert visualizer["source"] == "backend"
+    assert visualizer["colors"] == ["#4DA3FF", "#7B61FF", "#D184FF"]
+    assert len(visualizer["bars"]) == 4
+    assert visualizer["mood"] == "dreamy"
+    assert visualizer["genre"] == "Synthpop"
+
+
+def test_track_insight_visualizer_fallback_uses_existing_fields_without_extra_call(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.client.track_insight = Mock()
+
+    backend._apply_track_insight_data(
+        {
+            "track": {"title": "Strobe", "artist": "deadmau5"},
+            "analysis": {"summary": "A long build.", "energy": 0.75, "danceability": 0.64, "texture": "glossy"},
+        }
+    )
+
+    visualizer = backend.trackInsightVisualizer
+    assert backend.client.track_insight.call_count == 0
+    assert visualizer["available"] is True
+    assert visualizer["source"] == "fallback"
+    assert len(visualizer["bars"]) == 36
+    assert all(0.0 <= value <= 1.0 for value in visualizer["bars"])
+    assert visualizer["texture"] == "glossy"
+
+
+def test_track_insight_visualizer_replaces_old_state_for_new_response(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend._apply_track_insight_data(
+        {
+            "track": {"title": "Old", "artist": "Artist"},
+            "analysis": {"summary": "Old"},
+            "visualization": {"bars": [0.2, 0.4], "colors": ["#111111"]},
+        }
+    )
+    old_bars = list(backend.trackInsightVisualizer["bars"])
+
+    backend._apply_track_insight_data(
+        {
+            "track": {"title": "New", "artist": "Artist"},
+            "analysis": {"summary": "New"},
+            "visualizer": {"levels": [0.9, 0.3, 0.1], "gradient": {"start": "#222222", "end": "#333333"}},
+        }
+    )
+
+    assert backend.trackInsightTitle == "New"
+    assert backend.trackInsightVisualizer["bars"] != old_bars
+    assert backend.trackInsightVisualizer["colors"] == ["#222222", "#333333"]
+
+
 def test_ask_dj_track_insight_no_track_playing_is_empty_state() -> None:
     messages = parse_ask_dj_messages({"intent": "track_insight", "track_insight": {"error": "no_track_playing"}})
 
@@ -723,6 +802,7 @@ def test_track_insight_clears_when_current_track_changes(tmp_path: Path) -> None
 
     assert backend.trackInsightText == ""
     assert backend.trackInsightSections == []
+    assert backend.trackInsightVisualizer == {}
 
 
 def test_ask_dj_track_insight_explicit_playback_actions_are_preserved() -> None:
@@ -863,6 +943,23 @@ def test_ask_dj_parser_keeps_legacy_user_before_assistant() -> None:
     ]
 
 
+def test_ask_dj_display_time_uses_device_local_timezone(monkeypatch) -> None:
+    original_tz = os.environ.get("TZ")
+    monkeypatch.setenv("TZ", "Europe/Amsterdam")
+    if hasattr(time, "tzset"):
+        time.tzset()
+    try:
+        assert _ask_dj_display_time("2026-06-24T12:00:00Z") == "14:00"
+        assert _ask_dj_display_time("2026-01-24T12:00:00Z") == "13:00"
+    finally:
+        if original_tz is None:
+            monkeypatch.delenv("TZ", raising=False)
+        else:
+            monkeypatch.setenv("TZ", original_tz)
+        if hasattr(time, "tzset"):
+            time.tzset()
+
+
 def test_ask_dj_merge_orders_exchange_and_deduplicates_refreshes(tmp_path: Path) -> None:
     ensure_app()
     backend = DJConnectBackend(tmp_path / "config.json")
@@ -929,8 +1026,8 @@ def test_ask_dj_merge_orders_exchange_and_deduplicates_refreshes(tmp_path: Path)
 
     rendered = [(message["role"], message["text"], message["displayTime"]) for message in backend.askDjMessages]
     assert rendered == [
-        ("assistant", "Ik heb een paar Snow Patrol playlists gevonden.", "12:00"),
-        ("user", "heb je playlists van snowpatrol", "12:00"),
+        ("assistant", "Ik heb een paar Snow Patrol playlists gevonden.", _ask_dj_display_time("2026-06-24T12:00:01Z")),
+        ("user", "heb je playlists van snowpatrol", _ask_dj_display_time("2026-06-24T12:00:02Z")),
     ]
 
 
@@ -951,7 +1048,10 @@ def test_ask_dj_history_limit_is_applied_from_server(tmp_path: Path) -> None:
     )
 
     assert [message["id"] for message in backend.askDjMessages] == ["m3", "m2"]
-    assert [message["displayTime"] for message in backend.askDjMessages] == ["12:00", "12:00"]
+    assert [message["displayTime"] for message in backend.askDjMessages] == [
+        _ask_dj_display_time("2026-06-24T12:00:03Z"),
+        _ask_dj_display_time("2026-06-24T12:00:02Z"),
+    ]
 
 
 def test_ask_dj_clear_and_trim_revisions_are_server_authoritative(tmp_path: Path) -> None:
@@ -976,6 +1076,55 @@ def test_ask_dj_clear_and_trim_revisions_are_server_authoritative(tmp_path: Path
     assert backend.askDjMessages == []
     assert backend._ask_dj_clear_revision == 2
     assert backend._ask_dj_history_revision == 12
+
+
+def test_ask_dj_clear_history_success_clears_local_messages_and_revisions(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend._ask_dj_messages = [
+        {
+            "id": "m1",
+            "role": "assistant",
+            "text": "Private answer",
+            "created_at": "2026-07-05T08:00:01Z",
+            "images": [{"url": "https://example.test/old.jpg"}],
+            "actions": [{"title": "Old action", "payload": "{}"}],
+        }
+    ]
+    backend._ask_dj_history_revision = 4
+    backend._ask_dj_clear_revision = 1
+    backend.client.ask_dj_history_clear = Mock(return_value={"success": True, "cleared": True, "history_revision": 9, "clear_revision": 3, "messages": []})
+
+    backend._clear_ask_dj_history_worker()
+
+    backend.client.ask_dj_history_clear.assert_called_once_with()
+    assert backend.askDjMessages == []
+    assert backend._ask_dj_history_revision == 9
+    assert backend._ask_dj_clear_revision == 3
+
+
+def test_ask_dj_clear_history_error_preserves_local_messages(tmp_path: Path, caplog) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    original_messages = [
+        {
+            "id": "m1",
+            "role": "assistant",
+            "text": "Private answer should stay local",
+            "created_at": "2026-07-05T08:00:01Z",
+            "images": [{"url": "https://example.test/old.jpg"}],
+            "actions": [{"title": "Old action", "payload": "{}"}],
+        }
+    ]
+    backend._ask_dj_messages = list(original_messages)
+    backend.client.ask_dj_history_clear = Mock(side_effect=DJConnectError("backend refused"))
+
+    with caplog.at_level("WARNING"), pytest.raises(BackendUnavailable):
+        backend._clear_ask_dj_history_worker()
+
+    assert backend.askDjMessages == original_messages
+    assert "Private answer should stay local" not in caplog.text
+    assert "Old action" not in caplog.text
 
 
 def test_ask_dj_poll_requires_pairing_and_token(tmp_path: Path) -> None:
@@ -1565,16 +1714,21 @@ def test_backend_wake_display_resets_x11_dpms(tmp_path: Path, monkeypatch) -> No
     ensure_app()
     backend = DJConnectBackend(tmp_path / "config.json")
     commands: list[list[str]] = []
+    wake_time = 100.0
 
     def fake_run(command, **kwargs):
         commands.append(command)
 
+    monkeypatch.setattr(time, "monotonic", lambda: wake_time)
     monkeypatch.setattr(subprocess, "run", fake_run)
 
     backend.wakeDisplay()
+    backend.wakeDisplay()
 
-    assert ["xset", "dpms", "force", "on"] in commands
-    assert ["xset", "s", "reset"] in commands
+    assert commands == [
+        ["xset", "s", "reset"],
+        ["xset", "dpms", "force", "on"],
+    ]
 
 
 def test_backend_favorite_state_requires_capability_and_track_uri(tmp_path: Path) -> None:
@@ -1796,6 +1950,24 @@ def test_backend_toast_can_be_shown_and_hidden(tmp_path: Path) -> None:
     assert backend.toastIcon == "music"
 
 
+def test_backend_toast_context_icons_match_screen_icons(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+
+    for context, icon in (
+        ("playback", "music"),
+        ("queue", "queue"),
+        ("askdj", "chat"),
+        ("trackinsight", "trackInsight"),
+        ("discover", "discover"),
+        ("musicdna", "heart"),
+        ("settings", "settings"),
+        ("logs", "logs"),
+    ):
+        backend.showToastForContext(context, context)
+        assert backend.toastIcon == icon
+
+
 def test_backend_auth_error_clears_pairing_and_shows_ready_to_pair(tmp_path: Path) -> None:
     ensure_app()
     config_path = tmp_path / "config.json"
@@ -1985,7 +2157,7 @@ def test_backend_music_dna_refresh_shows_toast(tmp_path: Path) -> None:
     backend.refreshMusicDna()
 
     assert backend.toastText == backend.t("refreshing")
-    assert backend.toastIcon == "musicdna"
+    assert backend.toastIcon == "heart"
     assert calls
     assert calls[0][0] == backend.t("music_dna")
 
@@ -2006,7 +2178,7 @@ def test_backend_track_insight_refresh_shows_toast(tmp_path: Path) -> None:
     backend.refreshTrackInsight()
 
     assert backend.toastText == backend.t("refreshing")
-    assert backend.toastIcon == "info"
+    assert backend.toastIcon == "trackInsight"
     assert calls
     assert calls[0][0] == backend.t("track_insight")
 
@@ -2050,7 +2222,7 @@ def test_backend_music_discovery_refresh_shows_toast(tmp_path: Path) -> None:
     backend.refreshMusicDiscovery()
 
     assert backend.toastText == backend.t("refreshing")
-    assert backend.toastIcon == "musicdna"
+    assert backend.toastIcon == "discover"
     assert calls
     assert calls[0][0] == backend.t("music_discovery")
 

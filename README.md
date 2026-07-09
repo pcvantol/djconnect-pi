@@ -51,15 +51,21 @@ running separately from the touch UI.
   Spotify Direct over Music Assistant.
 - Ask DJ is `readonly_actions`. The Pi polls server-side history, displays
   assistant/system/status/user bubbles and sends only Home Assistant-provided
-  structured action payloads through `/api/djconnect/v1/command`. It reports
-  `ask_dj_voice_supported:false` plus
+  structured action payloads through `/api/djconnect/v1/command`. Chat history
+  clear is server-side only: the touch UI asks for confirmation, calls
+  `djconnect/ask_dj/history/clear` or
+  `POST /api/djconnect/v1/ask_dj/history/clear`, and clears local bubbles only
+  after HA confirms. It reports `ask_dj_voice_supported:false` plus
   `ask_dj_audio_response_supported:false` and does not expose local message
-  input, history clear, voice/PTT, TTS or local audio playback.
+  input, voice/PTT, TTS or local audio playback.
 - Track Insight is server-side in Home Assistant. The Pi posts current track
   metadata, language/locale, optional mood and optional Music DNA key to
   `/api/djconnect/v1/track_insight`, renders direct or wrapped
   `track`/`analysis` responses, clears old analysis on track changes and never
-  shows BPM/key/model fields.
+  shows BPM/key/model fields. The Track Insight visualizer uses only the same
+  HA response, preferring backend `visualisation`/`visualization`/`visualizer`
+  bars and colors and falling back to a visual-only bar model from existing
+  response fields without extra network calls or local analysis.
 - Music DNA is Home Assistant authoritative. The Pi can call profile, settings
   and clear endpoints over HTTP or the advertised websocket fast path, but it
   does not calculate, store or replay Music DNA as a local source of truth.
@@ -209,12 +215,14 @@ The app is a 720x720 fullscreen touch remote:
   platform-specific Unicode glyph rendering
 - Ask DJ screen that displays the shared Home Assistant conversation feed,
   decodes assistant, system, status and other-client user messages, and renders
-  HA-provided structured action buttons without free prompt input, local
-  history clear, voice, PTT, TTS or local audio path
+  HA-provided structured action buttons without free prompt input, voice, PTT,
+  TTS or local audio path. The chat clear button is a confirmed server-side
+  operation and keeps local history intact if HA returns an error.
 - Track Insight screen that refreshes the current-track analysis from Home
   Assistant, shows title/artist/artwork, summary, genre/subgenre, energy,
   danceability, intensity, confidence, production/instrumentation/arrangement
-  notes and clean retry states for no-track/rate-limit responses
+  notes, a lightweight visualizer sourced from the same response and clean
+  retry states for no-track/rate-limit responses
 - Ontdek screen that works only after Music DNA consent, renders HA-provided
   track, album, artist and playlist recommendations as one large row per item,
   opens backend reason text in a full-screen Waarom details view and sends

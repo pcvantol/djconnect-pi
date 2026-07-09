@@ -33,6 +33,7 @@ LOG_LINE_RE = re.compile(
 LOG_LEVEL_SHORT = {"DEBUG": "DBG", "INFO": "INF", "WARNING": "WRN", "ERROR": "ERR", "CRITICAL": "ERR"}
 LOG_DISPLAY_MAX_BYTES = 80_000
 GAME_SOUND_SAMPLE_RATE = 16_000
+DISPLAY_WAKE_DEBOUNCE_SECONDS = 0.8
 MEDIA_ARTWORK_CACHE_LIMIT = 6
 QT_PIXMAP_CACHE_LIMIT_KB = 4096
 UI_WORKER_COUNT = 1
@@ -49,9 +50,9 @@ TOAST_CONTEXT_ICONS = {
     "diagnostics": "logs",
     "logs": "logs",
     "askdj": "chat",
-    "trackinsight": "info",
-    "discover": "musicdna",
-    "musicdna": "musicdna",
+    "trackinsight": "trackInsight",
+    "discover": "discover",
+    "musicdna": "heart",
     "games": "gamepad",
 }
 
@@ -167,6 +168,7 @@ class DJConnectBackend(QObject):
         self._track_insight_error = ""
         self._track_insight_items: list[dict[str, object]] = []
         self._track_insight_sections: list[dict[str, object]] = []
+        self._track_insight_visualizer: dict[str, object] = {}
         self._track_insight_track_key = ""
         self._ask_dj_unavailable_until = 0.0
         self._ask_dj_poll_error_count = 0
@@ -176,6 +178,7 @@ class DJConnectBackend(QObject):
         self._media_artwork_cache_in_flight: set[str] = set()
         self._pending_output_device = ""
         self._pending_output_until = 0.0
+        self._last_display_wake_at = 0.0
         self._game_sound_objects: list[tuple[object, QBuffer]] = []
         self._status_text = self.tr_key("paired" if self.cfg.paired else "not_paired")
         self._backend_available = True
@@ -316,6 +319,10 @@ class DJConnectBackend(QObject):
     @Property("QVariantList", notify=trackInsightChanged)
     def trackInsightSections(self) -> list[dict[str, object]]:
         return self._track_insight_sections
+
+    @Property("QVariantMap", notify=trackInsightChanged)
+    def trackInsightVisualizer(self) -> dict[str, object]:
+        return self._track_insight_visualizer
 
     @Property(bool, notify=playingChanged)
     def playing(self) -> bool:
@@ -763,9 +770,13 @@ class DJConnectBackend(QObject):
 
     @Slot()
     def wakeDisplay(self) -> None:
+        now = time.monotonic()
+        if now - self._last_display_wake_at < DISPLAY_WAKE_DEBOUNCE_SECONDS:
+            return
+        self._last_display_wake_at = now
         for command in (
-            ["xset", "dpms", "force", "on"],
             ["xset", "s", "reset"],
+            ["xset", "dpms", "force", "on"],
         ):
             try:
                 subprocess.run(command, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -953,6 +964,15 @@ class DJConnectBackend(QObject):
     @Slot()
     def refreshAskDjHistory(self) -> None:
         self._load_ask_dj_history(show_toast=True, action="refreshed")
+
+    @Slot()
+    def clearAskDjHistory(self) -> None:
+        self._sync_config_from_disk()
+        if self._demo_mode or not self.paired or self._ask_dj_busy:
+            return
+        _LOGGER.info("User requested Ask DJ chat history clear")
+        self._set_ask_dj_busy(True)
+        self._run(self.tr_key("ask_dj_clear_chat"), self._clear_ask_dj_history_worker, done=lambda: self._set_ask_dj_busy(False))
 
     def _load_ask_dj_history(self, *, show_toast: bool, action: str) -> None:
         self._sync_config_from_disk()
@@ -1512,6 +1532,17 @@ class DJConnectBackend(QObject):
         self._persist_backend_summary()
         self._askDjReady.emit(data)
 
+    def _clear_ask_dj_history_worker(self) -> None:
+        try:
+            data = self.client.ask_dj_history_clear()
+        except (AuthenticationError, ProtocolVersionMismatch):
+            raise
+        except (DJConnectError, requests.RequestException) as exc:
+            raise BackendUnavailable("Ask DJ clear unavailable") from exc
+        self._persist_backend_summary()
+        self._askDjReady.emit(data)
+        self._toastReady.emit(self.tr_key("ask_dj_cleared"), 2500, "askdj")
+
     def _track_insight_worker(self) -> None:
         try:
             data = self.client.track_insight(self.playback)
@@ -1826,9 +1857,23 @@ class DJConnectBackend(QObject):
         if not isinstance(data, dict):
             return
         clear_revision = _int_value(data.get("clear_revision"), self._ask_dj_clear_revision)
-        if clear_revision > self._ask_dj_clear_revision:
+        messages_value = data.get("messages")
+        clear_ack = (
+            data.get("cleared") is True
+            or (
+                data.get("success") is True
+                and "clear_revision" in data
+                and isinstance(messages_value, list)
+                and not messages_value
+            )
+        )
+        if clear_revision > self._ask_dj_clear_revision or clear_ack:
             self._clear_ask_dj_cache(reset_revisions=False)
-            self._ask_dj_clear_revision = clear_revision
+            self._ask_dj_clear_revision = max(self._ask_dj_clear_revision, clear_revision)
+            self._ask_dj_history_revision = max(self._ask_dj_history_revision, _int_value(data.get("history_revision"), self._ask_dj_history_revision))
+            self._set_backend_available(True)
+            if clear_ack:
+                return
         trimmed_before = str(data.get("history_trimmed_before") or "").strip()
         if trimmed_before:
             self._ask_dj_messages = [m for m in self._ask_dj_messages if str(m.get("created_at") or m.get("server_time") or "") >= trimmed_before]
@@ -1970,6 +2015,7 @@ class DJConnectBackend(QObject):
         self._track_insight_error = ""
         self._track_insight_items = list(message.get("items")) if isinstance(message.get("items"), list) else []
         self._track_insight_sections = list(analysis.get("sections")) if isinstance(analysis.get("sections"), list) else []
+        self._track_insight_visualizer = _track_insight_visualizer(track, self._track_insight_items, self._track_insight_sections) if isinstance(track, dict) else {}
         self._track_insight_track_key = self._current_track_key()
         self._set_backend_available(True)
         self.trackInsightChanged.emit()
@@ -1996,6 +2042,7 @@ class DJConnectBackend(QObject):
                 self._track_insight_error,
                 self._track_insight_items,
                 self._track_insight_sections,
+                self._track_insight_visualizer,
                 self._track_insight_track_key,
             )
         )
@@ -2007,6 +2054,7 @@ class DJConnectBackend(QObject):
         self._track_insight_error = error
         self._track_insight_items = []
         self._track_insight_sections = []
+        self._track_insight_visualizer = {}
         self._track_insight_track_key = ""
         if changed or error:
             self.trackInsightChanged.emit()
@@ -2643,11 +2691,21 @@ def _track_insight_text(item: dict[str, object]) -> str:
 def _track_insight_data(item: dict[str, object]) -> dict[str, object]:
     payload = _track_insight_payload(item)
     analysis = payload.get("analysis") if isinstance(payload.get("analysis"), dict) else {}
+    visualizer = _first_dict(
+        payload.get("visualisation"),
+        payload.get("visualization"),
+        payload.get("visualizer"),
+        analysis.get("visualisation"),
+        analysis.get("visualization"),
+        analysis.get("visualizer"),
+    )
     return {
         "track": payload.get("track") if isinstance(payload.get("track"), dict) else {},
         "analysis": _track_insight_allowed_analysis(analysis),
         "music_dna": payload.get("music_dna") if isinstance(payload.get("music_dna"), dict) else {},
         "visual_profile": payload.get("visual_profile") if isinstance(payload.get("visual_profile"), dict) else {},
+        "visualizer": visualizer,
+        "colors": _first_present(payload, ("colors", "palette", "gradient")),
         "mood_context": payload.get("mood_context") if isinstance(payload.get("mood_context"), dict) else {},
         "language": str(payload.get("language") or item.get("language") or "").strip(),
         "cache": payload.get("cache") if isinstance(payload.get("cache"), dict) else {},
@@ -2691,6 +2749,143 @@ def _track_insight_music_dna_match(data: dict[str, object]) -> str:
     if isinstance(raw, (int, float)):
         return f"{max(0, min(100, int(raw)))}%"
     return str(raw or "").strip()
+
+
+def _track_insight_visualizer(data: dict[str, object], items: list[dict[str, object]], sections: list[dict[str, object]]) -> dict[str, object]:
+    analysis = data.get("analysis") if isinstance(data.get("analysis"), dict) else {}
+    track = data.get("track") if isinstance(data.get("track"), dict) else {}
+    visualizer = data.get("visualizer") if isinstance(data.get("visualizer"), dict) else {}
+    colors = _track_visualizer_colors(visualizer, data)
+    bars = _track_visualizer_bars(visualizer)
+    source = "backend" if bars else "fallback"
+    if not bars:
+        bars = _track_visualizer_fallback_bars(data, items, sections)
+    if not bars:
+        return {}
+    return {
+        "available": True,
+        "source": source,
+        "bars": bars[:48],
+        "colors": colors[:4],
+        "title": str(track.get("title") or "").strip(),
+        "artist": str(track.get("artist") or "").strip(),
+        "mood": str(analysis.get("mood") or analysis.get("vibe") or "").strip(),
+        "genre": str(analysis.get("genre") or analysis.get("subgenre") or "").strip(),
+        "texture": str(analysis.get("texture") or "").strip(),
+    }
+
+
+def _track_visualizer_bars(visualizer: dict[str, object]) -> list[float]:
+    value = _first_present(visualizer, ("bars", "levels", "waveform", "spectrum", "values"))
+    if isinstance(value, dict):
+        value = value.get("values") or value.get("bars") or value.get("levels")
+    if not isinstance(value, list):
+        return []
+    bars: list[float] = []
+    for item in value:
+        raw = item
+        if isinstance(item, dict):
+            raw = _first_present(item, ("value", "height", "level", "amplitude"))
+        number = _visualizer_number(raw)
+        if number is not None:
+            bars.append(number)
+    return _normalize_visualizer_bars(bars)
+
+
+def _track_visualizer_fallback_bars(data: dict[str, object], items: list[dict[str, object]], sections: list[dict[str, object]]) -> list[float]:
+    analysis = data.get("analysis") if isinstance(data.get("analysis"), dict) else {}
+    metrics: list[float] = []
+    for key in ("energy", "danceability", "intensity", "confidence"):
+        number = _visualizer_number(analysis.get(key))
+        if number is not None:
+            metrics.append(number)
+    for item in items:
+        if isinstance(item, dict):
+            number = _visualizer_number(item.get("value"))
+            if number is not None:
+                metrics.append(number)
+    if not metrics:
+        seed_text = " ".join(
+            str(value)
+            for value in (
+                analysis.get("mood"),
+                analysis.get("vibe"),
+                analysis.get("genre"),
+                analysis.get("texture"),
+                *(section.get("title", "") for section in sections if isinstance(section, dict)),
+            )
+            if value
+        )
+        if seed_text:
+            metrics = [((ord(char) % 13) + 5) / 18 for char in seed_text[:16]]
+    if not metrics:
+        metrics = [0.45, 0.58, 0.52, 0.66]
+    bars: list[float] = []
+    for index in range(36):
+        base = metrics[index % len(metrics)]
+        wave = 0.5 + 0.5 * abs(((index % 12) - 6) / 6)
+        bars.append(max(0.18, min(1.0, base * 0.72 + wave * 0.28)))
+    return bars
+
+
+def _track_visualizer_colors(visualizer: dict[str, object], data: dict[str, object]) -> list[str]:
+    visual_profile = data.get("visual_profile") if isinstance(data.get("visual_profile"), dict) else {}
+    colors: list[str] = []
+    for source in (
+        visualizer.get("colors"),
+        visualizer.get("palette"),
+        visualizer.get("gradient"),
+        data.get("colors"),
+        visual_profile.get("palette"),
+        visual_profile.get("colors"),
+    ):
+        colors.extend(_color_list(source))
+    deduped: list[str] = []
+    for color in colors:
+        if color not in deduped:
+            deduped.append(color)
+    return deduped
+
+
+def _color_list(value: object) -> list[str]:
+    if isinstance(value, dict):
+        result: list[str] = []
+        for key in ("start", "mid", "middle", "end", "primary", "secondary", "accent"):
+            color = _safe_hex_color(value.get(key))
+            if color:
+                result.append(color)
+        return result
+    if isinstance(value, list):
+        return [color for color in (_safe_hex_color(item) for item in value) if color]
+    color = _safe_hex_color(value)
+    return [color] if color else []
+
+
+def _safe_hex_color(value: object) -> str:
+    text = str(value or "").strip()
+    return text if re.fullmatch(r"#[0-9a-fA-F]{6}", text) else ""
+
+
+def _visualizer_number(value: object) -> float | None:
+    if isinstance(value, (int, float)):
+        number = float(value)
+    else:
+        match = re.search(r"-?\d+(?:\.\d+)?", str(value or ""))
+        if not match:
+            return None
+        number = float(match.group(0))
+    if number > 1:
+        number = number / 100.0
+    return max(0.0, min(1.0, number))
+
+
+def _normalize_visualizer_bars(values: list[float]) -> list[float]:
+    if not values:
+        return []
+    peak = max(values)
+    if peak > 0:
+        values = [value / peak for value in values]
+    return [max(0.08, min(1.0, value)) for value in values]
 
 
 def _track_insight_analysis(data: dict[str, object]) -> dict[str, object]:
@@ -3420,7 +3615,7 @@ def _ask_dj_display_time(value: object) -> str:
     except ValueError:
         match = re.search(r"\b(\d{2}:\d{2})(?::\d{2})?\b", raw)
         return match.group(1) if match else ""
-    return parsed.strftime("%H:%M")
+    return parsed.astimezone().strftime("%H:%M")
 
 
 def _int_value(value: object, default: int = 0) -> int:
@@ -3457,6 +3652,13 @@ def _first_present(data: dict[str, object], keys: tuple[str, ...]) -> object:
             if value is not None:
                 return value
     return None
+
+
+def _first_dict(*values: object) -> dict[str, object]:
+    for value in values:
+        if isinstance(value, dict):
+            return value
+    return {}
 
 
 def parse_music_dna_profile(data: dict[str, object]) -> dict[str, object]:
