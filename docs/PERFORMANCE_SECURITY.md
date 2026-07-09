@@ -23,12 +23,14 @@ This file records the first pass review for the wall-mounted Pi client.
   cache files; media-list delegates still avoid retaining extra changing image
   cache entries. Qt's pixmap cache is capped at 4 MB.
 - Playback controls live on the dedicated Bediening screen. Speelt nu only
-  renders refresh, unobstructed album art and title text, reducing Canvas
-  repaint pressure on the default screen.
+  renders refresh, mood selection, unobstructed album art and title text,
+  reducing Canvas repaint pressure on the default screen.
 - Screen blanking defaults to 120 seconds and wakes on tap. Wake refreshes
-  playback and screen navigation restarts the idle timer, reducing stale screen
-  state while still limiting always-on visual load and burn-in risk. Hardware
-  backlight/DPMS control still needs HyperPixel validation.
+  playback, while automatic return to Speelt nu is a separate 30/60/120/off
+  setting that defaults to 60 seconds. Screen navigation restarts both timers
+  where enabled, reducing stale screen state while still limiting always-on
+  visual load and burn-in risk. Hardware backlight/DPMS control still needs
+  HyperPixel validation.
 - Brightness is currently app-level dimming in QML, which is portable across Pi
   images but does not yet lower physical panel backlight power.
 - Release installs are atomic at the symlink level, avoiding partially updated

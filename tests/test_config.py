@@ -13,6 +13,7 @@ def test_default_config_uses_raspberry_pi_client_type(tmp_path: Path) -> None:
     assert len(cfg.pairing_code) == 6
     assert cfg.pairing_code.isdigit()
     assert cfg.screen_timeout_seconds == 120
+    assert cfg.return_to_now_seconds == 60
     assert cfg.update_repo == "pcvantol/djconnect-pi-releases"
     assert cfg.device_name == "DJConnect"
     assert cfg.websocket_fast_path_enabled is False
@@ -79,6 +80,7 @@ def test_load_config_normalizes_runtime_settings(tmp_path: Path) -> None:
                 "device_name": "DJConnect Pi",
                 "version": "3.1.25",
                 "screen_timeout_seconds": -5,
+                "return_to_now_seconds": 999,
                 "screen_brightness_percent": 900,
                 "update_channel": "nightly",
                 "language": "de",
@@ -90,6 +92,7 @@ def test_load_config_normalizes_runtime_settings(tmp_path: Path) -> None:
     loaded = load_config(path)
 
     assert loaded.screen_timeout_seconds == 0
+    assert loaded.return_to_now_seconds == 60
     assert loaded.screen_brightness_percent == 100
     assert loaded.update_channel == "stable"
     assert loaded.language == "de"

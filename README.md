@@ -1,6 +1,6 @@
 # DJConnect Pi
 
-Version: `3.2.13`
+Version: `3.2.14`
 
 Raspberry Pi Zero 2 W touch-display client for DJConnect. This client uses
 Qt Quick/QML with a PySide6 backend and is meant for a Pimoroni HyperPixel 4.0
@@ -133,8 +133,10 @@ The app is a 720x720 fullscreen touch remote:
 - blocking first-run pairing screen until the client is paired
 - blocking version-mismatch screen when HA and Pi versions are incompatible
 - pairing screen shows the local Client adres and pairing code
-- Speelt nu display screen with refresh, large unobstructed album art and
-  title/artist overlay
+- Speelt nu display screen with refresh, a compact mood selector, large
+  unobstructed album art and title/artist overlay. The selected mood is stored
+  locally and sent to Home Assistant with status, command, Ask DJ, Track
+  Insight and Music DNA requests.
 - macOS-style gradient toast notifications for short action/backend feedback
 - HA-provided album art on Now Playing, Queue and Playlists, loaded
   asynchronously; Now Playing artwork is cached locally before QML renders it,
@@ -158,18 +160,19 @@ The app is a 720x720 fullscreen touch remote:
   danceability, intensity, confidence, production/instrumentation/arrangement
   notes and clean retry states for no-track/rate-limit responses
 - Ontdek screen that works only after Music DNA consent, renders HA-provided
-  track, album, artist and playlist recommendations, shows backend reason text
-  only through an explicit details action and sends Play Now through
-  `/api/djconnect/v1/music_discovery/play` with `section_id` and
-  `discovery_item_id`
+  track, album, artist and playlist recommendations as one large row per item,
+  opens backend reason text in a full-screen Waarom details view and sends
+  Play Now through `/api/djconnect/v1/music_discovery/play` with `section_id`
+  and `discovery_item_id`
 - Music DNA screen for server-backed opt-in, disable, clear and compact profile
   display; optional dashboard blocks are hidden when absent or ineligible
-- fixed bottom menu bar for Speelt nu, Ask DJ, Track Insight, Ontdek, Music DNA
-  and Meer; Meer contains Bediening, Wachtrij, Afspeellijsten, Games,
+- fixed bottom menu bar for Speelt nu, Wachtrij, Ask DJ, Track Insight, Ontdek
+  and Meer; Meer contains Bediening, Afspeellijsten, Music DNA, Games,
   Instellingen, Logs and Over
-- settings for screen blanking, brightness, language, logs, pairing reset,
-  update checks, reboot/shutdown with confirmation and stable/beta update
-  channel
+- settings for screen blanking, automatic return-to-Speelt-nu timeout
+  (`30`, `60`, `120` seconds or `Uit`), brightness, language, logs, pairing
+  reset, update checks, reboot/shutdown with confirmation and stable/beta
+  update channel
 - Device ID and Home Assistant URL are shown on Over, not duplicated in
   Instellingen
 - settings save immediately when changed; there is no explicit save button on
@@ -178,8 +181,9 @@ The app is a 720x720 fullscreen touch remote:
   devices with `set_output`, plus a local-only "Geen" option so the UI does
   not pick the first HA device implicitly
 - default screen blanking after 2 minutes, with tap-to-wake; waking from the
-  blanked state returns to Speelt nu and refreshes playback immediately, and
-  screen navigation restarts the idle timer
+  blanked state refreshes playback immediately. Automatic return to Speelt nu
+  defaults to 60 seconds and can be disabled, in which case wake keeps the
+  current screen.
 - touch-only local games: Paddle Rally, Meteor Run, Sky Dash and Maze Chase
 - English, Dutch, German, French and Spanish user-facing text, including game
   labels and fallback playback text
@@ -242,9 +246,9 @@ not a private source clone:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.2.13.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.2.14.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.2.13
+cd djconnect-pi-3.2.14
 sudo ./scripts/install.sh
 ```
 
@@ -365,9 +369,9 @@ installer:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.2.13.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.2.14.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.2.13
+cd djconnect-pi-3.2.14
 sudo ./scripts/install.sh
 ```
 

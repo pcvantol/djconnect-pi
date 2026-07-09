@@ -286,7 +286,6 @@ class ClientAPIHandler(BaseHTTPRequestHandler):
             "set_output",
             "play_context_at",
             "start_playlist",
-            "start_queue_item",
             "check_updates",
             "reboot",
             "shutdown",

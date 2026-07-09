@@ -43,6 +43,28 @@ def test_backend_exposes_initial_config(tmp_path: Path) -> None:
     assert backend.connectionType == "Niet verbonden"
 
 
+def test_backend_persists_touch_mood_selector(tmp_path: Path) -> None:
+    ensure_app()
+    config_path = tmp_path / "config.json"
+    backend = DJConnectBackend(config_path)
+
+    backend.setMoodValue(65)
+
+    assert backend.moodValue == 65
+    assert backend.cfg.mood == 65
+    assert backend.client.cfg.mood == 65
+    assert load_config(config_path).mood == 65
+
+
+def test_backend_clamps_touch_mood_selector(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+
+    backend.setMoodValue(400)
+
+    assert backend.moodValue == 100
+
+
 def test_backend_connection_type_reports_websocket_fast_path(tmp_path: Path) -> None:
     ensure_app()
     backend = DJConnectBackend(tmp_path / "config.json")
@@ -118,6 +140,8 @@ def test_log_display_uses_compact_touch_prefix() -> None:
     assert "17:53:50 WRN djconnect_pi.ha: Slow" in text
     assert "17:53:51 DBG djconnect_pi.ha: Payload" in text
     assert "17:53:52 ERR djconnect_pi.ha: Failed" in text
+    assert text.splitlines()[0] == "17:53:52 ERR djconnect_pi.ha: Failed"
+    assert text.splitlines()[-1] == "17:53:49 INF djconnect_pi.app: Started"
     assert "2026-06-13" not in text
 
 
@@ -603,12 +627,13 @@ def test_track_insight_direct_and_wrapped_response_decode_same_contract() -> Non
     for message in (direct, wrapped):
         assert message["trackInsight"] is True
         assert message["trackInsightData"]["track"]["title"] == "Strobe"
+        assert message["trackInsightData"]["visual_profile"]["motion_style"] == "slow_pulse"
         assert message["items"][0]["title"] == "Confidence"
         assert message["items"][0]["value"] == "77%"
         titles = [section["title"] for section in message["analysis"]["sections"]]
         assert "Summary" in titles
         assert "Genre" in titles
-        assert "Visual profile" in titles
+        assert "Visual profile" not in titles
         assert "Mood context" in titles
 
 
@@ -855,10 +880,10 @@ def test_ask_dj_merge_orders_exchange_and_deduplicates_refreshes(tmp_path: Path)
         }
     )
 
-    rendered = [(message["role"], message["text"]) for message in backend.askDjMessages]
+    rendered = [(message["role"], message["text"], message["displayTime"]) for message in backend.askDjMessages]
     assert rendered == [
-        ("user", "heb je playlists van snowpatrol"),
-        ("assistant", "Ik heb een paar Snow Patrol playlists gevonden."),
+        ("assistant", "Ik heb een paar Snow Patrol playlists gevonden.", "12:00"),
+        ("user", "heb je playlists van snowpatrol", "12:00"),
     ]
 
 
@@ -878,7 +903,8 @@ def test_ask_dj_history_limit_is_applied_from_server(tmp_path: Path) -> None:
         }
     )
 
-    assert [message["id"] for message in backend.askDjMessages] == ["m2", "m3"]
+    assert [message["id"] for message in backend.askDjMessages] == ["m3", "m2"]
+    assert [message["displayTime"] for message in backend.askDjMessages] == ["12:00", "12:00"]
 
 
 def test_ask_dj_clear_and_trim_revisions_are_server_authoritative(tmp_path: Path) -> None:
@@ -896,7 +922,7 @@ def test_ask_dj_clear_and_trim_revisions_are_server_authoritative(tmp_path: Path
     )
 
     backend._apply_ask_dj_data({"history_revision": 11, "history_trimmed_count": 1, "messages": []})
-    assert [message["id"] for message in backend.askDjMessages] == ["m2", "m3"]
+    assert [message["id"] for message in backend.askDjMessages] == ["m3", "m2"]
     assert backend._ask_dj_history_revision == 11
 
     backend._apply_ask_dj_data({"clear_revision": 2, "history_revision": 12, "messages": []})
@@ -1354,13 +1380,25 @@ def test_backend_persists_screen_timeout_and_update_channel(tmp_path: Path) -> N
     backend = DJConnectBackend(config_path)
 
     backend.setScreenTimeoutSeconds(120)
+    backend.setReturnToNowSeconds(0)
     backend.setUpdateChannel("beta")
     reloaded = DJConnectBackend(config_path)
 
     assert backend.screenTimeoutSeconds == 120
+    assert backend.returnToNowSeconds == 0
     assert backend.updateChannel == "beta"
     assert reloaded.screenTimeoutSeconds == 120
+    assert reloaded.returnToNowSeconds == 0
     assert reloaded.updateChannel == "beta"
+
+
+def test_backend_clamps_return_to_now_timeout(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+
+    backend.setReturnToNowSeconds(999)
+
+    assert backend.returnToNowSeconds == 60
 
 
 def test_backend_persists_screen_brightness(tmp_path: Path) -> None:
@@ -1884,6 +1922,69 @@ def test_backend_ask_dj_refresh_shows_toast(tmp_path: Path) -> None:
     assert calls[0][0] == backend.t("ask_dj")
 
 
+def test_backend_music_dna_refresh_shows_toast(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token"
+    calls: list[tuple[str, object, object]] = []
+
+    def fake_run(label: str, worker, done=None) -> None:
+        calls.append((label, worker, done))
+
+    backend._run = fake_run  # type: ignore[method-assign]
+    backend._sync_config_from_disk = lambda: None  # type: ignore[method-assign]
+
+    backend.refreshMusicDna()
+
+    assert backend.toastText == backend.t("refreshing")
+    assert backend.toastIcon == "musicdna"
+    assert calls
+    assert calls[0][0] == backend.t("music_dna")
+
+
+def test_backend_track_insight_refresh_shows_toast(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token"
+    calls: list[tuple[str, object, object]] = []
+
+    def fake_run(label: str, worker, done=None) -> None:
+        calls.append((label, worker, done))
+
+    backend._run = fake_run  # type: ignore[method-assign]
+    backend._sync_config_from_disk = lambda: None  # type: ignore[method-assign]
+
+    backend.refreshTrackInsight()
+
+    assert backend.toastText == backend.t("refreshing")
+    assert backend.toastIcon == "info"
+    assert calls
+    assert calls[0][0] == backend.t("track_insight")
+
+
+def test_backend_music_discovery_refresh_shows_toast(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token"
+    calls: list[tuple[str, object, object]] = []
+
+    def fake_run(label: str, worker, done=None) -> None:
+        calls.append((label, worker, done))
+
+    backend._run = fake_run  # type: ignore[method-assign]
+    backend._sync_config_from_disk = lambda: None  # type: ignore[method-assign]
+
+    backend.refreshMusicDiscovery()
+
+    assert backend.toastText == backend.t("refreshing")
+    assert backend.toastIcon == "musicdna"
+    assert calls
+    assert calls[0][0] == backend.t("music_discovery")
+
+
 def test_backend_sync_config_updates_live_settings(tmp_path: Path) -> None:
     ensure_app()
     config_path = tmp_path / "config.json"
@@ -2124,7 +2225,7 @@ def test_backend_queue_item_worker_sends_direct_uri_without_required_context(tmp
     ]
 
 
-def test_backend_queue_item_play_uses_start_queue_item_command(tmp_path: Path) -> None:
+def test_backend_queue_item_play_uses_play_context_at_command(tmp_path: Path) -> None:
     ensure_app()
     backend = DJConnectBackend(tmp_path / "config.json")
     parser = HAClient(backend.cfg)
@@ -2148,14 +2249,14 @@ def test_backend_queue_item_play_uses_start_queue_item_command(tmp_path: Path) -
     backend.client = FakeClient()  # type: ignore[assignment]
 
     backend.playMediaItem(
-        "start_queue_item",
+        "play_context_at",
         json.dumps({"title": "Queued Track", "uri": "spotify:track:track-1", "index": 2}),
     )
 
-    assert runs == ["start_queue_item"]
+    assert runs == ["play_context_at"]
     assert calls == [
         (
-            "start_queue_item",
+            "play_context_at",
             {
                 "value": {
                     "uri": "spotify:track:track-1",

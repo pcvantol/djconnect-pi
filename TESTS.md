@@ -49,7 +49,8 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
   profiles, optional dashboard blocks, hidden empty cards and hidden
   `eligible:false` blocks
 - Music DNA settings and clear endpoint coverage, including enable/disable
-  payloads and backend-preserved enabled state after clear
+  payloads, confirmation-driven touch actions, backend-preserved enabled state
+  after clear and compact refresh/disabled-label behavior
 - Music Discovery gating coverage so disabled Music DNA opens consent/empty
   state, consent accept enables Music DNA before loading the feed and consent
   reject shows the compact gating block
@@ -57,6 +58,8 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
   playlist recommendations with artwork, section labels, dedupe by `id`/`uri`,
   compact repeated-play/based-on count text, relevance/confidence and reason
   visibility, while unsupported kinds are ignored
+- Music Discovery QML coverage for one-item-per-row recommendations, taller
+  cards, Play Now routing and the full-screen Waarom reason details overlay
 - Music Discovery HTTP and websocket contract coverage for feed, refresh and
   Play Now endpoints/message types, including `client_type=raspberry_pi`,
   `device_id`, `client_id`, optional `music_dna_key`, `section_id`,
@@ -79,8 +82,9 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
   refresh busy states, clipboard feedback and newest-log scrolling
 - touch UI contract for Settings power/update actions, output-device "Geen",
   warning-styled reboot, wrapped Logs text, macOS-style toast presentation,
-  queue `play_context_at` routing, Ask DJ manual-refresh toast feedback and
-  playlist item command routing
+  queue `play_context_at` routing, Ask DJ manual-refresh toast feedback,
+  playlist item command routing, mood selection and automatic return-to-now
+  settings
 - release bundle contract for including docs, systemd units, `scripts/install.sh`
   and a bundled wheel without the loose `src/` app source tree
 - repo-only OS bootstrap contract for Raspberry Pi OS Lite 64-bit, modern
@@ -148,6 +152,7 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 - persistent logging and redaction
 - bundled QML files and offscreen QML load
 - startup splash, blocking pairing screen, tap-to-wake blanking, wake refresh,
+  independent return-to-now timer, disabled return-to-now wake behavior,
   navigation idle-timer restart, splash-on-wake and toast QML contract checks
 - previous/next wake-screen signal coverage, including HA command-event
   previous/next
@@ -162,13 +167,14 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 - Games screen full-background touch blocking so Speelt nu controls cannot be
   tapped through transparent game areas
 - touch-friendly icon bottom navigation order, height, selected-state checks,
-  consistent QML Canvas menu icons, primary tabs for Speelt nu, Ask DJ, Track
-  Insight, Ontdek, Music DNA and Meer, plus the Meer overflow screen for
-  Bediening, Wachtrij and secondary destinations
+  consistent QML Canvas menu icons, primary tabs for Speelt nu, Wachtrij, Ask
+  DJ, Track Insight, Ontdek and Meer, plus the Meer overflow screen for
+  Bediening, Afspeellijsten, Music DNA and secondary destinations
 - shared AppBackground gradient, display-only Speelt nu checks and enlarged
   Bediening playback-control sizing checks, including that Speelt nu album art
   has no play/pause overlay
-- Maze Chase power-pellet and vulnerable ghost QML contract checks
+- Maze Chase power-pellet, vulnerable ghost and fixed-aspect playfield QML
+  contract checks
 - Empty queue/playlist labels and backend behavior that only loads demo media
   after explicitly entering demo mode
 - kiosk branding contract checks for the bundled app icon, no visible quit
@@ -189,7 +195,8 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
   DJ-response dismiss dialog in QML
 - web portal Diagnostics rendering plus daemon-side systemd status
   normalization for running/stopped/failed/unknown component health
-- volume cap at 60, fixed screen-timeout dropdown, anchored media-row geometry
+- volume cap at 60, fixed screen-timeout and return-to-now dropdowns, anchored
+  media-row geometry
   and reboot sudoers contract coverage
 - local Client API pairing-info and logging regression coverage, plus Postman
   collection endpoint contract checks

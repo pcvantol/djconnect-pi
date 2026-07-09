@@ -29,7 +29,8 @@ Responsibilities:
 - handle touch gestures and animated control states
 - display DJ response text pushed by Home Assistant as a 10-second toast
 - show startup splash, blocking pairing and local demo mode
-- blank the rendered screen after the configured timeout and wake on tap
+- blank the rendered screen after the configured screen timeout, wake on tap
+  and optionally return to Speelt nu through the separate return-to-now timer
 - consume touch input on modal overlays so underlying settings controls cannot
   receive taps while logs, about, pairing, version mismatch or confirmation
   screens are visible
@@ -159,7 +160,7 @@ The Pi client is an app-like DJConnect client.
   "device_id": "djconnect-raspberry-pi-XXXXXXXXXXXX",
   "device_name": "DJConnect",
   "client_type": "raspberry_pi",
-  "version": "3.2.13",
+  "version": "3.2.14",
   "capabilities": {
     "touch": true,
     "voice": false,
@@ -246,10 +247,11 @@ comes from `GET /api/djconnect/v1/music_discovery`, refresh uses
 `djconnect/music_discovery/feed`, `djconnect/music_discovery/refresh` and
 `djconnect/music_discovery/play` only when advertised. Recommendation cards are
 rendered from HA-provided `sections[].items[]` for track, album, artist and
-playlist items. Repeated `id`/`uri` rows are deduped, repeated-play or based-on
-counts are shown compactly and reason text is shown only through an explicit
-details/long-press action. Reasons, based-on lists and fallback
-recommendations are never inferred locally. Play Now payloads include Pi
+playlist items as one large row per item. Repeated `id`/`uri` rows are deduped,
+repeated-play or based-on counts are shown compactly and reason text is shown
+only through an explicit full-screen Waarom details action. Reasons, based-on
+lists and fallback recommendations are never inferred locally. Play Now
+payloads include Pi
 identity, `section_id`, `discovery_item_id` and `source/context:
 "music_discovery"` so HA can record the interaction as a Music DNA signal.
 

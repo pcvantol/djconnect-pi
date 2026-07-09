@@ -454,7 +454,9 @@ Rectangle {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 24
+        anchors.leftMargin: 12
+        anchors.topMargin: 34
+        anchors.rightMargin: 12
         anchors.bottomMargin: 130
         spacing: 12
 
@@ -570,10 +572,14 @@ Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.minimumHeight: 318
+            Layout.topMargin: 10
+            clip: true
 
             Canvas {
                 id: gameCanvas
-                anchors.fill: parent
+                anchors.centerIn: parent
+                width: Math.min(parent.width, parent.height * 320 / 170)
+                height: width * 170 / 320
                 antialiasing: true
 
                 onPaint: {

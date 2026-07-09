@@ -89,6 +89,12 @@ def test_qml_has_touch_games_panel() -> None:
     assert "ghostVulnerableTicks = 210" in games_qml
     assert "for (var i = 0; i < 32; i++) pellets.push(i)" in games_qml
     assert "powerPellets = [0, 7, 24, 31]" in games_qml
+    assert "anchors.leftMargin: 12" in games_qml
+    assert "anchors.topMargin: 34" in games_qml
+    assert "anchors.rightMargin: 12" in games_qml
+    assert "Layout.topMargin: 10" in games_qml
+    assert "width: Math.min(parent.width, parent.height * 320 / 170)" in games_qml
+    assert "height: width * 170 / 320" in games_qml
     assert "setScore(score + 5)" in games_qml
     assert 'root.ghostVulnerableTicks > 0 ? (ghostBlink ? "#e0f2fe" : "#3b82f6")' in games_qml
     assert "property int deathTicks" in games_qml
@@ -136,6 +142,12 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "cache: true" in now_block
     assert 'root.tr("about")' in main_qml
     assert "aboutScroll.availableWidth" in main_qml
+    about_block = main_qml[main_qml.index("visible: root.aboutOpen") : main_qml.index("id: djResponseOverlay")]
+    assert 'root.tr("privacy")' not in about_block
+    assert 'root.tr("pi_no_spotify_credentials")' not in about_block
+    assert 'root.tr("protocol_version")' not in about_block
+    assert 'root.tr("target_player")' not in about_block
+    assert 'root.tr("capabilities")' not in about_block
     assert 'root.tr("connection_type")' in main_qml
     assert "djconnect.connectionType" in main_qml
     assert 'text: "https://djconnect.dev"' in main_qml
@@ -165,9 +177,25 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert 'root.tr("music_dna_disable")' in settings_block
     assert 'root.tr("music_dna_enable")' in settings_block
     assert 'root.tr("music_dna_clear")' in settings_block
-    assert "djconnect.setMusicDnaEnabled(!djconnect.musicDnaEnabled)" in settings_block
-    assert "djconnect.clearMusicDna()" in settings_block
-    assert settings_block.index('root.tr("view_logs")') < settings_block.index('root.tr("check_updates")')
+    assert "root.musicDnaDisableConfirmOpen = true" in settings_block
+    assert "djconnect.setMusicDnaEnabled(true)" in settings_block
+    assert "djconnect.setMusicDnaEnabled(false)" not in settings_block
+    assert "id: musicDnaDisableConfirmPanel" in main_qml
+    assert 'root.tr("music_dna_disable_confirm_title")' in main_qml
+    assert 'root.tr("music_dna_disable_confirm_message")' in main_qml
+    assert "visible: root.musicDnaDisableConfirmOpen" in main_qml
+    assert "djconnect.setMusicDnaEnabled(false)" in main_qml
+    assert "root.musicDnaClearConfirmOpen = true" in settings_block
+    assert "djconnect.clearMusicDna()" not in settings_block
+    assert "id: musicDnaClearConfirmPanel" in main_qml
+    assert 'root.tr("music_dna_clear_confirm_title")' in main_qml
+    assert 'root.tr("music_dna_clear_confirm_message")' in main_qml
+    assert "visible: root.musicDnaClearConfirmOpen" in main_qml
+    assert "djconnect.clearMusicDna()" in main_qml
+    assert 'root.tr("view_logs")' not in settings_block
+    assert 'root.tr("about")' not in settings_block
+    assert "djconnect.showLogs()" not in settings_block
+    assert "root.aboutOpen = true" not in settings_block
     assert 'root.tr("save")' not in main_qml
     assert 'text: root.tr("no_voice")' not in main_qml
     assert "placeholderText: root.tr(\"ha_url\")" not in main_qml
@@ -182,8 +210,8 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert 'emptyText: root.tr("empty_playlists")' in main_qml
     queue_panel = main_qml[main_qml.index('visible: root.activeScreen === "queue"') : main_qml.index('visible: root.activeScreen === "playlists"')]
     playlists_panel = main_qml[main_qml.index('visible: root.activeScreen === "playlists"') : main_qml.index("Rectangle {\n        id: morePanel")]
-    assert 'playCommand: "start_queue_item"' in queue_panel
-    assert 'playCommand: "play_context_at"' not in queue_panel
+    assert 'playCommand: "play_context_at"' in queue_panel
+    assert 'playCommand: "start_queue_item"' not in queue_panel
     assert 'playCommand: "start_playlist"' in playlists_panel
     assert "function itemPayload(item)" in main_qml
     assert "JSON.stringify" in main_qml
@@ -213,6 +241,16 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert 'text: "+"' in main_qml
     assert "id: nowPanel" in main_qml
     assert 'visible: root.activeScreen === "now"' in main_qml
+    assert "property bool moodPopoverOpen: false" in main_qml
+    assert "id: nowMoodButton" in main_qml
+    assert 'iconName: "mood"' in main_qml
+    assert 'ToolTip.text: root.tr("mood_select")' in main_qml
+    assert "id: moodPopover" in main_qml
+    assert 'visible: root.activeScreen === "now" && root.moodPopoverOpen' in main_qml
+    assert "djconnect.setMoodValue(12)" in main_qml
+    assert "djconnect.setMoodValue(38)" in main_qml
+    assert "djconnect.setMoodValue(65)" in main_qml
+    assert "djconnect.setMoodValue(88)" in main_qml
     assert "id: controlPanel" in main_qml
     assert 'visible: root.activeScreen === "control"' in main_qml
     assert 'root.tr("control")' in main_qml
@@ -257,7 +295,13 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "to: 60" in main_qml
     assert "Math.round(Math.min(60, djconnect.volume) / 60 * 100) + \"%\"" in main_qml
     assert "property var timeoutChoices: [30, 60, 90, 120, 180, 240, 300, 600]" in main_qml
-    assert "logsArea.cursorPosition = logsArea.length" in main_qml
+    assert "property var returnToNowChoices: [30, 60, 120, 0]" in main_qml
+    assert 'text: root.tr("return_to_now")' in main_qml
+    assert "id: returnToNowBox" in main_qml
+    assert "displayText: root.returnToNowLabel(djconnect.returnToNowSeconds)" in main_qml
+    assert "djconnect.setReturnToNowSeconds(root.returnToNowChoices[index])" in main_qml
+    assert "logsArea.cursorPosition = 0" in main_qml
+    assert "logsArea.cursorPosition = logsArea.length" not in main_qml
     assert "djconnect.copyLogs()" not in main_qml
     assert 'root.tr("copy_logs")' not in main_qml
     logs_start = main_qml.index("visible: djconnect.logsVisible")
@@ -294,11 +338,12 @@ def test_qml_has_bottom_navigation_bar() -> None:
     assert "anchors.top: parent.top" not in nav_button
     assert "visible: navControl.checked" not in nav_button
     assert 'iconName: "music"' in bottom_nav
+    assert 'iconName: "queue"' in bottom_nav
     assert 'iconName: "chat"' in bottom_nav
     assert 'iconName: "musicdna"' in bottom_nav
     assert 'iconName: "more"' in bottom_nav
     assert 'iconName: "control"' in more_panel
-    assert 'iconName: "queue"' in more_panel
+    assert 'iconName: "queue"' not in more_panel
     assert 'iconName: "playlists"' in more_panel
     assert 'iconName: "gamepad"' in more_panel
     assert 'iconName: "settings"' in more_panel
@@ -307,24 +352,24 @@ def test_qml_has_bottom_navigation_bar() -> None:
     assert "iconSymbol" not in main_qml
     assert 'root.tr("now_playing")' in main_qml
     assert 'root.tr("control")' in more_panel
+    assert 'root.tr("queue")' in bottom_nav
     assert 'root.tr("ask_dj")' in bottom_nav
     assert 'root.tr("track_insight")' in bottom_nav
     assert 'root.tr("music_discovery")' in bottom_nav
-    assert 'root.tr("music_dna")' in bottom_nav
-    assert 'root.tr("queue")' in more_panel
+    assert 'root.tr("music_dna")' not in bottom_nav
+    assert 'root.tr("queue")' not in more_panel
     assert 'root.tr("more")' in bottom_nav
     assert 'root.tr("playlists")' in more_panel
     assert 'root.tr("games")' in main_qml
     assert 'root.tr("setup")' in main_qml
     assert 'root.tr("logs")' in more_panel
     assert 'root.tr("about")' in more_panel
-    assert bottom_nav.index('text: root.tr("now_playing")') < bottom_nav.index('text: root.tr("ask_dj")')
+    assert bottom_nav.index('text: root.tr("now_playing")') < bottom_nav.index('text: root.tr("queue")')
+    assert bottom_nav.index('text: root.tr("queue")') < bottom_nav.index('text: root.tr("ask_dj")')
     assert bottom_nav.index('text: root.tr("ask_dj")') < bottom_nav.index('text: root.tr("track_insight")')
     assert bottom_nav.index('text: root.tr("track_insight")') < bottom_nav.index('text: root.tr("music_discovery")')
-    assert bottom_nav.index('text: root.tr("music_discovery")') < bottom_nav.index('text: root.tr("music_dna")')
-    assert bottom_nav.index('text: root.tr("music_dna")') < bottom_nav.index('text: root.tr("more")')
-    assert more_panel.index('text: root.tr("control")') < more_panel.index('text: root.tr("queue")')
-    assert more_panel.index('text: root.tr("queue")') < more_panel.index('text: root.tr("playlists")')
+    assert bottom_nav.index('text: root.tr("music_discovery")') < bottom_nav.index('text: root.tr("more")')
+    assert more_panel.index('text: root.tr("control")') < more_panel.index('text: root.tr("playlists")')
     assert more_panel.index('text: root.tr("playlists")') < more_panel.index('text: root.tr("games")')
     assert more_panel.index('text: root.tr("games")') < more_panel.index('text: root.tr("setup")')
     assert more_panel.index('text: root.tr("setup")') < more_panel.index('text: root.tr("logs")')
@@ -368,10 +413,11 @@ def test_qml_ask_dj_screen_is_readonly_actions_without_free_input() -> None:
     assert "id: askDjPollTimer" in main_qml
     assert 'running: root.activeScreen === "askdj" && djconnect.paired && !djconnect.demoMode' in main_qml
     assert "onTriggered: djconnect.pollAskDjHistory()" in main_qml
-    assert "function scrollAskDjToBottom()" in main_qml
+    assert "function scrollAskDjToTop()" in main_qml
     assert 'if (root.activeScreen === "askdj")' in main_qml
     assert "function onAskDjChanged()" in main_qml
-    assert "askDjScroll.contentItem.contentY = Math.max" in ask_dj_block or "askDjScroll.contentItem.contentY = Math.max" in main_qml
+    assert "askDjScroll.contentItem.contentY = 0" in ask_dj_block or "askDjScroll.contentItem.contentY = 0" in main_qml
+    assert "modelData.displayTime || \"\"" in ask_dj_block
     assert "id: askDjActionButton" in ask_dj_block
     assert "modelData.actions || []" in ask_dj_block
     assert "modelData.isMedia" in ask_dj_block
@@ -410,6 +456,10 @@ def test_qml_now_playing_hides_favorite_and_track_insight_buttons() -> None:
     assert 'root.tr("track_insight")' not in now_block
     assert 'root.activeScreen = "trackinsight"' not in now_block
     assert "djconnect.openTrackInsight()" not in now_block
+    assert "id: nowRefreshButton" in now_block
+    assert 'iconName: "refresh"' in now_block
+    assert "Layout.preferredWidth: 48" in now_block
+    assert "onClicked: djconnect.manualRefresh()" in now_block
 
 
 def test_qml_control_screen_has_favorite_icon_between_shuffle_and_repeat() -> None:
@@ -431,7 +481,7 @@ def test_qml_track_insight_panel_renders_contract_fields() -> None:
     panel = main_qml[main_qml.index("id: trackInsightPanel") : main_qml.index("id: musicDiscoveryPanel")]
 
     assert 'visible: root.activeScreen === "trackinsight"' in panel
-    assert "djconnect.openTrackInsight()" in panel
+    assert "djconnect.refreshTrackInsight()" in panel
     assert 'root.tr("track_insight_empty")' in panel
     assert "djconnect.trackInsightError" in panel
     assert "djconnect.trackInsightTitle" in panel
@@ -459,14 +509,28 @@ def test_qml_music_discovery_nav_and_panel() -> None:
     assert 'root.tr("music_discovery_requires_music_dna")' in discover_block
     assert "djconnect.acceptMusicDiscoveryConsent()" in discover_block
     assert "djconnect.rejectMusicDiscoveryConsent()" in discover_block
+    assert "anchors.topMargin: 10" in discover_block
+    assert "id: discoveryRefreshButton" in discover_block
+    assert 'iconName: "refresh"' in discover_block
+    assert "Layout.preferredWidth: 48" in discover_block
     assert "djconnect.refreshMusicDiscovery()" in discover_block
+    assert "columns: 1" in discover_block
+    assert "columns: width >= 640 ? 2 : 1" not in discover_block
+    assert "Layout.preferredHeight: 178" in discover_block
+    assert "Layout.preferredWidth: 132" in discover_block
+    assert "id: discoveryReasonPanel" in discover_block
+    assert "visible: root.discoveryReasonOpen" in discover_block
+    assert "root.discoveryReasonTitle = modelData.title || root.tr(\"music_discovery_reason\")" in discover_block
+    assert "root.discoveryReasonText = modelData.reason || \"\"" in discover_block
+    assert "root.discoveryReasonOpen = true" in discover_block
+    assert "root.discoveryReasonOpen = false" in discover_block
     assert "djconnect.playMusicDiscoveryItem(modelData.payload || \"{}\")" in discover_block
     assert "modelData.sectionTitle" in discover_block
     assert "modelData.countText" in discover_block
     assert "visible: modelData.playable" in discover_block
     assert "if (modelData.playable)" in discover_block
     assert "visible: modelData.hasReason" in discover_block
-    assert "djconnect.showToastForContext(modelData.reason || \"\", \"discover\")" in discover_block
+    assert "djconnect.showToastForContext(modelData.reason || \"\", \"discover\")" not in discover_block
 
 
 def test_qml_music_dna_actions_live_in_settings() -> None:
@@ -474,11 +538,19 @@ def test_qml_music_dna_actions_live_in_settings() -> None:
     settings_block = main_qml[main_qml.index("id: settingsPanel") : main_qml.index("MediaListPanel {")]
     music_dna_block = main_qml[main_qml.index("id: musicDnaPanel") : main_qml.index("id: askDjPanel")]
 
-    assert "djconnect.setMusicDnaEnabled(!djconnect.musicDnaEnabled)" in settings_block
-    assert "djconnect.clearMusicDna()" in settings_block
+    assert "root.musicDnaDisableConfirmOpen = true" in settings_block
+    assert "djconnect.setMusicDnaEnabled(true)" in settings_block
+    assert "root.musicDnaClearConfirmOpen = true" in settings_block
+    assert "djconnect.clearMusicDna()" not in settings_block
     assert "djconnect.setMusicDnaEnabled(!djconnect.musicDnaEnabled)" not in music_dna_block
     assert "djconnect.clearMusicDna()" not in music_dna_block
-    assert "djconnect.loadMusicDna()" in music_dna_block
+    assert "djconnect.refreshMusicDna()" in music_dna_block
+    assert "visible: !djconnect.musicDnaEnabled" in music_dna_block
+    assert 'text: root.tr("music_dna_disabled")' in music_dna_block
+    assert 'root.tr("music_dna_enabled")' not in music_dna_block
+    assert "id: musicDnaRefreshButton" in music_dna_block
+    assert 'iconName: "refresh"' in music_dna_block
+    assert "Layout.preferredWidth: 48" in music_dna_block
 
 
 def test_qml_stop_demo_button_returns_to_pairing_flow() -> None:
@@ -499,12 +571,15 @@ def test_qml_screen_blanking_wakes_on_tap() -> None:
     assert "root.screenBlanked || root.forceBrightnessFull" in main_qml
     assert "onTapped: root.wakeDisplay()" in main_qml
     assert "id: forcedWakeTimer" in main_qml
+    assert "id: returnToNowTimer" in main_qml
+    assert "interval: Math.max(1000, djconnect.returnToNowSeconds * 1000)" in main_qml
+    assert "running: djconnect.returnToNowSeconds > 0" in main_qml
     assert "interval: 10000" in main_qml
     assert "root.activeScreen = \"now\"" in main_qml
     assert "function temporaryWake(seconds, navigateNow)" in main_qml
     temporary_wake = main_qml[main_qml.index("function temporaryWake(seconds, navigateNow)") : main_qml.index("component PurpleButton")]
     assert "var wasBlanked = root.screenBlanked" in temporary_wake
-    assert "if (navigateNow && wasBlanked)" in temporary_wake
+    assert "if (navigateNow && wasBlanked && djconnect.returnToNowSeconds > 0)" in temporary_wake
     assert "function onTemporaryWakeRequested(seconds, navigateNow)" in main_qml
     assert "id: djResponseOverlay" in main_qml
     assert "id: djResponseTimer" in main_qml
@@ -525,16 +600,20 @@ def test_qml_screen_blanking_wakes_on_tap() -> None:
     record_activity = main_qml[main_qml.index("function recordActivity()") : main_qml.index("function wakeDisplay()", main_qml.index("function recordActivity()"))]
     assert "var wasBlanked = root.screenBlanked" in record_activity
     assert "root.restartIdleTimer()" in record_activity
+    assert "root.restartReturnToNowTimer()" in record_activity
     assert "if (root.forceScreenAwake && forcedWakeTimer.running)" in record_activity
     assert "forcedWakeTimer.restart()" in record_activity
     assert "if (wasBlanked)" in record_activity
+    assert "if (djconnect.returnToNowSeconds > 0)" in record_activity
     assert 'root.activeScreen = "now"' in record_activity
     assert "root.suppressNextNowPanelTap = true" in record_activity
     assert "root.hideTransientUi()" in record_activity
     assert "djconnect.refresh()" in record_activity
     assert "function restartIdleTimer()" in main_qml
+    assert "function restartReturnToNowTimer()" in main_qml
     assert "onActiveScreenChanged: {" in main_qml
     assert "root.restartIdleTimer()" in main_qml
+    assert "root.restartReturnToNowTimer()" in main_qml
     assert "if (root.suppressNextNowPanelTap)" in main_qml
     assert "root.suppressNextNowPanelTap = false" in main_qml
     assert "root.splashVisible = true" not in record_activity
@@ -544,6 +623,9 @@ def test_qml_screen_blanking_wakes_on_tap() -> None:
     assert "z: -1000" in main_qml
     activity_catcher = main_qml[main_qml.rindex("MouseArea {") : main_qml.index("Rectangle {\n        anchors.fill: parent\n        color: \"#000000\"")]
     assert "z: 199" in activity_catcher
+    assert "if (root.screenBlanked)" in activity_catcher
+    assert "root.wakeDisplay()" in activity_catcher
+    assert "mouse.accepted = true" in activity_catcher
     assert "root.recordActivity()" in activity_catcher
     assert "mouse.accepted = false" in activity_catcher
     assert "color: root.color" in main_qml

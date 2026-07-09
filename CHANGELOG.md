@@ -1,7 +1,23 @@
 # Changelog
 
-## 3.2.13
+## 3.2.14
 
+- Add a compact mood selector to Speelt nu that stores the selected mood and
+  sends it through the existing Home Assistant mood context paths.
+- Move Wachtrij into the primary bottom navigation next to Speelt nu, move
+  Music DNA behind Meer and remove Wachtrij from the Meer overflow menu.
+- Add a separate automatic return-to-Speelt-nu setting with 30/60/120/off
+  choices, defaulting to 60 seconds, while keeping screen blanking independent
+  and preserving the current screen after wake when return-to-now is disabled.
+- Make Ontdek recommendation rows taller and one-per-row, and open Waarom
+  reason text in a full-screen details view with a close button instead of a
+  toast.
+- Widen and lower the Games playfield and keep Maze Chase inside a fixed
+  320:170 canvas aspect ratio.
+- Polish Ask DJ, Logs, About, Settings, Track Insight, Music DNA and Ontdek
+  touch flows: newest history/log entries first, compact top-right refresh
+  controls, confirmation before Music DNA disable/clear and removal of
+  redundant About/Settings rows.
 - Move Music DNA enable/disable and listening-profile clear controls into the
   Settings screen with dedicated Music DNA labels and localized copy.
 - Add the Raspberry Pi control-screen favorite heart action with backend-owned
@@ -10,7 +26,8 @@
 - Keep Now Playing focused by removing the Track Insight shortcut and keeping
   Track Insight available from its dedicated navigation surface.
 - Improve screen wake behavior so tapping an already-awake screen does not jump
-  back to Now Playing unless the screen had actually been dimmed.
+  back to Now Playing, and waking from a blanked screen respects the separate
+  return-to-now setting.
 - Extend contextual toast icon support and make Track Insight HTTP fallback
   tolerate slower backend responses.
 
