@@ -7,7 +7,7 @@ import time
 from urllib.parse import urlparse
 import requests
 
-from .config import CLIENT_TYPE, Config
+from .config import CLIENT_TYPE, Config, normalize_dj_announcement_output
 from .ha_websocket import WebSocketFastPath
 from .i18n import locale_for_language
 
@@ -100,7 +100,7 @@ class MusicBackendSummary:
     name: str = ""
     available: bool = True
     revision: int = 0
-    capabilities: dict[str, bool] | None = None
+    capabilities: dict[str, Any] | None = None
     target_player_id: str = ""
     target_player_name: str = ""
     error: str = ""
@@ -187,6 +187,11 @@ class HAClient:
 
     def command(self, command: str, **payload: Any) -> dict[str, Any]:
         body = self._base_payload(command=command, **payload)
+        if command.startswith("ask_dj_"):
+            body["dj_announcement_output"] = normalize_dj_announcement_output(
+                self.cfg.dj_announcement_output,
+                self.cfg.music_backend_capabilities,
+            )
         if command in WEBSOCKET_COMMANDS:
             data = self._try_websocket("djconnect/command", body, command="djconnect/command", timeout=_command_timeout(command, self.timeout))
             if data is not None:
@@ -590,6 +595,17 @@ class HAClient:
         self.cfg.music_backend_available = summary.available
         self.cfg.music_backend_revision = summary.revision
         self.cfg.music_backend_capabilities = dict(summary.capabilities or {})
+        if not self.cfg.dj_announcement_output_user_set:
+            announcement = self.cfg.music_backend_capabilities.get("dj_announcement")
+            preferred = "ha_speaker" if isinstance(announcement, dict) and announcement.get("default_output") == "ha_speaker" else self.cfg.dj_announcement_output
+            if preferred == "text_only" and isinstance(announcement, dict) and announcement.get("speaker_configured") is True:
+                preferred = "ha_speaker"
+            self.cfg.dj_announcement_output = normalize_dj_announcement_output(preferred, self.cfg.music_backend_capabilities)
+        else:
+            self.cfg.dj_announcement_output = normalize_dj_announcement_output(
+                self.cfg.dj_announcement_output,
+                self.cfg.music_backend_capabilities,
+            )
         target_player: dict[str, str] = {}
         if summary.target_player_id:
             target_player["id"] = summary.target_player_id
@@ -622,6 +638,7 @@ class HAClient:
                 "ask_dj_actions_supported": True,
                 "ask_dj_voice_supported": False,
                 "ask_dj_audio_response_supported": False,
+                "dj_announcement_outputs_supported": ["text_only", "ha_speaker"],
             },
             **extra,
         }
@@ -652,6 +669,10 @@ class HAClient:
         self._add_mood(payload)
         if self.cfg.music_dna_key:
             payload["music_dna_key"] = self.cfg.music_dna_key
+        payload["dj_announcement_output"] = normalize_dj_announcement_output(
+            self.cfg.dj_announcement_output,
+            self.cfg.music_backend_capabilities,
+        )
         return payload
 
     def _headers(self) -> dict[str, str]:
@@ -970,13 +991,24 @@ def _command_timeout(command: str, default: float) -> float:
 
 def music_backend_summary_from(data: dict[str, Any]) -> MusicBackendSummary:
     target = data.get("music_target_player") if isinstance(data.get("music_target_player"), dict) else {}
-    capabilities = data.get("music_backend_capabilities") if isinstance(data.get("music_backend_capabilities"), dict) else {}
+    capabilities = dict(data.get("music_backend_capabilities")) if isinstance(data.get("music_backend_capabilities"), dict) else {}
+    announcement = data.get("dj_announcement")
+    if isinstance(announcement, dict):
+        capabilities["dj_announcement"] = dict(announcement)
+    elif any(key in data for key in ("dj_announcement_speaker_configured", "dj_announcement_supported_outputs", "dj_announcement_locked_outputs", "dj_announcement_default_output", "dj_announcement_output")):
+        capabilities["dj_announcement"] = {
+            "speaker_configured": bool(data.get("dj_announcement_speaker_configured")),
+            "supported_outputs": _string_values(data.get("dj_announcement_supported_outputs")),
+            "locked_outputs": _string_values(data.get("dj_announcement_locked_outputs")),
+            "default_output": str(data.get("dj_announcement_default_output") or ""),
+            "output": str(data.get("dj_announcement_output") or ""),
+        }
     return MusicBackendSummary(
         backend=str(data.get("music_backend") or ""),
         name=str(data.get("music_backend_name") or data.get("music_backend") or ""),
         available=bool(data.get("music_backend_available", data.get("backend_available", True))),
         revision=_int_value(data.get("music_backend_revision"), 0),
-        capabilities={str(key): bool(value) for key, value in capabilities.items()},
+        capabilities={str(key): value for key, value in capabilities.items()},
         target_player_id=str(target.get("id") or ""),
         target_player_name=str(target.get("name") or ""),
         error=_backend_error_text(data.get("music_backend_error")),

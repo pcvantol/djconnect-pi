@@ -349,6 +349,7 @@ def test_ask_dj_action_uses_structured_command_payload() -> None:
     assert captured["json"]["command"] == "ask_dj_followup_response"
     assert captured["json"]["language"] == "en-GB"
     assert captured["json"]["value"] == {"kind": "confirmation", "response_value": "yes", "music_dna_key": "followup-1"}
+    assert captured["json"]["dj_announcement_output"] == "text_only"
     assert "play" not in captured["json"]
     assert "prompt" not in captured["json"]
     assert "text" not in captured["json"]
@@ -719,7 +720,34 @@ def test_ask_dj_play_action_uses_action_command_or_play_recommendation() -> None
     assert "play" not in captured[2]
     assert captured[3]["command"] == "set_output"
     assert captured[3]["value"] == "Keuken"
-    assert "play" not in captured[3]
+
+
+def test_ask_dj_action_sends_ha_speaker_announcement_output_when_supported() -> None:
+    cfg = Config(
+        ha_url="http://ha",
+        device_id="djconnect-raspberry-pi-ABCDEF123456",
+        device_token="token-1",
+        websocket_fast_path_enabled=False,
+        dj_announcement_output="ha_speaker",
+        music_backend_capabilities={
+            "dj_announcement": {
+                "speaker_configured": True,
+                "supported_outputs": ["text_only", "ha_speaker"],
+                "target": {"kind": "ha_media_player", "entity_id": "media_player.voice_preview", "name": "Voice Preview"},
+            }
+        },
+    )
+    client = HAClient(cfg)
+    captured: dict[str, Any] = {}
+
+    def fake_post(url: str, **kwargs: Any) -> FakeResponse:
+        captured["json"] = kwargs["json"]
+        return FakeResponse(200, {"success": True, "messages": []})
+
+    with patch("djconnect_pi.ha.requests.post", side_effect=fake_post):
+        client.ask_dj_action({"kind": "confirmation", "response_value": "yes"})
+
+    assert captured["json"]["dj_announcement_output"] == "ha_speaker"
 
 
 def test_ask_dj_speaker_replay_action_posts_full_backend_action() -> None:
@@ -942,6 +970,25 @@ def test_backend_summary_parses_ha_32_fields() -> None:
     assert summary.capabilities == {"supports_queue": True, "supports_top_items": False}
     assert summary.target_player_id == "media_player.mass_woonkamer"
     assert summary.target_player_name == "Woonkamer"
+
+
+def test_backend_summary_parses_top_level_dj_announcement_capabilities() -> None:
+    summary = music_backend_summary_from(
+        {
+            "music_backend": "music_assistant",
+            "dj_announcement": {
+                "speaker_configured": True,
+                "supported_outputs": ["text_only", "ha_speaker"],
+                "locked_outputs": [],
+                "default_output": "ha_speaker",
+                "target": {"kind": "ha_media_player", "entity_id": "media_player.voice_preview", "name": "Voice Preview"},
+            },
+        }
+    )
+
+    assert summary.capabilities is not None
+    assert summary.capabilities["dj_announcement"]["speaker_configured"] is True
+    assert summary.capabilities["dj_announcement"]["default_output"] == "ha_speaker"
 
 
 def test_backend_summary_parses_safe_error_object() -> None:

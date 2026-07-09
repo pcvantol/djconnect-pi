@@ -70,6 +70,11 @@ Window {
         return 1
     }
 
+    function djAnnouncementOutputLabel(value) {
+        if (value === "ha_speaker") return root.tr("dj_announcement_output_ha_speaker")
+        return root.tr("dj_announcement_output_text_only")
+    }
+
     function trackInsightLabel(value) {
         var key = String(value || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "")
         var labels = {
@@ -2156,6 +2161,62 @@ Window {
             }
 
             Text {
+                text: root.tr("dj_announcement_settings_title")
+                color: "#f4f8f8"
+                font.pixelSize: 26
+                font.bold: true
+                Layout.fillWidth: true
+                Layout.topMargin: 8
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 14
+
+                Text {
+                    text: root.tr("dj_announcement_output")
+                    color: "#d7e2e4"
+                    font.pixelSize: 22
+                    Layout.preferredWidth: 176
+                    wrapMode: Text.WordWrap
+                }
+
+                ComboBox {
+                    id: djAnnouncementOutputBox
+                    property var outputChoices: djconnect.djAnnouncementSpeakerAvailable ? ["text_only", "ha_speaker"] : ["text_only"]
+                    font.pixelSize: 24
+                    model: outputChoices
+                    currentIndex: Math.max(0, outputChoices.indexOf(djconnect.djAnnouncementOutput))
+                    displayText: root.djAnnouncementOutputLabel(djconnect.djAnnouncementOutput)
+                    delegate: ItemDelegate {
+                        width: djAnnouncementOutputBox.width
+                        text: root.djAnnouncementOutputLabel(modelData)
+                        font.pixelSize: 26
+                    }
+                    Layout.fillWidth: true
+                    onActivated: function(index) { djconnect.setDjAnnouncementOutput(outputChoices[index]) }
+                }
+            }
+
+            Text {
+                visible: !djconnect.djAnnouncementSpeakerAvailable
+                text: root.tr("dj_announcement_speaker_unavailable")
+                color: "#b9b5d4"
+                font.pixelSize: 18
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+
+            Text {
+                visible: djconnect.djAnnouncementSpeakerAvailable && djconnect.djAnnouncementSpeakerName.length > 0
+                text: root.tr("dj_announcement_speaker_configured") + " " + djconnect.djAnnouncementSpeakerName
+                color: "#b9b5d4"
+                font.pixelSize: 18
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+
+            Text {
                 text: root.tr("music_dna")
                 color: "#f4f8f8"
                 font.pixelSize: 26
@@ -3888,13 +3949,28 @@ Window {
                                     }
                                 }
 
-                                AskDjGradientButton {
-                                    visible: modelData.audioUrl && modelData.audioUrl.length > 0
-                                    text: root.tr("replay_audio")
-                                    font.pixelSize: 17
-                                    Layout.preferredWidth: 220
-                                    Layout.preferredHeight: 44
-                                    onClicked: Qt.openUrlExternally(modelData.audioUrl)
+                                Text {
+                                    visible: modelData.announcementDelivery && modelData.announcementDelivery.length > 0
+                                    text: modelData.announcementDelivery === "ha_speaker"
+                                        ? root.tr("dj_announcement_delivered_ha_speaker") + " " + (modelData.announcementTargetName || root.tr("home_assistant"))
+                                        : root.tr("dj_announcement_text_only")
+                                    color: "#a7f3ff"
+                                    font.pixelSize: 14
+                                    font.bold: true
+                                    wrapMode: Text.WordWrap
+                                    Layout.fillWidth: true
+                                }
+
+                                Repeater {
+                                    model: modelData.announcementWarnings || []
+
+                                    Text {
+                                        text: modelData
+                                        color: "#f4c27a"
+                                        font.pixelSize: 13
+                                        wrapMode: Text.WordWrap
+                                        Layout.fillWidth: true
+                                    }
                                 }
 
                                 ColumnLayout {

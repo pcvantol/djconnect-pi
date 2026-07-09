@@ -20,7 +20,15 @@ from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
 import requests
 
-from .config import CLIENT_TYPE, DEFAULT_CONFIG_PATH, DEFAULT_LOG_PATH, Config, load_config, save_config
+from .config import (
+    CLIENT_TYPE,
+    DEFAULT_CONFIG_PATH,
+    DEFAULT_LOG_PATH,
+    Config,
+    load_config,
+    normalize_dj_announcement_output,
+    save_config,
+)
 from .ha import AuthenticationError, BackendUnavailable, DJConnectError, HAClient, Playback, ProtocolVersionMismatch, StaleBackendAction, UnsupportedBackendCapability
 from .i18n import LANGUAGES, normalize_language, translate
 from .logging_config import setup_logging
@@ -100,6 +108,7 @@ class DJConnectBackend(QObject):
     languageChanged = Signal()
     translationsChanged = Signal()
     moodChanged = Signal()
+    djAnnouncementChanged = Signal()
     wakeScreenRequested = Signal()
     temporaryWakeRequested = Signal(int, bool)
     screenshotRequested = Signal()
@@ -467,6 +476,22 @@ class DJConnectBackend(QObject):
     def musicBackendError(self) -> str:
         return self.cfg.music_backend_error
 
+    @Property(str, notify=djAnnouncementChanged)
+    def djAnnouncementOutput(self) -> str:
+        return normalize_dj_announcement_output(self.cfg.dj_announcement_output, self.cfg.music_backend_capabilities)
+
+    @Property(bool, notify=djAnnouncementChanged)
+    def djAnnouncementSpeakerAvailable(self) -> bool:
+        return normalize_dj_announcement_output("ha_speaker", self.cfg.music_backend_capabilities) == "ha_speaker"
+
+    @Property(str, notify=djAnnouncementChanged)
+    def djAnnouncementSpeakerName(self) -> str:
+        announcement = self.cfg.music_backend_capabilities.get("dj_announcement") if isinstance(self.cfg.music_backend_capabilities, dict) else None
+        if not isinstance(announcement, dict):
+            return ""
+        target = announcement.get("target") if isinstance(announcement.get("target"), dict) else {}
+        return str(announcement.get("speaker_name") or target.get("name") or announcement.get("speaker_entity_id") or target.get("entity_id") or "")
+
     @Property(int, notify=moodChanged)
     def moodValue(self) -> int:
         if self.cfg.mood is None:
@@ -685,6 +710,20 @@ class DJConnectBackend(QObject):
         self.showToastForContext(self.tr_key("mood_saved"), "musicdna")
 
     @Slot(str)
+    def setDjAnnouncementOutput(self, value: str) -> None:
+        output = normalize_dj_announcement_output(value, self.cfg.music_backend_capabilities)
+        if self.cfg.dj_announcement_output == output:
+            return
+        self.cfg.dj_announcement_output = output
+        self.cfg.dj_announcement_output_user_set = True
+        save_config(self.config_path, self.cfg)
+        self.client.cfg = self.cfg
+        self.djAnnouncementChanged.emit()
+        self.settingsChanged.emit()
+        _LOGGER.info("User changed DJ announcement output to %s", output)
+        self.showToastForContext(self.tr_key("dj_announcement_output_saved"), "askdj")
+
+    @Slot(str)
     def pair(self, pair_code: str) -> None:
         if self._demo_mode:
             self.exitDemoMode()
@@ -733,6 +772,7 @@ class DJConnectBackend(QObject):
             and latest.screen_timeout_seconds == self.cfg.screen_timeout_seconds
             and latest.return_to_now_seconds == self.cfg.return_to_now_seconds
             and latest.update_channel == self.cfg.update_channel
+            and latest.dj_announcement_output == self.cfg.dj_announcement_output
         ):
             return
         language_changed = latest.language != self.cfg.language
@@ -745,6 +785,7 @@ class DJConnectBackend(QObject):
         self.screenTimeoutChanged.emit()
         self.returnToNowChanged.emit()
         self.updateChannelChanged.emit()
+        self.djAnnouncementChanged.emit()
         if language_changed:
             self._translation_version += 1
             self.languageChanged.emit()
@@ -1521,6 +1562,11 @@ class DJConnectBackend(QObject):
         self._askDjReady.emit(data)
 
     def _send_ask_dj_action_worker(self, action: dict[str, object]) -> None:
+        action = dict(action)
+        action["dj_announcement_output"] = normalize_dj_announcement_output(
+            self.cfg.dj_announcement_output,
+            self.cfg.music_backend_capabilities,
+        )
         try:
             data = self.client.ask_dj_action(action)
         except (AuthenticationError, ProtocolVersionMismatch):
@@ -2098,6 +2144,7 @@ class DJConnectBackend(QObject):
             save_config(self.config_path, self.cfg)
             self.settingsChanged.emit()
             self.favoriteChanged.emit()
+            self.djAnnouncementChanged.emit()
         except Exception as exc:
             _LOGGER.warning("Could not persist music backend summary: %s", exc)
 
@@ -2609,6 +2656,7 @@ def _ask_dj_message(item: dict[str, object]) -> dict[str, object] | None:
         actions = _ask_dj_actions(item.get("playback_actions"), item.get("confirmation_actions"))
     text = _ask_dj_display_text(text, actions)
     track_insight_data = _track_insight_data(item) if track_insight else {}
+    announcement = _ask_dj_announcement(item)
     message: dict[str, object] = {
         "id": str(item.get("id") or item.get("message_id") or item.get("server_id") or ""),
         "client_message_id": str(item.get("client_message_id") or ""),
@@ -2625,7 +2673,11 @@ def _ask_dj_message(item: dict[str, object]) -> dict[str, object] | None:
         "items": _track_insight_items(track_insight_data) if track_insight else (_ask_dj_recently_played_items(_first_present(item, ("items",)), assistant_payload.get("items")) if recent_history else _ask_dj_items(_first_present(item, ("items",)), assistant_payload.get("items"))),
         "links": _ask_dj_links(item.get("links"), item.get("sources")),
         "actions": actions,
-        "audioUrl": str(item.get("audio_url") or item.get("audioUrl") or ""),
+        "announcementDelivery": str(announcement.get("delivery") or ""),
+        "announcementOutput": str(announcement.get("output") or ""),
+        "announcementTargetName": str(announcement.get("target_name") or ""),
+        "announcementWarnings": announcement.get("warnings") or [],
+        "audioUrl": "",
         "audioType": str(item.get("audio_type") or item.get("audioType") or ""),
         "trackInsight": track_insight,
         "trackInsightData": track_insight_data,
@@ -2634,6 +2686,20 @@ def _ask_dj_message(item: dict[str, object]) -> dict[str, object] | None:
     }
     message["displayTime"] = _ask_dj_display_time(message["created_at"])
     return message
+
+
+def _ask_dj_announcement(item: dict[str, object]) -> dict[str, object]:
+    raw = item.get("announcement")
+    if not isinstance(raw, dict):
+        return {}
+    target = raw.get("target") if isinstance(raw.get("target"), dict) else {}
+    warnings = [str(value).strip() for value in raw.get("warnings", []) if str(value).strip()] if isinstance(raw.get("warnings"), list) else []
+    return {
+        "output": str(raw.get("output") or ""),
+        "delivery": str(raw.get("delivery") or ""),
+        "target_name": str(target.get("name") or target.get("entity_id") or raw.get("speaker_name") or ""),
+        "warnings": warnings,
+    }
 
 
 def _is_recently_played_history(item: dict[str, object]) -> bool:

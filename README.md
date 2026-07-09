@@ -57,7 +57,11 @@ running separately from the touch UI.
   `POST /api/djconnect/v1/ask_dj/history/clear`, and clears local bubbles only
   after HA confirms. It reports `ask_dj_voice_supported:false` plus
   `ask_dj_audio_response_supported:false` and does not expose local message
-  input, voice/PTT, TTS or local audio playback.
+  input, voice/PTT, TTS or local audio playback. DJ announcements can be
+  rendered as text only, or spoken by Home Assistant server-side through the
+  HA speaker configured in DJConnect options. The Pi only chooses
+  `dj_announcement_output` (`text_only` or supported `ha_speaker`) and never
+  configures a speaker entity or plays `audio_url` locally.
 - Track Insight is server-side in Home Assistant. The Pi posts current track
   metadata, language/locale, optional mood and optional Music DNA key to
   `/api/djconnect/v1/track_insight`, renders direct or wrapped

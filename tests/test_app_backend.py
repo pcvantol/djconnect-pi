@@ -453,7 +453,7 @@ def test_ask_dj_parser_accepts_history_rich_messages(monkeypatch) -> None:
     assert messages[1]["actions"][0]["imageUrl"] == "file:///cache/art.jpg"
     assert messages[1]["actions"][1]["isMedia"] is False
     assert "spotify:track:1" in messages[1]["actions"][0]["payload"]
-    assert messages[1]["audioUrl"] == "https://ha.local/tts.mp3"
+    assert messages[1]["audioUrl"] == ""
     assert messages[2]["role"] == "status"
     assert messages[2]["text"] == "Ask DJ denkt na"
 
@@ -1171,7 +1171,7 @@ def test_ask_dj_action_tap_sends_structured_payload_only(tmp_path: Path) -> None
 
     backend._send_ask_dj_action_worker({"kind": "confirmation", "response_value": "yes"})
 
-    backend.client.ask_dj_action.assert_called_once_with({"kind": "confirmation", "response_value": "yes"})
+    backend.client.ask_dj_action.assert_called_once_with({"kind": "confirmation", "response_value": "yes", "dj_announcement_output": "text_only"})
 
 
 def test_ask_dj_action_accepts_music_assistant_payload_without_spotify_uri(tmp_path: Path) -> None:
@@ -1191,7 +1191,76 @@ def test_ask_dj_action_accepts_music_assistant_payload_without_spotify_uri(tmp_p
 
     backend._send_ask_dj_action_worker(action)
 
-    backend.client.ask_dj_action.assert_called_once_with(action)
+    expected = dict(action)
+    expected["dj_announcement_output"] = "text_only"
+    backend.client.ask_dj_action.assert_called_once_with(expected)
+
+
+def test_ask_dj_action_sends_configured_ha_speaker_output(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token-1"
+    backend.cfg.music_backend_capabilities = {
+        "dj_announcement": {
+            "speaker_configured": True,
+            "supported_outputs": ["text_only", "ha_speaker"],
+            "target": {"kind": "ha_media_player", "entity_id": "media_player.voice_preview", "name": "Voice Preview"},
+        }
+    }
+    backend.cfg.dj_announcement_output = "ha_speaker"
+    backend.client.cfg = backend.cfg
+    backend.client.ask_dj_action = Mock(return_value={"success": True, "messages": []})
+
+    backend._send_ask_dj_action_worker({"kind": "confirmation", "response_value": "yes"})
+
+    backend.client.ask_dj_action.assert_called_once_with(
+        {"kind": "confirmation", "response_value": "yes", "dj_announcement_output": "ha_speaker"}
+    )
+
+
+def test_ask_dj_response_audio_url_is_not_exposed_for_local_playback() -> None:
+    messages = parse_ask_dj_messages(
+        {
+            "messages": [
+                {
+                    "role": "assistant",
+                    "text": "Ik zet de volgende plaat klaar.",
+                    "audio_url": "https://example.test/dj.mp3",
+                    "audio_type": "audio/mpeg",
+                }
+            ]
+        }
+    )
+
+    assert messages[0]["text"] == "Ik zet de volgende plaat klaar."
+    assert messages[0]["audioUrl"] == ""
+
+
+def test_ask_dj_response_ha_speaker_delivery_renders_text_and_metadata() -> None:
+    messages = parse_ask_dj_messages(
+        {
+            "messages": [
+                {
+                    "role": "assistant",
+                    "text": "Even opletten: de drop komt eraan.",
+                    "announcement": {
+                        "output": "ha_speaker",
+                        "delivery": "ha_speaker",
+                        "audio_response_effective": "server_only",
+                        "audio_url": None,
+                        "target": {"kind": "ha_media_player", "entity_id": "media_player.voice_preview", "name": "Voice Preview"},
+                        "warnings": ["Speaker viel terug naar tekst."],
+                    },
+                }
+            ]
+        }
+    )
+
+    assert messages[0]["text"] == "Even opletten: de drop komt eraan."
+    assert messages[0]["announcementDelivery"] == "ha_speaker"
+    assert messages[0]["announcementTargetName"] == "Voice Preview"
+    assert messages[0]["announcementWarnings"] == ["Speaker viel terug naar tekst."]
 
 
 def test_ask_dj_action_surfaces_unsupported_capability(tmp_path: Path) -> None:

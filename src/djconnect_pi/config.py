@@ -8,6 +8,7 @@ import os
 import re
 import secrets
 import uuid
+from typing import Any
 
 from .i18n import normalize_language
 
@@ -41,11 +42,13 @@ class Config:
     music_backend_name: str = ""
     music_backend_available: bool = True
     music_backend_revision: int = 0
-    music_backend_capabilities: dict[str, bool] = field(default_factory=dict)
+    music_backend_capabilities: dict[str, Any] = field(default_factory=dict)
     music_target_player: dict[str, str] = field(default_factory=dict)
     music_backend_error: str = ""
     music_dna_key: str = ""
     mood: int | None = None
+    dj_announcement_output: str = "text_only"
+    dj_announcement_output_user_set: bool = False
     websocket_fast_path_enabled: bool = True
     ha_websocket_token: str = ""
     dj_response_file: str = str(DEFAULT_LOG_PATH.parent / "dj-response.json")
@@ -101,10 +104,15 @@ def load_config(path: Path) -> Config:
     cfg.return_to_now_seconds = _normalize_return_to_now_seconds(cfg.return_to_now_seconds)
     cfg.screen_brightness_percent = max(10, min(100, int(cfg.screen_brightness_percent)))
     cfg.mood = _optional_mood(cfg.mood)
+    cfg.dj_announcement_output = normalize_dj_announcement_output(
+        cfg.dj_announcement_output,
+        cfg.music_backend_capabilities,
+    )
     cfg.local_api_port = max(1, min(65535, int(cfg.local_api_port)))
     cfg.language = normalize_language(cfg.language)
     if cfg.update_channel not in {"stable", "beta"}:
         cfg.update_channel = "stable"
+    cfg.dj_announcement_output_user_set = bool(cfg.dj_announcement_output_user_set)
     return cfg
 
 
@@ -123,6 +131,34 @@ def _normalize_return_to_now_seconds(value: object) -> int:
     except (TypeError, ValueError):
         return 60
     return seconds if seconds in {0, 30, 60, 120} else 60
+
+
+def dj_announcement_speaker_configured(capabilities: dict[str, Any] | None) -> bool:
+    announcement = capabilities.get("dj_announcement") if isinstance(capabilities, dict) else None
+    if isinstance(announcement, dict):
+        if announcement.get("speaker_configured") is True:
+            return True
+        target = announcement.get("target") if isinstance(announcement.get("target"), dict) else {}
+        return bool(
+            announcement.get("speaker_entity_id")
+            or announcement.get("speaker_name")
+            or target.get("entity_id")
+            or target.get("name")
+        )
+    return False
+
+
+def normalize_dj_announcement_output(value: object, capabilities: dict[str, Any] | None = None) -> str:
+    output = str(value or "").strip()
+    announcement = capabilities.get("dj_announcement") if isinstance(capabilities, dict) else None
+    supported = announcement.get("supported_outputs") if isinstance(announcement, dict) else None
+    locked = announcement.get("locked_outputs") if isinstance(announcement, dict) else None
+    supported_outputs = {str(item).strip() for item in supported if str(item).strip()} if isinstance(supported, list) else set()
+    locked_outputs = {str(item).strip() for item in locked if str(item).strip()} if isinstance(locked, list) else set()
+    ha_speaker_supported = not supported_outputs or "ha_speaker" in supported_outputs
+    if output == "ha_speaker" and output not in locked_outputs and ha_speaker_supported and dj_announcement_speaker_configured(capabilities):
+        return "ha_speaker"
+    return "text_only"
 
 
 def save_config(path: Path, cfg: Config) -> None:

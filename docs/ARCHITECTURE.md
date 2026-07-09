@@ -228,9 +228,13 @@ stores Music DNA locally, reconstructs prompts or infers playback actions.
 Playback starts only when Home Assistant returns or executes an explicit
 action. Returned Play Now and speaker actions are posted back to
 `/api/djconnect/v1/command` with the backend action payload;
-plain output selection uses the returned `value` with `set_output`. If a
-message includes `audio_url`, the UI shows a "DJ antwoord afspelen" button for
-that URL, but it does not create local TTS or audio bubbles. Track Insight is
+plain output selection uses the returned `value` with `set_output`. DJ
+announcement output is a Pi-local mode setting, not a speaker entity setting:
+the Pi supports `text_only`, and supports `ha_speaker` only when HA
+capabilities report a configured announcement speaker. With `ha_speaker`, Home
+Assistant plays TTS server-side on its configured media_player and the Pi only
+renders text, delivery metadata, target name and warnings. Legacy/top-level
+`audio_url` fields are ignored for Pi-local playback. Track Insight is
 opened from Now Playing through `/api/djconnect/v1/track_insight`; the request
 includes Pi identity, language/locale, optional mood/Music DNA key and current
 track metadata when available. The Pi renders direct top-level

@@ -215,6 +215,12 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert 'root.tr("about")' not in settings_block
     assert "djconnect.showLogs()" not in settings_block
     assert "root.aboutOpen = true" not in settings_block
+    assert 'root.tr("dj_announcement_settings_title")' in settings_block
+    assert 'root.tr("dj_announcement_output")' in settings_block
+    assert "djconnect.djAnnouncementSpeakerAvailable ? [\"text_only\", \"ha_speaker\"] : [\"text_only\"]" in settings_block
+    assert "djconnect.setDjAnnouncementOutput(outputChoices[index])" in settings_block
+    assert 'root.tr("dj_announcement_speaker_unavailable")' in settings_block
+    assert "speaker_entity_id" not in settings_block
     assert 'root.tr("save")' not in main_qml
     assert 'text: root.tr("no_voice")' not in main_qml
     assert "placeholderText: root.tr(\"ha_url\")" not in main_qml
@@ -476,9 +482,10 @@ def test_qml_ask_dj_screen_is_readonly_actions_without_free_input() -> None:
     assert "property bool askDjKeyboardOpen" not in main_qml
     assert "function insertAskDjKey" not in ask_dj_block
     assert "function deleteAskDjText" not in ask_dj_block
-    assert 'root.tr("replay_audio")' in ask_dj_block
-    assert "visible: modelData.audioUrl && modelData.audioUrl.length > 0" in ask_dj_block
-    assert "Qt.openUrlExternally(modelData.audioUrl)" in ask_dj_block
+    assert 'root.tr("replay_audio")' not in ask_dj_block
+    assert "Qt.openUrlExternally(modelData.audioUrl)" not in ask_dj_block
+    assert "modelData.announcementDelivery" in ask_dj_block
+    assert 'root.tr("dj_announcement_delivered_ha_speaker")' in ask_dj_block
     assert "id: askDjPollTimer" in main_qml
     assert 'running: root.activeScreen === "askdj" && djconnect.paired && !djconnect.demoMode' in main_qml
     assert "onTriggered: djconnect.pollAskDjHistory()" in main_qml

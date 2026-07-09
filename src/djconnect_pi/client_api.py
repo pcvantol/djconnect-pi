@@ -9,7 +9,7 @@ import socket
 import threading
 from urllib.parse import parse_qs, urlparse
 
-from .config import CLIENT_TYPE, Config, load_config, save_config
+from .config import CLIENT_TYPE, Config, load_config, normalize_dj_announcement_output, save_config
 from .i18n import translate
 from .web_portal import index_html
 
@@ -310,6 +310,9 @@ class ClientAPIHandler(BaseHTTPRequestHandler):
             cfg.screen_timeout_seconds = max(0, int(payload["screen_timeout_seconds"]))
         if "websocket_fast_path_enabled" in payload:
             cfg.websocket_fast_path_enabled = bool(payload["websocket_fast_path_enabled"])
+        if "dj_announcement_output" in payload:
+            cfg.dj_announcement_output = normalize_dj_announcement_output(payload["dj_announcement_output"], cfg.music_backend_capabilities)
+            cfg.dj_announcement_output_user_set = True
         save_config(self.server.state.config_path, cfg)
         self.server.state.cfg = cfg
         self.server.state.command_handler("settings", payload)
@@ -481,6 +484,7 @@ def _capabilities() -> dict[str, object]:
         "ask_dj_actions_supported": True,
         "ask_dj_voice_supported": False,
         "ask_dj_audio_response_supported": False,
+        "dj_announcement_outputs_supported": ["text_only", "ha_speaker"],
     }
 
 
@@ -493,6 +497,7 @@ def _portal_settings(cfg: Config) -> dict[str, Any]:
         "update_channel": cfg.update_channel,
         "mood": cfg.mood,
         "websocket_fast_path_enabled": cfg.websocket_fast_path_enabled,
+        "dj_announcement_output": cfg.dj_announcement_output,
     }
 
 
