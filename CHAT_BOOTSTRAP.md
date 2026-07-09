@@ -24,7 +24,7 @@ Belangrijke context:
   `pcvantol/djconnect/SYNC_PROMPTS.md`.
 
 Huidige stand:
-- Laatste release/deployment in deze werkronde is `v3.2.12`.
+- Laatste release/deployment in deze werkronde is `v3.2.20`.
 - Public updater assets staan in `pcvantol/djconnect-pi-releases`, inclusief
   `djconnect-pi-latest.json`.
 - Release `v3.2.0` upgrade de Raspberry Pi client naar protocol `3.2.x`:
@@ -78,42 +78,51 @@ Huidige stand:
 - Release `v3.2.12` corrigeert de Ask DJ capability voor `readonly_actions`:
   `ask_dj_free_input_supported:false` in zowel de lokale device API als
   Home Assistant pairing/status payloads.
+- Release `v3.2.20` labelt legacy Home Assistant contractroutes in de Node
+  E2E fixtures en README expliciet als fixture-only compatibility coverage, en
+  voegt guardrails toe tegen Pi voice/audio capability claims,
+  `/api/device/dj_response`, `/api/djconnect` zonder `/v1` en websocket
+  advertising voor compatibility-only voice of legacy Ask DJ clear routes.
 - Source release is aangemaakt:
-  - source repo tag/release: `v3.2.12`
+  - source repo tag/release: `v3.2.20`
 - Directe push naar `main` is gedaan met tijdelijke branch-protection/admin
   policy override/bypass voor de release push.
-- Public publish workflow voor `v3.2.12` is geslaagd:
-  - run `28851332315`
-- Public assets voor `v3.2.12` zijn gepubliceerd:
-  - `djconnect-pi-3.2.12.tar.gz`
-  - `djconnect-pi-3.2.12.sha256`
+- Public publish workflow voor `v3.2.20` is geslaagd:
+  - run `29037579716`
+- Public assets voor `v3.2.20` zijn gepubliceerd:
+  - `djconnect-pi-3.2.20.tar.gz`
+  - `djconnect-pi-3.2.20.sha256`
   - `djconnect-pi-latest.json`
 - Release cleanup is uitgevoerd met `--keep 1 --public --execute`.
-  Oude source release/tag `v3.2.11` en `v3.2.10`, public release/tag
-  `v3.2.11` en `v3.2.10` en completed publish/action runs voor `v3.2.11` en
-  `v3.2.10` zijn verwijderd; lokaal, source releases en public releases houden
-  nu alleen `v3.2.12` over.
-- Pi deployment voor `v3.2.12` is uitgevoerd en geverifieerd via de public
+  Oude source releases/tags `v3.2.19` t/m `v3.2.12`, public releases/tags
+  `v3.2.19` en `v3.2.17` t/m `v3.2.12` en completed publish/action runs voor
+  oude tags zijn verwijderd; lokaal, source releases en public releases houden
+  nu alleen `v3.2.20` over.
+- Pi deployment voor `v3.2.20` is uitgevoerd en geverifieerd via de public
   tarball installer-route:
-  `~/djconnect-install/djconnect-pi-3.2.12/scripts/install.sh`.
+  `~/djconnect-install/djconnect-pi-3.2.20/scripts/install.sh`.
 - Pi eindvalidatie:
-  - `/opt/djconnect/current` -> `/opt/djconnect/releases/3.2.12`
-  - Python package version -> `3.2.12`
+  - `/opt/djconnect/current` -> `/opt/djconnect/releases/3.2.20`
+  - Python package version -> `3.2.20`
   - `djconnect-client.service` -> `active`
   - `djconnect-api.service` -> `active`
-  - `/api/device/info` -> `version/app_version/firmware: 3.2.12`,
+  - `/api/device/info` op `http://127.0.0.1:18080` ->
+    `version/app_version/firmware: 3.2.20`,
     `client_type: raspberry_pi`, paired, `ask_dj_mode:"readonly_actions"` en
     `ask_dj_free_input_supported:false`.
-- Validatie voor `v3.2.12`:
+- Validatie voor `v3.2.20`:
   - `/Users/pcvantol/.platformio/penv/bin/pytest -q`
-    -> ok, 314 passed, 13 skipped
-  - `python -m compileall src tests` -> ok
+    -> ok, 362 passed, 13 skipped
+  - `node Tools/http_e2e_contract.js` -> ok
+  - `node Tools/websocket_e2e_contract.js` -> ok
+  - `node Tools/validate_ha_contract_fixture_security.js` -> ok
+  - `python3 -m compileall src tests` -> ok
   - `bash -n scripts/install.sh scripts/bootstrap_raspberry_pi_os.sh cleanup_old_releases.sh release.sh` -> ok
   - `git diff --check` -> ok
-  - GitHub Actions publish workflow voor `v3.2.12` -> success, run `28851332315`
-  - Source release assets voor `v3.2.12` -> gepubliceerd
-  - Public release assets voor `v3.2.12` -> gepubliceerd
-  - Pi public tarball deployment voor `v3.2.12` -> geverifieerd
+  - GitHub Actions publish workflow voor `v3.2.20` -> success, run `29037579716`
+  - Source release assets voor `v3.2.20` -> gepubliceerd
+  - Public release assets voor `v3.2.20` -> gepubliceerd
+  - Pi public tarball deployment voor `v3.2.20` -> geverifieerd
 
 Openstaande gewenste workflow:
 - Controleer na elke release de public publish workflow:
