@@ -1,7 +1,9 @@
 # Changelog
 
-## 3.2.18
+## 3.2.19
 
+- Include the shared QML `MoodTheme.js` file in the packaged wheel so the
+  touch client can start after install.
 - Make Track Insight cards transparent so the screen background shows through
   while keeping subtle borders for structure.
 - Reset the Settings scroll position to the top whenever the Settings screen is

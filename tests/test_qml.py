@@ -14,6 +14,7 @@ def test_qml_files_are_packaged() -> None:
     assert qml_root.joinpath("ControlButton.qml").is_file()
     assert qml_root.joinpath("TogglePill.qml").is_file()
     assert qml_root.joinpath("GamesPanel.qml").is_file()
+    assert qml_root.joinpath("MoodTheme.js").is_file()
     assert qml_root.joinpath("app-icon.png").is_file()
 
 
