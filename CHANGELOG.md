@@ -1,7 +1,11 @@
 # Changelog
 
-## 3.2.16
+## 3.2.17
 
+- Make Track Insight cards transparent so the screen background shows through
+  while keeping subtle borders for structure.
+- Reset the Settings scroll position to the top whenever the Settings screen is
+  opened again.
 - Enable the Home Assistant WebSocket fast path by default on Raspberry Pi,
   backed by `/api/djconnect/v1/websocket/session`, in-memory short-lived HA
   websocket tokens, capability-based route dispatch, diagnostics and reliable

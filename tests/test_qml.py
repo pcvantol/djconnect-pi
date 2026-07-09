@@ -129,6 +129,8 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert 'color: "#ffffff"' in main_qml
     assert "id: settingsPanel" in main_qml
     assert "id: settingsScroll" in main_qml
+    assert "if (visible && settingsScroll.contentItem)" in main_qml
+    assert "settingsScroll.contentItem.contentY = 0" in main_qml
     assert "ScrollView" in main_qml
     assert "ScrollBar.horizontal.policy: ScrollBar.AlwaysOff" in main_qml
     assert "contentWidth: availableWidth" in main_qml
@@ -464,13 +466,12 @@ def test_qml_ask_dj_track_insight_has_compact_readonly_rendering() -> None:
     assert "modelData.trackInsight && modelData.musicDnaMatch" in ask_dj_block
     assert 'root.tr("music_dna_match") + " " + (modelData.musicDnaMatch || "")' in ask_dj_block
     assert "modelData.trackInsight && modelData.items && modelData.items.length > 0" in ask_dj_block
-    assert 'modelData.musicDna ? "#33334857" : root.moodColor("chip")' in ask_dj_block
+    assert 'color: "#00000000"' in ask_dj_block
     assert "modelData.value || \"\"" in ask_dj_block
     assert "[modelData.source || \"\", modelData.confidence || \"\"].filter" in ask_dj_block
     assert "modelData.analysis.sections && modelData.analysis.sections.length > 0" in ask_dj_block
     assert "root.trackInsightLabel(modelData.title || modelData.kind || \"\")" in ask_dj_block
     assert "root.trackInsightLabel(modelData.title || modelData.id || modelData.kind || \"\")" in ask_dj_block
-    assert 'modelData.metadataContext ? "#33334857" : root.moodColor("chip")' in ask_dj_block
     assert "!modelData.trackInsight && modelData.items && modelData.items.length > 0" in ask_dj_block
 
 
@@ -516,6 +517,8 @@ def test_qml_track_insight_panel_renders_contract_fields() -> None:
     assert '"energy": "track_insight_energy"' in main_qml
     assert "root.trackInsightLabel(modelData.title || modelData.kind || \"\")" in panel
     assert "root.trackInsightLabel(modelData.title || modelData.kind || modelData.id || \"\")" in panel
+    assert panel.count('color: "#00000000"') >= 3
+    assert 'color: "#172033"' not in panel
     assert "visible: !trackInsightScroll.visible" in panel
     assert "Layout.fillHeight: true" in panel
     assert "djconnect.refreshTrackInsight()" in panel

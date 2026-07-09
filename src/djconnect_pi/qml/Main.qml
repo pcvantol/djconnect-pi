@@ -1852,6 +1852,11 @@ Window {
         color: "#070b16"
         visible: settingsOpen && (djconnect.paired || djconnect.demoMode)
         z: 10
+        onVisibleChanged: {
+            if (visible && settingsScroll.contentItem) {
+                settingsScroll.contentItem.contentY = 0
+            }
+        }
 
         AppBackground {}
 
@@ -2439,7 +2444,7 @@ Window {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 104
                 radius: root.standardButtonRadius
-                color: "#172033"
+                color: "#00000000"
                 border.color: "#3b4a6e"
                 border.width: 1
                 clip: true
@@ -2505,7 +2510,7 @@ Window {
                         width: Math.max(132, trackMetricContent.implicitWidth + 24)
                         height: 64
                         radius: root.standardButtonRadius
-                        color: modelData.musicDna ? "#33334857" : root.moodColor("chip")
+                        color: "#00000000"
                         border.color: modelData.musicDna ? "#6aa0b9c8" : root.moodColor("accent")
                         border.width: 1
 
@@ -2557,7 +2562,7 @@ Window {
                             Layout.fillWidth: true
                             Layout.preferredHeight: trackSectionContent.implicitHeight + 18
                             radius: root.standardButtonRadius
-                            color: modelData.metadataContext ? "#33334857" : "#172033"
+                            color: "#00000000"
                             border.color: modelData.metadataContext ? "#6aa0b9c8" : "#3b4a6e"
                             border.width: 1
 
@@ -3270,7 +3275,7 @@ Window {
                                             width: Math.min(askDjScroll.availableWidth, Math.max(132, trackInsightMetricContent.implicitWidth + 24))
                                             height: 58
                                             radius: 8
-                                            color: modelData.musicDna ? "#33334857" : root.moodColor("chip")
+                                            color: "#00000000"
                                             border.color: modelData.musicDna ? "#6aa0b9c8" : root.moodColor("accent")
                                             border.width: 1
                                             clip: true
@@ -3332,7 +3337,7 @@ Window {
                                             Layout.fillWidth: true
                                             Layout.preferredHeight: trackInsightSectionContent.implicitHeight + 16
                                             radius: 8
-                                            color: modelData.metadataContext ? "#33334857" : root.moodColor("chip")
+                                            color: "#00000000"
                                             border.color: modelData.metadataContext ? "#6aa0b9c8" : ((modelData.source === "inferred" || modelData.source === "local_fallback" || modelData.source === "unavailable" || modelData.confidence === "low") ? "#b6a46a" : root.moodColor("accent"))
                                             border.width: 1
 
