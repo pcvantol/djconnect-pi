@@ -260,7 +260,8 @@ class HAClient:
                 body["player_id"] = self.cfg.music_target_player["id"]
             if self.cfg.music_backend:
                 body["music_backend"] = self.cfg.music_backend
-        data = self._try_websocket("djconnect/track_insight", body, command="djconnect/track_insight", timeout=max(self.timeout, 10.0))
+        timeout_seconds = max(self.timeout, 10.0)
+        data = self._try_websocket("djconnect/track_insight", body, command="djconnect/track_insight", timeout=timeout_seconds)
         if data is not None:
             self.update_backend_summary(data)
             self._validate_ha_version(data)
@@ -268,7 +269,7 @@ class HAClient:
         url = self._djconnect_url("track_insight")
         _LOGGER.debug("POST %s client_type=%s device_id=%s", url, CLIENT_TYPE, self.cfg.device_id)
         started = time.monotonic()
-        response = requests.post(url, json=body, headers=self._headers(), timeout=max(self.timeout, 10.0))
+        response = requests.post(url, json=body, headers=self._headers(), timeout=timeout_seconds)
         _LOGGER.debug("POST %s returned HTTP %s in %.0fms", url, response.status_code, _elapsed_ms(started))
         data = self._json(response)
         self.update_backend_summary(data)
