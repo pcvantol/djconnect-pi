@@ -96,7 +96,7 @@ def test_music_discovery_accept_enables_music_dna_and_loads_feed(tmp_path: Path)
     backend.cfg.paired = True
     backend.cfg.device_token = "token"
     backend.client.music_dna_settings = Mock(return_value={"success": True, "enabled": True, "profile": {"summary": "Ready"}})  # type: ignore[method-assign]
-    backend.client.music_discovery_feed = Mock(return_value={"success": True, "items": [{"id": "t1", "kind": "track", "title": "Track"}]})  # type: ignore[method-assign]
+    backend.client.music_discovery_feed = Mock(return_value={"success": True, "sections": [{"id": "new_for_you", "items": [{"id": "t1", "kind": "track", "title": "Track"}]}]})  # type: ignore[method-assign]
 
     backend._music_discovery_accept_worker()
 
@@ -222,22 +222,38 @@ def test_music_dna_parser_hides_ineligible_blocks() -> None:
     assert parsed["sections"] == []
 
 
-def test_music_discovery_feed_renders_supported_kinds_with_artwork_and_reason() -> None:
+def test_music_discovery_feed_renders_backend_sections_in_order_without_assumed_ids() -> None:
     parsed = parse_music_discovery_feed(
         {
+            "revision": 42,
+            "cache": {"hit": True},
+            "recent_tracks": [
+                {"id": "raw-recent", "kind": "track", "title": "Raw recent", "uri": "spotify:track:raw"}
+            ],
             "sections": [
                 {
-                    "id": "daily",
-                    "title": "Vandaag",
+                    "id": "new_for_you",
+                    "title": "Nieuw voor jou",
                     "items": [
-                        {"id": "t1", "kind": "track", "title": "Track", "artist": "Artist", "uri": "spotify:track:1", "image_url": "https://example.test/t.jpg", "reason": "Because HA said so", "confidence": "high", "play_count": 4},
+                        {
+                            "id": "t1",
+                            "kind": "track",
+                            "title": "Track",
+                            "artist": "Artist",
+                            "uri": "spotify:track:1",
+                            "image_url": "https://example.test/t.jpg",
+                            "reason": "Because HA said so",
+                            "reason_sources": ["seed:artist", "music_dna"],
+                            "confidence": "high",
+                            "play_count": 4,
+                        },
                         {"id": "a1", "kind": "album", "title": "Album", "subtitle": "Artist", "uri": "spotify:album:1", "image_url": "https://example.test/a.jpg"},
                         {"id": "dup", "kind": "track", "title": "Duplicate", "uri": "spotify:track:1"},
                     ],
                 },
                 {
-                    "id": "more",
-                    "title": "Meer",
+                    "id": "opaque-backend-section",
+                    "title": "Backend order",
                     "items": [
                         {"id": "ar1", "kind": "artist", "title": "Artist", "image_url": "https://example.test/ar.jpg", "based_on_count": 3},
                         {"id": "p1", "kind": "playlist", "title": "Playlist", "context": "For tonight", "uri": "spotify:playlist:1", "image_url": "https://example.test/p.jpg"},
@@ -248,19 +264,38 @@ def test_music_discovery_feed_renders_supported_kinds_with_artwork_and_reason() 
         }
     )
 
-    assert [item["kind"] for item in parsed["items"]] == ["track", "album", "artist", "playlist"]
+    assert [item["title"] for item in parsed["items"]] == ["Track", "Album", "Duplicate", "Artist", "Playlist"]
+    assert [item["kind"] for item in parsed["items"]] == ["track", "album", "track", "artist", "playlist"]
     assert parsed["items"][0]["imageUrl"] == "https://example.test/t.jpg"
     assert parsed["items"][0]["reason"] == "Because HA said so"
+    assert parsed["items"][0]["reasonSources"] == ["seed:artist", "music_dna"]
+    assert parsed["items"][0]["confidence"] == "high"
     assert parsed["items"][0]["hasReason"] is True
-    assert parsed["items"][0]["sectionId"] == "daily"
-    assert parsed["items"][0]["sectionTitle"] == "Vandaag"
+    assert parsed["items"][0]["sectionId"] == "new_for_you"
+    assert parsed["items"][0]["sectionTitle"] == "Nieuw voor jou"
     assert parsed["items"][0]["countText"] == "4x afgespeeld"
     assert parsed["items"][0]["playable"] is True
-    assert json.loads(str(parsed["items"][0]["payload"]))["section_id"] == "daily"
-    assert json.loads(str(parsed["items"][0]["payload"]))["discovery_item_id"] == "t1"
+    payload = json.loads(str(parsed["items"][0]["payload"]))
+    assert payload["section_id"] == "new_for_you"
+    assert payload["discovery_item_id"] == "t1"
+    assert payload["reason_sources"] == ["seed:artist", "music_dna"]
+    assert payload["confidence"] == "high"
     assert parsed["items"][1]["hasReason"] is False
-    assert parsed["items"][2]["countText"] == "3 bronnen"
-    assert parsed["items"][2]["playable"] is False
+    assert parsed["items"][3]["sectionId"] == "opaque-backend-section"
+    assert parsed["items"][3]["countText"] == "3 bronnen"
+    assert parsed["items"][3]["playable"] is False
+
+
+def test_music_discovery_feed_ignores_top_level_items_and_recent_history() -> None:
+    parsed = parse_music_discovery_feed(
+        {
+            "items": [{"id": "legacy", "kind": "track", "title": "Legacy", "uri": "spotify:track:legacy"}],
+            "recommendations": [{"id": "rec", "kind": "track", "title": "Rec", "uri": "spotify:track:rec"}],
+            "recent_tracks": [{"id": "recent", "kind": "track", "title": "Recent", "uri": "spotify:track:recent"}],
+        }
+    )
+
+    assert parsed["items"] == []
 
 
 def test_music_discovery_disabled_reason_does_not_fabricate_recommendations(tmp_path: Path) -> None:

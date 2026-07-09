@@ -12,6 +12,10 @@
 - Make Ontdek recommendation rows taller and one-per-row, and open Waarom
   reason text in a full-screen details view with a close button instead of a
   toast.
+- Align Ontdek rendering with the current backend recommendation-feed contract:
+  render only backend `sections[].items[]`, preserve backend order, treat
+  section IDs as opaque values, carry `confidence` and `reason_sources`, and
+  keep playback behind the explicit Play Now action.
 - Widen and lower the Games playfield and keep Maze Chase inside a fixed
   320:170 canvas aspect ratio.
 - Polish Ask DJ, Logs, About, Settings, Track Insight, Music DNA and Ontdek

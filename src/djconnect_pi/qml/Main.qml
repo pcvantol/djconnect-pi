@@ -2633,21 +2633,9 @@ Window {
                                 anchors.fill: parent
                                 acceptedButtons: Qt.LeftButton
                                 activeFocusOnTab: true
-                                Keys.onReturnPressed: {
-                                    if (modelData.playable) {
-                                        djconnect.playMusicDiscoveryItem(modelData.payload || "{}")
-                                    }
-                                }
-                                Keys.onEnterPressed: {
-                                    if (modelData.playable) {
-                                        djconnect.playMusicDiscoveryItem(modelData.payload || "{}")
-                                    }
-                                }
-                                onClicked: {
-                                    if (modelData.playable) {
-                                        djconnect.playMusicDiscoveryItem(modelData.payload || "{}")
-                                    }
-                                }
+                                Keys.onReturnPressed: event.accepted = true
+                                Keys.onEnterPressed: event.accepted = true
+                                onClicked: function(mouse) { mouse.accepted = true }
                                 onPressAndHold: {
                                     if (modelData.hasReason) {
                                         root.discoveryReasonTitle = modelData.title || root.tr("music_discovery_reason")
@@ -2707,8 +2695,8 @@ Window {
                                     }
 
                                     Text {
-                                        visible: (modelData.countText && modelData.countText.length > 0) || (modelData.relevance && modelData.relevance.length > 0)
-                                        text: [modelData.countText || "", modelData.relevance || ""].filter(function(v) { return v && v.length > 0 }).join(" · ")
+                                        visible: (modelData.countText && modelData.countText.length > 0) || (modelData.confidence && modelData.confidence.length > 0)
+                                        text: [modelData.countText || "", modelData.confidence || ""].filter(function(v) { return v && v.length > 0 }).join(" · ")
                                         color: "#b6c6ff"
                                         font.pixelSize: 17
                                         elide: Text.ElideRight

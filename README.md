@@ -64,11 +64,11 @@ running separately from the touch UI.
   and clear endpoints, but it does not calculate, store or replay Music DNA as
   a local source of truth.
 - Music Discovery is Home Assistant authoritative and gated behind Music DNA
-  consent. The Pi renders backend `sections[].items[]`, dedupes repeated
-  `id`/`uri` rows, shows compact repeated-play/based-on counts, sends
-  refresh/play requests and posts Play Now selections back to HA as Music
-  Discovery interactions. It does not fabricate recommendations, reasons or
-  based-on lists locally.
+  consent. The Pi renders backend `sections[].items[]` in order, treats section
+  IDs as opaque backend values, shows compact repeated-play/based-on counts,
+  sends refresh/play requests and posts Play Now selections back to HA as Music
+  Discovery interactions. It does not fabricate recommendations, reasons,
+  based-on lists or items from recent listening history locally.
 - Home Assistant endpoints:
   - `POST /api/djconnect/v1/pair`
   - `POST /api/djconnect/v1/status`

@@ -525,10 +525,14 @@ def test_qml_music_discovery_nav_and_panel() -> None:
     assert "root.discoveryReasonOpen = true" in discover_block
     assert "root.discoveryReasonOpen = false" in discover_block
     assert "djconnect.playMusicDiscoveryItem(modelData.payload || \"{}\")" in discover_block
+    assert discover_block.count("djconnect.playMusicDiscoveryItem(modelData.payload || \"{}\")") == 1
     assert "modelData.sectionTitle" in discover_block
     assert "modelData.countText" in discover_block
+    assert "modelData.confidence" in discover_block
+    assert "modelData.relevance" not in discover_block
     assert "visible: modelData.playable" in discover_block
-    assert "if (modelData.playable)" in discover_block
+    assert "if (modelData.playable)" not in discover_block
+    assert "onClicked: function(mouse) { mouse.accepted = true }" in discover_block
     assert "visible: modelData.hasReason" in discover_block
     assert "djconnect.showToastForContext(modelData.reason || \"\", \"discover\")" not in discover_block
 

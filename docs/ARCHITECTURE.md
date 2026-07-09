@@ -247,13 +247,16 @@ comes from `GET /api/djconnect/v1/music_discovery`, refresh uses
 `djconnect/music_discovery/feed`, `djconnect/music_discovery/refresh` and
 `djconnect/music_discovery/play` only when advertised. Recommendation cards are
 rendered from HA-provided `sections[].items[]` for track, album, artist and
-playlist items as one large row per item. Repeated `id`/`uri` rows are deduped,
-repeated-play or based-on counts are shown compactly and reason text is shown
-only through an explicit full-screen Waarom details action. Reasons, based-on
-lists and fallback recommendations are never inferred locally. Play Now
-payloads include Pi
-identity, `section_id`, `discovery_item_id` and `source/context:
-"music_discovery"` so HA can record the interaction as a Music DNA signal.
+playlist items as one large row per item. Section IDs such as `new_for_you` and
+`accepted_recommendations` are treated as opaque backend values, empty sections
+may be omitted by HA and the Pi preserves backend section/item order.
+Repeated-play or based-on counts, confidence and reason text are shown from
+backend item fields only; reason text opens through an explicit full-screen
+Waarom details action. Reasons, based-on lists, fallback recommendations and
+recently played history are never inferred or reconstructed locally. Play Now
+payloads include Pi identity, `section_id`, `discovery_item_id` and
+`source/context: "music_discovery"` so HA can record the interaction as a Music
+DNA signal.
 
 The canonical Home Assistant `SYNC_PROMPTS.md` is the source of truth for the
 current Pi Ask DJ contract: `readonly_actions` via server-side history and

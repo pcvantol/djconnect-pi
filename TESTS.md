@@ -54,12 +54,15 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 - Music Discovery gating coverage so disabled Music DNA opens consent/empty
   state, consent accept enables Music DNA before loading the feed and consent
   reject shows the compact gating block
-- Music Discovery parser coverage for HA-provided track, album, artist and
-  playlist recommendations with artwork, section labels, dedupe by `id`/`uri`,
-  compact repeated-play/based-on count text, relevance/confidence and reason
-  visibility, while unsupported kinds are ignored
+- Music Discovery parser coverage for backend-provided `sections[].items[]`
+  track, album, artist and playlist recommendations with artwork, opaque
+  section labels/IDs, backend-order preservation, no top-level legacy item or
+  recent-history fallback rendering, compact repeated-play/based-on count text,
+  confidence, reason and `reason_sources` propagation, while unsupported kinds
+  are ignored
 - Music Discovery QML coverage for one-item-per-row recommendations, taller
-  cards, Play Now routing and the full-screen Waarom reason details overlay
+  passive feed cards, Play Now-only playback routing and the full-screen
+  Waarom reason details overlay
 - Music Discovery HTTP and websocket contract coverage for feed, refresh and
   Play Now endpoints/message types, including `client_type=raspberry_pi`,
   `device_id`, `client_id`, optional `music_dna_key`, `section_id`,

@@ -3389,7 +3389,6 @@ def parse_music_dna_profile(data: dict[str, object]) -> dict[str, object]:
 
 def parse_music_discovery_feed(data: dict[str, object]) -> dict[str, object]:
     items: list[dict[str, object]] = []
-    seen: set[str] = set()
     sections_source = data.get("sections")
     if isinstance(sections_source, list):
         for section_index, section in enumerate(sections_source):
@@ -3406,28 +3405,6 @@ def parse_music_discovery_feed(data: dict[str, object]) -> dict[str, object]:
                 item = _music_discovery_item(raw, section_id=section_id, section_title=section_title)
                 if not item:
                     continue
-                dedupe_key = str(item.get("dedupeKey") or item.get("id") or "").strip()
-                if dedupe_key and dedupe_key in seen:
-                    continue
-                if dedupe_key:
-                    seen.add(dedupe_key)
-                items.append(item)
-    else:
-        items_source = data.get("items") or data.get("recommendations") or data.get("feed")
-        if isinstance(items_source, dict):
-            items_source = items_source.get("items") or items_source.get("recommendations")
-        if isinstance(items_source, list):
-            for raw in items_source:
-                if not isinstance(raw, dict):
-                    continue
-                item = _music_discovery_item(raw, section_id="", section_title="")
-                if not item:
-                    continue
-                dedupe_key = str(item.get("dedupeKey") or item.get("id") or "").strip()
-                if dedupe_key and dedupe_key in seen:
-                    continue
-                if dedupe_key:
-                    seen.add(dedupe_key)
                 items.append(item)
     empty_text = str(data.get("empty_text") or data.get("empty_message") or data.get("message") or "").strip()
     return {"items": items, "empty_text": empty_text}
@@ -3445,7 +3422,8 @@ def _music_discovery_item(raw: dict[str, object], *, section_id: str, section_ti
     discovery_item_id = str(raw.get("discovery_item_id") or raw.get("id") or raw.get("recommendation_id") or raw.get("item_id") or item_id).strip()
     uri = str(raw.get("uri") or raw.get("spotify_uri") or "").strip()
     reason = str(raw.get("reason") or raw.get("music_dna_reason") or "").strip()
-    relevance = str(raw.get("relevance") or raw.get("confidence") or raw.get("score") or "").strip()
+    reason_sources = _string_list(raw.get("reason_sources") or raw.get("reasonSources"))
+    confidence = str(raw.get("confidence") or "").strip()
     play_count = max(0, _int_value(raw.get("play_count"), 0))
     based_on_count = max(0, _int_value(raw.get("based_on_count"), 0))
     count_text = ""
@@ -3466,6 +3444,9 @@ def _music_discovery_item(raw: dict[str, object], *, section_id: str, section_ti
         "title": title,
         "subtitle": subtitle,
         "artist": str(raw.get("artist") or ""),
+        "reason": reason,
+        "reason_sources": reason_sources,
+        "confidence": confidence,
     }
     dedupe_key = uri or item_id
     return {
@@ -3479,11 +3460,12 @@ def _music_discovery_item(raw: dict[str, object], *, section_id: str, section_ti
         "kind": kind,
         "kindLabel": kind.title(),
         "imageUrl": _queue_image_url_from(raw),
-        "relevance": relevance,
+        "confidence": confidence,
         "countText": count_text,
         "playCount": play_count,
         "basedOnCount": based_on_count,
         "reason": reason,
+        "reasonSources": reason_sources,
         "hasReason": bool(reason),
         "playable": playable,
         "payload": json.dumps(payload, ensure_ascii=True),
