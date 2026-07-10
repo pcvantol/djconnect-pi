@@ -18,6 +18,10 @@ def test_default_config_uses_raspberry_pi_client_type(tmp_path: Path) -> None:
     assert cfg.device_name == "DJConnect"
     assert cfg.websocket_fast_path_enabled is True
     assert cfg.ha_websocket_token == ""
+    assert cfg.active_profile_type == "household"
+    assert cfg.active_profile_privacy_mode == "shared"
+    assert cfg.explicit_profile_id == ""
+    assert cfg.private_session is False
 
 
 def test_save_and_load_config_roundtrip(tmp_path: Path) -> None:
@@ -42,6 +46,8 @@ def test_save_and_load_config_roundtrip(tmp_path: Path) -> None:
     assert loaded.paired is True
     assert loaded.websocket_fast_path_enabled is True
     assert loaded.ha_websocket_token == "ha-secret"
+    assert loaded.active_profile_type == "household"
+    assert loaded.active_profile_privacy_mode == "shared"
     assert len(loaded.pairing_code) == 6
     assert loaded.pairing_code.isdigit()
 
@@ -70,6 +76,16 @@ def test_load_config_backfills_missing_device_id(tmp_path: Path) -> None:
     assert loaded.device_id.startswith("djconnect-raspberry-pi-")
     assert len(loaded.pairing_code) == 6
     assert loaded.pairing_code.isdigit()
+
+
+def test_load_config_ignores_unknown_legacy_keys(tmp_path: Path) -> None:
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({"ha_url": "http://ha", "dj_announcement_output": "old"}), encoding="utf-8")
+
+    loaded = load_config(path)
+
+    assert loaded.ha_url == "http://ha"
+    assert not hasattr(loaded, "dj_announcement_output")
 
 
 def test_load_config_normalizes_runtime_settings(tmp_path: Path) -> None:

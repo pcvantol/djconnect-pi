@@ -35,6 +35,9 @@ def test_exported_client_contract_manifest_and_json_are_valid() -> None:
         "music_dna.profile.rich",
         "music_discovery.feed",
         "ask_dj.recently_played_history",
+        "profile_context.requests",
+        "profile_context.responses",
+        "profile_context.errors",
     }.issubset(fixture_ids)
     for entry in manifest["fixtures"]:
         payload = _fixture(entry["id"])
@@ -61,11 +64,31 @@ def test_capabilities_fixture_configures_websocket_routes_and_fallbacks() -> Non
     assert {"djconnect/music_discovery/feed", "djconnect/music_discovery/refresh", "djconnect/music_discovery/play", "djconnect/music_discovery/feedback"}.issubset(fast_path.commands)
     assert fast_path.features["music_dna"] is True
     assert fast_path.features["music_discovery"] is True
+    assert fast_path.capabilities["profiles"] is True
+    assert fast_path.capabilities["request_context"] is True
+    assert fast_path.contract_versions["profile_context"] == 1
     assert fast_path.fallbacks["music_dna_http_paths_profile"] == "/api/djconnect/v1/music_dna/profile"
     assert fast_path.fallbacks["music_dna_http_paths_export"] == "/api/djconnect/v1/music_dna/export"
     assert fast_path.fallbacks["music_discovery_http_paths_feed"] == "/api/djconnect/v1/music_discovery"
     assert fast_path.fallbacks["music_discovery_feedback_http_path"] == "/api/djconnect/v1/music_discovery/feedback"
     assert "djconnect/vibecast" not in fast_path.commands
+
+
+def test_profile_context_fixtures_define_pi_as_shared_ambient_client() -> None:
+    requests_payload = _fixture("profile_context.requests")
+    responses_payload = _fixture("profile_context.responses")
+    errors_payload = _fixture("profile_context.errors")
+
+    pi_request = requests_payload["requests"]["pi_shared_ambient"]
+    assert pi_request["client_type"] == "raspberry_pi"
+    assert pi_request["request_source"] == "discover"
+    assert "profile_id" not in pi_request
+
+    shared = responses_payload["responses"]["shared_profile"]
+    guest_safe_errors = set(errors_payload["errors"])
+    assert shared["resolved_profile"]["type"] == "room"
+    assert shared["resolved_profile"]["privacy_mode"] == "shared"
+    assert {"profile_required", "invalid_request_context", "profile_access_denied"}.issubset(guest_safe_errors)
 
 
 def test_music_dna_profile_fixtures_render_backend_privacy_dashboard_only() -> None:

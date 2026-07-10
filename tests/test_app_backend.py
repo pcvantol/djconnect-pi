@@ -118,6 +118,38 @@ def test_music_discovery_reject_shows_gating_state(tmp_path: Path) -> None:
     assert backend.musicDiscoveryEmptyText
 
 
+def test_profile_switch_clears_profile_scoped_caches(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend._apply_ask_dj_data({"profile_id": "profile-household", "resolved_profile": {"id": "profile-household", "name": "Household", "type": "household", "privacy_mode": "shared"}, "history_revision": 4, "messages": [{"id": "h1", "role": "assistant", "text": "Shared"}]})
+    backend._apply_music_dna_data({"profile_id": "profile-household", "resolved_profile": {"id": "profile-household", "type": "household", "privacy_mode": "shared"}, "enabled": True, "profile": {"summary": "Shared DNA"}})
+    backend._apply_music_discovery_data({"profile_id": "profile-household", "resolved_profile": {"id": "profile-household", "type": "household", "privacy_mode": "shared"}, "sections": [{"id": "shared", "items": [{"id": "s1", "kind": "track", "title": "Shared track", "uri": "spotify:track:s1"}]}]})
+
+    backend._apply_ask_dj_data({"profile_id": "profile-guest", "resolved_profile": {"id": "profile-guest", "name": "Guest", "type": "guest", "privacy_mode": "guest-safe"}, "history_revision": 1, "messages": [{"id": "g1", "role": "assistant", "text": "Guest safe"}]})
+
+    assert backend.activeProfileId == "profile-guest"
+    assert backend.activeProfileType == "guest"
+    assert backend.askDjMessages[0]["text"] == "Guest safe"
+    assert all(message["text"] != "Shared" for message in backend.askDjMessages)
+    assert backend.musicDnaSummary == ""
+    assert backend.musicDiscoveryItems == []
+    assert backend._ask_dj_history_revision == 1
+
+
+def test_personal_profile_is_explicit_state_not_default(tmp_path: Path) -> None:
+    ensure_app()
+    config_path = tmp_path / "config.json"
+    backend = DJConnectBackend(config_path)
+
+    assert backend.personalProfileActive is False
+    backend._apply_music_dna_data({"profile_id": "profile-peter", "resolved_profile": {"id": "profile-peter", "name": "Peter", "type": "personal", "privacy_mode": "normal"}, "enabled": True, "profile": {"summary": "Personal DNA"}})
+
+    assert backend.personalProfileActive is True
+    assert backend.activeProfileName == "Peter"
+    assert backend.musicDnaSummary == "Personal DNA"
+    assert load_config(config_path).active_profile_id == "profile-peter"
+
+
 def test_music_discovery_play_ignores_items_without_backend_id(tmp_path: Path) -> None:
     ensure_app()
     backend = DJConnectBackend(tmp_path / "config.json")

@@ -154,7 +154,9 @@ from app updates and from conditional OS maintenance reboots.
 
 ## Home Assistant Contract
 
-The Pi client is an app-like DJConnect client.
+The Pi client is an app-like DJConnect client. It is the platform's Ambient
+Client: shared room and household experiences are the default, while personal
+profiles are entered only through explicit backend Profile Platform resolution.
 
 ```json
 {
@@ -214,6 +216,26 @@ configured flows can trigger pairing recovery. Diagnostics expose
 `fast_path_enabled`, `fast_path_transport`, `websocket_connected`, advertised
 commands, last capability refresh and a redacted last error.
 
+Profile-aware requests include the canonical request context fields the Pi can
+reliably know: `device_id`, `client_type:"raspberry_pi"`, `request_source` and
+optional explicit `profile_id`/`private_session` when configured. The Pi does
+not run a local resolver, infer household members or derive personal identity
+from touch usage. It lets Home Assistant resolve the active DJConnect Profile
+from device mapping, room/area mapping or household fallback, then records only
+safe profile metadata returned by the backend: profile id, display name, type
+and privacy mode.
+
+When the resolved profile changes, the UI process clears every profile-scoped
+view cache before displaying new data:
+
+- Ask DJ history and revision cursors;
+- Music DNA summary and sections;
+- Music Discovery items, empty/error state and feedback state;
+- Track Insight analysis tied to the previous profile context.
+
+Playback controls, pairing state, local settings and diagnostics remain
+device-owned and are not cleared by a profile change.
+
 Ask DJ on Raspberry Pi is `readonly_actions` and remains server-side. The touch
 UI polls Home Assistant history/status, renders backend responses as
 authoritative and sends only HA-provided structured action payloads. It does
@@ -263,6 +285,11 @@ calculates Music DNA locally and never stores profile data as a source of
 truth. Disabled profiles render the opt-in state; enabled profiles render
 `profile.summary` and only non-empty optional blocks, with `eligible:false`
 conditional blocks hidden.
+
+Music DNA rendering is profile-isolated. Household, room, guest, kids and party
+profiles show only that shared profile's Music DNA. Personal Music DNA is shown
+only when Home Assistant resolves the Pi to a personal DJConnect Profile or an
+explicit personal profile has been selected through configuration.
 
 Music Discovery (`Ontdek`) is also Home Assistant authoritative and is gated by
 Music DNA consent. Opening Ontdek first checks Music DNA profile state. If

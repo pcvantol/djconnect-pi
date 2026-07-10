@@ -447,6 +447,65 @@ def test_track_insight_posts_current_track_metadata_and_music_dna_headers() -> N
     assert captured["json"]["include_visual_profile"] is True
 
 
+def test_profile_context_defaults_to_device_resolution_without_personal_profile() -> None:
+    cfg = Config(ha_url="http://ha", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1", websocket_fast_path_enabled=False)
+    client = HAClient(cfg)
+    captured: dict[str, Any] = {}
+
+    def fake_post(url: str, **kwargs: Any) -> FakeResponse:
+        captured["json"] = kwargs["json"]
+        return FakeResponse(200, {"success": True, "profile_id": "profile-household", "resolved_profile": {"id": "profile-household", "name": "Household", "type": "household", "privacy_mode": "shared"}})
+
+    with patch("djconnect_pi.ha.requests.post", side_effect=fake_post):
+        client.music_dna_profile()
+
+    assert captured["json"]["device_id"] == "djconnect-raspberry-pi-ABCDEF123456"
+    assert captured["json"]["client_type"] == "raspberry_pi"
+    assert captured["json"]["request_source"] == "music_dna"
+    assert "profile_id" not in captured["json"]
+    assert cfg.active_profile_id == "profile-household"
+    assert cfg.active_profile_type == "household"
+    assert cfg.active_profile_privacy_mode == "shared"
+
+
+def test_explicit_profile_selection_and_private_session_are_sent_only_when_configured() -> None:
+    cfg = Config(
+        ha_url="http://ha",
+        device_id="djconnect-raspberry-pi-ABCDEF123456",
+        device_token="token-1",
+        explicit_profile_id="profile-peter",
+        private_session=True,
+        websocket_fast_path_enabled=False,
+    )
+    client = HAClient(cfg)
+    captured: dict[str, Any] = {}
+
+    def fake_get(url: str, **kwargs: Any) -> FakeResponse:
+        captured["params"] = kwargs["params"]
+        captured["headers"] = kwargs["headers"]
+        return FakeResponse(200, {"success": True, "messages": []})
+
+    with patch("djconnect_pi.ha.requests.get", side_effect=fake_get):
+        client.ask_dj_history()
+
+    assert captured["params"]["profile_id"] == "profile-peter"
+    assert captured["params"]["private_session"] == "true"
+    assert captured["params"]["request_source"] == "ask_dj"
+    assert captured["headers"]["X-DJConnect-Profile-ID"] == "profile-peter"
+
+
+def test_profile_errors_use_canonical_codes_without_clearing_pairing() -> None:
+    cfg = Config(ha_url="http://ha", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1", paired=True, websocket_fast_path_enabled=False)
+    client = HAClient(cfg)
+
+    with patch("djconnect_pi.ha.requests.post", return_value=FakeResponse(409, {"success": False, "error": "device_not_mapped", "message": "Map this Pi to a shared profile."})):
+        with pytest.raises(DJConnectError, match="Map this Pi"):
+            client.music_dna_profile()
+
+    assert cfg.paired is True
+    assert cfg.device_token == "token-1"
+
+
 def test_track_insight_no_track_and_rate_limit_are_retryable_states() -> None:
     cfg = Config(ha_url="http://ha", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1", websocket_fast_path_enabled=False)
     client = HAClient(cfg)

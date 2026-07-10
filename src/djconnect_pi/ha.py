@@ -75,6 +75,20 @@ class ProtocolVersionMismatch(DJConnectError):
         super().__init__(message or f"DJConnect version mismatch: client {client_version}, Home Assistant {ha_version}")
 
 
+PROFILE_ERROR_CODES = {
+    "profile_required",
+    "invalid_profile",
+    "device_not_mapped",
+    "profile_backend_missing",
+    "profile_music_account_missing",
+    "profile_backend_account_mismatch",
+    "profile_access_denied",
+    "private_session_restriction",
+    "invalid_client_type",
+    "invalid_request_context",
+}
+
+
 @dataclass
 class Playback:
     title: str = ""
@@ -120,6 +134,7 @@ class HAClient:
         response = requests.post(url, json=payload, timeout=self.timeout)
         _LOGGER.debug("POST %s returned HTTP %s in %.0fms", url, response.status_code, _elapsed_ms(started))
         data = self._json(response)
+        self.apply_profile_context(data)
         self.update_backend_summary(data)
         self._validate_ha_version(data)
         token = data.get("device_token") or data.get("token")
@@ -129,7 +144,7 @@ class HAClient:
         return data
 
     def status(self, playback: Playback | None = None, queue_items: list[dict[str, object]] | None = None) -> dict[str, Any]:
-        payload = self._base_payload(ha_pairing_status="paired" if self.cfg.paired else "pending")
+        payload = self._base_payload(ha_pairing_status="paired" if self.cfg.paired else "pending", request_source="status")
         if playback is not None:
             output_devices = list(playback.output_devices)
             playback_payload = {
@@ -181,12 +196,13 @@ class HAClient:
         )
         _LOGGER.debug("POST %s returned HTTP %s in %.0fms", url, response.status_code, _elapsed_ms(started))
         data = self._json(response)
+        self.apply_profile_context(data)
         self.update_backend_summary(data)
         self._validate_ha_version(data)
         return data
 
     def command(self, command: str, **payload: Any) -> dict[str, Any]:
-        body = self._base_payload(command=command, **payload)
+        body = self._base_payload(command=command, request_source="device_command", **payload)
         if command.startswith("ask_dj_"):
             body["dj_announcement_output"] = normalize_dj_announcement_output(
                 self.cfg.dj_announcement_output,
@@ -196,6 +212,7 @@ class HAClient:
             data = self._try_websocket("djconnect/command", body, command="djconnect/command", timeout=_command_timeout(command, self.timeout))
             if data is not None:
                 self.update_backend_summary(data)
+                self.apply_profile_context(data)
                 self._validate_ha_version(data)
                 return data
         url = self._djconnect_url("command")
@@ -217,6 +234,7 @@ class HAClient:
         )
         _LOGGER.debug("POST %s command=%s returned HTTP %s in %.0fms", url, command, response.status_code, _elapsed_ms(started))
         data = self._json(response)
+        self.apply_profile_context(data)
         _LOGGER.debug("Decoded command=%s response_shape=%s", command, _response_shape(data))
         self.update_backend_summary(data)
         self._validate_ha_version(data)
@@ -226,9 +244,10 @@ class HAClient:
         url = self._djconnect_url(f"ask_dj/history?since_revision={max(0, int(since_revision))}")
         _LOGGER.debug("GET %s client_type=%s device_id=%s", url, CLIENT_TYPE, self.cfg.device_id)
         started = time.monotonic()
-        response = requests.get(url, headers=self._headers(), timeout=self.timeout)
+        response = requests.get(url, params=self._profile_query_params("ask_dj"), headers=self._headers(), timeout=self.timeout)
         _LOGGER.debug("GET %s returned HTTP %s in %.0fms", url, response.status_code, _elapsed_ms(started))
         data = self._json(response)
+        self.apply_profile_context(data)
         self.update_backend_summary(data)
         self._validate_ha_version(data)
         return data
@@ -254,6 +273,7 @@ class HAClient:
         body = self._base_payload(
             force_refresh=force_refresh,
             include_visual_profile=include_visual_profile,
+            request_source="track_insight",
         )
         if playback is not None:
             track: dict[str, Any] = {}
@@ -286,6 +306,7 @@ class HAClient:
         data = self._try_websocket("djconnect/track_insight", body, command="djconnect/track_insight", timeout=timeout_seconds)
         if data is not None:
             self.update_backend_summary(data)
+            self.apply_profile_context(data)
             self._validate_ha_version(data)
             return data
         url = self._djconnect_url("track_insight")
@@ -294,24 +315,25 @@ class HAClient:
         response = requests.post(url, json=body, headers=self._headers(), timeout=timeout_seconds)
         _LOGGER.debug("POST %s returned HTTP %s in %.0fms", url, response.status_code, _elapsed_ms(started))
         data = self._json(response)
+        self.apply_profile_context(data)
         self.update_backend_summary(data)
         self._validate_ha_version(data)
         return data
 
     def music_dna_profile(self) -> dict[str, Any]:
         self._refresh_websocket_capabilities()
-        return self._music_dna_request("djconnect/music_dna/profile", "music_dna/profile", self._base_payload())
+        return self._music_dna_request("djconnect/music_dna/profile", "music_dna/profile", self._base_payload(request_source="music_dna"))
 
     def music_dna_settings(self, **settings: Any) -> dict[str, Any]:
         self._refresh_websocket_capabilities()
-        return self._music_dna_request("djconnect/music_dna/settings", "music_dna/settings", self._base_payload(**settings))
+        return self._music_dna_request("djconnect/music_dna/settings", "music_dna/settings", self._base_payload(request_source="music_dna", **settings))
 
     def music_dna_clear(self) -> dict[str, Any]:
         self._refresh_websocket_capabilities()
-        return self._music_dna_request("djconnect/music_dna/clear", "music_dna/clear", self._base_payload())
+        return self._music_dna_request("djconnect/music_dna/clear", "music_dna/clear", self._base_payload(request_source="music_dna"))
 
     def music_dna_export(self) -> dict[str, Any]:
-        body = self._base_payload()
+        body = self._base_payload(request_source="music_dna")
         if self.cfg.music_dna_key:
             body["music_dna_key"] = self.cfg.music_dna_key
         url = self._djconnect_url("music_dna/export")
@@ -320,12 +342,13 @@ class HAClient:
         response = requests.post(url, json=body, headers=self._headers(), timeout=self.timeout)
         _LOGGER.debug("POST %s returned HTTP %s in %.0fms", url, response.status_code, _elapsed_ms(started))
         data = self._json(response)
+        self.apply_profile_context(data)
         self.update_backend_summary(data)
         self._validate_ha_version(data)
         return data
 
     def music_dna_import(self, profile: dict[str, Any]) -> dict[str, Any]:
-        body = self._base_payload(profile=profile)
+        body = self._base_payload(profile=profile, request_source="music_dna")
         if self.cfg.music_dna_key:
             body["music_dna_key"] = self.cfg.music_dna_key
         url = self._djconnect_url("music_dna/import")
@@ -334,6 +357,7 @@ class HAClient:
         response = requests.post(url, json=body, headers=self._headers(), timeout=self.timeout)
         _LOGGER.debug("POST %s returned HTTP %s in %.0fms", url, response.status_code, _elapsed_ms(started))
         data = self._json(response)
+        self.apply_profile_context(data)
         self.update_backend_summary(data)
         self._apply_music_dna_key(data)
         self._validate_ha_version(data)
@@ -345,6 +369,7 @@ class HAClient:
         data = self._try_websocket(message_type, body, command=message_type, timeout=max(self.timeout, 10.0))
         if data is not None:
             self.update_backend_summary(data)
+            self.apply_profile_context(data)
             self._apply_music_dna_key(data)
             self._validate_ha_version(data)
             return data
@@ -354,17 +379,19 @@ class HAClient:
         response = requests.post(url, json=body, headers=self._headers(), timeout=self.timeout)
         _LOGGER.debug("POST %s returned HTTP %s in %.0fms", url, response.status_code, _elapsed_ms(started))
         data = self._json(response)
+        self.apply_profile_context(data)
         self.update_backend_summary(data)
         self._apply_music_dna_key(data)
         self._validate_ha_version(data)
         return data
 
     def music_discovery_feed(self) -> dict[str, Any]:
-        body = self._base_payload()
+        body = self._base_payload(request_source="discover")
         self._refresh_websocket_capabilities()
         data = self._try_websocket("djconnect/music_discovery/feed", body, command="djconnect/music_discovery/feed", timeout=max(self.timeout, 10.0))
         if data is not None:
             self.update_backend_summary(data)
+            self.apply_profile_context(data)
             self._validate_ha_version(data)
             return data
         url = self._music_discovery_fallback_url("music_discovery", "music_discovery")
@@ -374,6 +401,7 @@ class HAClient:
             "device_id": self.cfg.device_id,
             "device_name": self.cfg.device_name,
         }
+        params.update(self._profile_query_params("discover"))
         if self.cfg.music_dna_key:
             params["music_dna_key"] = self.cfg.music_dna_key
         _LOGGER.debug("GET %s client_type=%s device_id=%s", url, CLIENT_TYPE, self.cfg.device_id)
@@ -381,17 +409,18 @@ class HAClient:
         response = requests.get(url, params=params, headers=self._headers(), timeout=self.timeout)
         _LOGGER.debug("GET %s returned HTTP %s in %.0fms", url, response.status_code, _elapsed_ms(started))
         data = self._json(response)
+        self.apply_profile_context(data)
         self.update_backend_summary(data)
         self._validate_ha_version(data)
         return data
 
     def music_discovery_refresh(self) -> dict[str, Any]:
         self._refresh_websocket_capabilities()
-        return self._music_discovery_request("djconnect/music_discovery/refresh", "music_discovery/refresh", self._base_payload())
+        return self._music_discovery_request("djconnect/music_discovery/refresh", "music_discovery/refresh", self._base_payload(request_source="discover"))
 
     def music_discovery_play(self, item: dict[str, Any]) -> dict[str, Any]:
         self._refresh_websocket_capabilities()
-        body = self._base_payload()
+        body = self._base_payload(request_source="discover")
         discovery_item_id = str(
             item.get("discovery_item_id")
             or item.get("id")
@@ -406,7 +435,7 @@ class HAClient:
 
     def music_discovery_feedback(self, item: dict[str, Any], feedback: str) -> dict[str, Any]:
         self._refresh_websocket_capabilities()
-        body = self._base_payload(feedback=feedback)
+        body = self._base_payload(feedback=feedback, request_source="discover")
         discovery_item_id = str(item.get("discovery_item_id") or item.get("id") or "").strip()
         if discovery_item_id:
             body["discovery_item_id"] = discovery_item_id
@@ -419,6 +448,7 @@ class HAClient:
         data = self._try_websocket(message_type, body, command=message_type, timeout=max(self.timeout, 10.0))
         if data is not None:
             self.update_backend_summary(data)
+            self.apply_profile_context(data)
             self._validate_ha_version(data)
             return data
         url = self._music_discovery_fallback_url(message_type, path)
@@ -427,6 +457,7 @@ class HAClient:
         response = requests.post(url, json=body, headers=self._headers(), timeout=self.timeout)
         _LOGGER.debug("POST %s returned HTTP %s in %.0fms", url, response.status_code, _elapsed_ms(started))
         data = self._json(response)
+        self.apply_profile_context(data)
         self.update_backend_summary(data)
         self._validate_ha_version(data)
         return data
@@ -482,6 +513,26 @@ class HAClient:
         key = str(data.get("music_dna_key") or data.get("resolved_music_dna_key") or "").strip()
         if key:
             self.cfg.music_dna_key = key
+
+    def apply_profile_context(self, data: dict[str, Any]) -> None:
+        profile = data.get("resolved_profile") if isinstance(data.get("resolved_profile"), dict) else {}
+        profile_id = str(data.get("profile_id") or profile.get("id") or "").strip()
+        if profile_id:
+            self.cfg.active_profile_id = profile_id
+        name = str(profile.get("name") or data.get("profile_name") or "").strip()
+        if name:
+            self.cfg.active_profile_name = name
+        profile_type = str(profile.get("type") or data.get("profile_type") or "").strip().lower()
+        if profile_type in {"personal", "household", "room", "guest", "kids", "party"}:
+            self.cfg.active_profile_type = profile_type
+        privacy_mode = str(
+            data.get("profile_privacy_mode")
+            or profile.get("privacy_mode")
+            or (data.get("profile_privacy") if isinstance(data.get("profile_privacy"), dict) else {}).get("mode")
+            or ""
+        ).strip().lower()
+        if privacy_mode in {"normal", "shared", "guest-safe", "private"}:
+            self.cfg.active_profile_privacy_mode = privacy_mode
 
     def ask_dj_action(self, action: dict[str, Any]) -> dict[str, Any]:
         command = str(action.get("command") or "").strip()
@@ -642,6 +693,7 @@ class HAClient:
             },
             **extra,
         }
+        self._add_profile_context(payload)
         if include_language:
             payload.update(self._language_payload())
         if include_mood:
@@ -664,6 +716,7 @@ class HAClient:
             "app_version": self.cfg.version,
             **extra,
         }
+        self._add_profile_context(payload)
         if include_language:
             payload.update(self._language_payload())
         self._add_mood(payload)
@@ -674,6 +727,22 @@ class HAClient:
             self.cfg.music_backend_capabilities,
         )
         return payload
+
+    def _add_profile_context(self, payload: dict[str, Any], *, request_source: str = "") -> None:
+        if self.cfg.explicit_profile_id:
+            payload["profile_id"] = self.cfg.explicit_profile_id
+        if self.cfg.private_session:
+            payload["private_session"] = True
+        if request_source and "request_source" not in payload:
+            payload["request_source"] = request_source
+
+    def _profile_query_params(self, request_source: str) -> dict[str, str]:
+        params = {"request_source": request_source}
+        if self.cfg.explicit_profile_id:
+            params["profile_id"] = self.cfg.explicit_profile_id
+        if self.cfg.private_session:
+            params["private_session"] = "true"
+        return params
 
     def _headers(self) -> dict[str, str]:
         locale = self._locale()
@@ -689,6 +758,8 @@ class HAClient:
             headers["Authorization"] = f"Bearer {self.cfg.device_token}"
         if self.cfg.music_dna_key:
             headers["X-DJConnect-Music-DNA-Key"] = self.cfg.music_dna_key
+        if self.cfg.explicit_profile_id:
+            headers["X-DJConnect-Profile-ID"] = self.cfg.explicit_profile_id
         mood = self._mood()
         if mood is not None:
             headers["X-DJConnect-Mood"] = str(mood)
@@ -755,6 +826,10 @@ class HAClient:
                 return {**data, "success": False, "error": "no_track_playing"}
             if response.status_code == 429 and error == "rate_limited":
                 return {**data, "success": False, "error": "rate_limited"}
+            if error in PROFILE_ERROR_CODES:
+                message = str(data.get("message") or error)
+                _LOGGER.warning("Home Assistant rejected profile context: error=%s message=%s", error, message)
+                raise DJConnectError(message)
             if response.status_code in {401, 403, 404}:
                 raise AuthenticationError(error)
             raise DJConnectError(f"Home Assistant returned HTTP {response.status_code}: {error}")
@@ -792,6 +867,10 @@ class HAClient:
             message = str(data.get("message") or "Music backend changed; ask DJ again before using this action.")
             _LOGGER.warning("Home Assistant rejected stale backend action: error=%s message=%s", data.get("error"), message)
             raise StaleBackendAction(message)
+        if data.get("success") is False and str(data.get("error") or "") in PROFILE_ERROR_CODES:
+            message = str(data.get("message") or data.get("error") or "Profile request failed")
+            _LOGGER.warning("Home Assistant rejected profile context: error=%s message=%s", data.get("error"), message)
+            raise DJConnectError(message)
         _LOGGER.debug("Home Assistant JSON response keys=%s", sorted(data))
         return data
 
