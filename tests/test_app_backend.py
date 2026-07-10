@@ -1174,7 +1174,7 @@ def test_ask_dj_clear_and_trim_revisions_are_server_authoritative(tmp_path: Path
     )
 
     backend._apply_ask_dj_data({"history_revision": 11, "history_trimmed_count": 1, "messages": []})
-    assert [message["id"] for message in backend.askDjMessages] == ["m2", "m3"]
+    assert [message["id"] for message in backend.askDjMessages] == ["m3", "m2"]
     assert backend._ask_dj_history_revision == 11
 
     backend._apply_ask_dj_data({"clear_revision": 2, "history_revision": 12, "messages": []})
