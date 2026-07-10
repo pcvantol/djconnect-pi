@@ -60,6 +60,17 @@
       "missing_behavior": "hide_negative_feedback_controls"
     }
   },
+  "capabilities": {
+    "profiles": true,
+    "explicit_profile_selection": true,
+    "private_sessions": true,
+    "profile_export": true,
+    "request_context": true
+  },
+  "contract_versions": {
+    "profile_context": 1,
+    "client_contract_fixtures": 1
+  },
   "transports": {
     "http": true,
     "websocket": true

@@ -45,6 +45,12 @@ class Config:
     music_target_player: dict[str, str] = field(default_factory=dict)
     music_backend_error: str = ""
     music_dna_key: str = ""
+    active_profile_id: str = ""
+    active_profile_name: str = ""
+    active_profile_type: str = "household"
+    active_profile_privacy_mode: str = "shared"
+    explicit_profile_id: str = ""
+    private_session: bool = False
     mood: int | None = None
     websocket_fast_path_enabled: bool = True
     ha_websocket_token: str = ""
@@ -87,7 +93,8 @@ def load_config(path: Path) -> Config:
         save_config(path, cfg)
         return cfg
     data = json.loads(path.read_text(encoding="utf-8"))
-    cfg = Config(**{**asdict(Config()), **data})
+    defaults = asdict(Config())
+    cfg = Config(**{**defaults, **{key: value for key, value in data.items() if key in defaults}})
     if "updater_status_file" not in data and path.name == "client.json":
         cfg.updater_status_file = str(path.parent / "updater-status.json")
     if not cfg.device_id:
@@ -103,6 +110,12 @@ def load_config(path: Path) -> Config:
     cfg.mood = _optional_mood(cfg.mood)
     cfg.local_api_port = max(1, min(65535, int(cfg.local_api_port)))
     cfg.language = normalize_language(cfg.language)
+    cfg.active_profile_id = str(cfg.active_profile_id or "").strip()
+    cfg.active_profile_name = str(cfg.active_profile_name or "").strip()
+    cfg.active_profile_type = _normalize_profile_type(cfg.active_profile_type)
+    cfg.active_profile_privacy_mode = _normalize_profile_privacy_mode(cfg.active_profile_privacy_mode)
+    cfg.explicit_profile_id = str(cfg.explicit_profile_id or "").strip()
+    cfg.private_session = bool(cfg.private_session)
     if cfg.update_channel not in {"stable", "beta"}:
         cfg.update_channel = "stable"
     return cfg
@@ -123,6 +136,16 @@ def _normalize_return_to_now_seconds(value: object) -> int:
     except (TypeError, ValueError):
         return 60
     return seconds if seconds in {0, 30, 60, 120} else 60
+
+
+def _normalize_profile_type(value: object) -> str:
+    text = str(value or "").strip().lower()
+    return text if text in {"personal", "household", "room", "guest", "kids", "party"} else "household"
+
+
+def _normalize_profile_privacy_mode(value: object) -> str:
+    text = str(value or "").strip().lower()
+    return text if text in {"normal", "shared", "guest-safe", "private"} else "shared"
 
 
 def save_config(path: Path, cfg: Config) -> None:
