@@ -61,8 +61,8 @@ def test_client_api_info_and_pairing_info(tmp_path: Path) -> None:
     assert info["ha_pairing_status"] == "pending"
     assert info["capabilities"]["local_dj_response_endpoint"] is False
     assert info["capabilities"]["ask_dj_supported"] is True
-    assert info["capabilities"]["ask_dj_mode"] == "text_actions"
-    assert info["capabilities"]["ask_dj_free_input_supported"] is True
+    assert info["capabilities"]["ask_dj_mode"] == "readonly_actions"
+    assert info["capabilities"]["ask_dj_free_input_supported"] is False
     assert info["capabilities"]["ask_dj_actions_supported"] is True
     assert info["capabilities"]["ask_dj_voice_supported"] is False
     assert info["capabilities"]["ask_dj_audio_response_supported"] is False
@@ -77,7 +77,8 @@ def test_client_api_info_and_pairing_info(tmp_path: Path) -> None:
     assert pairing["device_id"] == cfg.device_id
     assert pairing["client_type"] == "raspberry_pi"
     assert pairing["transport"] == "local_only"
-    assert pairing["capabilities"]["ask_dj_mode"] == "text_actions"
+    assert pairing["capabilities"]["ask_dj_mode"] == "readonly_actions"
+    assert pairing["capabilities"]["ask_dj_free_input_supported"] is False
     assert pairing["capabilities"]["voice_supported"] is False
     assert pairing["capabilities"]["ask_dj_voice_supported"] is False
     assert pairing["capabilities"]["ask_dj_audio_response_supported"] is False
@@ -146,6 +147,27 @@ def test_web_portal_media_buttons_and_refresh_are_clickable() -> None:
     assert "refreshAll(true)" in html
     assert "scrollLogsToBottom()" in html
     assert "setBusy('logsRefreshButton',true,t('refreshing'))" in html
+
+
+def test_web_portal_uses_live_mood_theme_tokens() -> None:
+    html = index_html("3.1.64").decode("utf-8")
+
+    assert "--mood-gradient-start:#247fff" in html
+    assert "const MOOD_THEMES" in html
+    assert "#4DA3FF" in html
+    assert "#2EC4B6" in html
+    assert "#8AC926" in html
+    assert "#FF2E63" in html
+    assert "if (mood <=24) return 'chill';" in html
+    assert "if (mood <=59) return 'groove';" in html
+    assert "if (mood <=84) return 'energy';" in html
+    assert "function applyMoodTheme(value)" in html
+    assert "applyMoodTheme(data.settings?.mood)" in html
+    assert ".control-button.active" in html
+    assert "border-color:var(--mood-focus)" in html
+    assert "background:linear-gradient(135deg,var(--mood-gradient-start),var(--mood-gradient-end))" in html
+    assert "input[type=\"range\"]" in html
+    assert "accent-color:var(--mood-accent)" in html
 
 
 def test_web_portal_has_local_games_with_sound_hooks() -> None:

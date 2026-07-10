@@ -1,5 +1,25 @@
 # DJConnect Pi Agent Notes
 
+## DJConnect Platform Foundation
+
+This repository follows the canonical DJConnect design foundation in `pcvantol/djconnect`.
+
+Before product, protocol, UX, release, CI or cross-repo contract changes, consult:
+
+- `DJCONNECT_CONSTITUTION.md`
+- `PRODUCT_VISION.md`
+- `DESIGN_PRINCIPLES.md`
+- `ARCHITECTURE_PRINCIPLES.md`
+- `DOMAIN_MODEL.md`
+- `CLIENT_CAPABILITY_MATRIX.md`
+- `PRODUCT_LANGUAGE.md`
+- `PLATFORM_GOVERNANCE.md`
+- `PLATFORM_QUALITY_STANDARD.md`
+- `SYNC_PROMPTS.md`
+- `PRODUCT_ROADMAP.md`
+
+Repo-local Pi rules below remain authoritative for Pi-specific behavior.
+
 - This is the Raspberry Pi client repo: `pcvantol/djconnect-pi`.
 - Treat the Pi as an app-like DJConnect client, not ESP firmware.
 - Canonical `client_type` is `raspberry_pi`.

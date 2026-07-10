@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Window
+import "MoodTheme.js" as MoodTheme
 
 Window {
     id: root
@@ -22,12 +23,20 @@ Window {
     property bool rebootConfirmOpen: false
     property bool shutdownConfirmOpen: false
     property bool clearLogsConfirmOpen: false
+    property bool askDjClearConfirmOpen: false
+    property bool musicDnaDisableConfirmOpen: false
+    property bool musicDnaClearConfirmOpen: false
+    property bool moodPopoverOpen: false
+    property bool discoveryReasonOpen: false
+    property string discoveryReasonTitle: ""
+    property string discoveryReasonText: ""
     property bool forceScreenAwake: false
     property bool forceBrightnessFull: false
     property bool suppressNextNowPanelTap: false
-    property bool askDjKeyboardShift: false
-    property bool askDjKeyboardOpen: false
+    property double lastWakeDisplayAt: 0
+    property int wakeDisplayDebounceMs: 800
     property int standardButtonRadius: 8
+    property var returnToNowChoices: [30, 60, 120, 0]
     property bool screenBlanked: djconnect.screenTimeoutSeconds > 0 && !idleTimer.running && !root.forceScreenAwake
     property real brightnessOverlayOpacity: root.screenBlanked || root.forceBrightnessFull ? 0 : 1 - (djconnect.screenBrightnessPercent / 100.0)
     property int trVersion: djconnect.translationVersion
@@ -50,16 +59,86 @@ Window {
         return root.tr("repeat_off")
     }
 
+    function returnToNowLabel(value) {
+        return value > 0 ? value : root.tr("return_to_now_off")
+    }
+
+    function returnToNowIndex() {
+        for (var i = 0; i < root.returnToNowChoices.length; i++) {
+            if (root.returnToNowChoices[i] === djconnect.returnToNowSeconds) return i
+        }
+        return 1
+    }
+
+    function djAnnouncementOutputLabel(value) {
+        if (value === "ha_speaker") return root.tr("dj_announcement_output_ha_speaker")
+        return root.tr("dj_announcement_output_text_only")
+    }
+
+    function trackInsightLabel(value) {
+        var key = String(value || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "")
+        var labels = {
+            "summary": "track_insight_summary",
+            "genre": "track_insight_genre",
+            "vibe": "track_insight_vibe",
+            "production": "track_insight_production",
+            "production_notes": "track_insight_production",
+            "instrumentation": "track_insight_instrumentation",
+            "arrangement": "track_insight_arrangement",
+            "arrangement_notes": "track_insight_arrangement",
+            "listening_cues": "track_insight_listening_cues",
+            "similar_tracks": "track_insight_similar_tracks",
+            "why_it_fits_you": "track_insight_why_it_fits_you",
+            "mood_context": "track_insight_mood_context",
+            "this_expands_your_music_dna": "track_insight_music_dna_expands",
+            "music_dna_match": "music_dna_match",
+            "energy": "track_insight_energy",
+            "danceability": "track_insight_danceability",
+            "intensity": "track_insight_intensity",
+            "confidence": "track_insight_confidence",
+            "measured": "track_insight_measured",
+            "inferred": "track_insight_inferred",
+            "context": "analysis_context"
+        }
+        return labels[key] ? root.tr(labels[key]) : (value || "")
+    }
+
+    function lineNumbers(text) {
+        if (!text || text.length === 0) return "1"
+        var count = text.split("\n").length
+        var lines = []
+        for (var i = 1; i <= count; i++) lines.push(i.toString())
+        return lines.join("\n")
+    }
+
+    function moodColor(token) {
+        return MoodTheme.color(djconnect.moodValue, token)
+    }
+
+    function moodDisabledColor(position) {
+        return MoodTheme.disabled(position)
+    }
+
     function recordActivity() {
         var wasBlanked = root.screenBlanked
         root.forceBrightnessFull = false
         root.restartIdleTimer()
+        root.restartReturnToNowTimer()
+        if (root.forceScreenAwake && forcedWakeTimer.running) {
+            forcedWakeTimer.restart()
+        }
         if (wasBlanked) {
             root.hideTransientUi()
-            root.activeScreen = "now"
+            if (djconnect.returnToNowSeconds > 0) {
+                root.activeScreen = "now"
+            }
             root.suppressNextNowPanelTap = true
             djconnect.refresh()
         }
+    }
+
+    function openTrackInsightScreen() {
+        root.activeScreen = "trackinsight"
     }
 
     function restartIdleTimer() {
@@ -68,32 +147,44 @@ Window {
         }
     }
 
+    function restartReturnToNowTimer() {
+        if (djconnect.returnToNowSeconds > 0) {
+            returnToNowTimer.restart()
+        }
+    }
+
     function wakeDisplay() {
+        var now = Date.now()
+        if (now - root.lastWakeDisplayAt < root.wakeDisplayDebounceMs) {
+            root.recordActivity()
+            return
+        }
+        root.lastWakeDisplayAt = now
+        djconnect.wakeDisplay()
         root.recordActivity()
     }
 
     onActiveScreenChanged: {
         root.restartIdleTimer()
-        root.askDjKeyboardOpen = false
-        root.askDjKeyboardShift = false
+        root.restartReturnToNowTimer()
         if (root.activeScreen === "askdj") {
-            root.scrollAskDjToBottom()
+            root.scrollAskDjToTop()
         } else if (root.activeScreen === "musicdna") {
             djconnect.loadMusicDna()
         } else if (root.activeScreen === "discover") {
             djconnect.loadMusicDiscovery()
         }
+        if (root.activeScreen !== "now") {
+            root.moodPopoverOpen = false
+        }
     }
 
-    function scrollAskDjToBottom() {
+    function scrollAskDjToTop() {
         Qt.callLater(function() {
             if (!askDjScroll || !askDjScroll.contentItem) {
                 return
             }
-            askDjScroll.contentItem.contentY = Math.max(
-                0,
-                askDjScroll.contentItem.contentHeight - askDjScroll.contentItem.height
-            )
+            askDjScroll.contentItem.contentY = 0
         })
     }
 
@@ -103,11 +194,17 @@ Window {
         root.rebootConfirmOpen = false
         root.shutdownConfirmOpen = false
         root.clearLogsConfirmOpen = false
+        root.askDjClearConfirmOpen = false
+        root.musicDnaDisableConfirmOpen = false
+        root.musicDnaClearConfirmOpen = false
+        root.moodPopoverOpen = false
+        root.discoveryReasonOpen = false
         djconnect.hideLogs()
     }
 
     function temporaryWake(seconds, navigateNow) {
-        if (navigateNow) {
+        var wasBlanked = root.screenBlanked
+        if (navigateNow && wasBlanked && djconnect.returnToNowSeconds > 0) {
             root.hideTransientUi()
             root.activeScreen = "now"
         }
@@ -134,9 +231,9 @@ Window {
             border.width: 0
             gradient: Gradient {
                 orientation: Gradient.Horizontal
-                GradientStop { position: 0.0; color: control.enabled ? "#247fff" : "#33415f" }
-                GradientStop { position: 0.58; color: control.enabled ? "#7757ff" : "#3c3f61" }
-                GradientStop { position: 1.0; color: control.enabled ? "#c33cff" : "#4b3d65" }
+                GradientStop { position: 0.0; color: control.enabled ? root.moodColor("gradientStart") : root.moodDisabledColor("start") }
+                GradientStop { position: 0.58; color: control.enabled ? root.moodColor("gradientMid") : root.moodDisabledColor("mid") }
+                GradientStop { position: 1.0; color: control.enabled ? root.moodColor("gradientEnd") : root.moodDisabledColor("end") }
             }
             opacity: control.down ? 0.78 : (control.enabled ? 1.0 : 0.62)
         }
@@ -160,58 +257,11 @@ Window {
             border.width: 0
             gradient: Gradient {
                 orientation: Gradient.Horizontal
-                GradientStop { position: 0.0; color: askDjButton.enabled ? "#247fff" : "#33415f" }
-                GradientStop { position: 0.58; color: askDjButton.enabled ? "#7757ff" : "#3c3f61" }
-                GradientStop { position: 1.0; color: askDjButton.enabled ? "#c33cff" : "#4b3d65" }
+                GradientStop { position: 0.0; color: askDjButton.enabled ? root.moodColor("gradientStart") : root.moodDisabledColor("start") }
+                GradientStop { position: 0.58; color: askDjButton.enabled ? root.moodColor("gradientMid") : root.moodDisabledColor("mid") }
+                GradientStop { position: 1.0; color: askDjButton.enabled ? root.moodColor("gradientEnd") : root.moodDisabledColor("end") }
             }
             opacity: askDjButton.down ? 0.78 : (askDjButton.enabled ? 1.0 : 0.62)
-        }
-    }
-
-    component AskDjKeyButton: Button {
-        id: keyButton
-        property string keyText: ""
-        property string displayText: keyText
-        property bool active: false
-
-        text: displayText
-        font.pixelSize: 19
-        font.bold: true
-        Layout.fillWidth: true
-        Layout.fillHeight: true
-        contentItem: Text {
-            text: keyButton.text
-            font: keyButton.font
-            color: keyButton.enabled ? "#ffffff" : "#93a0b8"
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
-            elide: Text.ElideRight
-            maximumLineCount: 1
-        }
-        background: Rectangle {
-            radius: root.standardButtonRadius
-            color: keyButton.active ? "#3f66d8" : (keyButton.down ? "#4a326e" : "#231a3c")
-            border.color: keyButton.active ? "#d8e0ff" : "#4b557d"
-            border.width: 1
-            opacity: keyButton.enabled ? 1.0 : 0.56
-        }
-
-        MouseArea {
-            anchors.fill: parent
-            acceptedButtons: Qt.AllButtons
-            preventStealing: true
-            propagateComposedEvents: false
-            onPressed: function(mouse) {
-                root.recordActivity()
-                mouse.accepted = true
-            }
-            onReleased: function(mouse) {
-                mouse.accepted = true
-            }
-            onClicked: function(mouse) {
-                keyButton.clicked()
-                mouse.accepted = true
-            }
         }
     }
 
@@ -261,6 +311,19 @@ Window {
                 ctx.closePath()
                 ctx.stroke()
             }
+            function star(cx, cy, r) {
+                ctx.beginPath()
+                for (var i = 0; i < 8; i++) {
+                    var a = -Math.PI / 2 + i * Math.PI / 4
+                    var radius = i % 2 === 0 ? r : r * 0.42
+                    var sx = px(cx) + Math.cos(a) * radius * s / 32
+                    var sy = py(cy) + Math.sin(a) * radius * s / 32
+                    if (i === 0) ctx.moveTo(sx, sy)
+                    else ctx.lineTo(sx, sy)
+                }
+                ctx.closePath()
+                ctx.fill()
+            }
 
             ctx.clearRect(0, 0, w, h)
             ctx.strokeStyle = menuIcon.iconColor
@@ -304,6 +367,42 @@ Window {
                 ctx.stroke()
                 line(10, 13, 22, 13)
                 line(10, 19, 22, 19)
+            } else if (iconName === "trackInsight") {
+                ctx.beginPath()
+                ctx.moveTo(px(5), py(17))
+                ctx.lineTo(px(8), py(17))
+                ctx.bezierCurveTo(px(9), py(12), px(10.5), py(12), px(11.5), py(17))
+                ctx.lineTo(px(13.2), py(22))
+                ctx.lineTo(px(15.3), py(8))
+                ctx.lineTo(px(18.1), py(24))
+                ctx.lineTo(px(20.2), py(14))
+                ctx.bezierCurveTo(px(21.4), py(17), px(22.4), py(17), px(24), py(17))
+                ctx.lineTo(px(27), py(17))
+                ctx.stroke()
+                line(5, 25, 27, 25)
+            } else if (iconName === "discover") {
+                line(9, 23, 22, 10)
+                line(19.5, 7.5, 24.5, 12.5)
+                line(17.8, 9.2, 22.8, 14.2)
+                star(9, 9, 3.2)
+                star(24, 22, 2.5)
+                star(14, 14, 1.8)
+            } else if (iconName === "heart") {
+                ctx.beginPath()
+                ctx.moveTo(px(16), py(25))
+                ctx.bezierCurveTo(px(7), py(19), px(5), py(13), px(8.5), py(9.5))
+                ctx.bezierCurveTo(px(11.5), py(6.5), px(15), py(8.5), px(16), py(11))
+                ctx.bezierCurveTo(px(17), py(8.5), px(20.5), py(6.5), px(23.5), py(9.5))
+                ctx.bezierCurveTo(px(27), py(13), px(25), py(19), px(16), py(25))
+                ctx.closePath()
+                ctx.stroke()
+            } else if (iconName === "mood") {
+                circle(16, 16, 10, false)
+                circle(12, 13, 1.4, true)
+                circle(20, 13, 1.4, true)
+                ctx.beginPath()
+                ctx.arc(px(16), py(17), 5, Math.PI * 0.15, Math.PI * 0.85)
+                ctx.stroke()
             } else if (iconName === "gamepad") {
                 ctx.beginPath()
                 ctx.moveTo(px(8), py(20))
@@ -328,9 +427,35 @@ Window {
                 roundRect(9, 6, 13, 18, 2)
                 line(13, 11, 18, 11); line(13, 16, 17, 16)
                 circle(21, 22, 3.5, false); line(23.5, 24.5, 26, 27)
+            } else if (iconName === "trash") {
+                line(10, 11, 22, 11)
+                line(13, 11, 13.8, 25)
+                line(18.2, 25, 19, 11)
+                line(12, 11, 12.8, 25)
+                line(19.2, 25, 20, 11)
+                line(14, 8, 18, 8)
+                line(15, 6, 17, 6)
+                roundRect(11, 11, 10, 15, 1.5)
             } else if (iconName === "info") {
                 circle(16, 16, 10, false)
                 line(16, 15, 16, 22); circle(16, 10.5, 1.2, true)
+            } else if (iconName === "refresh") {
+                ctx.beginPath()
+                ctx.arc(px(16), py(16), 8, Math.PI * 0.25, Math.PI * 1.55)
+                ctx.stroke()
+                ctx.beginPath()
+                ctx.moveTo(px(8.5), py(13))
+                ctx.lineTo(px(8), py(21))
+                ctx.lineTo(px(14.5), py(17))
+                ctx.stroke()
+                ctx.beginPath()
+                ctx.arc(px(16), py(16), 8, Math.PI * 1.25, Math.PI * 2.55)
+                ctx.stroke()
+                ctx.beginPath()
+                ctx.moveTo(px(23.5), py(19))
+                ctx.lineTo(px(24), py(11))
+                ctx.lineTo(px(17.5), py(15))
+                ctx.stroke()
             }
         }
     }
@@ -367,14 +492,34 @@ Window {
         background: Rectangle {
             radius: root.standardButtonRadius
             border.width: navControl.checked ? 2 : 0
-            border.color: "#f5d0fe"
+            border.color: root.moodColor("focus")
             gradient: Gradient {
                 orientation: Gradient.Horizontal
-                GradientStop { position: 0.0; color: navControl.enabled ? "#247fff" : "#33415f" }
-                GradientStop { position: 0.58; color: navControl.enabled ? "#7757ff" : "#3c3f61" }
-                GradientStop { position: 1.0; color: navControl.enabled ? "#c33cff" : "#4b3d65" }
+                GradientStop { position: 0.0; color: navControl.enabled ? root.moodColor("gradientStart") : root.moodDisabledColor("start") }
+                GradientStop { position: 0.58; color: navControl.enabled ? root.moodColor("gradientMid") : root.moodDisabledColor("mid") }
+                GradientStop { position: 1.0; color: navControl.enabled ? root.moodColor("gradientEnd") : root.moodDisabledColor("end") }
             }
             opacity: navControl.down ? 0.78 : (navControl.checked ? 1.0 : 0.72)
+        }
+    }
+
+    component RefreshIconButton: PurpleButton {
+        id: refreshControl
+
+        text: root.tr("refresh")
+        ToolTip.visible: hovered
+        ToolTip.text: text
+        Accessible.name: text
+        Accessible.description: text
+        Layout.preferredWidth: 48
+        Layout.preferredHeight: 48
+        contentItem: MenuIcon {
+            iconName: "refresh"
+            iconColor: refreshControl.enabled ? "#ffffff" : "#93a0b8"
+            strokeWidth: 2.8
+            anchors.centerIn: parent
+            width: 28
+            height: 28
         }
     }
 
@@ -387,13 +532,18 @@ Window {
         Layout.fillWidth: true
         Layout.preferredHeight: 66
         contentItem: RowLayout {
-            spacing: 18
+            spacing: 16
+            anchors.fill: parent
+            anchors.leftMargin: 20
+            anchors.rightMargin: 16
+            anchors.topMargin: 7
+            anchors.bottomMargin: 7
 
             MenuIcon {
                 iconName: moreControl.iconName
-                iconColor: "#f02dff"
+                iconColor: moreControl.enabled ? "#ffffff" : "#93a0b8"
                 strokeWidth: 2.5
-                Layout.preferredWidth: 48
+                Layout.preferredWidth: 42
                 Layout.preferredHeight: 36
             }
 
@@ -411,7 +561,8 @@ Window {
                 color: "#a9abc3"
                 font.pixelSize: 42
                 verticalAlignment: Text.AlignVCenter
-                Layout.preferredWidth: 28
+                horizontalAlignment: Text.AlignRight
+                Layout.preferredWidth: 24
             }
         }
         background: Rectangle {
@@ -419,9 +570,9 @@ Window {
             border.width: 0
             gradient: Gradient {
                 orientation: Gradient.Horizontal
-                GradientStop { position: 0.0; color: moreControl.enabled ? "#247fff" : "#33415f" }
-                GradientStop { position: 0.58; color: moreControl.enabled ? "#7757ff" : "#3c3f61" }
-                GradientStop { position: 1.0; color: moreControl.enabled ? "#c33cff" : "#4b3d65" }
+                GradientStop { position: 0.0; color: moreControl.enabled ? root.moodColor("gradientStart") : root.moodDisabledColor("start") }
+                GradientStop { position: 0.58; color: moreControl.enabled ? root.moodColor("gradientMid") : root.moodDisabledColor("mid") }
+                GradientStop { position: 1.0; color: moreControl.enabled ? root.moodColor("gradientEnd") : root.moodDisabledColor("end") }
             }
             opacity: moreControl.down ? 0.78 : (moreControl.enabled ? 1.0 : 0.62)
         }
@@ -447,9 +598,9 @@ Window {
             border.width: 0
             gradient: Gradient {
                 orientation: Gradient.Horizontal
-                GradientStop { position: 0.0; color: "#247fff" }
-                GradientStop { position: 0.58; color: "#7757ff" }
-                GradientStop { position: 1.0; color: "#c33cff" }
+                GradientStop { position: 0.0; color: root.moodColor("gradientStart") }
+                GradientStop { position: 0.58; color: root.moodColor("gradientMid") }
+                GradientStop { position: 1.0; color: root.moodColor("gradientEnd") }
             }
             opacity: control.down ? 0.78 : 1.0
             scale: control.down ? 0.96 : 1.0
@@ -483,9 +634,9 @@ Window {
             border.width: 0
             gradient: Gradient {
                 orientation: Gradient.Horizontal
-                GradientStop { position: 0.0; color: "#247fff" }
-                GradientStop { position: 0.58; color: "#7757ff" }
-                GradientStop { position: 1.0; color: "#c33cff" }
+                GradientStop { position: 0.0; color: root.moodColor("gradientStart") }
+                GradientStop { position: 0.58; color: root.moodColor("gradientMid") }
+                GradientStop { position: 1.0; color: root.moodColor("gradientEnd") }
             }
             opacity: control.down ? 0.78 : 1.0
         }
@@ -585,9 +736,9 @@ Window {
             anchors.fill: parent
             gradient: Gradient {
                 orientation: Gradient.Vertical
-                GradientStop { position: 0.0; color: "#2b0a5f" }
-                GradientStop { position: 0.48; color: "#191053" }
-                GradientStop { position: 1.0; color: "#070b16" }
+                GradientStop { position: 0.0; color: root.moodColor("backgroundStart") }
+                GradientStop { position: 0.48; color: root.moodColor("backgroundMid") }
+                GradientStop { position: 1.0; color: root.moodColor("backgroundEnd") }
             }
         }
 
@@ -596,9 +747,9 @@ Window {
             opacity: 0.36
             gradient: Gradient {
                 orientation: Gradient.Horizontal
-                GradientStop { position: 0.0; color: "#2f8cff" }
+                GradientStop { position: 0.0; color: root.moodColor("overlayStart") }
                 GradientStop { position: 0.48; color: "#00000000" }
-                GradientStop { position: 1.0; color: "#8b5cf6" }
+                GradientStop { position: 1.0; color: root.moodColor("overlayEnd") }
             }
         }
     }
@@ -622,10 +773,10 @@ Window {
         clip: true
         gradient: Gradient {
             orientation: Gradient.Horizontal
-            GradientStop { position: 0.0; color: "#12091d" }
-            GradientStop { position: 0.42; color: "#26103f" }
-            GradientStop { position: 0.72; color: "#37145a" }
-            GradientStop { position: 1.0; color: "#141125" }
+            GradientStop { position: 0.0; color: root.moodColor("bannerStart") }
+            GradientStop { position: 0.42; color: root.moodColor("bannerMid") }
+            GradientStop { position: 0.72; color: root.moodColor("surface") }
+            GradientStop { position: 1.0; color: root.moodColor("bannerEnd") }
         }
 
         RowLayout {
@@ -747,6 +898,20 @@ Window {
                     ctx.bezierCurveTo(cx - s * 0.10, cy + s * 0.19, cx + s * 0.02, cy - s * 0.19, cx + s * 0.32, cy - s * 0.19)
                     ctx.stroke()
                     arrowHead(cx + s * 0.34, cy - s * 0.19, 1)
+                } else if (control.iconName === "heart" || control.iconName === "heartFilled") {
+                    ctx.lineWidth = Math.max(4, s * 0.075)
+                    ctx.beginPath()
+                    ctx.moveTo(cx, cy + s * 0.28)
+                    ctx.bezierCurveTo(cx - s * 0.40, cy + s * 0.02, cx - s * 0.34, cy - s * 0.33, cx - s * 0.10, cy - s * 0.28)
+                    ctx.bezierCurveTo(cx - s * 0.01, cy - s * 0.26, cx, cy - s * 0.16, cx, cy - s * 0.16)
+                    ctx.bezierCurveTo(cx, cy - s * 0.16, cx + s * 0.01, cy - s * 0.26, cx + s * 0.10, cy - s * 0.28)
+                    ctx.bezierCurveTo(cx + s * 0.34, cy - s * 0.33, cx + s * 0.40, cy + s * 0.02, cx, cy + s * 0.28)
+                    ctx.closePath()
+                    if (control.iconName === "heartFilled") {
+                        ctx.fill()
+                    } else {
+                        ctx.stroke()
+                    }
                 } else if (control.iconName === "repeat" || control.iconName === "repeatOne" || control.iconName === "repeatOff") {
                     ctx.lineWidth = Math.max(5, s * 0.09)
                     ctx.beginPath()
@@ -780,12 +945,12 @@ Window {
         background: Rectangle {
             radius: root.standardButtonRadius
             border.width: control.active ? 2 : 0
-            border.color: "#f5d0fe"
+            border.color: root.moodColor("focus")
             gradient: Gradient {
                 orientation: Gradient.Horizontal
-                GradientStop { position: 0.0; color: control.enabled ? "#247fff" : "#33415f" }
-                GradientStop { position: 0.58; color: control.enabled ? "#7757ff" : "#3c3f61" }
-                GradientStop { position: 1.0; color: control.enabled ? "#c33cff" : "#4b3d65" }
+                GradientStop { position: 0.0; color: control.enabled ? root.moodColor("gradientStart") : root.moodDisabledColor("start") }
+                GradientStop { position: 0.58; color: control.enabled ? root.moodColor("gradientMid") : root.moodDisabledColor("mid") }
+                GradientStop { position: 1.0; color: control.enabled ? root.moodColor("gradientEnd") : root.moodDisabledColor("end") }
             }
             opacity: control.down ? 0.78 : (control.enabled ? 1.0 : 0.62)
             scale: control.down ? 0.96 : 1.0
@@ -820,6 +985,15 @@ Window {
         anchors.fill: parent
         color: "#070b16"
         z: 16
+        onVisibleChanged: {
+            if (visible) {
+                Qt.callLater(function() {
+                    if (mediaScroll && mediaScroll.contentItem) {
+                        mediaScroll.contentItem.contentY = 0
+                    }
+                })
+            }
+        }
 
         AppBackground {}
         ModalBlocker {}
@@ -841,11 +1015,7 @@ Window {
                     Layout.fillWidth: true
                 }
 
-                PurpleButton {
-                    text: root.tr("refresh")
-                    font.pixelSize: 18
-                    Layout.preferredWidth: 142
-                    Layout.preferredHeight: 48
+                RefreshIconButton {
                     onClicked: panel.refreshRequested()
                 }
             }
@@ -881,7 +1051,7 @@ Window {
                             Layout.fillWidth: true
                             Layout.preferredHeight: 94
                             radius: 8
-                            color: "#3324145f"
+                            color: root.moodColor("accentSoft")
                             border.color: "#4d2470a8"
                             border.width: 1
                             gradient: Gradient {
@@ -989,6 +1159,14 @@ Window {
         interval: Math.max(1000, djconnect.screenTimeoutSeconds * 1000)
         running: djconnect.screenTimeoutSeconds > 0
         repeat: false
+        onTriggered: root.hideTransientUi()
+    }
+
+    Timer {
+        id: returnToNowTimer
+        interval: Math.max(1000, djconnect.returnToNowSeconds * 1000)
+        running: djconnect.returnToNowSeconds > 0
+        repeat: false
         onTriggered: {
             root.hideTransientUi()
             root.activeScreen = "now"
@@ -1042,7 +1220,10 @@ Window {
         }
         function onAskDjChanged() {
             if (root.activeScreen === "askdj") {
-                root.scrollAskDjToBottom()
+                root.scrollAskDjToTop()
+            }
+            if (root.askDjClearConfirmOpen && djconnect.askDjMessages.length === 0) {
+                root.askDjClearConfirmOpen = false
             }
         }
         function onScreenshotRequested() {
@@ -1063,6 +1244,9 @@ Window {
             root.resetPairingConfirmOpen = false
             root.rebootConfirmOpen = false
             root.shutdownConfirmOpen = false
+            root.askDjClearConfirmOpen = false
+            root.musicDnaDisableConfirmOpen = false
+            root.musicDnaClearConfirmOpen = false
             if (screen === "logs") {
                 djconnect.showLogs()
                 return
@@ -1148,33 +1332,29 @@ Window {
                 }
 
                 PurpleButton {
-                    text: root.tr("refresh")
-                    font.pixelSize: 18
-                    Layout.preferredWidth: 118
+                    id: nowMoodButton
+                    text: root.tr("mood")
+                    ToolTip.visible: hovered
+                    ToolTip.text: root.tr("mood_select")
+                    Accessible.name: root.tr("mood")
+                    Accessible.description: root.tr("mood_select")
+                    Layout.preferredWidth: 48
                     Layout.preferredHeight: 48
+                    contentItem: MenuIcon {
+                        iconName: "mood"
+                        iconColor: nowMoodButton.enabled ? "#ffffff" : "#93a0b8"
+                        strokeWidth: 2.6
+                        anchors.centerIn: parent
+                        width: 28
+                        height: 28
+                    }
+                    onClicked: root.moodPopoverOpen = !root.moodPopoverOpen
+                }
+
+                RefreshIconButton {
+                    id: nowRefreshButton
                     Layout.rightMargin: 0
                     onClicked: djconnect.manualRefresh()
-                }
-
-                PurpleButton {
-                    text: root.tr("add_to_favorites")
-                    font.pixelSize: 17
-                    Layout.preferredWidth: 126
-                    Layout.preferredHeight: 48
-                    enabled: djconnect.paired && (djconnect.title.length > 0 || djconnect.artist.length > 0)
-                    onClicked: djconnect.saveCurrentTrack()
-                }
-
-                PurpleButton {
-                    text: root.tr("track_insight")
-                    font.pixelSize: 16
-                    Layout.preferredWidth: 132
-                    Layout.preferredHeight: 48
-                    enabled: djconnect.paired && (djconnect.title.length > 0 || djconnect.artist.length > 0)
-                    onClicked: {
-                        root.activeScreen = "askdj"
-                        djconnect.openTrackInsight()
-                    }
                 }
 
             }
@@ -1291,15 +1471,116 @@ Window {
         }
 
         Rectangle {
-            anchors.fill: parent
-            color: "#000000"
-            opacity: root.screenBlanked ? 1 : 0
-            visible: opacity > 0
+            id: moodPopover
+            visible: root.activeScreen === "now" && root.moodPopoverOpen
+            z: 40
+            anchors.top: parent.top
+            anchors.topMargin: 72
+            anchors.right: parent.right
+            anchors.rightMargin: 16
+            width: Math.min(292, parent.width - 32)
+            height: moodPopoverContent.implicitHeight + 24
+            radius: root.standardButtonRadius
+            border.color: root.moodColor("focus")
+            border.width: 1
 
-            Behavior on opacity { NumberAnimation { duration: 450 } }
+            gradient: Gradient {
+                orientation: Gradient.Vertical
+                GradientStop { position: 0.0; color: root.moodColor("bannerMid") }
+                GradientStop { position: 0.58; color: root.moodColor("surface") }
+                GradientStop { position: 1.0; color: root.moodColor("bannerEnd") }
+            }
 
-            TapHandler {
-                onTapped: root.wakeDisplay()
+            ColumnLayout {
+                id: moodPopoverContent
+                anchors.fill: parent
+                anchors.margins: 12
+                spacing: 8
+
+                Text {
+                    text: root.tr("mood_select")
+                    color: "#f7f3ff"
+                    font.pixelSize: 18
+                    font.bold: true
+                    elide: Text.ElideRight
+                    maximumLineCount: 1
+                    Layout.fillWidth: true
+                }
+
+                GridLayout {
+                    columns: 2
+                    columnSpacing: 8
+                    rowSpacing: 8
+                    Layout.fillWidth: true
+
+                    Button {
+                        id: moodChillButton
+                        text: root.tr("mood_chill")
+                        checkable: true
+                        checked: djconnect.moodValue >= 0 && djconnect.moodValue <= 24
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 44
+                        onClicked: { djconnect.setMoodValue(0); root.moodPopoverOpen = false }
+                        background: Rectangle {
+                            radius: root.standardButtonRadius
+                            color: moodChillButton.checked ? MoodTheme.color(0, "gradientStart") : root.moodColor("chip")
+                            border.color: moodChillButton.checked ? MoodTheme.color(0, "focus") : root.moodColor("accent")
+                            border.width: 1
+                        }
+                        contentItem: Text { text: moodChillButton.text; color: "#ffffff"; font.pixelSize: 16; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight }
+                    }
+
+                    Button {
+                        id: moodGrooveButton
+                        text: root.tr("mood_groove")
+                        checkable: true
+                        checked: djconnect.moodValue >= 25 && djconnect.moodValue <= 59
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 44
+                        onClicked: { djconnect.setMoodValue(35); root.moodPopoverOpen = false }
+                        background: Rectangle {
+                            radius: root.standardButtonRadius
+                            color: moodGrooveButton.checked ? MoodTheme.color(35, "gradientStart") : root.moodColor("chip")
+                            border.color: moodGrooveButton.checked ? MoodTheme.color(35, "focus") : root.moodColor("accent")
+                            border.width: 1
+                        }
+                        contentItem: Text { text: moodGrooveButton.text; color: "#ffffff"; font.pixelSize: 16; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight }
+                    }
+
+                    Button {
+                        id: moodEnergyButton
+                        text: root.tr("mood_energy")
+                        checkable: true
+                        checked: djconnect.moodValue >= 60 && djconnect.moodValue <= 84
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 44
+                        onClicked: { djconnect.setMoodValue(70); root.moodPopoverOpen = false }
+                        background: Rectangle {
+                            radius: root.standardButtonRadius
+                            color: moodEnergyButton.checked ? MoodTheme.color(70, "gradientStart") : root.moodColor("chip")
+                            border.color: moodEnergyButton.checked ? MoodTheme.color(70, "focus") : root.moodColor("accent")
+                            border.width: 1
+                        }
+                        contentItem: Text { text: moodEnergyButton.text; color: "#ffffff"; font.pixelSize: 16; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight }
+                    }
+
+                    Button {
+                        id: moodPartyButton
+                        text: root.tr("mood_party")
+                        checkable: true
+                        checked: djconnect.moodValue >= 85
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 44
+                        onClicked: { djconnect.setMoodValue(100); root.moodPopoverOpen = false }
+                        background: Rectangle {
+                            radius: root.standardButtonRadius
+                            color: moodPartyButton.checked ? MoodTheme.color(100, "gradientStart") : root.moodColor("chip")
+                            border.color: moodPartyButton.checked ? MoodTheme.color(100, "focus") : root.moodColor("accent")
+                            border.width: 1
+                        }
+                        contentItem: Text { text: moodPartyButton.text; color: "#ffffff"; font.pixelSize: 16; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight }
+                    }
+                }
             }
         }
 
@@ -1344,11 +1625,7 @@ Window {
                     implicitHeight: 30
                 }
 
-                PurpleButton {
-                    text: root.tr("refresh")
-                    font.pixelSize: 18
-                    Layout.preferredWidth: 142
-                    Layout.preferredHeight: 48
+                RefreshIconButton {
                     onClicked: djconnect.manualRefresh()
                 }
             }
@@ -1422,8 +1699,8 @@ Window {
                         radius: parent.radius
                         gradient: Gradient {
                             orientation: Gradient.Horizontal
-                            GradientStop { position: 0.0; color: "#c026d3" }
-                            GradientStop { position: 1.0; color: "#8b5cf6" }
+                            GradientStop { position: 0.0; color: root.moodColor("sliderStart") }
+                            GradientStop { position: 1.0; color: root.moodColor("sliderEnd") }
                         }
                     }
                 }
@@ -1472,7 +1749,7 @@ Window {
                         width: controlVolumeSlider.availableWidth
                         height: 10
                         radius: 5
-                        color: "#3324145f"
+                        color: root.moodColor("chip")
 
                         Rectangle {
                             width: controlVolumeSlider.visualPosition * parent.width
@@ -1480,8 +1757,8 @@ Window {
                             radius: parent.radius
                             gradient: Gradient {
                                 orientation: Gradient.Horizontal
-                                GradientStop { position: 0.0; color: "#ec4899" }
-                                GradientStop { position: 1.0; color: "#8b5cf6" }
+                                GradientStop { position: 0.0; color: root.moodColor("sliderStart") }
+                                GradientStop { position: 1.0; color: root.moodColor("sliderEnd") }
                             }
                         }
                     }
@@ -1573,6 +1850,14 @@ Window {
                 }
 
                 IconButton {
+                    iconName: djconnect.currentTrackFavorite ? "heartFilled" : "heart"
+                    active: djconnect.currentTrackFavorite
+                    enabled: djconnect.favoriteAvailable && !djconnect.favoriteBusy
+                    opacity: djconnect.favoriteAvailable ? (djconnect.favoriteBusy ? 0.55 : 1.0) : 0.0
+                    onClicked: djconnect.saveCurrentTrack()
+                }
+
+                IconButton {
                     iconName: djconnect.repeat === "track" ? "repeatOne" : djconnect.repeat === "context" ? "repeat" : "repeatOff"
                     active: djconnect.repeat !== "off"
                     onClicked: djconnect.cycleRepeat()
@@ -1598,17 +1883,23 @@ Window {
                     font.pixelSize: 16
                     elide: Text.ElideRight
                     Layout.fillWidth: true
+                    }
                 }
             }
-        }
-    }
 
-    Rectangle {
+        }
+
+        Rectangle {
         id: settingsPanel
         anchors.fill: parent
         color: "#070b16"
         visible: settingsOpen && (djconnect.paired || djconnect.demoMode)
         z: 10
+        onVisibleChanged: {
+            if (visible && settingsScroll.contentItem) {
+                settingsScroll.contentItem.contentY = 0
+            }
+        }
 
         AppBackground {}
 
@@ -1654,6 +1945,26 @@ Window {
                 spacing: 14
 
                 Text {
+                    text: root.tr("websocket_fast_path")
+                    color: "#d7e2e4"
+                    font.pixelSize: 22
+                    Layout.preferredWidth: 176
+                    wrapMode: Text.WordWrap
+                }
+
+                Switch {
+                    id: websocketFastPathSwitch
+                    checked: djconnect.websocketFastPathEnabled
+                    Layout.alignment: Qt.AlignVCenter
+                    onToggled: djconnect.setWebSocketFastPathEnabled(checked)
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 14
+
+                Text {
                     text: root.tr("screen_off")
                     color: "#d7e2e4"
                     font.pixelSize: 22
@@ -1673,6 +1984,34 @@ Window {
                     }
                     Layout.fillWidth: true
                     onActivated: function(index) { djconnect.setScreenTimeoutSeconds(timeoutChoices[index]) }
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 14
+
+                Text {
+                    text: root.tr("return_to_now")
+                    color: "#d7e2e4"
+                    font.pixelSize: 22
+                    Layout.preferredWidth: 176
+                    wrapMode: Text.WordWrap
+                }
+
+                ComboBox {
+                    id: returnToNowBox
+                    model: root.returnToNowChoices
+                    currentIndex: root.returnToNowIndex()
+                    font.pixelSize: 28
+                    displayText: root.returnToNowLabel(djconnect.returnToNowSeconds)
+                    delegate: ItemDelegate {
+                        width: returnToNowBox.width
+                        text: root.returnToNowLabel(modelData)
+                        font.pixelSize: 30
+                    }
+                    Layout.fillWidth: true
+                    onActivated: function(index) { djconnect.setReturnToNowSeconds(root.returnToNowChoices[index]) }
                 }
             }
 
@@ -1701,7 +2040,7 @@ Window {
                         width: brightnessSlider.availableWidth
                         height: 10
                         radius: 5
-                        color: "#3324145f"
+                        color: root.moodColor("chip")
 
                         Rectangle {
                             width: brightnessSlider.visualPosition * parent.width
@@ -1709,8 +2048,8 @@ Window {
                             radius: parent.radius
                             gradient: Gradient {
                                 orientation: Gradient.Horizontal
-                                GradientStop { position: 0.0; color: "#ec4899" }
-                                GradientStop { position: 1.0; color: "#8b5cf6" }
+                                GradientStop { position: 0.0; color: root.moodColor("sliderStart") }
+                                GradientStop { position: 1.0; color: root.moodColor("sliderEnd") }
                             }
                         }
                     }
@@ -1821,12 +2160,146 @@ Window {
                 }
             }
 
-            PurpleButton {
-                text: root.tr("view_logs")
-                font.pixelSize: 24
+            Text {
+                text: root.tr("dj_announcement_settings_title")
+                color: "#f4f8f8"
+                font.pixelSize: 26
+                font.bold: true
                 Layout.fillWidth: true
-                Layout.preferredHeight: 58
-                onClicked: djconnect.showLogs()
+                Layout.topMargin: 8
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 14
+
+                Text {
+                    text: root.tr("dj_announcement_output")
+                    color: "#d7e2e4"
+                    font.pixelSize: 22
+                    Layout.preferredWidth: 176
+                    wrapMode: Text.WordWrap
+                }
+
+                ComboBox {
+                    id: djAnnouncementOutputBox
+                    property var outputChoices: djconnect.djAnnouncementSpeakerAvailable ? ["text_only", "ha_speaker"] : ["text_only"]
+                    font.pixelSize: 24
+                    model: outputChoices
+                    currentIndex: Math.max(0, outputChoices.indexOf(djconnect.djAnnouncementOutput))
+                    displayText: root.djAnnouncementOutputLabel(djconnect.djAnnouncementOutput)
+                    delegate: ItemDelegate {
+                        width: djAnnouncementOutputBox.width
+                        text: root.djAnnouncementOutputLabel(modelData)
+                        font.pixelSize: 26
+                    }
+                    Layout.fillWidth: true
+                    onActivated: function(index) { djconnect.setDjAnnouncementOutput(outputChoices[index]) }
+                }
+            }
+
+            Text {
+                visible: !djconnect.djAnnouncementSpeakerAvailable
+                text: root.tr("dj_announcement_speaker_unavailable")
+                color: "#b9b5d4"
+                font.pixelSize: 18
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+
+            Text {
+                visible: djconnect.djAnnouncementSpeakerAvailable && djconnect.djAnnouncementSpeakerName.length > 0
+                text: root.tr("dj_announcement_speaker_configured") + " " + djconnect.djAnnouncementSpeakerName
+                color: "#b9b5d4"
+                font.pixelSize: 18
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+
+            Text {
+                text: root.tr("music_dna")
+                color: "#f4f8f8"
+                font.pixelSize: 26
+                font.bold: true
+                Layout.fillWidth: true
+                Layout.topMargin: 8
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 14
+
+                Text {
+                    text: root.tr("music_dna_settings_status")
+                    color: "#d7e2e4"
+                    font.pixelSize: 22
+                    font.bold: true
+                    Layout.preferredWidth: 176
+                }
+
+                Text {
+                    text: djconnect.musicDnaEnabled ? root.tr("music_dna_settings_enabled_description") : root.tr("music_dna_settings_disabled_description")
+                    color: "#b9b5d4"
+                    font.pixelSize: 22
+                    font.bold: true
+                    wrapMode: Text.WordWrap
+                    horizontalAlignment: Text.AlignRight
+                    Layout.fillWidth: true
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 14
+
+                Text {
+                    text: root.tr("music_dna")
+                    color: "#f4f8f8"
+                    font.pixelSize: 22
+                    font.bold: true
+                    Layout.preferredWidth: 176
+                }
+
+                Item { Layout.fillWidth: true }
+
+                PurpleButton {
+                    text: djconnect.musicDnaEnabled ? root.tr("music_dna_disable") : root.tr("music_dna_enable")
+                    enabled: !djconnect.musicDnaBusy
+                    font.pixelSize: 22
+                    Layout.preferredWidth: 190
+                    Layout.preferredHeight: 52
+                    onClicked: {
+                        if (djconnect.musicDnaEnabled) {
+                            root.musicDnaDisableConfirmOpen = true
+                        } else {
+                            djconnect.setMusicDnaEnabled(true)
+                        }
+                    }
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 14
+
+                Text {
+                    text: root.tr("music_dna_settings_profile")
+                    color: "#f4f8f8"
+                    font.pixelSize: 22
+                    font.bold: true
+                    Layout.preferredWidth: 176
+                }
+
+                Item { Layout.fillWidth: true }
+
+                DangerButton {
+                    text: root.tr("music_dna_clear")
+                    enabled: djconnect.musicDnaEnabled && !djconnect.musicDnaBusy
+                    font.pixelSize: 22
+                    Layout.preferredWidth: 150
+                    Layout.preferredHeight: 52
+                    onClicked: root.musicDnaClearConfirmOpen = true
+                }
             }
 
             PurpleButton {
@@ -1846,13 +2319,6 @@ Window {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 58
                     onClicked: root.resetPairingConfirmOpen = true
-                }
-
-                PurpleButton {
-                    text: root.tr("about")
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 58
-                    onClicked: root.aboutOpen = true
                 }
             }
 
@@ -1952,16 +2418,6 @@ Window {
                     Rectangle { Layout.fillWidth: true; Layout.leftMargin: 122; Layout.preferredHeight: 1; color: "#4d4a68" }
 
                     MoreMenuButton {
-                        text: root.tr("queue")
-                        iconName: "queue"
-                        onClicked: {
-                            root.activeScreen = "queue"
-                            djconnect.loadQueue()
-                        }
-                    }
-                    Rectangle { Layout.fillWidth: true; Layout.leftMargin: 122; Layout.preferredHeight: 1; color: "#4d4a68" }
-
-                    MoreMenuButton {
                         text: root.tr("playlists")
                         iconName: "playlists"
                         onClicked: {
@@ -1973,7 +2429,7 @@ Window {
 
                     MoreMenuButton {
                         text: root.tr("music_dna")
-                        iconName: "musicdna"
+                        iconName: "heart"
                         onClicked: root.activeScreen = "musicdna"
                     }
                     Rectangle { Layout.fillWidth: true; Layout.leftMargin: 122; Layout.preferredHeight: 1; color: "#4d4a68" }
@@ -2012,11 +2468,20 @@ Window {
     }
 
     Rectangle {
-        id: musicDiscoveryPanel
+        id: trackInsightPanel
+        property bool autoInsightRequested: false
         anchors.fill: parent
         color: "#070b16"
-        visible: root.activeScreen === "discover"
+        visible: root.activeScreen === "trackinsight"
         z: 17
+        onVisibleChanged: {
+            if (visible && !autoInsightRequested && djconnect.playing) {
+                autoInsightRequested = true
+                djconnect.openTrackInsight()
+            } else if (!visible) {
+                autoInsightRequested = false
+            }
+        }
 
         AppBackground {}
         ModalBlocker {}
@@ -2034,9 +2499,355 @@ Window {
                 spacing: 10
 
                 Text {
+                    text: root.tr("track_insight")
+                    color: "#f4f8f8"
+                    font.pixelSize: 40
+                    font.bold: true
+                    elide: Text.ElideRight
+                    Layout.fillWidth: true
+                }
+
+                LoadingSpinner {
+                    visible: djconnect.askDjBusy
+                    running: visible
+                    Layout.preferredWidth: 38
+                    Layout.preferredHeight: 38
+                }
+
+                RefreshIconButton {
+                    enabled: djconnect.paired && !djconnect.askDjBusy
+                    onClicked: djconnect.refreshTrackInsight()
+                }
+            }
+
+            Text {
+                visible: djconnect.trackInsightError.length > 0
+                text: djconnect.trackInsightError
+                color: "#d8e3ee"
+                font.pixelSize: 20
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+
+            Text {
+                visible: djconnect.trackInsightError.length === 0 && djconnect.trackInsightText.length === 0 && djconnect.trackInsightItems.length === 0 && !djconnect.askDjBusy
+                text: root.tr("track_insight_empty")
+                color: "#d8e3ee"
+                font.pixelSize: 20
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+
+            Rectangle {
+                visible: djconnect.trackInsightTitle.length > 0 || djconnect.trackInsightArtist.length > 0 || djconnect.trackInsightImageUrl.length > 0
+                Layout.fillWidth: true
+                Layout.preferredHeight: 104
+                radius: root.standardButtonRadius
+                color: "#00000000"
+                border.color: root.moodColor("focus")
+                border.width: 1
+                clip: true
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.margins: 10
+                    spacing: 10
+
+                    Image {
+                        source: djconnect.trackInsightImageUrl
+                        visible: source.toString().length > 0
+                        Layout.preferredWidth: 76
+                        Layout.preferredHeight: 76
+                        fillMode: Image.PreserveAspectCrop
+                        smooth: true
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 4
+
+                        Text {
+                            text: djconnect.trackInsightTitle
+                            color: "#ffffff"
+                            font.pixelSize: 22
+                            font.bold: true
+                            elide: Text.ElideRight
+                            maximumLineCount: 1
+                            Layout.fillWidth: true
+                        }
+
+                        Text {
+                            text: [djconnect.trackInsightArtist, djconnect.trackInsightAlbum].filter(function(v) { return v && v.length > 0 }).join(" · ")
+                            color: "#cbd6ed"
+                            font.pixelSize: 17
+                            elide: Text.ElideRight
+                            maximumLineCount: 1
+                            Layout.fillWidth: true
+                        }
+                    }
+                }
+            }
+
+            Rectangle {
+                id: trackInsightVisualizer
+                visible: djconnect.trackInsightVisualizer.available === true
+                Layout.fillWidth: true
+                Layout.preferredHeight: 164
+                radius: root.standardButtonRadius
+                color: "#00000000"
+                border.color: root.moodColor("focus")
+                border.width: 1
+                clip: true
+
+                property var visualizerData: djconnect.trackInsightVisualizer
+                property real phase: 0
+
+                onVisibleChanged: trackInsightVisualizerCanvas.requestPaint()
+                onVisualizerDataChanged: {
+                    phase = 0
+                    trackInsightVisualizerCanvas.requestPaint()
+                }
+
+                Timer {
+                    interval: 180
+                    repeat: true
+                    running: trackInsightVisualizer.visible && root.activeScreen === "trackinsight"
+                    onTriggered: {
+                        trackInsightVisualizer.phase = (trackInsightVisualizer.phase + 0.08) % 6.28
+                        trackInsightVisualizerCanvas.requestPaint()
+                    }
+                }
+
+                Canvas {
+                    id: trackInsightVisualizerCanvas
+                    anchors.fill: parent
+                    antialiasing: true
+                    onPaint: {
+                        var ctx = getContext("2d")
+                        ctx.clearRect(0, 0, width, height)
+                        var data = trackInsightVisualizer.visualizerData || {}
+                        var bars = data.bars || []
+                        var colors = data.colors || []
+                        var c0 = colors.length > 0 ? colors[0] : root.moodColor("gradientStart")
+                        var c1 = colors.length > 1 ? colors[1] : root.moodColor("gradientMid")
+                        var c2 = colors.length > 2 ? colors[2] : root.moodColor("gradientEnd")
+                        var bg = ctx.createLinearGradient(0, 0, width, height)
+                        bg.addColorStop(0.0, c0)
+                        bg.addColorStop(0.58, c1)
+                        bg.addColorStop(1.0, c2)
+                        ctx.globalAlpha = 0.28
+                        ctx.fillStyle = bg
+                        ctx.fillRect(0, 0, width, height)
+                        ctx.globalAlpha = 1
+
+                        ctx.fillStyle = "rgba(5, 8, 18, 0.34)"
+                        ctx.fillRect(0, 0, width, height)
+
+                        var orbGradient = ctx.createRadialGradient(width * 0.55, height * 0.45, 4, width * 0.55, height * 0.45, Math.max(width, height) * 0.56)
+                        orbGradient.addColorStop(0, c1)
+                        orbGradient.addColorStop(0.42, "rgba(255,255,255,0.16)")
+                        orbGradient.addColorStop(1, "rgba(0,0,0,0)")
+                        ctx.globalAlpha = 0.42
+                        ctx.fillStyle = orbGradient
+                        ctx.fillRect(0, 0, width, height)
+                        ctx.globalAlpha = 1
+
+                        ctx.strokeStyle = "rgba(255,255,255,0.16)"
+                        ctx.lineWidth = 1
+                        for (var line = 0; line < 5; line++) {
+                            var y = height * (0.22 + line * 0.13)
+                            ctx.beginPath()
+                            ctx.moveTo(width * 0.08, y)
+                            ctx.bezierCurveTo(width * 0.28, y - 20, width * 0.52, y + 20, width * 0.92, y - 8)
+                            ctx.stroke()
+                        }
+
+                        if (bars.length === 0) {
+                            return
+                        }
+                        var baseY = height - 18
+                        var topY = 28
+                        var availableHeight = Math.max(28, baseY - topY)
+                        var count = Math.min(48, bars.length)
+                        var gap = Math.max(3, width * 0.008)
+                        var barWidth = Math.max(4, (width - 34 - gap * (count - 1)) / count)
+                        var startX = (width - (barWidth * count + gap * (count - 1))) / 2
+                        var barGradient = ctx.createLinearGradient(0, topY, 0, baseY)
+                        barGradient.addColorStop(0.0, c2)
+                        barGradient.addColorStop(0.52, c1)
+                        barGradient.addColorStop(1.0, c0)
+                        ctx.fillStyle = barGradient
+                        for (var i = 0; i < count; i++) {
+                            var value = Math.max(0.08, Math.min(1, Number(bars[i]) || 0.1))
+                            var pulse = 0.88 + Math.sin(trackInsightVisualizer.phase + i * 0.45) * 0.08
+                            var h = Math.max(10, availableHeight * value * pulse)
+                            var x = startX + i * (barWidth + gap)
+                            var yBar = baseY - h
+                            ctx.fillRect(x, yBar, barWidth, h)
+                        }
+                        ctx.fillStyle = c2
+                        ctx.shadowColor = c2
+                        ctx.shadowBlur = 16
+                        ctx.beginPath()
+                        ctx.arc(width * 0.5, baseY, 8, 0, Math.PI * 2)
+                        ctx.fill()
+                        ctx.shadowBlur = 0
+                    }
+                }
+            }
+
+            Text {
+                visible: djconnect.trackInsightText.length > 0
+                text: djconnect.trackInsightText
+                color: "#ffffff"
+                font.pixelSize: 21
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+
+            Flow {
+                visible: djconnect.trackInsightItems.length > 0
+                spacing: 8
+                Layout.fillWidth: true
+
+                Repeater {
+                    model: djconnect.trackInsightItems
+
+                    Rectangle {
+                        width: Math.max(132, trackMetricContent.implicitWidth + 24)
+                        height: 64
+                        radius: root.standardButtonRadius
+                        color: "#00000000"
+                        border.color: root.moodColor("focus")
+                        border.width: 1
+
+                        ColumnLayout {
+                            id: trackMetricContent
+                            anchors.fill: parent
+                            anchors.margins: 8
+                            spacing: 1
+
+                            Text {
+                                text: root.trackInsightLabel(modelData.title || modelData.kind || "")
+                                color: "#ffffff"
+                                font.pixelSize: 15
+                                font.bold: true
+                                elide: Text.ElideRight
+                                Layout.fillWidth: true
+                            }
+
+                            Text {
+                                text: modelData.value || ""
+                                color: "#d8e3ee"
+                                font.pixelSize: 19
+                                font.bold: true
+                                elide: Text.ElideRight
+                                Layout.fillWidth: true
+                            }
+                        }
+                    }
+                }
+            }
+
+            ScrollView {
+                id: trackInsightScroll
+                visible: djconnect.trackInsightSections.length > 0
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                clip: true
+                ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                contentWidth: availableWidth
+
+                ColumnLayout {
+                    width: Math.max(0, trackInsightScroll.availableWidth)
+                    spacing: 10
+
+                    Repeater {
+                        model: djconnect.trackInsightSections
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: trackSectionContent.implicitHeight + 18
+                            radius: root.standardButtonRadius
+                            color: "#00000000"
+                            border.color: root.moodColor("focus")
+                            border.width: 1
+
+                            ColumnLayout {
+                                id: trackSectionContent
+                                anchors.fill: parent
+                                anchors.margins: 9
+                                spacing: 5
+
+                                Text {
+                                    text: root.trackInsightLabel(modelData.title || modelData.kind || modelData.id || "")
+                                    color: "#f2d8ff"
+                                    font.pixelSize: 18
+                                    font.bold: true
+                                    elide: Text.ElideRight
+                                    Layout.fillWidth: true
+                                }
+
+                                Text {
+                                    visible: modelData.body && modelData.body.length > 0
+                                    text: modelData.body || ""
+                                    color: "#ffffff"
+                                    font.pixelSize: 17
+                                    wrapMode: Text.WordWrap
+                                    Layout.fillWidth: true
+                                }
+
+                                Repeater {
+                                    model: modelData.details || []
+                                    Text {
+                                        text: "- " + modelData
+                                        color: "#d8e3ee"
+                                        font.pixelSize: 16
+                                        wrapMode: Text.WordWrap
+                                        Layout.fillWidth: true
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Item {
+                visible: !trackInsightScroll.visible
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+            }
+        }
+    }
+
+    Rectangle {
+        id: musicDiscoveryPanel
+        anchors.fill: parent
+        color: "#070b16"
+        visible: root.activeScreen === "discover"
+        z: 17
+
+        AppBackground {}
+        ModalBlocker {}
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.leftMargin: 20
+            anchors.topMargin: 10
+            anchors.rightMargin: 20
+            anchors.bottomMargin: root.edge + 126
+            spacing: 10
+
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 48
+                spacing: 10
+
+                Text {
                     text: root.tr("music_discovery")
                     color: "#f4f8f8"
-                    font.pixelSize: 42
+                    font.pixelSize: 34
                     font.bold: true
                     elide: Text.ElideRight
                     Layout.fillWidth: true
@@ -2049,18 +2860,15 @@ Window {
                     Layout.preferredHeight: 38
                 }
 
-                PurpleButton {
-                    text: root.tr("refresh")
-                    enabled: djconnect.musicDnaEnabled && !djconnect.musicDiscoveryBusy
-                    font.pixelSize: 17
-                    Layout.preferredWidth: 126
-                    Layout.preferredHeight: 48
+                RefreshIconButton {
+                    id: discoveryRefreshButton
+                    enabled: !djconnect.musicDiscoveryBusy
                     onClicked: djconnect.refreshMusicDiscovery()
                 }
             }
 
             Rectangle {
-                visible: !djconnect.musicDnaEnabled || djconnect.musicDiscoveryConsentRejected
+                visible: djconnect.musicDiscoveryConsentRejected
                 Layout.fillWidth: true
                 Layout.preferredHeight: consentColumn.implicitHeight + 28
                 radius: root.standardButtonRadius
@@ -2107,8 +2915,51 @@ Window {
                 }
             }
 
+            Rectangle {
+                visible: !djconnect.musicDnaEnabled && djconnect.musicDiscoveryItems.length === 0 && !djconnect.musicDiscoveryBusy && !djconnect.musicDiscoveryConsentRejected
+                Layout.fillWidth: true
+                Layout.preferredHeight: discoveryMusicDnaDisabledColumn.implicitHeight + 28
+                radius: root.standardButtonRadius
+                color: "#00000000"
+                border.color: root.moodColor("focus")
+                border.width: 1
+
+                ColumnLayout {
+                    id: discoveryMusicDnaDisabledColumn
+                    anchors.fill: parent
+                    anchors.margins: 14
+                    spacing: 10
+
+                    Text {
+                        text: djconnect.musicDiscoveryEmptyText.length > 0 ? djconnect.musicDiscoveryEmptyText : root.tr("music_discovery_requires_music_dna")
+                        color: "#ffffff"
+                        font.pixelSize: 21
+                        font.bold: true
+                        wrapMode: Text.WordWrap
+                        Layout.fillWidth: true
+                    }
+
+                    Text {
+                        text: root.tr("music_dna_opt_in")
+                        color: "#cfd7ef"
+                        font.pixelSize: 19
+                        wrapMode: Text.WordWrap
+                        Layout.fillWidth: true
+                    }
+
+                    PurpleButton {
+                        text: root.tr("music_discovery_enable")
+                        enabled: !djconnect.musicDnaBusy && !djconnect.musicDiscoveryBusy
+                        font.pixelSize: 19
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 52
+                        onClicked: djconnect.setMusicDnaEnabled(true)
+                    }
+                }
+            }
+
             Text {
-                visible: djconnect.musicDnaEnabled && djconnect.musicDiscoveryItems.length === 0 && !djconnect.musicDiscoveryBusy
+                visible: djconnect.musicDnaEnabled && djconnect.musicDiscoveryItems.length === 0 && !djconnect.musicDiscoveryBusy && !djconnect.musicDiscoveryConsentRejected
                 text: djconnect.musicDiscoveryError.length > 0 ? djconnect.musicDiscoveryError : (djconnect.musicDiscoveryEmptyText.length > 0 ? djconnect.musicDiscoveryEmptyText : root.tr("music_discovery_empty"))
                 color: "#d8e3ee"
                 font.pixelSize: 20
@@ -2118,7 +2969,7 @@ Window {
 
             ScrollView {
                 id: discoveryScroll
-                visible: djconnect.musicDnaEnabled && djconnect.musicDiscoveryItems.length > 0
+                visible: djconnect.musicDiscoveryItems.length > 0
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 clip: true
@@ -2127,7 +2978,7 @@ Window {
 
                 GridLayout {
                     width: Math.max(0, discoveryScroll.availableWidth)
-                    columns: width >= 640 ? 2 : 1
+                    columns: 1
                     columnSpacing: 10
                     rowSpacing: 10
 
@@ -2136,23 +2987,40 @@ Window {
 
                         Rectangle {
                             Layout.fillWidth: true
-                            Layout.preferredHeight: 132
+                            Layout.preferredHeight: djconnect.musicDiscoveryFeedbackSupported ? 226 : 178
                             radius: root.standardButtonRadius
                             color: discoveryTap.activeFocus ? "#23385f" : "#172033"
-                            border.color: discoveryTap.activeFocus ? "#f5d0fe" : "#3b4a6e"
+                            border.color: discoveryTap.activeFocus ? root.moodColor("focus") : "#3b4a6e"
                             border.width: discoveryTap.activeFocus ? 2 : 1
                             clip: true
 
+                            MouseArea {
+                                id: discoveryTap
+                                anchors.fill: parent
+                                acceptedButtons: Qt.LeftButton
+                                activeFocusOnTab: true
+                                Keys.onReturnPressed: event.accepted = true
+                                Keys.onEnterPressed: event.accepted = true
+                                onClicked: function(mouse) { mouse.accepted = true }
+                                onPressAndHold: {
+                                    if (modelData.hasReason) {
+                                        root.discoveryReasonTitle = modelData.title || root.tr("music_discovery_reason")
+                                        root.discoveryReasonText = modelData.reason || ""
+                                        root.discoveryReasonOpen = true
+                                    }
+                                }
+                            }
+
                             RowLayout {
                                 anchors.fill: parent
-                                anchors.margins: 10
-                                spacing: 10
+                                anchors.margins: 14
+                                spacing: 14
 
                                 Image {
                                     source: modelData.imageUrl && modelData.imageUrl.length > 0 ? modelData.imageUrl : ""
                                     visible: source.toString().length > 0
-                                    Layout.preferredWidth: 78
-                                    Layout.preferredHeight: 78
+                                    Layout.preferredWidth: 112
+                                    Layout.preferredHeight: 112
                                     fillMode: Image.PreserveAspectCrop
                                     smooth: true
                                 }
@@ -2163,9 +3031,20 @@ Window {
                                     spacing: 4
 
                                     Text {
+                                        visible: modelData.sectionTitle && modelData.sectionTitle.length > 0
+                                        text: modelData.sectionTitle || ""
+                                        color: "#f2d8ff"
+                                        font.pixelSize: 17
+                                        font.bold: true
+                                        elide: Text.ElideRight
+                                        maximumLineCount: 1
+                                        Layout.fillWidth: true
+                                    }
+
+                                    Text {
                                         text: modelData.title || ""
                                         color: "#ffffff"
-                                        font.pixelSize: 20
+                                        font.pixelSize: 25
                                         font.bold: true
                                         elide: Text.ElideRight
                                         maximumLineCount: 1
@@ -2175,32 +3054,35 @@ Window {
                                     Text {
                                         text: [modelData.kindLabel || "", modelData.subtitle || ""].filter(function(v) { return v && v.length > 0 }).join(" · ")
                                         color: "#cbd6ed"
-                                        font.pixelSize: 16
+                                        font.pixelSize: 19
                                         elide: Text.ElideRight
                                         maximumLineCount: 1
                                         Layout.fillWidth: true
                                     }
 
                                     Text {
-                                        visible: modelData.relevance && modelData.relevance.length > 0
-                                        text: modelData.relevance || ""
+                                        visible: (modelData.qualityBand && modelData.qualityBand.length > 0)
+                                                 || (modelData.qualityScore !== undefined && modelData.qualityScore !== null && String(modelData.qualityScore).length > 0)
+                                        text: [modelData.qualityBand || "",
+                                               (modelData.qualityScore !== undefined && modelData.qualityScore !== null) ? String(modelData.qualityScore) : ""]
+                                              .filter(function(v) { return v && v.length > 0 }).join(" · ")
                                         color: "#b6c6ff"
-                                        font.pixelSize: 14
+                                        font.pixelSize: 17
                                         elide: Text.ElideRight
                                         Layout.fillWidth: true
                                     }
 
                                     RowLayout {
                                         Layout.fillWidth: true
-                                        Layout.fillHeight: true
                                         spacing: 8
 
                                         PurpleButton {
                                             text: root.tr("play_now")
-                                            enabled: !djconnect.musicDiscoveryBusy
-                                            font.pixelSize: 16
+                                            visible: modelData.playable
+                                            enabled: modelData.playable && !djconnect.musicDiscoveryBusy
+                                            font.pixelSize: 19
                                             Layout.fillWidth: true
-                                            Layout.preferredHeight: 42
+                                            Layout.preferredHeight: 52
                                             onClicked: djconnect.playMusicDiscoveryItem(modelData.payload || "{}")
                                         }
 
@@ -2208,31 +3090,127 @@ Window {
                                             visible: modelData.hasReason
                                             text: root.tr("music_discovery_reason")
                                             enabled: modelData.hasReason
-                                            font.pixelSize: 15
-                                            Layout.preferredWidth: 98
-                                            Layout.preferredHeight: 42
-                                            onClicked: djconnect.showToast(modelData.reason || "")
+                                            font.pixelSize: 18
+                                            Layout.preferredWidth: 132
+                                            Layout.preferredHeight: 52
+                                            onClicked: {
+                                                root.discoveryReasonTitle = modelData.title || root.tr("music_discovery_reason")
+                                                root.discoveryReasonText = modelData.reason || ""
+                                                root.discoveryReasonOpen = true
+                                            }
                                         }
                                     }
-                                }
-                            }
 
-                            MouseArea {
-                                id: discoveryTap
-                                anchors.fill: parent
-                                acceptedButtons: Qt.LeftButton
-                                activeFocusOnTab: true
-                                Keys.onReturnPressed: djconnect.playMusicDiscoveryItem(modelData.payload || "{}")
-                                Keys.onEnterPressed: djconnect.playMusicDiscoveryItem(modelData.payload || "{}")
-                                onClicked: djconnect.playMusicDiscoveryItem(modelData.payload || "{}")
-                                onPressAndHold: {
-                                    if (modelData.hasReason) {
-                                        djconnect.showToast(modelData.reason || "")
+                                    RowLayout {
+                                        visible: djconnect.musicDiscoveryFeedbackSupported
+                                        Layout.fillWidth: true
+                                        spacing: 8
+
+                                        PurpleButton {
+                                            text: root.tr("music_discovery_not_for_me")
+                                            enabled: !djconnect.musicDiscoveryBusy
+                                            font.pixelSize: 14
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: 40
+                                            onClicked: djconnect.sendMusicDiscoveryFeedback(modelData.payload || "{}", "not_for_me")
+                                        }
+
+                                        PurpleButton {
+                                            text: root.tr("music_discovery_less_like_this")
+                                            enabled: !djconnect.musicDiscoveryBusy
+                                            font.pixelSize: 14
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: 40
+                                            onClicked: djconnect.sendMusicDiscoveryFeedback(modelData.payload || "{}", "less_like_this")
+                                        }
+
+                                        PurpleButton {
+                                            text: root.tr("music_discovery_hide_artist")
+                                            enabled: !djconnect.musicDiscoveryBusy
+                                            font.pixelSize: 14
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: 40
+                                            onClicked: djconnect.sendMusicDiscoveryFeedback(modelData.payload || "{}", "hide_artist")
+                                        }
                                     }
                                 }
                             }
                         }
                     }
+                }
+            }
+
+            Item {
+                visible: !discoveryScroll.visible
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+            }
+        }
+    }
+
+    Rectangle {
+        id: discoveryReasonPanel
+        anchors.fill: parent
+        color: "#f2070b16"
+        visible: root.discoveryReasonOpen
+        z: 46
+
+        ModalBlocker {}
+        AppBackground {}
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 22
+            anchors.bottomMargin: root.edge + 126
+            spacing: 16
+
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 58
+                spacing: 12
+
+                Text {
+                    text: root.tr("music_discovery_reason")
+                    color: "#f4f8f8"
+                    font.pixelSize: 36
+                    font.bold: true
+                    elide: Text.ElideRight
+                    Layout.fillWidth: true
+                }
+
+                PurpleButton {
+                    text: root.tr("close")
+                    font.pixelSize: 18
+                    Layout.preferredWidth: 132
+                    Layout.preferredHeight: 52
+                    onClicked: root.discoveryReasonOpen = false
+                }
+            }
+
+            Text {
+                text: root.discoveryReasonTitle
+                color: "#ffffff"
+                font.pixelSize: 28
+                font.bold: true
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+                visible: text.length > 0
+            }
+
+            ScrollView {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                clip: true
+                ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                contentWidth: availableWidth
+
+                Text {
+                    width: Math.max(0, parent.availableWidth)
+                    text: root.discoveryReasonText
+                    color: "#d8e3ee"
+                    font.pixelSize: 24
+                    lineHeight: 1.15
+                    wrapMode: Text.WordWrap
                 }
             }
         }
@@ -2275,29 +3253,28 @@ Window {
                     Layout.preferredWidth: 38
                     Layout.preferredHeight: 38
                 }
+
+                RefreshIconButton {
+                    id: musicDnaRefreshButton
+                    enabled: !djconnect.musicDnaBusy
+                    onClicked: djconnect.refreshMusicDna()
+                }
             }
 
             RowLayout {
+                visible: !djconnect.musicDnaEnabled
                 Layout.fillWidth: true
                 spacing: 10
 
                 Text {
-                    text: djconnect.musicDnaEnabled ? root.tr("music_dna_enabled") : root.tr("music_dna_disabled")
-                    color: djconnect.musicDnaEnabled ? "#7bed9f" : "#d9c4ff"
+                    text: root.tr("music_dna_disabled")
+                    color: "#d9c4ff"
                     font.pixelSize: 21
                     font.bold: true
                     elide: Text.ElideRight
                     Layout.fillWidth: true
                 }
 
-                PurpleButton {
-                    text: djconnect.musicDnaEnabled ? root.tr("disable") : root.tr("enable")
-                    enabled: !djconnect.musicDnaBusy
-                    font.pixelSize: 18
-                    Layout.preferredWidth: 150
-                    Layout.preferredHeight: 48
-                    onClicked: djconnect.setMusicDnaEnabled(!djconnect.musicDnaEnabled)
-                }
             }
 
             Text {
@@ -2307,6 +3284,16 @@ Window {
                 font.pixelSize: 20
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
+            }
+
+            PurpleButton {
+                visible: !djconnect.musicDnaEnabled
+                text: root.tr("music_dna_enable")
+                enabled: !djconnect.musicDnaBusy
+                font.pixelSize: 22
+                Layout.fillWidth: true
+                Layout.preferredHeight: 56
+                onClicked: djconnect.setMusicDnaEnabled(true)
             }
 
             Text {
@@ -2372,29 +3359,6 @@ Window {
                     }
                 }
             }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 10
-
-                PurpleButton {
-                    text: root.tr("refresh")
-                    enabled: !djconnect.musicDnaBusy
-                    font.pixelSize: 18
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 50
-                    onClicked: djconnect.loadMusicDna()
-                }
-
-                DangerButton {
-                    text: root.tr("music_dna_clear")
-                    enabled: djconnect.musicDnaEnabled && !djconnect.musicDnaBusy
-                    font.pixelSize: 18
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 50
-                    onClicked: djconnect.clearMusicDna()
-                }
-            }
         }
     }
 
@@ -2404,49 +3368,6 @@ Window {
         color: "#070b16"
         visible: root.activeScreen === "askdj"
         z: 17
-
-        function sendAskDjInput() {
-            var message = askDjInput.text.trim()
-            if (message.length > 0 && !djconnect.askDjBusy) {
-                askDjInput.text = ""
-                root.askDjKeyboardShift = false
-                root.askDjKeyboardOpen = false
-                djconnect.sendAskDjMessage(message)
-            }
-        }
-
-        function insertAskDjText(value) {
-            if (value.length === 0) {
-                return
-            }
-            var pos = Math.max(0, askDjInput.cursorPosition)
-            askDjInput.text = askDjInput.text.slice(0, pos) + value + askDjInput.text.slice(pos)
-            askDjInput.cursorPosition = pos + value.length
-            root.askDjKeyboardOpen = true
-            askDjInput.forceActiveFocus()
-        }
-
-        function insertAskDjKey(value) {
-            askDjPanel.insertAskDjText(root.askDjKeyboardShift ? value.toUpperCase() : value)
-            if (root.askDjKeyboardShift) {
-                root.askDjKeyboardShift = false
-            }
-        }
-
-        function deleteAskDjText() {
-            var start = askDjInput.selectionStart
-            var end = askDjInput.selectionEnd
-            if (start !== end) {
-                askDjInput.text = askDjInput.text.slice(0, start) + askDjInput.text.slice(end)
-                askDjInput.cursorPosition = start
-            } else if (askDjInput.cursorPosition > 0) {
-                var pos = askDjInput.cursorPosition
-                askDjInput.text = askDjInput.text.slice(0, pos - 1) + askDjInput.text.slice(pos)
-                askDjInput.cursorPosition = pos - 1
-            }
-            root.askDjKeyboardOpen = true
-            askDjInput.forceActiveFocus()
-        }
 
         AppBackground {}
         ModalBlocker {}
@@ -2477,86 +3398,38 @@ Window {
                     implicitHeight: 30
                 }
 
-                AskDjGradientButton {
+                RefreshIconButton {
                     id: askDjRefreshButton
-                    text: root.tr("refresh")
-                    font.pixelSize: 18
-                    Layout.preferredWidth: 132
-                    Layout.preferredHeight: 48
+                    enabled: !djconnect.askDjBusy
                     onClicked: djconnect.refreshAskDjHistory()
                 }
 
-                AskDjGradientButton {
-                    text: root.tr("clear")
-                    font.pixelSize: 18
-                    Layout.preferredWidth: 112
+                Button {
+                    id: askDjClearButton
+                    enabled: !djconnect.askDjBusy && djconnect.askDjMessages.length > 0
+                    ToolTip.visible: hovered
+                    ToolTip.text: root.tr("ask_dj_clear_chat")
+                    Accessible.name: root.tr("ask_dj_clear_chat")
+                    Layout.preferredWidth: 48
                     Layout.preferredHeight: 48
-                    onClicked: djconnect.clearAskDjHistory()
-                }
-            }
-
-            Text {
-                text: root.tr("ask_dj_readonly_hint")
-                color: "#b7c2d8"
-                font.pixelSize: 17
-                font.bold: true
-                wrapMode: Text.WordWrap
-                Layout.fillWidth: true
-            }
-
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 58
-                radius: 8
-                color: "#3324145f"
-                border.color: "#5c4d95"
-                border.width: 1
-
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.margins: 8
-                    spacing: 8
-
-                    TextField {
-                        id: askDjInput
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        placeholderText: root.tr("ask_dj_input_placeholder")
-                        color: "#ffffff"
-                        placeholderTextColor: "#91a0bd"
-                        font.pixelSize: 20
-                        selectByMouse: false
-                        maximumLength: 500
-                        background: Rectangle {
-                            radius: 8
-                            color: "#22070b16"
-                            border.color: askDjInput.activeFocus ? "#a5b4fc" : "#39415f"
-                            border.width: 1
-                        }
-                        onActiveFocusChanged: {
-                            if (activeFocus) {
-                                root.askDjKeyboardOpen = true
-                            }
-                        }
-                        onAccepted: askDjPanel.sendAskDjInput()
-
-                        TapHandler {
-                            onTapped: {
-                                root.askDjKeyboardOpen = true
-                                askDjInput.forceActiveFocus()
-                            }
-                        }
+                    onClicked: root.askDjClearConfirmOpen = true
+                    contentItem: MenuIcon {
+                        iconName: "trash"
+                        iconColor: askDjClearButton.enabled ? "#ffffff" : "#93a0b8"
+                        strokeWidth: 2.5
+                        anchors.centerIn: parent
+                        width: 28
+                        height: 28
                     }
-
-                    AskDjGradientButton {
-                        text: root.tr("send")
-                        enabled: !djconnect.askDjBusy && askDjInput.text.trim().length > 0
-                        font.pixelSize: 18
-                        Layout.preferredWidth: 112
-                        Layout.fillHeight: true
-                        onClicked: askDjPanel.sendAskDjInput()
+                    background: Rectangle {
+                        radius: root.standardButtonRadius
+                        color: askDjClearButton.down ? "#8f1f2d" : (askDjClearButton.enabled ? "#c9364b" : root.moodDisabledColor("start"))
+                        border.color: askDjClearButton.hovered ? "#ffd1d8" : (askDjClearButton.enabled ? "#ff7a8c" : root.moodDisabledColor("mid"))
+                        border.width: 1
+                        opacity: askDjClearButton.enabled ? 1.0 : 0.62
                     }
                 }
+
             }
 
             ScrollView {
@@ -2595,7 +3468,7 @@ Window {
                             implicitHeight: askDjBubbleContent.implicitHeight + 24
                             radius: 8
                             color: systemBubble ? "#33434a57" : (userBubble ? "#664f46e5" : "#4434145f")
-                            border.color: systemBubble ? "#6aa0b9c8" : (userBubble ? "#a5b4fc" : "#7f67ff")
+                            border.color: root.moodColor("focus")
                             border.width: 1
 
                             ColumnLayout {
@@ -2605,6 +3478,17 @@ Window {
                                 anchors.top: parent.top
                                 anchors.margins: 12
                                 spacing: 8
+
+                                Text {
+                                    text: modelData.displayTime || ""
+                                    visible: modelData.displayTime && modelData.displayTime.length > 0
+                                    color: systemBubble ? "#c1d5df" : (userBubble ? "#d8defd" : "#c9c0ff")
+                                    opacity: 0.82
+                                    font.pixelSize: 14
+                                    font.bold: false
+                                    horizontalAlignment: userBubble ? Text.AlignRight : Text.AlignLeft
+                                    Layout.fillWidth: true
+                                }
 
                                 Text {
                                     text: modelData.text
@@ -2625,7 +3509,7 @@ Window {
                                         height: 30
                                         radius: 8
                                         color: "#33434a57"
-                                        border.color: "#6aa0b9c8"
+                                        border.color: root.moodColor("focus")
                                         border.width: 1
 
                                         Text {
@@ -2678,8 +3562,8 @@ Window {
                                             width: Math.min(askDjScroll.availableWidth, Math.max(132, trackInsightMetricContent.implicitWidth + 24))
                                             height: 58
                                             radius: 8
-                                            color: modelData.musicDna ? "#33334857" : "#3324145f"
-                                            border.color: modelData.musicDna ? "#6aa0b9c8" : "#7f67ff"
+                                            color: "#00000000"
+                                            border.color: root.moodColor("focus")
                                             border.width: 1
                                             clip: true
 
@@ -2694,7 +3578,7 @@ Window {
                                                     spacing: 6
 
                                                     Text {
-                                                        text: modelData.title || ""
+                                                        text: root.trackInsightLabel(modelData.title || modelData.kind || "")
                                                         color: "#d8c8ff"
                                                         font.pixelSize: 14
                                                         font.bold: true
@@ -2740,8 +3624,8 @@ Window {
                                             Layout.fillWidth: true
                                             Layout.preferredHeight: trackInsightSectionContent.implicitHeight + 16
                                             radius: 8
-                                            color: modelData.metadataContext ? "#33334857" : "#3324145f"
-                                            border.color: modelData.metadataContext ? "#6aa0b9c8" : ((modelData.source === "inferred" || modelData.source === "local_fallback" || modelData.source === "unavailable" || modelData.confidence === "low") ? "#b6a46a" : "#7f67ff")
+                                            color: "#00000000"
+                                            border.color: root.moodColor("focus")
                                             border.width: 1
 
                                             ColumnLayout {
@@ -2753,7 +3637,7 @@ Window {
                                                 spacing: 3
 
                                                 Text {
-                                                    text: modelData.title || modelData.id || modelData.kind || ""
+                                                    text: root.trackInsightLabel(modelData.title || modelData.id || modelData.kind || "")
                                                     color: modelData.metadataContext ? "#d8f3ff" : "#ffffff"
                                                     font.pixelSize: 16
                                                     font.bold: true
@@ -3065,13 +3949,28 @@ Window {
                                     }
                                 }
 
-                                AskDjGradientButton {
-                                    visible: modelData.audioUrl && modelData.audioUrl.length > 0
-                                    text: root.tr("replay_audio")
-                                    font.pixelSize: 17
-                                    Layout.preferredWidth: 220
-                                    Layout.preferredHeight: 44
-                                    onClicked: Qt.openUrlExternally(modelData.audioUrl)
+                                Text {
+                                    visible: modelData.announcementDelivery && modelData.announcementDelivery.length > 0
+                                    text: modelData.announcementDelivery === "ha_speaker"
+                                        ? root.tr("dj_announcement_delivered_ha_speaker") + " " + (modelData.announcementTargetName || root.tr("home_assistant"))
+                                        : root.tr("dj_announcement_text_only")
+                                    color: "#a7f3ff"
+                                    font.pixelSize: 14
+                                    font.bold: true
+                                    wrapMode: Text.WordWrap
+                                    Layout.fillWidth: true
+                                }
+
+                                Repeater {
+                                    model: modelData.announcementWarnings || []
+
+                                    Text {
+                                        text: modelData
+                                        color: "#f4c27a"
+                                        font.pixelSize: 13
+                                        wrapMode: Text.WordWrap
+                                        Layout.fillWidth: true
+                                    }
                                 }
 
                                 ColumnLayout {
@@ -3223,159 +4122,6 @@ Window {
             }
         }
 
-        Rectangle {
-            id: askDjKeyboard
-            visible: root.askDjKeyboardOpen
-            x: Math.max(16, askDjInput.mapToItem(askDjPanel, 0, 0).x)
-            y: askDjInput.mapToItem(askDjPanel, 0, askDjInput.height).y + 8
-            width: Math.min(askDjPanel.width - x - 16, Math.max(420, askDjInput.width))
-            height: 216
-            radius: 8
-            color: "#f20b1024"
-            border.color: "#6573aa"
-            border.width: 1
-            clip: true
-            z: 40
-
-            MouseArea {
-                anchors.fill: parent
-                acceptedButtons: Qt.AllButtons
-                preventStealing: true
-                propagateComposedEvents: false
-                onPressed: function(mouse) {
-                    root.recordActivity()
-                    mouse.accepted = true
-                }
-                onReleased: function(mouse) {
-                    mouse.accepted = true
-                }
-                onClicked: function(mouse) {
-                    askDjInput.forceActiveFocus()
-                    mouse.accepted = true
-                }
-                onWheel: function(wheel) {
-                    wheel.accepted = true
-                }
-            }
-
-            ColumnLayout {
-                anchors.fill: parent
-                anchors.margins: 8
-                spacing: 7
-                z: 1
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    spacing: 6
-
-                    Repeater {
-                        model: ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"]
-
-                        AskDjKeyButton {
-                            keyText: modelData
-                            displayText: root.askDjKeyboardShift ? keyText.toUpperCase() : keyText
-                            onClicked: askDjPanel.insertAskDjKey(keyText)
-                        }
-                    }
-                }
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    Layout.leftMargin: 18
-                    Layout.rightMargin: 18
-                    spacing: 6
-
-                    Repeater {
-                        model: ["a", "s", "d", "f", "g", "h", "j", "k", "l"]
-
-                        AskDjKeyButton {
-                            keyText: modelData
-                            displayText: root.askDjKeyboardShift ? keyText.toUpperCase() : keyText
-                            onClicked: askDjPanel.insertAskDjKey(keyText)
-                        }
-                    }
-                }
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    spacing: 6
-
-                    AskDjKeyButton {
-                        displayText: "⇧"
-                        active: root.askDjKeyboardShift
-                        Layout.preferredWidth: 72
-                        Layout.fillWidth: false
-                        onClicked: {
-                            root.askDjKeyboardShift = !root.askDjKeyboardShift
-                            root.askDjKeyboardOpen = true
-                            askDjInput.forceActiveFocus()
-                        }
-                    }
-
-                    Repeater {
-                        model: ["z", "x", "c", "v", "b", "n", "m"]
-
-                        AskDjKeyButton {
-                            keyText: modelData
-                            displayText: root.askDjKeyboardShift ? keyText.toUpperCase() : keyText
-                            onClicked: askDjPanel.insertAskDjKey(keyText)
-                        }
-                    }
-
-                    AskDjKeyButton {
-                        displayText: "⌫"
-                        Layout.preferredWidth: 72
-                        Layout.fillWidth: false
-                        onClicked: askDjPanel.deleteAskDjText()
-                    }
-                }
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    spacing: 6
-
-                    AskDjKeyButton {
-                        displayText: "?"
-                        Layout.preferredWidth: 70
-                        Layout.fillWidth: false
-                        onClicked: askDjPanel.insertAskDjText("?")
-                    }
-
-                    AskDjKeyButton {
-                        displayText: root.tr("keyboard_space")
-                        Layout.fillWidth: true
-                        onClicked: askDjPanel.insertAskDjText(" ")
-                    }
-
-                    AskDjKeyButton {
-                        displayText: "."
-                        Layout.preferredWidth: 58
-                        Layout.fillWidth: false
-                        onClicked: askDjPanel.insertAskDjText(".")
-                    }
-
-                    AskDjKeyButton {
-                        displayText: ","
-                        Layout.preferredWidth: 58
-                        Layout.fillWidth: false
-                        onClicked: askDjPanel.insertAskDjText(",")
-                    }
-
-                    AskDjGradientButton {
-                        text: root.tr("send")
-                        enabled: !djconnect.askDjBusy && askDjInput.text.trim().length > 0
-                        font.pixelSize: 17
-                        Layout.preferredWidth: 116
-                        Layout.fillHeight: true
-                        onClicked: askDjPanel.sendAskDjInput()
-                    }
-                }
-            }
-        }
     }
 
     GamesPanel {
@@ -3413,6 +4159,19 @@ Window {
             }
 
             NavButton {
+                text: root.tr("queue")
+                iconName: "queue"
+                checkable: true
+                checked: root.activeScreen === "queue"
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                onClicked: {
+                    root.activeScreen = "queue"
+                    djconnect.loadQueue()
+                }
+            }
+
+            NavButton {
                 text: root.tr("ask_dj")
                 iconName: "chat"
                 checkable: true
@@ -3427,20 +4186,17 @@ Window {
 
             NavButton {
                 text: root.tr("track_insight")
-                iconName: "info"
+                iconName: "trackInsight"
                 checkable: true
-                checked: false
+                checked: root.activeScreen === "trackinsight"
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                onClicked: {
-                    root.activeScreen = "askdj"
-                    djconnect.openTrackInsight()
-                }
+                onClicked: root.openTrackInsightScreen()
             }
 
             NavButton {
                 text: root.tr("music_discovery")
-                iconName: "musicdna"
+                iconName: "discover"
                 checkable: true
                 checked: root.activeScreen === "discover"
                 Layout.fillWidth: true
@@ -3449,20 +4205,10 @@ Window {
             }
 
             NavButton {
-                text: root.tr("music_dna")
-                iconName: "musicdna"
-                checkable: true
-                checked: root.activeScreen === "musicdna"
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                onClicked: root.activeScreen = "musicdna"
-            }
-
-            NavButton {
                 text: root.tr("more")
                 iconName: "more"
                 checkable: true
-                checked: root.activeScreen === "more" || root.activeScreen === "playlists" || root.activeScreen === "games" || root.activeScreen === "settings" || root.activeScreen === "queue" || root.activeScreen === "control"
+                checked: root.activeScreen === "more" || root.activeScreen === "playlists" || root.activeScreen === "games" || root.activeScreen === "settings" || root.activeScreen === "control"
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 onClicked: root.activeScreen = "more"
@@ -3600,7 +4346,7 @@ Window {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 72
                 radius: 8
-                color: "#3324145f"
+                color: root.moodColor("chip")
 
                 RowLayout {
                     anchors.fill: parent
@@ -3758,9 +4504,9 @@ Window {
         anchors.fill: parent
         gradient: Gradient {
             orientation: Gradient.Vertical
-            GradientStop { position: 0.0; color: "#24105c" }
-            GradientStop { position: 0.5; color: "#0f2b68" }
-            GradientStop { position: 1.0; color: "#070b16" }
+            GradientStop { position: 0.0; color: root.moodColor("backgroundStart") }
+            GradientStop { position: 0.5; color: root.moodColor("backgroundMid") }
+            GradientStop { position: 1.0; color: root.moodColor("backgroundEnd") }
         }
         visible: root.splashVisible
         z: 40
@@ -3818,9 +4564,9 @@ Window {
         y: djconnect.toastVisible ? 0 : -16
         gradient: Gradient {
             orientation: Gradient.Horizontal
-            GradientStop { position: 0.0; color: "#ff5a2e" }
-            GradientStop { position: 0.52; color: "#f13ccc" }
-            GradientStop { position: 1.0; color: "#b731ff" }
+            GradientStop { position: 0.0; color: root.moodColor("toastStart") }
+            GradientStop { position: 0.52; color: root.moodColor("toastMid") }
+            GradientStop { position: 1.0; color: root.moodColor("toastEnd") }
         }
 
         Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
@@ -3830,21 +4576,13 @@ Window {
             anchors.centerIn: parent
             spacing: 16
 
-            Canvas {
+            MenuIcon {
                 width: 28
                 height: 28
+                iconName: djconnect.toastIcon
+                iconColor: "#ffffff"
+                strokeWidth: 2.8
                 anchors.verticalCenter: parent.verticalCenter
-                onPaint: {
-                    var ctx = getContext("2d")
-                    ctx.reset()
-                    ctx.fillStyle = "#ffffff"
-                    ctx.beginPath()
-                    ctx.moveTo(6, 4)
-                    ctx.lineTo(6, 24)
-                    ctx.lineTo(24, 14)
-                    ctx.closePath()
-                    ctx.fill()
-                }
             }
 
             Text {
@@ -3956,23 +4694,36 @@ Window {
                 Layout.fillHeight: false
                 spacing: 10
 
-                PurpleButton {
-                    text: root.tr("clear_logs")
-                    font.pixelSize: 22
-                    Layout.fillWidth: true
+                Button {
+                    id: clearLogsButton
+                    ToolTip.visible: hovered
+                    ToolTip.text: root.tr("clear_logs")
+                    Accessible.name: root.tr("clear_logs")
+                    Layout.preferredWidth: 56
                     Layout.preferredHeight: 56
                     Layout.maximumHeight: 56
                     onClicked: root.clearLogsConfirmOpen = true
+                    contentItem: MenuIcon {
+                        iconName: "trash"
+                        iconColor: "#ffffff"
+                        strokeWidth: 2.5
+                        anchors.centerIn: parent
+                        width: 30
+                        height: 30
+                    }
+                    background: Rectangle {
+                        radius: root.standardButtonRadius
+                        color: clearLogsButton.down ? "#8f1f2d" : "#c9364b"
+                        border.color: clearLogsButton.hovered ? "#ffd1d8" : "#ff7a8c"
+                        border.width: 1
+                    }
                 }
-                PurpleButton {
-                    text: root.tr("refresh")
-                    font.pixelSize: 22
-                    Layout.fillWidth: true
+                RefreshIconButton {
                     Layout.preferredHeight: 56
                     Layout.maximumHeight: 56
                     onClicked: {
                         djconnect.showLogs()
-                        Qt.callLater(function() { logsArea.cursorPosition = logsArea.length })
+                        Qt.callLater(function() { logsArea.cursorPosition = 0 })
                     }
                 }
                 PurpleButton {
@@ -3990,22 +4741,43 @@ Window {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 Layout.minimumHeight: 360
+                clip: true
 
-                TextArea {
-                    id: logsArea
-                    height: logsScroll.availableHeight
-                    text: djconnect.logsText
-                    readOnly: true
-                    wrapMode: TextEdit.Wrap
-                    color: "#d7e2e4"
-                    font.family: "monospace"
-                    font.pixelSize: 24
-                    background: Rectangle {
-                        color: "#10181c"
-                        radius: 8
-                        border.color: "#314449"
+                RowLayout {
+                    width: Math.max(logsScroll.availableWidth, logLineNumbers.implicitWidth + logsArea.implicitWidth + 36)
+                    spacing: 0
+
+                    Text {
+                        id: logLineNumbers
+                        text: root.lineNumbers(djconnect.logsText)
+                        color: "#9aa6ad"
+                        font.family: "monospace"
+                        font.pixelSize: 24
+                        horizontalAlignment: Text.AlignRight
+                        Layout.preferredWidth: Math.max(54, implicitWidth + 18)
+                        Layout.alignment: Qt.AlignTop
+                        topPadding: 12
+                        bottomPadding: 12
+                        rightPadding: 10
                     }
-                    onTextChanged: Qt.callLater(function() { logsArea.cursorPosition = logsArea.length })
+
+                    TextArea {
+                        id: logsArea
+                        text: djconnect.logsText
+                        readOnly: true
+                        wrapMode: TextEdit.NoWrap
+                        color: "#d7e2e4"
+                        font.family: "monospace"
+                        font.pixelSize: 24
+                        Layout.fillWidth: true
+                        Layout.alignment: Qt.AlignTop
+                        background: Rectangle {
+                            color: "#10181c"
+                            radius: 8
+                            border.color: "#314449"
+                        }
+                        onTextChanged: Qt.callLater(function() { logsArea.cursorPosition = 0 })
+                    }
                 }
             }
 
@@ -4078,6 +4850,205 @@ Window {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 56
                     onClicked: root.clearLogsConfirmOpen = false
+                }
+            }
+        }
+    }
+
+    Rectangle {
+        id: askDjClearConfirmPanel
+        anchors.fill: parent
+        color: "#cc070b16"
+        visible: root.askDjClearConfirmOpen
+        z: 86
+
+        ModalBlocker {}
+
+        Rectangle {
+            anchors.centerIn: parent
+            width: Math.min(parent.width - 48, 520)
+            radius: 8
+            color: "#f0151020"
+            border.color: "#47345d"
+            border.width: 1
+
+            implicitHeight: askDjClearConfirmContent.implicitHeight + 44
+
+            ColumnLayout {
+                id: askDjClearConfirmContent
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.margins: 22
+                spacing: 18
+
+                Text {
+                    text: root.tr("ask_dj_clear_confirm_title")
+                    color: "#ffffff"
+                    font.pixelSize: 28
+                    font.bold: true
+                    Layout.fillWidth: true
+                }
+
+                Text {
+                    text: root.tr("ask_dj_clear_confirm_message")
+                    color: "#f4f0ff"
+                    font.pixelSize: 24
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+
+                LoadingSpinner {
+                    visible: djconnect.askDjBusy
+                    running: visible
+                    Layout.preferredWidth: 42
+                    Layout.preferredHeight: 42
+                    Layout.alignment: Qt.AlignHCenter
+                }
+
+                DangerButton {
+                    text: root.tr("clear")
+                    enabled: !djconnect.askDjBusy
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 56
+                    onClicked: djconnect.clearAskDjHistory()
+                }
+
+                PurpleButton {
+                    text: root.tr("cancel")
+                    enabled: !djconnect.askDjBusy
+                    font.pixelSize: 24
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 56
+                    onClicked: root.askDjClearConfirmOpen = false
+                }
+            }
+        }
+    }
+
+    Rectangle {
+        id: musicDnaClearConfirmPanel
+        anchors.fill: parent
+        color: "#cc070b16"
+        visible: root.musicDnaClearConfirmOpen
+        z: 86
+
+        ModalBlocker {}
+
+        Rectangle {
+            anchors.centerIn: parent
+            width: Math.min(parent.width - 48, 520)
+            radius: 8
+            color: "#f0151020"
+            border.color: "#47345d"
+            border.width: 1
+
+            implicitHeight: musicDnaClearConfirmContent.implicitHeight + 44
+
+            ColumnLayout {
+                id: musicDnaClearConfirmContent
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.margins: 22
+                spacing: 18
+
+                Text {
+                    text: root.tr("music_dna_clear_confirm_title")
+                    color: "#ffffff"
+                    font.pixelSize: 28
+                    font.bold: true
+                    Layout.fillWidth: true
+                }
+
+                Text {
+                    text: root.tr("music_dna_clear_confirm_message")
+                    color: "#f4f0ff"
+                    font.pixelSize: 24
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+
+                DangerButton {
+                    text: root.tr("music_dna_clear")
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 56
+                    onClicked: {
+                        root.musicDnaClearConfirmOpen = false
+                        djconnect.clearMusicDna()
+                    }
+                }
+
+                PurpleButton {
+                    text: root.tr("cancel")
+                    font.pixelSize: 24
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 56
+                    onClicked: root.musicDnaClearConfirmOpen = false
+                }
+            }
+        }
+    }
+
+    Rectangle {
+        id: musicDnaDisableConfirmPanel
+        anchors.fill: parent
+        color: "#cc070b16"
+        visible: root.musicDnaDisableConfirmOpen
+        z: 86
+
+        ModalBlocker {}
+
+        Rectangle {
+            anchors.centerIn: parent
+            width: Math.min(parent.width - 48, 520)
+            radius: 8
+            color: "#f0151020"
+            border.color: "#47345d"
+            border.width: 1
+
+            implicitHeight: musicDnaDisableConfirmContent.implicitHeight + 44
+
+            ColumnLayout {
+                id: musicDnaDisableConfirmContent
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.margins: 22
+                spacing: 18
+
+                Text {
+                    text: root.tr("music_dna_disable_confirm_title")
+                    color: "#ffffff"
+                    font.pixelSize: 28
+                    font.bold: true
+                    Layout.fillWidth: true
+                }
+
+                Text {
+                    text: root.tr("music_dna_disable_confirm_message")
+                    color: "#f4f0ff"
+                    font.pixelSize: 24
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+
+                DangerButton {
+                    text: root.tr("music_dna_disable")
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 56
+                    onClicked: {
+                        root.musicDnaDisableConfirmOpen = false
+                        djconnect.setMusicDnaEnabled(false)
+                    }
+                }
+
+                PurpleButton {
+                    text: root.tr("cancel")
+                    font.pixelSize: 24
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 56
+                    onClicked: root.musicDnaDisableConfirmOpen = false
                 }
             }
         }
@@ -4281,6 +5252,11 @@ Window {
         color: "#070b16"
         visible: root.aboutOpen
         z: 82
+        onVisibleChanged: {
+            if (visible && aboutScroll.contentItem) {
+                aboutScroll.contentItem.contentY = 0
+            }
+        }
 
         AppBackground {}
         ModalBlocker {}
@@ -4317,8 +5293,6 @@ Window {
 
                     Text { text: root.tr("version"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
                     Text { text: djconnect.version; color: "#ffffff"; font.pixelSize: 20; Layout.fillWidth: true }
-                    Text { text: root.tr("protocol_version"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
-                    Text { text: djconnect.protocolVersion; color: "#ffffff"; font.pixelSize: 20; Layout.fillWidth: true }
                     Text { text: root.tr("device_name"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
                     Text { text: "DJConnect"; color: "#ffffff"; font.pixelSize: 20; Layout.fillWidth: true }
                     Text { text: root.tr("client_type"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
@@ -4357,10 +5331,6 @@ Window {
                     Text { text: djconnect.paired ? root.tr("connected_value") : root.tr("not_connected_value"); color: djconnect.paired ? "#32d35a" : "#ff3b30"; font.pixelSize: 20; font.bold: true; Layout.fillWidth: true }
                     Text { text: root.tr("backend_name"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
                     Text { text: djconnect.musicBackendName.length ? djconnect.musicBackendName : "-"; color: "#ffffff"; font.pixelSize: 18; Layout.fillWidth: true; elide: Text.ElideMiddle }
-                    Text { text: root.tr("target_player"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
-                    Text { text: djconnect.musicTargetPlayerName.length ? djconnect.musicTargetPlayerName : "-"; color: "#ffffff"; font.pixelSize: 18; Layout.fillWidth: true; elide: Text.ElideMiddle }
-                    Text { text: root.tr("capabilities"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
-                    Text { text: djconnect.musicBackendCapabilitiesLabel.length ? djconnect.musicBackendCapabilitiesLabel : "-"; color: "#ffffff"; font.pixelSize: 18; Layout.fillWidth: true; wrapMode: Text.Wrap }
                     Text { text: root.tr("backend_error"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190; visible: djconnect.musicBackendError.length > 0 }
                     Text { text: djconnect.musicBackendError; color: "#ff8a8a"; font.pixelSize: 18; Layout.fillWidth: true; wrapMode: Text.Wrap; visible: djconnect.musicBackendError.length > 0 }
                     Text { text: root.tr("client_api_url_label"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
@@ -4387,8 +5357,6 @@ Window {
 
                     Text { text: root.tr("copyright"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
                     Text { text: "2026 Peter van Tol"; color: "#ffffff"; font.pixelSize: 20; Layout.fillWidth: true }
-                    Text { text: root.tr("privacy"); color: "#b7a8c8"; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
-                    Text { text: root.tr("pi_no_spotify_credentials"); color: "#ffffff"; font.pixelSize: 20; Layout.fillWidth: true; wrapMode: Text.Wrap }
                 }
 
                 PurpleButton {
@@ -4454,6 +5422,22 @@ Window {
 
         TapHandler {
             onTapped: djconnect.clearDjResponse()
+        }
+    }
+
+    MouseArea {
+        anchors.fill: parent
+        acceptedButtons: Qt.AllButtons
+        propagateComposedEvents: true
+        z: 199
+        onPressed: function(mouse) {
+            if (root.screenBlanked) {
+                root.wakeDisplay()
+                mouse.accepted = true
+                return
+            }
+            root.recordActivity()
+            mouse.accepted = false
         }
     }
 

@@ -96,6 +96,9 @@ def index_html(version: str) -> bytes:
       --bg:#10092b; --panel:rgba(20,14,45,.88); --panel2:rgba(52,21,96,.72);
       --line:rgba(180,142,255,.32); --text:#f7f2ff; --muted:#c7b8df;
       --purple:#c135ff; --blue:#4b7dff; --green:#34d65f; --red:#ff5b5b;
+      --mood-gradient-start:#247fff; --mood-gradient-mid:#7757ff; --mood-gradient-end:#c33cff;
+      --mood-accent:#7B61FF; --mood-accent-soft:rgba(36,20,95,.32); --mood-focus:#D184FF;
+      --mood-shadow:rgba(123,97,255,.36);
     }}
     * {{ box-sizing:border-box; }}
     body {{
@@ -118,16 +121,17 @@ def index_html(version: str) -> bytes:
     .dot {{ width:14px; height:14px; border-radius:50%; background:var(--red); box-shadow:0 0 14px currentColor; flex:0 0 auto; }}
     .dot.ok {{ background:var(--green); }}
     .controls {{ display:grid; grid-template-columns:repeat(5,92px); gap:16px; margin-top:14px; align-items:center; }}
-    .control-button {{ min-height:92px; width:92px; border-radius:14px; font-size:38px; box-shadow:inset 0 -3px 0 rgba(0,0,0,.18),0 8px 18px rgba(193,53,255,.25); }}
-    .control-button.active {{ border-color:#f5d0fe; background:linear-gradient(135deg,#f13de8,#8b5cf6); }}
-    .volume-head {{ display:flex; align-items:center; justify-content:space-between; color:#f13de8; font-size:26px; font-weight:850; margin:18px 0 6px; }}
+    .control-button {{ min-height:92px; width:92px; border-radius:14px; font-size:38px; box-shadow:inset 0 -3px 0 rgba(0,0,0,.18),0 8px 18px var(--mood-shadow); }}
+    .control-button.active {{ border-color:var(--mood-focus); background:linear-gradient(135deg,var(--mood-gradient-start),var(--mood-gradient-end)); }}
+    .volume-head {{ display:flex; align-items:center; justify-content:space-between; color:var(--mood-accent); font-size:26px; font-weight:850; margin:18px 0 6px; }}
     .volume-controls {{ display:grid; grid-template-columns:56px 1fr 56px; gap:10px; align-items:center; }}
     button, select, input {{
       min-height:48px; border-radius:8px; border:1px solid rgba(217,177,255,.48);
-      background:linear-gradient(135deg,rgba(193,53,255,.88),rgba(75,125,255,.72));
+      background:linear-gradient(135deg,var(--mood-gradient-start),var(--mood-gradient-end));
       color:white; font-size:17px; font-weight:800; padding:8px 12px;
     }}
     select, input {{ background:rgba(16,10,42,.9); font-weight:700; width:100%; }}
+    input[type="range"] {{ accent-color:var(--mood-accent); }}
     button.secondary {{ background:rgba(30,24,66,.86); }}
     button.warning {{ background:#8a5a12; color:#fff3c4; }}
     button.danger {{ background:#6f1d2d; color:#ffd8df; }}
@@ -137,13 +141,13 @@ def index_html(version: str) -> bytes:
     .value {{ overflow-wrap:anywhere; }}
     .list {{ display:grid; gap:10px; max-height:480px; overflow:auto; }}
     .item {{ display:grid; grid-template-columns:64px 1fr 58px; gap:12px; align-items:center; min-height:76px; padding:8px; border:1px solid rgba(255,255,255,.10); border-radius:8px; background:rgba(8,7,28,.34); }}
-    .thumb {{ width:64px; height:64px; border-radius:8px; object-fit:cover; background:linear-gradient(135deg,#8128f2,#2598ff); display:flex; align-items:center; justify-content:center; color:#fff; font-size:24px; }}
+    .thumb {{ width:64px; height:64px; border-radius:8px; object-fit:cover; background:linear-gradient(135deg,var(--mood-gradient-start),var(--mood-gradient-end)); display:flex; align-items:center; justify-content:center; color:#fff; font-size:24px; }}
     .item-title {{ font-size:18px; font-weight:850; overflow-wrap:anywhere; }}
     .item-sub {{ color:var(--muted); font-size:14px; margin-top:2px; overflow-wrap:anywhere; }}
     .play {{ border-radius:50%; min-height:54px; width:54px; padding:0; font-size:22px; }}
     .game-wrap {{ display:grid; gap:10px; }}
     .game-tabs {{ display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }}
-    .game-tabs button.active {{ border-color:#fff; background:linear-gradient(135deg,#f13de8,#4b7dff); }}
+    .game-tabs button.active {{ border-color:var(--mood-focus); background:linear-gradient(135deg,var(--mood-gradient-start),var(--mood-gradient-end)); }}
     #gameCanvas {{ width:100%; aspect-ratio:320/170; border:1px solid var(--line); border-radius:8px; background:#05080a; touch-action:none; image-rendering:pixelated; }}
     .game-hud {{ display:flex; justify-content:space-between; gap:10px; color:var(--muted); font-weight:800; }}
     .game-controls {{ display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:8px; }}
@@ -152,14 +156,14 @@ def index_html(version: str) -> bytes:
     .diag {{ display:grid; grid-template-columns:1fr auto; gap:10px; align-items:center; padding:10px; border:1px solid rgba(255,255,255,.10); border-radius:8px; background:rgba(8,7,28,.34); }}
     .diag-name {{ font-weight:850; }}
     .diag-detail {{ color:var(--muted); font-size:13px; margin-top:2px; overflow-wrap:anywhere; }}
-    .chip {{ border-radius:999px; padding:5px 9px; font-weight:900; font-size:12px; text-transform:uppercase; letter-spacing:.02em; background:#38405f; color:#fff; }}
+    .chip {{ border-radius:999px; padding:5px 9px; font-weight:900; font-size:12px; text-transform:uppercase; letter-spacing:.02em; background:var(--mood-accent-soft); color:#fff; border:1px solid var(--mood-accent); }}
     .chip.running {{ background:rgba(52,214,95,.22); color:#97ffb1; border:1px solid rgba(52,214,95,.44); }}
     .chip.stopped {{ background:rgba(255,193,7,.18); color:#ffe08a; border:1px solid rgba(255,193,7,.42); }}
     .chip.failed {{ background:rgba(255,91,91,.20); color:#ffb5b5; border:1px solid rgba(255,91,91,.48); }}
     .chip.unknown {{ background:rgba(160,170,195,.18); color:#d8defa; border:1px solid rgba(160,170,195,.36); }}
     .two {{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }}
     pre {{ margin:0; min-height:260px; max-height:420px; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; background:rgba(4,3,18,.68); border:1px solid var(--line); border-radius:8px; padding:12px; font:14px/1.35 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }}
-    .toast {{ position:fixed; left:50%; bottom:28px; width:max-content; max-width:calc(100% - 32px); opacity:0; transform:translate(-50%,16px); transition:.18s; background:linear-gradient(90deg,#ff5a2e,#f13ccc 52%,#b731ff); border:2px solid rgba(255,255,255,.70); border-radius:999px; padding:16px 28px; font-weight:900; font-size:18px; color:white; z-index:20; }}
+    .toast {{ position:fixed; left:50%; bottom:28px; width:max-content; max-width:calc(100% - 32px); opacity:0; transform:translate(-50%,16px); transition:.18s; background:linear-gradient(90deg,var(--mood-gradient-start),var(--mood-gradient-mid) 52%,var(--mood-gradient-end)); border:2px solid rgba(255,255,255,.70); border-radius:999px; padding:16px 28px; font-weight:900; font-size:18px; color:white; z-index:20; }}
     .toast::before {{ content:"▶"; display:inline-block; margin-right:14px; font-size:18px; }}
     .toast.show {{ opacity:1; transform:translate(-50%,0); }}
     button.busy {{ opacity:.72; cursor:progress; }}
@@ -218,6 +222,7 @@ def index_html(version: str) -> bytes:
         <label><span data-i18n="log_level">Logniveau</span> <select id="logLevel" onchange="saveSettings(t('log_level_saved'))"><option>DEBUG</option><option>INFO</option><option>WARNING</option><option>ERROR</option></select></label>
         <label><span data-i18n="brightness">Schermhelderheid</span> <input id="brightness" type="range" min="10" max="100" oninput="saveSettingsDebounced(t('brightness_saved'))" onchange="saveSettings(t('brightness_saved'))"></label>
         <label><span data-i18n="screen_off">Scherm uit na seconden</span> <select id="timeout" onchange="saveSettings(t('screen_timeout_saved'))"><option>30</option><option>60</option><option>90</option><option>120</option><option>180</option><option>240</option><option>300</option><option>600</option></select></label>
+        <label><span data-i18n="websocket_fast_path">WebSocket fast path</span> <input id="websocketFastPath" type="checkbox" onchange="saveSettings()"></label>
         <button onclick="cmd('check_updates')" data-i18n="check_updates">Controleer op updates</button>
         <button class="danger" onclick="confirm(t('reset_pairing_confirm'))&&cmd('forget_pairing')" data-i18n="reset_pairing">Opnieuw koppelen</button>
         <button class="warning" onclick="confirm(t('reboot_confirm'))&&cmd('reboot')" data-i18n="reboot_device">Apparaat herstarten</button>
@@ -244,6 +249,33 @@ let state = {{}};
 let settingsTimer = 0;
 let toastTimer = 0;
 const I18N = {portal_i18n_json};
+const MOOD_THEMES = {{
+  default: ['#247fff','#7757ff','#c33cff','#7B61FF','rgba(36,20,95,.32)','#D184FF','rgba(123,97,255,.36)'],
+  chill: ['#4DA3FF','#7B61FF','#D184FF','#7B61FF','rgba(41,63,114,.36)','#D184FF','rgba(123,97,255,.36)'],
+  groove: ['#2EC4B6','#7B61FF','#D184FF','#2EC4B6','rgba(42,77,94,.46)','#D184FF','rgba(123,97,255,.46)'],
+  energy: ['#8AC926','#FFD166','#FF6A3D','#FFD166','rgba(76,63,24,.48)','#FFE5A3','rgba(255,209,102,.58)'],
+  party: ['#FF2E63','#A855F7','#FFD166','#A855F7','rgba(68,22,98,.50)','#FFD166','rgba(168,85,247,.66)']
+}};
+function moodKey(value) {{
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return 'default';
+  const mood = Number(value);
+  if (mood < 0) return 'default';
+  if (mood <= 24) return 'chill';
+  if (mood <= 59) return 'groove';
+  if (mood <= 84) return 'energy';
+  return 'party';
+}}
+function applyMoodTheme(value) {{
+  const theme = MOOD_THEMES[moodKey(value)] || MOOD_THEMES.default;
+  const rootStyle = document.documentElement.style;
+  rootStyle.setProperty('--mood-gradient-start', theme[0]);
+  rootStyle.setProperty('--mood-gradient-mid', theme[1]);
+  rootStyle.setProperty('--mood-gradient-end', theme[2]);
+  rootStyle.setProperty('--mood-accent', theme[3]);
+  rootStyle.setProperty('--mood-accent-soft', theme[4]);
+  rootStyle.setProperty('--mood-focus', theme[5]);
+  rootStyle.setProperty('--mood-shadow', theme[6]);
+}}
 function currentLanguage() {{ return (state.settings && state.settings.language) || document.getElementById('language')?.value || 'en'; }}
 function t(key) {{ const lang = currentLanguage(); return (I18N[lang] && I18N[lang][key]) || I18N.en[key] || key; }}
 function translateStatic() {{
@@ -303,7 +335,8 @@ function settingsPayload() {{
     language: document.getElementById('language').value,
     log_level: document.getElementById('logLevel').value,
     screen_brightness_percent: Number(document.getElementById('brightness').value),
-    screen_timeout_seconds: Number(document.getElementById('timeout').value)
+    screen_timeout_seconds: Number(document.getElementById('timeout').value),
+    websocket_fast_path_enabled: document.getElementById('websocketFastPath').checked
   }};
 }}
 async function saveSettings(message=t('settings_saved')) {{
@@ -457,6 +490,7 @@ function diagnosticsHtml(item) {{
 }}
 function render(data) {{
   state = data;
+  applyMoodTheme(data.settings?.mood);
   translateStatic();
   const playback = data.playback || {{}};
   document.getElementById('statusDot').classList.toggle('ok', !!data.backend_available);
@@ -487,6 +521,7 @@ function render(data) {{
   document.getElementById('logLevel').value = data.settings?.log_level || 'INFO';
   document.getElementById('brightness').value = data.settings?.screen_brightness_percent || 100;
   document.getElementById('timeout').value = String(data.settings?.screen_timeout_seconds ?? 120);
+  document.getElementById('websocketFastPath').checked = data.settings?.websocket_fast_path_enabled !== false;
   document.getElementById('about').innerHTML = Object.entries(data.about || {{}}).map(([k,v]) => `<div class="row"><span class="key">${{k}}</span><span class="value">${{v || '-'}}</span></div>`).join('');
   document.getElementById('diagnostics').innerHTML = (data.diagnostics || []).length ? data.diagnostics.map(diagnosticsHtml).join('') : `<div class="sub">${{t('no_diagnostics')}}</div>`;
   document.getElementById('logs').textContent = data.logs || '';

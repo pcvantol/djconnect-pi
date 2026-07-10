@@ -11,6 +11,7 @@ Window {
     color: "#070b16"
     title: "DJConnect Update"
     visibility: startWindowed ? Window.Windowed : Window.FullScreen
+    property bool rebootConfirmOpen: false
 
     Rectangle {
         anchors.fill: parent
@@ -277,6 +278,43 @@ Window {
     }
 
     Rectangle {
+        id: updaterRebootButtonShell
+        visible: !updater.detailsOpen
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: remoteAccessPanel.top
+        anchors.bottomMargin: 12
+        width: Math.min(parent.width - 56, 600)
+        height: 54
+        color: "transparent"
+
+        Button {
+            id: updaterRebootButton
+            text: updater.t("reboot_device")
+            font.pixelSize: 18
+            font.bold: true
+            anchors.fill: parent
+            onClicked: updateProgressRoot.rebootConfirmOpen = true
+
+            background: Rectangle {
+                radius: 8
+                color: updaterRebootButton.down ? "#7a2a20" : "#9f3a2e"
+                border.color: "#f0a08f"
+                border.width: 1
+            }
+
+            contentItem: Text {
+                text: updaterRebootButton.text
+                color: "#ffffff"
+                font: updaterRebootButton.font
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+                elide: Text.ElideRight
+            }
+        }
+    }
+
+    Rectangle {
+        id: remoteAccessPanel
         visible: !updater.detailsOpen
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
@@ -326,6 +364,110 @@ Window {
                 font.bold: true
                 elide: Text.ElideRight
                 Layout.fillWidth: true
+            }
+        }
+    }
+
+    Rectangle {
+        visible: updateProgressRoot.rebootConfirmOpen
+        anchors.fill: parent
+        color: "#cc050816"
+        z: 50
+
+        MouseArea {
+            anchors.fill: parent
+            onClicked: updateProgressRoot.rebootConfirmOpen = false
+        }
+
+        Rectangle {
+            anchors.centerIn: parent
+            width: Math.min(parent.width - 56, 520)
+            implicitHeight: rebootConfirmContent.implicitHeight + 44
+            radius: 8
+            color: "#171029"
+            border.color: "#f0a08f"
+            border.width: 1
+
+            ColumnLayout {
+                id: rebootConfirmContent
+                anchors.fill: parent
+                anchors.margins: 22
+                spacing: 14
+
+                Text {
+                    text: updater.t("reboot_confirm_title")
+                    color: "#ffffff"
+                    font.pixelSize: 28
+                    font.bold: true
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+
+                Text {
+                    text: updater.t("reboot_confirm_message")
+                    color: "#d7e2e4"
+                    font.pixelSize: 18
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 12
+
+                    Button {
+                        id: confirmRebootButton
+                        text: updater.t("reboot_device")
+                        font.pixelSize: 18
+                        font.bold: true
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 54
+                        onClicked: {
+                            updateProgressRoot.rebootConfirmOpen = false
+                            updater.rebootDevice()
+                        }
+
+                        background: Rectangle {
+                            radius: 8
+                            color: confirmRebootButton.down ? "#7a2a20" : "#9f3a2e"
+                            border.color: "#f0a08f"
+                            border.width: 1
+                        }
+
+                        contentItem: Text {
+                            text: confirmRebootButton.text
+                            color: "#ffffff"
+                            font: confirmRebootButton.font
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                    }
+
+                    Button {
+                        id: cancelRebootButton
+                        text: updater.t("cancel")
+                        font.pixelSize: 18
+                        font.bold: true
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 54
+                        onClicked: updateProgressRoot.rebootConfirmOpen = false
+
+                        background: Rectangle {
+                            radius: 8
+                            color: cancelRebootButton.down ? "#1f2a44" : "#26365b"
+                            border.color: "#6c7eb2"
+                            border.width: 1
+                        }
+
+                        contentItem: Text {
+                            text: cancelRebootButton.text
+                            color: "#ffffff"
+                            font: cancelRebootButton.font
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                    }
+                }
             }
         }
     }

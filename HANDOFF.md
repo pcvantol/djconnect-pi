@@ -20,14 +20,23 @@ Implemented:
 - Bediening is the dedicated touch-control screen with enlarged previous,
   play/pause, next, track progress, volume, output-device, shuffle and repeat
   controls.
+- Track Insight is a server-side Home Assistant surface. The Pi sends current
+  track metadata, language/locale, optional mood and optional Music DNA key to
+  `/api/djconnect/v1/track_insight`, renders direct or wrapped
+  `track`/`analysis` responses, clears stale analysis on track changes and
+  keeps BPM/key/model-style fields out of the UI model.
 - Music DNA and Ontdek are renderer/controller surfaces for Home Assistant
   data. The Pi never calculates Music DNA locally and does not store profile
   data as a source of truth.
 - Ontdek checks Music DNA consent before loading recommendations. Accepting
   consent enables Music DNA through HA, then loads the server feed; rejecting
   consent shows the compact "Ontdek werkt alleen als Music DNA is geactiveerd"
-  state. Recommendation Play Now actions post to HA so HA can record the
-  interaction as a Music DNA signal.
+  state. The Pi renders backend-owned `sections[].items[]`, dedupes repeated
+  `id`/`uri` rows, shows compact repeated-play/based-on counts and never
+  fabricates recommendations, reasons or based-on lists locally.
+  Recommendation Play Now actions post to
+  `/api/djconnect/v1/music_discovery/play` with `section_id` and
+  `discovery_item_id` so HA can record the interaction as a Music DNA signal.
 - Volume control is capped at HA value 60. The UI presents value 60 as 100% so
   the wall device cannot accidentally exceed the intended maximum loudness.
 - Screen timeout is a fixed dropdown with 30, 60, 90, 120, 180, 240, 300 and

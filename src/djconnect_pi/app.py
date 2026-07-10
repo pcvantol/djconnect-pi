@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from importlib.resources import files
 from pathlib import Path
 import argparse
@@ -11,7 +12,6 @@ import re
 import subprocess
 import sys
 import time
-import uuid
 from urllib.parse import urlparse
 
 from PySide6.QtCore import QByteArray, QBuffer, QCoreApplication, QIODevice, QObject, Property, QTimer, Signal, Slot
@@ -20,7 +20,15 @@ from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
 import requests
 
-from .config import CLIENT_TYPE, DEFAULT_CONFIG_PATH, DEFAULT_LOG_PATH, Config, load_config, save_config
+from .config import (
+    CLIENT_TYPE,
+    DEFAULT_CONFIG_PATH,
+    DEFAULT_LOG_PATH,
+    Config,
+    load_config,
+    normalize_dj_announcement_output,
+    save_config,
+)
 from .ha import AuthenticationError, BackendUnavailable, DJConnectError, HAClient, Playback, ProtocolVersionMismatch, StaleBackendAction, UnsupportedBackendCapability
 from .i18n import LANGUAGES, normalize_language, translate
 from .logging_config import setup_logging
@@ -33,9 +41,28 @@ LOG_LINE_RE = re.compile(
 LOG_LEVEL_SHORT = {"DEBUG": "DBG", "INFO": "INF", "WARNING": "WRN", "ERROR": "ERR", "CRITICAL": "ERR"}
 LOG_DISPLAY_MAX_BYTES = 80_000
 GAME_SOUND_SAMPLE_RATE = 16_000
+DISPLAY_WAKE_DEBOUNCE_SECONDS = 0.8
 MEDIA_ARTWORK_CACHE_LIMIT = 6
 QT_PIXMAP_CACHE_LIMIT_KB = 4096
 UI_WORKER_COUNT = 1
+TOAST_ICON_FALLBACK = "music"
+TOAST_CONTEXT_ICONS = {
+    "playback": "music",
+    "now": "music",
+    "queue": "queue",
+    "playlists": "playlists",
+    "settings": "settings",
+    "connectivity": "info",
+    "home_assistant": "info",
+    "updates": "logs",
+    "diagnostics": "logs",
+    "logs": "logs",
+    "askdj": "chat",
+    "trackinsight": "trackInsight",
+    "discover": "discover",
+    "musicdna": "heart",
+    "games": "gamepad",
+}
 
 
 class SaveCurrentTrackError(DJConnectError):
@@ -49,6 +76,8 @@ class DJConnectBackend(QObject):
     artistChanged = Signal()
     imageUrlChanged = Signal()
     playingChanged = Signal()
+    favoriteChanged = Signal()
+    favoriteBusyChanged = Signal()
     volumeChanged = Signal()
     shuffleChanged = Signal()
     repeatChanged = Signal()
@@ -68,14 +97,19 @@ class DJConnectBackend(QObject):
     askDjChanged = Signal()
     musicDnaChanged = Signal()
     musicDiscoveryChanged = Signal()
+    trackInsightChanged = Signal()
     demoModeChanged = Signal()
     screenTimeoutChanged = Signal()
+    returnToNowChanged = Signal()
     screenBrightnessChanged = Signal()
     updateChannelChanged = Signal()
     logFileChanged = Signal()
     logLevelChanged = Signal()
     languageChanged = Signal()
     translationsChanged = Signal()
+    moodChanged = Signal()
+    profileChanged = Signal()
+    djAnnouncementChanged = Signal()
     wakeScreenRequested = Signal()
     temporaryWakeRequested = Signal(int, bool)
     screenshotRequested = Signal()
@@ -89,10 +123,11 @@ class DJConnectBackend(QObject):
     _mediaListReady = Signal(str, object)
     _outputDeviceRejected = Signal(str, str)
     _backendAvailableReady = Signal(bool)
-    _toastReady = Signal(str, int)
+    _toastReady = Signal(str, int, str)
     _askDjReady = Signal(object)
     _musicDnaReady = Signal(object)
     _musicDiscoveryReady = Signal(object)
+    _trackInsightReady = Signal(object)
 
     def __init__(self, config_path: Path) -> None:
         super().__init__()
@@ -103,12 +138,14 @@ class DJConnectBackend(QObject):
         self._dj_response_text = ""
         self._dj_response_visible = False
         self._toast_text = ""
+        self._toast_icon = TOAST_ICON_FALLBACK
         self._toast_visible = False
         self._translation_version = 0
         self._version_mismatch_visible = False
         self._version_mismatch_text = ""
         self._pairing_success_visible = False
         self._update_service_triggered = False
+        self._favorite_busy = False
         self._toast_timer = QTimer(self)
         self._toast_timer.setInterval(2000)
         self._toast_timer.setSingleShot(True)
@@ -131,7 +168,18 @@ class DJConnectBackend(QObject):
         self._music_discovery_error = ""
         self._music_discovery_busy = False
         self._music_discovery_playing_id = ""
+        self._music_discovery_feedback_supported = False
         self._music_discovery_consent_rejected = False
+        self._track_insight_title = ""
+        self._track_insight_artist = ""
+        self._track_insight_album = ""
+        self._track_insight_image_url = ""
+        self._track_insight_text = ""
+        self._track_insight_error = ""
+        self._track_insight_items: list[dict[str, object]] = []
+        self._track_insight_sections: list[dict[str, object]] = []
+        self._track_insight_visualizer: dict[str, object] = {}
+        self._track_insight_track_key = ""
         self._ask_dj_unavailable_until = 0.0
         self._ask_dj_poll_error_count = 0
         self._ask_dj_poll_in_flight = False
@@ -140,6 +188,7 @@ class DJConnectBackend(QObject):
         self._media_artwork_cache_in_flight: set[str] = set()
         self._pending_output_device = ""
         self._pending_output_until = 0.0
+        self._last_display_wake_at = 0.0
         self._game_sound_objects: list[tuple[object, QBuffer]] = []
         self._status_text = self.tr_key("paired" if self.cfg.paired else "not_paired")
         self._backend_available = True
@@ -165,8 +214,25 @@ class DJConnectBackend(QObject):
         self._askDjReady.connect(self._apply_ask_dj_data)
         self._musicDnaReady.connect(self._apply_music_dna_data)
         self._musicDiscoveryReady.connect(self._apply_music_discovery_data)
+        self._trackInsightReady.connect(self._apply_track_insight_data)
         QTimer.singleShot(250, self.refresh)
         _LOGGER.info("DJConnect Pi client backend started for %s", self.cfg.device_id)
+
+    @Property(str, notify=profileChanged)
+    def activeProfileId(self) -> str:
+        return self.cfg.active_profile_id
+
+    @Property(str, notify=profileChanged)
+    def activeProfileName(self) -> str:
+        return self.cfg.active_profile_name or self.tr_key("household_profile")
+
+    @Property(str, notify=profileChanged)
+    def activeProfileType(self) -> str:
+        return self.cfg.active_profile_type
+
+    @Property(bool, notify=profileChanged)
+    def personalProfileActive(self) -> bool:
+        return self.cfg.active_profile_type == "personal"
 
     @Property(str, notify=statusTextChanged)
     def statusText(self) -> str:
@@ -241,12 +307,65 @@ class DJConnectBackend(QObject):
         return self._music_discovery_playing_id
 
     @Property(bool, notify=musicDiscoveryChanged)
+    def musicDiscoveryFeedbackSupported(self) -> bool:
+        return self._music_discovery_feedback_supported
+
+    @Property(bool, notify=musicDiscoveryChanged)
     def musicDiscoveryConsentRejected(self) -> bool:
         return self._music_discovery_consent_rejected
+
+    @Property(str, notify=trackInsightChanged)
+    def trackInsightTitle(self) -> str:
+        return self._track_insight_title
+
+    @Property(str, notify=trackInsightChanged)
+    def trackInsightArtist(self) -> str:
+        return self._track_insight_artist
+
+    @Property(str, notify=trackInsightChanged)
+    def trackInsightAlbum(self) -> str:
+        return self._track_insight_album
+
+    @Property(str, notify=trackInsightChanged)
+    def trackInsightImageUrl(self) -> str:
+        return self._track_insight_image_url
+
+    @Property(str, notify=trackInsightChanged)
+    def trackInsightText(self) -> str:
+        return self._track_insight_text
+
+    @Property(str, notify=trackInsightChanged)
+    def trackInsightError(self) -> str:
+        return self._track_insight_error
+
+    @Property("QVariantList", notify=trackInsightChanged)
+    def trackInsightItems(self) -> list[dict[str, object]]:
+        return self._track_insight_items
+
+    @Property("QVariantList", notify=trackInsightChanged)
+    def trackInsightSections(self) -> list[dict[str, object]]:
+        return self._track_insight_sections
+
+    @Property("QVariantMap", notify=trackInsightChanged)
+    def trackInsightVisualizer(self) -> dict[str, object]:
+        return self._track_insight_visualizer
 
     @Property(bool, notify=playingChanged)
     def playing(self) -> bool:
         return self.playback.is_playing
+
+    @Property(bool, notify=favoriteChanged)
+    def currentTrackFavorite(self) -> bool:
+        return self.playback.is_favorite
+
+    @Property(bool, notify=favoriteChanged)
+    def favoriteAvailable(self) -> bool:
+        capabilities = self.cfg.music_backend_capabilities or {}
+        return bool(self.paired and capabilities.get("supports_favorites") and self.playback.uri)
+
+    @Property(bool, notify=favoriteBusyChanged)
+    def favoriteBusy(self) -> bool:
+        return self._favorite_busy
 
     @Property(int, notify=volumeChanged)
     def volume(self) -> int:
@@ -374,6 +493,28 @@ class DJConnectBackend(QObject):
     def musicBackendError(self) -> str:
         return self.cfg.music_backend_error
 
+    @Property(str, notify=djAnnouncementChanged)
+    def djAnnouncementOutput(self) -> str:
+        return normalize_dj_announcement_output(self.cfg.dj_announcement_output, self.cfg.music_backend_capabilities)
+
+    @Property(bool, notify=djAnnouncementChanged)
+    def djAnnouncementSpeakerAvailable(self) -> bool:
+        return normalize_dj_announcement_output("ha_speaker", self.cfg.music_backend_capabilities) == "ha_speaker"
+
+    @Property(str, notify=djAnnouncementChanged)
+    def djAnnouncementSpeakerName(self) -> str:
+        announcement = self.cfg.music_backend_capabilities.get("dj_announcement") if isinstance(self.cfg.music_backend_capabilities, dict) else None
+        if not isinstance(announcement, dict):
+            return ""
+        target = announcement.get("target") if isinstance(announcement.get("target"), dict) else {}
+        return str(announcement.get("speaker_name") or target.get("name") or announcement.get("speaker_entity_id") or target.get("entity_id") or "")
+
+    @Property(int, notify=moodChanged)
+    def moodValue(self) -> int:
+        if self.cfg.mood is None:
+            return -1
+        return max(0, min(100, int(self.cfg.mood)))
+
     @Property(str, notify=settingsChanged)
     def screenshotFile(self) -> str:
         return self.cfg.screenshot_file
@@ -381,6 +522,10 @@ class DJConnectBackend(QObject):
     @Property(int, notify=screenTimeoutChanged)
     def screenTimeoutSeconds(self) -> int:
         return self.cfg.screen_timeout_seconds
+
+    @Property(int, notify=returnToNowChanged)
+    def returnToNowSeconds(self) -> int:
+        return self.cfg.return_to_now_seconds
 
     @Property(int, notify=screenBrightnessChanged)
     def screenBrightnessPercent(self) -> int:
@@ -398,6 +543,9 @@ class DJConnectBackend(QObject):
     def logLevel(self) -> str:
         return self.cfg.log_level
 
+    @Property(bool, notify=settingsChanged)
+    def websocketFastPathEnabled(self) -> bool:
+        return bool(self.cfg.websocket_fast_path_enabled)
 
     @Property(str, notify=languageChanged)
     def language(self) -> str:
@@ -422,6 +570,10 @@ class DJConnectBackend(QObject):
     @Property(str, notify=toastChanged)
     def toastText(self) -> str:
         return self._toast_text
+
+    @Property(str, notify=toastChanged)
+    def toastIcon(self) -> str:
+        return self._toast_icon
 
     @Property(bool, notify=toastChanged)
     def toastVisible(self) -> bool:
@@ -456,7 +608,7 @@ class DJConnectBackend(QObject):
         save_config(self.config_path, self.cfg)
         self.settingsChanged.emit()
         _LOGGER.info("User saved Home Assistant URL setting")
-        self.showToast(self.tr_key("ha_url_saved"))
+        self.showToastForContext(self.tr_key("ha_url_saved"), "connectivity")
         self._set_status_text(self.tr_key("ha_url_saved"))
 
     @Slot(int)
@@ -469,8 +621,26 @@ class DJConnectBackend(QObject):
         self.screenTimeoutChanged.emit()
         self.settingsChanged.emit()
         _LOGGER.info("User set screen timeout to %s seconds", value)
-        self.showToast(self.tr_key("screen_timeout_saved"))
+        self.showToastForContext(self.tr_key("screen_timeout_saved"), "settings")
         self._set_status_text(self.tr_key("screen_timeout_saved"))
+
+    @Slot(int)
+    def setReturnToNowSeconds(self, value: int) -> None:
+        try:
+            seconds = int(value)
+        except (TypeError, ValueError):
+            seconds = 60
+        if seconds not in {0, 30, 60, 120}:
+            seconds = 60
+        if self.cfg.return_to_now_seconds == seconds:
+            return
+        self.cfg.return_to_now_seconds = seconds
+        save_config(self.config_path, self.cfg)
+        self.returnToNowChanged.emit()
+        self.settingsChanged.emit()
+        _LOGGER.info("User set return-to-now timeout to %s seconds", seconds)
+        self.showToastForContext(self.tr_key("return_to_now_saved"), "settings")
+        self._set_status_text(self.tr_key("return_to_now_saved"))
 
     @Slot(int)
     def setScreenBrightnessPercent(self, value: int) -> None:
@@ -482,7 +652,7 @@ class DJConnectBackend(QObject):
         self.screenBrightnessChanged.emit()
         self.settingsChanged.emit()
         _LOGGER.info("User set app brightness to %s%%", value)
-        self.showToast(self.tr_key("brightness_saved"))
+        self.showToastForContext(self.tr_key("brightness_saved"), "settings")
         self._set_status_text(self.tr_key("brightness_saved"))
 
     @Slot(str)
@@ -498,7 +668,7 @@ class DJConnectBackend(QObject):
         self.settingsChanged.emit()
         self.titleChanged.emit()
         _LOGGER.info("User changed language to %s", language)
-        self.showToast(self.tr_key("language_saved"))
+        self.showToastForContext(self.tr_key("language_saved"), "settings")
         self._set_status_text(self.tr_key("language_saved"))
 
     @Slot(str)
@@ -513,7 +683,7 @@ class DJConnectBackend(QObject):
         self.updateChannelChanged.emit()
         self.settingsChanged.emit()
         _LOGGER.info("User changed update channel to %s", channel)
-        self.showToast(self.tr_key("update_channel", channel=channel))
+        self.showToastForContext(self.tr_key("update_channel", channel=channel), "updates")
         self._set_status_text(self.tr_key("update_channel", channel=channel))
 
     @Slot(str)
@@ -529,7 +699,46 @@ class DJConnectBackend(QObject):
         self.logLevelChanged.emit()
         self.settingsChanged.emit()
         _LOGGER.info("User changed log level to %s", level)
-        self.showToast(self.tr_key("log_level_saved", level=level))
+        self.showToastForContext(self.tr_key("log_level_saved", level=level), "diagnostics")
+
+    @Slot(bool)
+    def setWebSocketFastPathEnabled(self, enabled: bool) -> None:
+        value = bool(enabled)
+        if self.cfg.websocket_fast_path_enabled == value:
+            return
+        self.cfg.websocket_fast_path_enabled = value
+        save_config(self.config_path, self.cfg)
+        self.client.cfg = self.cfg
+        self.client.fast_path.update_config(self.cfg)
+        self.settingsChanged.emit()
+        _LOGGER.info("User changed WebSocket fast path setting to %s", value)
+        self.showToastForContext(self.tr_key("settings_saved"), "connectivity")
+
+    @Slot(int)
+    def setMoodValue(self, value: int) -> None:
+        mood = max(0, min(100, int(value)))
+        if self.cfg.mood == mood:
+            return
+        self.cfg.mood = mood
+        save_config(self.config_path, self.cfg)
+        self.client.cfg = self.cfg
+        self.moodChanged.emit()
+        _LOGGER.info("User changed mood selector to %s", mood)
+        self.showToastForContext(self.tr_key("mood_saved"), "musicdna")
+
+    @Slot(str)
+    def setDjAnnouncementOutput(self, value: str) -> None:
+        output = normalize_dj_announcement_output(value, self.cfg.music_backend_capabilities)
+        if self.cfg.dj_announcement_output == output:
+            return
+        self.cfg.dj_announcement_output = output
+        self.cfg.dj_announcement_output_user_set = True
+        save_config(self.config_path, self.cfg)
+        self.client.cfg = self.cfg
+        self.djAnnouncementChanged.emit()
+        self.settingsChanged.emit()
+        _LOGGER.info("User changed DJ announcement output to %s", output)
+        self.showToastForContext(self.tr_key("dj_announcement_output_saved"), "askdj")
 
     @Slot(str)
     def pair(self, pair_code: str) -> None:
@@ -538,10 +747,10 @@ class DJConnectBackend(QObject):
         code = pair_code.strip()
         if not code:
             self._set_status_text(self.tr_key("enter_pairing_code"))
-            self.showToast(self.tr_key("enter_pairing_code"))
+            self.showToastForContext(self.tr_key("enter_pairing_code"), "connectivity")
             return
         _LOGGER.info("User started pairing from touch UI")
-        self.showToast(self.tr_key("pairing"))
+        self.showToastForContext(self.tr_key("pairing"), "connectivity")
         self._run(self.tr_key("pairing"), lambda: self._pair_worker(code))
 
     @Slot()
@@ -578,7 +787,14 @@ class DJConnectBackend(QObject):
             and latest.log_level == self.cfg.log_level
             and latest.screen_brightness_percent == self.cfg.screen_brightness_percent
             and latest.screen_timeout_seconds == self.cfg.screen_timeout_seconds
+            and latest.return_to_now_seconds == self.cfg.return_to_now_seconds
             and latest.update_channel == self.cfg.update_channel
+            and latest.active_profile_id == self.cfg.active_profile_id
+            and latest.active_profile_type == self.cfg.active_profile_type
+            and latest.active_profile_privacy_mode == self.cfg.active_profile_privacy_mode
+            and latest.explicit_profile_id == self.cfg.explicit_profile_id
+            and latest.private_session == self.cfg.private_session
+            and latest.dj_announcement_output == self.cfg.dj_announcement_output
         ):
             return
         language_changed = latest.language != self.cfg.language
@@ -589,7 +805,10 @@ class DJConnectBackend(QObject):
         self.logLevelChanged.emit()
         self.screenBrightnessChanged.emit()
         self.screenTimeoutChanged.emit()
+        self.returnToNowChanged.emit()
         self.updateChannelChanged.emit()
+        self.profileChanged.emit()
+        self.djAnnouncementChanged.emit()
         if language_changed:
             self._translation_version += 1
             self.languageChanged.emit()
@@ -607,11 +826,26 @@ class DJConnectBackend(QObject):
             self.playback.is_playing = not self.playback.is_playing
             self.playingChanged.emit()
             _LOGGER.info("User toggled demo playback to playing=%s", self.playback.is_playing)
-            self.showToast(self.tr_key("pause") if self.playback.is_playing else self.tr_key("play"))
+            self.showToastForContext(self.tr_key("pause") if self.playback.is_playing else self.tr_key("play"), "playback")
             return
         _LOGGER.info("User requested playback toggle")
-        self.showToast(self.tr_key("pause") if self.playback.is_playing else self.tr_key("play"))
+        self.showToastForContext(self.tr_key("pause") if self.playback.is_playing else self.tr_key("play"), "playback")
         self.command("pause" if self.playback.is_playing else "play")
+
+    @Slot()
+    def wakeDisplay(self) -> None:
+        now = time.monotonic()
+        if now - self._last_display_wake_at < DISPLAY_WAKE_DEBOUNCE_SECONDS:
+            return
+        self._last_display_wake_at = now
+        for command in (
+            ["xset", "s", "reset"],
+            ["xset", "dpms", "force", "on"],
+        ):
+            try:
+                subprocess.run(command, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except OSError as exc:
+                _LOGGER.debug("Could not run display wake command %s: %s", command, exc)
 
     @Slot()
     def previous(self) -> None:
@@ -619,10 +853,10 @@ class DJConnectBackend(QObject):
         if self._demo_mode:
             self._apply_demo_track("Blue Monday", "New Order")
             _LOGGER.info("User selected previous demo track")
-            self.showToast(self.tr_key("previous"))
+            self.showToastForContext(self.tr_key("previous"), "playback")
             return
         _LOGGER.info("User requested previous track")
-        self.showToast(self.tr_key("previous"))
+        self.showToastForContext(self.tr_key("previous"), "playback")
         self.command("previous")
 
     @Slot()
@@ -631,26 +865,39 @@ class DJConnectBackend(QObject):
         if self._demo_mode:
             self._apply_demo_track("Around the World", "Daft Punk")
             _LOGGER.info("User selected next demo track")
-            self.showToast(self.tr_key("next"))
+            self.showToastForContext(self.tr_key("next"), "playback")
             return
         _LOGGER.info("User requested next track")
-        self.showToast(self.tr_key("next"))
+        self.showToastForContext(self.tr_key("next"), "playback")
         self.command("next")
 
     @Slot()
     def saveCurrentTrack(self) -> None:
         self._sync_config_from_disk()
-        if self._demo_mode or not self.paired:
+        if self._demo_mode or not self.favoriteAvailable or self._favorite_busy:
             return
         _LOGGER.info("User requested saving the current track")
-        self._run("save_current_track", self._save_current_track_worker)
+        self._set_favorite_busy(True)
+        self._run("save_current_track", self._save_current_track_worker, done=lambda: self._set_favorite_busy(False))
 
     @Slot()
     def openTrackInsight(self) -> None:
+        if not self.playback.is_playing:
+            return
+        self._request_track_insight(show_toast=False)
+
+    @Slot()
+    def refreshTrackInsight(self) -> None:
+        self._request_track_insight(show_toast=True)
+
+    def _request_track_insight(self, *, show_toast: bool) -> None:
         self._sync_config_from_disk()
         if self._demo_mode or not self.paired or self._ask_dj_busy:
             return
         _LOGGER.info("User requested Track Insight for current track")
+        if show_toast:
+            self.showToastForContext(self.tr_key("refreshing"), "trackinsight")
+        self._clear_track_insight_if_track_changed()
         self._set_ask_dj_busy(True)
         self._run(self.tr_key("track_insight"), self._track_insight_worker, done=lambda: self._set_ask_dj_busy(False))
 
@@ -662,7 +909,7 @@ class DJConnectBackend(QObject):
         self.playback.volume = value
         self.volumeChanged.emit()
         _LOGGER.info("User set volume to %s", value)
-        self.showToast(f"{self.tr_key('vol')} {value}")
+        self.showToastForContext(f"{self.tr_key('vol')} {value}", "playback")
         if self._demo_mode:
             return
         self.command("set_volume", value=value)
@@ -676,7 +923,7 @@ class DJConnectBackend(QObject):
         self.playback.shuffle = not self.playback.shuffle
         self.shuffleChanged.emit()
         _LOGGER.info("User toggled shuffle to %s", self.playback.shuffle)
-        self.showToast(self.tr_key("shuffle"))
+        self.showToastForContext(self.tr_key("shuffle"), "playback")
         if self._demo_mode:
             return
         self.command("set_shuffle", value=self.playback.shuffle)
@@ -687,7 +934,7 @@ class DJConnectBackend(QObject):
         self.playback.repeat = next_value
         self.repeatChanged.emit()
         _LOGGER.info("User changed repeat mode to %s", next_value)
-        self.showToast(self.tr_key("repeat"))
+        self.showToastForContext(self.tr_key("repeat"), "playback")
         if self._demo_mode:
             return
         self.command("set_repeat", value=next_value)
@@ -699,7 +946,7 @@ class DJConnectBackend(QObject):
             self.playback.output_device = ""
             self.outputDeviceChanged.emit()
             _LOGGER.info("User cleared output device selection from touch UI")
-            self.showToast(self.tr_key("none"))
+            self.showToastForContext(self.tr_key("none"), "playback")
             return
         previous = self.playback.output_device
         self.playback.output_device = value
@@ -707,7 +954,7 @@ class DJConnectBackend(QObject):
         self._pending_output_until = time.monotonic() + 20
         self.outputDeviceChanged.emit()
         _LOGGER.info("User selected output device: %s", value)
-        self.showToast(value)
+        self.showToastForContext(value, "playback")
         if self._demo_mode:
             return
         self._run("set_output", lambda: self._set_output_worker(value, previous))
@@ -726,7 +973,7 @@ class DJConnectBackend(QObject):
         self.outputDeviceChanged.emit()
         self._apply_demo_track("Midnight City", "M83")
         _LOGGER.info("User entered local demo mode")
-        self.showToast(self.tr_key("demo_active"))
+        self.showToastForContext(self.tr_key("demo_active"), "playback")
         self._set_status_text(self.tr_key("demo_active"))
 
     @Slot()
@@ -748,7 +995,7 @@ class DJConnectBackend(QObject):
         self.repeatChanged.emit()
         self.outputDeviceChanged.emit()
         _LOGGER.info("User exited local demo mode")
-        self.showToast(self.tr_key("exit_demo"))
+        self.showToastForContext(self.tr_key("exit_demo"), "connectivity")
         self._set_status_text(self.tr_key("ready_to_pair"))
 
     @Slot()
@@ -769,7 +1016,7 @@ class DJConnectBackend(QObject):
     @Slot()
     def manualRefresh(self) -> None:
         _LOGGER.info("User requested manual refresh")
-        self.showToast(self.tr_key("refreshing"))
+        self.showToastForContext(self.tr_key("refreshing"), "playback")
         self._pending_output_device = ""
         self._pending_output_until = 0.0
         self.refresh()
@@ -782,13 +1029,22 @@ class DJConnectBackend(QObject):
     def refreshAskDjHistory(self) -> None:
         self._load_ask_dj_history(show_toast=True, action="refreshed")
 
+    @Slot()
+    def clearAskDjHistory(self) -> None:
+        self._sync_config_from_disk()
+        if self._demo_mode or not self.paired or self._ask_dj_busy:
+            return
+        _LOGGER.info("User requested Ask DJ chat history clear")
+        self._set_ask_dj_busy(True)
+        self._run(self.tr_key("ask_dj_clear_chat"), self._clear_ask_dj_history_worker, done=lambda: self._set_ask_dj_busy(False))
+
     def _load_ask_dj_history(self, *, show_toast: bool, action: str) -> None:
         self._sync_config_from_disk()
         if self._demo_mode or not self.paired or self._ask_dj_busy:
             return
         _LOGGER.info("User %s Ask DJ history", action)
         if show_toast:
-            self.showToast(self.tr_key("refreshing"))
+            self.showToastForContext(self.tr_key("refreshing"), "askdj")
         self._set_ask_dj_busy(True)
         self._run(self.tr_key("ask_dj"), self._load_ask_dj_history_worker, done=lambda: self._set_ask_dj_busy(False))
 
@@ -809,33 +1065,13 @@ class DJConnectBackend(QObject):
         self._set_ask_dj_busy(True)
         self._run(self.tr_key("ask_dj"), lambda: self._send_ask_dj_action_worker(action), done=lambda: self._set_ask_dj_busy(False))
 
-    @Slot(str)
-    def sendAskDjMessage(self, text: str) -> None:
-        self._sync_config_from_disk()
-        message = str(text or "").strip()
-        if self._demo_mode or not self.paired or self._ask_dj_busy or not message:
-            return
-        client_message_id = f"{self.cfg.device_id}-{uuid.uuid4().hex}"
-        _LOGGER.info("User sent Ask DJ text message client_message_id=%s", client_message_id)
-        self._set_ask_dj_busy(True)
-        self._run(
-            self.tr_key("ask_dj"),
-            lambda: self._send_ask_dj_message_worker(message, client_message_id),
-            done=lambda: self._set_ask_dj_busy(False),
-        )
-
-    @Slot()
-    def clearAskDjHistory(self) -> None:
-        self._sync_config_from_disk()
-        if self._demo_mode or not self.paired or self._ask_dj_busy:
-            return
-        _LOGGER.info("User cleared Ask DJ history")
-        self._set_ask_dj_busy(True)
-        self._run(self.tr_key("ask_dj"), self._clear_ask_dj_history_worker, done=lambda: self._set_ask_dj_busy(False))
-
     @Slot()
     def loadMusicDna(self) -> None:
-        self._music_dna_request("profile")
+        self._music_dna_request("profile", show_toast=False)
+
+    @Slot()
+    def refreshMusicDna(self) -> None:
+        self._music_dna_request("profile", show_toast=True)
 
     @Slot(bool)
     def setMusicDnaEnabled(self, enabled: bool) -> None:
@@ -845,11 +1081,13 @@ class DJConnectBackend(QObject):
     def clearMusicDna(self) -> None:
         self._music_dna_request("clear")
 
-    def _music_dna_request(self, action: str, **payload: object) -> None:
+    def _music_dna_request(self, action: str, show_toast: bool = False, **payload: object) -> None:
         self._sync_config_from_disk()
         if self._demo_mode or not self.paired or self._music_dna_busy:
             return
         self._set_music_dna_busy(True)
+        if show_toast:
+            self.showToastForContext(self.tr_key("refreshing"), "musicdna")
         if action == "settings":
             def worker() -> None:
                 self._music_dna_settings_worker(**payload)
@@ -892,16 +1130,43 @@ class DJConnectBackend(QObject):
             return
         if not isinstance(item, dict):
             return
-        item_id = str(item.get("id") or item.get("recommendation_id") or item.get("item_id") or item.get("uri") or "").strip()
+        if not str(item.get("discovery_item_id") or item.get("id") or "").strip():
+            _LOGGER.info("Ignoring Music Discovery item without backend id")
+            return
+        item_id = str(item.get("discovery_item_id") or item.get("id") or "").strip()
         self._music_discovery_playing_id = item_id
         self.musicDiscoveryChanged.emit()
         self._run(self.tr_key("music_discovery"), lambda: self._music_discovery_play_worker(item), done=lambda: self._clear_music_discovery_playing())
+
+    @Slot(str, str)
+    def sendMusicDiscoveryFeedback(self, payload: str, feedback: str) -> None:
+        self._sync_config_from_disk()
+        if self._demo_mode or not self.paired or self._music_discovery_busy or not self._music_discovery_feedback_supported:
+            return
+        feedback_value = str(feedback or "").strip()
+        if feedback_value not in {"not_for_me", "less_like_this", "hide_artist"}:
+            return
+        try:
+            item = json.loads(payload)
+        except json.JSONDecodeError:
+            _LOGGER.warning("Ignoring malformed Music Discovery feedback payload")
+            return
+        if not isinstance(item, dict):
+            return
+        self._set_music_discovery_busy(True)
+        self._run(
+            self.tr_key("music_discovery"),
+            lambda: self._music_discovery_feedback_worker(item, feedback_value),
+            done=lambda: self._set_music_discovery_busy(False),
+        )
 
     def _music_discovery_request(self, action: str) -> None:
         self._sync_config_from_disk()
         if self._demo_mode or not self.paired or self._music_discovery_busy:
             return
         self._set_music_discovery_busy(True)
+        if action == "refresh":
+            self.showToastForContext(self.tr_key("refreshing"), "discover")
         if action == "accept":
             worker = self._music_discovery_accept_worker
         elif action == "refresh":
@@ -915,7 +1180,7 @@ class DJConnectBackend(QObject):
     def resetPairing(self) -> None:
         _LOGGER.info("User requested pairing reset from touch UI")
         self._forget_pairing()
-        self.showToast(self.tr_key("ready_to_pair"))
+        self.showToastForContext(self.tr_key("ready_to_pair"), "connectivity")
         self._set_status_text(self.tr_key("ready_to_pair"))
 
     @Slot()
@@ -954,7 +1219,7 @@ class DJConnectBackend(QObject):
     def checkForUpdates(self) -> None:
         _LOGGER.info("User requested update check from touch UI")
         self._set_status_text(self.tr_key("checking_updates"))
-        self.showToast(self.tr_key("checking_updates"))
+        self.showToastForContext(self.tr_key("checking_updates"), "updates")
         commands = (
             ["sudo", "-n", "/usr/bin/systemctl", "start", "djconnect-updater.service"],
             ["sudo", "-n", "/bin/systemctl", "start", "djconnect-updater.service"],
@@ -965,7 +1230,7 @@ class DJConnectBackend(QObject):
                 _LOGGER.info("Starting update check command: %s", " ".join(command))
                 subprocess.run(command, check=True, timeout=8, capture_output=True, text=True)
                 self._set_status_text(self.tr_key("update_check_started"))
-                self.showToast(self.tr_key("update_check_started"))
+                self.showToastForContext(self.tr_key("update_check_started"), "updates")
                 return
             except subprocess.CalledProcessError as exc:
                 detail = (exc.stderr or exc.stdout or str(exc)).strip()
@@ -976,11 +1241,11 @@ class DJConnectBackend(QObject):
                 _LOGGER.warning("Update check command failed: %s: %s", " ".join(command), exc)
         message = self.tr_key("update_check_failed", error=last_error)
         self._set_status_text(message)
-        self._show_toast(message, 5000)
+        self._show_toast(message, 5000, "updates")
 
     def _run_power_command(self, *, action: str, status_key: str, failure_key: str, commands: tuple[list[str], ...]) -> None:
         self._set_status_text(self.tr_key(status_key))
-        self.showToast(self.tr_key(status_key))
+        self.showToastForContext(self.tr_key(status_key), "updates")
         last_error: str = "unknown error"
         for command in commands:
             try:
@@ -996,7 +1261,7 @@ class DJConnectBackend(QObject):
                 _LOGGER.warning("%s command failed: %s: %s", action.capitalize(), " ".join(command), exc)
         message = self.tr_key(failure_key, error=last_error)
         self._set_status_text(message)
-        self._show_toast(message, 5000)
+        self._show_toast(message, 5000, "updates")
 
     @Slot(str, str)
     def playMediaItem(self, command: str, item: str) -> None:
@@ -1004,17 +1269,17 @@ class DJConnectBackend(QObject):
         payload = media_item_payload(command, item)
         if not command or not payload:
             return
-        if command not in {"play_context_at", "start_queue_item", "start_playlist"}:
+        if command not in {"play_context_at", "start_playlist"}:
             _LOGGER.warning("Ignoring unsupported media item command from touch UI: %s", command)
             return
         _LOGGER.info("User requested %s from touch UI", command)
-        self.showToast(self.tr_key("play"))
+        self.showToastForContext(self.tr_key("play"), "playback")
         self._run(command, lambda: self._play_media_item_worker(command, payload))
 
     @Slot()
     def showLogs(self) -> None:
         _LOGGER.info("User opened logs view")
-        self.showToast(self.tr_key("logs"))
+        self.showToastForContext(self.tr_key("logs"), "diagnostics")
         path = Path(self.cfg.log_file)
         try:
             if path.exists():
@@ -1031,7 +1296,7 @@ class DJConnectBackend(QObject):
     def copyLogs(self) -> None:
         _LOGGER.info("User copied logs from touch UI")
         QGuiApplication.clipboard().setText(self._logs_text)
-        self.showToast(self.tr_key("logs_copied"))
+        self.showToastForContext(self.tr_key("logs_copied"), "diagnostics")
 
     @Slot()
     def clearLogs(self) -> None:
@@ -1041,7 +1306,7 @@ class DJConnectBackend(QObject):
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text("", encoding="utf-8")
             self._logs_text = self.tr_key("logs_cleared")
-            self.showToast(self.tr_key("logs_cleared"))
+            self.showToastForContext(self.tr_key("logs_cleared"), "diagnostics")
         except Exception as exc:
             self._logs_text = self.tr_key("logs_failed", error=exc)
         self.logsChanged.emit()
@@ -1055,6 +1320,10 @@ class DJConnectBackend(QObject):
     @Slot(str)
     def showToast(self, text: str) -> None:
         self._show_toast(text, 2000)
+
+    @Slot(str, str)
+    def showToastForContext(self, text: str, context: str) -> None:
+        self._show_toast(text, 2000, context)
 
     @Slot(str)
     def playGameSound(self, kind: str) -> None:
@@ -1110,11 +1379,12 @@ class DJConnectBackend(QObject):
         finally:
             self._game_sound_objects = [(s, b) for s, b in self._game_sound_objects if s is not sink and b is not buffer]
 
-    def _show_toast(self, text: str, duration_ms: int = 2000) -> None:
+    def _show_toast(self, text: str, duration_ms: int = 2000, context: str = "") -> None:
         text = text.strip()
         if not text:
             return
         self._toast_text = text
+        self._toast_icon = _toast_icon_for_context(context)
         self._toast_visible = True
         self.toastChanged.emit()
         self._toast_timer.setInterval(duration_ms)
@@ -1126,6 +1396,7 @@ class DJConnectBackend(QObject):
             return
         self._toast_visible = False
         self._toast_text = ""
+        self._toast_icon = TOAST_ICON_FALLBACK
         self.toastChanged.emit()
 
     def command(self, command: str, **payload: object) -> None:
@@ -1139,12 +1410,12 @@ class DJConnectBackend(QObject):
         if not uri:
             return
         _LOGGER.info("User requested play_uri from touch UI")
-        self.showToast(self.tr_key("play"))
+        self.showToastForContext(self.tr_key("play"), "playback")
         self.command("play_uri", uri=uri)
 
     @Slot()
     def loadQueue(self) -> None:
-        self.showToast(self.tr_key("refreshing"))
+        self.showToastForContext(self.tr_key("refreshing"), "queue")
         if self._demo_mode:
             self._queue_items = demo_queue_items()
             self.mediaListsChanged.emit()
@@ -1161,7 +1432,7 @@ class DJConnectBackend(QObject):
 
     @Slot()
     def loadPlaylists(self) -> None:
-        self.showToast(self.tr_key("refreshing"))
+        self.showToastForContext(self.tr_key("refreshing"), "playlists")
         if self._demo_mode:
             self._playlist_items = demo_playlist_items()
             self.mediaListsChanged.emit()
@@ -1241,7 +1512,7 @@ class DJConnectBackend(QObject):
         if data.get("success") is False:
             error = str(data.get("error") or data.get("message") or "save_current_track_failed")
             raise SaveCurrentTrackError(error)
-        self._toastReady.emit(self.tr_key("favorite_saved"), 2200)
+        self._toastReady.emit(self.tr_key("favorite_saved"), 2200, "playback")
         if _contains_playback_payload(data):
             self._playbackReady.emit(self.client.playback_from_status(data))
         _LOGGER.info("Save current track completed in %.0fms", _elapsed_ms(started))
@@ -1308,14 +1579,21 @@ class DJConnectBackend(QObject):
     def _load_ask_dj_history_worker(self) -> None:
         try:
             data = self.client.ask_dj_history(self._ask_dj_history_revision)
+            self._apply_profile_context(data)
             self._persist_backend_summary()
         except (DJConnectError, requests.RequestException) as exc:
             raise BackendUnavailable("Ask DJ unavailable") from exc
         self._askDjReady.emit(data)
 
     def _send_ask_dj_action_worker(self, action: dict[str, object]) -> None:
+        action = dict(action)
+        action["dj_announcement_output"] = normalize_dj_announcement_output(
+            self.cfg.dj_announcement_output,
+            self.cfg.music_backend_capabilities,
+        )
         try:
             data = self.client.ask_dj_action(action)
+            self._apply_profile_context(data)
         except (AuthenticationError, ProtocolVersionMismatch):
             raise
         except (UnsupportedBackendCapability, StaleBackendAction):
@@ -1325,33 +1603,34 @@ class DJConnectBackend(QObject):
         self._persist_backend_summary()
         self._askDjReady.emit(data)
 
-    def _send_ask_dj_message_worker(self, text: str, client_message_id: str) -> None:
+    def _clear_ask_dj_history_worker(self) -> None:
         try:
-            data = self.client.ask_dj_message(text, client_message_id)
-            self._persist_backend_summary()
+            data = self.client.ask_dj_history_clear()
+        except (AuthenticationError, ProtocolVersionMismatch):
+            raise
         except (DJConnectError, requests.RequestException) as exc:
-            raise BackendUnavailable("Ask DJ unavailable") from exc
+            raise BackendUnavailable("Ask DJ clear unavailable") from exc
+        self._persist_backend_summary()
         self._askDjReady.emit(data)
+        self._toastReady.emit(self.tr_key("ask_dj_cleared"), 2500, "askdj")
 
     def _track_insight_worker(self) -> None:
         try:
             data = self.client.track_insight(self.playback)
+            self._apply_profile_context(data)
             self._persist_backend_summary()
+        except (AuthenticationError, ProtocolVersionMismatch):
+            raise
         except (DJConnectError, requests.RequestException) as exc:
-            raise BackendUnavailable("Track Insight unavailable") from exc
-        self._askDjReady.emit(data)
-
-    def _clear_ask_dj_history_worker(self) -> None:
-        try:
-            data = self.client.ask_dj_clear_history()
-            self._persist_backend_summary()
-        except (DJConnectError, requests.RequestException) as exc:
-            raise BackendUnavailable("Ask DJ unavailable") from exc
-        self._askDjReady.emit(data)
+            _LOGGER.warning("Track Insight unavailable; showing retry state: %s", exc.__class__.__name__)
+            self._trackInsightReady.emit({"success": False, "error": "transient"})
+            return
+        self._trackInsightReady.emit(data)
 
     def _music_dna_profile_worker(self) -> None:
         try:
             data = self.client.music_dna_profile()
+            self._apply_profile_context(data)
             self._persist_backend_summary()
         except (DJConnectError, requests.RequestException) as exc:
             raise BackendUnavailable("Music DNA unavailable") from exc
@@ -1360,6 +1639,7 @@ class DJConnectBackend(QObject):
     def _music_dna_settings_worker(self, **settings: object) -> None:
         try:
             data = self.client.music_dna_settings(**settings)
+            self._apply_profile_context(data)
             self._persist_backend_summary()
         except (DJConnectError, requests.RequestException) as exc:
             raise BackendUnavailable("Music DNA unavailable") from exc
@@ -1368,6 +1648,7 @@ class DJConnectBackend(QObject):
     def _music_dna_clear_worker(self) -> None:
         try:
             data = self.client.music_dna_clear()
+            self._apply_profile_context(data)
             self._persist_backend_summary()
         except (DJConnectError, requests.RequestException) as exc:
             raise BackendUnavailable("Music DNA unavailable") from exc
@@ -1375,13 +1656,9 @@ class DJConnectBackend(QObject):
 
     def _music_discovery_feed_worker(self) -> None:
         try:
-            profile = self.client.music_dna_profile()
-            self._persist_backend_summary()
-            self._musicDnaReady.emit(profile)
-            if profile.get("enabled") is not True:
-                self._musicDiscoveryReady.emit({"success": True, "enabled": False, "items": [], "empty_text": self.tr_key("music_discovery_requires_music_dna")})
-                return
             data = self.client.music_discovery_feed()
+            self._apply_profile_context(data)
+            data["_feedback_supported"] = self._supports_music_discovery_feedback()
             self._persist_backend_summary()
         except (DJConnectError, requests.RequestException) as exc:
             raise BackendUnavailable("Music Discovery unavailable") from exc
@@ -1390,9 +1667,12 @@ class DJConnectBackend(QObject):
     def _music_discovery_accept_worker(self) -> None:
         try:
             profile = self.client.music_dna_settings(enabled=True)
+            self._apply_profile_context(profile)
             self._persist_backend_summary()
             self._musicDnaReady.emit(profile)
             data = self.client.music_discovery_feed()
+            self._apply_profile_context(data)
+            data["_feedback_supported"] = self._supports_music_discovery_feedback()
             self._persist_backend_summary()
         except (DJConnectError, requests.RequestException) as exc:
             raise BackendUnavailable("Music Discovery unavailable") from exc
@@ -1400,14 +1680,9 @@ class DJConnectBackend(QObject):
 
     def _music_discovery_refresh_worker(self) -> None:
         try:
-            if not self._music_dna_enabled:
-                profile = self.client.music_dna_profile()
-                self._persist_backend_summary()
-                self._musicDnaReady.emit(profile)
-                if profile.get("enabled") is not True:
-                    self._musicDiscoveryReady.emit({"success": True, "enabled": False, "items": [], "empty_text": self.tr_key("music_discovery_requires_music_dna")})
-                    return
             data = self.client.music_discovery_refresh()
+            self._apply_profile_context(data)
+            data["_feedback_supported"] = self._supports_music_discovery_feedback()
             self._persist_backend_summary()
         except (DJConnectError, requests.RequestException) as exc:
             raise BackendUnavailable("Music Discovery unavailable") from exc
@@ -1416,12 +1691,36 @@ class DJConnectBackend(QObject):
     def _music_discovery_play_worker(self, item: dict[str, object]) -> None:
         try:
             data = self.client.music_discovery_play(item)
+            self._apply_profile_context(data)
+            self._persist_backend_summary()
+            feed = self.client.music_discovery_feed()
+            self._apply_profile_context(feed)
+            feed["_feedback_supported"] = self._supports_music_discovery_feedback()
             self._persist_backend_summary()
         except (DJConnectError, requests.RequestException) as exc:
             raise BackendUnavailable("Music Discovery unavailable") from exc
         if _contains_playback_payload(data):
             self._playbackReady.emit(self.client.playback_from_status(data))
-        self._toastReady.emit(self.tr_key("play"), 1800)
+        self._musicDiscoveryReady.emit(feed)
+        self._toastReady.emit(self.tr_key("play"), 1800, "playback")
+
+    def _music_discovery_feedback_worker(self, item: dict[str, object], feedback: str) -> None:
+        try:
+            self.client.music_discovery_feedback(item, feedback)
+            self._persist_backend_summary()
+            feed = self.client.music_discovery_feed()
+            self._apply_profile_context(feed)
+            feed["_feedback_supported"] = self._supports_music_discovery_feedback()
+            self._persist_backend_summary()
+        except (DJConnectError, requests.RequestException) as exc:
+            raise BackendUnavailable("Music Discovery unavailable") from exc
+        self._musicDiscoveryReady.emit(feed)
+
+    def _supports_music_discovery_feedback(self) -> bool:
+        try:
+            return self.client.music_discovery_feedback_supported()
+        except (DJConnectError, requests.RequestException):
+            return False
 
     @Slot()
     def pollAskDjHistory(self) -> None:
@@ -1437,6 +1736,7 @@ class DJConnectBackend(QObject):
     def _poll_ask_dj_history_worker(self) -> None:
         try:
             data = self.client.ask_dj_history(self._ask_dj_history_revision)
+            self._apply_profile_context(data)
             self._persist_backend_summary()
         except (AuthenticationError, ProtocolVersionMismatch, BackendUnavailable, DJConnectError, requests.RequestException) as exc:
             self._ask_dj_poll_error_count = min(self._ask_dj_poll_error_count + 1, 6)
@@ -1494,9 +1794,16 @@ class DJConnectBackend(QObject):
             self.exitDemoMode()
         self.cfg.device_token = ""
         self.cfg.paired = False
+        self.cfg.active_profile_id = ""
+        self.cfg.active_profile_name = ""
+        self.cfg.active_profile_type = "household"
+        self.cfg.active_profile_privacy_mode = "shared"
+        self.cfg.explicit_profile_id = ""
+        self.cfg.music_dna_key = ""
         self._queue_items = []
         self._playlist_items = []
         self._clear_ask_dj_cache()
+        self._clear_profile_scoped_caches()
         from .config import generate_pairing_code
 
         self.cfg.pairing_code = generate_pairing_code()
@@ -1505,6 +1812,7 @@ class DJConnectBackend(QObject):
         self.pairingCodeChanged.emit()
         self.settingsChanged.emit()
         self.mediaListsChanged.emit()
+        self.profileChanged.emit()
 
     def _apply_demo_track(self, title: str, artist: str) -> None:
         self.playback.title = title
@@ -1540,7 +1848,7 @@ class DJConnectBackend(QObject):
                 self._forget_pairing()
                 message = self.tr_key("ready_to_pair")
                 self._statusReady.emit(message)
-                self._toastReady.emit(message, 5000)
+                self._toastReady.emit(message, 5000, "connectivity")
             except BackendUnavailable as exc:
                 self._backendAvailableReady.emit(False)
                 _LOGGER.warning("%s backend unavailable: %s", label, exc)
@@ -1550,24 +1858,24 @@ class DJConnectBackend(QObject):
                     self._statusReady.emit(self.tr_key("ready_to_pair"))
                     return
                 self._statusReady.emit(message)
-                self._toastReady.emit(message, 5000)
+                self._toastReady.emit(message, 5000, "connectivity")
             except UnsupportedBackendCapability as exc:
                 self._backendAvailableReady.emit(True)
                 message = str(exc)
                 _LOGGER.warning("%s unsupported backend capability: %s", label, message)
                 self._statusReady.emit(message)
-                self._toastReady.emit(message, 5000)
+                self._toastReady.emit(message, 5000, "connectivity")
             except StaleBackendAction as exc:
                 self._backendAvailableReady.emit(True)
                 message = str(exc)
                 _LOGGER.warning("%s stale backend action: %s", label, message)
                 self._statusReady.emit(message)
-                self._toastReady.emit(message, 5000)
+                self._toastReady.emit(message, 5000, "connectivity")
             except SaveCurrentTrackError as exc:
                 _LOGGER.warning("%s failed: %s", label, exc)
                 message = self.tr_key("favorite_save_failed")
                 self._statusReady.emit(message)
-                self._toastReady.emit(message, 3500)
+                self._toastReady.emit(message, 3500, "connectivity")
             except DJConnectError as exc:
                 self._backendAvailableReady.emit(False)
                 _LOGGER.warning("%s failed: %s", label, exc)
@@ -1592,7 +1900,9 @@ class DJConnectBackend(QObject):
             self.versionMismatchChanged.emit()
         old = self.playback
         self.playback = playback
-        track_changed = old.title != playback.title or old.artist != playback.artist or old.image_url != playback.image_url
+        track_changed = old.title != playback.title or old.artist != playback.artist or old.image_url != playback.image_url or old.uri != playback.uri
+        if track_changed:
+            self._clear_track_insight()
         resumed_playback = not old.is_playing and playback.is_playing
         if old.title != playback.title:
             self.titleChanged.emit()
@@ -1602,6 +1912,8 @@ class DJConnectBackend(QObject):
             self.imageUrlChanged.emit()
         if old.is_playing != playback.is_playing:
             self.playingChanged.emit()
+        if old.is_favorite != playback.is_favorite or old.uri != playback.uri:
+            self.favoriteChanged.emit()
         if old.volume != playback.volume:
             self.volumeChanged.emit()
         if old.shuffle != playback.shuffle:
@@ -1635,16 +1947,31 @@ class DJConnectBackend(QObject):
     def _apply_ask_dj_data(self, data: object) -> None:
         if not isinstance(data, dict):
             return
+        self._apply_profile_context(data)
         clear_revision = _int_value(data.get("clear_revision"), self._ask_dj_clear_revision)
-        if clear_revision > self._ask_dj_clear_revision:
+        messages_value = data.get("messages")
+        clear_ack = (
+            data.get("cleared") is True
+            or (
+                data.get("success") is True
+                and "clear_revision" in data
+                and isinstance(messages_value, list)
+                and not messages_value
+            )
+        )
+        if clear_revision > self._ask_dj_clear_revision or clear_ack:
             self._clear_ask_dj_cache(reset_revisions=False)
-            self._ask_dj_clear_revision = clear_revision
+            self._ask_dj_clear_revision = max(self._ask_dj_clear_revision, clear_revision)
+            self._ask_dj_history_revision = max(self._ask_dj_history_revision, _int_value(data.get("history_revision"), self._ask_dj_history_revision))
+            self._set_backend_available(True)
+            if clear_ack:
+                return
         trimmed_before = str(data.get("history_trimmed_before") or "").strip()
         if trimmed_before:
             self._ask_dj_messages = [m for m in self._ask_dj_messages if str(m.get("created_at") or m.get("server_time") or "") >= trimmed_before]
         trimmed_count = _int_value(data.get("history_trimmed_count"), 0)
         if trimmed_count > 0:
-            self._ask_dj_messages = _sort_ask_dj_messages(self._ask_dj_messages)[trimmed_count:]
+            self._ask_dj_messages = _sort_ask_dj_messages_newest_first(_sort_ask_dj_messages(self._ask_dj_messages)[trimmed_count:])
         messages = parse_ask_dj_messages(data)
         if messages:
             self._merge_ask_dj_messages(messages, limit=_int_value(data.get("history_limit"), 100))
@@ -1663,6 +1990,10 @@ class DJConnectBackend(QObject):
         for message in messages:
             match_index = next((index_by_key[key] for key in _ask_dj_message_keys(message) if key in index_by_key), None)
             if match_index is not None:
+                if not message.get("created_at"):
+                    message["created_at"] = merged[match_index].get("created_at", "")
+                if not message.get("displayTime"):
+                    message["displayTime"] = merged[match_index].get("displayTime", "")
                 merged[match_index] = {**merged[match_index], **message, "pending": False}
                 for key in _ask_dj_message_keys(merged[match_index]):
                     index_by_key[key] = match_index
@@ -1672,7 +2003,8 @@ class DJConnectBackend(QObject):
                 merged.append(message)
                 for key in _ask_dj_message_keys(message):
                     index_by_key[key] = len(merged) - 1
-        self._ask_dj_messages = _sort_ask_dj_messages(merged)[-max(1, limit):]
+        latest_messages = _sort_ask_dj_messages(merged)[-max(1, limit):]
+        self._ask_dj_messages = _sort_ask_dj_messages_newest_first(latest_messages)
         self.askDjChanged.emit()
 
     def _clear_ask_dj_cache(self, *, reset_revisions: bool = True) -> None:
@@ -1684,6 +2016,49 @@ class DJConnectBackend(QObject):
             self._ask_dj_history_revision = 0
             self._ask_dj_clear_revision = 0
         self.askDjChanged.emit()
+
+    def _apply_profile_context(self, data: dict[str, object]) -> None:
+        before = self._profile_cache_key()
+        self.client.apply_profile_context(data)
+        after = self._profile_cache_key()
+        if after != before:
+            _LOGGER.info(
+                "Resolved DJConnect Profile changed type=%s privacy=%s id_present=%s",
+                self.cfg.active_profile_type,
+                self.cfg.active_profile_privacy_mode,
+                bool(self.cfg.active_profile_id),
+            )
+            self._clear_profile_scoped_caches()
+            save_config(self.config_path, self.cfg)
+            self.profileChanged.emit()
+            self.settingsChanged.emit()
+
+    def _profile_cache_key(self) -> tuple[str, str, str]:
+        return (self.cfg.active_profile_id, self.cfg.active_profile_type, self.cfg.active_profile_privacy_mode)
+
+    def _clear_profile_scoped_caches(self) -> None:
+        self._clear_ask_dj_cache()
+        self._music_dna_enabled = False
+        self._music_dna_summary = ""
+        self._music_dna_sections = []
+        self._music_discovery_items = []
+        self._music_discovery_empty_text = ""
+        self._music_discovery_error = ""
+        self._music_discovery_playing_id = ""
+        self._music_discovery_feedback_supported = False
+        self._music_discovery_consent_rejected = False
+        self._track_insight_title = ""
+        self._track_insight_artist = ""
+        self._track_insight_album = ""
+        self._track_insight_image_url = ""
+        self._track_insight_text = ""
+        self._track_insight_error = ""
+        self._track_insight_items = []
+        self._track_insight_sections = []
+        self._track_insight_track_key = ""
+        self.musicDnaChanged.emit()
+        self.musicDiscoveryChanged.emit()
+        self.trackInsightChanged.emit()
 
     def _set_ask_dj_busy(self, value: bool) -> None:
         if self._ask_dj_busy == value:
@@ -1703,6 +2078,12 @@ class DJConnectBackend(QObject):
         self._music_discovery_busy = value
         self.musicDiscoveryChanged.emit()
 
+    def _set_favorite_busy(self, value: bool) -> None:
+        if self._favorite_busy == value:
+            return
+        self._favorite_busy = value
+        self.favoriteBusyChanged.emit()
+
     def _clear_music_discovery_playing(self) -> None:
         self._music_discovery_playing_id = ""
         self.musicDiscoveryChanged.emit()
@@ -1711,6 +2092,7 @@ class DJConnectBackend(QObject):
     def _apply_music_dna_data(self, data: object) -> None:
         if not isinstance(data, dict):
             return
+        self._apply_profile_context(data)
         parsed = parse_music_dna_profile(data)
         self._music_dna_enabled = bool(parsed["enabled"])
         self._music_dna_summary = str(parsed["summary"])
@@ -1722,19 +2104,97 @@ class DJConnectBackend(QObject):
     def _apply_music_discovery_data(self, data: object) -> None:
         if not isinstance(data, dict):
             return
+        self._apply_profile_context(data)
         self._music_discovery_consent_rejected = False
         if data.get("enabled") is False or str(data.get("error") or "") == "music_dna_disabled":
             self._music_discovery_items = []
+            self._music_discovery_feedback_supported = False
             self._music_discovery_error = ""
-            self._music_discovery_empty_text = str(data.get("empty_text") or data.get("message") or self.tr_key("music_discovery_requires_music_dna"))
+            self._music_discovery_empty_text = str(data.get("reason") or data.get("empty_text") or data.get("message") or self.tr_key("music_discovery_requires_music_dna"))
             self.musicDiscoveryChanged.emit()
             return
         parsed = parse_music_discovery_feed(data)
         self._music_discovery_items = parsed["items"]
         self._music_discovery_empty_text = parsed["empty_text"]
+        self._music_discovery_feedback_supported = bool(data.get("_feedback_supported") or data.get("feedback_supported") or data.get("supports_feedback"))
         self._music_discovery_error = ""
         self._set_backend_available(True)
         self.musicDiscoveryChanged.emit()
+
+    @Slot(object)
+    def _apply_track_insight_data(self, data: object) -> None:
+        if not isinstance(data, dict):
+            return
+        error = str(data.get("error") or "").strip()
+        if error == "no_track_playing":
+            self._clear_track_insight(error=self.tr_key("track_insight_no_track"))
+            return
+        if error == "rate_limited":
+            self._clear_track_insight(error=self.tr_key("track_insight_rate_limited"))
+            return
+        if error:
+            self._clear_track_insight(error=self.tr_key("track_insight_retry"))
+            return
+        messages = parse_ask_dj_messages(data)
+        message = next((item for item in messages if item.get("trackInsight")), None)
+        if not isinstance(message, dict):
+            self._clear_track_insight(error=self.tr_key("track_insight_empty"))
+            return
+        track = message.get("trackInsightData")
+        track_data = track.get("track") if isinstance(track, dict) and isinstance(track.get("track"), dict) else {}
+        analysis = message.get("analysis") if isinstance(message.get("analysis"), dict) else {}
+        image_url = _image_url_from(track_data) if isinstance(track_data, dict) else ""
+        self._track_insight_title = str(track_data.get("title") or self.playback.title or "").strip() if isinstance(track_data, dict) else self.playback.title
+        self._track_insight_artist = str(track_data.get("artist") or self.playback.artist or "").strip() if isinstance(track_data, dict) else self.playback.artist
+        self._track_insight_album = str(track_data.get("album") or "").strip() if isinstance(track_data, dict) else ""
+        self._track_insight_image_url = cached_image_url(image_url) if image_url else self.playback.image_url
+        self._track_insight_text = str(message.get("text") or "").strip()
+        self._track_insight_error = ""
+        self._track_insight_items = list(message.get("items")) if isinstance(message.get("items"), list) else []
+        self._track_insight_sections = list(analysis.get("sections")) if isinstance(analysis.get("sections"), list) else []
+        self._track_insight_visualizer = _track_insight_visualizer(track, self._track_insight_items, self._track_insight_sections) if isinstance(track, dict) else {}
+        self._track_insight_track_key = self._current_track_key()
+        self._set_backend_available(True)
+        self.trackInsightChanged.emit()
+
+    def _current_track_key(self) -> str:
+        return "|".join(
+            value.strip().casefold()
+            for value in (self.playback.uri, self.playback.title, self.playback.artist, self.playback.image_url)
+            if value
+        )
+
+    def _clear_track_insight_if_track_changed(self) -> None:
+        if self._track_insight_track_key and self._track_insight_track_key != self._current_track_key():
+            self._clear_track_insight()
+
+    def _clear_track_insight(self, *, error: str = "") -> None:
+        changed = any(
+            (
+                self._track_insight_title,
+                self._track_insight_artist,
+                self._track_insight_album,
+                self._track_insight_image_url,
+                self._track_insight_text,
+                self._track_insight_error,
+                self._track_insight_items,
+                self._track_insight_sections,
+                self._track_insight_visualizer,
+                self._track_insight_track_key,
+            )
+        )
+        self._track_insight_title = ""
+        self._track_insight_artist = ""
+        self._track_insight_album = ""
+        self._track_insight_image_url = ""
+        self._track_insight_text = ""
+        self._track_insight_error = error
+        self._track_insight_items = []
+        self._track_insight_sections = []
+        self._track_insight_visualizer = {}
+        self._track_insight_track_key = ""
+        if changed or error:
+            self.trackInsightChanged.emit()
 
     @Slot(str, str)
     def _apply_output_device_rejection(self, previous: str, attempted: str) -> None:
@@ -1774,6 +2234,8 @@ class DJConnectBackend(QObject):
         try:
             save_config(self.config_path, self.cfg)
             self.settingsChanged.emit()
+            self.favoriteChanged.emit()
+            self.djAnnouncementChanged.emit()
         except Exception as exc:
             _LOGGER.warning("Could not persist music backend summary: %s", exc)
 
@@ -1793,7 +2255,7 @@ class DJConnectBackend(QObject):
         )
         self._version_mismatch_visible = True
         self.versionMismatchChanged.emit()
-        self.showToast(self.tr_key("version_mismatch_title"))
+        self.showToastForContext(self.tr_key("version_mismatch_title"), "updates")
         self._trigger_update_service()
 
     def _trigger_update_service(self) -> None:
@@ -1884,7 +2346,7 @@ class DJConnectBackend(QObject):
                 _LOGGER.info("Executing local web portal update check request")
                 self.checkForUpdates()
                 continue
-            if command in {"play_context_at", "start_queue_item", "start_playlist"}:
+            if command in {"play_context_at", "start_playlist"}:
                 item_payload = media_item_payload(command, payload)
                 if not item_payload:
                     _LOGGER.info("Ignoring local media item request without usable URI: %s", command)
@@ -1949,13 +2411,14 @@ def main() -> None:
     QPixmapCache.setCacheLimit(QT_PIXMAP_CACHE_LIMIT_KB)
     engine = QQmlApplicationEngine()
     backend = DJConnectBackend(args.config)
-    app.aboutToQuit.connect(backend.shutdown)
     engine.rootContext().setContextProperty("djconnect", backend)
     engine.rootContext().setContextProperty("startWindowed", args.windowed)
     qml_path = files("djconnect_pi.qml").joinpath("Main.qml")
     engine.load(str(qml_path))
     if not engine.rootObjects():
         raise SystemExit(1)
+    app.aboutToQuit.connect(lambda: [obj.deleteLater() for obj in engine.rootObjects()])
+    app.aboutToQuit.connect(backend.shutdown)
     if args.exit_after_ms > 0:
         QTimer.singleShot(args.exit_after_ms, app.quit)
     raise SystemExit(app.exec())
@@ -1964,7 +2427,7 @@ def main() -> None:
 def _format_logs_for_display(data: str, max_chars: int = 12000) -> str:
     lines = data.splitlines()[-220:]
     formatted: list[str] = []
-    for line in lines:
+    for line in reversed(lines):
         match = LOG_LINE_RE.match(line)
         if not match:
             formatted.append(line)
@@ -2267,6 +2730,7 @@ def _ask_dj_message(item: dict[str, object]) -> dict[str, object] | None:
     user_text = str(item.get("user_message") or "").strip()
     role = str(item.get("role") or item.get("sender") or "").strip().lower()
     kind = str(item.get("message_kind") or item.get("kind") or "").strip().lower()
+    recent_history = _is_recently_played_history(item)
     track_insight = _is_track_insight(item)
     if not text and track_insight:
         text = _track_insight_text(item)
@@ -2284,6 +2748,7 @@ def _ask_dj_message(item: dict[str, object]) -> dict[str, object] | None:
         actions = _ask_dj_actions(item.get("playback_actions"), item.get("confirmation_actions"))
     text = _ask_dj_display_text(text, actions)
     track_insight_data = _track_insight_data(item) if track_insight else {}
+    announcement = _ask_dj_announcement(item)
     message: dict[str, object] = {
         "id": str(item.get("id") or item.get("message_id") or item.get("server_id") or ""),
         "client_message_id": str(item.get("client_message_id") or ""),
@@ -2297,18 +2762,43 @@ def _ask_dj_message(item: dict[str, object]) -> dict[str, object] | None:
         "text": text,
         "created_at": str(item.get("created_at") or item.get("timestamp") or item.get("server_time") or ""),
         "images": _ask_dj_images(item.get("images")),
-        "items": _track_insight_items(track_insight_data) if track_insight else _ask_dj_items(_first_present(item, ("items",)), assistant_payload.get("items")),
+        "items": _track_insight_items(track_insight_data) if track_insight else (_ask_dj_recently_played_items(_first_present(item, ("items",)), assistant_payload.get("items")) if recent_history else _ask_dj_items(_first_present(item, ("items",)), assistant_payload.get("items"))),
         "links": _ask_dj_links(item.get("links"), item.get("sources")),
         "actions": actions,
-        "audioUrl": str(item.get("audio_url") or item.get("audioUrl") or ""),
+        "announcementDelivery": str(announcement.get("delivery") or ""),
+        "announcementOutput": str(announcement.get("output") or ""),
+        "announcementTargetName": str(announcement.get("target_name") or ""),
+        "announcementWarnings": announcement.get("warnings") or [],
+        "audioUrl": "",
         "audioType": str(item.get("audio_type") or item.get("audioType") or ""),
         "trackInsight": track_insight,
         "trackInsightData": track_insight_data,
         "musicDnaMatch": _track_insight_music_dna_match(track_insight_data) if track_insight else "",
         "analysis": _track_insight_analysis(track_insight_data) if track_insight else {},
-        "rawResponse": item,
     }
+    message["displayTime"] = _ask_dj_display_time(message["created_at"])
     return message
+
+
+def _ask_dj_announcement(item: dict[str, object]) -> dict[str, object]:
+    raw = item.get("announcement")
+    if not isinstance(raw, dict):
+        return {}
+    target = raw.get("target") if isinstance(raw.get("target"), dict) else {}
+    warnings = [str(value).strip() for value in raw.get("warnings", []) if str(value).strip()] if isinstance(raw.get("warnings"), list) else []
+    return {
+        "output": str(raw.get("output") or ""),
+        "delivery": str(raw.get("delivery") or ""),
+        "target_name": str(target.get("name") or target.get("entity_id") or raw.get("speaker_name") or ""),
+        "warnings": warnings,
+    }
+
+
+def _is_recently_played_history(item: dict[str, object]) -> bool:
+    intent = item.get("intent")
+    if isinstance(intent, dict):
+        return str(intent.get("intent") or "").strip() == "recently_played_history"
+    return str(intent or item.get("action") or "").strip() == "recently_played_history"
 
 
 def _is_track_insight(item: dict[str, object]) -> bool:
@@ -2329,6 +2819,7 @@ def _is_track_insight(item: dict[str, object]) -> bool:
         or response_type == "track_insight"
         or open_screen == "track_insight"
         or isinstance(item.get("track_insight"), dict)
+        or (isinstance(item.get("track"), dict) and isinstance(item.get("analysis"), dict))
     )
 
 
@@ -2342,6 +2833,8 @@ def _track_insight_text(item: dict[str, object]) -> str:
     error = str(payload.get("error") or item.get("error") or "").strip()
     if error == "no_track_playing":
         return "Er speelt nu geen track."
+    if error == "rate_limited":
+        return "Track Insight is even beperkt. Probeer het zo opnieuw."
     track = payload.get("track")
     if isinstance(track, dict):
         title = str(track.get("title") or track.get("name") or "").strip()
@@ -2355,14 +2848,55 @@ def _track_insight_text(item: dict[str, object]) -> str:
 
 def _track_insight_data(item: dict[str, object]) -> dict[str, object]:
     payload = _track_insight_payload(item)
+    analysis = payload.get("analysis") if isinstance(payload.get("analysis"), dict) else {}
+    visualizer = _first_dict(
+        payload.get("visualisation"),
+        payload.get("visualization"),
+        payload.get("visualizer"),
+        analysis.get("visualisation"),
+        analysis.get("visualization"),
+        analysis.get("visualizer"),
+    )
     return {
         "track": payload.get("track") if isinstance(payload.get("track"), dict) else {},
-        "analysis": payload.get("analysis") if isinstance(payload.get("analysis"), dict) else {},
+        "analysis": _track_insight_allowed_analysis(analysis),
         "music_dna": payload.get("music_dna") if isinstance(payload.get("music_dna"), dict) else {},
         "visual_profile": payload.get("visual_profile") if isinstance(payload.get("visual_profile"), dict) else {},
+        "visualizer": visualizer,
+        "colors": _first_present(payload, ("colors", "palette", "gradient")),
+        "mood_context": payload.get("mood_context") if isinstance(payload.get("mood_context"), dict) else {},
+        "language": str(payload.get("language") or item.get("language") or "").strip(),
         "cache": payload.get("cache") if isinstance(payload.get("cache"), dict) else {},
         "error": str(payload.get("error") or item.get("error") or "").strip(),
     }
+
+
+def _track_insight_allowed_analysis(analysis: dict[str, object]) -> dict[str, object]:
+    allowed = {
+        "summary",
+        "full_text",
+        "fullText",
+        "genre",
+        "subgenre",
+        "mood",
+        "vibe",
+        "texture",
+        "emotional_tone",
+        "energy",
+        "danceability",
+        "intensity",
+        "confidence",
+        "production_notes",
+        "instrumentation",
+        "arrangement_notes",
+        "listening_cues",
+        "similar_tracks",
+        "why_it_fits",
+        "whyItFits",
+        "reasons",
+        "sections",
+    }
+    return {key: value for key, value in analysis.items() if key in allowed}
 
 
 def _track_insight_music_dna_match(data: dict[str, object]) -> str:
@@ -2375,10 +2909,148 @@ def _track_insight_music_dna_match(data: dict[str, object]) -> str:
     return str(raw or "").strip()
 
 
+def _track_insight_visualizer(data: dict[str, object], items: list[dict[str, object]], sections: list[dict[str, object]]) -> dict[str, object]:
+    analysis = data.get("analysis") if isinstance(data.get("analysis"), dict) else {}
+    track = data.get("track") if isinstance(data.get("track"), dict) else {}
+    visualizer = data.get("visualizer") if isinstance(data.get("visualizer"), dict) else {}
+    colors = _track_visualizer_colors(visualizer, data)
+    bars = _track_visualizer_bars(visualizer)
+    source = "backend" if bars else "fallback"
+    if not bars:
+        bars = _track_visualizer_fallback_bars(data, items, sections)
+    if not bars:
+        return {}
+    return {
+        "available": True,
+        "source": source,
+        "bars": bars[:48],
+        "colors": colors[:4],
+        "title": str(track.get("title") or "").strip(),
+        "artist": str(track.get("artist") or "").strip(),
+        "mood": str(analysis.get("mood") or analysis.get("vibe") or "").strip(),
+        "genre": str(analysis.get("genre") or analysis.get("subgenre") or "").strip(),
+        "texture": str(analysis.get("texture") or "").strip(),
+    }
+
+
+def _track_visualizer_bars(visualizer: dict[str, object]) -> list[float]:
+    value = _first_present(visualizer, ("bars", "levels", "waveform", "spectrum", "values"))
+    if isinstance(value, dict):
+        value = value.get("values") or value.get("bars") or value.get("levels")
+    if not isinstance(value, list):
+        return []
+    bars: list[float] = []
+    for item in value:
+        raw = item
+        if isinstance(item, dict):
+            raw = _first_present(item, ("value", "height", "level", "amplitude"))
+        number = _visualizer_number(raw)
+        if number is not None:
+            bars.append(number)
+    return _normalize_visualizer_bars(bars)
+
+
+def _track_visualizer_fallback_bars(data: dict[str, object], items: list[dict[str, object]], sections: list[dict[str, object]]) -> list[float]:
+    analysis = data.get("analysis") if isinstance(data.get("analysis"), dict) else {}
+    metrics: list[float] = []
+    for key in ("energy", "danceability", "intensity", "confidence"):
+        number = _visualizer_number(analysis.get(key))
+        if number is not None:
+            metrics.append(number)
+    for item in items:
+        if isinstance(item, dict):
+            number = _visualizer_number(item.get("value"))
+            if number is not None:
+                metrics.append(number)
+    if not metrics:
+        seed_text = " ".join(
+            str(value)
+            for value in (
+                analysis.get("mood"),
+                analysis.get("vibe"),
+                analysis.get("genre"),
+                analysis.get("texture"),
+                *(section.get("title", "") for section in sections if isinstance(section, dict)),
+            )
+            if value
+        )
+        if seed_text:
+            metrics = [((ord(char) % 13) + 5) / 18 for char in seed_text[:16]]
+    if not metrics:
+        metrics = [0.45, 0.58, 0.52, 0.66]
+    bars: list[float] = []
+    for index in range(36):
+        base = metrics[index % len(metrics)]
+        wave = 0.5 + 0.5 * abs(((index % 12) - 6) / 6)
+        bars.append(max(0.18, min(1.0, base * 0.72 + wave * 0.28)))
+    return bars
+
+
+def _track_visualizer_colors(visualizer: dict[str, object], data: dict[str, object]) -> list[str]:
+    visual_profile = data.get("visual_profile") if isinstance(data.get("visual_profile"), dict) else {}
+    colors: list[str] = []
+    for source in (
+        visualizer.get("colors"),
+        visualizer.get("palette"),
+        visualizer.get("gradient"),
+        data.get("colors"),
+        visual_profile.get("palette"),
+        visual_profile.get("colors"),
+    ):
+        colors.extend(_color_list(source))
+    deduped: list[str] = []
+    for color in colors:
+        if color not in deduped:
+            deduped.append(color)
+    return deduped
+
+
+def _color_list(value: object) -> list[str]:
+    if isinstance(value, dict):
+        result: list[str] = []
+        for key in ("start", "mid", "middle", "end", "primary", "secondary", "accent"):
+            color = _safe_hex_color(value.get(key))
+            if color:
+                result.append(color)
+        return result
+    if isinstance(value, list):
+        return [color for color in (_safe_hex_color(item) for item in value) if color]
+    color = _safe_hex_color(value)
+    return [color] if color else []
+
+
+def _safe_hex_color(value: object) -> str:
+    text = str(value or "").strip()
+    return text if re.fullmatch(r"#[0-9a-fA-F]{6}", text) else ""
+
+
+def _visualizer_number(value: object) -> float | None:
+    if isinstance(value, (int, float)):
+        number = float(value)
+    else:
+        match = re.search(r"-?\d+(?:\.\d+)?", str(value or ""))
+        if not match:
+            return None
+        number = float(match.group(0))
+    if number > 1:
+        number = number / 100.0
+    return max(0.0, min(1.0, number))
+
+
+def _normalize_visualizer_bars(values: list[float]) -> list[float]:
+    if not values:
+        return []
+    peak = max(values)
+    if peak > 0:
+        values = [value / peak for value in values]
+    return [max(0.08, min(1.0, value)) for value in values]
+
+
 def _track_insight_analysis(data: dict[str, object]) -> dict[str, object]:
     analysis = data.get("analysis")
     music_dna = data.get("music_dna")
     track = data.get("track")
+    mood_context = data.get("mood_context")
     sections: list[dict[str, object]] = []
     if isinstance(analysis, dict):
         summary = str(analysis.get("summary") or analysis.get("full_text") or analysis.get("fullText") or "").strip()
@@ -2400,7 +3072,6 @@ def _track_insight_analysis(data: dict[str, object]) -> dict[str, object]:
             ("arrangement_notes", "Arrangement"),
             ("listening_cues", "Listening cues"),
             ("similar_tracks", "Similar tracks"),
-            ("visual_profile", "Visual profile"),
         ):
             details = _string_list(analysis.get(key))
             body = str(analysis.get(key) or "").strip() if not details else ""
@@ -2410,6 +3081,10 @@ def _track_insight_analysis(data: dict[str, object]) -> dict[str, object]:
             sections.append({"id": "why_it_fits", "kind": "music_dna", "title": "Why it fits you", "body": "", "source": "", "confidence": "", "details": why, "metadataContext": False})
         for section in _ask_dj_analysis_sections(analysis.get("sections")):
             sections.append(section)
+    if isinstance(mood_context, dict):
+        zone = str(mood_context.get("zone") or mood_context.get("mood_zone") or mood_context.get("label") or "").strip()
+        if zone:
+            sections.append({"id": "mood_context", "kind": "mood_context", "title": "Mood context", "body": zone, "source": "", "confidence": "", "details": [], "metadataContext": True})
     if isinstance(music_dna, dict):
         summary = str(music_dna.get("summary") or "").strip()
         if summary:
@@ -2522,6 +3197,35 @@ def _ask_dj_items(*values: object) -> list[dict[str, object]]:
     return items[:20]
 
 
+def _ask_dj_recently_played_items(*values: object) -> list[dict[str, object]]:
+    items: list[dict[str, object]] = []
+    for value in values:
+        if not isinstance(value, list):
+            continue
+        for item in value:
+            if not isinstance(item, dict):
+                continue
+            title = str(item.get("title") or "").strip()
+            subtitle = str(item.get("subtitle") or item.get("artist") or "").strip()
+            if not title and not subtitle:
+                continue
+            items.append(
+                {
+                    "title": title,
+                    "subtitle": subtitle,
+                    "value": str(item.get("value") or ""),
+                    "time": str(item.get("played_at") or item.get("time") or item.get("timestamp") or "").strip(),
+                    "kind": str(item.get("kind") or item.get("type") or "").strip(),
+                    "source": str(item.get("source") or "").strip(),
+                    "confidence": str(item.get("confidence") or ""),
+                    "imageUrl": str(item.get("image_url") or item.get("imageUrl") or ""),
+                    "trackInsightMetric": False,
+                    "musicDna": False,
+                }
+            )
+    return items[:20]
+
+
 def _track_insight_items(data: dict[str, object]) -> list[dict[str, object]]:
     items: list[dict[str, object]] = []
     music_dna = data.get("music_dna")
@@ -2546,11 +3250,12 @@ def _track_insight_items(data: dict[str, object]) -> list[dict[str, object]]:
         for key, title in (("energy", "Energy"), ("danceability", "Danceability"), ("intensity", "Intensity"), ("confidence", "Confidence")):
             raw = analysis.get(key)
             if raw not in (None, ""):
+                value = _metric_percent(raw)
                 items.append(
                     {
                         "title": title,
                         "subtitle": "",
-                        "value": str(raw),
+                        "value": value,
                         "time": "",
                         "kind": "track_insight_metric",
                         "source": "",
@@ -2843,6 +3548,16 @@ def _time_label(value: object) -> str:
     return str(value).strip()
 
 
+def _metric_percent(value: object) -> str:
+    if isinstance(value, (int, float)):
+        numeric = float(value)
+        if 0.0 <= numeric <= 1.0:
+            return f"{int(round(numeric * 100))}%"
+        if 1.0 < numeric <= 100.0:
+            return f"{int(round(numeric))}%"
+    return str(value).strip()
+
+
 def _ask_dj_actions(playback_actions: object, confirmation_actions: object) -> list[dict[str, object]]:
     actions: list[dict[str, object]] = []
     for value in (playback_actions, confirmation_actions):
@@ -3045,6 +3760,22 @@ def _sort_ask_dj_messages(messages: list[dict[str, object]]) -> list[dict[str, o
     return sorted(messages, key=sort_key)
 
 
+def _sort_ask_dj_messages_newest_first(messages: list[dict[str, object]]) -> list[dict[str, object]]:
+    return list(reversed(_sort_ask_dj_messages(messages)))
+
+
+def _ask_dj_display_time(value: object) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    try:
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        match = re.search(r"\b(\d{2}:\d{2})(?::\d{2})?\b", raw)
+        return match.group(1) if match else ""
+    return parsed.astimezone().strftime("%H:%M")
+
+
 def _int_value(value: object, default: int = 0) -> int:
     try:
         return int(value)
@@ -3063,6 +3794,10 @@ def _context_supports_offset(context_uri: str) -> bool:
     return context_uri.startswith(("spotify:playlist:", "spotify:album:", "spotify:show:"))
 
 
+def _toast_icon_for_context(context: str) -> str:
+    return TOAST_CONTEXT_ICONS.get(context.strip().lower(), TOAST_ICON_FALLBACK)
+
+
 def _first_present(data: dict[str, object], keys: tuple[str, ...]) -> object:
     for key in keys:
         value = data.get(key)
@@ -3077,6 +3812,13 @@ def _first_present(data: dict[str, object], keys: tuple[str, ...]) -> object:
     return None
 
 
+def _first_dict(*values: object) -> dict[str, object]:
+    for value in values:
+        if isinstance(value, dict):
+            return value
+    return {}
+
+
 def parse_music_dna_profile(data: dict[str, object]) -> dict[str, object]:
     profile = data.get("profile")
     if not isinstance(profile, dict):
@@ -3085,69 +3827,70 @@ def parse_music_dna_profile(data: dict[str, object]) -> dict[str, object]:
     summary = str(profile.get("summary") or data.get("summary") or "").strip() if enabled else ""
     sections: list[dict[str, object]] = []
     if enabled:
-        sections.extend(_music_dna_list_section(profile, "favorite_genres", "Favorite genres"))
-        sections.extend(_music_dna_list_section(profile, "favorite_artists", "Favorite artists"))
-        sections.extend(_music_dna_track_section(profile, "recent_tracks", "Recent tracks"))
-        sections.extend(_music_dna_track_section(profile, "recent_favorite_tracks", "Recent favorites"))
-        sections.extend(_music_dna_playtime_section(profile))
-        sections.extend(_music_dna_rhythm_section(profile))
-        sections.extend(_music_dna_mood_mix_section(profile))
-        sections.extend(_music_dna_list_section(profile, "energy_profile", "Energy profile"))
-        sections.extend(_music_dna_eligible_section(profile, "repeat_magnets", "Blijft terugkomen"))
-        sections.extend(_music_dna_eligible_section(profile, "explicit_positives", "Waar je ja tegen zei"))
-        sections.extend(_music_dna_eligible_section(profile, "taste_anchors", "Smaakankers"))
-        sections.extend(_music_dna_list_section(profile, "recommendation_signals", "Recommendation signals"))
+        for key, title in _MUSIC_DNA_RENDER_BLOCKS:
+            sections.extend(_music_dna_backend_section(profile, key, title))
     return {"enabled": enabled, "summary": summary, "sections": sections}
 
 
 def parse_music_discovery_feed(data: dict[str, object]) -> dict[str, object]:
-    items_source = data.get("items") or data.get("recommendations") or data.get("feed")
-    if isinstance(items_source, dict):
-        items_source = items_source.get("items") or items_source.get("recommendations")
     items: list[dict[str, object]] = []
-    if isinstance(items_source, list):
-        for raw in items_source:
-            if not isinstance(raw, dict):
+    sections_source = data.get("sections")
+    if isinstance(sections_source, list):
+        for section_index, section in enumerate(sections_source):
+            if not isinstance(section, dict):
                 continue
-            item = _music_discovery_item(raw)
-            if item:
+            section_id = str(section.get("id") or section.get("section_id") or f"section-{section_index + 1}").strip()
+            section_title = str(section.get("title") or section.get("name") or "").strip()
+            raw_items = section.get("items")
+            if not isinstance(raw_items, list):
+                continue
+            for raw in raw_items:
+                if not isinstance(raw, dict):
+                    continue
+                item = _music_discovery_item(raw, section_id=section_id, section_title=section_title)
+                if not item:
+                    continue
                 items.append(item)
     empty_text = str(data.get("empty_text") or data.get("empty_message") or data.get("message") or "").strip()
     return {"items": items, "empty_text": empty_text}
 
 
-def _music_discovery_item(raw: dict[str, object]) -> dict[str, object] | None:
-    kind = str(raw.get("kind") or raw.get("type") or "").strip().lower()
-    if kind not in {"track", "album", "artist", "playlist"}:
-        return None
-    title = str(raw.get("title") or raw.get("name") or "").strip()
+def _music_discovery_item(raw: dict[str, object], *, section_id: str, section_title: str) -> dict[str, object] | None:
+    kind = str(raw.get("kind") or "").strip().lower()
+    title = str(raw.get("title") or "").strip()
     if not title:
         return None
-    subtitle = str(raw.get("subtitle") or raw.get("artist") or raw.get("context") or raw.get("description") or "").strip()
-    item_id = str(raw.get("id") or raw.get("recommendation_id") or raw.get("item_id") or raw.get("uri") or title).strip()
-    reason = str(raw.get("reason") or raw.get("music_dna_reason") or "").strip()
-    relevance = str(raw.get("relevance") or raw.get("confidence") or raw.get("score") or "").strip()
+    subtitle = str(raw.get("subtitle") or "").strip()
+    item_id = str(raw.get("id") or "").strip()
+    discovery_item_id = str(raw.get("discovery_item_id") or raw.get("id") or "").strip()
+    uri = str(raw.get("uri") or "").strip()
+    reason = str(raw.get("reason") or "").strip()
+    reason_sources = _string_list(raw.get("reason_sources"))
+    quality_score = raw.get("quality_score")
+    quality_band = str(raw.get("quality_band") or "").strip()
+    quality_factors = raw.get("quality_factors") if isinstance(raw.get("quality_factors"), (dict, list)) else {}
+    playable = bool(uri)
     payload = {
-        "id": item_id,
-        "recommendation_id": str(raw.get("recommendation_id") or item_id),
-        "item_id": str(raw.get("item_id") or item_id),
-        "kind": kind,
-        "type": str(raw.get("type") or kind),
-        "uri": str(raw.get("uri") or raw.get("spotify_uri") or ""),
-        "title": title,
-        "subtitle": subtitle,
-        "artist": str(raw.get("artist") or ""),
+        "section_id": section_id,
+        "discovery_item_id": discovery_item_id,
     }
     return {
         "id": item_id,
+        "sectionId": section_id,
+        "sectionTitle": section_title,
+        "discoveryItemId": discovery_item_id,
         "title": title,
         "subtitle": subtitle,
         "kind": kind,
         "kindLabel": kind.title(),
-        "imageUrl": _queue_image_url_from(raw),
-        "relevance": relevance,
+        "imageUrl": str(raw.get("image_url") or ""),
+        "qualityScore": quality_score,
+        "qualityBand": quality_band,
+        "qualityFactors": quality_factors,
         "reason": reason,
+        "reasonSources": reason_sources,
         "hasReason": bool(reason),
+        "playable": playable,
         "payload": json.dumps(payload, ensure_ascii=True),
     }
 
@@ -3157,6 +3900,103 @@ def _music_dna_section(title: str, lines: list[str]) -> list[dict[str, object]]:
     if not clean:
         return []
     return [{"title": title, "lines": clean}]
+
+
+_MUSIC_DNA_RENDER_BLOCKS: tuple[tuple[str, str], ...] = (
+    ("favorite_genres", "Favorite genres"),
+    ("favorite_artists", "Favorite artists"),
+    ("energy_profile", "Energy profile"),
+    ("playtime", "Playtime"),
+    ("listening_rhythm", "Listening rhythm"),
+    ("mood_mix", "Mood mix"),
+    ("repeat_magnets", "Repeat magnets"),
+    ("explicit_positives", "Accepted signals"),
+    ("taste_anchors", "Taste anchors"),
+    ("recent_tracks", "Recent signals"),
+    ("recent_favorite_tracks", "Recent favorites"),
+    ("top_tracks_by_range", "Top tracks"),
+    ("top_artists_by_range", "Top artists"),
+    ("snapshot_history", "Snapshot history"),
+    ("discovery_feedback", "Discovery feedback"),
+    ("privacy_dashboard", "Privacy dashboard"),
+    ("last_profile_refresh", "Last refresh"),
+    ("consent_updated_at", "Consent updated"),
+)
+
+_MUSIC_DNA_SENSITIVE_KEY_PARTS = (
+    "token",
+    "bearer",
+    "oauth",
+    "prompt",
+    "raw_audio",
+    "audio",
+    "full_history",
+)
+
+
+def _music_dna_backend_section(profile: dict[str, object], key: str, title: str) -> list[dict[str, object]]:
+    if key not in profile:
+        return []
+    value = profile.get(key)
+    if isinstance(value, dict) and value.get("eligible") is False:
+        reason = str(value.get("reason") or "").strip()
+        return _music_dna_section(title, [reason] if reason and key in {"privacy_dashboard"} else [])
+    return _music_dna_section(title, _music_dna_compact_lines(value, depth=0))
+
+
+def _music_dna_compact_lines(value: object, *, depth: int) -> list[str]:
+    if depth > 3:
+        return []
+    if value in (None, "", [], {}):
+        return []
+    if isinstance(value, (str, int, float, bool)):
+        return [str(value)]
+    if isinstance(value, list):
+        lines: list[str] = []
+        for item in value[:8]:
+            lines.extend(_music_dna_compact_lines(item, depth=depth + 1))
+        return lines
+    if isinstance(value, dict):
+        if value.get("eligible") is False:
+            return []
+        item_lines = _music_dna_named_item_lines(value)
+        if item_lines:
+            return item_lines
+        lines = []
+        for key, item in value.items():
+            key_text = str(key)
+            if _music_dna_is_sensitive_key(key_text):
+                continue
+            if key_text in {"eligible", "items", "values", "tracks", "artists", "genres", "signals"}:
+                nested = _music_dna_compact_lines(item, depth=depth + 1)
+                lines.extend(nested)
+                continue
+            nested_lines = _music_dna_compact_lines(item, depth=depth + 1)
+            if len(nested_lines) == 1:
+                lines.append(f"{key_text.replace('_', ' ').title()}: {nested_lines[0]}")
+            elif nested_lines:
+                lines.append(f"{key_text.replace('_', ' ').title()}: {', '.join(nested_lines[:4])}")
+        return lines[:10]
+    return [str(value)]
+
+
+def _music_dna_named_item_lines(value: dict[str, object]) -> list[str]:
+    title = str(value.get("title") or value.get("name") or value.get("label") or value.get("track") or "").strip()
+    subtitle = str(value.get("subtitle") or value.get("artist") or value.get("artist_name") or value.get("range") or "").strip()
+    if not title:
+        return []
+    score = value.get("percent") if value.get("percent") is not None else value.get("score")
+    text = f"{title} - {subtitle}" if subtitle else title
+    if score not in (None, ""):
+        text = f"{text} ({score})"
+    return [text]
+
+
+def _music_dna_is_sensitive_key(key: str) -> bool:
+    normalized = key.lower()
+    if normalized.startswith("stores_"):
+        return False
+    return any(part in normalized for part in _MUSIC_DNA_SENSITIVE_KEY_PARTS)
 
 
 def _music_dna_list_section(profile: dict[str, object], key: str, title: str) -> list[dict[str, object]]:

@@ -1,14 +1,15 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import "MoodTheme.js" as MoodTheme
 
 Rectangle {
     id: root
     gradient: Gradient {
         orientation: Gradient.Vertical
-        GradientStop { position: 0.0; color: "#1b0f45" }
-        GradientStop { position: 0.42; color: "#0b1d4f" }
-        GradientStop { position: 1.0; color: "#070b16" }
+        GradientStop { position: 0.0; color: MoodTheme.color(djconnect.moodValue, "backgroundStart") }
+        GradientStop { position: 0.42; color: MoodTheme.color(djconnect.moodValue, "backgroundMid") }
+        GradientStop { position: 1.0; color: MoodTheme.color(djconnect.moodValue, "backgroundEnd") }
     }
 
     Rectangle {
@@ -16,9 +17,9 @@ Rectangle {
         opacity: 0.28
         gradient: Gradient {
             orientation: Gradient.Horizontal
-            GradientStop { position: 0.0; color: "#2f8cff" }
+            GradientStop { position: 0.0; color: MoodTheme.color(djconnect.moodValue, "overlayStart") }
             GradientStop { position: 0.5; color: "#00000000" }
-            GradientStop { position: 1.0; color: "#8b5cf6" }
+            GradientStop { position: 1.0; color: MoodTheme.color(djconnect.moodValue, "overlayEnd") }
         }
     }
 
@@ -58,12 +59,12 @@ Rectangle {
         background: Rectangle {
             radius: Math.min(width, height) / 2
             border.width: control.checked ? 2 : 0
-            border.color: "#f5d0fe"
+            border.color: MoodTheme.color(djconnect.moodValue, "focus")
             gradient: Gradient {
                 orientation: Gradient.Horizontal
-                GradientStop { position: 0.0; color: control.enabled ? "#247fff" : "#33415f" }
-                GradientStop { position: 0.58; color: control.enabled ? "#7757ff" : "#3c3f61" }
-                GradientStop { position: 1.0; color: control.enabled ? "#c33cff" : "#4b3d65" }
+                GradientStop { position: 0.0; color: control.enabled ? MoodTheme.color(djconnect.moodValue, "gradientStart") : MoodTheme.disabled("start") }
+                GradientStop { position: 0.58; color: control.enabled ? MoodTheme.color(djconnect.moodValue, "gradientMid") : MoodTheme.disabled("mid") }
+                GradientStop { position: 1.0; color: control.enabled ? MoodTheme.color(djconnect.moodValue, "gradientEnd") : MoodTheme.disabled("end") }
             }
         }
     }
@@ -116,7 +117,13 @@ Rectangle {
     property real pacmanDY: 0
     property real ghostX: 250
     property real ghostY: 86
-    property var powerPellets: [0, 7, 24, 31]
+    property int pacmanPelletColumns: 10
+    property int pacmanPelletRows: 6
+    property real pacmanPelletOriginX: 20
+    property real pacmanPelletOriginY: 24
+    property real pacmanPelletSpacingX: 280 / (pacmanPelletColumns - 1)
+    property real pacmanPelletSpacingY: 28
+    property var powerPellets: [0, 9, 50, 59]
     property int ghostVulnerableTicks: 0
     property var pellets: []
 
@@ -186,11 +193,35 @@ Rectangle {
         pacmanDY = 0
         ghostX = 250
         ghostY = 86
-        powerPellets = [0, 7, 24, 31]
+        powerPellets = [0, 9, 50, 59]
         ghostVulnerableTicks = 0
         deathTicks = 0
         pellets = []
-        for (var i = 0; i < 32; i++) pellets.push(i)
+        for (var i = 0; i < pacmanPelletColumns * pacmanPelletRows; i++) pellets.push(i)
+    }
+
+    function pacmanPelletX(pellet) {
+        return pacmanPelletOriginX + (pellet % pacmanPelletColumns) * pacmanPelletSpacingX
+    }
+
+    function pacmanPelletY(pellet) {
+        return pacmanPelletOriginY + Math.floor(pellet / pacmanPelletColumns) * pacmanPelletSpacingY
+    }
+
+    function pacmanMinX() {
+        return pacmanPelletOriginX
+    }
+
+    function pacmanMaxX() {
+        return pacmanPelletOriginX + (pacmanPelletColumns - 1) * pacmanPelletSpacingX
+    }
+
+    function pacmanMinY() {
+        return pacmanPelletOriginY
+    }
+
+    function pacmanMaxY() {
+        return pacmanPelletOriginY + (pacmanPelletRows - 1) * pacmanPelletSpacingY
     }
 
     function resetStars() {
@@ -393,16 +424,16 @@ Rectangle {
                 gameCanvas.requestPaint()
                 return
             }
-            pacmanX = Math.max(28, Math.min(292, pacmanX + pacmanDX * 4))
-            pacmanY = Math.max(44, Math.min(150, pacmanY + pacmanDY * 4))
+            pacmanX = Math.max(pacmanMinX(), Math.min(pacmanMaxX(), pacmanX + pacmanDX * 4))
+            pacmanY = Math.max(pacmanMinY(), Math.min(pacmanMaxY(), pacmanY + pacmanDY * 4))
             if (ghostVulnerableTicks > 0) ghostVulnerableTicks -= 1
             var step = ghostVulnerableTicks > 0 ? 1 : 1.35 + Math.min(Math.floor(score / 14) * 0.45, 1.8)
             if (Math.abs(ghostX - pacmanX) > 2) ghostX += ghostX < pacmanX ? step : -step
             if (Math.abs(ghostY - pacmanY) > 2) ghostY += ghostY < pacmanY ? step : -step
             for (var p = 0; p < pellets.length; p++) {
                 var pellet = pellets[p]
-                var px = 48 + (pellet % 8) * 28
-                var py = 52 + Math.floor(pellet / 8) * 28
+                var px = pacmanPelletX(pellet)
+                var py = pacmanPelletY(pellet)
                 if (Math.abs(px - pacmanX) < 10 && Math.abs(py - pacmanY) < 10) {
                     pellets.splice(p, 1)
                     if (powerPellets.indexOf(pellet) >= 0) {
@@ -454,7 +485,9 @@ Rectangle {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 24
+        anchors.leftMargin: 12
+        anchors.topMargin: 34
+        anchors.rightMargin: 12
         anchors.bottomMargin: 130
         spacing: 12
 
@@ -526,12 +559,12 @@ Rectangle {
                         background: Rectangle {
                             radius: Math.min(width, height) / 2
                             border.width: gameSegment.checked ? 2 : 0
-                            border.color: "#f5d0fe"
+                            border.color: MoodTheme.color(djconnect.moodValue, "focus")
                             gradient: Gradient {
                                 orientation: Gradient.Horizontal
-                                GradientStop { position: 0.0; color: gameSegment.checked ? "#247fff" : "#00000000" }
-                                GradientStop { position: 0.58; color: gameSegment.checked ? "#7757ff" : "#00000000" }
-                                GradientStop { position: 1.0; color: gameSegment.checked ? "#c33cff" : "#00000000" }
+                                GradientStop { position: 0.0; color: gameSegment.checked ? MoodTheme.color(djconnect.moodValue, "gradientStart") : "#00000000" }
+                                GradientStop { position: 0.58; color: gameSegment.checked ? MoodTheme.color(djconnect.moodValue, "gradientMid") : "#00000000" }
+                                GradientStop { position: 1.0; color: gameSegment.checked ? MoodTheme.color(djconnect.moodValue, "gradientEnd") : "#00000000" }
                             }
                             opacity: gameSegment.down ? 0.82 : 1.0
                         }
@@ -570,10 +603,14 @@ Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.minimumHeight: 318
+            Layout.topMargin: 10
+            clip: true
 
             Canvas {
                 id: gameCanvas
-                anchors.fill: parent
+                anchors.centerIn: parent
+                width: Math.min(parent.width, parent.height * 320 / 170)
+                height: width * 170 / 320
                 antialiasing: true
 
                 onPaint: {
@@ -684,13 +721,11 @@ Rectangle {
                         ctx.fillStyle = "rgba(255,255,255,0.82)"
                         for (var i = 0; i < root.pellets.length; i++) {
                             var pellet = root.pellets[i]
-                            var col = pellet % 8
-                            var row = Math.floor(pellet / 8)
                             var isPowerPellet = root.powerPellets.indexOf(pellet) >= 0
                             ctx.beginPath()
                             ctx.arc(
-                                rx(48 + col * 28),
-                                ry(52 + row * 28),
+                                rx(root.pacmanPelletX(pellet)),
+                                ry(root.pacmanPelletY(pellet)),
                                 isPowerPellet ? Math.max(rx(5), ry(5)) : Math.max(rx(2), ry(2)),
                                 0,
                                 Math.PI * 2

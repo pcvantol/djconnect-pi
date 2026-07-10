@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any
-import ipaddress
 import json
 import logging
 import time
 from urllib.parse import urlparse, urlunparse
+import requests
 
 from .config import CLIENT_TYPE, Config
 
@@ -21,6 +21,22 @@ class WebSocketFastPathAuthError(WebSocketFastPathError):
     pass
 
 
+REQUESTED_COMMANDS: tuple[str, ...] = (
+    "djconnect/command",
+    "djconnect/ask_dj/message",
+    "djconnect/ask_dj/history",
+    "djconnect/ask_dj/history/clear",
+    "djconnect/music_dna/profile",
+    "djconnect/music_dna/settings",
+    "djconnect/music_dna/clear",
+    "djconnect/music_discovery/feed",
+    "djconnect/music_discovery/refresh",
+    "djconnect/music_discovery/play",
+    "djconnect/music_discovery/feedback",
+    "djconnect/track_insight",
+)
+
+
 @dataclass
 class WebSocketFastPath:
     cfg: Config
@@ -30,7 +46,14 @@ class WebSocketFastPath:
     last_error: str = ""
     last_capability_refresh: float = 0.0
     commands: tuple[str, ...] = ()
+    features: dict[str, bool] = field(default_factory=dict)
+    fallbacks: dict[str, str] = field(default_factory=dict)
+    capabilities: dict[str, bool] = field(default_factory=dict)
+    contract_versions: dict[str, int] = field(default_factory=dict)
     unhealthy_until: float = 0.0
+    _access_token: str = field(default="", init=False, repr=False)
+    _access_token_expires_at: float = field(default=0.0, init=False, repr=False)
+    _websocket_url: str = field(default="", init=False, repr=False)
     _message_id: int = field(default=0, init=False, repr=False)
 
     def update_config(self, cfg: Config) -> None:
@@ -38,13 +61,26 @@ class WebSocketFastPath:
 
     def diagnostics(self) -> dict[str, Any]:
         return {
+            "fast_path_enabled": self.cfg.websocket_fast_path_enabled,
+            "fast_path_transport": self.transport,
+            "websocket_connected": self.connected,
+            "advertised_commands": list(self.commands),
+            "last_capability_refresh": self.last_capability_refresh,
+            "last_error": self.last_error,
             "fastPathTransport": self.transport,
+            "fastPathEnabled": self.cfg.websocket_fast_path_enabled,
             "websocketEnabled": self.cfg.websocket_fast_path_enabled,
-            "websocketAuthConfigured": bool(self.cfg.ha_websocket_token),
+            "websocketAuthConfigured": bool(self.cfg.device_token),
             "websocketConnected": self.connected,
             "lastWebSocketError": self.last_error,
             "lastCapabilityRefresh": self.last_capability_refresh,
             "websocketCommands": list(self.commands),
+            "features": dict(self.features),
+            "fallbacks": dict(self.fallbacks),
+            "capabilities": dict(self.capabilities),
+            "contract_versions": dict(self.contract_versions),
+            "profilePlatformSupported": bool(self.capabilities.get("profiles")),
+            "profileContextContractVersion": int(self.contract_versions.get("profile_context", 0)),
         }
 
     def try_request(self, message_type: str, body: dict[str, Any], *, command: str, timeout: float) -> dict[str, Any] | None:
@@ -64,8 +100,6 @@ class WebSocketFastPath:
     def can_handle(self, command: str) -> bool:
         if not self.cfg.websocket_fast_path_enabled:
             return False
-        if not self.cfg.ha_websocket_token:
-            return False
         if not self.cfg.device_token or not self.cfg.ha_url:
             return False
         if time.monotonic() < self.unhealthy_until:
@@ -76,8 +110,6 @@ class WebSocketFastPath:
             return False
         if parsed.scheme not in {"http", "https"} or not parsed.netloc:
             return False
-        if not _is_local_ha_url(parsed.hostname or ""):
-            return False
         if not self.commands or time.monotonic() - self.last_capability_refresh > 300:
             try:
                 self.refresh_capabilities(timeout=min(5.0, max(1.0, self.default_timeout)))
@@ -87,6 +119,7 @@ class WebSocketFastPath:
         return command in self.commands
 
     def refresh_capabilities(self, *, timeout: float) -> None:
+        self._ensure_session(timeout=timeout)
         response = self._exchange("djconnect/capabilities", {}, timeout=timeout, requires_djconnect_auth=False)
         commands = response.get("commands")
         transports = response.get("transports")
@@ -98,6 +131,14 @@ class WebSocketFastPath:
         if not isinstance(commands, list):
             raise WebSocketFastPathError("WebSocket capabilities missing commands")
         self.commands = tuple(str(item) for item in commands if isinstance(item, str))
+        features = response.get("features")
+        self.features = {str(key): bool(value) for key, value in features.items()} if isinstance(features, dict) else {}
+        capabilities = response.get("capabilities")
+        self.capabilities = {str(key): bool(value) for key, value in capabilities.items()} if isinstance(capabilities, dict) else {}
+        contract_versions = response.get("contract_versions")
+        self.contract_versions = {str(key): _safe_int(value) for key, value in contract_versions.items()} if isinstance(contract_versions, dict) else {}
+        fallbacks = response.get("fallbacks")
+        self.fallbacks = _flatten_fallbacks(fallbacks) if isinstance(fallbacks, dict) else {}
         self.last_capability_refresh = time.time()
         self.connected = True
         self.last_error = ""
@@ -112,12 +153,13 @@ class WebSocketFastPath:
         return response
 
     def _exchange(self, message_type: str, body: dict[str, Any], *, timeout: float, requires_djconnect_auth: bool) -> dict[str, Any]:
+        self._ensure_session(timeout=timeout)
         ws = _websocket_create_connection(self._url(), timeout=timeout)
         try:
             auth_required = _websocket_recv_json(ws)
             if auth_required.get("type") != "auth_required":
                 raise WebSocketFastPathError("Home Assistant WebSocket auth_required was not received")
-            ws.send(json.dumps({"type": "auth", "access_token": self.cfg.ha_websocket_token}))
+            ws.send(json.dumps({"type": "auth", "access_token": self._access_token}))
             auth_response = _websocket_recv_json(ws)
             if auth_response.get("type") != "auth_ok":
                 raise WebSocketFastPathAuthError("Home Assistant WebSocket auth failed")
@@ -134,6 +176,10 @@ class WebSocketFastPath:
                 )
                 if self.cfg.music_dna_key:
                     message["music_dna_key"] = self.cfg.music_dna_key
+                if self.cfg.explicit_profile_id:
+                    message["profile_id"] = self.cfg.explicit_profile_id
+                if self.cfg.private_session:
+                    message["private_session"] = True
             ws.send(json.dumps(message))
             response = _websocket_recv_json(ws)
             if response.get("type") == "result":
@@ -155,12 +201,54 @@ class WebSocketFastPath:
             except Exception:
                 pass
 
+    def _ensure_session(self, *, timeout: float) -> None:
+        if self._access_token and time.time() < self._access_token_expires_at - 30:
+            return
+        if not self.cfg.device_token:
+            raise WebSocketFastPathAuthError("DJConnect bearer token is not configured")
+        url = self._session_url()
+        payload = {
+            "device_id": self.cfg.device_id,
+            "client_type": CLIENT_TYPE,
+            "requested_commands": list(REQUESTED_COMMANDS),
+        }
+        if self.cfg.explicit_profile_id:
+            payload["profile_id"] = self.cfg.explicit_profile_id
+        if self.cfg.private_session:
+            payload["private_session"] = True
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.cfg.device_token}",
+            "X-DJConnect-Device-ID": self.cfg.device_id,
+            "X-DJConnect-Client-Type": CLIENT_TYPE,
+        }
+        started = time.monotonic()
+        response = requests.post(url, json=payload, headers=headers, timeout=timeout)
+        _LOGGER.debug("POST %s returned HTTP %s in %.0fms", url, response.status_code, (time.monotonic() - started) * 1000)
+        data = _response_json(response)
+        if response.status_code >= 400 or not isinstance(data.get("access_token"), str) or not str(data.get("access_token")).strip():
+            raise WebSocketFastPathAuthError("WebSocket session bootstrap failed")
+        self._access_token = str(data["access_token"])
+        self._access_token_expires_at = _expires_at(data.get("expires_at"))
+        self._websocket_url = str(data.get("websocket_url") or "")
+        commands = data.get("commands")
+        if isinstance(commands, list) and commands:
+            self.commands = tuple(str(item) for item in commands if isinstance(item, str))
+
+    def _session_url(self) -> str:
+        return self._base_url("/api/djconnect/v1/websocket/session")
+
     def _url(self) -> str:
+        if self._websocket_url:
+            return self._websocket_url
+        return self._base_url("/api/websocket", websocket=True)
+
+    def _base_url(self, path: str, *, websocket: bool = False) -> str:
         parsed = urlparse(self.cfg.ha_url)
         if parsed.scheme not in {"http", "https"} or not parsed.netloc:
             raise WebSocketFastPathError("WebSocket fast path requires a local HTTP(S) Home Assistant URL")
-        scheme = "wss" if parsed.scheme == "https" else "ws"
-        return urlunparse((scheme, parsed.netloc, "/api/websocket", "", "", ""))
+        scheme = ("wss" if parsed.scheme == "https" else "ws") if websocket else parsed.scheme
+        return urlunparse((scheme, parsed.netloc, path, "", "", ""))
 
     def _next_id(self) -> int:
         self._message_id += 1
@@ -171,6 +259,10 @@ class WebSocketFastPath:
         self.connected = False
         self.last_error = exc.__class__.__name__
         self.unhealthy_until = time.monotonic() + 30
+        if isinstance(exc, WebSocketFastPathAuthError):
+            self._access_token = ""
+            self._access_token_expires_at = 0.0
+            self._websocket_url = ""
         _LOGGER.debug("WebSocket fast path unavailable; falling back to HTTP: %s", exc.__class__.__name__)
 
 
@@ -182,17 +274,15 @@ def _websocket_create_connection(url: str, *, timeout: float) -> Any:
     return websocket.create_connection(url, timeout=timeout)
 
 
-def _is_local_ha_url(hostname: str) -> bool:
-    host = hostname.strip().lower().strip("[]")
-    if not host:
-        return False
-    if host == "localhost" or host.endswith(".local") or "." not in host:
-        return True
-    try:
-        address = ipaddress.ip_address(host)
-    except ValueError:
-        return False
-    return address.is_private or address.is_loopback or address.is_link_local
+def _flatten_fallbacks(value: dict[str, Any], prefix: str = "") -> dict[str, str]:
+    flattened: dict[str, str] = {}
+    for key, item in value.items():
+        full_key = f"{prefix}_{key}" if prefix else str(key)
+        if isinstance(item, dict):
+            flattened.update(_flatten_fallbacks(item, full_key))
+        elif item:
+            flattened[full_key] = str(item)
+    return flattened
 
 
 def _websocket_recv_json(ws: Any) -> dict[str, Any]:
@@ -206,3 +296,38 @@ def _websocket_recv_json(ws: Any) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise WebSocketFastPathError("Home Assistant WebSocket returned non-object JSON")
     return data
+
+
+def _response_json(response: requests.Response) -> dict[str, Any]:
+    try:
+        data = response.json() if response.content else {}
+    except ValueError as exc:
+        raise WebSocketFastPathError("WebSocket session returned invalid JSON") from exc
+    if not isinstance(data, dict):
+        raise WebSocketFastPathError("WebSocket session returned non-object JSON")
+    return data
+
+
+def _expires_at(value: object) -> float:
+    if value in (None, ""):
+        return time.time() + 240
+    if isinstance(value, (int, float)):
+        return float(value)
+    text = str(value).strip()
+    try:
+        return float(text)
+    except ValueError:
+        pass
+    try:
+        from datetime import datetime
+
+        return datetime.fromisoformat(text.replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return time.time() + 240
+
+
+def _safe_int(value: object) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0

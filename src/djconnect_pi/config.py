@@ -8,11 +8,12 @@ import os
 import re
 import secrets
 import uuid
+from typing import Any
 
 from .i18n import normalize_language
 
 CLIENT_TYPE = "raspberry_pi"
-PROTOCOL_VERSION = "3.2.10"
+PROTOCOL_VERSION = "3.2.20"
 DEFAULT_CONFIG_PATH = Path.home() / ".config" / "djconnect-pi" / "config.json"
 DEFAULT_LOG_PATH = Path.home() / ".local" / "state" / "djconnect-pi" / "client.log"
 
@@ -33,6 +34,7 @@ class Config:
     local_api_host: str = "0.0.0.0"  # nosec B104
     local_api_port: int = 18080
     screen_timeout_seconds: int = 120
+    return_to_now_seconds: int = 60
     screen_brightness_percent: int = 100
     language: str = field(default_factory=lambda: default_language_from_system())
     log_file: str = str(DEFAULT_LOG_PATH)
@@ -40,12 +42,20 @@ class Config:
     music_backend_name: str = ""
     music_backend_available: bool = True
     music_backend_revision: int = 0
-    music_backend_capabilities: dict[str, bool] = field(default_factory=dict)
+    music_backend_capabilities: dict[str, Any] = field(default_factory=dict)
     music_target_player: dict[str, str] = field(default_factory=dict)
     music_backend_error: str = ""
     music_dna_key: str = ""
+    active_profile_id: str = ""
+    active_profile_name: str = ""
+    active_profile_type: str = "household"
+    active_profile_privacy_mode: str = "shared"
+    explicit_profile_id: str = ""
+    private_session: bool = False
     mood: int | None = None
-    websocket_fast_path_enabled: bool = False
+    dj_announcement_output: str = "text_only"
+    dj_announcement_output_user_set: bool = False
+    websocket_fast_path_enabled: bool = True
     ha_websocket_token: str = ""
     dj_response_file: str = str(DEFAULT_LOG_PATH.parent / "dj-response.json")
     command_event_file: str = str(DEFAULT_LOG_PATH.parent / "command-event.json")
@@ -86,7 +96,8 @@ def load_config(path: Path) -> Config:
         save_config(path, cfg)
         return cfg
     data = json.loads(path.read_text(encoding="utf-8"))
-    cfg = Config(**{**asdict(Config()), **data})
+    defaults = asdict(Config())
+    cfg = Config(**{**defaults, **{key: value for key, value in data.items() if key in defaults}})
     if "updater_status_file" not in data and path.name == "client.json":
         cfg.updater_status_file = str(path.parent / "updater-status.json")
     if not cfg.device_id:
@@ -97,12 +108,24 @@ def load_config(path: Path) -> Config:
     if not re.fullmatch(r"\d{6}", str(cfg.pairing_code)):
         cfg.pairing_code = generate_pairing_code()
     cfg.screen_timeout_seconds = max(0, int(cfg.screen_timeout_seconds))
+    cfg.return_to_now_seconds = _normalize_return_to_now_seconds(cfg.return_to_now_seconds)
     cfg.screen_brightness_percent = max(10, min(100, int(cfg.screen_brightness_percent)))
     cfg.mood = _optional_mood(cfg.mood)
+    cfg.dj_announcement_output = normalize_dj_announcement_output(
+        cfg.dj_announcement_output,
+        cfg.music_backend_capabilities,
+    )
     cfg.local_api_port = max(1, min(65535, int(cfg.local_api_port)))
     cfg.language = normalize_language(cfg.language)
+    cfg.active_profile_id = str(cfg.active_profile_id or "").strip()
+    cfg.active_profile_name = str(cfg.active_profile_name or "").strip()
+    cfg.active_profile_type = _normalize_profile_type(cfg.active_profile_type)
+    cfg.active_profile_privacy_mode = _normalize_profile_privacy_mode(cfg.active_profile_privacy_mode)
+    cfg.explicit_profile_id = str(cfg.explicit_profile_id or "").strip()
+    cfg.private_session = bool(cfg.private_session)
     if cfg.update_channel not in {"stable", "beta"}:
         cfg.update_channel = "stable"
+    cfg.dj_announcement_output_user_set = bool(cfg.dj_announcement_output_user_set)
     return cfg
 
 
@@ -113,6 +136,50 @@ def _optional_mood(value: object) -> int | None:
         return max(0, min(100, int(value)))
     except (TypeError, ValueError):
         return None
+
+
+def _normalize_return_to_now_seconds(value: object) -> int:
+    try:
+        seconds = int(value)
+    except (TypeError, ValueError):
+        return 60
+    return seconds if seconds in {0, 30, 60, 120} else 60
+
+
+def _normalize_profile_type(value: object) -> str:
+    text = str(value or "").strip().lower()
+    return text if text in {"personal", "household", "room", "guest", "kids", "party"} else "household"
+
+
+def _normalize_profile_privacy_mode(value: object) -> str:
+    text = str(value or "").strip().lower()
+    return text if text in {"normal", "shared", "guest-safe", "private"} else "shared"
+def dj_announcement_speaker_configured(capabilities: dict[str, Any] | None) -> bool:
+    announcement = capabilities.get("dj_announcement") if isinstance(capabilities, dict) else None
+    if isinstance(announcement, dict):
+        if announcement.get("speaker_configured") is True:
+            return True
+        target = announcement.get("target") if isinstance(announcement.get("target"), dict) else {}
+        return bool(
+            announcement.get("speaker_entity_id")
+            or announcement.get("speaker_name")
+            or target.get("entity_id")
+            or target.get("name")
+        )
+    return False
+
+
+def normalize_dj_announcement_output(value: object, capabilities: dict[str, Any] | None = None) -> str:
+    output = str(value or "").strip()
+    announcement = capabilities.get("dj_announcement") if isinstance(capabilities, dict) else None
+    supported = announcement.get("supported_outputs") if isinstance(announcement, dict) else None
+    locked = announcement.get("locked_outputs") if isinstance(announcement, dict) else None
+    supported_outputs = {str(item).strip() for item in supported if str(item).strip()} if isinstance(supported, list) else set()
+    locked_outputs = {str(item).strip() for item in locked if str(item).strip()} if isinstance(locked, list) else set()
+    ha_speaker_supported = not supported_outputs or "ha_speaker" in supported_outputs
+    if output == "ha_speaker" and output not in locked_outputs and ha_speaker_supported and dj_announcement_speaker_configured(capabilities):
+        return "ha_speaker"
+    return "text_only"
 
 
 def save_config(path: Path, cfg: Config) -> None:

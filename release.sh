@@ -72,6 +72,15 @@ run() {
   fi
 }
 
+verify_release_base() {
+  echo "+ verify release HEAD is based on origin/main"
+  run git fetch origin main
+  if [[ "$DRY_RUN" == false ]] && ! git merge-base --is-ancestor origin/main HEAD; then
+    echo "Current HEAD is not based on origin/main. Rebase or merge origin/main before releasing." >&2
+    exit 1
+  fi
+}
+
 bump_versions() {
   echo "+ update repo version to ${VERSION}"
   VERSION="$VERSION" DRY_RUN="$DRY_RUN" python3 - <<'PY'
@@ -179,15 +188,16 @@ if not dry_run:
 PY
 }
 
+verify_release_base
 bump_versions
 build_assets
 run git add .
 run git commit -m "Release DJConnect Pi ${TAG}"
 run git tag "$TAG"
 if [[ "$PUSH_MAIN" == true ]]; then
-  run git push origin main
+  run git push origin HEAD:main
 else
-  echo "+ skip git push origin main (--no-push-main)"
+  echo "+ skip git push origin HEAD:main (--no-push-main)"
 fi
 run git push origin "$TAG"
 write_release_notes

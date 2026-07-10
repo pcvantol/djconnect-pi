@@ -19,6 +19,21 @@ python3 -m compileall src tests
 QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms 1500
 ```
 
+Run the autonomous Home Assistant contract fixture:
+
+```sh
+node Tools/http_e2e_contract.js
+node Tools/websocket_e2e_contract.js
+node Tools/validate_ha_contract_fixture_security.js
+```
+
+The fixture is based on the Home Assistant `pcvantol/djconnect` contract files:
+`custom_components/djconnect/const.py`, `custom_components/djconnect/http.py`,
+`custom_components/djconnect/api_handlers.py`,
+`custom_components/djconnect/websocket_api.py` and the relevant HA tests. It
+starts and stops itself on `127.0.0.1` with a dynamic port and keeps VibeCast
+HTTP-only unless HA advertises a websocket command for it.
+
 ## Coverage Areas
 
 - config creation, persistence and device ID backfill
@@ -27,32 +42,62 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 - Home Assistant pairing/status/command payloads
 - Home Assistant command payloads include `device_id` and
   `client_type=raspberry_pi`
-- Ask DJ capability payloads advertise `text_actions`, structured actions
-  support, typed text input and no voice, TTS or local audio support
+- Home Assistant WebSocket fast-path coverage for default-on config, the
+  user-disable setting, `/api/djconnect/v1/websocket/session` bootstrap with
+  DJConnect bearer auth, in-memory short-lived token caching, capabilities
+  dispatch, redacted diagnostics, one-shot HTTP fallback and secret-safe logs
+- Ask DJ capability payloads advertise `readonly_actions`, structured actions
+  support, no free prompt input and no voice, TTS or local audio support
 - Ask DJ, Track Insight, Music DNA and Music Discovery payloads propagate
   language/locale, Pi identity and optional Music DNA context without adding
   local voice, TTS or profile aggregation
+- Track Insight request and response coverage for
+  `/api/djconnect/v1/track_insight`, canonical `client_type=raspberry_pi`,
+  language/locale/mood headers, current track metadata, direct and wrapped
+  response decoding, no BPM/key/model fields, no-track/rate-limit retry states,
+  stale analysis clearing, backend visualisation/visualization/visualizer
+  decoding, visual-only fallback rendering from existing response fields,
+  visualizer replacement on new insight responses and secret-safe logging
 - Ask DJ history polling uses bearer auth, Pi identity headers, the revision
   cursor and pairing/auth/version guards with quiet backoff on unavailable
   backend states
 - Ask DJ QML renders assistant, system, status and other-client user messages
-  plus HA-provided action buttons, typed prompt input and send-message controls
+  plus HA-provided action buttons, without typed prompt input, send-message
+  controls or local-only history clear; the confirmed clear button calls the
+  backend history clear route, empties local bubbles only after success and
+  preserves them on backend errors
 - Ask DJ action taps send only the structured action payload through the normal
   HA command contract
 - Music DNA profile parser coverage for disabled profiles, enabled summary-only
   profiles, optional dashboard blocks, hidden empty cards and hidden
   `eligible:false` blocks
 - Music DNA settings and clear endpoint coverage, including enable/disable
-  payloads and backend-preserved enabled state after clear
+  payloads, confirmation-driven touch actions, backend-preserved enabled state
+  after clear and compact refresh/disabled-label behavior
+- Music DNA websocket coverage for profile/settings/clear and HTTP-only
+  coverage for export/import even when Music DNA websocket routes are
+  advertised
 - Music Discovery gating coverage so disabled Music DNA opens consent/empty
   state, consent accept enables Music DNA before loading the feed and consent
   reject shows the compact gating block
-- Music Discovery parser coverage for HA-provided track, album, artist and
-  playlist recommendations with artwork, relevance/confidence and reason
-  visibility, while unsupported kinds are ignored
+- Music Discovery parser coverage for backend-provided `sections[].items[]`
+  recommendations with artwork, opaque section labels/IDs, backend-order
+  preservation, no top-level legacy item or recent-history fallback rendering,
+  and direct backend quality, reason and `reason_sources` propagation
+- Music Discovery QML coverage for one-item-per-row recommendations, taller
+  passive feed cards, Play Now-only playback routing and the full-screen
+  Waarom reason details overlay
 - Music Discovery HTTP and websocket contract coverage for feed, refresh and
-  Play Now endpoints/message types, including `client_type=raspberry_pi`,
-  `device_id`, `client_id` and `source/context=music_discovery`
+  Play Now/feedback endpoints/message types, including `client_type=raspberry_pi`,
+  `device_id`, `client_id`, optional `music_dna_key`, `section_id` and
+  `discovery_item_id`, with no local `uri`/title/action reconstruction in the
+  websocket play payload
+- autonomous Node.js HA contract fixture coverage for pair, status, command,
+  event, voice, Ask DJ, Music DNA, Music Discovery, Track Insight and VibeCast
+  HTTP routes; HA-style websocket auth/session bootstrap; advertised websocket
+  command dispatch; HTTP fallback expectations; and redaction checks that keep
+  tokens, proofs, APNs/install identifiers and bearer secrets out of fixture
+  state/output
 - local Client API info, pairing-info, pair, command, DJ response auth and mDNS
   TXT properties
 - Raspberry Pi-specific local Client API restart/shutdown endpoints, including
@@ -71,8 +116,9 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
   refresh busy states, clipboard feedback and newest-log scrolling
 - touch UI contract for Settings power/update actions, output-device "Geen",
   warning-styled reboot, wrapped Logs text, macOS-style toast presentation,
-  queue `play_context_at` routing, Ask DJ manual-refresh toast feedback and
-  playlist item command routing
+  queue `play_context_at` routing, Ask DJ manual-refresh toast feedback,
+  playlist item command routing, mood selection and automatic return-to-now
+  settings
 - release bundle contract for including docs, systemd units, `scripts/install.sh`
   and a bundled wheel without the loose `src/` app source tree
 - repo-only OS bootstrap contract for Raspberry Pi OS Lite 64-bit, modern
@@ -140,6 +186,7 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 - persistent logging and redaction
 - bundled QML files and offscreen QML load
 - startup splash, blocking pairing screen, tap-to-wake blanking, wake refresh,
+  independent return-to-now timer, disabled return-to-now wake behavior,
   navigation idle-timer restart, splash-on-wake and toast QML contract checks
 - previous/next wake-screen signal coverage, including HA command-event
   previous/next
@@ -154,13 +201,14 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
 - Games screen full-background touch blocking so Speelt nu controls cannot be
   tapped through transparent game areas
 - touch-friendly icon bottom navigation order, height, selected-state checks,
-  consistent QML Canvas menu icons, primary tabs for Speelt nu, Ask DJ, Track
-  Insight, Ontdek, Music DNA and Meer, plus the Meer overflow screen for
-  Bediening, Wachtrij and secondary destinations
+  consistent QML Canvas menu icons, primary tabs for Speelt nu, Wachtrij, Ask
+  DJ, Track Insight, Ontdek and Meer, plus the Meer overflow screen for
+  Bediening, Afspeellijsten, Music DNA and secondary destinations
 - shared AppBackground gradient, display-only Speelt nu checks and enlarged
   Bediening playback-control sizing checks, including that Speelt nu album art
   has no play/pause overlay
-- Maze Chase power-pellet and vulnerable ghost QML contract checks
+- Maze Chase power-pellet, vulnerable ghost and fixed-aspect playfield QML
+  contract checks
 - Empty queue/playlist labels and backend behavior that only loads demo media
   after explicitly entering demo mode
 - kiosk branding contract checks for the bundled app icon, no visible quit
@@ -181,7 +229,8 @@ QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms
   DJ-response dismiss dialog in QML
 - web portal Diagnostics rendering plus daemon-side systemd status
   normalization for running/stopped/failed/unknown component health
-- volume cap at 60, fixed screen-timeout dropdown, anchored media-row geometry
+- volume cap at 60, fixed screen-timeout and return-to-now dropdowns, anchored
+  media-row geometry
   and reboot sudoers contract coverage
 - local Client API pairing-info and logging regression coverage, plus Postman
   collection endpoint contract checks

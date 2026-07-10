@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "djconnect-pi"
-version = "3.2.10"
+version = "3.2.20"
 description = "Raspberry Pi touch display client for DJConnect"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -36,4 +36,4 @@ djconnect-pi-watchdog = "djconnect_pi.health_watchdog:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-"djconnect_pi.qml" = ["*.qml", "*.png"]
+"djconnect_pi.qml" = ["*.qml", "*.js", "*.png"]

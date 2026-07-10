@@ -37,8 +37,8 @@ def _local_ip_from_config(local_url: str) -> str:
 
 def wake_display() -> None:
     for command in (
-        ["xset", "dpms", "force", "on"],
         ["xset", "s", "reset"],
+        ["xset", "dpms", "force", "on"],
     ):
         try:
             subprocess.run(command, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -130,6 +130,21 @@ class UpdateUiBackend(QObject):
     def toggleDetails(self) -> None:
         self._details_open = not self._details_open
         self.statusChanged.emit()
+
+    @Slot()
+    def rebootDevice(self) -> None:
+        for command in (
+            ["sudo", "-n", "/usr/bin/systemctl", "reboot"],
+            ["sudo", "-n", "/bin/systemctl", "reboot"],
+            ["sudo", "-n", "/usr/bin/systemctl", "reboot", "-i"],
+            ["sudo", "-n", "/bin/systemctl", "reboot", "-i"],
+        ):
+            try:
+                subprocess.run(command, check=True)
+                return
+            except (OSError, subprocess.CalledProcessError) as exc:
+                _LOGGER.warning("Updater UI reboot command failed %s: %s", command, exc)
+        _LOGGER.error("Updater UI could not schedule reboot")
 
     def refresh(self) -> None:
         if not self.status_file.exists():

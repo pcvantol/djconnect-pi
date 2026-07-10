@@ -1,10 +1,97 @@
 # Changelog
 
+## 3.2.20
+
+- Label legacy Home Assistant contract routes as fixture-only compatibility
+  coverage in the Node E2E fixtures and README, so `/voice`, raw Ask DJ,
+  legacy Ask DJ clear and debug WAV checks do not imply Raspberry Pi feature
+  availability.
+- Add contract guardrails that reject local `/api/device/dj_response`, old
+  `/api/djconnect` routes without `/v1`, Pi voice/audio capability claims and
+  websocket advertising for compatibility-only voice or legacy Ask DJ clear
+  routes.
+
+## 3.2.19
+
+- Include the shared QML `MoodTheme.js` file in the packaged wheel so the
+  touch client can start after install.
+- Make Track Insight cards transparent so the screen background shows through
+  while keeping subtle borders for structure.
+- Reset the Settings scroll position to the top whenever the Settings screen is
+  opened again.
+- Enable the Home Assistant WebSocket fast path by default on Raspberry Pi,
+  backed by `/api/djconnect/v1/websocket/session`, in-memory short-lived HA
+  websocket tokens, capability-based route dispatch, diagnostics and reliable
+  one-shot HTTP fallback.
+- Extend websocket support across command, Ask DJ, Track Insight, Music DNA
+  profile/settings/clear, Music Discovery feed/refresh/play/feedback and
+  Vibecast routes, while keeping Music DNA import/export HTTP-only.
+- Add a compact mood selector to Speelt nu that stores the selected mood and
+  sends it through the existing Home Assistant mood context paths.
+- Move Wachtrij into the primary bottom navigation next to Speelt nu, move
+  Music DNA behind Meer and remove Wachtrij from the Meer overflow menu.
+- Add a separate automatic return-to-Speelt-nu setting with 30/60/120/off
+  choices, defaulting to 60 seconds, while keeping screen blanking independent
+  and preserving the current screen after wake when return-to-now is disabled.
+- Make Ontdek recommendation rows taller and one-per-row, and open Waarom
+  reason text in a full-screen details view with a close button instead of a
+  toast.
+- Align Ontdek rendering with the current backend recommendation-feed contract:
+  render only backend `sections[].items[]`, preserve backend order, treat
+  section IDs as opaque values, carry backend quality/reason fields directly,
+  show feedback only when supported and keep playback behind the explicit Play
+  Now action.
+- Widen and lower the Games playfield and keep Maze Chase inside a fixed
+  320:170 canvas aspect ratio.
+- Polish Ask DJ, Logs, About, Settings, Track Insight, Music DNA and Ontdek
+  touch flows: newest history/log entries first, compact top-right refresh
+  controls, confirmation before Music DNA disable/clear and removal of
+  redundant About/Settings rows.
+- Move Music DNA enable/disable and listening-profile clear controls into the
+  Settings screen with dedicated Music DNA labels and localized copy.
+- Add the Raspberry Pi control-screen favorite heart action with backend-owned
+  favorite state/capability handling, while keeping it off the Now Playing
+  screen.
+- Keep Now Playing focused by removing the Track Insight shortcut and keeping
+  Track Insight available from its dedicated navigation surface.
+- Improve screen wake behavior so tapping an already-awake screen does not jump
+  back to Now Playing, and waking from a blanked screen respects the separate
+  return-to-now setting.
+- Extend contextual toast icon support and make Track Insight HTTP fallback
+  tolerate slower backend responses.
+
+## 3.2.12
+
+- Correct the Raspberry Pi Ask DJ capability payload for `readonly_actions` by
+  advertising `ask_dj_free_input_supported:false` in both the local device API
+  and Home Assistant pairing/status payloads.
+
+## 3.2.11
+
+- Make the Raspberry Pi Track Insight surface contract-complete for the current
+  Home Assistant server-side response shape: direct and wrapped responses
+  decode to the same UI model, language/locale/mood/Music DNA context and
+  current track metadata are sent with `/api/djconnect/v1/track_insight`, and
+  404 `no_track_playing` plus 429 `rate_limited` clear stale analysis into
+  retryable empty states.
+- Keep Track Insight rendering within the central contract by showing
+  summary/full text, genre/subgenre, visual/mood context, production,
+  instrumentation, arrangement, listening cues and 0..1 metrics as
+  percentages, while filtering BPM/key/model-style fields out of the UI model.
+- Tighten Raspberry Pi Ontdek / Music Discovery against the current central
+  contract: render backend `sections[].items[]` without local recommendation
+  generation, dedupe repeated `id`/`uri` items, show compact repeated-play or
+  based-on counts and keep disabled feeds as empty/degraded states.
+- Send Music Discovery Play Now actions only through
+  `/api/djconnect/v1/music_discovery/play` with Pi identity plus `section_id`
+  and `discovery_item_id`; non-playable recommendation rows no longer trigger
+  generic playback from the card.
+
 ## 3.2.10
 
 - Update all Raspberry Pi Home Assistant DJConnect HTTP client routes to the
   canonical `/api/djconnect/v1/...` prefix while preserving the
-  `client_type=raspberry_pi` identity contract and text-only Ask DJ behavior.
+  `client_type=raspberry_pi` identity contract.
 - Add regression coverage that fails if source, tests or docs reintroduce a
   hardcoded Home Assistant DJConnect route without the `/v1` prefix.
 - Refresh route references in architecture, bootstrap, handoff and README

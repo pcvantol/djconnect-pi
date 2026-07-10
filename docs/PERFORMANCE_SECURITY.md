@@ -23,12 +23,14 @@ This file records the first pass review for the wall-mounted Pi client.
   cache files; media-list delegates still avoid retaining extra changing image
   cache entries. Qt's pixmap cache is capped at 4 MB.
 - Playback controls live on the dedicated Bediening screen. Speelt nu only
-  renders refresh, unobstructed album art and title text, reducing Canvas
-  repaint pressure on the default screen.
+  renders refresh, mood selection, unobstructed album art and title text,
+  reducing Canvas repaint pressure on the default screen.
 - Screen blanking defaults to 120 seconds and wakes on tap. Wake refreshes
-  playback and screen navigation restarts the idle timer, reducing stale screen
-  state while still limiting always-on visual load and burn-in risk. Hardware
-  backlight/DPMS control still needs HyperPixel validation.
+  playback, while automatic return to Speelt nu is a separate 30/60/120/off
+  setting that defaults to 60 seconds. Screen navigation restarts both timers
+  where enabled, reducing stale screen state while still limiting always-on
+  visual load and burn-in risk. Hardware backlight/DPMS control still needs
+  HyperPixel validation.
 - Brightness is currently app-level dimming in QML, which is portable across Pi
   images but does not yet lower physical panel backlight power.
 - Release installs are atomic at the symlink level, avoiding partially updated
@@ -62,10 +64,16 @@ This file records the first pass review for the wall-mounted Pi client.
 - The Pi is local-only: it stores the local Home Assistant URL, ignores
   accidental remote/Nabu Casa runtime URLs and does not advertise HA URLs in
   mDNS TXT records.
-- Ask DJ is advertised as `text_actions`: the Pi can send typed text to Home
-  Assistant, poll shared history and send HA-provided structured action
-  payloads, while microphone input, wake word, TTS and local Ask DJ audio
-  playback remain unsupported.
+- Ask DJ is advertised as `readonly_actions`: the Pi polls shared history and
+  sends HA-provided structured action payloads, while free prompt input,
+  microphone input, wake word, TTS and local Ask DJ audio playback remain
+  unsupported. If Home Assistant reports a configured DJ announcement speaker,
+  the Pi may request `dj_announcement_output:"ha_speaker"` so HA speaks the
+  announcement server-side; otherwise the mode is locked to `text_only`. The Pi
+  never stores or changes the HA speaker entity and never plays response
+  `audio_url` locally. Chat clear is routed to Home Assistant and local messages
+  are cleared only after the backend confirms, avoiding a local-only privacy
+  state.
 - Persistent logging uses rotating files and redacts messages that obviously
   contain tokens, bearer auth, passwords or secrets.
 - Startup logs include Raspberry Pi system information such as OS, kernel,

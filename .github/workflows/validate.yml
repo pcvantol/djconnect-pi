@@ -35,13 +35,37 @@ jobs:
       ruff-continue-on-error: true
       bandit-continue-on-error: true
 
+  ha-contract-fixture:
+    name: HA contract fixture
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: "24"
+
+      - name: Run HA HTTP contract fixture
+        run: node Tools/http_e2e_contract.js
+
+      - name: Run HA WebSocket contract fixture
+        run: node Tools/websocket_e2e_contract.js
+
+      - name: Validate HA contract fixture redaction
+        run: node Tools/validate_ha_contract_fixture_security.js
+
   cleanup-workflow-runs:
     name: Cleanup workflow runs
-    needs: python
+    needs:
+      - python
+      - ha-contract-fixture
     if: >-
       ${{
         always() &&
         needs.python.result == 'success' &&
+        needs.ha-contract-fixture.result == 'success' &&
         github.event_name != 'pull_request' &&
         (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main')
       }}

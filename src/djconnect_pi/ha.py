@@ -4,9 +4,10 @@ from dataclasses import dataclass
 from typing import Any
 import logging
 import time
+from urllib.parse import urlparse
 import requests
 
-from .config import CLIENT_TYPE, Config
+from .config import CLIENT_TYPE, Config, normalize_dj_announcement_output
 from .ha_websocket import WebSocketFastPath
 from .i18n import locale_for_language
 
@@ -25,11 +26,25 @@ WEBSOCKET_COMMANDS = {
     "volume_delta",
     "set_shuffle",
     "set_repeat",
+    "save_current_track",
     "set_output",
     "ask_dj_followup_response",
     "ask_dj_play_recommendation",
     "ask_dj_play_recommendation_on_output",
     "ask_dj_play_request_on_output",
+}
+WEBSOCKET_ROUTE_COMMANDS = {
+    "djconnect/ask_dj/message",
+    "djconnect/ask_dj/history",
+    "djconnect/ask_dj/history/clear",
+    "djconnect/music_dna/profile",
+    "djconnect/music_dna/settings",
+    "djconnect/music_dna/clear",
+    "djconnect/music_discovery/feed",
+    "djconnect/music_discovery/refresh",
+    "djconnect/music_discovery/play",
+    "djconnect/music_discovery/feedback",
+    "djconnect/track_insight",
 }
 
 
@@ -60,11 +75,28 @@ class ProtocolVersionMismatch(DJConnectError):
         super().__init__(message or f"DJConnect version mismatch: client {client_version}, Home Assistant {ha_version}")
 
 
+PROFILE_ERROR_CODES = {
+    "profile_required",
+    "invalid_profile",
+    "device_not_mapped",
+    "profile_backend_missing",
+    "profile_music_account_missing",
+    "profile_backend_account_mismatch",
+    "profile_access_denied",
+    "private_session_restriction",
+    "invalid_client_type",
+    "invalid_request_context",
+}
+
+
 @dataclass
 class Playback:
     title: str = ""
     artist: str = ""
+    album: str = ""
     image_url: str = ""
+    uri: str = ""
+    genres: tuple[str, ...] = ()
     is_playing: bool = False
     volume: int = 50
     shuffle: bool = False
@@ -73,6 +105,7 @@ class Playback:
     duration_seconds: int = 0
     output_device: str = ""
     output_devices: tuple[str, ...] = ()
+    is_favorite: bool = False
 
 
 @dataclass
@@ -81,7 +114,7 @@ class MusicBackendSummary:
     name: str = ""
     available: bool = True
     revision: int = 0
-    capabilities: dict[str, bool] | None = None
+    capabilities: dict[str, Any] | None = None
     target_player_id: str = ""
     target_player_name: str = ""
     error: str = ""
@@ -101,6 +134,7 @@ class HAClient:
         response = requests.post(url, json=payload, timeout=self.timeout)
         _LOGGER.debug("POST %s returned HTTP %s in %.0fms", url, response.status_code, _elapsed_ms(started))
         data = self._json(response)
+        self.apply_profile_context(data)
         self.update_backend_summary(data)
         self._validate_ha_version(data)
         token = data.get("device_token") or data.get("token")
@@ -110,7 +144,7 @@ class HAClient:
         return data
 
     def status(self, playback: Playback | None = None, queue_items: list[dict[str, object]] | None = None) -> dict[str, Any]:
-        payload = self._base_payload(ha_pairing_status="paired" if self.cfg.paired else "pending")
+        payload = self._base_payload(ha_pairing_status="paired" if self.cfg.paired else "pending", request_source="status")
         if playback is not None:
             output_devices = list(playback.output_devices)
             playback_payload = {
@@ -162,16 +196,23 @@ class HAClient:
         )
         _LOGGER.debug("POST %s returned HTTP %s in %.0fms", url, response.status_code, _elapsed_ms(started))
         data = self._json(response)
+        self.apply_profile_context(data)
         self.update_backend_summary(data)
         self._validate_ha_version(data)
         return data
 
     def command(self, command: str, **payload: Any) -> dict[str, Any]:
-        body = self._base_payload(command=command, **payload)
+        body = self._base_payload(command=command, request_source="device_command", **payload)
+        if command.startswith("ask_dj_"):
+            body["dj_announcement_output"] = normalize_dj_announcement_output(
+                self.cfg.dj_announcement_output,
+                self.cfg.music_backend_capabilities,
+            )
         if command in WEBSOCKET_COMMANDS:
-            data = self._try_websocket("djconnect/command", body, command=command, timeout=_command_timeout(command, self.timeout))
+            data = self._try_websocket("djconnect/command", body, command="djconnect/command", timeout=_command_timeout(command, self.timeout))
             if data is not None:
                 self.update_backend_summary(data)
+                self.apply_profile_context(data)
                 self._validate_ha_version(data)
                 return data
         url = self._djconnect_url("command")
@@ -193,6 +234,7 @@ class HAClient:
         )
         _LOGGER.debug("POST %s command=%s returned HTTP %s in %.0fms", url, command, response.status_code, _elapsed_ms(started))
         data = self._json(response)
+        self.apply_profile_context(data)
         _LOGGER.debug("Decoded command=%s response_shape=%s", command, _response_shape(data))
         self.update_backend_summary(data)
         self._validate_ha_version(data)
@@ -202,29 +244,26 @@ class HAClient:
         url = self._djconnect_url(f"ask_dj/history?since_revision={max(0, int(since_revision))}")
         _LOGGER.debug("GET %s client_type=%s device_id=%s", url, CLIENT_TYPE, self.cfg.device_id)
         started = time.monotonic()
-        response = requests.get(url, headers=self._headers(), timeout=self.timeout)
+        response = requests.get(url, params=self._profile_query_params("ask_dj"), headers=self._headers(), timeout=self.timeout)
         _LOGGER.debug("GET %s returned HTTP %s in %.0fms", url, response.status_code, _elapsed_ms(started))
         data = self._json(response)
+        self.apply_profile_context(data)
         self.update_backend_summary(data)
         self._validate_ha_version(data)
         return data
 
-    def ask_dj_message(self, text: str, client_message_id: str) -> dict[str, Any]:
-        body = self._ask_dj_payload(
-            text=text,
-            client_message_id=client_message_id,
-            audio_response="auto",
-        )
-        data = self._try_websocket("djconnect/ask_dj/message", body, command="djconnect/ask_dj/message", timeout=max(self.timeout, 10.0))
+    def ask_dj_history_clear(self) -> dict[str, Any]:
+        body = self._ask_dj_payload()
+        data = self._try_websocket("djconnect/ask_dj/history/clear", body, command="djconnect/ask_dj/history/clear", timeout=self.timeout)
         if data is not None:
             self.update_backend_summary(data)
             self._validate_ha_version(data)
             return data
-        url = self._djconnect_url("ask_dj/message")
-        _LOGGER.debug("POST %s client_type=%s device_id=%s client_message_id=%s", url, CLIENT_TYPE, self.cfg.device_id, client_message_id)
+        url = self._djconnect_url("ask_dj/history/clear")
+        _LOGGER.debug("POST %s action=ask_dj_history_clear client_type=%s device_id=%s", url, CLIENT_TYPE, self.cfg.device_id)
         started = time.monotonic()
         response = requests.post(url, json=body, headers=self._headers(), timeout=self.timeout)
-        _LOGGER.debug("POST %s returned HTTP %s in %.0fms", url, response.status_code, _elapsed_ms(started))
+        _LOGGER.debug("POST %s action=ask_dj_history_clear returned HTTP %s in %.0fms", url, response.status_code, _elapsed_ms(started))
         data = self._json(response)
         self.update_backend_summary(data)
         self._validate_ha_version(data)
@@ -234,6 +273,7 @@ class HAClient:
         body = self._base_payload(
             force_refresh=force_refresh,
             include_visual_profile=include_visual_profile,
+            request_source="track_insight",
         )
         if playback is not None:
             track: dict[str, Any] = {}
@@ -243,37 +283,85 @@ class HAClient:
             if playback.artist:
                 body["artist"] = playback.artist
                 track["artist"] = playback.artist
+            if playback.album:
+                body["album"] = playback.album
+                track["album"] = playback.album
             if playback.image_url:
+                body["artwork_url"] = playback.image_url
+                body["image_url"] = playback.image_url
                 track["artwork_url"] = playback.image_url
+            if playback.uri:
+                body["uri"] = playback.uri
+                track["uri"] = playback.uri
+            if playback.genres:
+                body["genres"] = list(playback.genres)
+                track["genres"] = list(playback.genres)
             if track:
                 body["track"] = track
             if self.cfg.music_target_player.get("id"):
                 body["player_id"] = self.cfg.music_target_player["id"]
             if self.cfg.music_backend:
                 body["music_backend"] = self.cfg.music_backend
-        data = self._try_websocket("djconnect/track_insight", body, command="djconnect/track_insight", timeout=max(self.timeout, 10.0))
+        timeout_seconds = max(self.timeout, 10.0)
+        data = self._try_websocket("djconnect/track_insight", body, command="djconnect/track_insight", timeout=timeout_seconds)
         if data is not None:
             self.update_backend_summary(data)
+            self.apply_profile_context(data)
             self._validate_ha_version(data)
             return data
         url = self._djconnect_url("track_insight")
         _LOGGER.debug("POST %s client_type=%s device_id=%s", url, CLIENT_TYPE, self.cfg.device_id)
         started = time.monotonic()
-        response = requests.post(url, json=body, headers=self._headers(), timeout=self.timeout)
+        response = requests.post(url, json=body, headers=self._headers(), timeout=timeout_seconds)
         _LOGGER.debug("POST %s returned HTTP %s in %.0fms", url, response.status_code, _elapsed_ms(started))
         data = self._json(response)
+        self.apply_profile_context(data)
         self.update_backend_summary(data)
         self._validate_ha_version(data)
         return data
 
     def music_dna_profile(self) -> dict[str, Any]:
-        return self._music_dna_request("djconnect/music_dna/profile", "music_dna/profile", self._base_payload())
+        self._refresh_websocket_capabilities()
+        return self._music_dna_request("djconnect/music_dna/profile", "music_dna/profile", self._base_payload(request_source="music_dna"))
 
     def music_dna_settings(self, **settings: Any) -> dict[str, Any]:
-        return self._music_dna_request("djconnect/music_dna/settings", "music_dna/settings", self._base_payload(**settings))
+        self._refresh_websocket_capabilities()
+        return self._music_dna_request("djconnect/music_dna/settings", "music_dna/settings", self._base_payload(request_source="music_dna", **settings))
 
     def music_dna_clear(self) -> dict[str, Any]:
-        return self._music_dna_request("djconnect/music_dna/clear", "music_dna/clear", self._base_payload())
+        self._refresh_websocket_capabilities()
+        return self._music_dna_request("djconnect/music_dna/clear", "music_dna/clear", self._base_payload(request_source="music_dna"))
+
+    def music_dna_export(self) -> dict[str, Any]:
+        body = self._base_payload(request_source="music_dna")
+        if self.cfg.music_dna_key:
+            body["music_dna_key"] = self.cfg.music_dna_key
+        url = self._djconnect_url("music_dna/export")
+        _LOGGER.debug("POST %s client_type=%s device_id=%s", url, CLIENT_TYPE, self.cfg.device_id)
+        started = time.monotonic()
+        response = requests.post(url, json=body, headers=self._headers(), timeout=self.timeout)
+        _LOGGER.debug("POST %s returned HTTP %s in %.0fms", url, response.status_code, _elapsed_ms(started))
+        data = self._json(response)
+        self.apply_profile_context(data)
+        self.update_backend_summary(data)
+        self._validate_ha_version(data)
+        return data
+
+    def music_dna_import(self, profile: dict[str, Any]) -> dict[str, Any]:
+        body = self._base_payload(profile=profile, request_source="music_dna")
+        if self.cfg.music_dna_key:
+            body["music_dna_key"] = self.cfg.music_dna_key
+        url = self._djconnect_url("music_dna/import")
+        _LOGGER.debug("POST %s client_type=%s device_id=%s", url, CLIENT_TYPE, self.cfg.device_id)
+        started = time.monotonic()
+        response = requests.post(url, json=body, headers=self._headers(), timeout=self.timeout)
+        _LOGGER.debug("POST %s returned HTTP %s in %.0fms", url, response.status_code, _elapsed_ms(started))
+        data = self._json(response)
+        self.apply_profile_context(data)
+        self.update_backend_summary(data)
+        self._apply_music_dna_key(data)
+        self._validate_ha_version(data)
+        return data
 
     def _music_dna_request(self, message_type: str, path: str, body: dict[str, Any]) -> dict[str, Any]:
         if self.cfg.music_dna_key:
@@ -281,79 +369,170 @@ class HAClient:
         data = self._try_websocket(message_type, body, command=message_type, timeout=max(self.timeout, 10.0))
         if data is not None:
             self.update_backend_summary(data)
+            self.apply_profile_context(data)
+            self._apply_music_dna_key(data)
             self._validate_ha_version(data)
             return data
-        url = self._djconnect_url(path)
+        url = self._music_dna_fallback_url(message_type, path)
         _LOGGER.debug("POST %s client_type=%s device_id=%s", url, CLIENT_TYPE, self.cfg.device_id)
         started = time.monotonic()
         response = requests.post(url, json=body, headers=self._headers(), timeout=self.timeout)
         _LOGGER.debug("POST %s returned HTTP %s in %.0fms", url, response.status_code, _elapsed_ms(started))
         data = self._json(response)
+        self.apply_profile_context(data)
         self.update_backend_summary(data)
+        self._apply_music_dna_key(data)
         self._validate_ha_version(data)
         return data
 
     def music_discovery_feed(self) -> dict[str, Any]:
-        body = self._base_payload()
+        body = self._base_payload(request_source="discover")
+        self._refresh_websocket_capabilities()
         data = self._try_websocket("djconnect/music_discovery/feed", body, command="djconnect/music_discovery/feed", timeout=max(self.timeout, 10.0))
         if data is not None:
             self.update_backend_summary(data)
+            self.apply_profile_context(data)
             self._validate_ha_version(data)
             return data
-        url = self._djconnect_url("music_discovery")
+        url = self._music_discovery_fallback_url("music_discovery", "music_discovery")
         params = {
             "client_type": CLIENT_TYPE,
             "client_id": self.cfg.device_id,
             "device_id": self.cfg.device_id,
             "device_name": self.cfg.device_name,
         }
+        params.update(self._profile_query_params("discover"))
+        if self.cfg.music_dna_key:
+            params["music_dna_key"] = self.cfg.music_dna_key
         _LOGGER.debug("GET %s client_type=%s device_id=%s", url, CLIENT_TYPE, self.cfg.device_id)
         started = time.monotonic()
         response = requests.get(url, params=params, headers=self._headers(), timeout=self.timeout)
         _LOGGER.debug("GET %s returned HTTP %s in %.0fms", url, response.status_code, _elapsed_ms(started))
         data = self._json(response)
+        self.apply_profile_context(data)
         self.update_backend_summary(data)
         self._validate_ha_version(data)
         return data
 
     def music_discovery_refresh(self) -> dict[str, Any]:
-        return self._music_discovery_request("djconnect/music_discovery/refresh", "music_discovery/refresh", self._base_payload())
+        self._refresh_websocket_capabilities()
+        return self._music_discovery_request("djconnect/music_discovery/refresh", "music_discovery/refresh", self._base_payload(request_source="discover"))
 
     def music_discovery_play(self, item: dict[str, Any]) -> dict[str, Any]:
-        body = self._base_payload(source="music_discovery", context="music_discovery")
-        for key in ("id", "recommendation_id", "item_id", "uri", "type", "kind", "title", "subtitle", "artist"):
-            value = item.get(key)
-            if value not in (None, ""):
-                body[key] = value
+        self._refresh_websocket_capabilities()
+        body = self._base_payload(request_source="discover")
+        discovery_item_id = str(
+            item.get("discovery_item_id")
+            or item.get("id")
+            or ""
+        ).strip()
+        if discovery_item_id:
+            body["discovery_item_id"] = discovery_item_id
+        section_id = str(item.get("section_id") or item.get("sectionId") or "").strip()
+        if section_id:
+            body["section_id"] = section_id
         return self._music_discovery_request("djconnect/music_discovery/play", "music_discovery/play", body)
+
+    def music_discovery_feedback(self, item: dict[str, Any], feedback: str) -> dict[str, Any]:
+        self._refresh_websocket_capabilities()
+        body = self._base_payload(feedback=feedback, request_source="discover")
+        discovery_item_id = str(item.get("discovery_item_id") or item.get("id") or "").strip()
+        if discovery_item_id:
+            body["discovery_item_id"] = discovery_item_id
+        section_id = str(item.get("section_id") or item.get("sectionId") or "").strip()
+        if section_id:
+            body["section_id"] = section_id
+        return self._music_discovery_request("djconnect/music_discovery/feedback", "music_discovery/feedback", body)
 
     def _music_discovery_request(self, message_type: str, path: str, body: dict[str, Any]) -> dict[str, Any]:
         data = self._try_websocket(message_type, body, command=message_type, timeout=max(self.timeout, 10.0))
         if data is not None:
             self.update_backend_summary(data)
+            self.apply_profile_context(data)
             self._validate_ha_version(data)
             return data
-        url = self._djconnect_url(path)
+        url = self._music_discovery_fallback_url(message_type, path)
         _LOGGER.debug("POST %s client_type=%s device_id=%s", url, CLIENT_TYPE, self.cfg.device_id)
         started = time.monotonic()
         response = requests.post(url, json=body, headers=self._headers(), timeout=self.timeout)
         _LOGGER.debug("POST %s returned HTTP %s in %.0fms", url, response.status_code, _elapsed_ms(started))
         data = self._json(response)
+        self.apply_profile_context(data)
         self.update_backend_summary(data)
         self._validate_ha_version(data)
         return data
 
-    def ask_dj_clear_history(self) -> dict[str, Any]:
-        body = self._ask_dj_payload(include_language=False)
-        url = self._djconnect_url("ask_dj/history/clear")
-        _LOGGER.debug("POST %s client_type=%s device_id=%s", url, CLIENT_TYPE, self.cfg.device_id)
-        started = time.monotonic()
-        response = requests.post(url, json=body, headers=self._headers(), timeout=self.timeout)
-        _LOGGER.debug("POST %s returned HTTP %s in %.0fms", url, response.status_code, _elapsed_ms(started))
-        data = self._json(response)
-        self.update_backend_summary(data)
-        self._validate_ha_version(data)
-        return data
+    def music_discovery_feedback_supported(self) -> bool:
+        self._refresh_websocket_capabilities()
+        return bool(
+            self.fast_path.features.get("music_discovery_feedback")
+            or "djconnect/music_discovery/feedback" in self.fast_path.commands
+            or self._music_discovery_fallback_url("music_discovery/feedback", "music_discovery/feedback") != self._djconnect_url("music_discovery/feedback")
+        )
+
+    def _refresh_websocket_capabilities(self) -> None:
+        if not self.fast_path.can_handle("__capability_probe__"):
+            return
+
+    def _music_discovery_fallback_url(self, key: str, path: str) -> str:
+        candidates = (
+            key,
+            key.replace("/", "_"),
+            f"djconnect/{key}",
+            f"djconnect/{key}".replace("/", "_"),
+            path,
+            path.replace("/", "_"),
+        )
+        fallback = next((self.fast_path.fallbacks.get(candidate) for candidate in candidates if self.fast_path.fallbacks.get(candidate)), "")
+        if fallback:
+            parsed = urlparse(fallback)
+            if parsed.scheme in {"http", "https"} and parsed.netloc:
+                return fallback
+            return self._url(fallback if fallback.startswith("/") else f"/{fallback}")
+        return self._djconnect_url(path)
+
+    def _music_dna_fallback_url(self, key: str, path: str) -> str:
+        candidates = (
+            key,
+            key.replace("/", "_"),
+            f"djconnect/{key}",
+            f"djconnect/{key}".replace("/", "_"),
+            path,
+            path.replace("/", "_"),
+            "music_dna",
+        )
+        fallback = next((self.fast_path.fallbacks.get(candidate) for candidate in candidates if self.fast_path.fallbacks.get(candidate)), "")
+        if fallback:
+            parsed = urlparse(fallback)
+            if parsed.scheme in {"http", "https"} and parsed.netloc:
+                return fallback
+            return self._url(fallback if fallback.startswith("/") else f"/{fallback}")
+        return self._djconnect_url(path)
+
+    def _apply_music_dna_key(self, data: dict[str, Any]) -> None:
+        key = str(data.get("music_dna_key") or data.get("resolved_music_dna_key") or "").strip()
+        if key:
+            self.cfg.music_dna_key = key
+
+    def apply_profile_context(self, data: dict[str, Any]) -> None:
+        profile = data.get("resolved_profile") if isinstance(data.get("resolved_profile"), dict) else {}
+        profile_id = str(data.get("profile_id") or profile.get("id") or "").strip()
+        if profile_id:
+            self.cfg.active_profile_id = profile_id
+        name = str(profile.get("name") or data.get("profile_name") or "").strip()
+        if name:
+            self.cfg.active_profile_name = name
+        profile_type = str(profile.get("type") or data.get("profile_type") or "").strip().lower()
+        if profile_type in {"personal", "household", "room", "guest", "kids", "party"}:
+            self.cfg.active_profile_type = profile_type
+        privacy_mode = str(
+            data.get("profile_privacy_mode")
+            or profile.get("privacy_mode")
+            or (data.get("profile_privacy") if isinstance(data.get("profile_privacy"), dict) else {}).get("mode")
+            or ""
+        ).strip().lower()
+        if privacy_mode in {"normal", "shared", "guest-safe", "private"}:
+            self.cfg.active_profile_privacy_mode = privacy_mode
 
     def ask_dj_action(self, action: dict[str, Any]) -> dict[str, Any]:
         command = str(action.get("command") or "").strip()
@@ -418,7 +597,20 @@ class HAClient:
         return Playback(
             title=str(playback.get("title") or playback.get("track") or playback.get("track_name") or playback.get("last_track") or ""),
             artist=str(playback.get("artist") or playback.get("artists") or playback.get("album_artist") or ""),
+            album=str(playback.get("album") or playback.get("album_name") or playback.get("media_album") or ""),
             image_url=_image_url_from(playback),
+            uri=str(playback.get("uri") or playback.get("track_uri") or playback.get("media_content_id") or ""),
+            genres=tuple(_string_values(playback.get("genres"))),
+            is_favorite=_bool_from_playback(
+                playback,
+                data,
+                "is_favorite",
+                "is_liked",
+                "liked",
+                "favorite",
+                "favorite_status",
+                "current_track_is_liked",
+            ),
             is_playing=bool(playback.get("is_playing") or playback.get("playing")),
             volume=int(playback.get("volume") or playback.get("volume_percent") or 50),
             shuffle=bool(playback.get("shuffle")),
@@ -454,6 +646,17 @@ class HAClient:
         self.cfg.music_backend_available = summary.available
         self.cfg.music_backend_revision = summary.revision
         self.cfg.music_backend_capabilities = dict(summary.capabilities or {})
+        if not self.cfg.dj_announcement_output_user_set:
+            announcement = self.cfg.music_backend_capabilities.get("dj_announcement")
+            preferred = "ha_speaker" if isinstance(announcement, dict) and announcement.get("default_output") == "ha_speaker" else self.cfg.dj_announcement_output
+            if preferred == "text_only" and isinstance(announcement, dict) and announcement.get("speaker_configured") is True:
+                preferred = "ha_speaker"
+            self.cfg.dj_announcement_output = normalize_dj_announcement_output(preferred, self.cfg.music_backend_capabilities)
+        else:
+            self.cfg.dj_announcement_output = normalize_dj_announcement_output(
+                self.cfg.dj_announcement_output,
+                self.cfg.music_backend_capabilities,
+            )
         target_player: dict[str, str] = {}
         if summary.target_player_id:
             target_player["id"] = summary.target_player_id
@@ -481,14 +684,16 @@ class HAClient:
                 "local_audio_supported": False,
                 "local_dj_response_endpoint": False,
                 "ask_dj_supported": True,
-                "ask_dj_mode": "text_actions",
-                "ask_dj_free_input_supported": True,
+                "ask_dj_mode": "readonly_actions",
+                "ask_dj_free_input_supported": False,
                 "ask_dj_actions_supported": True,
                 "ask_dj_voice_supported": False,
                 "ask_dj_audio_response_supported": False,
+                "dj_announcement_outputs_supported": ["text_only", "ha_speaker"],
             },
             **extra,
         }
+        self._add_profile_context(payload)
         if include_language:
             payload.update(self._language_payload())
         if include_mood:
@@ -511,12 +716,33 @@ class HAClient:
             "app_version": self.cfg.version,
             **extra,
         }
+        self._add_profile_context(payload)
         if include_language:
             payload.update(self._language_payload())
         self._add_mood(payload)
         if self.cfg.music_dna_key:
             payload["music_dna_key"] = self.cfg.music_dna_key
+        payload["dj_announcement_output"] = normalize_dj_announcement_output(
+            self.cfg.dj_announcement_output,
+            self.cfg.music_backend_capabilities,
+        )
         return payload
+
+    def _add_profile_context(self, payload: dict[str, Any], *, request_source: str = "") -> None:
+        if self.cfg.explicit_profile_id:
+            payload["profile_id"] = self.cfg.explicit_profile_id
+        if self.cfg.private_session:
+            payload["private_session"] = True
+        if request_source and "request_source" not in payload:
+            payload["request_source"] = request_source
+
+    def _profile_query_params(self, request_source: str) -> dict[str, str]:
+        params = {"request_source": request_source}
+        if self.cfg.explicit_profile_id:
+            params["profile_id"] = self.cfg.explicit_profile_id
+        if self.cfg.private_session:
+            params["private_session"] = "true"
+        return params
 
     def _headers(self) -> dict[str, str]:
         locale = self._locale()
@@ -532,6 +758,8 @@ class HAClient:
             headers["Authorization"] = f"Bearer {self.cfg.device_token}"
         if self.cfg.music_dna_key:
             headers["X-DJConnect-Music-DNA-Key"] = self.cfg.music_dna_key
+        if self.cfg.explicit_profile_id:
+            headers["X-DJConnect-Profile-ID"] = self.cfg.explicit_profile_id
         mood = self._mood()
         if mood is not None:
             headers["X-DJConnect-Mood"] = str(mood)
@@ -594,6 +822,14 @@ class HAClient:
         if response.status_code >= 400:
             error = str(data.get("error") or data.get("message") or response.text or f"HTTP {response.status_code}")
             _LOGGER.warning("Home Assistant returned HTTP %s: %s", response.status_code, error)
+            if response.status_code == 404 and error == "no_track_playing":
+                return {**data, "success": False, "error": "no_track_playing"}
+            if response.status_code == 429 and error == "rate_limited":
+                return {**data, "success": False, "error": "rate_limited"}
+            if error in PROFILE_ERROR_CODES:
+                message = str(data.get("message") or error)
+                _LOGGER.warning("Home Assistant rejected profile context: error=%s message=%s", error, message)
+                raise DJConnectError(message)
             if response.status_code in {401, 403, 404}:
                 raise AuthenticationError(error)
             raise DJConnectError(f"Home Assistant returned HTTP {response.status_code}: {error}")
@@ -631,6 +867,10 @@ class HAClient:
             message = str(data.get("message") or "Music backend changed; ask DJ again before using this action.")
             _LOGGER.warning("Home Assistant rejected stale backend action: error=%s message=%s", data.get("error"), message)
             raise StaleBackendAction(message)
+        if data.get("success") is False and str(data.get("error") or "") in PROFILE_ERROR_CODES:
+            message = str(data.get("message") or data.get("error") or "Profile request failed")
+            _LOGGER.warning("Home Assistant rejected profile context: error=%s message=%s", data.get("error"), message)
+            raise DJConnectError(message)
         _LOGGER.debug("Home Assistant JSON response keys=%s", sorted(data))
         return data
 
@@ -830,13 +1070,24 @@ def _command_timeout(command: str, default: float) -> float:
 
 def music_backend_summary_from(data: dict[str, Any]) -> MusicBackendSummary:
     target = data.get("music_target_player") if isinstance(data.get("music_target_player"), dict) else {}
-    capabilities = data.get("music_backend_capabilities") if isinstance(data.get("music_backend_capabilities"), dict) else {}
+    capabilities = dict(data.get("music_backend_capabilities")) if isinstance(data.get("music_backend_capabilities"), dict) else {}
+    announcement = data.get("dj_announcement")
+    if isinstance(announcement, dict):
+        capabilities["dj_announcement"] = dict(announcement)
+    elif any(key in data for key in ("dj_announcement_speaker_configured", "dj_announcement_supported_outputs", "dj_announcement_locked_outputs", "dj_announcement_default_output", "dj_announcement_output")):
+        capabilities["dj_announcement"] = {
+            "speaker_configured": bool(data.get("dj_announcement_speaker_configured")),
+            "supported_outputs": _string_values(data.get("dj_announcement_supported_outputs")),
+            "locked_outputs": _string_values(data.get("dj_announcement_locked_outputs")),
+            "default_output": str(data.get("dj_announcement_default_output") or ""),
+            "output": str(data.get("dj_announcement_output") or ""),
+        }
     return MusicBackendSummary(
         backend=str(data.get("music_backend") or ""),
         name=str(data.get("music_backend_name") or data.get("music_backend") or ""),
         available=bool(data.get("music_backend_available", data.get("backend_available", True))),
         revision=_int_value(data.get("music_backend_revision"), 0),
-        capabilities={str(key): bool(value) for key, value in capabilities.items()},
+        capabilities={str(key): value for key, value in capabilities.items()},
         target_player_id=str(target.get("id") or ""),
         target_player_name=str(target.get("name") or ""),
         error=_backend_error_text(data.get("music_backend_error")),
@@ -863,6 +1114,35 @@ def _int_value(value: Any, default: int = 0) -> int:
         return int(value)
     except (TypeError, ValueError):
         return default
+
+
+def _string_values(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    result: list[str] = []
+    for item in value:
+        text = str(item.get("name") if isinstance(item, dict) else item).strip()
+        if text:
+            result.append(text)
+    return result
+
+
+def _bool_from_playback(playback: dict[str, Any], data: dict[str, Any], *keys: str) -> bool:
+    for source in (playback, data):
+        for key in keys:
+            if key not in source:
+                continue
+            value = source.get(key)
+            if isinstance(value, bool):
+                return value
+            if isinstance(value, (int, float)):
+                return bool(value)
+            text = str(value or "").strip().lower()
+            if text in {"true", "1", "yes", "on", "liked", "favorite", "saved"}:
+                return True
+            if text in {"false", "0", "no", "off", "unliked", "unsaved"}:
+                return False
+    return False
 
 
 def _backend_error_text(value: Any) -> str:

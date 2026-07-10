@@ -105,7 +105,7 @@ def test_client_api_daemon_requests_debug_screenshot(tmp_path: Path, monkeypatch
 
 def test_client_api_daemon_portal_state_includes_diagnostics(tmp_path: Path, monkeypatch) -> None:
     config_path = tmp_path / "config.json"
-    save_config(config_path, Config(local_url="http://127.0.0.1:18080", ha_url="http://ha:8123", paired=False, device_token=""))
+    save_config(config_path, Config(local_url="http://127.0.0.1:18080", ha_url="http://ha:8123", paired=False, device_token="", mood=65))
     daemon = ClientAPIDaemon(config_path)
     monkeypatch.setattr(
         client_api_daemon,
@@ -115,6 +115,7 @@ def test_client_api_daemon_portal_state_includes_diagnostics(tmp_path: Path, mon
 
     state = daemon._portal_state(set())
 
+    assert state["settings"]["mood"] == 65
     diagnostics = state["diagnostics"]
     assert {"name": "Local Client API", "status": "running", "detail": "http://127.0.0.1:18080"} in diagnostics
     assert any(item["name"] == "Touch UI" and item["status"] == "running" for item in diagnostics)
