@@ -2,7 +2,7 @@
 
 const assert = require("assert/strict");
 const { contractFixture, requestJson, wsExchange, redact } = require("./contract_fixture");
-const { DEVICE_ID, CLIENT_TYPE, DEVICE_TOKEN, WS_COMMANDS, CONTRACT_SOURCE, HTTP_ROUTES } = require("./ha_contract");
+const { DEVICE_ID, CLIENT_TYPE, DEVICE_TOKEN, COMPATIBILITY_HTTP_ROUTES, WS_COMMANDS, CONTRACT_SOURCE, HTTP_ROUTES, FEATURES } = require("./ha_contract");
 
 const SECRET_VALUES = [
   "ci-device-token",
@@ -20,8 +20,18 @@ function serialized(value) {
 (async () => {
   assert(CONTRACT_SOURCE.files.includes("custom_components/djconnect/websocket_api.py"));
   assert(CONTRACT_SOURCE.files.includes("custom_components/djconnect/http.py"));
+  assert(COMPATIBILITY_HTTP_ROUTES.includes("/api/djconnect/v1/voice"));
+  assert(COMPATIBILITY_HTTP_ROUTES.includes("/api/djconnect/v1/ask_dj"));
+  assert(COMPATIBILITY_HTTP_ROUTES.includes("/api/djconnect/v1/ask_dj/clear"));
+  assert(COMPATIBILITY_HTTP_ROUTES.includes("/api/djconnect/v1/debug/last_voice.wav"));
+  assert(!HTTP_ROUTES.some(([, route]) => route === "/api/device/dj_response"));
+  assert(!HTTP_ROUTES.some(([, route]) => route.startsWith("/api/djconnect/") && !route.startsWith("/api/djconnect/v1/")));
+  assert(!Object.hasOwn(FEATURES, "ask_dj_voice"));
+  assert(!Object.hasOwn(FEATURES, "ask_dj_audio_response"));
   assert(HTTP_ROUTES.some(([method, route]) => method === "GET" && route === "/api/djconnect/v1/vibecast"));
   assert(!WS_COMMANDS.includes("djconnect/vibecast"), "Fixture must not advertise a VibeCast WS route not present in HA");
+  assert(!WS_COMMANDS.includes("djconnect/voice"), "Voice route coverage is compatibility-only for Pi clients");
+  assert(!WS_COMMANDS.includes("djconnect/ask_dj/clear"), "Legacy Ask DJ clear route coverage is compatibility-only");
 
   await contractFixture(async (fixture) => {
     const session = await requestJson(

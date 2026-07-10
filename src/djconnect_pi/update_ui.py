@@ -37,8 +37,8 @@ def _local_ip_from_config(local_url: str) -> str:
 
 def wake_display() -> None:
     for command in (
-        ["xset", "dpms", "force", "on"],
         ["xset", "s", "reset"],
+        ["xset", "dpms", "force", "on"],
     ):
         try:
             subprocess.run(command, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

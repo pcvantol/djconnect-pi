@@ -121,7 +121,8 @@ Rectangle {
     property int pacmanPelletRows: 6
     property real pacmanPelletOriginX: 20
     property real pacmanPelletOriginY: 24
-    property real pacmanPelletSpacing: 28
+    property real pacmanPelletSpacingX: 280 / (pacmanPelletColumns - 1)
+    property real pacmanPelletSpacingY: 28
     property var powerPellets: [0, 9, 50, 59]
     property int ghostVulnerableTicks: 0
     property var pellets: []
@@ -200,11 +201,27 @@ Rectangle {
     }
 
     function pacmanPelletX(pellet) {
-        return pacmanPelletOriginX + (pellet % pacmanPelletColumns) * pacmanPelletSpacing
+        return pacmanPelletOriginX + (pellet % pacmanPelletColumns) * pacmanPelletSpacingX
     }
 
     function pacmanPelletY(pellet) {
-        return pacmanPelletOriginY + Math.floor(pellet / pacmanPelletColumns) * pacmanPelletSpacing
+        return pacmanPelletOriginY + Math.floor(pellet / pacmanPelletColumns) * pacmanPelletSpacingY
+    }
+
+    function pacmanMinX() {
+        return pacmanPelletOriginX
+    }
+
+    function pacmanMaxX() {
+        return pacmanPelletOriginX + (pacmanPelletColumns - 1) * pacmanPelletSpacingX
+    }
+
+    function pacmanMinY() {
+        return pacmanPelletOriginY
+    }
+
+    function pacmanMaxY() {
+        return pacmanPelletOriginY + (pacmanPelletRows - 1) * pacmanPelletSpacingY
     }
 
     function resetStars() {
@@ -407,8 +424,8 @@ Rectangle {
                 gameCanvas.requestPaint()
                 return
             }
-            pacmanX = Math.max(20, Math.min(292, pacmanX + pacmanDX * 4))
-            pacmanY = Math.max(24, Math.min(164, pacmanY + pacmanDY * 4))
+            pacmanX = Math.max(pacmanMinX(), Math.min(pacmanMaxX(), pacmanX + pacmanDX * 4))
+            pacmanY = Math.max(pacmanMinY(), Math.min(pacmanMaxY(), pacmanY + pacmanDY * 4))
             if (ghostVulnerableTicks > 0) ghostVulnerableTicks -= 1
             var step = ghostVulnerableTicks > 0 ? 1 : 1.35 + Math.min(Math.floor(score / 14) * 0.45, 1.8)
             if (Math.abs(ghostX - pacmanX) > 2) ghostX += ghostX < pacmanX ? step : -step

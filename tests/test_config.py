@@ -116,6 +116,51 @@ def test_load_config_normalizes_runtime_settings(tmp_path: Path) -> None:
     assert loaded.version == PROTOCOL_VERSION
 
 
+def test_dj_announcement_output_requires_configured_ha_speaker(tmp_path: Path) -> None:
+    path = tmp_path / "config.json"
+    path.write_text(
+        json.dumps(
+            {
+                "dj_announcement_output": "ha_speaker",
+                "music_backend_capabilities": {
+                    "dj_announcement": {
+                        "speaker_configured": False,
+                        "supported_outputs": ["text_only"],
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    loaded = load_config(path)
+
+    assert loaded.dj_announcement_output == "text_only"
+
+
+def test_dj_announcement_output_allows_configured_ha_speaker(tmp_path: Path) -> None:
+    path = tmp_path / "config.json"
+    path.write_text(
+        json.dumps(
+            {
+                "dj_announcement_output": "ha_speaker",
+                "music_backend_capabilities": {
+                    "dj_announcement": {
+                        "speaker_configured": True,
+                        "supported_outputs": ["text_only", "ha_speaker"],
+                        "target": {"kind": "ha_media_player", "entity_id": "media_player.voice_preview", "name": "Voice Preview"},
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    loaded = load_config(path)
+
+    assert loaded.dj_announcement_output == "ha_speaker"
+
+
 def test_default_language_uses_raspberry_pi_locale() -> None:
     with patch("djconnect_pi.config.locale.getlocale", return_value=("nl_NL", "UTF-8")):
         assert default_language_from_system() == "nl"

@@ -163,7 +163,7 @@ profiles are entered only through explicit backend Profile Platform resolution.
   "device_id": "djconnect-raspberry-pi-XXXXXXXXXXXX",
   "device_name": "DJConnect",
   "client_type": "raspberry_pi",
-  "version": "3.2.19",
+  "version": "3.2.20",
   "capabilities": {
     "touch": true,
     "voice": false,
@@ -239,16 +239,24 @@ device-owned and are not cleared by a profile change.
 Ask DJ on Raspberry Pi is `readonly_actions` and remains server-side. The touch
 UI polls Home Assistant history/status, renders backend responses as
 authoritative and sends only HA-provided structured action payloads. It does
-not expose free prompt input, local history clear, voice/PTT, local TTS or
-local audio playback. It only shows images, rows, buttons and sources returned
-on the current backend message. It never parses visible text, reuses previous
-artwork, stores Music DNA locally, reconstructs prompts or infers playback
-actions. Playback starts only when Home Assistant returns or executes an
-explicit action. Returned Play Now and speaker actions are posted back to
+not expose free prompt input, local-only history clear, voice/PTT, local TTS or
+local audio playback. Chat clear is a confirmed server-side operation through
+`djconnect/ask_dj/history/clear` or
+`POST /api/djconnect/v1/ask_dj/history/clear`; the Pi keeps existing bubbles
+visible until Home Assistant confirms and then applies the returned revisions
+and messages. It only shows images, rows, buttons and sources returned on the
+current backend message. It never parses visible text, reuses previous artwork,
+stores Music DNA locally, reconstructs prompts or infers playback actions.
+Playback starts only when Home Assistant returns or executes an explicit
+action. Returned Play Now and speaker actions are posted back to
 `/api/djconnect/v1/command` with the backend action payload;
-plain output selection uses the returned `value` with `set_output`. If a
-message includes `audio_url`, the UI shows a "DJ antwoord afspelen" button for
-that URL, but it does not create local TTS or audio bubbles. Track Insight is
+plain output selection uses the returned `value` with `set_output`. DJ
+announcement output is a Pi-local mode setting, not a speaker entity setting:
+the Pi supports `text_only`, and supports `ha_speaker` only when HA
+capabilities report a configured announcement speaker. With `ha_speaker`, Home
+Assistant plays TTS server-side on its configured media_player and the Pi only
+renders text, delivery metadata, target name and warnings. Legacy/top-level
+`audio_url` fields are ignored for Pi-local playback. Track Insight is
 opened from Now Playing through `/api/djconnect/v1/track_insight`; the request
 includes Pi identity, language/locale, optional mood/Music DNA key and current
 track metadata when available. The Pi renders direct top-level
@@ -256,11 +264,14 @@ track metadata when available. The Pi renders direct top-level
 `track_insight.analysis` responses through the same view model. It shows
 summary/full text, genre/subgenre, visual and mood context, production,
 instrumentation, arrangement and listening cues, and renders 0..1 analysis
-metrics as percentages. It does not render BPM, tempo, key, model fields or
-placeholder analysis. `no_track_playing`, `rate_limited` and track changes
-clear previous analysis instead of reusing stale data. Ask DJ responses with
-`intent/action/type/open_screen:"track_insight"` render the same normalized
-`track_insight` object, including Music DNA Match from
+metrics as percentages. The Track Insight visualizer is derived only from the
+same response: backend `visualisation`, `visualization` or `visualizer` bars and
+colors win, with a visual-only fallback from already-rendered fields when HA
+does not send visualizer data. It does not render BPM, tempo, key, model fields
+or placeholder analysis. `no_track_playing`, `rate_limited` and track changes
+clear previous analysis and visualizer state instead of reusing stale data. Ask
+DJ responses with `intent/action/type/open_screen:"track_insight"` render the
+same normalized `track_insight` object, including Music DNA Match from
 `track_insight.music_dna.match_percent`.
 
 Music DNA on Raspberry Pi is a server-authoritative settings/dashboard surface.

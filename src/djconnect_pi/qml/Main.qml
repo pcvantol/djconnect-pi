@@ -23,6 +23,7 @@ Window {
     property bool rebootConfirmOpen: false
     property bool shutdownConfirmOpen: false
     property bool clearLogsConfirmOpen: false
+    property bool askDjClearConfirmOpen: false
     property bool musicDnaDisableConfirmOpen: false
     property bool musicDnaClearConfirmOpen: false
     property bool moodPopoverOpen: false
@@ -32,6 +33,8 @@ Window {
     property bool forceScreenAwake: false
     property bool forceBrightnessFull: false
     property bool suppressNextNowPanelTap: false
+    property double lastWakeDisplayAt: 0
+    property int wakeDisplayDebounceMs: 800
     property int standardButtonRadius: 8
     property var returnToNowChoices: [30, 60, 120, 0]
     property bool screenBlanked: djconnect.screenTimeoutSeconds > 0 && !idleTimer.running && !root.forceScreenAwake
@@ -65,6 +68,11 @@ Window {
             if (root.returnToNowChoices[i] === djconnect.returnToNowSeconds) return i
         }
         return 1
+    }
+
+    function djAnnouncementOutputLabel(value) {
+        if (value === "ha_speaker") return root.tr("dj_announcement_output_ha_speaker")
+        return root.tr("dj_announcement_output_text_only")
     }
 
     function trackInsightLabel(value) {
@@ -146,6 +154,12 @@ Window {
     }
 
     function wakeDisplay() {
+        var now = Date.now()
+        if (now - root.lastWakeDisplayAt < root.wakeDisplayDebounceMs) {
+            root.recordActivity()
+            return
+        }
+        root.lastWakeDisplayAt = now
         djconnect.wakeDisplay()
         root.recordActivity()
     }
@@ -180,6 +194,7 @@ Window {
         root.rebootConfirmOpen = false
         root.shutdownConfirmOpen = false
         root.clearLogsConfirmOpen = false
+        root.askDjClearConfirmOpen = false
         root.musicDnaDisableConfirmOpen = false
         root.musicDnaClearConfirmOpen = false
         root.moodPopoverOpen = false
@@ -412,6 +427,15 @@ Window {
                 roundRect(9, 6, 13, 18, 2)
                 line(13, 11, 18, 11); line(13, 16, 17, 16)
                 circle(21, 22, 3.5, false); line(23.5, 24.5, 26, 27)
+            } else if (iconName === "trash") {
+                line(10, 11, 22, 11)
+                line(13, 11, 13.8, 25)
+                line(18.2, 25, 19, 11)
+                line(12, 11, 12.8, 25)
+                line(19.2, 25, 20, 11)
+                line(14, 8, 18, 8)
+                line(15, 6, 17, 6)
+                roundRect(11, 11, 10, 15, 1.5)
             } else if (iconName === "info") {
                 circle(16, 16, 10, false)
                 line(16, 15, 16, 22); circle(16, 10.5, 1.2, true)
@@ -961,6 +985,15 @@ Window {
         anchors.fill: parent
         color: "#070b16"
         z: 16
+        onVisibleChanged: {
+            if (visible) {
+                Qt.callLater(function() {
+                    if (mediaScroll && mediaScroll.contentItem) {
+                        mediaScroll.contentItem.contentY = 0
+                    }
+                })
+            }
+        }
 
         AppBackground {}
         ModalBlocker {}
@@ -1189,6 +1222,9 @@ Window {
             if (root.activeScreen === "askdj") {
                 root.scrollAskDjToTop()
             }
+            if (root.askDjClearConfirmOpen && djconnect.askDjMessages.length === 0) {
+                root.askDjClearConfirmOpen = false
+            }
         }
         function onScreenshotRequested() {
             root.forceScreenAwake = true
@@ -1208,6 +1244,7 @@ Window {
             root.resetPairingConfirmOpen = false
             root.rebootConfirmOpen = false
             root.shutdownConfirmOpen = false
+            root.askDjClearConfirmOpen = false
             root.musicDnaDisableConfirmOpen = false
             root.musicDnaClearConfirmOpen = false
             if (screen === "logs") {
@@ -1444,9 +1481,15 @@ Window {
             width: Math.min(292, parent.width - 32)
             height: moodPopoverContent.implicitHeight + 24
             radius: root.standardButtonRadius
-            color: "#141326"
-            border.color: "#6a5bd8"
+            border.color: root.moodColor("focus")
             border.width: 1
+
+            gradient: Gradient {
+                orientation: Gradient.Vertical
+                GradientStop { position: 0.0; color: root.moodColor("bannerMid") }
+                GradientStop { position: 0.58; color: root.moodColor("surface") }
+                GradientStop { position: 1.0; color: root.moodColor("bannerEnd") }
+            }
 
             ColumnLayout {
                 id: moodPopoverContent
@@ -1480,8 +1523,8 @@ Window {
                         onClicked: { djconnect.setMoodValue(0); root.moodPopoverOpen = false }
                         background: Rectangle {
                             radius: root.standardButtonRadius
-                            color: moodChillButton.checked ? MoodTheme.color(0, "gradientStart") : "#24263f"
-                            border.color: moodChillButton.checked ? MoodTheme.color(0, "focus") : "#3d4268"
+                            color: moodChillButton.checked ? MoodTheme.color(0, "gradientStart") : root.moodColor("chip")
+                            border.color: moodChillButton.checked ? MoodTheme.color(0, "focus") : root.moodColor("accent")
                             border.width: 1
                         }
                         contentItem: Text { text: moodChillButton.text; color: "#ffffff"; font.pixelSize: 16; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight }
@@ -1497,8 +1540,8 @@ Window {
                         onClicked: { djconnect.setMoodValue(35); root.moodPopoverOpen = false }
                         background: Rectangle {
                             radius: root.standardButtonRadius
-                            color: moodGrooveButton.checked ? MoodTheme.color(35, "gradientStart") : "#24263f"
-                            border.color: moodGrooveButton.checked ? MoodTheme.color(35, "focus") : "#3d4268"
+                            color: moodGrooveButton.checked ? MoodTheme.color(35, "gradientStart") : root.moodColor("chip")
+                            border.color: moodGrooveButton.checked ? MoodTheme.color(35, "focus") : root.moodColor("accent")
                             border.width: 1
                         }
                         contentItem: Text { text: moodGrooveButton.text; color: "#ffffff"; font.pixelSize: 16; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight }
@@ -1514,8 +1557,8 @@ Window {
                         onClicked: { djconnect.setMoodValue(70); root.moodPopoverOpen = false }
                         background: Rectangle {
                             radius: root.standardButtonRadius
-                            color: moodEnergyButton.checked ? MoodTheme.color(70, "gradientStart") : "#24263f"
-                            border.color: moodEnergyButton.checked ? MoodTheme.color(70, "focus") : "#3d4268"
+                            color: moodEnergyButton.checked ? MoodTheme.color(70, "gradientStart") : root.moodColor("chip")
+                            border.color: moodEnergyButton.checked ? MoodTheme.color(70, "focus") : root.moodColor("accent")
                             border.width: 1
                         }
                         contentItem: Text { text: moodEnergyButton.text; color: "#ffffff"; font.pixelSize: 16; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight }
@@ -1531,8 +1574,8 @@ Window {
                         onClicked: { djconnect.setMoodValue(100); root.moodPopoverOpen = false }
                         background: Rectangle {
                             radius: root.standardButtonRadius
-                            color: moodPartyButton.checked ? MoodTheme.color(100, "gradientStart") : "#24263f"
-                            border.color: moodPartyButton.checked ? MoodTheme.color(100, "focus") : "#3d4268"
+                            color: moodPartyButton.checked ? MoodTheme.color(100, "gradientStart") : root.moodColor("chip")
+                            border.color: moodPartyButton.checked ? MoodTheme.color(100, "focus") : root.moodColor("accent")
                             border.width: 1
                         }
                         contentItem: Text { text: moodPartyButton.text; color: "#ffffff"; font.pixelSize: 16; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight }
@@ -2118,6 +2161,62 @@ Window {
             }
 
             Text {
+                text: root.tr("dj_announcement_settings_title")
+                color: "#f4f8f8"
+                font.pixelSize: 26
+                font.bold: true
+                Layout.fillWidth: true
+                Layout.topMargin: 8
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 14
+
+                Text {
+                    text: root.tr("dj_announcement_output")
+                    color: "#d7e2e4"
+                    font.pixelSize: 22
+                    Layout.preferredWidth: 176
+                    wrapMode: Text.WordWrap
+                }
+
+                ComboBox {
+                    id: djAnnouncementOutputBox
+                    property var outputChoices: djconnect.djAnnouncementSpeakerAvailable ? ["text_only", "ha_speaker"] : ["text_only"]
+                    font.pixelSize: 24
+                    model: outputChoices
+                    currentIndex: Math.max(0, outputChoices.indexOf(djconnect.djAnnouncementOutput))
+                    displayText: root.djAnnouncementOutputLabel(djconnect.djAnnouncementOutput)
+                    delegate: ItemDelegate {
+                        width: djAnnouncementOutputBox.width
+                        text: root.djAnnouncementOutputLabel(modelData)
+                        font.pixelSize: 26
+                    }
+                    Layout.fillWidth: true
+                    onActivated: function(index) { djconnect.setDjAnnouncementOutput(outputChoices[index]) }
+                }
+            }
+
+            Text {
+                visible: !djconnect.djAnnouncementSpeakerAvailable
+                text: root.tr("dj_announcement_speaker_unavailable")
+                color: "#b9b5d4"
+                font.pixelSize: 18
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+
+            Text {
+                visible: djconnect.djAnnouncementSpeakerAvailable && djconnect.djAnnouncementSpeakerName.length > 0
+                text: root.tr("dj_announcement_speaker_configured") + " " + djconnect.djAnnouncementSpeakerName
+                color: "#b9b5d4"
+                font.pixelSize: 18
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+
+            Text {
                 text: root.tr("music_dna")
                 color: "#f4f8f8"
                 font.pixelSize: 26
@@ -2445,7 +2544,7 @@ Window {
                 Layout.preferredHeight: 104
                 radius: root.standardButtonRadius
                 color: "#00000000"
-                border.color: "#3b4a6e"
+                border.color: root.moodColor("focus")
                 border.width: 1
                 clip: true
 
@@ -2489,6 +2588,114 @@ Window {
                 }
             }
 
+            Rectangle {
+                id: trackInsightVisualizer
+                visible: djconnect.trackInsightVisualizer.available === true
+                Layout.fillWidth: true
+                Layout.preferredHeight: 164
+                radius: root.standardButtonRadius
+                color: "#00000000"
+                border.color: root.moodColor("focus")
+                border.width: 1
+                clip: true
+
+                property var visualizerData: djconnect.trackInsightVisualizer
+                property real phase: 0
+
+                onVisibleChanged: trackInsightVisualizerCanvas.requestPaint()
+                onVisualizerDataChanged: {
+                    phase = 0
+                    trackInsightVisualizerCanvas.requestPaint()
+                }
+
+                Timer {
+                    interval: 180
+                    repeat: true
+                    running: trackInsightVisualizer.visible && root.activeScreen === "trackinsight"
+                    onTriggered: {
+                        trackInsightVisualizer.phase = (trackInsightVisualizer.phase + 0.08) % 6.28
+                        trackInsightVisualizerCanvas.requestPaint()
+                    }
+                }
+
+                Canvas {
+                    id: trackInsightVisualizerCanvas
+                    anchors.fill: parent
+                    antialiasing: true
+                    onPaint: {
+                        var ctx = getContext("2d")
+                        ctx.clearRect(0, 0, width, height)
+                        var data = trackInsightVisualizer.visualizerData || {}
+                        var bars = data.bars || []
+                        var colors = data.colors || []
+                        var c0 = colors.length > 0 ? colors[0] : root.moodColor("gradientStart")
+                        var c1 = colors.length > 1 ? colors[1] : root.moodColor("gradientMid")
+                        var c2 = colors.length > 2 ? colors[2] : root.moodColor("gradientEnd")
+                        var bg = ctx.createLinearGradient(0, 0, width, height)
+                        bg.addColorStop(0.0, c0)
+                        bg.addColorStop(0.58, c1)
+                        bg.addColorStop(1.0, c2)
+                        ctx.globalAlpha = 0.28
+                        ctx.fillStyle = bg
+                        ctx.fillRect(0, 0, width, height)
+                        ctx.globalAlpha = 1
+
+                        ctx.fillStyle = "rgba(5, 8, 18, 0.34)"
+                        ctx.fillRect(0, 0, width, height)
+
+                        var orbGradient = ctx.createRadialGradient(width * 0.55, height * 0.45, 4, width * 0.55, height * 0.45, Math.max(width, height) * 0.56)
+                        orbGradient.addColorStop(0, c1)
+                        orbGradient.addColorStop(0.42, "rgba(255,255,255,0.16)")
+                        orbGradient.addColorStop(1, "rgba(0,0,0,0)")
+                        ctx.globalAlpha = 0.42
+                        ctx.fillStyle = orbGradient
+                        ctx.fillRect(0, 0, width, height)
+                        ctx.globalAlpha = 1
+
+                        ctx.strokeStyle = "rgba(255,255,255,0.16)"
+                        ctx.lineWidth = 1
+                        for (var line = 0; line < 5; line++) {
+                            var y = height * (0.22 + line * 0.13)
+                            ctx.beginPath()
+                            ctx.moveTo(width * 0.08, y)
+                            ctx.bezierCurveTo(width * 0.28, y - 20, width * 0.52, y + 20, width * 0.92, y - 8)
+                            ctx.stroke()
+                        }
+
+                        if (bars.length === 0) {
+                            return
+                        }
+                        var baseY = height - 18
+                        var topY = 28
+                        var availableHeight = Math.max(28, baseY - topY)
+                        var count = Math.min(48, bars.length)
+                        var gap = Math.max(3, width * 0.008)
+                        var barWidth = Math.max(4, (width - 34 - gap * (count - 1)) / count)
+                        var startX = (width - (barWidth * count + gap * (count - 1))) / 2
+                        var barGradient = ctx.createLinearGradient(0, topY, 0, baseY)
+                        barGradient.addColorStop(0.0, c2)
+                        barGradient.addColorStop(0.52, c1)
+                        barGradient.addColorStop(1.0, c0)
+                        ctx.fillStyle = barGradient
+                        for (var i = 0; i < count; i++) {
+                            var value = Math.max(0.08, Math.min(1, Number(bars[i]) || 0.1))
+                            var pulse = 0.88 + Math.sin(trackInsightVisualizer.phase + i * 0.45) * 0.08
+                            var h = Math.max(10, availableHeight * value * pulse)
+                            var x = startX + i * (barWidth + gap)
+                            var yBar = baseY - h
+                            ctx.fillRect(x, yBar, barWidth, h)
+                        }
+                        ctx.fillStyle = c2
+                        ctx.shadowColor = c2
+                        ctx.shadowBlur = 16
+                        ctx.beginPath()
+                        ctx.arc(width * 0.5, baseY, 8, 0, Math.PI * 2)
+                        ctx.fill()
+                        ctx.shadowBlur = 0
+                    }
+                }
+            }
+
             Text {
                 visible: djconnect.trackInsightText.length > 0
                 text: djconnect.trackInsightText
@@ -2511,7 +2718,7 @@ Window {
                         height: 64
                         radius: root.standardButtonRadius
                         color: "#00000000"
-                        border.color: modelData.musicDna ? "#6aa0b9c8" : root.moodColor("accent")
+                        border.color: root.moodColor("focus")
                         border.width: 1
 
                         ColumnLayout {
@@ -2563,7 +2770,7 @@ Window {
                             Layout.preferredHeight: trackSectionContent.implicitHeight + 18
                             radius: root.standardButtonRadius
                             color: "#00000000"
-                            border.color: modelData.metadataContext ? "#6aa0b9c8" : "#3b4a6e"
+                            border.color: root.moodColor("focus")
                             border.width: 1
 
                             ColumnLayout {
@@ -2708,8 +2915,51 @@ Window {
                 }
             }
 
+            Rectangle {
+                visible: !djconnect.musicDnaEnabled && djconnect.musicDiscoveryItems.length === 0 && !djconnect.musicDiscoveryBusy && !djconnect.musicDiscoveryConsentRejected
+                Layout.fillWidth: true
+                Layout.preferredHeight: discoveryMusicDnaDisabledColumn.implicitHeight + 28
+                radius: root.standardButtonRadius
+                color: "#00000000"
+                border.color: root.moodColor("focus")
+                border.width: 1
+
+                ColumnLayout {
+                    id: discoveryMusicDnaDisabledColumn
+                    anchors.fill: parent
+                    anchors.margins: 14
+                    spacing: 10
+
+                    Text {
+                        text: djconnect.musicDiscoveryEmptyText.length > 0 ? djconnect.musicDiscoveryEmptyText : root.tr("music_discovery_requires_music_dna")
+                        color: "#ffffff"
+                        font.pixelSize: 21
+                        font.bold: true
+                        wrapMode: Text.WordWrap
+                        Layout.fillWidth: true
+                    }
+
+                    Text {
+                        text: root.tr("music_dna_opt_in")
+                        color: "#cfd7ef"
+                        font.pixelSize: 19
+                        wrapMode: Text.WordWrap
+                        Layout.fillWidth: true
+                    }
+
+                    PurpleButton {
+                        text: root.tr("music_discovery_enable")
+                        enabled: !djconnect.musicDnaBusy && !djconnect.musicDiscoveryBusy
+                        font.pixelSize: 19
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 52
+                        onClicked: djconnect.setMusicDnaEnabled(true)
+                    }
+                }
+            }
+
             Text {
-                visible: djconnect.musicDiscoveryItems.length === 0 && !djconnect.musicDiscoveryBusy && !djconnect.musicDiscoveryConsentRejected
+                visible: djconnect.musicDnaEnabled && djconnect.musicDiscoveryItems.length === 0 && !djconnect.musicDiscoveryBusy && !djconnect.musicDiscoveryConsentRejected
                 text: djconnect.musicDiscoveryError.length > 0 ? djconnect.musicDiscoveryError : (djconnect.musicDiscoveryEmptyText.length > 0 ? djconnect.musicDiscoveryEmptyText : root.tr("music_discovery_empty"))
                 color: "#d8e3ee"
                 font.pixelSize: 20
@@ -3036,6 +3286,16 @@ Window {
                 Layout.fillWidth: true
             }
 
+            PurpleButton {
+                visible: !djconnect.musicDnaEnabled
+                text: root.tr("music_dna_enable")
+                enabled: !djconnect.musicDnaBusy
+                font.pixelSize: 22
+                Layout.fillWidth: true
+                Layout.preferredHeight: 56
+                onClicked: djconnect.setMusicDnaEnabled(true)
+            }
+
             Text {
                 visible: djconnect.musicDnaEnabled && djconnect.musicDnaSummary.length > 0
                 text: djconnect.musicDnaSummary
@@ -3140,7 +3400,34 @@ Window {
 
                 RefreshIconButton {
                     id: askDjRefreshButton
+                    enabled: !djconnect.askDjBusy
                     onClicked: djconnect.refreshAskDjHistory()
+                }
+
+                Button {
+                    id: askDjClearButton
+                    enabled: !djconnect.askDjBusy && djconnect.askDjMessages.length > 0
+                    ToolTip.visible: hovered
+                    ToolTip.text: root.tr("ask_dj_clear_chat")
+                    Accessible.name: root.tr("ask_dj_clear_chat")
+                    Layout.preferredWidth: 48
+                    Layout.preferredHeight: 48
+                    onClicked: root.askDjClearConfirmOpen = true
+                    contentItem: MenuIcon {
+                        iconName: "trash"
+                        iconColor: askDjClearButton.enabled ? "#ffffff" : "#93a0b8"
+                        strokeWidth: 2.5
+                        anchors.centerIn: parent
+                        width: 28
+                        height: 28
+                    }
+                    background: Rectangle {
+                        radius: root.standardButtonRadius
+                        color: askDjClearButton.down ? "#8f1f2d" : (askDjClearButton.enabled ? "#c9364b" : root.moodDisabledColor("start"))
+                        border.color: askDjClearButton.hovered ? "#ffd1d8" : (askDjClearButton.enabled ? "#ff7a8c" : root.moodDisabledColor("mid"))
+                        border.width: 1
+                        opacity: askDjClearButton.enabled ? 1.0 : 0.62
+                    }
                 }
 
             }
@@ -3181,7 +3468,7 @@ Window {
                             implicitHeight: askDjBubbleContent.implicitHeight + 24
                             radius: 8
                             color: systemBubble ? "#33434a57" : (userBubble ? "#664f46e5" : "#4434145f")
-                            border.color: systemBubble ? "#6aa0b9c8" : (userBubble ? "#a5b4fc" : root.moodColor("accent"))
+                            border.color: root.moodColor("focus")
                             border.width: 1
 
                             ColumnLayout {
@@ -3222,7 +3509,7 @@ Window {
                                         height: 30
                                         radius: 8
                                         color: "#33434a57"
-                                        border.color: "#6aa0b9c8"
+                                        border.color: root.moodColor("focus")
                                         border.width: 1
 
                                         Text {
@@ -3276,7 +3563,7 @@ Window {
                                             height: 58
                                             radius: 8
                                             color: "#00000000"
-                                            border.color: modelData.musicDna ? "#6aa0b9c8" : root.moodColor("accent")
+                                            border.color: root.moodColor("focus")
                                             border.width: 1
                                             clip: true
 
@@ -3338,7 +3625,7 @@ Window {
                                             Layout.preferredHeight: trackInsightSectionContent.implicitHeight + 16
                                             radius: 8
                                             color: "#00000000"
-                                            border.color: modelData.metadataContext ? "#6aa0b9c8" : ((modelData.source === "inferred" || modelData.source === "local_fallback" || modelData.source === "unavailable" || modelData.confidence === "low") ? "#b6a46a" : root.moodColor("accent"))
+                                            border.color: root.moodColor("focus")
                                             border.width: 1
 
                                             ColumnLayout {
@@ -3662,13 +3949,28 @@ Window {
                                     }
                                 }
 
-                                AskDjGradientButton {
-                                    visible: modelData.audioUrl && modelData.audioUrl.length > 0
-                                    text: root.tr("replay_audio")
-                                    font.pixelSize: 17
-                                    Layout.preferredWidth: 220
-                                    Layout.preferredHeight: 44
-                                    onClicked: Qt.openUrlExternally(modelData.audioUrl)
+                                Text {
+                                    visible: modelData.announcementDelivery && modelData.announcementDelivery.length > 0
+                                    text: modelData.announcementDelivery === "ha_speaker"
+                                        ? root.tr("dj_announcement_delivered_ha_speaker") + " " + (modelData.announcementTargetName || root.tr("home_assistant"))
+                                        : root.tr("dj_announcement_text_only")
+                                    color: "#a7f3ff"
+                                    font.pixelSize: 14
+                                    font.bold: true
+                                    wrapMode: Text.WordWrap
+                                    Layout.fillWidth: true
+                                }
+
+                                Repeater {
+                                    model: modelData.announcementWarnings || []
+
+                                    Text {
+                                        text: modelData
+                                        color: "#f4c27a"
+                                        font.pixelSize: 13
+                                        wrapMode: Text.WordWrap
+                                        Layout.fillWidth: true
+                                    }
                                 }
 
                                 ColumnLayout {
@@ -4392,13 +4694,29 @@ Window {
                 Layout.fillHeight: false
                 spacing: 10
 
-                PurpleButton {
-                    text: root.tr("clear_logs")
-                    font.pixelSize: 22
-                    Layout.fillWidth: true
+                Button {
+                    id: clearLogsButton
+                    ToolTip.visible: hovered
+                    ToolTip.text: root.tr("clear_logs")
+                    Accessible.name: root.tr("clear_logs")
+                    Layout.preferredWidth: 56
                     Layout.preferredHeight: 56
                     Layout.maximumHeight: 56
                     onClicked: root.clearLogsConfirmOpen = true
+                    contentItem: MenuIcon {
+                        iconName: "trash"
+                        iconColor: "#ffffff"
+                        strokeWidth: 2.5
+                        anchors.centerIn: parent
+                        width: 30
+                        height: 30
+                    }
+                    background: Rectangle {
+                        radius: root.standardButtonRadius
+                        color: clearLogsButton.down ? "#8f1f2d" : "#c9364b"
+                        border.color: clearLogsButton.hovered ? "#ffd1d8" : "#ff7a8c"
+                        border.width: 1
+                    }
                 }
                 RefreshIconButton {
                     Layout.preferredHeight: 56
@@ -4532,6 +4850,77 @@ Window {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 56
                     onClicked: root.clearLogsConfirmOpen = false
+                }
+            }
+        }
+    }
+
+    Rectangle {
+        id: askDjClearConfirmPanel
+        anchors.fill: parent
+        color: "#cc070b16"
+        visible: root.askDjClearConfirmOpen
+        z: 86
+
+        ModalBlocker {}
+
+        Rectangle {
+            anchors.centerIn: parent
+            width: Math.min(parent.width - 48, 520)
+            radius: 8
+            color: "#f0151020"
+            border.color: "#47345d"
+            border.width: 1
+
+            implicitHeight: askDjClearConfirmContent.implicitHeight + 44
+
+            ColumnLayout {
+                id: askDjClearConfirmContent
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.margins: 22
+                spacing: 18
+
+                Text {
+                    text: root.tr("ask_dj_clear_confirm_title")
+                    color: "#ffffff"
+                    font.pixelSize: 28
+                    font.bold: true
+                    Layout.fillWidth: true
+                }
+
+                Text {
+                    text: root.tr("ask_dj_clear_confirm_message")
+                    color: "#f4f0ff"
+                    font.pixelSize: 24
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+
+                LoadingSpinner {
+                    visible: djconnect.askDjBusy
+                    running: visible
+                    Layout.preferredWidth: 42
+                    Layout.preferredHeight: 42
+                    Layout.alignment: Qt.AlignHCenter
+                }
+
+                DangerButton {
+                    text: root.tr("clear")
+                    enabled: !djconnect.askDjBusy
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 56
+                    onClicked: djconnect.clearAskDjHistory()
+                }
+
+                PurpleButton {
+                    text: root.tr("cancel")
+                    enabled: !djconnect.askDjBusy
+                    font.pixelSize: 24
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 56
+                    onClicked: root.askDjClearConfirmOpen = false
                 }
             }
         }
@@ -4863,6 +5252,11 @@ Window {
         color: "#070b16"
         visible: root.aboutOpen
         z: 82
+        onVisibleChanged: {
+            if (visible && aboutScroll.contentItem) {
+                aboutScroll.contentItem.contentY = 0
+            }
+        }
 
         AppBackground {}
         ModalBlocker {}

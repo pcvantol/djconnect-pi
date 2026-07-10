@@ -67,7 +67,13 @@ This file records the first pass review for the wall-mounted Pi client.
 - Ask DJ is advertised as `readonly_actions`: the Pi polls shared history and
   sends HA-provided structured action payloads, while free prompt input,
   microphone input, wake word, TTS and local Ask DJ audio playback remain
-  unsupported.
+  unsupported. If Home Assistant reports a configured DJ announcement speaker,
+  the Pi may request `dj_announcement_output:"ha_speaker"` so HA speaks the
+  announcement server-side; otherwise the mode is locked to `text_only`. The Pi
+  never stores or changes the HA speaker entity and never plays response
+  `audio_url` locally. Chat clear is routed to Home Assistant and local messages
+  are cleared only after the backend confirms, avoiding a local-only privacy
+  state.
 - Persistent logging uses rotating files and redacts messages that obviously
   contain tokens, bearer auth, passwords or secrets.
 - Startup logs include Raspberry Pi system information such as OS, kernel,

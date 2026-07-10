@@ -55,13 +55,17 @@ HTTP-only unless HA advertises a websocket command for it.
   `/api/djconnect/v1/track_insight`, canonical `client_type=raspberry_pi`,
   language/locale/mood headers, current track metadata, direct and wrapped
   response decoding, no BPM/key/model fields, no-track/rate-limit retry states,
-  stale analysis clearing and secret-safe logging
+  stale analysis clearing, backend visualisation/visualization/visualizer
+  decoding, visual-only fallback rendering from existing response fields,
+  visualizer replacement on new insight responses and secret-safe logging
 - Ask DJ history polling uses bearer auth, Pi identity headers, the revision
   cursor and pairing/auth/version guards with quiet backoff on unavailable
   backend states
 - Ask DJ QML renders assistant, system, status and other-client user messages
   plus HA-provided action buttons, without typed prompt input, send-message
-  controls or local history clear
+  controls or local-only history clear; the confirmed clear button calls the
+  backend history clear route, empties local bubbles only after success and
+  preserves them on backend errors
 - Ask DJ action taps send only the structured action payload through the normal
   HA command contract
 - Music DNA profile parser coverage for disabled profiles, enabled summary-only

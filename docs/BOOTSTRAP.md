@@ -188,9 +188,9 @@ completed:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.2.19.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.2.20.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.2.19
+cd djconnect-pi-3.2.20
 sudo ./scripts/install.sh
 ```
 
@@ -218,9 +218,9 @@ development checkout:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.2.19.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.2.20.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.2.19
+cd djconnect-pi-3.2.20
 sudo ./scripts/install.sh
 ```
 
@@ -415,5 +415,6 @@ Open `Setup` on the touch screen and configure:
   logic on the Pi.
 - Ask DJ on the Pi displays the shared Home Assistant feed with optional
   structured touch action buttons supplied by Home Assistant. It does not
-  expose free prompt input, local history clear, push-to-talk, wake word, TTS
-  or local Ask DJ audio playback.
+  expose free prompt input, local-only history clear, push-to-talk, wake word,
+  TTS or local Ask DJ audio playback. Chat clear is confirmation-driven and
+  goes through the Home Assistant history clear route.
