@@ -1159,6 +1159,30 @@ def test_ask_dj_clear_history_error_preserves_local_messages(tmp_path: Path, cap
     assert "Old action" not in caplog.text
 
 
+def test_ask_dj_clear_and_trim_revisions_are_server_authoritative(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend._apply_ask_dj_data(
+        {
+            "history_revision": 10,
+            "messages": [
+                {"id": "m1", "role": "assistant", "text": "Een", "created_at": "2026-07-05T08:00:01Z"},
+                {"id": "m2", "role": "assistant", "text": "Twee", "created_at": "2026-07-05T08:00:02Z"},
+                {"id": "m3", "role": "assistant", "text": "Drie", "created_at": "2026-07-05T08:00:03Z"},
+            ],
+        }
+    )
+
+    backend._apply_ask_dj_data({"history_revision": 11, "history_trimmed_count": 1, "messages": []})
+    assert [message["id"] for message in backend.askDjMessages] == ["m2", "m3"]
+    assert backend._ask_dj_history_revision == 11
+
+    backend._apply_ask_dj_data({"clear_revision": 2, "history_revision": 12, "messages": []})
+    assert backend.askDjMessages == []
+    assert backend._ask_dj_clear_revision == 2
+    assert backend._ask_dj_history_revision == 12
+
+
 def test_ask_dj_poll_requires_pairing_and_token(tmp_path: Path) -> None:
     ensure_app()
     backend = DJConnectBackend(tmp_path / "config.json")
