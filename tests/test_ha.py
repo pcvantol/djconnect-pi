@@ -923,6 +923,51 @@ def test_playback_from_status_does_not_select_first_output_device_as_fallback() 
     assert playback.output_devices == ("Woonkamer", "Keuken")
 
 
+def test_playback_from_status_preserves_cached_output_metadata_without_marking_active() -> None:
+    playback = HAClient(Config()).playback_from_status(
+        {
+            "playback": {
+                "output_devices": [
+                    {"id": "speaker-live", "name": "Woonkamer", "active": True, "provider": "spotify", "source": "spotify_api"},
+                    {
+                        "id": "speaker-cached",
+                        "name": "Slaapkamer",
+                        "cached": True,
+                        "first_seen_at": "2026-06-10T12:00:00Z",
+                        "last_seen_at": "2026-07-09T12:00:00Z",
+                        "provider": "spotify",
+                        "source": "spotify_cache",
+                    },
+                ],
+            }
+        }
+    )
+
+    assert playback.output_device == "Woonkamer"
+    assert playback.output_devices == ("Woonkamer", "Slaapkamer")
+    assert playback.output_device_details[1]["cached"] is True
+    assert playback.output_device_details[1]["first_seen_at"] == "2026-06-10T12:00:00Z"
+    assert playback.output_device_details[1]["last_seen_at"] == "2026-07-09T12:00:00Z"
+    assert playback.output_device_details[1]["provider"] == "spotify"
+    assert playback.output_device_details[1]["source"] == "spotify_cache"
+
+
+def test_playback_from_status_does_not_treat_cached_output_as_active() -> None:
+    playback = HAClient(Config()).playback_from_status(
+        {
+            "playback": {
+                "output_devices": [
+                    {"id": "speaker-live", "name": "Woonkamer"},
+                    {"id": "speaker-cached", "name": "Slaapkamer", "cached": True},
+                ],
+            }
+        }
+    )
+
+    assert playback.output_device == ""
+    assert playback.output_devices == ("Woonkamer", "Slaapkamer")
+
+
 def test_playback_from_status_maps_output_device_id_to_name() -> None:
     playback = HAClient(Config()).playback_from_status(
         {

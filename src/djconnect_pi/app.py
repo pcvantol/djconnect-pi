@@ -405,6 +405,12 @@ class DJConnectBackend(QObject):
     def outputDevices(self) -> list[str]:
         return list(self.playback.output_devices)
 
+    @Property("QVariantList", notify=outputDeviceChanged)
+    def outputDeviceChoices(self) -> list[dict[str, object]]:
+        if self.playback.output_device_details:
+            return [dict(item) for item in self.playback.output_device_details]
+        return [{"name": name, "value": name} for name in self.playback.output_devices]
+
     @Property(bool, notify=pairedChanged)
     def paired(self) -> bool:
         return bool(self.cfg.paired and self.cfg.device_token)
@@ -1478,6 +1484,7 @@ class DJConnectBackend(QObject):
                 devices_playback = self.client.playback_from_status(devices_data)
                 if devices_playback.output_devices:
                     playback.output_devices = devices_playback.output_devices
+                    playback.output_device_details = devices_playback.output_device_details
                     _LOGGER.debug("Loaded %s output devices from Home Assistant devices command", len(playback.output_devices))
                 if devices_playback.output_device and not playback.output_device:
                     playback.output_device = devices_playback.output_device
@@ -1546,12 +1553,15 @@ class DJConnectBackend(QObject):
                 playback.output_device = value
             if not playback.output_devices:
                 playback.output_devices = self.playback.output_devices or ((value,) if value else ())
+                playback.output_device_details = self.playback.output_device_details or (({"name": value, "value": value},) if value else ())
             self._pending_output_device = value
             self._pending_output_until = time.monotonic() + 20
             self._playbackReady.emit(playback)
             _LOGGER.info("Output device %s validated in %.0fms", value, _elapsed_ms(started))
         except Exception:
             self._outputDeviceRejected.emit(previous, value)
+            if self._is_cached_output_device(value):
+                self._toastReady.emit(self.tr_key("spotify_cached_output_unavailable"), 7000, "playback")
             raise
 
     def _load_queue_worker(self) -> None:
@@ -1920,7 +1930,11 @@ class DJConnectBackend(QObject):
             self.shuffleChanged.emit()
         if old.repeat != playback.repeat:
             self.repeatChanged.emit()
-        if old.output_device != playback.output_device or old.output_devices != playback.output_devices:
+        if (
+            old.output_device != playback.output_device
+            or old.output_devices != playback.output_devices
+            or old.output_device_details != playback.output_device_details
+        ):
             self.outputDeviceChanged.emit()
         if old.position_seconds != playback.position_seconds or old.duration_seconds != playback.duration_seconds:
             self.progressChanged.emit()
@@ -2201,6 +2215,19 @@ class DJConnectBackend(QObject):
         self.playback.output_device = previous
         self.outputDeviceChanged.emit()
         _LOGGER.warning("Output device selection rejected: %s", attempted)
+
+    def _is_cached_output_device(self, value: str) -> bool:
+        normalized = value.strip().casefold()
+        if not normalized:
+            return False
+        for item in self.playback.output_device_details:
+            names = {
+                str(item.get("name") or "").strip().casefold(),
+                str(item.get("value") or "").strip().casefold(),
+            }
+            if normalized in names and item.get("cached") is True:
+                return True
+        return False
 
     @Slot(bool, str)
     def _apply_pairing(self, paired: bool, message: str) -> None:

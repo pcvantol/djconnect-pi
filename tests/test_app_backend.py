@@ -2233,6 +2233,27 @@ def test_backend_output_device_dispatches_command(tmp_path: Path) -> None:
     assert calls == ["set_output"]
 
 
+def test_backend_cached_output_device_remains_selectable(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    calls: list[str] = []
+    backend._run = lambda label, worker: calls.append(label)  # type: ignore[method-assign]
+    backend.playback = Playback(
+        output_devices=("Woonkamer", "Slaapkamer"),
+        output_device_details=(
+            {"name": "Woonkamer", "value": "speaker-live"},
+            {"name": "Slaapkamer", "value": "speaker-cached", "cached": True},
+        ),
+    )
+
+    backend.setOutputDevice("Slaapkamer")
+
+    assert [item["name"] for item in backend.outputDeviceChoices] == ["Woonkamer", "Slaapkamer"]
+    assert backend.outputDeviceChoices[1]["cached"] is True
+    assert backend.outputDevice == "Slaapkamer"
+    assert calls == ["set_output"]
+
+
 def test_backend_manual_refresh_clears_pending_output_device(tmp_path: Path) -> None:
     ensure_app()
     backend = DJConnectBackend(tmp_path / "config.json")
@@ -2408,6 +2429,28 @@ def test_backend_output_device_worker_rolls_back_rejected_device(tmp_path: Path)
     assert backend.outputDevice == "Woonkamer"
 
 
+def test_backend_cached_output_device_failure_shows_friendly_message(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.playback.output_device = "Woonkamer"
+    backend.playback.output_devices = ("Woonkamer", "Slaapkamer")
+    backend.playback.output_device_details = (
+        {"name": "Woonkamer", "value": "speaker-live"},
+        {"name": "Slaapkamer", "value": "speaker-cached", "cached": True},
+    )
+
+    class FakeClient:
+        def command(self, command: str, **payload: object) -> dict[str, object]:
+            raise DJConnectError("Spotify output unavailable")
+
+    backend.client = FakeClient()  # type: ignore[assignment]
+    with pytest.raises(DJConnectError):
+        backend._set_output_worker("Slaapkamer", "Woonkamer")
+
+    assert backend.outputDevice == "Woonkamer"
+    assert backend.toastText == backend.tr_key("spotify_cached_output_unavailable")
+
+
 def test_backend_refresh_loads_output_devices_when_status_omits_them(tmp_path: Path) -> None:
     ensure_app()
     backend = DJConnectBackend(tmp_path / "config.json")
@@ -2440,6 +2483,44 @@ def test_backend_refresh_loads_output_devices_when_status_omits_them(tmp_path: P
     assert statuses
     assert statuses[0][0].output_devices == ("Slaapkamer R + Slaapkamer L",)
     assert statuses[0][1] == []
+
+
+def test_backend_refresh_replaces_local_output_list_with_latest_ha_list(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token"
+    backend.playback.output_devices = ("Woonkamer", "Cached Old")
+    backend.playback.output_device_details = (
+        {"name": "Woonkamer", "value": "speaker-live"},
+        {"name": "Cached Old", "value": "speaker-old", "cached": True},
+    )
+    parser = HAClient(backend.cfg)
+
+    class FakeClient:
+        def command(self, command: str, **payload: object) -> dict[str, object]:
+            if command == "status":
+                return {
+                    "playback": {
+                        "title": "Song",
+                        "artist": "Artist",
+                        "output_device": "Woonkamer",
+                        "output_devices": [{"name": "Woonkamer", "is_active": True}],
+                    }
+                }
+            return {}
+
+        def playback_from_status(self, data: dict[str, object]) -> Playback:
+            return parser.playback_from_status(data)
+
+        def status(self, playback: object, queue_items: list[dict[str, object]] | None = None) -> dict[str, object]:
+            return {"success": True}
+
+    backend.client = FakeClient()  # type: ignore[assignment]
+    backend._refresh_worker()
+
+    assert backend.playback.output_devices == ("Woonkamer",)
+    assert backend.outputDeviceChoices == [{"name": "Woonkamer", "value": "Woonkamer", "is_active": True}]
 
 
 def test_backend_refresh_caches_now_playing_artwork_before_render(tmp_path: Path, monkeypatch) -> None:

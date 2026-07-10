@@ -105,6 +105,7 @@ class Playback:
     duration_seconds: int = 0
     output_device: str = ""
     output_devices: tuple[str, ...] = ()
+    output_device_details: tuple[dict[str, Any], ...] = ()
     is_favorite: bool = False
 
 
@@ -568,7 +569,8 @@ class HAClient:
             or data.get("active_device")
             or data.get("current_device")
         )
-        output_devices = _string_list(output_device_source)
+        output_device_details = _output_device_details(output_device_source)
+        output_devices = [str(item["name"]) for item in output_device_details]
         output_device = _active_output_device(
             output_device_source,
             _output_device_name(
@@ -635,6 +637,7 @@ class HAClient:
             ),
             output_device=output_device,
             output_devices=tuple(output_devices),
+            output_device_details=tuple(output_device_details),
         )
 
     def update_backend_summary(self, data: dict[str, Any]) -> MusicBackendSummary:
@@ -995,6 +998,47 @@ def _string_list(value: Any) -> list[str]:
     return []
 
 
+def _output_device_details(value: Any) -> list[dict[str, Any]]:
+    if isinstance(value, list):
+        result: list[dict[str, Any]] = []
+        for item in value:
+            detail = _output_device_detail(item)
+            if detail:
+                result.append(detail)
+        return result
+    if isinstance(value, dict):
+        detail = _output_device_detail(value)
+        if detail:
+            return [detail]
+        return _output_device_details(list(value.values()))
+    detail = _output_device_detail(value)
+    return [detail] if detail else []
+
+
+def _output_device_detail(value: Any) -> dict[str, Any]:
+    if isinstance(value, dict):
+        name = str(value.get("name") or value.get("device_name") or value.get("label") or value.get("id") or "").strip()
+        if not name:
+            return {}
+        detail: dict[str, Any] = {
+            "name": name,
+            "value": str(value.get("id") or value.get("device_id") or value.get("value") or name).strip(),
+        }
+        for key in ("cached", "first_seen_at", "last_seen_at", "provider", "source"):
+            if key in value:
+                detail[key] = value[key]
+        if value.get("is_active") is not None:
+            detail["is_active"] = bool(value.get("is_active"))
+        if value.get("active") is not None:
+            detail["active"] = bool(value.get("active"))
+        return detail
+    if value:
+        name = str(value).strip()
+        if name:
+            return {"name": name, "value": name}
+    return {}
+
+
 def _output_device_name(value: Any) -> str:
     if isinstance(value, dict):
         return str(value.get("name") or value.get("device_name") or value.get("label") or value.get("id") or "").strip()
@@ -1019,7 +1063,7 @@ def _active_output_device(devices: Any, explicit: str) -> str:
                 for key in (device_id, name):
                     if key:
                         id_to_name[key.casefold()] = name or key
-                if item.get("is_active") or item.get("active") or item.get("selected") or item.get("current"):
+                if item.get("is_active") or item.get("active"):
                     active_name = name or device_id
             elif item:
                 names.append(str(item).strip())

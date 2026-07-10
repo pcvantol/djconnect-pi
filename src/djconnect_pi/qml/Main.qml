@@ -1800,29 +1800,39 @@ Window {
                 ComboBox {
                     id: controlOutputDeviceCombo
                     property string noOutputDeviceLabel: root.tr("none")
-                    property var deviceChoices: [noOutputDeviceLabel].concat(djconnect.outputDevices.length > 0 ? djconnect.outputDevices : (djconnect.outputDevice.length > 0 ? [djconnect.outputDevice] : []))
+                    property var deviceChoices: [{ "name": noOutputDeviceLabel, "value": "" }].concat(djconnect.outputDeviceChoices.length > 0 ? djconnect.outputDeviceChoices : (djconnect.outputDevice.length > 0 ? [{ "name": djconnect.outputDevice, "value": djconnect.outputDevice }] : []))
+                    function choiceName(choice) {
+                        if (typeof choice === "string") return choice
+                        return ((choice && choice.name) || (choice && choice.value) || "").toString()
+                    }
+                    function choiceValue(choice) {
+                        if (typeof choice === "string") return choice
+                        return ((choice && choice.value) || (choice && choice.name) || "").toString()
+                    }
                     function selectedIndex() {
                         var selected = (djconnect.outputDevice || "").trim()
                         if (selected.length === 0) return 0
                         for (var i = 0; i < deviceChoices.length; i++) {
-                            if ((deviceChoices[i] || "").trim() === selected) return i
+                            if (choiceName(deviceChoices[i]).trim() === selected || choiceValue(deviceChoices[i]).trim() === selected) return i
                         }
                         return 0
                     }
                     model: deviceChoices
+                    textRole: "name"
                     visible: count > 1 || djconnect.outputDevice.length === 0
                     currentIndex: selectedIndex()
                     font.pixelSize: 26
                     delegate: ItemDelegate {
                         width: controlOutputDeviceCombo.width
-                        text: modelData
+                        text: controlOutputDeviceCombo.choiceName(modelData)
                         font.pixelSize: 28
                     }
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     onActivated: function(index) {
-                        var value = controlOutputDeviceCombo.textAt(index)
-                        djconnect.setOutputDevice(value === controlOutputDeviceCombo.noOutputDeviceLabel ? "" : value)
+                        var value = controlOutputDeviceCombo.choiceName(controlOutputDeviceCombo.deviceChoices[index])
+                        if (value === controlOutputDeviceCombo.noOutputDeviceLabel) value = ""
+                        djconnect.setOutputDevice(value)
                     }
                 }
 
