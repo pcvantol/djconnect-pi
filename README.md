@@ -8,6 +8,13 @@ Square Touch style kiosk remote: pairing, status, now playing and touch
 playback control, Ask DJ history display with structured touch actions,
 server-backed Music DNA and Music Discovery.
 
+The Raspberry Pi is the canonical DJConnect Ambient Client. Its default
+Profile Platform behavior is shared: Household, room, guest, kids or party
+profiles are the safe default for a wall or countertop screen. A personal
+profile is used only when Home Assistant resolves the paired Pi device to one
+or when an explicit profile selection is configured; the Pi never infers a
+personal identity locally.
+
 It intentionally does not implement PTT, microphone upload, local DJ response
 audio, a Pi-local DJ response endpoint, ESP firmware OTA, ESP battery sensors
 or Wi-Fi RSSI sensors. It does run a small local Client API daemon for Home
@@ -63,13 +70,25 @@ running separately from the touch UI.
 - Music DNA is Home Assistant authoritative. The Pi can call profile, settings
   and clear endpoints over HTTP or the advertised websocket fast path, but it
   does not calculate, store or replay Music DNA as a local source of truth.
+  The rendered Music DNA is scoped to the backend-resolved DJConnect Profile:
+  household/room/guest profiles show shared Music DNA, and personal profiles
+  show personal Music DNA only after explicit profile resolution.
 - Music Discovery is Home Assistant authoritative and gated behind Music DNA
   consent. The Pi renders backend `sections[].items[]` in order, treats section
   IDs as opaque backend values, renders backend quality/reason fields directly,
   sends refresh/play/feedback requests and posts Play Now selections back to HA
   as Music Discovery interactions. It does not fabricate recommendations,
   reasons, quality scores, based-on lists or items from recent listening
-  history locally.
+  history locally. Discover defaults to household/shared recommendations unless
+  the backend resolves an explicit personal profile.
+- Profile-aware requests send canonical `device_id`, `client_type`,
+  `request_source` and optional explicit `profile_id`/`private_session` fields.
+  The Pi consumes `djconnect/capabilities` fields for Profile Platform support
+  and `profile_context` contract versions instead of guessing from Home
+  Assistant versions.
+- Profile-scoped touch caches are isolated. When the backend-resolved profile
+  changes, Ask DJ history, Music DNA, Discover and Track Insight view state are
+  cleared before rendering the new profile's data.
 - Home Assistant WebSocket fast path is enabled by default for the Pi's local HA
   connection. The client bootstraps a short-lived HA websocket token with
   `POST /api/djconnect/v1/websocket/session` using the paired DJConnect bearer
@@ -223,6 +242,10 @@ The app is a 720x720 fullscreen touch remote:
   advertises feedback support
 - Music DNA screen for server-backed opt-in, disable, clear and compact profile
   display; optional dashboard blocks are hidden when absent or ineligible
+- Profile adoption is ambient-first: shared profile content may appear on the
+  wall display, but personal Ask DJ history, personal recommendations and
+  personal Music DNA appear only when the backend resolves an explicit personal
+  DJConnect Profile for this Pi.
 - fixed bottom menu bar for Speelt nu, Wachtrij, Ask DJ, Track Insight, Ontdek
   and Meer; Meer contains Bediening, Afspeellijsten, Music DNA, Games,
   Instellingen, Logs and Over

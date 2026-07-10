@@ -48,6 +48,8 @@ class WebSocketFastPath:
     commands: tuple[str, ...] = ()
     features: dict[str, bool] = field(default_factory=dict)
     fallbacks: dict[str, str] = field(default_factory=dict)
+    capabilities: dict[str, bool] = field(default_factory=dict)
+    contract_versions: dict[str, int] = field(default_factory=dict)
     unhealthy_until: float = 0.0
     _access_token: str = field(default="", init=False, repr=False)
     _access_token_expires_at: float = field(default=0.0, init=False, repr=False)
@@ -75,6 +77,10 @@ class WebSocketFastPath:
             "websocketCommands": list(self.commands),
             "features": dict(self.features),
             "fallbacks": dict(self.fallbacks),
+            "capabilities": dict(self.capabilities),
+            "contract_versions": dict(self.contract_versions),
+            "profilePlatformSupported": bool(self.capabilities.get("profiles")),
+            "profileContextContractVersion": int(self.contract_versions.get("profile_context", 0)),
         }
 
     def try_request(self, message_type: str, body: dict[str, Any], *, command: str, timeout: float) -> dict[str, Any] | None:
@@ -127,6 +133,10 @@ class WebSocketFastPath:
         self.commands = tuple(str(item) for item in commands if isinstance(item, str))
         features = response.get("features")
         self.features = {str(key): bool(value) for key, value in features.items()} if isinstance(features, dict) else {}
+        capabilities = response.get("capabilities")
+        self.capabilities = {str(key): bool(value) for key, value in capabilities.items()} if isinstance(capabilities, dict) else {}
+        contract_versions = response.get("contract_versions")
+        self.contract_versions = {str(key): _safe_int(value) for key, value in contract_versions.items()} if isinstance(contract_versions, dict) else {}
         fallbacks = response.get("fallbacks")
         self.fallbacks = _flatten_fallbacks(fallbacks) if isinstance(fallbacks, dict) else {}
         self.last_capability_refresh = time.time()
@@ -166,6 +176,10 @@ class WebSocketFastPath:
                 )
                 if self.cfg.music_dna_key:
                     message["music_dna_key"] = self.cfg.music_dna_key
+                if self.cfg.explicit_profile_id:
+                    message["profile_id"] = self.cfg.explicit_profile_id
+                if self.cfg.private_session:
+                    message["private_session"] = True
             ws.send(json.dumps(message))
             response = _websocket_recv_json(ws)
             if response.get("type") == "result":
@@ -198,6 +212,10 @@ class WebSocketFastPath:
             "client_type": CLIENT_TYPE,
             "requested_commands": list(REQUESTED_COMMANDS),
         }
+        if self.cfg.explicit_profile_id:
+            payload["profile_id"] = self.cfg.explicit_profile_id
+        if self.cfg.private_session:
+            payload["private_session"] = True
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.cfg.device_token}",
@@ -306,3 +324,10 @@ def _expires_at(value: object) -> float:
         return datetime.fromisoformat(text.replace("Z", "+00:00")).timestamp()
     except ValueError:
         return time.time() + 240
+
+
+def _safe_int(value: object) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0

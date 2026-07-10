@@ -99,6 +99,7 @@ class DJConnectBackend(QObject):
     languageChanged = Signal()
     translationsChanged = Signal()
     moodChanged = Signal()
+    profileChanged = Signal()
     wakeScreenRequested = Signal()
     temporaryWakeRequested = Signal(int, bool)
     screenshotRequested = Signal()
@@ -204,6 +205,22 @@ class DJConnectBackend(QObject):
         self._trackInsightReady.connect(self._apply_track_insight_data)
         QTimer.singleShot(250, self.refresh)
         _LOGGER.info("DJConnect Pi client backend started for %s", self.cfg.device_id)
+
+    @Property(str, notify=profileChanged)
+    def activeProfileId(self) -> str:
+        return self.cfg.active_profile_id
+
+    @Property(str, notify=profileChanged)
+    def activeProfileName(self) -> str:
+        return self.cfg.active_profile_name or self.tr_key("household_profile")
+
+    @Property(str, notify=profileChanged)
+    def activeProfileType(self) -> str:
+        return self.cfg.active_profile_type
+
+    @Property(bool, notify=profileChanged)
+    def personalProfileActive(self) -> bool:
+        return self.cfg.active_profile_type == "personal"
 
     @Property(str, notify=statusTextChanged)
     def statusText(self) -> str:
@@ -726,6 +743,11 @@ class DJConnectBackend(QObject):
             and latest.screen_timeout_seconds == self.cfg.screen_timeout_seconds
             and latest.return_to_now_seconds == self.cfg.return_to_now_seconds
             and latest.update_channel == self.cfg.update_channel
+            and latest.active_profile_id == self.cfg.active_profile_id
+            and latest.active_profile_type == self.cfg.active_profile_type
+            and latest.active_profile_privacy_mode == self.cfg.active_profile_privacy_mode
+            and latest.explicit_profile_id == self.cfg.explicit_profile_id
+            and latest.private_session == self.cfg.private_session
         ):
             return
         language_changed = latest.language != self.cfg.language
@@ -738,6 +760,7 @@ class DJConnectBackend(QObject):
         self.screenTimeoutChanged.emit()
         self.returnToNowChanged.emit()
         self.updateChannelChanged.emit()
+        self.profileChanged.emit()
         if language_changed:
             self._translation_version += 1
             self.languageChanged.emit()
@@ -1495,6 +1518,7 @@ class DJConnectBackend(QObject):
     def _load_ask_dj_history_worker(self) -> None:
         try:
             data = self.client.ask_dj_history(self._ask_dj_history_revision)
+            self._apply_profile_context(data)
             self._persist_backend_summary()
         except (DJConnectError, requests.RequestException) as exc:
             raise BackendUnavailable("Ask DJ unavailable") from exc
@@ -1503,6 +1527,7 @@ class DJConnectBackend(QObject):
     def _send_ask_dj_action_worker(self, action: dict[str, object]) -> None:
         try:
             data = self.client.ask_dj_action(action)
+            self._apply_profile_context(data)
         except (AuthenticationError, ProtocolVersionMismatch):
             raise
         except (UnsupportedBackendCapability, StaleBackendAction):
@@ -1515,6 +1540,7 @@ class DJConnectBackend(QObject):
     def _track_insight_worker(self) -> None:
         try:
             data = self.client.track_insight(self.playback)
+            self._apply_profile_context(data)
             self._persist_backend_summary()
         except (AuthenticationError, ProtocolVersionMismatch):
             raise
@@ -1527,6 +1553,7 @@ class DJConnectBackend(QObject):
     def _music_dna_profile_worker(self) -> None:
         try:
             data = self.client.music_dna_profile()
+            self._apply_profile_context(data)
             self._persist_backend_summary()
         except (DJConnectError, requests.RequestException) as exc:
             raise BackendUnavailable("Music DNA unavailable") from exc
@@ -1535,6 +1562,7 @@ class DJConnectBackend(QObject):
     def _music_dna_settings_worker(self, **settings: object) -> None:
         try:
             data = self.client.music_dna_settings(**settings)
+            self._apply_profile_context(data)
             self._persist_backend_summary()
         except (DJConnectError, requests.RequestException) as exc:
             raise BackendUnavailable("Music DNA unavailable") from exc
@@ -1543,6 +1571,7 @@ class DJConnectBackend(QObject):
     def _music_dna_clear_worker(self) -> None:
         try:
             data = self.client.music_dna_clear()
+            self._apply_profile_context(data)
             self._persist_backend_summary()
         except (DJConnectError, requests.RequestException) as exc:
             raise BackendUnavailable("Music DNA unavailable") from exc
@@ -1551,6 +1580,7 @@ class DJConnectBackend(QObject):
     def _music_discovery_feed_worker(self) -> None:
         try:
             data = self.client.music_discovery_feed()
+            self._apply_profile_context(data)
             data["_feedback_supported"] = self._supports_music_discovery_feedback()
             self._persist_backend_summary()
         except (DJConnectError, requests.RequestException) as exc:
@@ -1560,9 +1590,11 @@ class DJConnectBackend(QObject):
     def _music_discovery_accept_worker(self) -> None:
         try:
             profile = self.client.music_dna_settings(enabled=True)
+            self._apply_profile_context(profile)
             self._persist_backend_summary()
             self._musicDnaReady.emit(profile)
             data = self.client.music_discovery_feed()
+            self._apply_profile_context(data)
             data["_feedback_supported"] = self._supports_music_discovery_feedback()
             self._persist_backend_summary()
         except (DJConnectError, requests.RequestException) as exc:
@@ -1572,6 +1604,7 @@ class DJConnectBackend(QObject):
     def _music_discovery_refresh_worker(self) -> None:
         try:
             data = self.client.music_discovery_refresh()
+            self._apply_profile_context(data)
             data["_feedback_supported"] = self._supports_music_discovery_feedback()
             self._persist_backend_summary()
         except (DJConnectError, requests.RequestException) as exc:
@@ -1581,8 +1614,10 @@ class DJConnectBackend(QObject):
     def _music_discovery_play_worker(self, item: dict[str, object]) -> None:
         try:
             data = self.client.music_discovery_play(item)
+            self._apply_profile_context(data)
             self._persist_backend_summary()
             feed = self.client.music_discovery_feed()
+            self._apply_profile_context(feed)
             feed["_feedback_supported"] = self._supports_music_discovery_feedback()
             self._persist_backend_summary()
         except (DJConnectError, requests.RequestException) as exc:
@@ -1597,6 +1632,7 @@ class DJConnectBackend(QObject):
             self.client.music_discovery_feedback(item, feedback)
             self._persist_backend_summary()
             feed = self.client.music_discovery_feed()
+            self._apply_profile_context(feed)
             feed["_feedback_supported"] = self._supports_music_discovery_feedback()
             self._persist_backend_summary()
         except (DJConnectError, requests.RequestException) as exc:
@@ -1623,6 +1659,7 @@ class DJConnectBackend(QObject):
     def _poll_ask_dj_history_worker(self) -> None:
         try:
             data = self.client.ask_dj_history(self._ask_dj_history_revision)
+            self._apply_profile_context(data)
             self._persist_backend_summary()
         except (AuthenticationError, ProtocolVersionMismatch, BackendUnavailable, DJConnectError, requests.RequestException) as exc:
             self._ask_dj_poll_error_count = min(self._ask_dj_poll_error_count + 1, 6)
@@ -1680,9 +1717,16 @@ class DJConnectBackend(QObject):
             self.exitDemoMode()
         self.cfg.device_token = ""
         self.cfg.paired = False
+        self.cfg.active_profile_id = ""
+        self.cfg.active_profile_name = ""
+        self.cfg.active_profile_type = "household"
+        self.cfg.active_profile_privacy_mode = "shared"
+        self.cfg.explicit_profile_id = ""
+        self.cfg.music_dna_key = ""
         self._queue_items = []
         self._playlist_items = []
         self._clear_ask_dj_cache()
+        self._clear_profile_scoped_caches()
         from .config import generate_pairing_code
 
         self.cfg.pairing_code = generate_pairing_code()
@@ -1691,6 +1735,7 @@ class DJConnectBackend(QObject):
         self.pairingCodeChanged.emit()
         self.settingsChanged.emit()
         self.mediaListsChanged.emit()
+        self.profileChanged.emit()
 
     def _apply_demo_track(self, title: str, artist: str) -> None:
         self.playback.title = title
@@ -1825,6 +1870,7 @@ class DJConnectBackend(QObject):
     def _apply_ask_dj_data(self, data: object) -> None:
         if not isinstance(data, dict):
             return
+        self._apply_profile_context(data)
         clear_revision = _int_value(data.get("clear_revision"), self._ask_dj_clear_revision)
         if clear_revision > self._ask_dj_clear_revision:
             self._clear_ask_dj_cache(reset_revisions=False)
@@ -1880,6 +1926,49 @@ class DJConnectBackend(QObject):
             self._ask_dj_clear_revision = 0
         self.askDjChanged.emit()
 
+    def _apply_profile_context(self, data: dict[str, object]) -> None:
+        before = self._profile_cache_key()
+        self.client.apply_profile_context(data)
+        after = self._profile_cache_key()
+        if after != before:
+            _LOGGER.info(
+                "Resolved DJConnect Profile changed type=%s privacy=%s id_present=%s",
+                self.cfg.active_profile_type,
+                self.cfg.active_profile_privacy_mode,
+                bool(self.cfg.active_profile_id),
+            )
+            self._clear_profile_scoped_caches()
+            save_config(self.config_path, self.cfg)
+            self.profileChanged.emit()
+            self.settingsChanged.emit()
+
+    def _profile_cache_key(self) -> tuple[str, str, str]:
+        return (self.cfg.active_profile_id, self.cfg.active_profile_type, self.cfg.active_profile_privacy_mode)
+
+    def _clear_profile_scoped_caches(self) -> None:
+        self._clear_ask_dj_cache()
+        self._music_dna_enabled = False
+        self._music_dna_summary = ""
+        self._music_dna_sections = []
+        self._music_discovery_items = []
+        self._music_discovery_empty_text = ""
+        self._music_discovery_error = ""
+        self._music_discovery_playing_id = ""
+        self._music_discovery_feedback_supported = False
+        self._music_discovery_consent_rejected = False
+        self._track_insight_title = ""
+        self._track_insight_artist = ""
+        self._track_insight_album = ""
+        self._track_insight_image_url = ""
+        self._track_insight_text = ""
+        self._track_insight_error = ""
+        self._track_insight_items = []
+        self._track_insight_sections = []
+        self._track_insight_track_key = ""
+        self.musicDnaChanged.emit()
+        self.musicDiscoveryChanged.emit()
+        self.trackInsightChanged.emit()
+
     def _set_ask_dj_busy(self, value: bool) -> None:
         if self._ask_dj_busy == value:
             return
@@ -1912,6 +2001,7 @@ class DJConnectBackend(QObject):
     def _apply_music_dna_data(self, data: object) -> None:
         if not isinstance(data, dict):
             return
+        self._apply_profile_context(data)
         parsed = parse_music_dna_profile(data)
         self._music_dna_enabled = bool(parsed["enabled"])
         self._music_dna_summary = str(parsed["summary"])
@@ -1923,6 +2013,7 @@ class DJConnectBackend(QObject):
     def _apply_music_discovery_data(self, data: object) -> None:
         if not isinstance(data, dict):
             return
+        self._apply_profile_context(data)
         self._music_discovery_consent_rejected = False
         if data.get("enabled") is False or str(data.get("error") or "") == "music_dna_disabled":
             self._music_discovery_items = []
@@ -2225,13 +2316,14 @@ def main() -> None:
     QPixmapCache.setCacheLimit(QT_PIXMAP_CACHE_LIMIT_KB)
     engine = QQmlApplicationEngine()
     backend = DJConnectBackend(args.config)
-    app.aboutToQuit.connect(backend.shutdown)
     engine.rootContext().setContextProperty("djconnect", backend)
     engine.rootContext().setContextProperty("startWindowed", args.windowed)
     qml_path = files("djconnect_pi.qml").joinpath("Main.qml")
     engine.load(str(qml_path))
     if not engine.rootObjects():
         raise SystemExit(1)
+    app.aboutToQuit.connect(lambda: [obj.deleteLater() for obj in engine.rootObjects()])
+    app.aboutToQuit.connect(backend.shutdown)
     if args.exit_after_ms > 0:
         QTimer.singleShot(args.exit_after_ms, app.quit)
     raise SystemExit(app.exec())
