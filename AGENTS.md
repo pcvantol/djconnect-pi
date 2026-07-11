@@ -1,5 +1,16 @@
 # DJConnect Pi Agent Notes
 
+## DJConnect Platform Bootstrap
+
+For a clean Codex/AI-agent session in this repository, start here:
+
+`BOOTSTRAP_CODEX_SESSION.md`
+
+That local bootstrap points back to the canonical platform foundation in
+`pcvantol/djconnect` and then returns to the repository-specific rules in
+this file. This repository extends the DJConnect Platform Foundation. It
+does not redefine it.
+
 ## DJConnect Platform Foundation
 
 This repository follows the canonical DJConnect design foundation in `pcvantol/djconnect`.
