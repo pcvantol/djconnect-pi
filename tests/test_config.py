@@ -78,14 +78,14 @@ def test_load_config_backfills_missing_device_id(tmp_path: Path) -> None:
     assert loaded.pairing_code.isdigit()
 
 
-def test_load_config_ignores_unknown_legacy_keys(tmp_path: Path) -> None:
+def test_load_config_normalizes_legacy_dj_announcement_output(tmp_path: Path) -> None:
     path = tmp_path / "config.json"
     path.write_text(json.dumps({"ha_url": "http://ha", "dj_announcement_output": "old"}), encoding="utf-8")
 
     loaded = load_config(path)
 
     assert loaded.ha_url == "http://ha"
-    assert not hasattr(loaded, "dj_announcement_output")
+    assert loaded.dj_announcement_output == "text_only"
 
 
 def test_load_config_normalizes_runtime_settings(tmp_path: Path) -> None:
