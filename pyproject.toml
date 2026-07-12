@@ -21,6 +21,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+  "coverage>=7",
   "pytest>=8",
 ]
 
