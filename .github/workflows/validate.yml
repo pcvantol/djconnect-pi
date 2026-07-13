@@ -65,11 +65,38 @@ jobs:
       - name: Validate HA contract fixture redaction
         run: node Tools/validate_ha_contract_fixture_security.js
 
+  post-merge-coverage:
+    name: Post-merge coverage evidence
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: "3.11"
+      - name: Generate exact-SHA coverage report
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libgl1 libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 libxcb-xinput0
+          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install -e ".[dev]" coverage
+          coverage run -m pytest
+          coverage xml -o coverage.xml
+          printf '%s\n' "$GITHUB_SHA" > coverage-main-sha.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: pi-cobertura-coverage
+          path: |
+            coverage.xml
+            coverage-main-sha.txt
+          if-no-files-found: error
+
   cleanup-workflow-runs:
     name: Cleanup workflow runs
     needs:
       - python
       - ha-contract-fixture
+      - post-merge-coverage
     if: >-
       ${{
         always() &&
