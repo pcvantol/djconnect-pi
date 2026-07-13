@@ -399,7 +399,7 @@ def test_install_script_can_resume_after_reboot_or_interruption() -> None:
 def test_shared_voice_intent_examples_are_available_for_docs_alignment() -> None:
     examples = json.loads(ROOT.joinpath("examples/voice_intents.json").read_text(encoding="utf-8"))
 
-    assert examples["version"] == "3.2.x"
+    assert examples["version"] == "3.3.x"
     assert examples["handling_order"][:2] == ["current_track", "playback_control"]
     assert "current_track" in examples["intents"]
     assert "playback_control" in examples["intents"]

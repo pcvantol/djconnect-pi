@@ -243,7 +243,7 @@ state. License metadata is maintained by Debian/Raspberry Pi packages in
 | --- | --- | --- | --- |
 | GitHub Releases | private source release and public Pi distribution release | SaaS API; not pinned | https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases |
 | GitHub Actions | publish tagged source releases to public release repo | SaaS runner; workflow-defined | https://docs.github.com/en/actions |
-| Home Assistant DJConnect integration | pairing, status and playback command contract | compatible `3.2.x` integration expected | https://www.home-assistant.io/ |
+| Home Assistant DJConnect integration | pairing, status and playback command contract | compatible `3.3.x` integration expected | https://www.home-assistant.io/ |
 | Raspberry Pi OS Lite 64-bit | target operating system | image/repository state controlled outside repo | https://www.raspberrypi.com/software/operating-systems/ |
 
 ## Release Maintenance Rule

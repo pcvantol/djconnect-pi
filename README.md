@@ -1,6 +1,6 @@
 # DJConnect Pi
 
-Version: `3.2.20`
+Version: `3.3.0` (dry-run candidate; not published)
 
 Raspberry Pi Zero 2 W touch-display client for DJConnect. This client uses
 Qt Quick/QML with a PySide6 backend and is meant for a Pimoroni HyperPixel 4.0
@@ -44,7 +44,7 @@ running separately from the touch UI.
 
 - `client_type`: `raspberry_pi`
 - Device ID: `djconnect-raspberry-pi-XXXXXXXXXXXX`
-- Protocol: `3.2.x`
+- Protocol: `3.3.x`
 - Transport: local only. Pairing stores and uses only `ha_local_url`; the Pi
   ignores any accidental `ha_remote_url`/Nabu Casa URL fields.
 - HTTP is the canonical fallback. The native Home Assistant `/api/websocket`
@@ -341,9 +341,9 @@ not a private source clone:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.2.20.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.3.0.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.2.20
+cd djconnect-pi-3.3.0
 sudo ./scripts/install.sh
 ```
 
@@ -464,9 +464,9 @@ installer:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.2.20.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.3.0.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.2.20
+cd djconnect-pi-3.3.0
 sudo ./scripts/install.sh
 ```
 
