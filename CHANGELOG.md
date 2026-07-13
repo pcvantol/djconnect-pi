@@ -1,6 +1,6 @@
 # Changelog
 
-## 3.2.20
+## 3.3.0 (dry run — not published)
 
 - Label legacy Home Assistant contract routes as fixture-only compatibility
   coverage in the Node E2E fixtures and README, so `/voice`, raw Ask DJ,

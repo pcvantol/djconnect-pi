@@ -163,7 +163,7 @@ profiles are entered only through explicit backend Profile Platform resolution.
   "device_id": "djconnect-raspberry-pi-XXXXXXXXXXXX",
   "device_name": "DJConnect",
   "client_type": "raspberry_pi",
-  "version": "3.2.20",
+  "version": "3.3.0",
   "capabilities": {
     "touch": true,
     "voice": false,
