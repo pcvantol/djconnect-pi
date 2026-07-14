@@ -92,16 +92,20 @@ jobs:
           test "${RELEASE_PROFILE}" = "INTERNAL_RELEASE"
           test "${TARGET}" = "rbpi-djconnect"
           [[ "${CANDIDATE_SHA}" =~ ^[0-9a-f]{40}$ ]]
-          [[ "${ARTIFACT_ID}" =~ ^djconnect-pi-[0-9]+\.[0-9]+\.[0-9]+\.tar\.gz$ ]]
+          [[ "${ARTIFACT_ID}" =~ ^release-asset:pcvantol/djconnect-pi-releases:v([0-9]+\.[0-9]+\.[0-9]+):djconnect-pi-([0-9]+\.[0-9]+\.[0-9]+)\.tar\.gz$ ]]
+          release_version="${BASH_REMATCH[1]}"
+          test "${BASH_REMATCH[2]}" = "${release_version}"
           [[ "${ARTIFACT_SHA256}" =~ ^[0-9a-f]{64}$ ]]
           [[ "${PLATFORM_VERSION}" =~ ^[0-9]+\.[0-9]+$ ]]
-          [[ "${MANIFEST_ID}" =~ ^pi-v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]
-          release_version="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.${BASH_REMATCH[3]}"
+          [[ "${MANIFEST_ID}" =~ ^release-[A-Za-z0-9._-]+$ ]]
           release_tag="v${release_version}"
-          test "${PLATFORM_VERSION}" = "${BASH_REMATCH[1]}.${BASH_REMATCH[2]}"
-          test "${ARTIFACT_ID}" = "djconnect-pi-${release_version}.tar.gz"
+          test "${PLATFORM_VERSION}" = "${release_version%.*}"
+          distribution_artifact_id="djconnect-pi-${release_version}.tar.gz"
+          distribution_manifest_id="pi-v${release_version}"
           export RELEASE_VERSION="${release_version}"
           export RELEASE_TAG="${release_tag}"
+          export DISTRIBUTION_ARTIFACT_ID="${distribution_artifact_id}"
+          export DISTRIBUTION_MANIFEST_ID="${distribution_manifest_id}"
           git cat-file -e "${CANDIDATE_SHA}^{commit}"
           git merge-base --is-ancestor "${CANDIDATE_SHA}" origin/main
           gh api "repos/${GITHUB_REPOSITORY}/commits/${CANDIDATE_SHA}/status" \
@@ -130,12 +134,12 @@ jobs:
           expected = {
               "schema_version": 1,
               "kind": "djconnect_pi_release_artifact",
-              "manifest_id": os.environ["MANIFEST_ID"],
+              "manifest_id": os.environ["DISTRIBUTION_MANIFEST_ID"],
               "candidate_sha": os.environ["CANDIDATE_SHA"],
               "platform_version": os.environ["PLATFORM_VERSION"],
               "version": os.environ["RELEASE_VERSION"],
               "release_tag": os.environ["RELEASE_TAG"],
-              "artifact_id": os.environ["ARTIFACT_ID"],
+              "artifact_id": os.environ["DISTRIBUTION_ARTIFACT_ID"],
               "target": os.environ["TARGET"],
           }
           for key, value in expected.items():
