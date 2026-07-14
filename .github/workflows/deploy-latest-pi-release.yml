@@ -1,111 +1,206 @@
-name: Deploy Latest Pi Release
+name: Deploy Qualified Pi Release
 
 on:
   workflow_dispatch:
     inputs:
-      pi_host:
-        description: "Pi SSH host. Defaults to DJCONNECT_PI_SSH_HOST when empty."
-        required: false
+      action:
+        description: "Must be deployment."
+        required: true
+        type: choice
+        options: [deployment]
+      candidate_sha:
+        description: "Exact qualified source main SHA."
+        required: true
         type: string
-      pi_user:
-        description: "Pi SSH user"
-        required: false
-        default: "pi"
+      execution_mode:
+        description: "Must be execute."
+        required: true
+        type: choice
+        options: [execute]
+      manifest_id:
+        description: "Immutable Pi release manifest identifier, for example pi-v3.3.0."
+        required: true
         type: string
-      pi_port:
-        description: "Pi SSH port"
-        required: false
-        default: "22"
+      platform_version:
+        description: "Platform Major.Minor version, for example 3.3."
+        required: true
         type: string
+      release_profile:
+        description: "Supported release profile."
+        required: true
+        type: choice
+        options: [INTERNAL_RELEASE]
       timeout_seconds:
-        description: "Maximum time to wait for the updater"
+        description: "Maximum time to wait for the target updater."
         required: false
         default: "1800"
         type: string
 
 permissions:
+  actions: read
+  checks: read
   contents: read
+  statuses: write
 
 concurrency:
-  group: pi-latest-release-deployment
+  group: pi-qualified-release-deployment-${{ inputs.manifest_id }}
   cancel-in-progress: false
 
 jobs:
-  deploy:
-    name: Deploy latest public release to Pi
-    runs-on: [self-hosted, macOS]
-    env:
-      RELEASE_REPO: pcvantol/djconnect-pi-releases
-      PI_HOST: ${{ inputs.pi_host || secrets.DJCONNECT_PI_SSH_HOST }}
-      PI_USER: ${{ inputs.pi_user }}
-      PI_PORT: ${{ inputs.pi_port }}
-      TIMEOUT_SECONDS: ${{ inputs.timeout_seconds }}
+  authorize:
+    name: Authorize qualified Pi deployment
+    runs-on: ubuntu-latest
+    outputs:
+      release_version: ${{ steps.contract.outputs.release_version }}
+      artifact_sha256: ${{ steps.contract.outputs.artifact_sha256 }}
+      release_tag: ${{ steps.contract.outputs.release_tag }}
     steps:
-      - name: Resolve latest public release
-        id: latest
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          ref: main
+          fetch-depth: 0
+      - id: contract
+        name: Validate exact source evidence and published artifact
+        env:
+          ACTION: ${{ inputs.action }}
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          EXECUTION_MODE: ${{ inputs.execution_mode }}
+          MANIFEST_ID: ${{ inputs.manifest_id }}
+          PLATFORM_VERSION: ${{ inputs.platform_version }}
+          RELEASE_PROFILE: ${{ inputs.release_profile }}
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
+          test "${ACTION}" = "deployment"
+          test "${EXECUTION_MODE}" = "execute"
+          test "${RELEASE_PROFILE}" = "INTERNAL_RELEASE"
+          [[ "${CANDIDATE_SHA}" =~ ^[0-9a-f]{40}$ ]]
+          [[ "${PLATFORM_VERSION}" =~ ^[0-9]+\.[0-9]+$ ]]
+          [[ "${MANIFEST_ID}" =~ ^pi-v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]
+          release_version="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.${BASH_REMATCH[3]}"
+          release_tag="v${release_version}"
+          test "${PLATFORM_VERSION}" = "${BASH_REMATCH[1]}.${BASH_REMATCH[2]}"
+          export RELEASE_VERSION="${release_version}"
+          export RELEASE_TAG="${release_tag}"
+          git cat-file -e "${CANDIDATE_SHA}^{commit}"
+          git merge-base --is-ancestor "${CANDIDATE_SHA}" origin/main
+          gh api "repos/${GITHUB_REPOSITORY}/commits/${CANDIDATE_SHA}/status" \
+            --jq '.statuses[] | select(.context == "Post-Merge Release Evidence / Reconcile release evidence" and .state == "success" and .description == "POST_MERGE_RELEASE_EVIDENCE_QUALIFIED") | .context' \
+            | grep -Fx 'Post-Merge Release Evidence / Reconcile release evidence'
 
-          manifest_url="https://github.com/${RELEASE_REPO}/releases/latest/download/djconnect-pi-latest.json"
-          manifest="$(curl -fsSL "${manifest_url}")"
-          version="$(
-            MANIFEST="${manifest}" python3 - <<'PY'
+          workdir="$(mktemp -d)"
+          trap 'rm -rf "${workdir}"' EXIT
+          base="https://github.com/pcvantol/djconnect-pi-releases/releases/download/${release_tag}"
+          curl --fail-with-body --location --silent --show-error \
+            "${base}/djconnect-pi-${release_version}-release-manifest.json" \
+            --output "${workdir}/release-manifest.json"
+          curl --fail-with-body --location --silent --show-error \
+            "${base}/djconnect-pi-${release_version}.tar.gz" --output "${workdir}/release.tar.gz"
+          curl --fail-with-body --location --silent --show-error \
+            "${base}/djconnect-pi-${release_version}.sha256" --output "${workdir}/release.sha256"
+          actual_sha256="$(sha256sum "${workdir}/release.tar.gz" | awk '{print $1}')"
+          checksum_sha256="$(awk 'NR == 1 {print $1}' "${workdir}/release.sha256")"
+          python3 - "${workdir}/release-manifest.json" "${actual_sha256}" "${checksum_sha256}" <<'PY'
           import json
           import os
+          import re
+          import sys
 
-          manifest = json.loads(os.environ["MANIFEST"])
-          version = str(manifest.get("version") or manifest.get("tag_name") or "").removeprefix("v")
-          if not version:
-              raise SystemExit("latest manifest does not contain a version")
-          print(version)
+          manifest = json.load(open(sys.argv[1], encoding="utf-8"))
+          expected = {
+              "schema_version": 1,
+              "kind": "djconnect_pi_release_artifact",
+              "manifest_id": os.environ["MANIFEST_ID"],
+              "candidate_sha": os.environ["CANDIDATE_SHA"],
+              "platform_version": os.environ["PLATFORM_VERSION"],
+              "version": os.environ["RELEASE_VERSION"],
+              "release_tag": os.environ["RELEASE_TAG"],
+          }
+          for key, value in expected.items():
+              if manifest.get(key) != value:
+                  raise SystemExit(f"Release manifest {key} does not match the approved deployment request")
+          for key, value in {"artifact_sha256": sys.argv[2], "checksum_sha256": sys.argv[3]}.items():
+              if not re.fullmatch(r"[0-9a-f]{64}", value) or manifest.get(key) != value:
+                  raise SystemExit(f"Release manifest {key} does not match the downloaded artifact")
           PY
-          )"
+          {
+            echo "release_version=${release_version}"
+            echo "release_tag=${release_tag}"
+            echo "artifact_sha256=${actual_sha256}"
+          } >> "${GITHUB_OUTPUT}"
 
-          echo "version=${version}" >> "${GITHUB_OUTPUT}"
-          echo "Latest public DJConnect Pi release is ${version}."
-
-      - name: Check SSH access and current Pi version
+  deploy:
+    name: Deploy authorized Pi artifact
+    needs: authorize
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_REPO: pcvantol/djconnect-pi-releases
+      PI_HOST: ${{ secrets.DJCONNECT_PI_SSH_HOST }}
+      PI_USER: ${{ vars.DJCONNECT_PI_SSH_USER || 'pi' }}
+      PI_PORT: ${{ vars.DJCONNECT_PI_SSH_PORT || '22' }}
+      TIMEOUT_SECONDS: ${{ inputs.timeout_seconds }}
+      RELEASE_VERSION: ${{ needs.authorize.outputs.release_version }}
+      ARTIFACT_SHA256: ${{ needs.authorize.outputs.artifact_sha256 }}
+    steps:
+      - name: Materialize target-scoped SSH credentials
+        id: ssh
         shell: bash
         run: |
           set -euo pipefail
+          test -n "${PI_HOST}"
+          [[ "${PI_PORT}" =~ ^[0-9]{1,5}$ ]]
+          test -n "${{ secrets.DJCONNECT_PI_SSH_PRIVATE_KEY }}"
+          test -n "${{ secrets.DJCONNECT_PI_SSH_KNOWN_HOSTS }}"
+          key_file="${RUNNER_TEMP}/djconnect-pi-deployment-key"
+          known_hosts_file="${RUNNER_TEMP}/djconnect-pi-known-hosts"
+          printf '%s\n' "${{ secrets.DJCONNECT_PI_SSH_PRIVATE_KEY }}" > "${key_file}"
+          printf '%s\n' "${{ secrets.DJCONNECT_PI_SSH_KNOWN_HOSTS }}" > "${known_hosts_file}"
+          chmod 600 "${key_file}" "${known_hosts_file}"
+          echo "key_file=${key_file}" >> "${GITHUB_OUTPUT}"
+          echo "known_hosts_file=${known_hosts_file}" >> "${GITHUB_OUTPUT}"
 
-          if [[ -z "${PI_HOST}" ]]; then
-            echo "Set the DJCONNECT_PI_SSH_HOST repository secret or pass pi_host when dispatching." >&2
-            exit 64
-          fi
-
-          ssh_opts=(-o BatchMode=yes -o StrictHostKeyChecking=accept-new -p "${PI_PORT}")
+      - name: Check target capability and current version
+        shell: bash
+        env:
+          SSH_KEY_FILE: ${{ steps.ssh.outputs.key_file }}
+          SSH_KNOWN_HOSTS_FILE: ${{ steps.ssh.outputs.known_hosts_file }}
+        run: |
+          set -euo pipefail
+          ssh_opts=(-i "${SSH_KEY_FILE}" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=${SSH_KNOWN_HOSTS_FILE}" -p "${PI_PORT}")
           ssh "${ssh_opts[@]}" "${PI_USER}@${PI_HOST}" \
             'set -euo pipefail
              echo "host=$(hostname)"
              echo "current_version=$(cat /opt/djconnect/current/VERSION 2>/dev/null || true)"
-             systemctl is-enabled djconnect-updater.timer 2>/dev/null || true
+             /opt/djconnect/current/bin/djconnect-pi-updater --help | grep -F -- "--release-version"
              systemctl is-active djconnect-api.service 2>/dev/null || true
              systemctl is-active djconnect-client.service 2>/dev/null || true'
 
-      - name: Start updater on Pi
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          ssh_opts=(-o BatchMode=yes -o StrictHostKeyChecking=accept-new -p "${PI_PORT}")
-          ssh "${ssh_opts[@]}" "${PI_USER}@${PI_HOST}" \
-            'set -euo pipefail
-             if command -v sudo >/dev/null 2>&1; then
-               sudo -n systemctl start djconnect-updater.service
-             else
-               systemctl start djconnect-updater.service
-             fi'
-
-      - name: Monitor updater until latest version is installed
+      - name: Install the exact approved artifact on Pi
         shell: bash
         env:
-          EXPECTED_VERSION: ${{ steps.latest.outputs.version }}
+          SSH_KEY_FILE: ${{ steps.ssh.outputs.key_file }}
+          SSH_KNOWN_HOSTS_FILE: ${{ steps.ssh.outputs.known_hosts_file }}
         run: |
           set -euo pipefail
+          ssh_opts=(-i "${SSH_KEY_FILE}" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=${SSH_KNOWN_HOSTS_FILE}" -p "${PI_PORT}")
+          ssh "${ssh_opts[@]}" "${PI_USER}@${PI_HOST}" \
+            'set -euo pipefail
+             sudo -n /opt/djconnect/current/bin/djconnect-pi-updater \
+               --config /opt/djconnect/config/client.json \
+               --install-root /opt/djconnect \
+               --repo "'"${RELEASE_REPO}"'" \
+               --channel stable \
+               --release-version "'"${RELEASE_VERSION}"'"'
 
-          ssh_opts=(-o BatchMode=yes -o StrictHostKeyChecking=accept-new -p "${PI_PORT}")
+      - name: Monitor exact artifact installation
+        shell: bash
+        env:
+          SSH_KEY_FILE: ${{ steps.ssh.outputs.key_file }}
+          SSH_KNOWN_HOSTS_FILE: ${{ steps.ssh.outputs.known_hosts_file }}
+        run: |
+          set -euo pipefail
+          ssh_opts=(-i "${SSH_KEY_FILE}" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=${SSH_KNOWN_HOSTS_FILE}" -p "${PI_PORT}")
           deadline=$((SECONDS + TIMEOUT_SECONDS))
           last_snapshot=""
 
@@ -177,18 +272,74 @@ jobs:
           PY
             )"
 
-            if [[ "${current_version}" == "${EXPECTED_VERSION}" ]]; then
-              echo "DJConnect Pi ${EXPECTED_VERSION} is installed."
+            if [[ "${current_version}" == "${RELEASE_VERSION}" ]]; then
+              echo "DJConnect Pi ${RELEASE_VERSION} is installed."
               exit 0
             fi
 
             if [[ "${status_state}" == "failed" ]]; then
-              echo "Updater reported failure before installing ${EXPECTED_VERSION}." >&2
+              echo "Updater reported failure before installing ${RELEASE_VERSION}." >&2
               exit 1
             fi
 
             sleep 10
           done
 
-          echo "Timed out waiting for DJConnect Pi ${EXPECTED_VERSION} to install." >&2
+          echo "Timed out waiting for DJConnect Pi ${RELEASE_VERSION} to install." >&2
           exit 1
+
+      - name: Produce deployment evidence
+        if: success()
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from datetime import UTC, datetime
+
+          evidence = {
+              "schema_version": 1,
+              "kind": "djconnect_pi_deployment_evidence",
+              "candidate_sha": os.environ["CANDIDATE_SHA"],
+              "platform_version": os.environ["PLATFORM_VERSION"],
+              "release_profile": os.environ["RELEASE_PROFILE"],
+              "manifest_id": os.environ["MANIFEST_ID"],
+              "version": os.environ["RELEASE_VERSION"],
+              "artifact_sha256": os.environ["ARTIFACT_SHA256"],
+              "result": "DEPLOYED",
+              "timestamp": datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+          }
+          with open("pi-deployment-evidence.json", "w", encoding="utf-8") as handle:
+              json.dump(evidence, handle, indent=2, sort_keys=True)
+              handle.write("\n")
+          PY
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          PLATFORM_VERSION: ${{ inputs.platform_version }}
+          RELEASE_PROFILE: ${{ inputs.release_profile }}
+          MANIFEST_ID: ${{ inputs.manifest_id }}
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: success()
+        with:
+          name: pi-deployment-evidence
+          path: pi-deployment-evidence.json
+          if-no-files-found: error
+
+      - name: Publish deployment decision
+        if: always()
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          DEPLOYMENT_RESULT: ${{ job.status }}
+        with:
+          script: |
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: process.env.CANDIDATE_SHA,
+              context: "Deployment / Execute approved release",
+              state: process.env.DEPLOYMENT_RESULT === "success" ? "success" : "failure",
+              description: process.env.DEPLOYMENT_RESULT === "success" ? "PI_DEPLOYMENT_COMPLETED" : "PI_DEPLOYMENT_NOT_COMPLETED",
+              target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+            });

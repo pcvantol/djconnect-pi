@@ -142,20 +142,30 @@ def test_release_workflow_publishes_to_public_distribution_repo() -> None:
     assert '"v*.*.*"' in workflow
 
 
-def test_latest_pi_release_deployment_workflow_calls_updater_over_ssh() -> None:
+def test_qualified_pi_deployment_workflow_requires_exact_evidence_and_artifact() -> None:
     workflow = ROOT.joinpath(".github/workflows/deploy-latest-pi-release.yml").read_text(encoding="utf-8")
 
     assert "workflow_dispatch:" in workflow
-    assert "runs-on: [self-hosted, macOS]" in workflow
+    assert "runs-on: ubuntu-latest" in workflow
+    assert "action:" in workflow
+    assert "candidate_sha:" in workflow
+    assert "execution_mode:" in workflow
+    assert "manifest_id:" in workflow
+    assert "platform_version:" in workflow
+    assert "release_profile:" in workflow
+    assert "Post-Merge Release Evidence / Reconcile release evidence" in workflow
     assert "DJCONNECT_PI_SSH_HOST" in workflow
+    assert "DJCONNECT_PI_SSH_PRIVATE_KEY" in workflow
+    assert "DJCONNECT_PI_SSH_KNOWN_HOSTS" in workflow
     assert "pcvantol/djconnect-pi-releases" in workflow
-    assert "releases/latest/download/djconnect-pi-latest.json" in workflow
-    assert "ssh_opts=(-o BatchMode=yes -o StrictHostKeyChecking=accept-new -p" in workflow
-    assert "systemctl start djconnect-updater.service" in workflow
+    assert "djconnect-pi-${release_version}-release-manifest.json" in workflow
+    assert "StrictHostKeyChecking=yes" in workflow
+    assert "--release-version" in workflow
     assert "/opt/djconnect/config/updater-status.json" in workflow
     assert "/opt/djconnect/current/VERSION" in workflow
     assert "status_state" in workflow
     assert "failed" in workflow
+    assert "Deployment / Execute approved release" in workflow
 
 
 def test_release_workflow_runs_postman_collection_with_newman() -> None:

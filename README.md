@@ -402,14 +402,21 @@ Release assets are published from this source repository to
 `vX.Y.Z` tags. Configure the source repo secret `DJCONNECT_PI_RELEASES_TOKEN` with
 permission to create releases in the public distribution repo.
 
-Manual production smoke deployment uses `.github/workflows/deploy-latest-pi-release.yml`.
-Run it from GitHub Actions on a self-hosted macOS runner that already has SSH
-access to the target Pi. The workflow reads
-`pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-latest.json`,
-starts `djconnect-updater.service` on the Pi over SSH, then monitors
-`/opt/djconnect/config/updater-status.json` and `/opt/djconnect/current/VERSION`
-until the latest public release is installed. Set `DJCONNECT_PI_SSH_HOST` as a
-repository secret, or pass `pi_host` when dispatching the workflow.
+Internal Pi deployment uses `.github/workflows/deploy-latest-pi-release.yml`.
+It is a dispatch-only deployment consumer: it accepts the canonical Platform
+Release inputs, verifies the exact qualified source `main` SHA and its
+post-merge evidence, then verifies the immutable published Pi artifact manifest
+and checksum before contacting a target. It never builds source or resolves a
+mutable `latest` release.
+
+The target installs only the requested published `Major.Minor.Patch` artifact
+through the Pi updater's `--release-version` option. Deployment credentials are
+available only to the deployment job. Configure `DJCONNECT_PI_SSH_HOST`,
+`DJCONNECT_PI_SSH_PRIVATE_KEY` and `DJCONNECT_PI_SSH_KNOWN_HOSTS` as repository
+secrets. Optional target user and port are repository variables
+`DJCONNECT_PI_SSH_USER` and `DJCONNECT_PI_SSH_PORT`. The workflow runs on a
+GitHub-hosted Linux runner; a target that is not safely reachable from that
+runner is unavailable and the deployment fails closed.
 
 Release bundles include `docs/`, `systemd/`, `scripts/install.sh` and a
 prebuilt wheel under `wheels/`. They do not include the loose app source tree,
