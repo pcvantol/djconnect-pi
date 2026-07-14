@@ -174,13 +174,15 @@ def test_qualified_pi_deployment_workflow_requires_exact_evidence_and_artifact()
     assert "rbpi-djconnect" in workflow
     assert "DEPLOYED_PENDING_SMOKE" in workflow
     assert "Require approved operational manifest source" in workflow
-    assert "Validate bounded Pi post-deployment smoke health" not in workflow
+    assert "Validate bounded Pi post-deployment smoke health" in smoke_workflow
     assert "deployment_workflow_run:" in smoke_workflow
     assert "pi-deployment-evidence" in smoke_workflow
     assert "DEPLOYED_PENDING_SMOKE" in smoke_workflow
     assert "rbpi-djconnect" in smoke_workflow
     assert "Deployment / Post-deployment smoke" in smoke_workflow
     assert "Require approved operational manifest source" in smoke_workflow
+    assert "pi-deployment-smoke-evidence" in smoke_workflow
+    assert "DJCONNECT_PI_SSH_PRIVATE_KEY" in smoke_workflow
     assert "mutates pairing" not in workflow
 
 
