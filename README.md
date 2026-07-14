@@ -402,12 +402,13 @@ Release assets are published from this source repository to
 `vX.Y.Z` tags. Configure the source repo secret `DJCONNECT_PI_RELEASES_TOKEN` with
 permission to create releases in the public distribution repo.
 
-Internal Pi deployment uses `.github/workflows/deploy-latest-pi-release.yml`.
-It is a dispatch-only deployment consumer: it accepts the canonical Platform
-Release inputs, verifies the exact qualified source `main` SHA and its
-post-merge evidence, then verifies the immutable published Pi artifact manifest
-and checksum before contacting a target. It never builds source or resolves a
-mutable `latest` release.
+Internal Pi deployment uses `.github/workflows/deploy-latest-pi-release.yml`
+with canonical target `rbpi-djconnect`. Its post-deployment validation is the
+separate `.github/workflows/smoke-rbpi-djconnect.yml` workflow, bound to the
+exact deployment workflow run and the same candidate SHA, manifest, artifact
+identifier and checksum. Neither workflow may contact the target until a
+separately approved operational manifest source is configured. They never
+build source or resolve a mutable `latest` release.
 
 The target installs only the requested published `Major.Minor.Patch` artifact
 through the Pi updater's `--release-version` option. Deployment credentials are

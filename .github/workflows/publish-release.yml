@@ -158,7 +158,7 @@ jobs:
             "artifact_id": "djconnect-pi-${version}.tar.gz",
             "artifact_sha256": "${artifact_sha256}",
             "checksum_sha256": "${artifact_sha256}",
-            "target": "raspberry_pi"
+            "target": "rbpi-djconnect"
           }
           EOF
           cat > "dist/djconnect-pi-latest.json" <<EOF
