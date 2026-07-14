@@ -75,9 +75,9 @@ jobs:
           test "${RELEASE_PROFILE}" = "INTERNAL_RELEASE"
           test "${TARGET}" = "rbpi-djconnect"
           [[ "${CANDIDATE_SHA}" =~ ^[0-9a-f]{40}$ ]]
-          [[ "${ARTIFACT_ID}" =~ ^djconnect-pi-[0-9]+\.[0-9]+\.[0-9]+\.tar\.gz$ ]]
+          [[ "${ARTIFACT_ID}" =~ ^release-asset:pcvantol/djconnect-pi-releases:v[0-9]+\.[0-9]+\.[0-9]+:djconnect-pi-[0-9]+\.[0-9]+\.[0-9]+\.tar\.gz$ ]]
           [[ "${ARTIFACT_SHA256}" =~ ^[0-9a-f]{64}$ ]]
-          [[ "${MANIFEST_ID}" =~ ^pi-v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "${MANIFEST_ID}" =~ ^release-[A-Za-z0-9._-]+$ ]]
           [[ "${PLATFORM_VERSION}" =~ ^[0-9]+\.[0-9]+$ ]]
           [[ "${DEPLOYMENT_WORKFLOW_RUN}" =~ ^[1-9][0-9]*$ ]]
 
@@ -127,14 +127,151 @@ jobs:
 
       - name: Require approved operational manifest source
         shell: bash
+        env:
+          MANIFEST_ID: ${{ inputs.manifest_id }}
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          ARTIFACT_ID: ${{ inputs.artifact_id }}
+          ARTIFACT_SHA256: ${{ inputs.artifact_sha256 }}
+          TARGET: ${{ inputs.target }}
+          RELEASE_PROFILE: ${{ inputs.release_profile }}
         run: |
-          echo "No approved operational manifest source is configured for this consumer." >&2
-          echo "Refusing smoke before target credentials or target contact." >&2
-          exit 1
+          set -euo pipefail
+          manifest="$(mktemp)"
+          trap 'rm -f "$manifest"' EXIT
+          curl --fail --silent --show-error --location \
+            https://raw.githubusercontent.com/pcvantol/djconnect/main/docs/release/PLATFORM_3_3_CURRENT_MAIN_MANIFEST_PROPOSAL.json \
+            --output "$manifest"
+          test "$(jq -r '.status' "$manifest")" = APPROVED_DEPLOYMENT_DISPATCH_PENDING
+          test "$(jq -r '.approval.state' "$manifest")" = APPROVED
+          test "$(jq -r '.manifest_id' "$manifest")" = "$MANIFEST_ID"
+          test "$(jq -r '.release_profile' "$manifest")" = "$RELEASE_PROFILE"
+          jq -e --arg sha "$CANDIDATE_SHA" \
+            '.repositories[] | select(.repository == "pcvantol/djconnect-pi" and .source_sha == $sha)' \
+            "$manifest" >/dev/null
+          jq -e --arg target "$TARGET" --arg artifact "$ARTIFACT_ID" --arg sha "$ARTIFACT_SHA256" \
+            '.artifact_bindings[] | select(.target == $target and .artifact_id == $artifact and .artifact_sha256 == $sha)' \
+            "$manifest" >/dev/null
+
+  smoke:
+    name: Validate bounded Pi post-deployment smoke health
+    needs: authorize
+    runs-on: [self-hosted, macOS]
+    permissions:
+      contents: read
+    env:
+      PI_HOST: ${{ secrets.DJCONNECT_PI_SSH_HOST }}
+      PI_USER: ${{ vars.DJCONNECT_PI_SSH_USER || 'pi' }}
+      PI_PORT: ${{ vars.DJCONNECT_PI_SSH_PORT || '22' }}
+      SSH_PRIVATE_KEY: ${{ secrets.DJCONNECT_PI_SSH_PRIVATE_KEY }}
+      SSH_KNOWN_HOSTS: ${{ secrets.DJCONNECT_PI_SSH_KNOWN_HOSTS }}
+      EXPECTED_VERSION: "3.3.0"
+    steps:
+      - name: Materialize target-scoped SSH credentials
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${PI_HOST}"
+          [[ "${PI_PORT}" =~ ^[0-9]{1,5}$ ]]
+          test -n "${SSH_PRIVATE_KEY}"
+          test -n "${SSH_KNOWN_HOSTS}"
+          key_file="${RUNNER_TEMP}/djconnect-pi-smoke-key"
+          known_hosts_file="${RUNNER_TEMP}/djconnect-pi-smoke-known-hosts"
+          printf '%s\n' "${SSH_PRIVATE_KEY}" > "${key_file}"
+          printf '%s\n' "${SSH_KNOWN_HOSTS}" > "${known_hosts_file}"
+          chmod 600 "${key_file}" "${known_hosts_file}"
+          echo "key_file=${key_file}" >> "${GITHUB_OUTPUT}"
+          echo "known_hosts_file=${known_hosts_file}" >> "${GITHUB_OUTPUT}"
+
+      - name: Validate bounded Pi post-deployment smoke health
+        shell: bash
+        env:
+          SSH_KEY_FILE: ${{ steps.ssh.outputs.key_file }}
+          SSH_KNOWN_HOSTS_FILE: ${{ steps.ssh.outputs.known_hosts_file }}
+        run: |
+          set -euo pipefail
+          ssh_opts=(-i "${SSH_KEY_FILE}" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=${SSH_KNOWN_HOSTS_FILE}" -p "${PI_PORT}")
+          snapshot="$(
+            ssh "${ssh_opts[@]}" "${PI_USER}@${PI_HOST}" \
+              'EXPECTED_VERSION="'"${EXPECTED_VERSION}"'" python3 - <<'"'"'PY'"'"'
+          import json
+          import os
+          import subprocess
+          import urllib.request
+          from pathlib import Path
+
+          expected = os.environ["EXPECTED_VERSION"]
+          version = Path("/opt/djconnect/current/VERSION").read_text(encoding="utf-8").strip()
+          if version != expected:
+              raise SystemExit(f"expected {expected}, found {version}")
+          services = {}
+          for name in ("djconnect-api.service", "djconnect-client.service"):
+              services[name] = subprocess.run(["systemctl", "is-active", name], check=False, capture_output=True, text=True).stdout.strip()
+          if any(state != "active" for state in services.values()):
+              raise SystemExit(f"unhealthy services: {services}")
+          with urllib.request.urlopen("http://127.0.0.1:18080/api/device/info", timeout=10) as response:
+              payload = json.load(response)
+          if not payload.get("success") or payload.get("client_type") != "raspberry_pi" or payload.get("transport") != "local_only":
+              raise SystemExit("local device-info health contract failed")
+          print(json.dumps({"version": version, "services": services, "client_type": payload["client_type"], "transport": payload["transport"]}, sort_keys=True))
+          PY'
+          )"
+          printf '%s\n' "${snapshot}" > pi-smoke-snapshot.json
+
+      - name: Produce Pi smoke evidence
+        shell: bash
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          ARTIFACT_ID: ${{ inputs.artifact_id }}
+          ARTIFACT_SHA256: ${{ inputs.artifact_sha256 }}
+          MANIFEST_ID: ${{ inputs.manifest_id }}
+          PLATFORM_VERSION: ${{ inputs.platform_version }}
+          RELEASE_PROFILE: ${{ inputs.release_profile }}
+          TARGET: ${{ inputs.target }}
+          DEPLOYMENT_WORKFLOW_RUN: ${{ inputs.deployment_workflow_run }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          from datetime import UTC, datetime
+          from pathlib import Path
+
+          evidence = {
+              "schema_version": 1,
+              "kind": "djconnect_pi_deployment_smoke_evidence",
+              "candidate_sha": os.environ["CANDIDATE_SHA"],
+              "artifact_id": os.environ["ARTIFACT_ID"],
+              "artifact_sha256": os.environ["ARTIFACT_SHA256"],
+              "manifest_id": os.environ["MANIFEST_ID"],
+              "platform_version": os.environ["PLATFORM_VERSION"],
+              "release_profile": os.environ["RELEASE_PROFILE"],
+              "target": os.environ["TARGET"],
+              "deployment_workflow_run": os.environ["DEPLOYMENT_WORKFLOW_RUN"],
+              "runtime": json.loads(Path("pi-smoke-snapshot.json").read_text(encoding="utf-8")),
+              "result": "DEPLOYMENT_OPERATIONAL",
+              "timestamp": datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+          }
+          Path("pi-deployment-smoke-evidence.json").write_text(json.dumps(evidence, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          PY
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: pi-deployment-smoke-evidence
+          path: pi-deployment-smoke-evidence.json
+          if-no-files-found: error
+
+      - name: Remove target-scoped SSH credentials
+        if: always()
+        shell: bash
+        env:
+          SSH_KEY_FILE: ${{ steps.ssh.outputs.key_file }}
+          SSH_KNOWN_HOSTS_FILE: ${{ steps.ssh.outputs.known_hosts_file }}
+        run: rm -f "${SSH_KEY_FILE}" "${SSH_KNOWN_HOSTS_FILE}"
 
   publish-smoke-decision:
     name: Publish Pi deployment smoke decision
-    needs: authorize
+    needs: smoke
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -142,7 +279,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
-          SMOKE_RESULT: ${{ needs.authorize.result }}
+          SMOKE_RESULT: ${{ needs.smoke.result }}
         with:
           script: |
             const operational = process.env.SMOKE_RESULT === "success";
