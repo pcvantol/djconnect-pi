@@ -38,3 +38,6 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "djconnect_pi.qml" = ["*.qml", "*.js", "*.png"]
+
+[tool.coverage.run]
+source = ["src/djconnect_pi"]
