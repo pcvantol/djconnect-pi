@@ -86,8 +86,7 @@ def github_latest_release(repo: str, include_prerelease: bool) -> dict:
     raise RuntimeError("No suitable GitHub release found")
 
 
-def public_latest_release(repo: str) -> dict:
-    url = f"https://github.com/{repo}/releases/latest/download/djconnect-pi-latest.json"
+def public_release_manifest(repo: str, url: str) -> dict:
     response = requests.get(url, timeout=20)
     response.raise_for_status()
     data = response.json()
@@ -109,6 +108,23 @@ def public_latest_release(repo: str) -> dict:
             {"name": f"djconnect-pi-{version}.sha256", "browser_download_url": checksum_url},
         ],
     }
+
+
+def public_latest_release(repo: str) -> dict:
+    return public_release_manifest(
+        repo,
+        f"https://github.com/{repo}/releases/latest/download/djconnect-pi-latest.json",
+    )
+
+
+def public_release(repo: str, version: str) -> dict:
+    if not version or not all(part.isdigit() for part in version.split(".")) or version.count(".") != 2:
+        raise ValueError("Release version must use Major.Minor.Patch format")
+    tag = f"v{version}"
+    return public_release_manifest(
+        repo,
+        f"https://github.com/{repo}/releases/download/{tag}/djconnect-pi-latest.json",
+    )
 
 
 def asset_url(release: dict, suffix: str) -> str:
@@ -393,8 +409,8 @@ def current_version(root: Path) -> str:
     return "0.0.0"
 
 
-def run(cfg: UpdaterConfig, dry_run: bool = False) -> str:
-    release = (
+def run(cfg: UpdaterConfig, dry_run: bool = False, release_version: str = "") -> str:
+    release = public_release(cfg.repo, release_version) if release_version else (
         github_latest_release(cfg.repo, include_prerelease=True)
         if include_prerelease(cfg.channel)
         else public_latest_release(cfg.repo)
@@ -478,6 +494,11 @@ def main() -> None:
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG_PATH)
     parser.add_argument("--repo", default="")
     parser.add_argument("--channel", choices=["stable", "beta"], default="")
+    parser.add_argument(
+        "--release-version",
+        default="",
+        help="Install this exact published Major.Minor.Patch release instead of resolving a channel latest release.",
+    )
     parser.add_argument("--install-root", type=Path, default=Path("/opt/djconnect"))
     parser.add_argument(
         "--service-name",
@@ -513,7 +534,7 @@ def main() -> None:
         stop_service_names=stop_service_names,
         keep_releases=max(1, args.keep_releases),
     )
-    print(run(cfg, args.dry_run))
+    print(run(cfg, args.dry_run, release_version=args.release_version))
 
 
 if __name__ == "__main__":

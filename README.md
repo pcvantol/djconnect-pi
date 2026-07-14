@@ -402,6 +402,24 @@ Release assets are published from this source repository to
 `vX.Y.Z` tags. Configure the source repo secret `DJCONNECT_PI_RELEASES_TOKEN` with
 permission to create releases in the public distribution repo.
 
+Internal Pi deployment uses `.github/workflows/deploy-latest-pi-release.yml`.
+It is a dispatch-only deployment consumer: it accepts the canonical Platform
+Release inputs, verifies the exact qualified source `main` SHA and its
+post-merge evidence, then verifies the immutable published Pi artifact manifest
+and checksum before contacting a target. It never builds source or resolves a
+mutable `latest` release.
+
+The target installs only the requested published `Major.Minor.Patch` artifact
+through the Pi updater's `--release-version` option. Deployment credentials are
+available only to the deployment job. Configure `DJCONNECT_PI_SSH_HOST`,
+`DJCONNECT_PI_SSH_PRIVATE_KEY` and `DJCONNECT_PI_SSH_KNOWN_HOSTS` as repository
+secrets. Optional target user and port are repository variables
+`DJCONNECT_PI_SSH_USER` and `DJCONNECT_PI_SSH_PORT`. The deploy job runs only
+on the qualified self-hosted macOS deployment relay because it is the approved
+GitHub Actions path to the private Pi network. It performs no source build or
+artifact publication; a target that is unavailable through that relay fails
+closed.
+
 Release bundles include `docs/`, `systemd/`, `scripts/install.sh` and a
 prebuilt wheel under `wheels/`. They do not include the loose app source tree,
 so the Pi can install the app from the public tarball without cloning the

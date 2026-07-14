@@ -70,6 +70,33 @@ def test_public_latest_release_reads_rate_limit_safe_manifest() -> None:
     assert updater.asset_url(release, ".tar.gz") == "https://example/djconnect-pi-0.2.0.tar.gz"
 
 
+def test_public_release_reads_an_exact_versioned_manifest() -> None:
+    class Response:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict[str, object]:
+            return {
+                "version": "3.3.0",
+                "bundle": "https://example/djconnect-pi-3.3.0.tar.gz",
+                "checksum": "https://example/djconnect-pi-3.3.0.sha256",
+            }
+
+    with patch("djconnect_pi.updater.requests.get", return_value=Response()) as get:
+        release = updater.public_release("pcvantol/djconnect-pi-releases", "3.3.0")
+
+    get.assert_called_once_with(
+        "https://github.com/pcvantol/djconnect-pi-releases/releases/download/v3.3.0/djconnect-pi-latest.json",
+        timeout=20,
+    )
+    assert release["tag_name"] == "v3.3.0"
+
+
+def test_public_release_rejects_a_non_semantic_version() -> None:
+    with pytest.raises(ValueError, match="Major.Minor.Patch"):
+        updater.public_release("pcvantol/djconnect-pi-releases", "latest")
+
+
 def test_asset_url_raises_for_missing_suffix() -> None:
     with pytest.raises(RuntimeError, match="No release asset"):
         updater.asset_url(make_release(), ".zip")
@@ -313,6 +340,22 @@ def test_run_stable_uses_public_manifest_instead_of_github_api(tmp_path: Path) -
 
     latest_manifest.assert_called_once_with("pcvantol/djconnect-pi-releases")
     github_latest.assert_not_called()
+
+
+def test_run_uses_an_explicit_release_version_when_requested(tmp_path: Path) -> None:
+    cfg = updater.UpdaterConfig(repo="pcvantol/djconnect-pi-releases", install_root=tmp_path)
+
+    with (
+        patch("djconnect_pi.updater.public_release", return_value=make_release()) as exact_release,
+        patch("djconnect_pi.updater.public_latest_release") as latest_release,
+        patch("djconnect_pi.updater.github_latest_release") as github_latest,
+    ):
+        result = json.loads(updater.run(cfg, dry_run=True, release_version="0.2.0"))
+
+    exact_release.assert_called_once_with("pcvantol/djconnect-pi-releases", "0.2.0")
+    latest_release.assert_not_called()
+    github_latest.assert_not_called()
+    assert result["version"] == "0.2.0"
 
 
 def test_config_from_file_uses_touchscreen_update_settings(tmp_path: Path) -> None:

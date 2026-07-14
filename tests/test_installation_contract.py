@@ -142,6 +142,53 @@ def test_release_workflow_publishes_to_public_distribution_repo() -> None:
     assert '"v*.*.*"' in workflow
 
 
+def test_qualified_pi_deployment_workflow_requires_exact_evidence_and_artifact() -> None:
+    workflow = ROOT.joinpath(".github/workflows/deploy-latest-pi-release.yml").read_text(encoding="utf-8")
+
+    assert "workflow_dispatch:" in workflow
+    assert "runs-on: [self-hosted, macOS]" in workflow
+    assert "deployment relay, never a source-build job" in workflow
+    assert "action:" in workflow
+    assert "candidate_sha:" in workflow
+    assert "artifact_id:" in workflow
+    assert "artifact_sha256:" in workflow
+    assert "execution_mode:" in workflow
+    assert "manifest_id:" in workflow
+    assert "platform_version:" in workflow
+    assert "release_profile:" in workflow
+    assert "target:" in workflow
+    assert "Post-Merge Release Evidence / Reconcile release evidence" in workflow
+    assert "DJCONNECT_PI_SSH_HOST" in workflow
+    assert "DJCONNECT_PI_SSH_PRIVATE_KEY" in workflow
+    assert "DJCONNECT_PI_SSH_KNOWN_HOSTS" in workflow
+    assert "pcvantol/djconnect-pi-releases" in workflow
+    assert "djconnect-pi-${release_version}-release-manifest.json" in workflow
+    assert "StrictHostKeyChecking=yes" in workflow
+    assert "--release-version" in workflow
+    assert "/opt/djconnect/config/updater-status.json" in workflow
+    assert "/opt/djconnect/current/VERSION" in workflow
+    assert "status_state" in workflow
+    assert "failed" in workflow
+    assert "Deployment / Execute approved release" in workflow
+    assert "Validate bounded Pi post-deployment smoke health" in workflow
+    assert "Run read-only canonical Pi smoke checks" in workflow
+    assert "/api/device/info" in workflow
+    assert "SMOKE_PASS" in workflow
+    assert "SMOKE_FAIL" in workflow
+    assert "SMOKE_INCONCLUSIVE" in workflow
+    assert "DEPLOYMENT_OPERATIONAL" in workflow
+    assert "DEPLOYMENT_SMOKE_FAILED" in workflow
+    assert "pi-post-deployment-smoke-evidence.json" in workflow
+    assert "mutates pairing" not in workflow
+
+
+def test_pi_release_manifest_binds_the_artifact_and_target() -> None:
+    workflow = ROOT.joinpath(".github/workflows/publish-release.yml").read_text(encoding="utf-8")
+
+    assert '"artifact_id": "djconnect-pi-${version}.tar.gz"' in workflow
+    assert '"target": "raspberry_pi"' in workflow
+
+
 def test_release_workflow_runs_postman_collection_with_newman() -> None:
     workflow = ROOT.joinpath(".github/workflows/publish-release.yml").read_text(encoding="utf-8")
 

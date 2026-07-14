@@ -133,7 +133,7 @@ jobs:
           tag="${RELEASE_TAG}"
           prerelease="${RELEASE_PRERELEASE}"
           dist="dist/djconnect-pi-${version}"
-          rm -rf "${dist}" "dist/djconnect-pi-${version}.tar.gz" "dist/djconnect-pi-${version}.sha256"
+          rm -rf "${dist}" "dist/djconnect-pi-${version}.tar.gz" "dist/djconnect-pi-${version}.sha256" "dist/djconnect-pi-${version}-release-manifest.json"
           mkdir -p "${dist}"
           cp -R LICENSE README.md CHANGELOG.md docs examples systemd "${dist}/"
           mkdir -p "${dist}/scripts"
@@ -143,13 +143,34 @@ jobs:
           printf '%s\n' "${version}" > "${dist}/VERSION"
           tar -C dist -czf "dist/djconnect-pi-${version}.tar.gz" "djconnect-pi-${version}"
           shasum -a 256 "dist/djconnect-pi-${version}.tar.gz" > "dist/djconnect-pi-${version}.sha256"
+          candidate_sha="$(git rev-parse HEAD)"
+          platform_version="$(cut -d. -f1,2 <<< "${version}")"
+          artifact_sha256="$(awk 'NR == 1 {print $1}' "dist/djconnect-pi-${version}.sha256")"
+          cat > "dist/djconnect-pi-${version}-release-manifest.json" <<EOF
+          {
+            "schema_version": 1,
+            "kind": "djconnect_pi_release_artifact",
+            "manifest_id": "pi-${tag}",
+            "candidate_sha": "${candidate_sha}",
+            "platform_version": "${platform_version}",
+            "version": "${version}",
+            "release_tag": "${tag}",
+            "artifact_id": "djconnect-pi-${version}.tar.gz",
+            "artifact_sha256": "${artifact_sha256}",
+            "checksum_sha256": "${artifact_sha256}",
+            "target": "raspberry_pi"
+          }
+          EOF
           cat > "dist/djconnect-pi-latest.json" <<EOF
           {
+            "schema_version": 1,
+            "kind": "djconnect_pi_release_pointer",
             "version": "${version}",
             "tag_name": "${tag}",
             "prerelease": ${prerelease},
             "bundle": "https://github.com/pcvantol/djconnect-pi-releases/releases/download/${tag}/djconnect-pi-${version}.tar.gz",
-            "checksum": "https://github.com/pcvantol/djconnect-pi-releases/releases/download/${tag}/djconnect-pi-${version}.sha256"
+            "checksum": "https://github.com/pcvantol/djconnect-pi-releases/releases/download/${tag}/djconnect-pi-${version}.sha256",
+            "artifact_manifest": "https://github.com/pcvantol/djconnect-pi-releases/releases/download/${tag}/djconnect-pi-${version}-release-manifest.json"
           }
           EOF
           VERSION="${version}" python - <<'PY'
@@ -198,6 +219,7 @@ jobs:
           args+=(
             "dist/djconnect-pi-${version}.tar.gz"
             "dist/djconnect-pi-${version}.sha256"
+            "dist/djconnect-pi-${version}-release-manifest.json"
             "dist/djconnect-pi-latest.json"
           )
           gh "${args[@]}"
