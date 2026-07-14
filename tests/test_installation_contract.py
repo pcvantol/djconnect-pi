@@ -142,6 +142,22 @@ def test_release_workflow_publishes_to_public_distribution_repo() -> None:
     assert '"v*.*.*"' in workflow
 
 
+def test_latest_pi_release_deployment_workflow_calls_updater_over_ssh() -> None:
+    workflow = ROOT.joinpath(".github/workflows/deploy-latest-pi-release.yml").read_text(encoding="utf-8")
+
+    assert "workflow_dispatch:" in workflow
+    assert "runs-on: [self-hosted, macOS]" in workflow
+    assert "DJCONNECT_PI_SSH_HOST" in workflow
+    assert "pcvantol/djconnect-pi-releases" in workflow
+    assert "releases/latest/download/djconnect-pi-latest.json" in workflow
+    assert "ssh_opts=(-o BatchMode=yes -o StrictHostKeyChecking=accept-new -p" in workflow
+    assert "systemctl start djconnect-updater.service" in workflow
+    assert "/opt/djconnect/config/updater-status.json" in workflow
+    assert "/opt/djconnect/current/VERSION" in workflow
+    assert "status_state" in workflow
+    assert "failed" in workflow
+
+
 def test_release_workflow_runs_postman_collection_with_newman() -> None:
     workflow = ROOT.joinpath(".github/workflows/publish-release.yml").read_text(encoding="utf-8")
 

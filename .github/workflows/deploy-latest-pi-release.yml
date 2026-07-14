@@ -1,0 +1,194 @@
+name: Deploy Latest Pi Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      pi_host:
+        description: "Pi SSH host. Defaults to DJCONNECT_PI_SSH_HOST when empty."
+        required: false
+        type: string
+      pi_user:
+        description: "Pi SSH user"
+        required: false
+        default: "pi"
+        type: string
+      pi_port:
+        description: "Pi SSH port"
+        required: false
+        default: "22"
+        type: string
+      timeout_seconds:
+        description: "Maximum time to wait for the updater"
+        required: false
+        default: "1800"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pi-latest-release-deployment
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy latest public release to Pi
+    runs-on: [self-hosted, macOS]
+    env:
+      RELEASE_REPO: pcvantol/djconnect-pi-releases
+      PI_HOST: ${{ inputs.pi_host || secrets.DJCONNECT_PI_SSH_HOST }}
+      PI_USER: ${{ inputs.pi_user }}
+      PI_PORT: ${{ inputs.pi_port }}
+      TIMEOUT_SECONDS: ${{ inputs.timeout_seconds }}
+    steps:
+      - name: Resolve latest public release
+        id: latest
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          manifest_url="https://github.com/${RELEASE_REPO}/releases/latest/download/djconnect-pi-latest.json"
+          manifest="$(curl -fsSL "${manifest_url}")"
+          version="$(
+            MANIFEST="${manifest}" python3 - <<'PY'
+          import json
+          import os
+
+          manifest = json.loads(os.environ["MANIFEST"])
+          version = str(manifest.get("version") or manifest.get("tag_name") or "").removeprefix("v")
+          if not version:
+              raise SystemExit("latest manifest does not contain a version")
+          print(version)
+          PY
+          )"
+
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          echo "Latest public DJConnect Pi release is ${version}."
+
+      - name: Check SSH access and current Pi version
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${PI_HOST}" ]]; then
+            echo "Set the DJCONNECT_PI_SSH_HOST repository secret or pass pi_host when dispatching." >&2
+            exit 64
+          fi
+
+          ssh_opts=(-o BatchMode=yes -o StrictHostKeyChecking=accept-new -p "${PI_PORT}")
+          ssh "${ssh_opts[@]}" "${PI_USER}@${PI_HOST}" \
+            'set -euo pipefail
+             echo "host=$(hostname)"
+             echo "current_version=$(cat /opt/djconnect/current/VERSION 2>/dev/null || true)"
+             systemctl is-enabled djconnect-updater.timer 2>/dev/null || true
+             systemctl is-active djconnect-api.service 2>/dev/null || true
+             systemctl is-active djconnect-client.service 2>/dev/null || true'
+
+      - name: Start updater on Pi
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ssh_opts=(-o BatchMode=yes -o StrictHostKeyChecking=accept-new -p "${PI_PORT}")
+          ssh "${ssh_opts[@]}" "${PI_USER}@${PI_HOST}" \
+            'set -euo pipefail
+             if command -v sudo >/dev/null 2>&1; then
+               sudo -n systemctl start djconnect-updater.service
+             else
+               systemctl start djconnect-updater.service
+             fi'
+
+      - name: Monitor updater until latest version is installed
+        shell: bash
+        env:
+          EXPECTED_VERSION: ${{ steps.latest.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          ssh_opts=(-o BatchMode=yes -o StrictHostKeyChecking=accept-new -p "${PI_PORT}")
+          deadline=$((SECONDS + TIMEOUT_SECONDS))
+          last_snapshot=""
+
+          while (( SECONDS < deadline )); do
+            snapshot="$(
+              ssh "${ssh_opts[@]}" "${PI_USER}@${PI_HOST}" \
+                'python3 - <<'"'"'PY'"'"'
+          from __future__ import annotations
+
+          import json
+          import subprocess
+          from pathlib import Path
+
+          status_path = Path("/opt/djconnect/config/updater-status.json")
+          version_path = Path("/opt/djconnect/current/VERSION")
+
+          def service_state(name: str) -> str:
+              result = subprocess.run(
+                  ["systemctl", "is-active", name],
+                  text=True,
+                  capture_output=True,
+                  check=False,
+              )
+              return result.stdout.strip() or result.stderr.strip() or "unknown"
+
+          status = {}
+          if status_path.exists():
+              try:
+                  status = json.loads(status_path.read_text(encoding="utf-8"))
+              except json.JSONDecodeError as exc:
+                  status = {"state": "unreadable", "message": str(exc)}
+
+          current_version = ""
+          if version_path.exists():
+              current_version = version_path.read_text(encoding="utf-8").strip()
+
+          print(json.dumps({
+              "current_version": current_version,
+              "status_state": str(status.get("state", "")),
+              "status_message": str(status.get("message", "")),
+              "target_version": str(status.get("target_version", "")),
+              "progress": int(status.get("progress", 0) or 0),
+              "api_service": service_state("djconnect-api.service"),
+              "client_service": service_state("djconnect-client.service"),
+              "updater_service": service_state("djconnect-updater.service"),
+          }, sort_keys=True))
+          PY'
+            )"
+
+            if [[ "${snapshot}" != "${last_snapshot}" ]]; then
+              echo "${snapshot}"
+              last_snapshot="${snapshot}"
+            fi
+
+            current_version="$(
+              SNAPSHOT="${snapshot}" python3 - <<'PY'
+          import json
+          import os
+
+          print(json.loads(os.environ["SNAPSHOT"]).get("current_version", ""))
+          PY
+            )"
+            status_state="$(
+              SNAPSHOT="${snapshot}" python3 - <<'PY'
+          import json
+          import os
+
+          print(json.loads(os.environ["SNAPSHOT"]).get("status_state", ""))
+          PY
+            )"
+
+            if [[ "${current_version}" == "${EXPECTED_VERSION}" ]]; then
+              echo "DJConnect Pi ${EXPECTED_VERSION} is installed."
+              exit 0
+            fi
+
+            if [[ "${status_state}" == "failed" ]]; then
+              echo "Updater reported failure before installing ${EXPECTED_VERSION}." >&2
+              exit 1
+            fi
+
+            sleep 10
+          done
+
+          echo "Timed out waiting for DJConnect Pi ${EXPECTED_VERSION} to install." >&2
+          exit 1

@@ -402,6 +402,15 @@ Release assets are published from this source repository to
 `vX.Y.Z` tags. Configure the source repo secret `DJCONNECT_PI_RELEASES_TOKEN` with
 permission to create releases in the public distribution repo.
 
+Manual production smoke deployment uses `.github/workflows/deploy-latest-pi-release.yml`.
+Run it from GitHub Actions on a self-hosted macOS runner that already has SSH
+access to the target Pi. The workflow reads
+`pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-latest.json`,
+starts `djconnect-updater.service` on the Pi over SSH, then monitors
+`/opt/djconnect/config/updater-status.json` and `/opt/djconnect/current/VERSION`
+until the latest public release is installed. Set `DJCONNECT_PI_SSH_HOST` as a
+repository secret, or pass `pi_host` when dispatching the workflow.
+
 Release bundles include `docs/`, `systemd/`, `scripts/install.sh` and a
 prebuilt wheel under `wheels/`. They do not include the loose app source tree,
 so the Pi can install the app from the public tarball without cloning the
