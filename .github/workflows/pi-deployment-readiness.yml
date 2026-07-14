@@ -1,0 +1,45 @@
+name: Pi deployment readiness
+
+on:
+  workflow_dispatch:
+    inputs:
+      manifest_id: {required: true, type: string}
+      candidate_sha: {required: true, type: string}
+      artifact_id: {required: true, type: string}
+      artifact_sha256: {required: true, type: string}
+
+permissions:
+  contents: read
+
+jobs:
+  readiness:
+    runs-on: [self-hosted, macOS]
+    env:
+      PI_HOST: ${{ secrets.DJCONNECT_PI_SSH_HOST }}
+      PI_USER: ${{ vars.DJCONNECT_PI_SSH_USER || 'pi' }}
+      PI_PORT: ${{ vars.DJCONNECT_PI_SSH_PORT || '22' }}
+      SSH_PRIVATE_KEY: ${{ secrets.DJCONNECT_PI_SSH_PRIVATE_KEY }}
+      SSH_KNOWN_HOSTS: ${{ secrets.DJCONNECT_PI_SSH_KNOWN_HOSTS }}
+    steps:
+      - name: Validate approved Pi manifest binding
+        env:
+          MANIFEST_ID: ${{ inputs.manifest_id }}
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          ARTIFACT_ID: ${{ inputs.artifact_id }}
+          ARTIFACT_SHA256: ${{ inputs.artifact_sha256 }}
+        run: |
+          set -euo pipefail
+          manifest="$(mktemp)"; trap 'rm -f "$manifest"' EXIT
+          curl --fail --silent --show-error --location https://raw.githubusercontent.com/pcvantol/djconnect/main/docs/release/PLATFORM_3_3_CURRENT_MAIN_MANIFEST_PROPOSAL.json --output "$manifest"
+          test "$(jq -r '.status' "$manifest")" = APPROVED_DEPLOYMENT_DISPATCH_PENDING
+          test "$(jq -r '.approval.state' "$manifest")" = APPROVED
+          test "$(jq -r '.manifest_id' "$manifest")" = "$MANIFEST_ID"
+          jq -e --arg sha "$CANDIDATE_SHA" '.repositories[] | select(.repository == "pcvantol/djconnect-pi" and .source_sha == $sha)' "$manifest" >/dev/null
+          jq -e --arg artifact "$ARTIFACT_ID" --arg sha "$ARTIFACT_SHA256" '.artifact_bindings[] | select(.target == "rbpi-djconnect" and .artifact_id == $artifact and .artifact_sha256 == $sha)' "$manifest" >/dev/null
+      - name: Verify SSH readiness without mutation
+        run: |
+          set -euo pipefail
+          test -n "$PI_HOST" && test -n "$SSH_PRIVATE_KEY" && test -n "$SSH_KNOWN_HOSTS"
+          key="$(mktemp)"; hosts="$(mktemp)"; trap 'rm -f "$key" "$hosts"' EXIT
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$key"; printf '%s\n' "$SSH_KNOWN_HOSTS" > "$hosts"; chmod 600 "$key" "$hosts"
+          ssh -i "$key" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$hosts" -p "$PI_PORT" "$PI_USER@$PI_HOST" 'set -euo pipefail; hostname; cat /opt/djconnect/current/VERSION; /opt/djconnect/current/bin/djconnect-pi-updater --help >/dev/null'
