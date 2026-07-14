@@ -142,6 +142,8 @@ jobs:
       TIMEOUT_SECONDS: ${{ inputs.timeout_seconds }}
       RELEASE_VERSION: ${{ needs.authorize.outputs.release_version }}
       ARTIFACT_SHA256: ${{ needs.authorize.outputs.artifact_sha256 }}
+      SSH_PRIVATE_KEY: ${{ secrets.DJCONNECT_PI_SSH_PRIVATE_KEY }}
+      SSH_KNOWN_HOSTS: ${{ secrets.DJCONNECT_PI_SSH_KNOWN_HOSTS }}
     steps:
       - name: Materialize target-scoped SSH credentials
         id: ssh
@@ -150,12 +152,12 @@ jobs:
           set -euo pipefail
           test -n "${PI_HOST}"
           [[ "${PI_PORT}" =~ ^[0-9]{1,5}$ ]]
-          test -n "${{ secrets.DJCONNECT_PI_SSH_PRIVATE_KEY }}"
-          test -n "${{ secrets.DJCONNECT_PI_SSH_KNOWN_HOSTS }}"
+          test -n "${SSH_PRIVATE_KEY}"
+          test -n "${SSH_KNOWN_HOSTS}"
           key_file="${RUNNER_TEMP}/djconnect-pi-deployment-key"
           known_hosts_file="${RUNNER_TEMP}/djconnect-pi-known-hosts"
-          printf '%s\n' "${{ secrets.DJCONNECT_PI_SSH_PRIVATE_KEY }}" > "${key_file}"
-          printf '%s\n' "${{ secrets.DJCONNECT_PI_SSH_KNOWN_HOSTS }}" > "${known_hosts_file}"
+          printf '%s\n' "${SSH_PRIVATE_KEY}" > "${key_file}"
+          printf '%s\n' "${SSH_KNOWN_HOSTS}" > "${known_hosts_file}"
           chmod 600 "${key_file}" "${known_hosts_file}"
           echo "key_file=${key_file}" >> "${GITHUB_OUTPUT}"
           echo "known_hosts_file=${known_hosts_file}" >> "${GITHUB_OUTPUT}"
