@@ -414,9 +414,11 @@ through the Pi updater's `--release-version` option. Deployment credentials are
 available only to the deployment job. Configure `DJCONNECT_PI_SSH_HOST`,
 `DJCONNECT_PI_SSH_PRIVATE_KEY` and `DJCONNECT_PI_SSH_KNOWN_HOSTS` as repository
 secrets. Optional target user and port are repository variables
-`DJCONNECT_PI_SSH_USER` and `DJCONNECT_PI_SSH_PORT`. The workflow runs on a
-GitHub-hosted Linux runner; a target that is not safely reachable from that
-runner is unavailable and the deployment fails closed.
+`DJCONNECT_PI_SSH_USER` and `DJCONNECT_PI_SSH_PORT`. The deploy job runs only
+on the qualified self-hosted macOS deployment relay because it is the approved
+GitHub Actions path to the private Pi network. It performs no source build or
+artifact publication; a target that is unavailable through that relay fails
+closed.
 
 Release bundles include `docs/`, `systemd/`, `scripts/install.sh` and a
 prebuilt wheel under `wheels/`. They do not include the loose app source tree,

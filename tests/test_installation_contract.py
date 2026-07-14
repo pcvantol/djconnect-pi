@@ -146,7 +146,8 @@ def test_qualified_pi_deployment_workflow_requires_exact_evidence_and_artifact()
     workflow = ROOT.joinpath(".github/workflows/deploy-latest-pi-release.yml").read_text(encoding="utf-8")
 
     assert "workflow_dispatch:" in workflow
-    assert "runs-on: ubuntu-latest" in workflow
+    assert "runs-on: [self-hosted, macOS]" in workflow
+    assert "deployment relay, never a source-build job" in workflow
     assert "action:" in workflow
     assert "candidate_sha:" in workflow
     assert "execution_mode:" in workflow

@@ -133,7 +133,10 @@ jobs:
   deploy:
     name: Deploy authorized Pi artifact
     needs: authorize
-    runs-on: ubuntu-latest
+    # This is a deployment relay, never a source-build job. The qualified
+    # macOS runner is the only approved GitHub Actions path to the private Pi
+    # network and receives target credentials only in this job.
+    runs-on: [self-hosted, macOS]
     env:
       RELEASE_REPO: pcvantol/djconnect-pi-releases
       PI_HOST: ${{ secrets.DJCONNECT_PI_SSH_HOST }}
