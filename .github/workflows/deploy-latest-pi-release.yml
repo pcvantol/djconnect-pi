@@ -12,6 +12,14 @@ on:
         description: "Exact qualified source main SHA."
         required: true
         type: string
+      artifact_id:
+        description: "Exact immutable Pi artifact identifier from the approved manifest."
+        required: true
+        type: string
+      artifact_sha256:
+        description: "SHA-256 of the exact immutable Pi artifact from the approved manifest."
+        required: true
+        type: string
       execution_mode:
         description: "Must be execute."
         required: true
@@ -30,17 +38,34 @@ on:
         required: true
         type: choice
         options: [INTERNAL_RELEASE]
+      target:
+        description: "Manifest-allowlisted deployment target class."
+        required: true
+        type: choice
+        options: [raspberry_pi]
       timeout_seconds:
         description: "Maximum time to wait for the target updater."
         required: false
         default: "1800"
         type: string
+      smoke_initial_delay_seconds:
+        description: "Bounded stabilization delay before read-only smoke checks."
+        required: false
+        default: "20"
+        type: string
+      smoke_retry_count:
+        description: "Maximum bounded read-only smoke attempts."
+        required: false
+        default: "3"
+        type: string
+      smoke_interval_seconds:
+        description: "Bounded delay between smoke attempts."
+        required: false
+        default: "15"
+        type: string
 
 permissions:
-  actions: read
-  checks: read
   contents: read
-  statuses: write
 
 concurrency:
   group: pi-qualified-release-deployment-${{ inputs.manifest_id }}
@@ -52,8 +77,10 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       release_version: ${{ steps.contract.outputs.release_version }}
+      artifact_id: ${{ steps.contract.outputs.artifact_id }}
       artifact_sha256: ${{ steps.contract.outputs.artifact_sha256 }}
       release_tag: ${{ steps.contract.outputs.release_tag }}
+      target: ${{ steps.contract.outputs.target }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
@@ -64,10 +91,13 @@ jobs:
         env:
           ACTION: ${{ inputs.action }}
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          ARTIFACT_ID: ${{ inputs.artifact_id }}
+          ARTIFACT_SHA256: ${{ inputs.artifact_sha256 }}
           EXECUTION_MODE: ${{ inputs.execution_mode }}
           MANIFEST_ID: ${{ inputs.manifest_id }}
           PLATFORM_VERSION: ${{ inputs.platform_version }}
           RELEASE_PROFILE: ${{ inputs.release_profile }}
+          TARGET: ${{ inputs.target }}
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
@@ -75,12 +105,16 @@ jobs:
           test "${ACTION}" = "deployment"
           test "${EXECUTION_MODE}" = "execute"
           test "${RELEASE_PROFILE}" = "INTERNAL_RELEASE"
+          test "${TARGET}" = "raspberry_pi"
           [[ "${CANDIDATE_SHA}" =~ ^[0-9a-f]{40}$ ]]
+          [[ "${ARTIFACT_ID}" =~ ^djconnect-pi-[0-9]+\.[0-9]+\.[0-9]+\.tar\.gz$ ]]
+          [[ "${ARTIFACT_SHA256}" =~ ^[0-9a-f]{64}$ ]]
           [[ "${PLATFORM_VERSION}" =~ ^[0-9]+\.[0-9]+$ ]]
           [[ "${MANIFEST_ID}" =~ ^pi-v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]
           release_version="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.${BASH_REMATCH[3]}"
           release_tag="v${release_version}"
           test "${PLATFORM_VERSION}" = "${BASH_REMATCH[1]}.${BASH_REMATCH[2]}"
+          test "${ARTIFACT_ID}" = "djconnect-pi-${release_version}.tar.gz"
           export RELEASE_VERSION="${release_version}"
           export RELEASE_TAG="${release_tag}"
           git cat-file -e "${CANDIDATE_SHA}^{commit}"
@@ -116,23 +150,35 @@ jobs:
               "platform_version": os.environ["PLATFORM_VERSION"],
               "version": os.environ["RELEASE_VERSION"],
               "release_tag": os.environ["RELEASE_TAG"],
+              "artifact_id": os.environ["ARTIFACT_ID"],
+              "target": os.environ["TARGET"],
           }
           for key, value in expected.items():
               if manifest.get(key) != value:
                   raise SystemExit(f"Release manifest {key} does not match the approved deployment request")
-          for key, value in {"artifact_sha256": sys.argv[2], "checksum_sha256": sys.argv[3]}.items():
+          for key, value in {
+              "artifact_sha256": os.environ["ARTIFACT_SHA256"],
+              "checksum_sha256": os.environ["ARTIFACT_SHA256"],
+          }.items():
               if not re.fullmatch(r"[0-9a-f]{64}", value) or manifest.get(key) != value:
                   raise SystemExit(f"Release manifest {key} does not match the downloaded artifact")
+          if sys.argv[2] != os.environ["ARTIFACT_SHA256"] or sys.argv[3] != os.environ["ARTIFACT_SHA256"]:
+              raise SystemExit("Downloaded artifact checksum does not match the approved deployment request")
           PY
           {
             echo "release_version=${release_version}"
             echo "release_tag=${release_tag}"
+            echo "artifact_id=${ARTIFACT_ID}"
             echo "artifact_sha256=${actual_sha256}"
+            echo "target=${TARGET}"
           } >> "${GITHUB_OUTPUT}"
 
   deploy:
     name: Deploy authorized Pi artifact
     needs: authorize
+    permissions:
+      contents: read
+      statuses: write
     # This is a deployment relay, never a source-build job. The qualified
     # macOS runner is the only approved GitHub Actions path to the private Pi
     # network and receives target credentials only in this job.
@@ -144,7 +190,9 @@ jobs:
       PI_PORT: ${{ vars.DJCONNECT_PI_SSH_PORT || '22' }}
       TIMEOUT_SECONDS: ${{ inputs.timeout_seconds }}
       RELEASE_VERSION: ${{ needs.authorize.outputs.release_version }}
+      ARTIFACT_ID: ${{ needs.authorize.outputs.artifact_id }}
       ARTIFACT_SHA256: ${{ needs.authorize.outputs.artifact_sha256 }}
+      TARGET: ${{ needs.authorize.outputs.target }}
       SSH_PRIVATE_KEY: ${{ secrets.DJCONNECT_PI_SSH_PRIVATE_KEY }}
       SSH_KNOWN_HOSTS: ${{ secrets.DJCONNECT_PI_SSH_KNOWN_HOSTS }}
     steps:
@@ -310,7 +358,10 @@ jobs:
               "release_profile": os.environ["RELEASE_PROFILE"],
               "manifest_id": os.environ["MANIFEST_ID"],
               "version": os.environ["RELEASE_VERSION"],
+              "artifact_id": os.environ["ARTIFACT_ID"],
               "artifact_sha256": os.environ["ARTIFACT_SHA256"],
+              "target": os.environ["TARGET"],
+              "deployment_workflow_run": os.environ["GITHUB_RUN_ID"],
               "result": "DEPLOYED",
               "timestamp": datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
           }
@@ -323,6 +374,8 @@ jobs:
           PLATFORM_VERSION: ${{ inputs.platform_version }}
           RELEASE_PROFILE: ${{ inputs.release_profile }}
           MANIFEST_ID: ${{ inputs.manifest_id }}
+          ARTIFACT_ID: ${{ needs.authorize.outputs.artifact_id }}
+          TARGET: ${{ needs.authorize.outputs.target }}
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: success()
@@ -346,5 +399,257 @@ jobs:
               context: "Deployment / Execute approved release",
               state: process.env.DEPLOYMENT_RESULT === "success" ? "success" : "failure",
               description: process.env.DEPLOYMENT_RESULT === "success" ? "PI_DEPLOYMENT_COMPLETED" : "PI_DEPLOYMENT_NOT_COMPLETED",
+              target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+            });
+
+      - name: Remove target-scoped SSH credentials
+        if: always()
+        shell: bash
+        env:
+          SSH_KEY_FILE: ${{ steps.ssh.outputs.key_file }}
+          SSH_KNOWN_HOSTS_FILE: ${{ steps.ssh.outputs.known_hosts_file }}
+        run: |
+          rm -f "${SSH_KEY_FILE}" "${SSH_KNOWN_HOSTS_FILE}"
+
+  smoke:
+    name: Validate bounded Pi post-deployment smoke health
+    needs: [authorize, deploy]
+    if: ${{ needs.deploy.result == 'success' }}
+    permissions:
+      contents: read
+    runs-on: [self-hosted, macOS]
+    env:
+      PI_HOST: ${{ secrets.DJCONNECT_PI_SSH_HOST }}
+      PI_USER: ${{ vars.DJCONNECT_PI_SSH_USER || 'pi' }}
+      PI_PORT: ${{ vars.DJCONNECT_PI_SSH_PORT || '22' }}
+      SSH_PRIVATE_KEY: ${{ secrets.DJCONNECT_PI_SSH_PRIVATE_KEY }}
+      SSH_KNOWN_HOSTS: ${{ secrets.DJCONNECT_PI_SSH_KNOWN_HOSTS }}
+      RELEASE_VERSION: ${{ needs.authorize.outputs.release_version }}
+      ARTIFACT_ID: ${{ needs.authorize.outputs.artifact_id }}
+      ARTIFACT_SHA256: ${{ needs.authorize.outputs.artifact_sha256 }}
+      TARGET: ${{ needs.authorize.outputs.target }}
+      SMOKE_INITIAL_DELAY_SECONDS: ${{ inputs.smoke_initial_delay_seconds }}
+      SMOKE_RETRY_COUNT: ${{ inputs.smoke_retry_count }}
+      SMOKE_INTERVAL_SECONDS: ${{ inputs.smoke_interval_seconds }}
+    steps:
+      - name: Materialize smoke-only SSH credentials
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${PI_HOST}"
+          [[ "${PI_PORT}" =~ ^[0-9]{1,5}$ ]]
+          test -n "${SSH_PRIVATE_KEY}"
+          test -n "${SSH_KNOWN_HOSTS}"
+          key_file="${RUNNER_TEMP}/djconnect-pi-smoke-key"
+          known_hosts_file="${RUNNER_TEMP}/djconnect-pi-smoke-known-hosts"
+          printf '%s\n' "${SSH_PRIVATE_KEY}" > "${key_file}"
+          printf '%s\n' "${SSH_KNOWN_HOSTS}" > "${known_hosts_file}"
+          chmod 600 "${key_file}" "${known_hosts_file}"
+          echo "key_file=${key_file}" >> "${GITHUB_OUTPUT}"
+          echo "known_hosts_file=${known_hosts_file}" >> "${GITHUB_OUTPUT}"
+
+      - name: Run read-only canonical Pi smoke checks
+        id: validate
+        continue-on-error: true
+        shell: bash
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          PLATFORM_VERSION: ${{ inputs.platform_version }}
+          RELEASE_PROFILE: ${{ inputs.release_profile }}
+          MANIFEST_ID: ${{ inputs.manifest_id }}
+          SSH_KEY_FILE: ${{ steps.ssh.outputs.key_file }}
+          SSH_KNOWN_HOSTS_FILE: ${{ steps.ssh.outputs.known_hosts_file }}
+        run: |
+          set -euo pipefail
+          [[ "${SMOKE_INITIAL_DELAY_SECONDS}" =~ ^[0-9]+$ ]]
+          [[ "${SMOKE_RETRY_COUNT}" =~ ^[1-9][0-9]*$ ]]
+          [[ "${SMOKE_INTERVAL_SECONDS}" =~ ^[0-9]+$ ]]
+          (( SMOKE_INITIAL_DELAY_SECONDS <= 600 ))
+          (( SMOKE_RETRY_COUNT <= 10 ))
+          (( SMOKE_INTERVAL_SECONDS <= 300 ))
+          sleep "${SMOKE_INITIAL_DELAY_SECONDS}"
+
+          ssh_opts=(-i "${SSH_KEY_FILE}" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=${SSH_KNOWN_HOSTS_FILE}" -p "${PI_PORT}")
+          snapshot=""
+          result="SMOKE_INCONCLUSIVE"
+          failure_classification="pi_runtime_unreachable"
+          attempts=0
+
+          for ((attempts = 1; attempts <= SMOKE_RETRY_COUNT; attempts++)); do
+            if snapshot="$(ssh "${ssh_opts[@]}" "${PI_USER}@${PI_HOST}" 'python3 - <<'"'"'PY'"'"'
+          import json
+          import re
+          import subprocess
+          from pathlib import Path
+          from urllib.request import urlopen
+
+          config = json.loads(Path("/opt/djconnect/config/client.json").read_text(encoding="utf-8"))
+          port = int(config.get("local_api_port", 18080))
+          with urlopen(f"http://127.0.0.1:{port}/api/device/info", timeout=8) as response:
+              info = json.loads(response.read().decode("utf-8"))
+
+          def unit_state(unit):
+              return subprocess.run(
+                  ["systemctl", "is-active", unit],
+                  text=True,
+                  capture_output=True,
+                  check=False,
+              ).stdout.strip()
+
+          def restart_count(unit):
+              value = subprocess.run(
+                  ["systemctl", "show", unit, "--property=NRestarts", "--value"],
+                  text=True,
+                  capture_output=True,
+                  check=False,
+              ).stdout.strip()
+              return int(value or "0")
+
+          recent_logs = subprocess.run(
+              ["journalctl", "--no-pager", "-n", "80", "-u", "djconnect-api.service", "-u", "djconnect-client.service"],
+              text=True,
+              capture_output=True,
+              check=False,
+          ).stdout
+          critical_log = bool(re.search(r"Traceback|Failed to start|Fatal configuration error", recent_logs, re.IGNORECASE))
+          print(json.dumps({
+              "api_success": info.get("success") is True,
+              "version": str(info.get("version", "")),
+              "client_type": str(info.get("client_type", "")),
+              "api_service": unit_state("djconnect-api.service"),
+              "client_service": unit_state("djconnect-client.service"),
+              "api_restarts": restart_count("djconnect-api.service"),
+              "client_restarts": restart_count("djconnect-client.service"),
+              "critical_log": critical_log,
+          }, sort_keys=True))
+          PY')"; then
+              if SNAPSHOT="${snapshot}" EXPECTED_VERSION="${RELEASE_VERSION}" python3 - <<'PY'
+          import json
+          import os
+          import sys
+
+          snapshot = json.loads(os.environ["SNAPSHOT"])
+          required = (
+              snapshot.get("api_success") is True,
+              snapshot.get("version") == os.environ["EXPECTED_VERSION"],
+              snapshot.get("client_type") == "raspberry_pi",
+              snapshot.get("api_service") == "active",
+              snapshot.get("client_service") == "active",
+              snapshot.get("api_restarts") == 0,
+              snapshot.get("client_restarts") == 0,
+              snapshot.get("critical_log") is False,
+          )
+          sys.exit(0 if all(required) else 1)
+          PY
+              then
+                result="SMOKE_PASS"
+                failure_classification=""
+                break
+              fi
+              result="SMOKE_FAIL"
+              failure_classification="pi_runtime_health_or_version_failure"
+            fi
+            if (( attempts < SMOKE_RETRY_COUNT )); then
+              sleep "${SMOKE_INTERVAL_SECONDS}"
+            fi
+          done
+
+          SNAPSHOT="${snapshot}" RESULT="${result}" FAILURE_CLASSIFICATION="${failure_classification}" ATTEMPTS="${attempts}" python3 - <<'PY'
+          import json
+          import os
+          from datetime import UTC, datetime
+
+          try:
+              observed = json.loads(os.environ.get("SNAPSHOT", ""))
+          except json.JSONDecodeError:
+              observed = {}
+
+          evidence = {
+              "schema_version": 1,
+              "kind": "djconnect_pi_post_deployment_smoke_evidence",
+              "repository": os.environ["GITHUB_REPOSITORY"],
+              "candidate_sha": os.environ["CANDIDATE_SHA"],
+              "platform_version": os.environ["PLATFORM_VERSION"],
+              "manifest_id": os.environ["MANIFEST_ID"],
+              "deployment_workflow_run": os.environ["GITHUB_RUN_ID"],
+              "smoke_workflow_run": os.environ["GITHUB_RUN_ID"],
+              "runner_identity": os.environ.get("RUNNER_NAME", "redacted"),
+              "target": os.environ["TARGET"],
+              "route_type": "pi_loopback_over_ssh",
+              "protocol": "HTTP",
+              "endpoint_class": "local_client_api_device_info",
+              "authentication_mode": "target_scoped_ssh",
+              "artifact_id": os.environ["ARTIFACT_ID"],
+              "artifact_sha256": os.environ["ARTIFACT_SHA256"],
+              "expected_version": os.environ["RELEASE_VERSION"],
+              "observed_version": observed.get("version", ""),
+              "health_result": os.environ["RESULT"],
+              "websocket_result": "SMOKE_NOT_APPLICABLE",
+              "startup_marker_result": "SMOKE_PASS" if observed.get("api_service") == "active" and observed.get("client_service") == "active" else "SMOKE_FAIL",
+              "crash_log_result": "SMOKE_FAIL" if observed.get("critical_log") else "SMOKE_PASS",
+              "retry_count": int(os.environ["ATTEMPTS"]),
+              "stabilization_window": {
+                  "initial_delay_seconds": int(os.environ["SMOKE_INITIAL_DELAY_SECONDS"]),
+                  "retry_count": int(os.environ["SMOKE_RETRY_COUNT"]),
+                  "interval_seconds": int(os.environ["SMOKE_INTERVAL_SECONDS"]),
+              },
+              "final_result": os.environ["RESULT"],
+              "failure_classification": os.environ["FAILURE_CLASSIFICATION"] or None,
+              "recovery_reference": "Pi deployment recovery procedure",
+              "timestamp": datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+          }
+          with open("pi-post-deployment-smoke-evidence.json", "w", encoding="utf-8") as handle:
+              json.dump(evidence, handle, indent=2, sort_keys=True)
+              handle.write("\n")
+          PY
+          echo "result=${result}" >> "${GITHUB_OUTPUT}"
+          test "${result}" = "SMOKE_PASS"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: pi-post-deployment-smoke-evidence
+          path: pi-post-deployment-smoke-evidence.json
+          if-no-files-found: error
+
+      - name: Remove smoke-only SSH credentials
+        if: always()
+        shell: bash
+        env:
+          SSH_KEY_FILE: ${{ steps.ssh.outputs.key_file }}
+          SSH_KNOWN_HOSTS_FILE: ${{ steps.ssh.outputs.known_hosts_file }}
+        run: |
+          rm -f "${SSH_KEY_FILE}" "${SSH_KNOWN_HOSTS_FILE}"
+
+      - name: Fail closed when smoke does not pass
+        if: ${{ steps.validate.outputs.result != 'SMOKE_PASS' }}
+        shell: bash
+        run: exit 1
+
+  publish-smoke-decision:
+    name: Publish Pi deployment smoke decision
+    needs: [authorize, deploy, smoke]
+    if: always()
+    permissions:
+      statuses: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish operational deployment decision
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          DEPLOYMENT_RESULT: ${{ needs.deploy.result }}
+          SMOKE_RESULT: ${{ needs.smoke.result }}
+        with:
+          script: |
+            const operational = process.env.DEPLOYMENT_RESULT === "success" && process.env.SMOKE_RESULT === "success";
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: process.env.CANDIDATE_SHA,
+              context: "Deployment / Post-deployment smoke",
+              state: operational ? "success" : "failure",
+              description: operational ? "DEPLOYMENT_OPERATIONAL" : "DEPLOYMENT_SMOKE_FAILED",
               target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
             });

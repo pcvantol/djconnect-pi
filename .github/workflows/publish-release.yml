@@ -155,8 +155,10 @@ jobs:
             "platform_version": "${platform_version}",
             "version": "${version}",
             "release_tag": "${tag}",
+            "artifact_id": "djconnect-pi-${version}.tar.gz",
             "artifact_sha256": "${artifact_sha256}",
-            "checksum_sha256": "${artifact_sha256}"
+            "checksum_sha256": "${artifact_sha256}",
+            "target": "raspberry_pi"
           }
           EOF
           cat > "dist/djconnect-pi-latest.json" <<EOF
