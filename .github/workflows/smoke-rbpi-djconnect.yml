@@ -1,0 +1,157 @@
+name: Smoke Qualified Pi Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Must be deployment_smoke."
+        required: true
+        type: choice
+        options: [deployment_smoke]
+      candidate_sha:
+        description: "Exact qualified source main SHA."
+        required: true
+        type: string
+      artifact_id:
+        description: "Exact immutable Pi artifact identifier from the approved manifest."
+        required: true
+        type: string
+      artifact_sha256:
+        description: "SHA-256 of the exact immutable Pi artifact from the approved manifest."
+        required: true
+        type: string
+      manifest_id:
+        description: "Immutable Pi release manifest identifier."
+        required: true
+        type: string
+      platform_version:
+        description: "Platform Major.Minor version."
+        required: true
+        type: string
+      release_profile:
+        description: "Supported release profile."
+        required: true
+        type: choice
+        options: [INTERNAL_RELEASE]
+      target:
+        description: "Canonical deployment target."
+        required: true
+        type: choice
+        options: [rbpi-djconnect]
+      deployment_workflow_run:
+        description: "Successful deployment workflow run ID whose evidence must match."
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+  statuses: write
+
+concurrency:
+  group: pi-qualified-release-smoke-${{ inputs.manifest_id }}
+  cancel-in-progress: false
+
+jobs:
+  authorize:
+    name: Authorize exact Pi post-deployment smoke
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate canonical smoke identity
+        shell: bash
+        env:
+          ACTION: ${{ inputs.action }}
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          ARTIFACT_ID: ${{ inputs.artifact_id }}
+          ARTIFACT_SHA256: ${{ inputs.artifact_sha256 }}
+          MANIFEST_ID: ${{ inputs.manifest_id }}
+          PLATFORM_VERSION: ${{ inputs.platform_version }}
+          RELEASE_PROFILE: ${{ inputs.release_profile }}
+          TARGET: ${{ inputs.target }}
+          DEPLOYMENT_WORKFLOW_RUN: ${{ inputs.deployment_workflow_run }}
+        run: |
+          set -euo pipefail
+          test "${ACTION}" = "deployment_smoke"
+          test "${RELEASE_PROFILE}" = "INTERNAL_RELEASE"
+          test "${TARGET}" = "rbpi-djconnect"
+          [[ "${CANDIDATE_SHA}" =~ ^[0-9a-f]{40}$ ]]
+          [[ "${ARTIFACT_ID}" =~ ^djconnect-pi-[0-9]+\.[0-9]+\.[0-9]+\.tar\.gz$ ]]
+          [[ "${ARTIFACT_SHA256}" =~ ^[0-9a-f]{64}$ ]]
+          [[ "${MANIFEST_ID}" =~ ^pi-v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "${PLATFORM_VERSION}" =~ ^[0-9]+\.[0-9]+$ ]]
+          [[ "${DEPLOYMENT_WORKFLOW_RUN}" =~ ^[1-9][0-9]*$ ]]
+
+      - name: Download exact deployment evidence
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: pi-deployment-evidence
+          path: deployment-evidence
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.deployment_workflow_run }}
+          github-token: ${{ github.token }}
+
+      - name: Bind smoke to deployment evidence
+        shell: bash
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          ARTIFACT_ID: ${{ inputs.artifact_id }}
+          ARTIFACT_SHA256: ${{ inputs.artifact_sha256 }}
+          MANIFEST_ID: ${{ inputs.manifest_id }}
+          PLATFORM_VERSION: ${{ inputs.platform_version }}
+          RELEASE_PROFILE: ${{ inputs.release_profile }}
+          TARGET: ${{ inputs.target }}
+          DEPLOYMENT_WORKFLOW_RUN: ${{ inputs.deployment_workflow_run }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          evidence = json.loads(Path("deployment-evidence/pi-deployment-evidence.json").read_text(encoding="utf-8"))
+          expected = {
+              "candidate_sha": os.environ["CANDIDATE_SHA"],
+              "artifact_id": os.environ["ARTIFACT_ID"],
+              "artifact_sha256": os.environ["ARTIFACT_SHA256"],
+              "manifest_id": os.environ["MANIFEST_ID"],
+              "platform_version": os.environ["PLATFORM_VERSION"],
+              "release_profile": os.environ["RELEASE_PROFILE"],
+              "target": os.environ["TARGET"],
+              "deployment_workflow_run": os.environ["DEPLOYMENT_WORKFLOW_RUN"],
+              "result": "DEPLOYED_PENDING_SMOKE",
+          }
+          for key, value in expected.items():
+              if str(evidence.get(key, "")) != value:
+                  raise SystemExit(f"Deployment evidence {key} does not match this smoke request")
+          PY
+
+      - name: Require approved operational manifest source
+        shell: bash
+        run: |
+          echo "No approved operational manifest source is configured for this consumer." >&2
+          echo "Refusing smoke before target credentials or target contact." >&2
+          exit 1
+
+  publish-smoke-decision:
+    name: Publish Pi deployment smoke decision
+    needs: authorize
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish non-operational smoke decision
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          SMOKE_RESULT: ${{ needs.authorize.result }}
+        with:
+          script: |
+            const operational = process.env.SMOKE_RESULT === "success";
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: process.env.CANDIDATE_SHA,
+              context: "Deployment / Post-deployment smoke",
+              state: operational ? "success" : "failure",
+              description: operational ? "DEPLOYMENT_OPERATIONAL" : "DEPLOYMENT_SMOKE_FAILED",
+              target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+            });
