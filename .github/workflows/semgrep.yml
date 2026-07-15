@@ -12,7 +12,7 @@ jobs:
     name: Software Assurance governance
     permissions:
       contents: read
-    uses: pcvantol/djconnect/.github/workflows/software-assurance-governance.yml@78852b8f714981794c63b92ff0d3083d06516099
+    uses: pcvantol/djconnect/.github/workflows/software-assurance-governance.yml@04b78708bfed26f96dd6436ad4372a648920110e
     with:
       execution_profile: balanced
       owner: pcvantol/djconnect-pi
@@ -30,7 +30,9 @@ jobs:
           python-version: "3.11"
 
       - name: Install Semgrep
-        run: python -m pip install semgrep
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install semgrep
 
       - name: Run Semgrep
         run: semgrep scan --config auto
