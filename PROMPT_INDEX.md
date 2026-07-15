@@ -9,11 +9,11 @@ canonical platform roadmap from `pcvantol/djconnect/PROMPT_INDEX.md`.
 
 ## Current Repository Phase
 
-Platform Governance Phase: Cross-Repository Bootstrap Alignment.
+RG-PI-001: Pi governance adoption.
 
 ## Status
 
-ACTIVE
+LOCAL_IN_PROGRESS
 
 ## Depends On
 
@@ -23,11 +23,11 @@ ACTIVE
 
 ## Current Prompt
 
-Platform Governance Phase - Cross-Repository Bootstrap Alignment
+Pi governance adoption
 
 ## Completion Report
 
-Repository-local documentation branch and commit
+`docs/history/prompts/2026-07-15-rg-pi-001.md`
 
 ## Next Repository Phase
 
