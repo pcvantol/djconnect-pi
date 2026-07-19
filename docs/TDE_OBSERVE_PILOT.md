@@ -37,8 +37,25 @@ this repository. The published release does not register `coverage`; an
 explicit `coverage` request returned `NOT_SUPPORTED`. This is recorded as an
 observed release limitation, not hidden by a consumer-side workaround.
 
-The first GitHub Actions run is the source for CI duration, stability,
-reproducibility, false-positive, and operational findings. Those results must
-be added here only after they are observed from the retained
-`tde-observe-evidence` artifact. No average, failure rate, or false-positive
-claim is made before that evidence exists.
+The first successful CI observation is [run 29684373080](https://github.com/pcvantol/djconnect-pi/actions/runs/29684373080).
+It completed the `TDE observe (non-blocking)` job in 13 seconds. Its retained
+summary records a three-second observe step; the assessment took 983 ms and
+the separate qualification took 1,136 ms. With one successful sample, that
+sample is the only available average; a stable multi-run average has not yet
+been observed.
+
+The published artifact contains two immutable assessment-evidence records, one
+repository-qualification record, the CLI JSON outputs, runtime version, and
+workflow summary. The assessment executed `code_size` and `complexity`; its
+policy decision was `FAIL`, while runtime qualification was `QUALIFIED`.
+Repository qualification was `FAILED` because it preserves the policy decision.
+Both public CLI exit codes were `2`, were retained in the artifact, and did not
+change the successful workflow outcome.
+
+The first attempt exposed an operational incompatibility: Ubuntu's package
+manager supplied `cloc 1.98`, while the public runtime requires `cloc 2.10+`.
+The workflow now provisions the checksum-verified upstream `cloc 2.10` release;
+the successful run above confirms that correction. No false positives have
+been classified in this one-run observation. The concrete missing capability is
+the published `0.2.0` profile's absence of coverage and dependency-health
+execution; no consumer-side substitute has been added.
