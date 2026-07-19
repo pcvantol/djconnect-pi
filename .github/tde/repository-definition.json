@@ -1,0 +1,12 @@
+{
+  "identifier": "djconnect-pi",
+  "name": "DJConnect Pi",
+  "repositoryRoot": "../..",
+  "repositoryType": "source",
+  "primaryLanguage": "Python",
+  "defaultAssessmentProfile": "standard",
+  "metadata": {
+    "consumer": "DJConnect",
+    "pilotPhase": "observe"
+  }
+}
