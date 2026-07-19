@@ -26,3 +26,6 @@ Thumbs.db
 **/Thumbs.db
 Desktop.ini
 **/Desktop.ini
+
+# Local Technical Debt Engine evidence, baselines and qualifications
+/.tde/
