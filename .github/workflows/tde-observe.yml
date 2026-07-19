@@ -33,8 +33,14 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install "technical-debt-engine-runtime==0.2.0"
-          sudo apt-get update
-          sudo apt-get install --yes cloc
+          mkdir -p "$RUNNER_TEMP/tde-tools"
+          curl --fail --silent --show-error --location \
+            https://github.com/AlDanial/cloc/releases/download/v2.10/cloc-2.10.pl \
+            --output "$RUNNER_TEMP/tde-tools/cloc"
+          echo "bf59272455172108072a0a106379f7509fd4349bdcfd85203bac038ccd286d83  $RUNNER_TEMP/tde-tools/cloc" | sha256sum --check
+          chmod +x "$RUNNER_TEMP/tde-tools/cloc"
+          "$RUNNER_TEMP/tde-tools/cloc" --version
+          echo "$RUNNER_TEMP/tde-tools" >> "$GITHUB_PATH"
 
       - name: Run TDE standard assessment in observe mode
         id: tde
