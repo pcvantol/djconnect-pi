@@ -40,4 +40,5 @@ where = ["src"]
 "djconnect_pi.qml" = ["*.qml", "*.js", "*.png"]
 
 [tool.coverage.run]
+branch = true
 source = ["src/djconnect_pi"]
