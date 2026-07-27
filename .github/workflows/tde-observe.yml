@@ -32,7 +32,7 @@ jobs:
       - name: Install published TDE runtime
         run: |
           python -m pip install --upgrade pip
-          python -m pip install "technical-debt-engine-runtime==1.0.0rc3"
+          python -m pip install "technical-debt-engine-runtime==1.0.0"
           mkdir -p "$RUNNER_TEMP/tde-tools"
           curl --fail --silent --show-error --location \
             https://github.com/AlDanial/cloc/releases/download/v2.10/cloc-2.10.pl \
@@ -71,7 +71,7 @@ jobs:
           {
             echo "# TDE observe result"
             echo
-            echo "- Runtime: \`technical-debt-engine-runtime==1.0.0rc3\`"
+            echo "- Runtime: \`technical-debt-engine-runtime==1.0.0\`"
             echo "- Assessment profile: \`standard\`"
             echo "- Executed capabilities: ${capabilities}"
             echo "- Assessment decision: ${assessment_decision}"

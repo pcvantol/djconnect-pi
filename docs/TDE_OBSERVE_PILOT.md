@@ -12,7 +12,7 @@ not a platform-wide rollout.
 ## Observe-mode contract
 
 The `TDE observe` workflow installs the published, exact-pinned
-`technical-debt-engine-runtime==1.0.0rc3` distribution and invokes only its public
+`technical-debt-engine-runtime==1.0.0` distribution and invokes only its public
 `tde` CLI. It does not check out TDE source, import TDE Python modules, run this
 repository's tests, alter policies, or change any existing workflow.
 
@@ -54,13 +54,15 @@ coverage or dependency evidence is retained as canonical evidence rather than
 replaced consumer-side. The objective exit criteria and the decision prerequisite for any WARN proposal are defined in
 [TDE Observe Exit Criteria](TDE_OBSERVE_EXIT_CRITERIA.md).
 
-## Public RC3 consumer qualification
+## Public 1.0 release qualification
 
 The hand-dispatched merged-main run
 [30284607891](https://github.com/pcvantol/djconnect-pi/actions/runs/30284607891)
 validated the publicly published, exact-pinned
-`technical-debt-engine-runtime==1.0.0rc3` distribution on commit
-`19e973cda4be84152399adcc1c1982c8e4548ad7`.
+`technical-debt-engine-runtime==1.0.0rc3` distribution. The immutable final
+1.0 release bundle was later certified from TDE commit
+`51497958cfcdcd2d273e97499234006bff3ba969` and published as the final public
+release on 27 July 2026.
 
 The non-blocking workflow and job succeeded in 15 seconds and retained
 `tde-observe-evidence`. The standard profile executed `code_size`,
@@ -69,5 +71,7 @@ The non-blocking workflow and job succeeded in 15 seconds and retained
 returned exit code `2`, were retained as observation, and did not change the
 successful workflow result. The observe step took three seconds.
 
-This confirms public-CLI consumer execution for all four 1.0 capabilities. It
-does not promote WARN, soft-fail, required checks, or a wider rollout.
+The prior RC3 run confirms public-CLI consumer execution for all four 1.0
+capabilities. This workflow update moves the same consumer contract to the
+immutable final release; it remains non-blocking and does not promote WARN,
+soft-fail, required checks, or a wider rollout.
