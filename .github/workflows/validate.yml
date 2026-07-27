@@ -126,6 +126,11 @@ jobs:
             gh api "repos/${GH_REPO}/actions/runs/${CURRENT_RUN_ID}" \
               --jq '.name'
           )"
+          protected_run_ids=()
+          pr_head_sha="$(gh api -H 'Accept: application/vnd.github+json' "repos/${GH_REPO}/commits/${GITHUB_SHA}/pulls" --jq '[.[] | select(.merged_at and .base.ref == "main" and .merge_commit_sha == env.GITHUB_SHA)] | if length == 1 then .[0].head.sha else empty end' || true)"
+          if [[ -n "${pr_head_sha}" ]]; then
+            mapfile -t protected_run_ids < <(gh api "repos/${GH_REPO}/actions/runs?head_sha=${pr_head_sha}&per_page=100" --paginate --jq '.workflow_runs[] | .id')
+          fi
           runs_json="$(
             gh api --paginate --slurp \
               "repos/${GH_REPO}/actions/runs?status=completed&per_page=100"
@@ -162,7 +167,7 @@ jobs:
             deleted_runs=0
             for index in "${!run_ids[@]}"; do
               run_id="${run_ids[$index]}"
-              if [[ "${run_id}" == "${CURRENT_RUN_ID}" ]]; then
+              if [[ "${run_id}" == "${CURRENT_RUN_ID}" || " ${protected_run_ids[*]} " == *" ${run_id} "* ]]; then
                 continue
               fi
 
