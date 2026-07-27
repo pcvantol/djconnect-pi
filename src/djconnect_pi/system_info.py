@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from pathlib import Path
 import logging
 import os
 import platform
 import socket
+from pathlib import Path
 
 _LOGGER = logging.getLogger(__name__)
 

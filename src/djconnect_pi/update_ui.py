@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-from importlib.resources import files
-from pathlib import Path
 import argparse
 import json
 import logging
 import socket
 import subprocess
 import sys
+from importlib.resources import files
+from pathlib import Path
 from urllib.parse import urlparse
 
-from PySide6.QtCore import QObject, Property, QTimer, Signal, Slot
+from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle

@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Any
 import json
 import re
 import time
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -23,7 +23,6 @@ from djconnect_pi.ha import (
     _compatible_ha_version,
     music_backend_summary_from,
 )
-
 
 ROOT = Path(__file__).resolve().parents[1]
 ROUTE_SCAN_SUFFIXES = {"", ".json", ".md", ".py", ".qml", ".sh", ".service", ".timer", ".toml", ".txt"}

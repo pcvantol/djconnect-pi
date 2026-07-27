@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from html import escape
 import json
 import re
+from html import escape
 
 from .i18n import LANGUAGES, SUPPORTED_LANGUAGES, TRANSLATIONS
 

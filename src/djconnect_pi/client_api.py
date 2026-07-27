@@ -1,15 +1,22 @@
 from __future__ import annotations
 
-from http import HTTPStatus
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Any, Callable
 import json
 import logging
 import socket
 import threading
+from collections.abc import Callable
+from http import HTTPStatus
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from typing import Any
 from urllib.parse import parse_qs, urlparse
 
-from .config import CLIENT_TYPE, Config, load_config, normalize_dj_announcement_output, save_config
+from .config import (
+    CLIENT_TYPE,
+    Config,
+    load_config,
+    normalize_dj_announcement_output,
+    save_config,
+)
 from .i18n import translate
 from .web_portal import index_html
 
@@ -52,7 +59,7 @@ class ClientAPIState:
 
 
 class ClientAPIHandler(BaseHTTPRequestHandler):
-    server: "ClientAPIServer"
+    server: ClientAPIServer
 
     def log_message(self, fmt: str, *args: object) -> None:
         _LOGGER.info("Client API " + fmt, *args)

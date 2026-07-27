@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any
 import json
 import logging
 import time
+from dataclasses import dataclass, field
+from typing import Any
 from urllib.parse import urlparse, urlunparse
+
 import requests
 
 from .config import CLIENT_TYPE, Config

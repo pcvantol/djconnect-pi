@@ -1,14 +1,19 @@
 from __future__ import annotations
 
-from pathlib import Path
 import json
 import logging
+from pathlib import Path
 
-import requests
 import pytest
+import requests
 
-from djconnect_pi.client_api import ClientAPI, ClientAPIState, MAX_REQUEST_BYTES, _mdns_properties
-from djconnect_pi.client_api import ClientAPIHandler
+from djconnect_pi.client_api import (
+    MAX_REQUEST_BYTES,
+    ClientAPI,
+    ClientAPIHandler,
+    ClientAPIState,
+    _mdns_properties,
+)
 from djconnect_pi.config import Config, load_config, save_config
 from djconnect_pi.web_portal import index_html
 
@@ -266,7 +271,7 @@ def test_mdns_is_not_advertised_when_already_paired(tmp_path: Path, monkeypatch)
         ClientAPIState(
             cfg=cfg,
             config_path=config_path,
-            playback_provider=lambda: {},
+            playback_provider=dict,
             command_handler=lambda command, payload: {"success": True},
             screenshot_handler=lambda: {"success": True},
             pair_handler=lambda: None,
@@ -312,7 +317,7 @@ def test_mdns_stops_after_pair_and_returns_after_forget(tmp_path: Path, monkeypa
         ClientAPIState(
             cfg=cfg,
             config_path=config_path,
-            playback_provider=lambda: {},
+            playback_provider=dict,
             command_handler=lambda command, payload: {"success": True},
             screenshot_handler=lambda: {"success": True},
             pair_handler=lambda: None,

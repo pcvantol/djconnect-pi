@@ -1,16 +1,15 @@
 from __future__ import annotations
 
-from pathlib import Path
 import json
 import os
 import subprocess
 import time
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
 from PySide6.QtCore import QCoreApplication
 
-from djconnect_pi.config import Config, load_config, save_config
 from djconnect_pi.app import (
     DJConnectBackend,
     SaveCurrentTrackError,
@@ -27,7 +26,17 @@ from djconnect_pi.app import (
     parse_queue_items,
     prepare_media_artwork,
 )
-from djconnect_pi.ha import AuthenticationError, BackendUnavailable, DJConnectError, HAClient, Playback, ProtocolVersionMismatch, StaleBackendAction, UnsupportedBackendCapability
+from djconnect_pi.config import Config, load_config, save_config
+from djconnect_pi.ha import (
+    AuthenticationError,
+    BackendUnavailable,
+    DJConnectError,
+    HAClient,
+    Playback,
+    ProtocolVersionMismatch,
+    StaleBackendAction,
+    UnsupportedBackendCapability,
+)
 
 
 def ensure_app() -> QCoreApplication:

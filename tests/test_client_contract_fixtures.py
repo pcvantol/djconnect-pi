@@ -5,7 +5,11 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
-from djconnect_pi.app import parse_ask_dj_messages, parse_music_discovery_feed, parse_music_dna_profile
+from djconnect_pi.app import (
+    parse_ask_dj_messages,
+    parse_music_discovery_feed,
+    parse_music_dna_profile,
+)
 from djconnect_pi.config import Config
 from djconnect_pi.ha import HAClient
 from djconnect_pi.ha_websocket import WebSocketFastPath

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
 import argparse
 import base64
 import json
@@ -9,10 +8,23 @@ import signal
 import subprocess
 import threading
 import time
+from pathlib import Path
 
 from .client_api import ClientAPI, ClientAPIState
-from .config import DEFAULT_CONFIG_PATH, Config, generate_pairing_code, load_config, save_config
-from .ha import AuthenticationError, BackendUnavailable, DJConnectError, HAClient, Playback
+from .config import (
+    DEFAULT_CONFIG_PATH,
+    Config,
+    generate_pairing_code,
+    load_config,
+    save_config,
+)
+from .ha import (
+    AuthenticationError,
+    BackendUnavailable,
+    DJConnectError,
+    HAClient,
+    Playback,
+)
 from .i18n import translate
 from .logging_config import setup_logging
 from .system_info import log_raspberry_pi_system_info

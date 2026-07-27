@@ -1,9 +1,5 @@
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
-from importlib.resources import files
-from pathlib import Path
 import argparse
 import hashlib
 import json
@@ -12,13 +8,27 @@ import re
 import subprocess
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
+from importlib.resources import files
+from pathlib import Path
 from urllib.parse import urlparse
 
-from PySide6.QtCore import QByteArray, QBuffer, QCoreApplication, QIODevice, QObject, Property, QTimer, Signal, Slot
+import requests
+from PySide6.QtCore import (
+    Property,
+    QBuffer,
+    QByteArray,
+    QCoreApplication,
+    QIODevice,
+    QObject,
+    QTimer,
+    Signal,
+    Slot,
+)
 from PySide6.QtGui import QGuiApplication, QPixmapCache
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
-import requests
 
 from .config import (
     CLIENT_TYPE,
@@ -29,7 +39,16 @@ from .config import (
     normalize_dj_announcement_output,
     save_config,
 )
-from .ha import AuthenticationError, BackendUnavailable, DJConnectError, HAClient, Playback, ProtocolVersionMismatch, StaleBackendAction, UnsupportedBackendCapability
+from .ha import (
+    AuthenticationError,
+    BackendUnavailable,
+    DJConnectError,
+    HAClient,
+    Playback,
+    ProtocolVersionMismatch,
+    StaleBackendAction,
+    UnsupportedBackendCapability,
+)
 from .i18n import LANGUAGES, normalize_language, translate
 from .logging_config import setup_logging
 from .system_info import log_raspberry_pi_system_info
