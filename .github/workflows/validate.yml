@@ -19,7 +19,7 @@ jobs:
       owner: pcvantol/djconnect-pi
 
   python:
-    uses: pcvantol/djconnect/.github/workflows/djconnect-python-ci.yml@04b78708bfed26f96dd6436ad4372a648920110e
+    uses: pcvantol/djconnect/.github/workflows/djconnect-python-ci.yml@ebbb35f038a7a3c7d46c12660968bcd50eb67580
     with:
       source-path: src
       test-path: tests
