@@ -90,7 +90,7 @@ class WebSocketFastPath:
             return None
         try:
             data = self._request(message_type, body, timeout=timeout)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - the fast path must fall back to canonical HTTP for every websocket transport failure
             self._mark_unhealthy(exc)
             return None
         self.transport = "websocket"
@@ -114,7 +114,7 @@ class WebSocketFastPath:
         if not self.commands or time.monotonic() - self.last_capability_refresh > 300:
             try:
                 self.refresh_capabilities(timeout=min(5.0, max(1.0, self.default_timeout)))
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - capability refresh failures must preserve the HTTP fallback
                 self._mark_unhealthy(exc)
                 return False
         return command in self.commands
@@ -199,8 +199,8 @@ class WebSocketFastPath:
         finally:
             try:
                 ws.close()
-            except Exception:
-                pass
+            except Exception as exc:  # noqa: BLE001 - close is best-effort while the fallback path is already active
+                _LOGGER.debug("WebSocket close after fallback failed: %s", exc)
 
     def _ensure_session(self, *, timeout: float) -> None:
         if self._access_token and time.time() < self._access_token_expires_at - 30:
@@ -322,7 +322,7 @@ def _expires_at(value: object) -> float:
     try:
         from datetime import datetime
 
-        return datetime.fromisoformat(text.replace("Z", "+00:00")).timestamp()
+        return datetime.fromisoformat(text).timestamp()
     except ValueError:
         return time.time() + 240
 

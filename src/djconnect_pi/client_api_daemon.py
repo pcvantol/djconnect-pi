@@ -122,7 +122,7 @@ class ClientAPIDaemon:
             except DJConnectError as exc:
                 backend_available = False
                 status_text = str(exc)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - portal refresh degrades to an explicit unavailable state for every transport failure
                 backend_available = False
                 status_text = f"Portal status mislukt: {exc}"
                 _LOGGER.warning("Portal state refresh failed: %s", exc)

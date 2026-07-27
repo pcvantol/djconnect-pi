@@ -497,9 +497,8 @@ def test_profile_errors_use_canonical_codes_without_clearing_pairing() -> None:
     cfg = Config(ha_url="http://ha", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1", paired=True, websocket_fast_path_enabled=False)
     client = HAClient(cfg)
 
-    with patch("djconnect_pi.ha.requests.post", return_value=FakeResponse(409, {"success": False, "error": "device_not_mapped", "message": "Map this Pi to a shared profile."})):
-        with pytest.raises(DJConnectError, match="Map this Pi"):
-            client.music_dna_profile()
+    with patch("djconnect_pi.ha.requests.post", return_value=FakeResponse(409, {"success": False, "error": "device_not_mapped", "message": "Map this Pi to a shared profile."})), pytest.raises(DJConnectError, match="Map this Pi"):
+        client.music_dna_profile()
 
     assert cfg.paired is True
     assert cfg.device_token == "token-1"

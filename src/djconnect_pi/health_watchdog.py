@@ -66,7 +66,7 @@ def run_check(
     }
     try:
         checks["api"] = api_healthy(cfg.local_url, timeout)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - the watchdog records every API probe failure as unhealthy
         _LOGGER.warning("Watchdog API health failed: %s", exc)
 
     healthy = all(checks.values())

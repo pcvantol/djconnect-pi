@@ -407,7 +407,7 @@ class ClientAPI:
         except OSError:
             _LOGGER.warning("Client API port %s unavailable; falling back to an ephemeral port", cfg.local_api_port)
             self.server = ClientAPIServer((cfg.local_api_host, 0), ClientAPIHandler, self.state)
-        host, port = self.server.server_address
+        _host, port = self.server.server_address
         # Wildcard binds are converted to an advertised LAN IP for clients.
         advertised_host = _local_ip() if cfg.local_api_host in {"", "0.0.0.0"} else cfg.local_api_host  # nosec B104
         local_url = f"http://{advertised_host}:{port}"

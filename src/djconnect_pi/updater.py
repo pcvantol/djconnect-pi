@@ -238,10 +238,10 @@ def _run_once(
     if _step_done(state_dir, name):
         return
     if status is None:
-        kwargs = {"check": True}
+        kwargs = {}
         if env is not None:
             kwargs["env"] = env
-        subprocess.run(command, **kwargs)
+        subprocess.run(command, check=True, **kwargs)
     else:
         status.write("installing", message, progress)
         process = subprocess.Popen(

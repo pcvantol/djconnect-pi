@@ -428,7 +428,7 @@ def test_client_api_pair_rejects_wrong_pairing_code(tmp_path: Path) -> None:
 
 
 def test_device_info_exposes_local_only_backend_summary(tmp_path: Path) -> None:
-    api, cfg, events = start_api(tmp_path)
+    api, cfg, _events = start_api(tmp_path)
     config_path = tmp_path / "config.json"
     saved = load_config(config_path)
     saved.ha_url = "http://ha.local:8123"
