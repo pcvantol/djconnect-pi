@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Any
 import json
 import re
 import time
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -23,7 +23,6 @@ from djconnect_pi.ha import (
     _compatible_ha_version,
     music_backend_summary_from,
 )
-
 
 ROOT = Path(__file__).resolve().parents[1]
 ROUTE_SCAN_SUFFIXES = {"", ".json", ".md", ".py", ".qml", ".sh", ".service", ".timer", ".toml", ".txt"}
@@ -498,9 +497,8 @@ def test_profile_errors_use_canonical_codes_without_clearing_pairing() -> None:
     cfg = Config(ha_url="http://ha", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1", paired=True, websocket_fast_path_enabled=False)
     client = HAClient(cfg)
 
-    with patch("djconnect_pi.ha.requests.post", return_value=FakeResponse(409, {"success": False, "error": "device_not_mapped", "message": "Map this Pi to a shared profile."})):
-        with pytest.raises(DJConnectError, match="Map this Pi"):
-            client.music_dna_profile()
+    with patch("djconnect_pi.ha.requests.post", return_value=FakeResponse(409, {"success": False, "error": "device_not_mapped", "message": "Map this Pi to a shared profile."})), pytest.raises(DJConnectError, match="Map this Pi"):
+        client.music_dna_profile()
 
     assert cfg.paired is True
     assert cfg.device_token == "token-1"

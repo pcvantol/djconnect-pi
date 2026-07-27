@@ -4,7 +4,13 @@ import re
 from importlib.resources import files
 from string import Formatter
 
-from djconnect_pi.i18n import SUPPORTED_LANGUAGES, TRANSLATIONS, locale_for_language, normalize_language, translate
+from djconnect_pi.i18n import (
+    SUPPORTED_LANGUAGES,
+    TRANSLATIONS,
+    locale_for_language,
+    normalize_language,
+    translate,
+)
 from djconnect_pi.web_portal import PORTAL_I18N_KEYS
 
 

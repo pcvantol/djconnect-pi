@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any
 import logging
 import time
+from dataclasses import dataclass
+from typing import Any
 from urllib.parse import urlparse
+
 import requests
 
 from .config import CLIENT_TYPE, Config, normalize_dj_announcement_output

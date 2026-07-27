@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from pathlib import Path
 import random
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 from PySide6.QtCore import QCoreApplication

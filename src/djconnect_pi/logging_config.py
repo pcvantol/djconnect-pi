@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from logging.handlers import RotatingFileHandler
-from pathlib import Path
 import logging
 import sys
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
 
 SENSITIVE_MARKERS = ("token", "authorization", "bearer", "password", "secret")
 

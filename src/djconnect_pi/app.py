@@ -1,9 +1,5 @@
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
-from importlib.resources import files
-from pathlib import Path
 import argparse
 import hashlib
 import json
@@ -12,13 +8,27 @@ import re
 import subprocess
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
+from importlib.resources import files
+from pathlib import Path
 from urllib.parse import urlparse
 
-from PySide6.QtCore import QByteArray, QBuffer, QCoreApplication, QIODevice, QObject, Property, QTimer, Signal, Slot
+import requests
+from PySide6.QtCore import (
+    Property,
+    QBuffer,
+    QByteArray,
+    QCoreApplication,
+    QIODevice,
+    QObject,
+    QTimer,
+    Signal,
+    Slot,
+)
 from PySide6.QtGui import QGuiApplication, QPixmapCache
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
-import requests
 
 from .config import (
     CLIENT_TYPE,
@@ -29,7 +39,16 @@ from .config import (
     normalize_dj_announcement_output,
     save_config,
 )
-from .ha import AuthenticationError, BackendUnavailable, DJConnectError, HAClient, Playback, ProtocolVersionMismatch, StaleBackendAction, UnsupportedBackendCapability
+from .ha import (
+    AuthenticationError,
+    BackendUnavailable,
+    DJConnectError,
+    HAClient,
+    Playback,
+    ProtocolVersionMismatch,
+    StaleBackendAction,
+    UnsupportedBackendCapability,
+)
 from .i18n import LANGUAGES, normalize_language, translate
 from .logging_config import setup_logging
 from .system_info import log_raspberry_pi_system_info
@@ -1242,7 +1261,7 @@ class DJConnectBackend(QObject):
                 detail = (exc.stderr or exc.stdout or str(exc)).strip()
                 last_error = detail or str(exc)
                 _LOGGER.warning("Update check command failed: %s: %s", " ".join(command), last_error)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - native command boundary must surface every local failure to the UI
                 last_error = str(exc)
                 _LOGGER.warning("Update check command failed: %s: %s", " ".join(command), exc)
         message = self.tr_key("update_check_failed", error=last_error)
@@ -1262,7 +1281,7 @@ class DJConnectBackend(QObject):
                 detail = (exc.stderr or exc.stdout or str(exc)).strip()
                 last_error = detail or str(exc)
                 _LOGGER.warning("%s command failed: %s: %s", action.capitalize(), " ".join(command), last_error)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - native command boundary must surface every local failure to the UI
                 last_error = str(exc)
                 _LOGGER.warning("%s command failed: %s: %s", action.capitalize(), " ".join(command), exc)
         message = self.tr_key(failure_key, error=last_error)
@@ -1293,7 +1312,7 @@ class DJConnectBackend(QObject):
                 self._logs_text = _format_logs_for_display(data)
             else:
                 self._logs_text = self.tr_key("logs_missing")
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - log rendering must remain available when local diagnostics are unreadable
             self._logs_text = self.tr_key("logs_failed", error=exc)
         self._logs_visible = True
         self.logsChanged.emit()
@@ -1313,7 +1332,7 @@ class DJConnectBackend(QObject):
             path.write_text("", encoding="utf-8")
             self._logs_text = self.tr_key("logs_cleared")
             self.showToastForContext(self.tr_key("logs_cleared"), "diagnostics")
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - log clearing must report all local filesystem failures to the UI
             self._logs_text = self.tr_key("logs_failed", error=exc)
         self.logsChanged.emit()
 
@@ -1335,7 +1354,7 @@ class DJConnectBackend(QObject):
     def playGameSound(self, kind: str) -> None:
         try:
             from PySide6.QtMultimedia import QAudioFormat, QAudioSink, QMediaDevices
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - optional multimedia support must never prevent the renderer from starting
             _LOGGER.debug("Game sound unavailable: %s", exc)
             return
         tones = {
@@ -1374,7 +1393,7 @@ class DJConnectBackend(QObject):
             sink.start(buffer)
             self._game_sound_objects.append((sink, buffer))
             QTimer.singleShot(duration_ms + 250, lambda: self._cleanup_game_sound(sink, buffer))
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - optional game audio must not affect the renderer lifecycle
             _LOGGER.debug("Game sound skipped: %s", exc)
 
     def _cleanup_game_sound(self, sink: object, buffer: QBuffer) -> None:
@@ -2263,7 +2282,7 @@ class DJConnectBackend(QObject):
             self.settingsChanged.emit()
             self.favoriteChanged.emit()
             self.djAnnouncementChanged.emit()
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - config persistence failures are reported without interrupting renderer state
             _LOGGER.warning("Could not persist music backend summary: %s", exc)
 
     def _set_busy(self, value: bool) -> None:
@@ -2292,7 +2311,7 @@ class DJConnectBackend(QObject):
         try:
             _LOGGER.info("Triggering djconnect-updater.service after version mismatch")
             subprocess.Popen(["systemctl", "start", "djconnect-updater.service"])
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - updater launch is best-effort after a version mismatch
             _LOGGER.warning("Could not trigger updater service after version mismatch: %s", exc)
 
     @Slot()
@@ -2519,7 +2538,7 @@ def cached_image_url(url: str, ttl_seconds: int = 24 * 60 * 60, timeout_seconds:
         response.raise_for_status()
         target.write_bytes(response.content)
         return target.as_uri()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - remote artwork is an optional cache enhancement
         _LOGGER.debug("Album art cache fallback for %s: %s", url, exc)
         return url
 
@@ -3106,8 +3125,7 @@ def _track_insight_analysis(data: dict[str, object]) -> dict[str, object]:
                 sections.append({"id": key, "kind": key, "title": title, "body": body, "source": "", "confidence": "", "details": details, "metadataContext": False})
         if why:
             sections.append({"id": "why_it_fits", "kind": "music_dna", "title": "Why it fits you", "body": "", "source": "", "confidence": "", "details": why, "metadataContext": False})
-        for section in _ask_dj_analysis_sections(analysis.get("sections")):
-            sections.append(section)
+        sections.extend(_ask_dj_analysis_sections(analysis.get("sections")))
     if isinstance(mood_context, dict):
         zone = str(mood_context.get("zone") or mood_context.get("mood_zone") or mood_context.get("label") or "").strip()
         if zone:
@@ -3579,9 +3597,9 @@ def _metric_percent(value: object) -> str:
     if isinstance(value, (int, float)):
         numeric = float(value)
         if 0.0 <= numeric <= 1.0:
-            return f"{int(round(numeric * 100))}%"
+            return f"{round(numeric * 100)}%"
         if 1.0 < numeric <= 100.0:
-            return f"{int(round(numeric))}%"
+            return f"{round(numeric)}%"
     return str(value).strip()
 
 
@@ -3796,7 +3814,7 @@ def _ask_dj_display_time(value: object) -> str:
     if not raw:
         return ""
     try:
-        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(raw)
     except ValueError:
         match = re.search(r"\b(\d{2}:\d{2})(?::\d{2})?\b", raw)
         return match.group(1) if match else ""

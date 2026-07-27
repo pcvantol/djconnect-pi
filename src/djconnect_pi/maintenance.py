@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from pathlib import Path
 import argparse
 import subprocess
 import time
+from pathlib import Path
 
 
 def in_window(window: str) -> bool:

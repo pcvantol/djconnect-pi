@@ -1,15 +1,22 @@
 from __future__ import annotations
 
-from http import HTTPStatus
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Any, Callable
 import json
 import logging
 import socket
 import threading
+from collections.abc import Callable
+from http import HTTPStatus
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from typing import Any
 from urllib.parse import parse_qs, urlparse
 
-from .config import CLIENT_TYPE, Config, load_config, normalize_dj_announcement_output, save_config
+from .config import (
+    CLIENT_TYPE,
+    Config,
+    load_config,
+    normalize_dj_announcement_output,
+    save_config,
+)
 from .i18n import translate
 from .web_portal import index_html
 
@@ -52,7 +59,7 @@ class ClientAPIState:
 
 
 class ClientAPIHandler(BaseHTTPRequestHandler):
-    server: "ClientAPIServer"
+    server: ClientAPIServer
 
     def log_message(self, fmt: str, *args: object) -> None:
         _LOGGER.info("Client API " + fmt, *args)
@@ -400,7 +407,7 @@ class ClientAPI:
         except OSError:
             _LOGGER.warning("Client API port %s unavailable; falling back to an ephemeral port", cfg.local_api_port)
             self.server = ClientAPIServer((cfg.local_api_host, 0), ClientAPIHandler, self.state)
-        host, port = self.server.server_address
+        _host, port = self.server.server_address
         # Wildcard binds are converted to an advertised LAN IP for clients.
         advertised_host = _local_ip() if cfg.local_api_host in {"", "0.0.0.0"} else cfg.local_api_host  # nosec B104
         local_url = f"http://{advertised_host}:{port}"

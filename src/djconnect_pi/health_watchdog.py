@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from pathlib import Path
 import argparse
 import json
 import logging
 import subprocess
+from pathlib import Path
 
 import requests
 
@@ -66,7 +66,7 @@ def run_check(
     }
     try:
         checks["api"] = api_healthy(cfg.local_url, timeout)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - the watchdog records every API probe failure as unhealthy
         _LOGGER.warning("Watchdog API health failed: %s", exc)
 
     healthy = all(checks.values())

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 import subprocess
+from pathlib import Path
 
-import djconnect_pi.client_api_daemon as client_api_daemon
+from djconnect_pi import client_api_daemon
 from djconnect_pi.client_api_daemon import ClientAPIDaemon, _systemd_unit_status
 from djconnect_pi.config import Config, save_config
 from djconnect_pi.ha import HAClient

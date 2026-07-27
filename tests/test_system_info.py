@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from djconnect_pi.system_info import log_raspberry_pi_system_info, raspberry_pi_system_info
+from djconnect_pi.system_info import (
+    log_raspberry_pi_system_info,
+    raspberry_pi_system_info,
+)
 
 
 def test_raspberry_pi_system_info_contains_expected_keys() -> None:

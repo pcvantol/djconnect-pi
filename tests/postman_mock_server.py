@@ -1,15 +1,13 @@
 from __future__ import annotations
 
-from pathlib import Path
 import argparse
 import signal
 import tempfile
 import threading
+from pathlib import Path
 
-from djconnect_pi.client_api import ClientAPI
-from djconnect_pi.client_api import ClientAPIState
-from djconnect_pi.config import Config
-from djconnect_pi.config import save_config
+from djconnect_pi.client_api import ClientAPI, ClientAPIState
+from djconnect_pi.config import Config, save_config
 
 
 def main() -> None:

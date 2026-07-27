@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Sequence
 import argparse
 import hashlib
 import json
@@ -12,6 +9,9 @@ import subprocess
 import tarfile
 import tempfile
 import time
+from collections.abc import Sequence
+from dataclasses import dataclass
+from pathlib import Path
 
 import requests
 
@@ -238,10 +238,10 @@ def _run_once(
     if _step_done(state_dir, name):
         return
     if status is None:
-        kwargs = {"check": True}
+        kwargs = {}
         if env is not None:
             kwargs["env"] = env
-        subprocess.run(command, **kwargs)
+        subprocess.run(command, check=True, **kwargs)
     else:
         status.write("installing", message, progress)
         process = subprocess.Popen(

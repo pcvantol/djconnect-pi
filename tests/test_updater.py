@@ -515,9 +515,9 @@ def test_run_keeps_update_ui_visible_and_writes_failed_status_on_error(tmp_path:
         patch("djconnect_pi.updater.stop_service") as stop_service,
         patch("djconnect_pi.updater.download", side_effect=RuntimeError("network down")),
         patch("djconnect_pi.updater.restart_services") as restart_services,
+        pytest.raises(RuntimeError, match="network down"),
     ):
-        with pytest.raises(RuntimeError, match="network down"):
-            updater.run(cfg)
+        updater.run(cfg)
 
     start_service.assert_called_once_with("djconnect-update-ui.service")
     stop_service.assert_not_called()
