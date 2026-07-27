@@ -53,3 +53,21 @@ public four-capability Runtime. It remains non-blocking, and any unavailable
 coverage or dependency evidence is retained as canonical evidence rather than
 replaced consumer-side. The objective exit criteria and the decision prerequisite for any WARN proposal are defined in
 [TDE Observe Exit Criteria](TDE_OBSERVE_EXIT_CRITERIA.md).
+
+## Public RC3 consumer qualification
+
+The hand-dispatched merged-main run
+[30284607891](https://github.com/pcvantol/djconnect-pi/actions/runs/30284607891)
+validated the publicly published, exact-pinned
+`technical-debt-engine-runtime==1.0.0rc3` distribution on commit
+`19e973cda4be84152399adcc1c1982c8e4548ad7`.
+
+The non-blocking workflow and job succeeded in 15 seconds and retained
+`tde-observe-evidence`. The standard profile executed `code_size`,
+`complexity`, `coverage`, and `dependency_health`. The assessment decision was
+`FAIL` and the repository qualification was `FAILED`; both CLI commands
+returned exit code `2`, were retained as observation, and did not change the
+successful workflow result. The observe step took three seconds.
+
+This confirms public-CLI consumer execution for all four 1.0 capabilities. It
+does not promote WARN, soft-fail, required checks, or a wider rollout.
