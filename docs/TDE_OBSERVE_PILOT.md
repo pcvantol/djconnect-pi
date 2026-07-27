@@ -12,7 +12,7 @@ not a platform-wide rollout.
 ## Observe-mode contract
 
 The `TDE observe` workflow installs the published, exact-pinned
-`technical-debt-engine-runtime==0.2.0` distribution and invokes only its public
+`technical-debt-engine-runtime==1.0.0rc3` distribution and invokes only its public
 `tde` CLI. It does not check out TDE source, import TDE Python modules, run this
 repository's tests, alter policies, or change any existing workflow.
 
@@ -48,8 +48,8 @@ The published artifact contains CLI JSON outputs, runtime version, a workflow
 summary, immutable assessment evidence, and repository-qualification evidence.
 No false positive has been classified from the merged-main evidence.
 
-The concrete release limitation remains that the published `0.2.0` `standard`
-profile executes `code_size` and `complexity`, but no coverage or dependency
-health. No consumer-side substitute has been added. The objective exit criteria
-and the decision prerequisite for any WARN proposal are defined in
+The RC3 qualification run is the first selected-consumer observation of the
+public four-capability Runtime. It remains non-blocking, and any unavailable
+coverage or dependency evidence is retained as canonical evidence rather than
+replaced consumer-side. The objective exit criteria and the decision prerequisite for any WARN proposal are defined in
 [TDE Observe Exit Criteria](TDE_OBSERVE_EXIT_CRITERIA.md).
