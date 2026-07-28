@@ -554,40 +554,12 @@ class HAClient:
 
     def playback_from_status(self, data: dict[str, Any]) -> Playback:
         playback = data.get("playback") if isinstance(data.get("playback"), dict) else data
-        output_device_source = (
-            playback.get("output_devices")
-            or playback.get("devices")
-            or playback.get("available_devices")
-            or playback.get("outputs")
-            or playback.get("device")
-            or playback.get("active_device")
-            or playback.get("current_device")
-            or data.get("output_devices")
-            or data.get("devices")
-            or data.get("available_devices")
-            or data.get("outputs")
-            or data.get("device")
-            or data.get("active_device")
-            or data.get("current_device")
-        )
+        output_device_source = _output_device_source(playback, data)
         output_device_details = _output_device_details(output_device_source)
         output_devices = [str(item["name"]) for item in output_device_details]
         output_device = _active_output_device(
             output_device_source,
-            _output_device_name(
-                playback.get("output_device")
-                or playback.get("device_name")
-                or playback.get("active_device")
-                or playback.get("current_device")
-                or playback.get("device")
-                or playback.get("source")
-                or data.get("output_device")
-                or data.get("device_name")
-                or data.get("active_device")
-                or data.get("current_device")
-                or data.get("device")
-                or data.get("source")
-            ),
+            _output_device_name(_output_device_name_source(playback, data)),
         )
         backend_available = data.get("backend_available")
         if data.get("success") is False or backend_available is False:
@@ -598,11 +570,11 @@ class HAClient:
                 data.get("message", ""),
             )
         return Playback(
-            title=str(playback.get("title") or playback.get("track") or playback.get("track_name") or playback.get("last_track") or ""),
-            artist=str(playback.get("artist") or playback.get("artists") or playback.get("album_artist") or ""),
-            album=str(playback.get("album") or playback.get("album_name") or playback.get("media_album") or ""),
+            title=_playback_text(playback, "title", "track", "track_name", "last_track"),
+            artist=_playback_text(playback, "artist", "artists", "album_artist"),
+            album=_playback_text(playback, "album", "album_name", "media_album"),
             image_url=_image_url_from(playback),
-            uri=str(playback.get("uri") or playback.get("track_uri") or playback.get("media_content_id") or ""),
+            uri=_playback_text(playback, "uri", "track_uri", "media_content_id"),
             genres=tuple(_string_values(playback.get("genres"))),
             is_favorite=_bool_from_playback(
                 playback,
@@ -614,8 +586,8 @@ class HAClient:
                 "favorite_status",
                 "current_track_is_liked",
             ),
-            is_playing=bool(playback.get("is_playing") or playback.get("playing")),
-            volume=int(playback.get("volume") or playback.get("volume_percent") or 50),
+            is_playing=bool(_first_truthy(playback.get("is_playing"), playback.get("playing"))),
+            volume=int(_first_truthy(playback.get("volume"), playback.get("volume_percent"), 50)),
             shuffle=bool(playback.get("shuffle")),
             repeat=str(playback.get("repeat_state") or playback.get("repeat") or "off"),
             position_seconds=_seconds_from_playback(
@@ -807,74 +779,13 @@ class HAClient:
         if response.status_code == 426:
             _LOGGER.warning("Home Assistant protocol mismatch HTTP 426")
             raise ProtocolVersionMismatch(self.cfg.version, "unknown", f"Protocol version mismatch: {response.text}")
-        data: dict[str, Any] = {}
-        if response.content:
-            try:
-                parsed = response.json()
-            except ValueError as exc:
-                _LOGGER.warning(
-                    "Home Assistant returned invalid JSON: status=%s bytes=%s error=%s",
-                    response.status_code,
-                    len(response.content),
-                    exc,
-                )
-                raise DJConnectError("Home Assistant returned invalid JSON") from exc
-            if not isinstance(parsed, dict):
-                _LOGGER.warning("Home Assistant returned non-object JSON: %s", type(parsed).__name__)
-                raise DJConnectError("Home Assistant returned non-object JSON")
-            data = parsed
+        data = _response_json_data(response)
         if response.status_code >= 400:
-            error = str(data.get("error") or data.get("message") or response.text or f"HTTP {response.status_code}")
-            _LOGGER.warning("Home Assistant returned HTTP %s: %s", response.status_code, error)
-            if response.status_code == 404 and error == "no_track_playing":
-                return {**data, "success": False, "error": "no_track_playing"}
-            if response.status_code == 429 and error == "rate_limited":
-                return {**data, "success": False, "error": "rate_limited"}
-            if error in PROFILE_ERROR_CODES:
-                message = str(data.get("message") or error)
-                _LOGGER.warning("Home Assistant rejected profile context: error=%s message=%s", error, message)
-                raise DJConnectError(message)
-            if response.status_code in {401, 403, 404}:
-                raise AuthenticationError(error)
-            raise DJConnectError(f"Home Assistant returned HTTP {response.status_code}: {error}")
+            return _http_error_response(response, data)
         if not response.content:
             _LOGGER.warning("Home Assistant returned empty HTTP %s response body; this violates the DJConnect JSON contract", response.status_code)
             raise DJConnectError("Home Assistant returned empty JSON response")
-        if data.get("success") is False and str(data.get("error") or "") in {
-            "unauthorized",
-            "forbidden",
-            "not_configured",
-            "stale_pairing",
-            "stale_token",
-            "invalid_token",
-        }:
-            error = str(data.get("message") or data.get("error") or "authentication failed")
-            _LOGGER.warning("Home Assistant rejected pairing/auth state: error=%s", data.get("error"))
-            raise AuthenticationError(error)
-        if data.get("success") is False and data.get("backend_available") is False:
-            error = str(data.get("error") or "playback backend unavailable")
-            message = str(data.get("message") or error)
-            _LOGGER.warning("Home Assistant playback backend unavailable: error=%s message=%s", error, message)
-            raise BackendUnavailable(error)
-        if data.get("success") is False and data.get("error") == "unsupported_backend_capability":
-            capability = str(data.get("capability") or "unknown")
-            backend = str(data.get("backend") or data.get("music_backend") or "unknown")
-            message = str(data.get("message") or f"Backend {backend} does not support {capability}")
-            _LOGGER.warning("Home Assistant backend capability unsupported: backend=%s capability=%s message=%s", backend, capability, message)
-            raise UnsupportedBackendCapability(message)
-        if data.get("success") is False and str(data.get("error") or "") in {
-            "music_backend_revision_mismatch",
-            "stale_backend_action",
-            "stale_music_backend_action",
-            "stale_music_backend_revision",
-        }:
-            message = str(data.get("message") or "Music backend changed; ask DJ again before using this action.")
-            _LOGGER.warning("Home Assistant rejected stale backend action: error=%s message=%s", data.get("error"), message)
-            raise StaleBackendAction(message)
-        if data.get("success") is False and str(data.get("error") or "") in PROFILE_ERROR_CODES:
-            message = str(data.get("message") or data.get("error") or "Profile request failed")
-            _LOGGER.warning("Home Assistant rejected profile context: error=%s message=%s", data.get("error"), message)
-            raise DJConnectError(message)
+        _raise_response_domain_error(data)
         _LOGGER.debug("Home Assistant JSON response keys=%s", sorted(data))
         return data
 
@@ -900,6 +811,76 @@ def _major_minor(version: str) -> tuple[int, int] | None:
 
 def _elapsed_ms(started: float) -> float:
     return (time.monotonic() - started) * 1000
+
+
+def _response_json_data(response: requests.Response) -> dict[str, Any]:
+    if not response.content:
+        return {}
+    try:
+        parsed = response.json()
+    except ValueError as exc:
+        _LOGGER.warning(
+            "Home Assistant returned invalid JSON: status=%s bytes=%s error=%s",
+            response.status_code,
+            len(response.content),
+            exc,
+        )
+        raise DJConnectError("Home Assistant returned invalid JSON") from exc
+    if not isinstance(parsed, dict):
+        _LOGGER.warning("Home Assistant returned non-object JSON: %s", type(parsed).__name__)
+        raise DJConnectError("Home Assistant returned non-object JSON")
+    return parsed
+
+
+def _http_error_response(response: requests.Response, data: dict[str, Any]) -> dict[str, Any]:
+    error = str(data.get("error") or data.get("message") or response.text or f"HTTP {response.status_code}")
+    _LOGGER.warning("Home Assistant returned HTTP %s: %s", response.status_code, error)
+    if (response.status_code, error) in {(404, "no_track_playing"), (429, "rate_limited")}:
+        return {**data, "success": False, "error": error}
+    if error in PROFILE_ERROR_CODES:
+        message = str(data.get("message") or error)
+        _LOGGER.warning("Home Assistant rejected profile context: error=%s message=%s", error, message)
+        raise DJConnectError(message)
+    if response.status_code in {401, 403, 404}:
+        raise AuthenticationError(error)
+    raise DJConnectError(f"Home Assistant returned HTTP {response.status_code}: {error}")
+
+
+def _raise_response_domain_error(data: dict[str, Any]) -> None:
+    if data.get("success") is not False:
+        return
+    error = str(data.get("error") or "")
+    if error in {"unauthorized", "forbidden", "not_configured", "stale_pairing", "stale_token", "invalid_token"}:
+        message = str(data.get("message") or error or "authentication failed")
+        _LOGGER.warning("Home Assistant rejected pairing/auth state: error=%s", error)
+        raise AuthenticationError(message)
+    if data.get("backend_available") is False:
+        _raise_backend_unavailable(data)
+    if error == "unsupported_backend_capability":
+        _raise_unsupported_capability(data)
+    if error in {"music_backend_revision_mismatch", "stale_backend_action", "stale_music_backend_action", "stale_music_backend_revision"}:
+        message = str(data.get("message") or "Music backend changed; ask DJ again before using this action.")
+        _LOGGER.warning("Home Assistant rejected stale backend action: error=%s message=%s", error, message)
+        raise StaleBackendAction(message)
+    if error in PROFILE_ERROR_CODES:
+        message = str(data.get("message") or error or "Profile request failed")
+        _LOGGER.warning("Home Assistant rejected profile context: error=%s message=%s", error, message)
+        raise DJConnectError(message)
+
+
+def _raise_backend_unavailable(data: dict[str, Any]) -> None:
+    error = str(data.get("error") or "playback backend unavailable")
+    message = str(data.get("message") or error)
+    _LOGGER.warning("Home Assistant playback backend unavailable: error=%s message=%s", error, message)
+    raise BackendUnavailable(error)
+
+
+def _raise_unsupported_capability(data: dict[str, Any]) -> None:
+    capability = str(data.get("capability") or "unknown")
+    backend = str(data.get("backend") or data.get("music_backend") or "unknown")
+    message = str(data.get("message") or f"Backend {backend} does not support {capability}")
+    _LOGGER.warning("Home Assistant backend capability unsupported: backend=%s capability=%s message=%s", backend, capability, message)
+    raise UnsupportedBackendCapability(message)
 
 
 def _seconds_from_playback(playback: dict[str, Any], *keys: str) -> int:
@@ -1014,6 +995,24 @@ def _output_device_details(value: Any) -> list[dict[str, Any]]:
         return _output_device_details(list(value.values()))
     detail = _output_device_detail(value)
     return [detail] if detail else []
+
+
+def _first_truthy(*values: Any) -> Any:
+    return next((value for value in values if value), values[-1] if values else None)
+
+
+def _playback_text(playback: dict[str, Any], *keys: str) -> str:
+    return str(_first_truthy(*(playback.get(key) for key in keys), ""))
+
+
+def _output_device_source(playback: dict[str, Any], data: dict[str, Any]) -> Any:
+    keys = ("output_devices", "devices", "available_devices", "outputs", "device", "active_device", "current_device")
+    return _first_truthy(*(playback.get(key) for key in keys), *(data.get(key) for key in keys))
+
+
+def _output_device_name_source(playback: dict[str, Any], data: dict[str, Any]) -> Any:
+    keys = ("output_device", "device_name", "active_device", "current_device", "device", "source")
+    return _first_truthy(*(playback.get(key) for key in keys), *(data.get(key) for key in keys))
 
 
 def _output_device_detail(value: Any) -> dict[str, Any]:

@@ -2761,54 +2761,30 @@ def _contains_playback_payload(data: dict[str, object]) -> bool:
 
 
 def _ask_dj_message(item: dict[str, object]) -> dict[str, object] | None:
-    assistant_message = item.get("assistant_message")
-    assistant_payload = assistant_message if isinstance(assistant_message, dict) else {}
-    assistant_text = assistant_payload.get("text") or assistant_payload.get("dj_text") or assistant_payload.get("message")
-    text = str(
-        item.get("text")
-        or item.get("dj_text")
-        or item.get("message")
-        or assistant_text
-        or (assistant_message if isinstance(assistant_message, str) else "")
-        or item.get("content")
-        or ""
-    ).strip()
-    user_text = str(item.get("user_message") or "").strip()
+    assistant_payload, text, user_text = _ask_dj_message_content(item)
     role = str(item.get("role") or item.get("sender") or "").strip().lower()
     kind = str(item.get("message_kind") or item.get("kind") or "").strip().lower()
     recent_history = _is_recently_played_history(item)
     track_insight = _is_track_insight(item)
     if not text and track_insight:
         text = _track_insight_text(item)
-    if not text and not user_text and not track_insight and not any(isinstance(item.get(key), list) and item.get(key) for key in ("images", "items", "links", "sources", "playback_actions", "confirmation_actions")):
+    if _ask_dj_message_is_empty(item, text, user_text, track_insight):
         return None
-    if role not in {"user", "assistant", "system", "status"}:
-        role = "user" if user_text and not text else ("status" if kind == "status" else ("system" if kind == "system" else "assistant"))
-    if user_text and not text:
-        text = user_text
-    if kind == "system":
-        role = "system"
-    if track_insight:
-        actions = _ask_dj_actions(item.get("playback_actions"), None) if isinstance(item.get("playback_actions"), list) else []
-    else:
-        actions = _ask_dj_actions(item.get("playback_actions"), item.get("confirmation_actions"))
+    role, text = _ask_dj_message_role_and_text(role, kind, text, user_text)
+    actions = _ask_dj_message_actions(item, track_insight)
     text = _ask_dj_display_text(text, actions)
     track_insight_data = _track_insight_data(item) if track_insight else {}
     announcement = _ask_dj_announcement(item)
-    message: dict[str, object] = {
-        "id": str(item.get("id") or item.get("message_id") or item.get("server_id") or ""),
-        "client_message_id": str(item.get("client_message_id") or ""),
-        "exchange_id": str(item.get("exchange_id") or ""),
-        "exchange_order": _optional_int(item.get("exchange_order")),
-        "history_revision": _optional_int(item.get("history_revision") or item.get("revision")),
-        "server_order": _optional_int(item.get("server_order") or item.get("order") or item.get("sequence")),
+    message = _ask_dj_message_metadata(item)
+    message.update(
+        {
         "role": role,
         "messageKind": kind or role,
         "origin": str(item.get("origin") or ""),
         "text": text,
         "created_at": str(item.get("created_at") or item.get("timestamp") or item.get("server_time") or ""),
         "images": _ask_dj_images(item.get("images")),
-        "items": _track_insight_items(track_insight_data) if track_insight else (_ask_dj_recently_played_items(_first_present(item, ("items",)), assistant_payload.get("items")) if recent_history else _ask_dj_items(_first_present(item, ("items",)), assistant_payload.get("items"))),
+        "items": _ask_dj_message_items(item, assistant_payload, track_insight_data, track_insight, recent_history),
         "links": _ask_dj_links(item.get("links"), item.get("sources")),
         "actions": actions,
         "announcementDelivery": str(announcement.get("delivery") or ""),
@@ -2821,9 +2797,71 @@ def _ask_dj_message(item: dict[str, object]) -> dict[str, object] | None:
         "trackInsightData": track_insight_data,
         "musicDnaMatch": _track_insight_music_dna_match(track_insight_data) if track_insight else "",
         "analysis": _track_insight_analysis(track_insight_data) if track_insight else {},
-    }
+        }
+    )
     message["displayTime"] = _ask_dj_display_time(message["created_at"])
     return message
+
+
+def _ask_dj_message_metadata(item: dict[str, object]) -> dict[str, object]:
+    return {
+        "id": str(item.get("id") or item.get("message_id") or item.get("server_id") or ""),
+        "client_message_id": str(item.get("client_message_id") or ""),
+        "exchange_id": str(item.get("exchange_id") or ""),
+        "exchange_order": _optional_int(item.get("exchange_order")),
+        "history_revision": _optional_int(item.get("history_revision") or item.get("revision")),
+        "server_order": _optional_int(item.get("server_order") or item.get("order") or item.get("sequence")),
+    }
+
+
+def _ask_dj_message_content(item: dict[str, object]) -> tuple[dict[str, object], str, str]:
+    assistant_message = item.get("assistant_message")
+    assistant_payload = assistant_message if isinstance(assistant_message, dict) else {}
+    assistant_text = _first_present(assistant_payload, ("text", "dj_text", "message"))
+    text = str(
+        _first_present(item, ("text", "dj_text", "message"))
+        or assistant_text
+        or (assistant_message if isinstance(assistant_message, str) else "")
+        or item.get("content")
+        or ""
+    ).strip()
+    return assistant_payload, text, str(item.get("user_message") or "").strip()
+
+
+def _ask_dj_message_is_empty(item: dict[str, object], text: str, user_text: str, track_insight: bool) -> bool:
+    if text or user_text or track_insight:
+        return False
+    return not any(isinstance(item.get(key), list) and item.get(key) for key in ("images", "items", "links", "sources", "playback_actions", "confirmation_actions"))
+
+
+def _ask_dj_message_role_and_text(role: str, kind: str, text: str, user_text: str) -> tuple[str, str]:
+    if role not in {"user", "assistant", "system", "status"}:
+        role = "user" if user_text and not text else "status" if kind == "status" else "system" if kind == "system" else "assistant"
+    if user_text and not text:
+        text = user_text
+    return ("system" if kind == "system" else role), text
+
+
+def _ask_dj_message_actions(item: dict[str, object], track_insight: bool) -> list[dict[str, object]]:
+    playback_actions = item.get("playback_actions")
+    if track_insight:
+        return _ask_dj_actions(playback_actions, None) if isinstance(playback_actions, list) else []
+    return _ask_dj_actions(playback_actions, item.get("confirmation_actions"))
+
+
+def _ask_dj_message_items(
+    item: dict[str, object],
+    assistant_payload: dict[str, object],
+    track_insight_data: dict[str, object],
+    track_insight: bool,
+    recent_history: bool,
+) -> list[dict[str, object]]:
+    if track_insight:
+        return _track_insight_items(track_insight_data)
+    items = _first_present(item, ("items",))
+    if recent_history:
+        return _ask_dj_recently_played_items(items, assistant_payload.get("items"))
+    return _ask_dj_items(items, assistant_payload.get("items"))
 
 
 def _ask_dj_announcement(item: dict[str, object]) -> dict[str, object]:
@@ -3095,45 +3133,10 @@ def _normalize_visualizer_bars(values: list[float]) -> list[float]:
 def _track_insight_analysis(data: dict[str, object]) -> dict[str, object]:
     analysis = data.get("analysis")
     music_dna = data.get("music_dna")
-    track = data.get("track")
-    mood_context = data.get("mood_context")
     sections: list[dict[str, object]] = []
     if isinstance(analysis, dict):
-        summary = str(analysis.get("summary") or analysis.get("full_text") or analysis.get("fullText") or "").strip()
-        genre = str(analysis.get("genre") or "").strip()
-        subgenre = str(analysis.get("subgenre") or "").strip()
-        track_genres = _string_list(track.get("genres")) if isinstance(track, dict) else []
-        genre_details = [value for value in [subgenre, *track_genres] if value and value != genre]
-        vibe = str(analysis.get("vibe") or analysis.get("mood") or analysis.get("texture") or analysis.get("emotional_tone") or "").strip()
-        why = _string_list(analysis.get("why_it_fits") or analysis.get("whyItFits") or analysis.get("reasons"))
-        if summary:
-            sections.append({"id": "summary", "kind": "summary", "title": "Summary", "body": summary, "source": "", "confidence": "", "details": [], "metadataContext": False})
-        if genre or genre_details:
-            sections.append({"id": "genre", "kind": "genre", "title": "Genre", "body": genre, "source": "", "confidence": "", "details": genre_details, "metadataContext": False})
-        if vibe:
-            sections.append({"id": "vibe", "kind": "vibe", "title": "Vibe", "body": vibe, "source": "", "confidence": "", "details": [], "metadataContext": False})
-        for key, title in (
-            ("production_notes", "Production"),
-            ("instrumentation", "Instrumentation"),
-            ("arrangement_notes", "Arrangement"),
-            ("listening_cues", "Listening cues"),
-            ("similar_tracks", "Similar tracks"),
-        ):
-            details = _string_list(analysis.get(key))
-            body = str(analysis.get(key) or "").strip() if not details else ""
-            if body or details:
-                sections.append({"id": key, "kind": key, "title": title, "body": body, "source": "", "confidence": "", "details": details, "metadataContext": False})
-        if why:
-            sections.append({"id": "why_it_fits", "kind": "music_dna", "title": "Why it fits you", "body": "", "source": "", "confidence": "", "details": why, "metadataContext": False})
-        sections.extend(_ask_dj_analysis_sections(analysis.get("sections")))
-    if isinstance(mood_context, dict):
-        zone = str(mood_context.get("zone") or mood_context.get("mood_zone") or mood_context.get("label") or "").strip()
-        if zone:
-            sections.append({"id": "mood_context", "kind": "mood_context", "title": "Mood context", "body": zone, "source": "", "confidence": "", "details": [], "metadataContext": True})
-    if isinstance(music_dna, dict):
-        summary = str(music_dna.get("summary") or "").strip()
-        if summary:
-            sections.append({"id": "music_dna", "kind": "music_dna", "title": "This expands your Music DNA.", "body": summary, "source": "", "confidence": "", "details": [], "metadataContext": False})
+        sections.extend(_track_insight_analysis_sections(analysis, data.get("track")))
+    sections.extend(_track_insight_context_sections(data.get("mood_context"), music_dna))
     return {
         "sections": sections[:12],
         "timeline": [],
@@ -3141,6 +3144,83 @@ def _track_insight_analysis(data: dict[str, object]) -> dict[str, object]:
         "limitations": [],
         "providers": [],
         "metadata": {},
+    }
+
+
+def _track_insight_analysis_sections(analysis: dict[str, object], track: object) -> list[dict[str, object]]:
+    sections = _track_insight_primary_sections(analysis, track)
+    for key, title in (
+        ("production_notes", "Production"),
+        ("instrumentation", "Instrumentation"),
+        ("arrangement_notes", "Arrangement"),
+        ("listening_cues", "Listening cues"),
+        ("similar_tracks", "Similar tracks"),
+    ):
+        section = _track_insight_detail_section(analysis, key, title)
+        if section:
+            sections.append(section)
+    why = _string_list(analysis.get("why_it_fits") or analysis.get("whyItFits") or analysis.get("reasons"))
+    if why:
+        sections.append(_track_insight_section("why_it_fits", "music_dna", "Why it fits you", details=why))
+    return [*sections, *_ask_dj_analysis_sections(analysis.get("sections"))]
+
+
+def _track_insight_primary_sections(analysis: dict[str, object], track: object) -> list[dict[str, object]]:
+    summary = str(analysis.get("summary") or analysis.get("full_text") or analysis.get("fullText") or "").strip()
+    genre = str(analysis.get("genre") or "").strip()
+    subgenre = str(analysis.get("subgenre") or "").strip()
+    track_genres = _string_list(track.get("genres")) if isinstance(track, dict) else []
+    genre_details = [value for value in [subgenre, *track_genres] if value and value != genre]
+    vibe = str(analysis.get("vibe") or analysis.get("mood") or analysis.get("texture") or analysis.get("emotional_tone") or "").strip()
+    sections: list[dict[str, object]] = []
+    if summary:
+        sections.append(_track_insight_section("summary", "summary", "Summary", body=summary))
+    if genre or genre_details:
+        sections.append(_track_insight_section("genre", "genre", "Genre", body=genre, details=genre_details))
+    if vibe:
+        sections.append(_track_insight_section("vibe", "vibe", "Vibe", body=vibe))
+    return sections
+
+
+def _track_insight_detail_section(analysis: dict[str, object], key: str, title: str) -> dict[str, object] | None:
+    details = _string_list(analysis.get(key))
+    body = str(analysis.get(key) or "").strip() if not details else ""
+    if not body and not details:
+        return None
+    return _track_insight_section(key, key, title, body=body, details=details)
+
+
+def _track_insight_context_sections(mood_context: object, music_dna: object) -> list[dict[str, object]]:
+    sections: list[dict[str, object]] = []
+    if isinstance(mood_context, dict):
+        zone = str(mood_context.get("zone") or mood_context.get("mood_zone") or mood_context.get("label") or "").strip()
+        if zone:
+            sections.append(_track_insight_section("mood_context", "mood_context", "Mood context", body=zone, metadata_context=True))
+    if isinstance(music_dna, dict):
+        summary = str(music_dna.get("summary") or "").strip()
+        if summary:
+            sections.append(_track_insight_section("music_dna", "music_dna", "This expands your Music DNA.", body=summary))
+    return sections
+
+
+def _track_insight_section(
+    section_id: str,
+    kind: str,
+    title: str,
+    *,
+    body: str = "",
+    details: list[str] | None = None,
+    metadata_context: bool = False,
+) -> dict[str, object]:
+    return {
+        "id": section_id,
+        "kind": kind,
+        "title": title,
+        "body": body,
+        "source": "",
+        "confidence": "",
+        "details": details or [],
+        "metadataContext": metadata_context,
     }
 
 
@@ -3611,31 +3691,37 @@ def _ask_dj_actions(playback_actions: object, confirmation_actions: object) -> l
         for item in value:
             if not isinstance(item, dict):
                 continue
-            kind = str(item.get("kind") or "").strip()
-            title = str(item.get("button_label") or item.get("label") or item.get("title") or item.get("name") or "").strip()
-            subtitle = str(item.get("subtitle") or item.get("artist") or item.get("description") or "").strip()
-            if kind == "confirmation" or str(item.get("action_style") or "") == "confirmation":
-                title = title or translate("en", "yes" if str(item.get("response_value") or "").lower() == "yes" else "no")
-            elif not title and kind == "control" and str(item.get("command") or "").strip() == "save_current_track":
-                title = translate("en", "favorite_action")
-            elif not title:
-                title = translate("en", "play_now")
-            is_output = _is_output_action(item)
-            is_confirmation = kind == "confirmation" or str(item.get("action_style") or "") == "confirmation"
-            is_recommendation = kind in {"track", "album", "artist", "playlist", "track_mix"} or str(item.get("action_style") or "") == "play_now"
-            image_url = _image_url_from(item)
-            actions.append(
-                {
-                    "title": title,
-                    "subtitle": subtitle,
-                    "kind": kind,
-                    "isOutput": is_output,
-                    "isMedia": is_recommendation and not is_output and not is_confirmation,
-                    "imageUrl": cached_image_url(image_url) if image_url and is_recommendation else "",
-                    "payload": json.dumps(item, ensure_ascii=True),
-                }
-            )
+            actions.append(_ask_dj_action(item))
     return actions[:8]
+
+
+def _ask_dj_action(item: dict[str, object]) -> dict[str, object]:
+    kind = str(item.get("kind") or "").strip()
+    action_style = str(item.get("action_style") or "")
+    is_confirmation = kind == "confirmation" or action_style == "confirmation"
+    is_output = _is_output_action(item)
+    is_recommendation = kind in {"track", "album", "artist", "playlist", "track_mix"} or action_style == "play_now"
+    image_url = _image_url_from(item)
+    return {
+        "title": _ask_dj_action_title(item, kind, is_confirmation),
+        "subtitle": str(item.get("subtitle") or item.get("artist") or item.get("description") or "").strip(),
+        "kind": kind,
+        "isOutput": is_output,
+        "isMedia": is_recommendation and not is_output and not is_confirmation,
+        "imageUrl": cached_image_url(image_url) if image_url and is_recommendation else "",
+        "payload": json.dumps(item, ensure_ascii=True),
+    }
+
+
+def _ask_dj_action_title(item: dict[str, object], kind: str, is_confirmation: bool) -> str:
+    title = str(item.get("button_label") or item.get("label") or item.get("title") or item.get("name") or "").strip()
+    if title:
+        return title
+    if is_confirmation:
+        return translate("en", "yes" if str(item.get("response_value") or "").lower() == "yes" else "no")
+    if kind == "control" and str(item.get("command") or "").strip() == "save_current_track":
+        return translate("en", "favorite_action")
+    return translate("en", "play_now")
 
 
 def _image_url_from(item: dict[str, object]) -> str:

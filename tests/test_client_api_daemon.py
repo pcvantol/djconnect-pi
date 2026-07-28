@@ -55,6 +55,31 @@ def test_client_api_daemon_queue_parser_accepts_nested_artist_contract() -> None
     assert queue[0]["imageUrl"] == "https://example.test/album.jpg"
 
 
+def test_client_api_daemon_playlist_parser_preserves_owner_aliases() -> None:
+    playlists = client_api_daemon._parse_playlist_items(
+        {
+            "playlists": [
+                {
+                    "display_title": "Night Drive",
+                    "playlist_uri": "spotify:playlist:night-drive",
+                    "owner_name": "DJConnect",
+                    "albumImageUrl": "https://example.test/cover.jpg",
+                }
+            ]
+        }
+    )
+
+    assert playlists == [
+        {
+            "title": "Night Drive",
+            "subtitle": "DJConnect",
+            "uri": "spotify:playlist:night-drive",
+            "imageUrl": "https://example.test/cover.jpg",
+            "tint": "#8b5cf6",
+        }
+    ]
+
+
 def test_client_api_daemon_writes_dj_response_event(tmp_path: Path) -> None:
     config_path = tmp_path / "config.json"
     event_file = tmp_path / "dj-response.json"
