@@ -385,24 +385,24 @@ def _dedupe_queue_items(items: list[dict[str, object]]) -> list[dict[str, object
 
 
 def _media_item(item: dict[str, object], playlist: bool = False) -> dict[str, object] | None:
-    title = str(item.get("name") or item.get("title") or item.get("display_title") or item.get("track_name") or "")
-    subtitle = str(item.get("artist") or item.get("artist_name") or item.get("artists") or item.get("subtitle") or item.get("album") or "")
-    uri = str(item.get("uri") or item.get("id") or item.get("value") or item.get("playlist_uri") or item.get("track_uri") or "")
-    context_uri = str(item.get("context_uri") or item.get("contextUri") or item.get("queue_context") or item.get("queueContext") or "")
+    title = _media_item_value(item, "name", "title", "display_title", "track_name")
+    subtitle = _media_item_value(item, "artist", "artist_name", "artists", "subtitle", "album")
+    uri = _media_item_value(item, "uri", "id", "value", "playlist_uri", "track_uri")
+    context_uri = _media_item_value(item, "context_uri", "contextUri", "queue_context", "queueContext")
     index = item.get("index")
-    image_url = str(
-        item.get("image_url")
-        or item.get("imageUrl")
-        or item.get("album_image_url")
-        or item.get("albumImageUrl")
-        or item.get("album_art_url")
-        or item.get("media_image_url")
-        or item.get("entity_picture")
-        or item.get("thumbnail_url")
-        or ""
+    image_url = _media_item_value(
+        item,
+        "image_url",
+        "imageUrl",
+        "album_image_url",
+        "albumImageUrl",
+        "album_art_url",
+        "media_image_url",
+        "entity_picture",
+        "thumbnail_url",
     )
     if playlist:
-        subtitle = str(item.get("owner") or item.get("owner_name") or item.get("description") or subtitle)
+        subtitle = _media_item_value(item, "owner", "owner_name", "description") or subtitle
         if not title or not uri:
             return None
     result: dict[str, object] = {
@@ -416,6 +416,14 @@ def _media_item(item: dict[str, object], playlist: bool = False) -> dict[str, ob
         result["contextUri"] = context_uri
         result["index"] = index if isinstance(index, int) else None
     return result
+
+
+def _media_item_value(item: dict[str, object], *keys: str) -> str:
+    for key in keys:
+        value = item.get(key)
+        if value:
+            return str(value)
+    return ""
 
 
 def _queue_item(item: dict[str, object], queue_context_uri: str = "") -> dict[str, object] | None:

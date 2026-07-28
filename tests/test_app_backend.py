@@ -13,10 +13,12 @@ from PySide6.QtCore import QCoreApplication
 from djconnect_pi.app import (
     DJConnectBackend,
     SaveCurrentTrackError,
+    _ask_dj_actions,
     _ask_dj_display_time,
     _format_duration,
     _format_logs_for_display,
     _read_tail_text,
+    _track_insight_analysis,
     cached_image_url,
     media_item_payload,
     parse_ask_dj_messages,
@@ -574,6 +576,40 @@ def test_ask_dj_save_current_track_control_uses_button_label_without_art() -> No
     assert messages[0]["actions"][0]["isMedia"] is False
     assert messages[0]["actions"][0]["imageUrl"] == ""
     assert "save_current_track" in messages[0]["actions"][0]["payload"]
+
+
+def test_ask_dj_action_defaults_preserve_confirmation_favorite_and_play_labels() -> None:
+    actions = _ask_dj_actions(
+        [
+            {"kind": "control", "command": "save_current_track"},
+            {"kind": "track", "action_style": "play_now"},
+        ],
+        [{"kind": "confirmation", "response_value": "yes"}],
+    )
+
+    assert [action["title"] for action in actions] == ["Add to favorites", "Play now", "Yes"]
+    assert [action["isMedia"] for action in actions] == [False, True, False]
+
+
+def test_track_insight_analysis_keeps_metadata_sections_and_limit() -> None:
+    analysis = _track_insight_analysis(
+        {
+            "track": {"genres": ["Electronic"]},
+            "analysis": {
+                "summary": "A summary",
+                "genre": "Synthwave",
+                "subgenre": "Electronic",
+                "production_notes": ["Warm pads"],
+                "sections": [{"id": "source", "title": "Source", "body": "Catalog metadata"}],
+            },
+            "mood_context": {"label": "Late night"},
+            "music_dna": {"summary": "Matches your profile"},
+        }
+    )
+
+    assert [section["id"] for section in analysis["sections"]] == ["summary", "genre", "production_notes", "source", "mood_context", "music_dna"]
+    assert analysis["sections"][1]["details"] == ["Electronic", "Electronic"]
+    assert analysis["sections"][-2]["metadataContext"] is True
 
 
 def test_ask_dj_music_dna_summary_is_text_only_with_music_dna_source() -> None:
