@@ -445,7 +445,7 @@ def test_canonical_dependency_lock_matches_exact_package_metadata() -> None:
     assert lock_lines
     assert all("==" in line for line in lock_lines if line and not line.startswith("#"))
     for requirement in [*project["project"]["dependencies"], *project["project"]["optional-dependencies"]["dev"]]:
-        name, version = requirement.split("==", 1)
+        name, _version = requirement.split("==", 1)
         assert locked[name.lower()] == requirement
 
 
