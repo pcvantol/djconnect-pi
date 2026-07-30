@@ -262,6 +262,9 @@ def _run_once(
 
 def install_python_dependencies(release_dir: Path, version: str, status: UpdateStatus | None = None) -> None:
     wheel_path = wheel_for_release(release_dir, version)
+    requirements_lock = release_dir / "requirements.lock"
+    if not requirements_lock.is_file():
+        raise RuntimeError(f"Release is missing canonical dependency lock: {requirements_lock}")
     venv_dir = release_dir / ".venv"
     bin_link = release_dir / "bin"
     if bin_link.exists() or bin_link.is_symlink():
@@ -282,37 +285,19 @@ def install_python_dependencies(release_dir: Path, version: str, status: UpdateS
 
     python = venv_dir / "bin" / "python"
     if os.environ.get(UPGRADE_PIP_ENV) == "1":
-        _run_once(state_dir, "pip_upgraded", [str(python), "-m", "pip", "install", "--upgrade", "pip"], env=pip_env, status=status, message="pip bijwerken", progress=42)
+        _run_once(state_dir, "pip_upgraded", [str(python), "-m", "pip", "install", "pip==26.1.2"], env=pip_env, status=status, message="pip bijwerken", progress=42)
     else:
         _run_once(state_dir, "pip_checked", [str(python), "-m", "pip", "--version"], env=pip_env, status=status, message="pip controleren", progress=42)
     _run_once(
         state_dir,
-        "build_tools_installed",
-        [str(python), "-m", "pip", "install", "--upgrade", "setuptools", "wheel"],
+        "locked_dependencies_installed",
+        [str(python), "-m", "pip", "install", "--only-binary=:all:", "--requirement", str(requirements_lock)],
         env=pip_env,
         status=status,
-        message="Build tools installeren",
-        progress=48,
+        message="Vaste Python dependencies installeren",
+        progress=92,
     )
-    for package_name, message, requirement, progress in (
-        ("shiboken6_installed", "shiboken6 installeren", "shiboken6>=6.7", 55),
-        ("pyside6_essentials_installed", "PySide6 Essentials installeren", "PySide6_Essentials>=6.7", 64),
-        ("pyside6_addons_installed", "PySide6 Addons installeren", "PySide6_Addons>=6.7", 74),
-        ("pyside6_installed", "PySide6 afronden", "PySide6>=6.7", 82),
-        ("requests_installed", "Requests installeren", "requests>=2.31", 88),
-        ("websocket_client_installed", "WebSocket client installeren", "websocket-client>=1.8", 90),
-        ("zeroconf_installed", "Zeroconf installeren", "zeroconf>=0.132", 92),
-    ):
-        _run_once(
-            state_dir,
-            package_name,
-            [str(python), "-m", "pip", "install", "--upgrade", "--only-binary=:all:", requirement],
-            env=pip_env,
-            status=status,
-            message=message,
-            progress=progress,
-        )
-    _run_once(state_dir, "wheel_installed", [str(python), "-m", "pip", "install", "--only-binary=:all:", str(wheel_path)], env=pip_env, status=status, message="DJConnect app installeren", progress=96)
+    _run_once(state_dir, "wheel_installed", [str(python), "-m", "pip", "install", "--no-deps", "--only-binary=:all:", str(wheel_path)], env=pip_env, status=status, message="DJConnect app installeren", progress=96)
     bin_link.symlink_to(".venv/bin")
     validate_release_entrypoints(release_dir)
 

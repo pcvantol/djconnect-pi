@@ -41,7 +41,8 @@ dependencies:
 ```sh
 python3 -m venv .venv
 . .venv/bin/activate
-python3 -m pip install -e '.[dev]'
+python3 -m pip install --requirement requirements.lock
+python3 -m pip install --no-deps -e '.[dev]'
 ```
 
 Run the desktop development client:
