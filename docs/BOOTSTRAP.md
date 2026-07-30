@@ -328,7 +328,8 @@ From a development checkout:
 ```sh
 python3 -m venv .venv
 . .venv/bin/activate
-pip install -e .
+pip install --requirement requirements.lock
+pip install --no-deps -e .
 djconnect-pi-client --ha-url http://homeassistant.local:8123
 ```
 

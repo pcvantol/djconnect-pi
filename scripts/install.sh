@@ -342,11 +342,13 @@ install_python_dependencies() {
   local version
   local release_dir
   local wheel_path
+  local requirements_path
   local pip_tmp
   local release_state_dir
   version="$(version)"
   release_dir="${DJCONNECT_ROOT}/releases/${version}"
   wheel_path="$(find "$release_dir/wheels" -maxdepth 1 -type f -name "djconnect_pi-${version}-*.whl" 2>/dev/null | head -n 1 || true)"
+  requirements_path="${release_dir}/requirements.lock"
   pip_tmp="${DJCONNECT_PIP_CACHE}/tmp"
   release_state_dir="${release_dir}/.install-state"
 
@@ -362,6 +364,10 @@ install_python_dependencies() {
 
   if [[ -z "$wheel_path" || ! -f "$wheel_path" ]]; then
     echo "DJConnect Pi wheel not found in release bundle: ${release_dir}/wheels/djconnect_pi-${version}-*.whl" >&2
+    exit 1
+  fi
+  if [[ ! -f "$requirements_path" ]]; then
+    echo "DJConnect Pi dependency lock not found in release bundle: ${requirements_path}" >&2
     exit 1
   fi
 
@@ -381,47 +387,19 @@ install_python_dependencies() {
   fi
 
   if [[ "$DJCONNECT_UPGRADE_PIP" == "1" && ! -f "${release_state_dir}/pip_upgraded" ]]; then
-    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --upgrade pip
+    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install "pip==26.1.2"
     printf 'ok\n' >"${release_state_dir}/pip_upgraded"
   elif [[ "$DJCONNECT_UPGRADE_PIP" != "1" && ! -f "${release_state_dir}/pip_checked" ]]; then
     TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip --version
     echo "Skipping pip self-upgrade; set DJCONNECT_UPGRADE_PIP=1 to force it."
     printf 'ok\n' >"${release_state_dir}/pip_checked"
   fi
-  if [[ ! -f "${release_state_dir}/build_tools_installed" ]]; then
-    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --upgrade setuptools wheel
-    printf 'ok\n' >"${release_state_dir}/build_tools_installed"
-  fi
-  if [[ ! -f "${release_state_dir}/shiboken6_installed" ]]; then
-    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --upgrade --only-binary=:all: "shiboken6>=6.7"
-    printf 'ok\n' >"${release_state_dir}/shiboken6_installed"
-  fi
-  if [[ ! -f "${release_state_dir}/pyside6_essentials_installed" ]]; then
-    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --upgrade --only-binary=:all: "PySide6_Essentials>=6.7"
-    printf 'ok\n' >"${release_state_dir}/pyside6_essentials_installed"
-  fi
-  if [[ ! -f "${release_state_dir}/pyside6_addons_installed" ]]; then
-    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --upgrade --only-binary=:all: "PySide6_Addons>=6.7"
-    printf 'ok\n' >"${release_state_dir}/pyside6_addons_installed"
-  fi
-  if [[ ! -f "${release_state_dir}/pyside6_installed" ]]; then
-    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --upgrade --only-binary=:all: "PySide6>=6.7"
-    printf 'ok\n' >"${release_state_dir}/pyside6_installed"
-  fi
-  if [[ ! -f "${release_state_dir}/requests_installed" ]]; then
-    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --upgrade --only-binary=:all: "requests>=2.31"
-    printf 'ok\n' >"${release_state_dir}/requests_installed"
-  fi
-  if [[ ! -f "${release_state_dir}/websocket_client_installed" ]]; then
-    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --upgrade --only-binary=:all: "websocket-client>=1.8"
-    printf 'ok\n' >"${release_state_dir}/websocket_client_installed"
-  fi
-  if [[ ! -f "${release_state_dir}/zeroconf_installed" ]]; then
-    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --upgrade --only-binary=:all: "zeroconf>=0.132"
-    printf 'ok\n' >"${release_state_dir}/zeroconf_installed"
+  if [[ ! -f "${release_state_dir}/locked_dependencies_installed" ]]; then
+    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --only-binary=:all: --requirement "$requirements_path"
+    printf 'ok\n' >"${release_state_dir}/locked_dependencies_installed"
   fi
   if [[ ! -f "${release_state_dir}/wheel_installed" ]]; then
-    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --only-binary=:all: "$wheel_path"
+    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --no-deps --only-binary=:all: "$wheel_path"
     printf 'ok\n' >"${release_state_dir}/wheel_installed"
   fi
   ln -sfn ".venv/bin" "${release_dir}/bin"

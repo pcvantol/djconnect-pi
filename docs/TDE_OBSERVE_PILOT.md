@@ -12,9 +12,10 @@ not a platform-wide rollout.
 ## Observe-mode contract
 
 The `TDE observe` workflow installs the published, exact-pinned
-`technical-debt-engine-runtime==1.0.0` distribution and invokes only its public
-`tde` CLI. It does not check out TDE source, import TDE Python modules, run this
-repository's tests, alter policies, or change any existing workflow.
+`technical-debt-engine-runtime==1.1.1` distribution and invokes only its public
+`tde` CLI. It does not check out TDE source, import TDE Python modules, alter
+policies, or change the workflow's non-blocking behavior. The workflow first
+generates the existing canonical coverage input by running the Pi test suite.
 
 The workflow runs the installed `standard` profile and then creates a separate
 repository qualification with the consumer definition in
@@ -27,6 +28,20 @@ differential evidence.
 TDE exit codes are recorded in the artifact and workflow summary but are not
 propagated to the job. The observe job always succeeds and is not configured as
 a required check, warning gate, soft fail, or merge blocker.
+
+## Dependency-health reproducibility
+
+`requirements.lock` is the canonical Python 3.11 dependency input for the Pi
+runtime, tests and build. Its exact runtime, transitive, test and build-tool
+pins are installed before the project is installed with `--no-deps`. The
+release bundle includes the same file, and both the shell installer and
+in-app updater consume it before installing the application wheel with
+`--no-deps`.
+
+With public runtime `1.1.1`, this provides the dependency-health adapter a
+concrete `dependency_health.outdated_dependencies` measurement instead of the
+former unavailable result caused by open direct constraints. This is evidence
+collection only; OBSERVE behavior remains unchanged.
 
 ## Current merged-main observations
 

@@ -141,12 +141,13 @@ PY
 build_assets() {
   echo "+ build release assets"
   local dist="dist/djconnect-pi-${VERSION}"
-  run python3 -m pip install --upgrade pip setuptools wheel
+  run python3 -m pip install --requirement requirements.lock
   run rm -rf "$dist" "dist/djconnect-pi-${VERSION}.tar.gz" "dist/djconnect-pi-${VERSION}.sha256"
   run mkdir -p "$dist"
   run cp -R LICENSE README.md CHANGELOG.md docs examples systemd "$dist/"
   run mkdir -p "$dist/scripts"
   run cp scripts/install.sh "$dist/scripts/"
+  run cp requirements.lock "$dist/"
   run mkdir -p "$dist/wheels"
   run python3 -m pip wheel --no-deps --wheel-dir "$dist/wheels" .
   if [[ "$DRY_RUN" == false ]]; then

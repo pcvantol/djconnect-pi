@@ -195,10 +195,15 @@ def test_pip_environment_uses_cache_local_tmp(tmp_path: Path) -> None:
     assert (tmp_path / "pip-cache" / "tmp").is_dir()
 
 
+def write_dependency_lock(release_dir: Path) -> None:
+    release_dir.joinpath("requirements.lock").write_text("requests==2.34.2\n", encoding="utf-8")
+
+
 def test_install_python_dependencies_uses_pip_cache_env(tmp_path: Path) -> None:
     release_dir = tmp_path / "release"
     wheels_dir = release_dir / "wheels"
     wheels_dir.mkdir(parents=True)
+    write_dependency_lock(release_dir)
     (wheels_dir / "djconnect_pi-0.2.0-py3-none-any.whl").write_bytes(b"wheel")
 
     with (
@@ -211,19 +216,15 @@ def test_install_python_dependencies_uses_pip_cache_env(tmp_path: Path) -> None:
     assert run.call_args_list[1].kwargs["env"] == {"PIP_CACHE_DIR": "/cache", "TMPDIR": "/cache/tmp"}
     assert run.call_args_list[2].kwargs["env"] == {"PIP_CACHE_DIR": "/cache", "TMPDIR": "/cache/tmp"}
     assert run.call_args_list[1].args[0][-2:] == ["pip", "--version"]
-    assert run.call_args_list[3].args[0][-1] == "shiboken6>=6.7"
-    assert run.call_args_list[4].args[0][-1] == "PySide6_Essentials>=6.7"
-    assert run.call_args_list[5].args[0][-1] == "PySide6_Addons>=6.7"
-    assert run.call_args_list[6].args[0][-1] == "PySide6>=6.7"
-    assert run.call_args_list[7].args[0][-1] == "requests>=2.31"
-    assert run.call_args_list[8].args[0][-1] == "websocket-client>=1.8"
-    assert run.call_args_list[9].args[0][-1] == "zeroconf>=0.132"
+    assert run.call_args_list[2].args[0][-2:] == ["--requirement", str(release_dir / "requirements.lock")]
+    assert run.call_args_list[3].args[0][-2:] == ["--only-binary=:all:", str(wheels_dir / "djconnect_pi-0.2.0-py3-none-any.whl")]
 
 
 def test_install_python_dependencies_can_force_pip_upgrade(tmp_path: Path, monkeypatch) -> None:
     release_dir = tmp_path / "release"
     wheels_dir = release_dir / "wheels"
     wheels_dir.mkdir(parents=True)
+    write_dependency_lock(release_dir)
     (wheels_dir / "djconnect_pi-0.2.0-py3-none-any.whl").write_bytes(b"wheel")
     monkeypatch.setenv("DJCONNECT_UPGRADE_PIP", "1")
 
@@ -234,7 +235,7 @@ def test_install_python_dependencies_can_force_pip_upgrade(tmp_path: Path, monke
     ):
         updater.install_python_dependencies(release_dir, "0.2.0")
 
-    assert run.call_args_list[1].args[0][-4:] == ["pip", "install", "--upgrade", "pip"]
+    assert run.call_args_list[1].args[0][-3:] == ["pip", "install", "pip==26.1.2"]
 
 
 def test_install_python_dependencies_resumes_completed_steps(tmp_path: Path) -> None:
@@ -243,14 +244,11 @@ def test_install_python_dependencies_resumes_completed_steps(tmp_path: Path) -> 
     state_dir = release_dir / ".install-state"
     wheels_dir.mkdir(parents=True)
     state_dir.mkdir()
+    write_dependency_lock(release_dir)
     (release_dir / ".venv" / "bin").mkdir(parents=True)
     (state_dir / "venv_created").write_text("ok\n", encoding="utf-8")
     (state_dir / "pip_checked").write_text("ok\n", encoding="utf-8")
-    (state_dir / "build_tools_installed").write_text("ok\n", encoding="utf-8")
-    (state_dir / "shiboken6_installed").write_text("ok\n", encoding="utf-8")
-    (state_dir / "pyside6_essentials_installed").write_text("ok\n", encoding="utf-8")
-    (state_dir / "pyside6_addons_installed").write_text("ok\n", encoding="utf-8")
-    (state_dir / "pyside6_installed").write_text("ok\n", encoding="utf-8")
+    (state_dir / "locked_dependencies_installed").write_text("ok\n", encoding="utf-8")
     (wheels_dir / "djconnect_pi-0.2.0-py3-none-any.whl").write_bytes(b"wheel")
 
     with (
@@ -262,17 +260,8 @@ def test_install_python_dependencies_resumes_completed_steps(tmp_path: Path) -> 
 
     commands = [call.args[0] for call in run.call_args_list]
     assert not any(command[:3] == ["python3", "-m", "venv"] for command in commands)
-    assert all("PySide6>=6.7" not in command for command in commands)
-    assert all("PySide6_Essentials>=6.7" not in command for command in commands)
-    assert all("PySide6_Addons>=6.7" not in command for command in commands)
-    assert all("shiboken6>=6.7" not in command for command in commands)
-    assert commands[0][-1] == "requests>=2.31"
-    assert commands[1][-1] == "websocket-client>=1.8"
-    assert commands[2][-1] == "zeroconf>=0.132"
-    assert commands[3][-1].endswith("djconnect_pi-0.2.0-py3-none-any.whl")
-    assert (state_dir / "requests_installed").exists()
-    assert (state_dir / "websocket_client_installed").exists()
-    assert (state_dir / "zeroconf_installed").exists()
+    assert commands[0][-1].endswith("djconnect_pi-0.2.0-py3-none-any.whl")
+    assert (state_dir / "locked_dependencies_installed").exists()
     assert (state_dir / "wheel_installed").exists()
 
 

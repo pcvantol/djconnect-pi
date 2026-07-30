@@ -16,7 +16,9 @@ DJConnect Pi is a Raspberry Pi OS Lite kiosk client with:
 - systemd services/timers for process supervision
 - shell scripts for release installation and repo-only OS bootstrap
 
-The source of truth for runtime package constraints is `pyproject.toml`.
+The source of truth for the reproducible Python runtime, test and build set is
+`requirements.lock`; `pyproject.toml` declares the matching exact direct
+package metadata for consumers that install the package.
 The source of truth for OS bootstrap packages is
 `scripts/bootstrap_raspberry_pi_os.sh`. The release installer intentionally does
 not install apt packages.
@@ -144,33 +146,33 @@ mainly by tests plus `compileall`.
 
 ### Python Runtime Dependencies
 
-Versions below are package constraints from `pyproject.toml` plus the concrete
-versions observed during the 3.1.42 Pi install where available. Transitive
-dependencies are listed because they are installed into the release venv.
+Versions below are the exact Python 3.11 pins in `requirements.lock`.
+Transitive dependencies are listed because the release installer installs the
+same canonical lock before the application wheel.
 
 | Package | Constraint / observed version | Used by | License model | Source URL |
 | --- | --- | --- | --- | --- |
 | Python | `>=3.11`; observed Pi Python `3.13.5` | all Python entrypoints | Python Software Foundation License | https://www.python.org/ |
-| PySide6 | `>=6.7`; observed `6.11.1` | Qt Quick/QML UI bridge | LGPL-3.0-only/GPL-3.0-only/commercial Qt licensing | https://pypi.org/project/PySide6/ |
-| PySide6_Addons | transitive; observed `6.11.1` | PySide6 runtime | LGPL-3.0-only/GPL-3.0-only/commercial Qt licensing | https://pypi.org/project/PySide6-Addons/ |
-| PySide6_Essentials | transitive; observed `6.11.1` | PySide6 runtime | LGPL-3.0-only/GPL-3.0-only/commercial Qt licensing | https://pypi.org/project/PySide6-Essentials/ |
-| shiboken6 | transitive; observed `6.11.1` | PySide6 binding generator/runtime | LGPL-3.0-only/GPL-3.0-only/commercial Qt licensing | https://pypi.org/project/shiboken6/ |
-| requests | `>=2.31`; observed `2.34.2` | HA HTTP, updater GitHub HTTP, album-art cache | Apache-2.0 | https://pypi.org/project/requests/ |
-| certifi | transitive; observed `2026.5.20` | TLS CA bundle for requests | MPL-2.0 | https://pypi.org/project/certifi/ |
-| charset-normalizer | transitive; observed `3.4.7` | requests text decoding | MIT | https://pypi.org/project/charset-normalizer/ |
-| idna | transitive; observed `3.18` | requests IDNA support | BSD-3-Clause | https://pypi.org/project/idna/ |
-| urllib3 | transitive; observed `2.7.0` | requests HTTP transport | MIT | https://pypi.org/project/urllib3/ |
-| websocket-client | `>=1.8` | Optional Home Assistant native `/api/websocket` fast path | Apache-2.0 | https://pypi.org/project/websocket-client/ |
-| zeroconf | `>=0.132`; observed `0.149.16` | `_djconnect._tcp` mDNS advertisement | LGPL-2.1-or-later | https://pypi.org/project/zeroconf/ |
-| ifaddr | transitive; observed `0.2.0` | zeroconf network interface discovery | MIT | https://pypi.org/project/ifaddr/ |
+| PySide6 | `6.11.1` | Qt Quick/QML UI bridge | LGPL-3.0-only/GPL-3.0-only/commercial Qt licensing | https://pypi.org/project/PySide6/ |
+| PySide6_Addons | `6.11.1` | PySide6 runtime | LGPL-3.0-only/GPL-3.0-only/commercial Qt licensing | https://pypi.org/project/PySide6-Addons/ |
+| PySide6_Essentials | `6.11.1` | PySide6 runtime | LGPL-3.0-only/GPL-3.0-only/commercial Qt licensing | https://pypi.org/project/PySide6-Essentials/ |
+| shiboken6 | `6.11.1` | PySide6 binding generator/runtime | LGPL-3.0-only/GPL-3.0-only/commercial Qt licensing | https://pypi.org/project/shiboken6/ |
+| requests | `2.34.2` | HA HTTP, updater GitHub HTTP, album-art cache | Apache-2.0 | https://pypi.org/project/requests/ |
+| certifi | `2026.7.22` | TLS CA bundle for requests | MPL-2.0 | https://pypi.org/project/certifi/ |
+| charset-normalizer | `3.4.9` | requests text decoding | MIT | https://pypi.org/project/charset-normalizer/ |
+| idna | `3.18` | requests IDNA support | BSD-3-Clause | https://pypi.org/project/idna/ |
+| urllib3 | `2.7.0` | requests HTTP transport | MIT | https://pypi.org/project/urllib3/ |
+| websocket-client | `1.9.0` | Optional Home Assistant native `/api/websocket` fast path | Apache-2.0 | https://pypi.org/project/websocket-client/ |
+| zeroconf | `0.150.0` | `_djconnect._tcp` mDNS advertisement | LGPL-2.1-or-later | https://pypi.org/project/zeroconf/ |
+| ifaddr | `0.2.0` | zeroconf network interface discovery | MIT | https://pypi.org/project/ifaddr/ |
 
 ### Python Build/Test Dependencies
 
 | Package/tool | Constraint / version source | Used by | License model | Source URL |
 | --- | --- | --- | --- | --- |
-| setuptools | build requirement `>=68` | PEP 517 build backend | MIT | https://pypi.org/project/setuptools/ |
-| pip | OS/venv managed; observed updater upgraded to `26.1.2` | wheel/install operations | MIT | https://pypi.org/project/pip/ |
-| pytest | dev dependency `>=8`; local test run used `9.0.3` | test suite | MIT | https://pypi.org/project/pytest/ |
+| setuptools | `83.0.0` | PEP 517 build backend | MIT | https://pypi.org/project/setuptools/ |
+| pip | `26.1.2` | wheel/install operations | MIT | https://pypi.org/project/pip/ |
+| pytest | `9.1.1` | test suite | MIT | https://pypi.org/project/pytest/ |
 | pluggy | pytest transitive; local test run used `1.6.0` | pytest plugin system | MIT | https://pypi.org/project/pluggy/ |
 | anyio | local pytest plugin environment used `4.13.0` | test plugin environment on maintainer machine | MIT | https://pypi.org/project/anyio/ |
 

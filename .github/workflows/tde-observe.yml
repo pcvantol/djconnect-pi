@@ -33,8 +33,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libegl1 libgl1 libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 libxcb-xinput0
-          python -m pip install --upgrade pip setuptools wheel
-          python -m pip install -e ".[dev]" coverage
+          python -m pip install --requirement requirements.lock
+          python -m pip install --no-deps -e ".[dev]"
           coverage run -m pytest
           coverage xml -o coverage.xml
 

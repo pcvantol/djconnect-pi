@@ -206,10 +206,10 @@ def test_ci_and_release_flows_refresh_packaging_tools() -> None:
     publish = ROOT.joinpath(".github/workflows/publish-release.yml").read_text(encoding="utf-8")
     release_script = ROOT.joinpath("release.sh").read_text(encoding="utf-8")
 
-    expected = "python -m pip install --upgrade pip setuptools wheel"
+    expected = "python -m pip install --requirement requirements.lock"
     assert expected in validate
     assert expected in publish
-    assert "python3 -m pip install --upgrade pip setuptools wheel" in release_script
+    assert "python3 -m pip install --requirement requirements.lock" in release_script
 
 
 def test_cleanup_script_removes_completed_actions_runs_for_deleted_tags() -> None:
@@ -419,31 +419,34 @@ def test_install_script_can_resume_after_reboot_or_interruption() -> None:
     assert 'DJCONNECT_UPGRADE_PIP="${DJCONNECT_UPGRADE_PIP:-0}"' in script
     assert "Skipping pip self-upgrade" in script
     assert "DJCONNECT_UPGRADE_PIP=1" in script
-    assert '${release_dir}/.venv/bin/python" -m pip install --upgrade pip' in script
-    assert '${release_dir}/.venv/bin/python" -m pip install --only-binary=:all: "$wheel_path"' in script
+    assert '${release_dir}/.venv/bin/python" -m pip install "pip==26.1.2"' in script
+    assert '${release_dir}/.venv/bin/python" -m pip install --no-deps --only-binary=:all: "$wheel_path"' in script
     assert 'release_state_dir="${release_dir}/.install-state"' in script
     assert '${release_state_dir}/venv_created' in script
-    assert '${release_state_dir}/build_tools_installed' in script
-    assert '${release_state_dir}/shiboken6_installed' in script
-    assert '${release_state_dir}/pyside6_essentials_installed' in script
-    assert '${release_state_dir}/pyside6_addons_installed' in script
-    assert '${release_state_dir}/pyside6_installed' in script
-    assert '${release_state_dir}/requests_installed' in script
-    assert '${release_state_dir}/websocket_client_installed' in script
-    assert '${release_state_dir}/zeroconf_installed' in script
+    assert '${release_state_dir}/locked_dependencies_installed' in script
     assert '${release_state_dir}/wheel_installed' in script
     assert '"PySide6>=6.7" "requests>=2.31" "zeroconf>=0.132"' not in script
-    assert '"PySide6_Essentials>=6.7"' in script
-    assert '"PySide6_Addons>=6.7"' in script
-    assert '"shiboken6>=6.7"' in script
+    assert 'requirements_path="${release_dir}/requirements.lock"' in script
     assert '".venv/bin/pip" install' not in script
     assert "Removing incomplete Python virtualenv before retry" in script
     assert 'rm -rf "${release_dir}/.venv" "${release_dir}/bin"' in script
     assert "wheel_path=" in script
     assert "djconnect_pi-${version}-*.whl" in script
-    assert 'install --only-binary=:all: "$wheel_path"' in script
+    assert 'install --no-deps --only-binary=:all: "$wheel_path"' in script
     assert 'install --only-binary=:all: "$release_dir"' not in script
     assert "DJConnect Pi wheel not found" in script
+
+
+def test_canonical_dependency_lock_matches_exact_package_metadata() -> None:
+    project = tomllib.loads(ROOT.joinpath("pyproject.toml").read_text(encoding="utf-8"))
+    lock_lines = ROOT.joinpath("requirements.lock").read_text(encoding="utf-8").splitlines()
+    locked = {line.split("==", 1)[0].lower(): line for line in lock_lines if "==" in line}
+
+    assert lock_lines
+    assert all("==" in line for line in lock_lines if line and not line.startswith("#"))
+    for requirement in [*project["project"]["dependencies"], *project["project"]["optional-dependencies"]["dev"]]:
+        name, _version = requirement.split("==", 1)
+        assert locked[name.lower()] == requirement
 
 
 def test_shared_voice_intent_examples_are_available_for_docs_alignment() -> None:
