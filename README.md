@@ -64,7 +64,8 @@ Configure its GitHub environment `private-network-deployment` with these
 target-specific values:
 
 - secrets: `WALL_PI5_SSH_PRIVATE_KEY`, `WALL_PI5_SSH_KNOWN_HOSTS`;
-- variables: `WALL_PI5_HOST`, `WALL_PI5_USER`.
+- variables: `WALL_PI5_HOST`, `WALL_PI5_USER`,
+  `WALL_PI5_HOME_ASSISTANT_URL`.
 
 This readiness workflow is independent of the release deployment workflows
 for the native Pi client. It is the prerequisite for a later, separately

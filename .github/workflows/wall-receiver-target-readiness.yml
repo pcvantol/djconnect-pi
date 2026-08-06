@@ -19,9 +19,9 @@ jobs:
     env:
       WALL_PI5_HOST: ${{ vars.WALL_PI5_HOST }}
       WALL_PI5_USER: ${{ vars.WALL_PI5_USER }}
+      HOME_ASSISTANT_URL: ${{ vars.WALL_PI5_HOME_ASSISTANT_URL }}
       SSH_PRIVATE_KEY: ${{ secrets.WALL_PI5_SSH_PRIVATE_KEY }}
       SSH_KNOWN_HOSTS: ${{ secrets.WALL_PI5_SSH_KNOWN_HOSTS }}
-      HOME_ASSISTANT_URL: http://192.168.1.13:8123/
     steps:
       - name: Materialize target-scoped SSH credentials
         id: ssh
@@ -30,6 +30,7 @@ jobs:
           set -euo pipefail
           test -n "${WALL_PI5_HOST}"
           test -n "${WALL_PI5_USER}"
+          test -n "${HOME_ASSISTANT_URL}"
           test -n "${SSH_PRIVATE_KEY}"
           test -n "${SSH_KNOWN_HOSTS}"
           key_file="${RUNNER_TEMP}/wall-receiver-target-key"
