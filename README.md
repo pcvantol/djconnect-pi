@@ -40,6 +40,37 @@ explicit Home Assistant pairing, capability reporting that keeps voice/audio
 off, kiosk-safe screen behavior and update/diagnostics surfaces that keep
 running separately from the touch UI.
 
+## Hardware Roles and Wall Receiver Readiness
+
+The native Pi client remains the product implementation for the compact
+4-inch and 10-inch touch displays. It is a Qt Quick/QML application and is not
+replaced by a browser.
+
+The 10-inch Pi 5 living-room display is also the dedicated hardware target for
+Universal Receiver readiness checks. The Receiver is a separate,
+browser-based, Home Assistant-hosted projection that Chromium renders only
+when an authorized active Session supplies its ephemeral access parameters. It
+does not replace, pair as, or share state with the native Pi client.
+
+`.github/workflows/wall-receiver-target-readiness.yml` is a manual
+`workflow_dispatch` preflight for that 10-inch target. It runs on the existing
+private-network macOS runner and uses only target-scoped SSH credentials. The
+workflow verifies pinned SSH access, Chromium availability and local reachability
+of production Home Assistant. It makes no changes to the Pi, Chromium profile,
+kiosk service or Home Assistant, and it does not receive Receiver session or
+Broadcast tokens.
+
+Configure its GitHub environment `private-network-deployment` with these
+target-specific values:
+
+- secrets: `WALL_PI5_SSH_PRIVATE_KEY`, `WALL_PI5_SSH_KNOWN_HOSTS`;
+- variables: `WALL_PI5_HOST`, `WALL_PI5_USER`,
+  `WALL_PI5_HOME_ASSISTANT_URL`.
+
+This readiness workflow is independent of the release deployment workflows
+for the native Pi client. It is the prerequisite for a later, separately
+authorized Universal Receiver session/Broadcast smoke scenario.
+
 ## Client Contract
 
 - `client_type`: `raspberry_pi`

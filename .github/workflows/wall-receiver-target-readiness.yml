@@ -1,0 +1,144 @@
+name: Wall Receiver target readiness
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wall-receiver-target-readiness
+  cancel-in-progress: false
+
+jobs:
+  readiness:
+    name: Validate wall Receiver target
+    runs-on: [self-hosted, macOS, ARM64, internal-release, private-network-deployment]
+    environment: private-network-deployment
+    timeout-minutes: 10
+    env:
+      WALL_PI5_HOST: ${{ vars.WALL_PI5_HOST }}
+      WALL_PI5_USER: ${{ vars.WALL_PI5_USER }}
+      HOME_ASSISTANT_URL: ${{ vars.WALL_PI5_HOME_ASSISTANT_URL }}
+      SSH_PRIVATE_KEY: ${{ secrets.WALL_PI5_SSH_PRIVATE_KEY }}
+      SSH_KNOWN_HOSTS: ${{ secrets.WALL_PI5_SSH_KNOWN_HOSTS }}
+    steps:
+      - name: Materialize target-scoped SSH credentials
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${WALL_PI5_HOST}"
+          test -n "${WALL_PI5_USER}"
+          test -n "${HOME_ASSISTANT_URL}"
+          test -n "${SSH_PRIVATE_KEY}"
+          test -n "${SSH_KNOWN_HOSTS}"
+          key_file="${RUNNER_TEMP}/wall-receiver-target-key"
+          known_hosts_file="${RUNNER_TEMP}/wall-receiver-target-known-hosts"
+          umask 077
+          printf '%s\n' "${SSH_PRIVATE_KEY}" > "${key_file}"
+          printf '%s\n' "${SSH_KNOWN_HOSTS}" > "${known_hosts_file}"
+          echo "key_file=${key_file}" >> "${GITHUB_OUTPUT}"
+          echo "known_hosts_file=${known_hosts_file}" >> "${GITHUB_OUTPUT}"
+
+      - name: Collect non-mutating wall target readiness
+        shell: bash
+        env:
+          SSH_KEY_FILE: ${{ steps.ssh.outputs.key_file }}
+          SSH_KNOWN_HOSTS_FILE: ${{ steps.ssh.outputs.known_hosts_file }}
+        run: |
+          set -euo pipefail
+          ssh_opts=(
+            -i "${SSH_KEY_FILE}"
+            -o IdentitiesOnly=yes
+            -o BatchMode=yes
+            -o StrictHostKeyChecking=yes
+            -o "UserKnownHostsFile=${SSH_KNOWN_HOSTS_FILE}"
+          )
+          ssh "${ssh_opts[@]}" "${WALL_PI5_USER}@${WALL_PI5_HOST}" \
+            "HOME_ASSISTANT_URL='${HOME_ASSISTANT_URL}' python3 -" > wall-receiver-target-readiness.json <<'PY'
+          import json
+          import os
+          import shutil
+          import subprocess
+          import urllib.error
+          import urllib.request
+
+          chromium = shutil.which("chromium") or shutil.which("chromium-browser")
+          chromium_version = ""
+          if chromium:
+              chromium_version = subprocess.run(
+                  [chromium, "--version"],
+                  check=False,
+                  capture_output=True,
+                  text=True,
+              ).stdout.strip()
+
+          try:
+              with urllib.request.urlopen(os.environ["HOME_ASSISTANT_URL"], timeout=10) as response:
+                  home_assistant_status = response.status
+          except urllib.error.HTTPError as error:
+              home_assistant_status = error.code
+          except OSError:
+              home_assistant_status = None
+
+          print(json.dumps({
+              "schema_version": 1,
+              "target_kind": "djconnect_wall_receiver",
+              "hostname": subprocess.check_output(["hostnamectl", "--static"], text=True).strip(),
+              "chromium": {
+                  "available": bool(chromium),
+                  "version": chromium_version,
+              },
+              "home_assistant": {
+                  "reachable": home_assistant_status is not None,
+                  "http_status": home_assistant_status,
+              },
+          }, sort_keys=True))
+          PY
+
+      - name: Require wall target prerequisites
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          readiness = json.loads(Path("wall-receiver-target-readiness.json").read_text(encoding="utf-8"))
+          if not readiness["chromium"]["available"]:
+              raise SystemExit("Chromium is not installed on the wall Receiver target")
+          if readiness["home_assistant"]["http_status"] != 200:
+              raise SystemExit("Production Home Assistant did not return HTTP 200 from the wall Receiver target")
+          print(json.dumps(readiness, indent=2, sort_keys=True))
+          PY
+
+      - name: Publish readiness summary
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - >> "${GITHUB_STEP_SUMMARY}" <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("wall-receiver-target-readiness.json")
+          if not path.exists():
+              raise SystemExit("No wall target readiness snapshot was produced")
+          readiness = json.loads(path.read_text(encoding="utf-8"))
+          print("# Wall Receiver target readiness")
+          print()
+          print(f"- Host: `{readiness['hostname']}`")
+          print(f"- Chromium: `{readiness['chromium']['version'] or 'unavailable'}`")
+          print(f"- Home Assistant HTTP status: `{readiness['home_assistant']['http_status']}`")
+          print("- Scope: non-mutating target and network readiness only")
+          PY
+
+      - name: Remove temporary SSH credentials
+        if: always()
+        shell: bash
+        env:
+          SSH_KEY_FILE: ${{ steps.ssh.outputs.key_file }}
+          SSH_KNOWN_HOSTS_FILE: ${{ steps.ssh.outputs.known_hosts_file }}
+        run: |
+          rm -f "${SSH_KEY_FILE:-}" "${SSH_KNOWN_HOSTS_FILE:-}"
