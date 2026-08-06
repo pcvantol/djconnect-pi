@@ -178,6 +178,8 @@ def test_qualified_pi_deployment_workflow_requires_exact_evidence_and_artifact()
     assert "djconnect-pi-${release_version}-release-manifest.json" in workflow
     assert "StrictHostKeyChecking=yes" in workflow
     assert "--release-version" in workflow
+    assert "Bootstrapping legacy updater through the RC channel." in workflow
+    assert "--channel beta" in workflow
     assert "/opt/djconnect/config/updater-status.json" in workflow
     assert "/opt/djconnect/current/VERSION" in workflow
     assert "status_state" in workflow

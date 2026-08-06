@@ -253,12 +253,24 @@ jobs:
           ssh_opts=(-i "${SSH_KEY_FILE}" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=${SSH_KNOWN_HOSTS_FILE}" -p "${PI_PORT}")
           ssh "${ssh_opts[@]}" "${PI_USER}@${PI_HOST}" \
             'set -euo pipefail
-             sudo -n /opt/djconnect/current/bin/djconnect-pi-updater \
-               --config /opt/djconnect/config/client.json \
-               --install-root /opt/djconnect \
-               --repo "'"${RELEASE_REPO}"'" \
-               --channel stable \
-               --release-version "'"${RELEASE_VERSION}"'"'
+             updater=/opt/djconnect/current/bin/djconnect-pi-updater
+             common_args=(
+               --config /opt/djconnect/config/client.json
+               --install-root /opt/djconnect
+               --repo "'"${RELEASE_REPO}"'"
+             )
+
+             if "${updater}" "${common_args[@]}" --channel stable --release-version "'"${RELEASE_VERSION}"'" --dry-run >/dev/null 2>&1; then
+               sudo -n "${updater}" "${common_args[@]}" --channel stable --release-version "'"${RELEASE_VERSION}"'"
+             else
+               # A pre-4.0 updater cannot parse an RC identifier. Its beta
+               # resolver does support prereleases, so use it once to bootstrap
+               # the authorized RC artifact. The monitor below accepts only the
+               # exact release version from the approved manifest.
+               [[ "'"${RELEASE_VERSION}"'" =~ -rc\.[0-9]+$ ]]
+               echo "Bootstrapping legacy updater through the RC channel."
+               sudo -n "${updater}" "${common_args[@]}" --channel beta
+             fi'
 
       - name: Monitor exact artifact installation
         shell: bash
