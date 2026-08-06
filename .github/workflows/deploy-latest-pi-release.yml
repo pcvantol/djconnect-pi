@@ -92,9 +92,9 @@ jobs:
           test "${RELEASE_PROFILE}" = "INTERNAL_RELEASE"
           test "${TARGET}" = "rbpi-djconnect"
           [[ "${CANDIDATE_SHA}" =~ ^[0-9a-f]{40}$ ]]
-          [[ "${ARTIFACT_ID}" =~ ^release-asset:pcvantol/djconnect-pi-releases:v([0-9]+\.[0-9]+\.[0-9]+):djconnect-pi-([0-9]+\.[0-9]+\.[0-9]+)\.tar\.gz$ ]]
+          [[ "${ARTIFACT_ID}" =~ ^release-asset:pcvantol/djconnect-pi-releases:v([0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?):djconnect-pi-([0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?)\.tar\.gz$ ]]
           release_version="${BASH_REMATCH[1]}"
-          test "${BASH_REMATCH[2]}" = "${release_version}"
+          test "${BASH_REMATCH[3]}" = "${release_version}"
           [[ "${ARTIFACT_SHA256}" =~ ^[0-9a-f]{64}$ ]]
           [[ "${PLATFORM_VERSION}" =~ ^[0-9]+\.[0-9]+$ ]]
           [[ "${MANIFEST_ID}" =~ ^release-[A-Za-z0-9._-]+$ ]]
@@ -176,7 +176,7 @@ jobs:
           manifest="$(mktemp)"
           trap 'rm -f "$manifest"' EXIT
           curl --fail --silent --show-error --location \
-            https://raw.githubusercontent.com/pcvantol/djconnect/main/docs/release/PLATFORM_3_3_CURRENT_MAIN_MANIFEST_PROPOSAL.json \
+            https://raw.githubusercontent.com/pcvantol/djconnect/main/docs/release/PLATFORM_4_0_RC1_PI_OPERATIONAL_MANIFEST.json \
             --output "$manifest"
           test "$(jq -r '.status' "$manifest")" = APPROVED_DEPLOYMENT_DISPATCH_PENDING
           test "$(jq -r '.approval.state' "$manifest")" = APPROVED
