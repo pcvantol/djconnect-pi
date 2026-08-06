@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import tarfile
@@ -21,6 +22,7 @@ PIP_CACHE_DIR = Path("/var/cache/djconnect-pip")
 UPGRADE_PIP_ENV = "DJCONNECT_UPGRADE_PIP"
 SUPPORTED_RELEASE_PROFILES = frozenset({"pi5-arm64", "pi-zero-2w-arm64"})
 DEVICE_PROFILE_PATH = Path("/etc/djconnect-pi/device-profile")
+SEMVER_VERSION_RE = re.compile(r"^\d+\.\d+\.\d+(?:-[0-9A-Za-z]+(?:\.[0-9A-Za-z]+)*)?$")
 
 
 @dataclass
@@ -138,8 +140,8 @@ def public_latest_release(repo: str) -> dict:
 
 
 def public_release(repo: str, version: str) -> dict:
-    if not version or not all(part.isdigit() for part in version.split(".")) or version.count(".") != 2:
-        raise ValueError("Release version must use Major.Minor.Patch format")
+    if not SEMVER_VERSION_RE.fullmatch(version):
+        raise ValueError("Release version must use SemVer Major.Minor.Patch format")
     tag = f"v{version}"
     return public_release_manifest(
         repo,
@@ -222,7 +224,8 @@ def unpack_release(bundle: Path, version: str, root: Path, release_profile: str 
 
 def wheel_for_release(release_dir: Path, version: str) -> Path:
     wheels_dir = release_dir / "wheels"
-    matches = sorted(wheels_dir.glob(f"djconnect_pi-{version}-*.whl"))
+    package_version = re.sub(r"-rc\.(\d+)$", r"rc\1", version)
+    matches = sorted(wheels_dir.glob(f"djconnect_pi-{package_version}-*.whl"))
     if not matches:
         raise RuntimeError(f"DJConnect Pi wheel not found in release bundle: {wheels_dir}")
     return matches[0]

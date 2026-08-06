@@ -1,5 +1,15 @@
 # Changelog
 
+## 4.0.0-rc.1
+
+- Publish the first Platform 4.0 release candidate with separate Pi 5 ARM64
+  and Pi Zero 2 W ARM64 artifacts.
+- Keep the public SemVer candidate identity in runtime status, manifests and
+  artifact names, while packaging the Python wheel as the equivalent PEP 440
+  `4.0.0rc1` version.
+- Allow the updater to target an exact SemVer prerelease and resolve its
+  normalized wheel filename safely.
+
 ## 3.3.0 (dry run — not published)
 
 - Label legacy Home Assistant contract routes as fixture-only compatibility

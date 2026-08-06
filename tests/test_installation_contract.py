@@ -15,6 +15,13 @@ def _project_version() -> str:
     return str(data["project"]["version"])
 
 
+def _public_release_version() -> str:
+    package = ROOT.joinpath("src", "djconnect_pi", "__init__.py").read_text(encoding="utf-8")
+    match = re.search(r'^__version__ = "(?P<version>[^"]+)"$', package, re.MULTILINE)
+    assert match is not None
+    return match["version"]
+
+
 def test_install_script_enables_local_api_service() -> None:
     script = ROOT.joinpath("scripts/install.sh").read_text(encoding="utf-8")
 
@@ -544,7 +551,7 @@ def test_install_script_outputs_resources_and_extra_prerequisite_checks() -> Non
 def test_bootstrap_release_download_matches_project_version() -> None:
     bootstrap = ROOT.joinpath("docs/BOOTSTRAP.md").read_text(encoding="utf-8")
     readme = ROOT.joinpath("README.md").read_text(encoding="utf-8")
-    version = _project_version()
+    version = _public_release_version()
 
     assert f"djconnect-pi-{version}.tar.gz" in bootstrap
     assert f"cd djconnect-pi-{version}" in bootstrap

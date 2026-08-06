@@ -207,7 +207,7 @@ profiles are entered only through explicit backend Profile Platform resolution.
   "device_id": "djconnect-raspberry-pi-XXXXXXXXXXXX",
   "device_name": "DJConnect",
   "client_type": "raspberry_pi",
-  "version": "3.3.0",
+  "version": "4.0.0-rc.1",
   "capabilities": {
     "touch": true,
     "voice": false,
@@ -403,7 +403,7 @@ credentials, local Spotify Web API calls or client-side playback backend logic
 for these examples.
 
 HA responses may include `ha_version` or `ha_major_minor`. The Pi enforces
-major/minor compatibility: client `3.2.z` accepts HA `>=3.2.0` and `<3.3.0`.
+major/minor compatibility: client `4.0.z` accepts HA `>=4.0.0-rc.1` and `<4.1.0`.
 When HA reports an incompatible version, the touch UI shows a blocking
 version-mismatch screen and starts `djconnect-updater.service` once in the
 background to try downloading a compatible client release.

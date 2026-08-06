@@ -164,7 +164,7 @@ jobs:
       PI_PORT: ${{ vars.DJCONNECT_PI_SSH_PORT || '22' }}
       SSH_PRIVATE_KEY: ${{ secrets.DJCONNECT_PI_SSH_PRIVATE_KEY }}
       SSH_KNOWN_HOSTS: ${{ secrets.DJCONNECT_PI_SSH_KNOWN_HOSTS }}
-      EXPECTED_VERSION: "3.3.0"
+      EXPECTED_VERSION: "4.0.0-rc.1"
     steps:
       - name: Materialize target-scoped SSH credentials
         id: ssh
