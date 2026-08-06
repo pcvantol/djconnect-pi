@@ -243,14 +243,31 @@ jobs:
              systemctl is-active djconnect-api.service 2>/dev/null || true
              systemctl is-active djconnect-client.service 2>/dev/null || true'
 
+      - name: Stage the exact approved RC bootstrap bundle
+        id: rc-bootstrap
+        shell: bash
+        run: |
+          set -euo pipefail
+          bundle="${RUNNER_TEMP}/djconnect-pi-${RELEASE_VERSION}.tar.gz"
+          curl --fail --silent --show-error --location --retry 3 --retry-all-errors \
+            "https://github.com/${RELEASE_REPO}/releases/download/v${RELEASE_VERSION}/djconnect-pi-${RELEASE_VERSION}.tar.gz" \
+            --output "${bundle}"
+          test "$(shasum -a 256 "${bundle}" | awk '{print $1}')" = "${ARTIFACT_SHA256}"
+          echo "bundle=${bundle}" >> "${GITHUB_OUTPUT}"
+
       - name: Install the exact approved artifact on Pi
         shell: bash
         env:
           SSH_KEY_FILE: ${{ steps.ssh.outputs.key_file }}
           SSH_KNOWN_HOSTS_FILE: ${{ steps.ssh.outputs.known_hosts_file }}
+          RC_BOOTSTRAP_BUNDLE: ${{ steps.rc-bootstrap.outputs.bundle }}
         run: |
           set -euo pipefail
           ssh_opts=(-i "${SSH_KEY_FILE}" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=${SSH_KNOWN_HOSTS_FILE}" -p "${PI_PORT}")
+          remote_bundle="/home/${PI_USER}/djconnect-install/djconnect-pi-${RELEASE_VERSION}.tar.gz"
+          ssh "${ssh_opts[@]}" "${PI_USER}@${PI_HOST}" "mkdir -p /home/${PI_USER}/djconnect-install"
+          scp -i "${SSH_KEY_FILE}" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=${SSH_KNOWN_HOSTS_FILE}" -P "${PI_PORT}" \
+            "${RC_BOOTSTRAP_BUNDLE}" "${PI_USER}@${PI_HOST}:${remote_bundle}"
           ssh "${ssh_opts[@]}" "${PI_USER}@${PI_HOST}" \
             'set -euo pipefail
              updater=/opt/djconnect/current/bin/djconnect-pi-updater
@@ -263,13 +280,18 @@ jobs:
              if "${updater}" "${common_args[@]}" --channel stable --release-version "'"${RELEASE_VERSION}"'" --dry-run >/dev/null 2>&1; then
                sudo -n "${updater}" "${common_args[@]}" --channel stable --release-version "'"${RELEASE_VERSION}"'"
              else
-               # A pre-4.0 updater cannot parse an RC identifier. Its beta
-               # resolver does support prereleases, so use it once to bootstrap
-               # the authorized RC artifact. The monitor below accepts only the
-               # exact release version from the approved manifest.
+               # A pre-4.0 updater cannot consume an RC wheel. The canonical
+               # release installer is staged from the exact SHA-256-verified
+               # artifact and is permitted by the narrow bootstrap sudoers rule.
                [[ "'"${RELEASE_VERSION}"'" =~ -rc\.[0-9]+$ ]]
-               echo "Bootstrapping legacy updater through the RC channel."
-               sudo -n "${updater}" "${common_args[@]}" --channel beta
+               bootstrap_dir="/home/'"${PI_USER}"'/djconnect-install/djconnect-pi-'"${RELEASE_VERSION}"'"
+               mkdir -p "${bootstrap_dir}"
+               tar -xzf "/home/'"${PI_USER}"'/djconnect-install/djconnect-pi-'"${RELEASE_VERSION}"'.tar.gz" \
+                 -C "/home/'"${PI_USER}"'/djconnect-install"
+               test "$(cat "${bootstrap_dir}/VERSION")" = "'"${RELEASE_VERSION}"'"
+               grep -F "DJCONNECT_VERSION=\\\"'"${RELEASE_VERSION}"'\\\"" "${bootstrap_dir}/scripts/install.sh" >/dev/null
+               echo "Bootstrapping the legacy updater with the exact approved RC installer."
+               sudo -n "${bootstrap_dir}/scripts/install.sh"
              fi'
 
       - name: Monitor exact artifact installation
