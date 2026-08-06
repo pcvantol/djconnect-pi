@@ -52,6 +52,11 @@ accepts the canonical `pi5-arm64` / `pi-zero-2w-arm64` profile, persists it
 under `/etc/djconnect-pi/device-profile`, and keeps the shared OS, service,
 VNC, watchdog and updater baseline identical.
 
+The public release workflow publishes separate signed-checksum arm64 bundles
+for `pi5-arm64` and `pi-zero-2w-arm64`, alongside a temporary legacy bundle for
+existing installs. The profile-aware installer/updater work uses
+`/etc/djconnect-pi/device-profile` as its canonical artifact-selection input.
+
 The 10-inch Pi 5 living-room display is also the dedicated hardware target for
 Universal Receiver readiness checks. The Receiver is a separate,
 browser-based, Home Assistant-hosted projection that Chromium renders only

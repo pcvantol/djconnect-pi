@@ -191,6 +191,11 @@ def test_pi_release_manifest_binds_the_artifact_and_target() -> None:
 
     assert '"artifact_id": "djconnect-pi-${version}.tar.gz"' in workflow
     assert '"target": "rbpi-djconnect"' in workflow
+    assert 'for profile in pi5-arm64 pi-zero-2w-arm64' in workflow
+    assert '"pi5-arm64"' in workflow
+    assert '"pi-zero-2w-arm64"' in workflow
+    assert 'djconnect-pi-pi5-arm64-${version}.tar.gz' in workflow
+    assert 'djconnect-pi-pi-zero-2w-arm64-${version}.tar.gz' in workflow
 
 
 def test_release_workflow_runs_postman_collection_with_newman() -> None:

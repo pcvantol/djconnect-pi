@@ -84,8 +84,9 @@ sudo reboot
 
 With the default `DJCONNECT_DEVICE_PROFILE=auto`, the script detects either
 supported model and persists its profile in `/etc/djconnect-pi/device-profile`.
-The installer and updater use that marker to select the matching arm64 release
-artifact; never copy a Pi 5 release directory to a Pi Zero or vice versa.
+That marker is the canonical input for the profile-aware installer and updater
+to select the matching arm64 release artifact; never copy a Pi 5 release
+directory to a Pi Zero or vice versa.
 
 The bootstrap helper configures the running system to boot to console
 (`multi-user.target`), expands the root filesystem to fill the SD card, sets
