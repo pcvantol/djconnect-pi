@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DJCONNECT_VERSION="${DJCONNECT_VERSION:-4.0.0-rc.1}"
+DJCONNECT_VERSION="${DJCONNECT_VERSION:-4.0.0-rc.2}"
 DJCONNECT_REPO="${DJCONNECT_REPO:-pcvantol/djconnect-pi-releases}"
 DJCONNECT_HA_URL="${DJCONNECT_HA_URL:-http://homeassistant.local:8123}"
 DJCONNECT_RUNTIME_USER="${DJCONNECT_RUNTIME_USER:-djconnect}"
@@ -480,7 +480,7 @@ payload = {
     "device_name": "DJConnect Pi",
     "device_token": "",
     "paired": False,
-    "version": "4.0.0-rc.1",
+    "version": "4.0.0-rc.2",
     "update_repo": "pcvantol/djconnect-pi-releases",
     "update_channel": "stable",
     "release_profile": release_profile,

@@ -13,7 +13,7 @@ from typing import Any
 from .i18n import normalize_language
 
 CLIENT_TYPE = "raspberry_pi"
-PROTOCOL_VERSION = "4.0.0-rc.1"
+PROTOCOL_VERSION = "4.0.0-rc.2"
 DEFAULT_CONFIG_PATH = Path.home() / ".config" / "djconnect-pi" / "config.json"
 DEFAULT_LOG_PATH = Path.home() / ".local" / "state" / "djconnect-pi" / "client.log"
 
