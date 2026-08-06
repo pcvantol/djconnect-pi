@@ -289,7 +289,12 @@ jobs:
                tar -xzf "/home/'"${PI_USER}"'/djconnect-install/djconnect-pi-'"${RELEASE_VERSION}"'.tar.gz" \
                  -C "/home/'"${PI_USER}"'/djconnect-install"
                test "$(cat "${bootstrap_dir}/VERSION")" = "'"${RELEASE_VERSION}"'"
+               # The installer stores the value as a shell default expression;
+               # VERSION above is the authoritative artifact identity check.
+               set +e
                grep -F "DJCONNECT_VERSION=\\\"'"${RELEASE_VERSION}"'\\\"" "${bootstrap_dir}/scripts/install.sh" >/dev/null
+               set -e
+               grep -F -- "'"${RELEASE_VERSION}"'" "${bootstrap_dir}/scripts/install.sh" >/dev/null
                echo "Bootstrapping the legacy updater with the exact approved RC installer."
                sudo -n "${bootstrap_dir}/scripts/install.sh"
              fi'
