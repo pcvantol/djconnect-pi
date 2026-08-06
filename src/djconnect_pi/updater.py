@@ -19,12 +19,15 @@ from .config import DEFAULT_CONFIG_PATH, load_config
 
 PIP_CACHE_DIR = Path("/var/cache/djconnect-pip")
 UPGRADE_PIP_ENV = "DJCONNECT_UPGRADE_PIP"
+SUPPORTED_RELEASE_PROFILES = frozenset({"pi5-arm64", "pi-zero-2w-arm64"})
+DEVICE_PROFILE_PATH = Path("/etc/djconnect-pi/device-profile")
 
 
 @dataclass
 class UpdaterConfig:
     repo: str
     channel: str = "stable"
+    release_profile: str = ""
     install_root: Path = Path("/opt/djconnect")
     service_names: Sequence[str] = ("djconnect-api.service", "djconnect-client.service")
     stop_service_names: Sequence[str] = (
@@ -95,18 +98,35 @@ def public_release_manifest(repo: str, url: str) -> dict:
         raise RuntimeError("Latest release manifest has no version")
     bundle_url = str(data.get("bundle") or "").strip()
     checksum_url = str(data.get("checksum") or "").strip()
+    profile_assets = data.get("artifacts") if isinstance(data.get("artifacts"), dict) else {}
+    assets: list[dict[str, str]] = []
+    for profile, value in profile_assets.items():
+        if not isinstance(value, dict):
+            continue
+        profile_name = str(profile).strip()
+        profile_bundle = str(value.get("bundle") or "").strip()
+        profile_checksum = str(value.get("checksum") or "").strip()
+        if profile_name and profile_bundle and profile_checksum:
+            assets.extend(
+                [
+                    {"name": f"djconnect-pi-{profile_name}-{version}.tar.gz", "browser_download_url": profile_bundle},
+                    {"name": f"djconnect-pi-{profile_name}-{version}.sha256", "browser_download_url": profile_checksum},
+                ]
+            )
     if not bundle_url or not checksum_url:
         tag = f"v{version}"
         bundle_url = f"https://github.com/{repo}/releases/download/{tag}/djconnect-pi-{version}.tar.gz"
         checksum_url = f"https://github.com/{repo}/releases/download/{tag}/djconnect-pi-{version}.sha256"
+    if not assets:
+        assets = [
+            {"name": f"djconnect-pi-{version}.tar.gz", "browser_download_url": bundle_url},
+            {"name": f"djconnect-pi-{version}.sha256", "browser_download_url": checksum_url},
+        ]
     return {
         "tag_name": f"v{version}",
         "draft": False,
         "prerelease": bool(data.get("prerelease")),
-        "assets": [
-            {"name": f"djconnect-pi-{version}.tar.gz", "browser_download_url": bundle_url},
-            {"name": f"djconnect-pi-{version}.sha256", "browser_download_url": checksum_url},
-        ],
+        "assets": assets,
     }
 
 
@@ -181,10 +201,11 @@ def _safe_members_without_bundle_root(tar: tarfile.TarFile) -> list[tarfile.TarI
     return stripped_members
 
 
-def unpack_release(bundle: Path, version: str, root: Path) -> Path:
+def unpack_release(bundle: Path, version: str, root: Path, release_profile: str = "") -> Path:
     releases = root / "releases"
-    target = releases / version
-    tmp_target = releases / f".{version}.tmp"
+    release_id = f"{version}-{release_profile}" if release_profile else version
+    target = releases / release_id
+    tmp_target = releases / f".{release_id}.tmp"
     releases.mkdir(parents=True, exist_ok=True)
     if target.exists() and (target / "VERSION").exists() and (target / "wheels").exists():
         return target
@@ -324,8 +345,8 @@ def activate_release(release_dir: Path, root: Path) -> None:
     os.replace(new_link, current)
 
 
-def install_release(bundle: Path, version: str, root: Path, status: UpdateStatus | None = None) -> Path:
-    target = unpack_release(bundle, version, root)
+def install_release(bundle: Path, version: str, root: Path, status: UpdateStatus | None = None, release_profile: str = "") -> Path:
+    target = unpack_release(bundle, version, root, release_profile)
     if status is not None:
         status.write("installing", f"Release {version} installeren", 34)
     install_python_dependencies(target, version, status=status)
@@ -394,7 +415,21 @@ def current_version(root: Path) -> str:
     return "0.0.0"
 
 
+def resolve_release_profile(value: str) -> str:
+    profile = value.strip()
+    if not profile and DEVICE_PROFILE_PATH.is_file():
+        profile = DEVICE_PROFILE_PATH.read_text(encoding="utf-8").strip()
+    if profile not in SUPPORTED_RELEASE_PROFILES:
+        raise RuntimeError("DJConnect Pi release profile is missing or unsupported; run the canonical bootstrap first")
+    return profile
+
+
+def profile_asset_url(release: dict, version: str, profile: str, extension: str) -> str:
+    return asset_url(release, f"-{profile}-{version}{extension}")
+
+
 def run(cfg: UpdaterConfig, dry_run: bool = False, release_version: str = "") -> str:
+    profile = resolve_release_profile(cfg.release_profile)
     release = public_release(cfg.repo, release_version) if release_version else (
         github_latest_release(cfg.repo, include_prerelease=True)
         if include_prerelease(cfg.channel)
@@ -407,8 +442,8 @@ def run(cfg: UpdaterConfig, dry_run: bool = False, release_version: str = "") ->
     if version == installed_version:
         return f"Already on {version}"
 
-    bundle_url = asset_url(release, ".tar.gz")
-    checksum_url = asset_url(release, ".sha256")
+    bundle_url = profile_asset_url(release, version, profile, ".tar.gz")
+    checksum_url = profile_asset_url(release, version, profile, ".sha256")
     if dry_run:
         return json.dumps({"version": version, "bundle": bundle_url, "checksum": checksum_url}, indent=2)
 
@@ -429,7 +464,7 @@ def run(cfg: UpdaterConfig, dry_run: bool = False, release_version: str = "") ->
             download(checksum_url, checksum)
             status.write("verifying", "Release controleren", 32)
             verify_sha256(bundle, checksum)
-            release_dir = install_release(bundle, version, cfg.install_root, status=status)
+            release_dir = install_release(bundle, version, cfg.install_root, status=status, release_profile=profile)
             refresh_systemd_units(release_dir)
         status.write("cleanup", "Oude releases opruimen", 99)
         cleanup_old_releases(cfg.install_root, cfg.keep_releases)
@@ -465,6 +500,7 @@ def config_from_file(
     return UpdaterConfig(
         repo=repo,
         channel=channel,
+        release_profile=app_cfg.release_profile,
         install_root=install_root,
         service_names=service_names,
         stop_service_names=stop_service_names,

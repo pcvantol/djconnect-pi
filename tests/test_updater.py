@@ -42,6 +42,25 @@ def test_asset_url_finds_suffix() -> None:
     assert updater.asset_url(make_release(), ".sha256") == "https://example/bundle.sha256"
 
 
+def test_profile_asset_url_requires_the_matching_hardware_bundle() -> None:
+    release = {
+        "assets": [
+            {"name": "djconnect-pi-pi5-arm64-0.2.0.tar.gz", "browser_download_url": "https://example/pi5.tar.gz"},
+            {"name": "djconnect-pi-pi5-arm64-0.2.0.sha256", "browser_download_url": "https://example/pi5.sha256"},
+            {"name": "djconnect-pi-pi-zero-2w-arm64-0.2.0.tar.gz", "browser_download_url": "https://example/zero.tar.gz"},
+        ]
+    }
+
+    assert updater.profile_asset_url(release, "0.2.0", "pi5-arm64", ".tar.gz") == "https://example/pi5.tar.gz"
+    with pytest.raises(RuntimeError, match="pi-zero-2w-arm64-0.2.0.sha256"):
+        updater.profile_asset_url(release, "0.2.0", "pi-zero-2w-arm64", ".sha256")
+
+
+def test_resolve_release_profile_rejects_unknown_profile() -> None:
+    with pytest.raises(RuntimeError, match="release profile"):
+        updater.resolve_release_profile("wrong-profile")
+
+
 def test_include_prerelease_only_for_beta_channel() -> None:
     assert updater.include_prerelease("stable") is False
     assert updater.include_prerelease("beta") is True

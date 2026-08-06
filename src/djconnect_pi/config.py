@@ -29,6 +29,7 @@ class Config:
     version: str = PROTOCOL_VERSION
     update_repo: str = "pcvantol/djconnect-pi-releases"
     update_channel: str = "stable"
+    release_profile: str = ""
     local_url: str = ""
     # The Pi local API intentionally listens on the LAN by default.
     local_api_host: str = "0.0.0.0"  # nosec B104
@@ -125,6 +126,7 @@ def load_config(path: Path) -> Config:
     cfg.private_session = bool(cfg.private_session)
     if cfg.update_channel not in {"stable", "beta"}:
         cfg.update_channel = "stable"
+    cfg.release_profile = str(cfg.release_profile or "").strip()
     cfg.dj_announcement_output_user_set = bool(cfg.dj_announcement_output_user_set)
     return cfg
 

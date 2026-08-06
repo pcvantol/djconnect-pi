@@ -42,6 +42,9 @@ def test_install_script_enables_local_api_service() -> None:
     assert "/bin/systemctl start djconnect-updater.service" in script
     assert "visudo -cf" in script
     assert "Local Client API starts automatically via djconnect-api.service." in script
+    assert "release_profile()" in script
+    assert "/etc/djconnect-pi/device-profile" in script
+    assert "djconnect-pi-%s-%s" in script
 
 
 def test_bootstrap_configures_narrow_installer_sudoers_for_pi_user() -> None:
