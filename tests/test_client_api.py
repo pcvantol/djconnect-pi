@@ -64,7 +64,7 @@ def test_client_api_info_and_pairing_info(tmp_path: Path) -> None:
     assert info["local_url"] == cfg.local_url
     assert info["paired"] is False
     assert info["ha_pairing_status"] == "pending"
-    assert info["capabilities"]["local_dj_response_endpoint"] is False
+    assert info["capabilities"]["local_dj_response_endpoint"] is True
     assert info["capabilities"]["ask_dj_supported"] is True
     assert info["capabilities"]["ask_dj_mode"] == "readonly_actions"
     assert info["capabilities"]["ask_dj_free_input_supported"] is False
@@ -113,7 +113,7 @@ def test_postman_collection_documents_local_api_endpoints() -> None:
     assert "{{client_api_url}}/api/device/pairing-info" in urls
     assert "{{client_api_url}}/api/device/pair" in urls
     assert "{{client_api_url}}/api/device/command" in urls
-    assert "{{client_api_url}}/api/device/dj_response" not in urls
+    assert "{{client_api_url}}/api/device/dj_response" in urls
     assert "{{client_api_url}}/api/debug/screenshot" in urls
     assert "{{client_api_url}}/api/device/forget" in urls
     assert "{{client_api_url}}/api/device/restart" in urls
@@ -505,8 +505,10 @@ def test_client_api_pairing_info_reloads_rotated_pairing_code(tmp_path: Path) ->
     assert pairing["pairing_token"] == "654321"
 
 
-def test_client_api_does_not_expose_local_dj_response_endpoint(tmp_path: Path) -> None:
+def test_client_api_delivers_authenticated_dj_response_to_touch_ui(tmp_path: Path) -> None:
+    commands: list[tuple[str, dict[str, object]]] = []
     api, cfg, events = start_api(tmp_path, device_token="token-1")
+    api.server.state.command_handler = lambda command, payload: commands.append((command, payload)) or {"success": True, "displayed": True}
     try:
         response = requests.post(
             f"{cfg.local_url}/api/device/dj_response",
@@ -517,7 +519,9 @@ def test_client_api_does_not_expose_local_dj_response_endpoint(tmp_path: Path) -
     finally:
         api.stop()
 
-    assert response.status_code == 404
+    assert response.status_code == 200
+    assert response.json() == {"success": True, "displayed": True}
+    assert commands == [("dj_response", {"text": "Hoi"})]
     assert events == []
 
 

@@ -6,14 +6,20 @@ import "MoodTheme.js" as MoodTheme
 
 Window {
     id: root
-    width: 720
-    height: 720
+    width: wallProfile ? Screen.width : 720
+    height: wallProfile ? Screen.height : 720
     visible: true
     color: "#080b18"
     title: "DJConnect"
     visibility: startWindowed ? Window.Windowed : Window.FullScreen
 
-    property real edge: 28
+    property bool wallProfile: djconnect.releaseProfile === "pi5-arm64"
+    property bool liquidGlassEnabled: wallProfile
+    property real edge: wallProfile ? Math.max(56, width * 0.07) : 28
+    property real wallTypeScale: wallProfile ? Math.min(width / 900, height / 1440) : 1
+    property int motionFast: wallProfile ? 180 : 140
+    property int motionStandard: wallProfile ? 360 : 240
+    property int motionAmbient: wallProfile ? 4200 : 0
     property bool splashVisible: true
     property string activeScreen: "now"
     property bool settingsOpen: activeScreen === "settings"
@@ -228,14 +234,17 @@ Window {
         }
         background: Rectangle {
             radius: root.standardButtonRadius
-            border.width: 0
+            border.width: root.liquidGlassEnabled ? 1 : 0
+            border.color: "#6effffff"
             gradient: Gradient {
                 orientation: Gradient.Horizontal
-                GradientStop { position: 0.0; color: control.enabled ? root.moodColor("gradientStart") : root.moodDisabledColor("start") }
-                GradientStop { position: 0.58; color: control.enabled ? root.moodColor("gradientMid") : root.moodDisabledColor("mid") }
-                GradientStop { position: 1.0; color: control.enabled ? root.moodColor("gradientEnd") : root.moodDisabledColor("end") }
+                GradientStop { position: 0.0; color: control.enabled && root.liquidGlassEnabled ? "#bc" + root.moodColor("gradientStart").slice(1) : (control.enabled ? root.moodColor("gradientStart") : root.moodDisabledColor("start")) }
+                GradientStop { position: 0.58; color: control.enabled && root.liquidGlassEnabled ? "#a8" + root.moodColor("gradientMid").slice(1) : (control.enabled ? root.moodColor("gradientMid") : root.moodDisabledColor("mid")) }
+                GradientStop { position: 1.0; color: control.enabled && root.liquidGlassEnabled ? "#b8" + root.moodColor("gradientEnd").slice(1) : (control.enabled ? root.moodColor("gradientEnd") : root.moodDisabledColor("end")) }
             }
             opacity: control.down ? 0.78 : (control.enabled ? 1.0 : 0.62)
+            scale: control.down ? 0.975 : 1
+            Behavior on scale { NumberAnimation { duration: root.motionFast; easing.type: Easing.OutCubic } }
         }
     }
 
@@ -669,7 +678,15 @@ Window {
             loops: Animation.Infinite
             from: 0
             to: 360
-            duration: 900
+            duration: root.wallProfile ? 1200 : 900
+            easing.type: Easing.InOutSine
+        }
+
+        SequentialAnimation on scale {
+            running: spinner.running && spinner.visible && root.wallProfile
+            loops: Animation.Infinite
+            NumberAnimation { to: 1.12; duration: 760; easing.type: Easing.InOutSine }
+            NumberAnimation { to: 0.94; duration: 760; easing.type: Easing.InOutSine }
         }
     }
 
@@ -743,13 +760,55 @@ Window {
         }
 
         Rectangle {
+            width: parent.width * 0.94
+            height: width
+            radius: width / 2
+            x: -width * 0.30
+            y: parent.height * 0.08
+            color: root.moodColor("overlayStart")
+            opacity: root.liquidGlassEnabled ? 0.16 : 0
+            scale: 0.94
+
+            SequentialAnimation on scale {
+                running: root.liquidGlassEnabled && !root.screenBlanked
+                loops: Animation.Infinite
+                NumberAnimation { to: 1.08; duration: 7200; easing.type: Easing.InOutSine }
+                NumberAnimation { to: 0.94; duration: 7200; easing.type: Easing.InOutSine }
+            }
+        }
+
+        Rectangle {
+            width: parent.width * 0.82
+            height: width
+            radius: width / 2
+            x: parent.width - width * 0.58
+            y: parent.height * 0.48
+            color: root.moodColor("overlayEnd")
+            opacity: root.liquidGlassEnabled ? 0.14 : 0
+            scale: 1.05
+
+            SequentialAnimation on scale {
+                running: root.liquidGlassEnabled && !root.screenBlanked
+                loops: Animation.Infinite
+                NumberAnimation { to: 0.92; duration: 8200; easing.type: Easing.InOutSine }
+                NumberAnimation { to: 1.05; duration: 8200; easing.type: Easing.InOutSine }
+            }
+        }
+
+        Rectangle {
             anchors.fill: parent
-            opacity: 0.36
+            opacity: root.wallProfile ? 0.48 : 0.36
             gradient: Gradient {
                 orientation: Gradient.Horizontal
                 GradientStop { position: 0.0; color: root.moodColor("overlayStart") }
                 GradientStop { position: 0.48; color: "#00000000" }
                 GradientStop { position: 1.0; color: root.moodColor("overlayEnd") }
+            }
+            SequentialAnimation on opacity {
+                running: root.wallProfile && !root.screenBlanked
+                loops: Animation.Infinite
+                NumberAnimation { to: 0.62; duration: 5200; easing.type: Easing.InOutSine }
+                NumberAnimation { to: 0.42; duration: 5200; easing.type: Easing.InOutSine }
             }
         }
     }
@@ -757,26 +816,41 @@ Window {
     component AppBanner: Rectangle {
         id: appBanner
         property string detailText: root.tr("tagline")
-        property int logoSize: 84
-        property int titleSize: 38
-        property int detailSize: 20
-        property int horizontalPadding: 28
-        property int verticalPadding: 18
-        property int contentSpacing: 22
+        property int logoSize: root.wallProfile ? 128 : 84
+        property int titleSize: root.wallProfile ? 52 : 38
+        property int detailSize: root.wallProfile ? 26 : 20
+        property int horizontalPadding: root.wallProfile ? 38 : 28
+        property int verticalPadding: root.wallProfile ? 28 : 18
+        property int contentSpacing: root.wallProfile ? 30 : 22
 
         Layout.fillWidth: true
-        Layout.preferredHeight: 132
-        radius: 24
-        color: "#171029"
-        border.color: "#3b2a63"
+        Layout.preferredHeight: root.wallProfile ? 190 : 132
+        radius: root.wallProfile ? 32 : 24
+        color: root.liquidGlassEnabled ? "#8a101426" : "#171029"
+        border.color: root.liquidGlassEnabled ? "#82ffffff" : "#3b2a63"
         border.width: 1
         clip: true
         gradient: Gradient {
             orientation: Gradient.Horizontal
-            GradientStop { position: 0.0; color: root.moodColor("bannerStart") }
-            GradientStop { position: 0.42; color: root.moodColor("bannerMid") }
-            GradientStop { position: 0.72; color: root.moodColor("surface") }
-            GradientStop { position: 1.0; color: root.moodColor("bannerEnd") }
+            GradientStop { position: 0.0; color: root.liquidGlassEnabled ? "#8c" + root.moodColor("bannerStart").slice(1) : root.moodColor("bannerStart") }
+            GradientStop { position: 0.42; color: root.liquidGlassEnabled ? "#78" + root.moodColor("bannerMid").slice(1) : root.moodColor("bannerMid") }
+            GradientStop { position: 0.72; color: root.liquidGlassEnabled ? "#70" + root.moodColor("surface").slice(1) : root.moodColor("surface") }
+            GradientStop { position: 1.0; color: root.liquidGlassEnabled ? "#88" + root.moodColor("bannerEnd").slice(1) : root.moodColor("bannerEnd") }
+        }
+
+        Rectangle {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.margins: 1
+            height: root.liquidGlassEnabled ? 2 : 0
+            radius: height / 2
+            gradient: Gradient {
+                orientation: Gradient.Horizontal
+                GradientStop { position: 0.0; color: "#18ffffff" }
+                GradientStop { position: 0.5; color: "#c8ffffff" }
+                GradientStop { position: 1.0; color: "#18ffffff" }
+            }
         }
 
         RowLayout {
@@ -4233,6 +4307,7 @@ Window {
         visible: !root.splashVisible && !djconnect.paired && !djconnect.demoMode
         z: 30
 
+        AppBackground {}
         ModalBlocker {}
 
         ColumnLayout {
@@ -4264,8 +4339,10 @@ Window {
             Rectangle {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 76
-                radius: 8
-                color: "#5524145f"
+                radius: root.liquidGlassEnabled ? 16 : 8
+                color: root.liquidGlassEnabled ? "#7024145f" : "#5524145f"
+                border.width: root.liquidGlassEnabled ? 1 : 0
+                border.color: "#48ffffff"
 
                 ColumnLayout {
                     anchors.fill: parent
@@ -4295,8 +4372,10 @@ Window {
             Rectangle {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 98
-                radius: 8
-                color: "#5524145f"
+                radius: root.liquidGlassEnabled ? 16 : 8
+                color: root.liquidGlassEnabled ? "#7024145f" : "#5524145f"
+                border.width: root.liquidGlassEnabled ? 1 : 0
+                border.color: "#48ffffff"
 
                 ColumnLayout {
                     anchors.fill: parent
@@ -4324,8 +4403,10 @@ Window {
             Rectangle {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 76
-                radius: 8
-                color: "#5524145f"
+                radius: root.liquidGlassEnabled ? 16 : 8
+                color: root.liquidGlassEnabled ? "#7024145f" : "#5524145f"
+                border.width: root.liquidGlassEnabled ? 1 : 0
+                border.color: "#48ffffff"
 
                 ColumnLayout {
                     anchors.fill: parent
@@ -4355,8 +4436,10 @@ Window {
             Rectangle {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 72
-                radius: 8
-                color: root.moodColor("chip")
+                radius: root.liquidGlassEnabled ? 16 : 8
+                color: root.liquidGlassEnabled ? "#7024145f" : root.moodColor("chip")
+                border.width: root.liquidGlassEnabled ? 1 : 0
+                border.color: "#48ffffff"
 
                 RowLayout {
                     anchors.fill: parent
@@ -4438,6 +4521,7 @@ Window {
         visible: !root.splashVisible && djconnect.pairingSuccessVisible
         z: 34
 
+        AppBackground {}
         ModalBlocker {}
 
         ColumnLayout {
@@ -4518,16 +4602,41 @@ Window {
             GradientStop { position: 0.5; color: root.moodColor("backgroundMid") }
             GradientStop { position: 1.0; color: root.moodColor("backgroundEnd") }
         }
-        visible: root.splashVisible
+        opacity: root.splashVisible ? 1 : 0
+        visible: opacity > 0
         z: 40
+
+        Behavior on opacity { NumberAnimation { duration: root.motionStandard; easing.type: Easing.OutCubic } }
+
+        Rectangle {
+            width: root.wallProfile ? root.width * 0.84 : root.width * 0.7
+            height: width
+            radius: width / 2
+            anchors.centerIn: parent
+            color: "#5865ff"
+            opacity: root.wallProfile ? 0.12 : 0.08
+            scale: 0.92
+
+            SequentialAnimation on scale {
+                running: splashPanel.visible && root.wallProfile
+                loops: Animation.Infinite
+                NumberAnimation { to: 1.08; duration: 3400; easing.type: Easing.InOutSine }
+                NumberAnimation { to: 0.92; duration: 3400; easing.type: Easing.InOutSine }
+            }
+        }
 
         ModalBlocker {}
 
         Rectangle {
             anchors.centerIn: parent
             width: Math.min(parent.width - 64, 560)
-            height: 300
+            height: root.wallProfile ? 350 : 300
             color: "#00000000"
+            scale: root.splashVisible ? 1 : 0.96
+            y: root.splashVisible ? 0 : 18
+
+            Behavior on scale { NumberAnimation { duration: root.motionStandard; easing.type: Easing.OutBack } }
+            Behavior on y { NumberAnimation { duration: root.motionStandard; easing.type: Easing.OutCubic } }
 
             ColumnLayout {
                 anchors.fill: parent
@@ -4535,23 +4644,23 @@ Window {
 
                 AppBanner {
                     detailText: "v" + djconnect.version
-                    titleSize: 42
-                    detailSize: 20
-                    logoSize: 92
+                    titleSize: root.wallProfile ? 52 : 42
+                    detailSize: root.wallProfile ? 26 : 20
+                    logoSize: root.wallProfile ? 128 : 92
                 }
 
                 Text {
                     text: root.tr("startup_message")
                     color: "#9fb4b8"
-                    font.pixelSize: 18
+                    font.pixelSize: root.wallProfile ? 24 : 18
                     horizontalAlignment: Text.AlignHCenter
                     Layout.fillWidth: true
                 }
 
-                BusyIndicator {
+                LoadingSpinner {
                     running: splashPanel.visible
-                    implicitWidth: 42
-                    implicitHeight: 42
+                    implicitWidth: root.wallProfile ? 54 : 42
+                    implicitHeight: root.wallProfile ? 54 : 42
                     Layout.alignment: Qt.AlignHCenter
                 }
             }
@@ -4572,15 +4681,36 @@ Window {
         visible: opacity > 0
         z: 70
         y: djconnect.toastVisible ? 0 : -16
+        scale: djconnect.toastVisible ? 1 : 0.94
+        transformOrigin: Item.Top
         gradient: Gradient {
             orientation: Gradient.Horizontal
-            GradientStop { position: 0.0; color: root.moodColor("toastStart") }
-            GradientStop { position: 0.52; color: root.moodColor("toastMid") }
-            GradientStop { position: 1.0; color: root.moodColor("toastEnd") }
+            GradientStop { position: 0.0; color: root.liquidGlassEnabled ? "#bd" + root.moodColor("toastStart").slice(1) : root.moodColor("toastStart") }
+            GradientStop { position: 0.52; color: root.liquidGlassEnabled ? "#a8" + root.moodColor("toastMid").slice(1) : root.moodColor("toastMid") }
+            GradientStop { position: 1.0; color: root.liquidGlassEnabled ? "#ba" + root.moodColor("toastEnd").slice(1) : root.moodColor("toastEnd") }
         }
 
-        Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
-        Behavior on y { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+        Rectangle {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.margins: 2
+            height: 2
+            radius: 2
+            color: "#bfffffff"
+            opacity: root.liquidGlassEnabled ? 0.72 : 0
+        }
+
+        Behavior on opacity { NumberAnimation { duration: root.motionFast; easing.type: Easing.OutCubic } }
+        Behavior on y { NumberAnimation { duration: root.motionStandard; easing.type: Easing.OutBack } }
+        Behavior on scale { NumberAnimation { duration: root.motionStandard; easing.type: Easing.OutBack } }
+
+        SequentialAnimation on border.color {
+            running: djconnect.toastVisible && root.wallProfile
+            loops: Animation.Infinite
+            ColorAnimation { to: "#f0e8ff"; duration: 1200; easing.type: Easing.InOutSine }
+            ColorAnimation { to: "#b8ffffff"; duration: 1200; easing.type: Easing.InOutSine }
+        }
 
         Row {
             anchors.centerIn: parent

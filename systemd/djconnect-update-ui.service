@@ -1,7 +1,7 @@
 [Unit]
 Description=DJConnect Raspberry Pi update progress UI
-After=systemd-user-sessions.service
-Conflicts=djconnect-client.service
+After=systemd-user-sessions.service djconnect-client.service djconnect-vnc.service
+Conflicts=djconnect-client.service djconnect-vnc.service
 
 [Service]
 Type=simple

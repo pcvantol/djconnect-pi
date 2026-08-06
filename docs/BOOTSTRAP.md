@@ -1,14 +1,17 @@
-# Bootstrap Raspberry Pi Zero 2 W + HyperPixel
+# Bootstrap a DJConnect Raspberry Pi appliance
 
-This guide starts from a blank Raspberry Pi Zero 2 W with a Pimoroni HyperPixel
-4.0 Square Touch display.
+Use this guide for both supported native DJConnect appliances: the 10-inch Pi
+5 wall display and the 4-inch Pi Zero 2 W HyperPixel display. Both use the
+same canonical bootstrap script; only the hardware profile and display overlay
+are different.
 
 ## Requirements
 
 Hardware:
 
-- Raspberry Pi Zero 2 W
-- Pimoroni HyperPixel 4.0 Square Touch
+- Pi 5 with 10-inch touch panel (`pi5-arm64`), or
+- Raspberry Pi Zero 2 W with Pimoroni HyperPixel 4.0 Square Touch
+  (`pi-zero-2w-arm64`)
 - quality 5V power supply, preferably 2A or better
 - microSD card, 16 GB minimum, 32 GB or larger recommended
 - Wi-Fi network with access to Home Assistant
@@ -71,9 +74,19 @@ else
   git clone https://github.com/pcvantol/djconnect-pi.git "$HOME/djconnect-pi"
   cd "$HOME/djconnect-pi"
 fi
-sudo ./scripts/bootstrap_raspberry_pi_os.sh
+# Pi 5 / 10-inch wall display
+sudo DJCONNECT_DEVICE_PROFILE=pi5-arm64 DJCONNECT_INSTALL_HYPERPIXEL=0 ./scripts/bootstrap_raspberry_pi_os.sh
+
+# Pi Zero 2 W / HyperPixel 4-inch display
+sudo DJCONNECT_DEVICE_PROFILE=pi-zero-2w-arm64 ./scripts/bootstrap_raspberry_pi_os.sh
 sudo reboot
 ```
+
+With the default `DJCONNECT_DEVICE_PROFILE=auto`, the script detects either
+supported model and persists its profile in `/etc/djconnect-pi/device-profile`.
+That marker is the canonical input for the profile-aware installer and updater
+to select the matching arm64 release artifact; never copy a Pi 5 release
+directory to a Pi Zero or vice versa.
 
 The bootstrap helper configures the running system to boot to console
 (`multi-user.target`), expands the root filesystem to fill the SD card, sets
@@ -188,9 +201,9 @@ completed:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.3.0.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/download/v4.0.0-rc.1/djconnect-pi-4.0.0-rc.1.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.3.0
+cd djconnect-pi-4.0.0-rc.1
 sudo ./scripts/install.sh
 ```
 
@@ -218,9 +231,9 @@ development checkout:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.3.0.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/download/v4.0.0-rc.1/djconnect-pi-4.0.0-rc.1.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.3.0
+cd djconnect-pi-4.0.0-rc.1
 sudo ./scripts/install.sh
 ```
 

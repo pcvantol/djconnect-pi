@@ -45,8 +45,8 @@ for arg in "$@"; do
   esac
 done
 
-if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-  echo "Invalid version: $1. Use semantic version format, for example 0.1.0." >&2
+if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$ ]]; then
+  echo "Invalid version: $1. Use SemVer format, for example 0.1.0 or 4.0.0-rc.1." >&2
   exit 64
 fi
 
@@ -89,10 +89,11 @@ import re
 from pathlib import Path
 
 version = os.environ["VERSION"]
+package_version = re.sub(r"-rc\.(\d+)$", r"rc\1", version)
 dry_run = os.environ["DRY_RUN"] == "true"
 
 replacements = {
-    "pyproject.toml": [(r'^version = "[^"]+"$', f'version = "{version}"')],
+    "pyproject.toml": [(r'^version = "[^"]+"$', f'version = "{package_version}"')],
     "src/djconnect_pi/__init__.py": [(r'^__version__ = "[^"]+"$', f'__version__ = "{version}"')],
     "src/djconnect_pi/config.py": [(r'^PROTOCOL_VERSION = "[^"]+"$', f'PROTOCOL_VERSION = "{version}"')],
     "scripts/install.sh": [

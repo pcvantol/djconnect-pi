@@ -1,6 +1,6 @@
 # DJConnect Pi
 
-Version: `3.3.0` (dry-run candidate; not published)
+Version: `4.0.0-rc.1` (Platform release candidate; not yet stable)
 
 Raspberry Pi Zero 2 W touch-display client for DJConnect. This client uses
 Qt Quick/QML with a PySide6 backend and is meant for a Pimoroni HyperPixel 4.0
@@ -45,6 +45,17 @@ running separately from the touch UI.
 The native Pi client remains the product implementation for the compact
 4-inch and 10-inch touch displays. It is a Qt Quick/QML application and is not
 replaced by a browser.
+
+Both appliances are initially prepared with the canonical
+`scripts/bootstrap_raspberry_pi_os.sh` source-repository script. It detects or
+accepts the canonical `pi5-arm64` / `pi-zero-2w-arm64` profile, persists it
+under `/etc/djconnect-pi/device-profile`, and keeps the shared OS, service,
+VNC, watchdog and updater baseline identical.
+
+The public release workflow publishes separate signed-checksum arm64 bundles
+for `pi5-arm64` and `pi-zero-2w-arm64`, alongside a temporary legacy bundle for
+existing installs. The profile-aware installer/updater work uses
+`/etc/djconnect-pi/device-profile` as its canonical artifact-selection input.
 
 The 10-inch Pi 5 living-room display is also the dedicated hardware target for
 Universal Receiver readiness checks. The Receiver is a separate,
@@ -195,6 +206,7 @@ authorized Universal Receiver session/Broadcast smoke scenario.
   - `GET /api/device/pairing-info`
   - `POST /api/device/pair`
   - `POST /api/device/command`
+  - `POST /api/device/dj_response` (authenticated ambient DJ-moment text; wakes the display temporarily)
   - `POST /api/device/forget`
   - `POST /api/device/restart`
   - `POST /api/device/shutdown`
@@ -238,16 +250,24 @@ authorized Universal Receiver session/Broadcast smoke scenario.
   - `start_playlist` for playlist rows
   - `ask_dj_action` for HA-provided structured Ask DJ action buttons
 - Version compatibility:
-  - client `3.2.z` works with DJConnect HA `>=3.2.0` and `<3.3.0`
+  - client `4.0.z` works with DJConnect HA `>=4.0.0-rc.1` and `<4.1.0`
   - HA responses may include `ha_version` or `ha_major_minor`
   - incompatible HA versions show a blocking screen and trigger
     `djconnect-updater.service` without clearing the pairing token
 
 ## UI Shape
 
-The app is a 720x720 fullscreen touch remote:
+The app is a fullscreen touch remote with hardware-aware presentation:
 
-- full-screen DJConnect startup splash with spinner
+- Pi Zero 2 W / 4-inch uses the compact 720x720 touch layout.
+- Pi 5 / 10-inch wall uses the physical portrait canvas. The current living-room
+  target renders at 1200x1920; 1920x1200 would be the landscape orientation.
+- The Pi 5 route uses premium but restrained motion: an entering splash,
+  breathing loading indicator, spring-like toasts, responsive touch feedback
+  and smoothly interpolated update progress. Motion is intentionally subtle so
+  an ambient screen remains calm when viewed across the room.
+
+- full-screen DJConnect startup splash with breathing spinner
 - dark DJConnect visual theme with blue/purple gradient backgrounds
 - blocking first-run pairing screen until the client is paired
 - blocking version-mismatch screen when HA and Pi versions are incompatible
@@ -256,7 +276,8 @@ The app is a 720x720 fullscreen touch remote:
   unobstructed album art and title/artist overlay. The selected mood is stored
   locally and sent to Home Assistant with status, command, Ask DJ, Track
   Insight and Music DNA requests.
-- macOS-style gradient toast notifications for short action/backend feedback
+- gradient toast notifications for short action/backend feedback, with a soft
+  entrance and exit on the Pi 5 profile
 - HA-provided album art on Now Playing, Queue and Playlists, loaded
   asynchronously; Now Playing artwork is cached locally before QML renders it,
   while Queue and Playlist background caching is limited to the first visible
@@ -372,9 +393,9 @@ not a private source clone:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.3.0.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/download/v4.0.0-rc.1/djconnect-pi-4.0.0-rc.1.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.3.0
+cd djconnect-pi-4.0.0-rc.1
 sudo ./scripts/install.sh
 ```
 
@@ -515,9 +536,9 @@ installer:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/latest/download/djconnect-pi-3.3.0.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/download/v4.0.0-rc.1/djconnect-pi-4.0.0-rc.1.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-3.3.0
+cd djconnect-pi-4.0.0-rc.1
 sudo ./scripts/install.sh
 ```
 

@@ -15,6 +15,13 @@ def _project_version() -> str:
     return str(data["project"]["version"])
 
 
+def _public_release_version() -> str:
+    package = ROOT.joinpath("src", "djconnect_pi", "__init__.py").read_text(encoding="utf-8")
+    match = re.search(r'^__version__ = "(?P<version>[^"]+)"$', package, re.MULTILINE)
+    assert match is not None
+    return match["version"]
+
+
 def test_install_script_enables_local_api_service() -> None:
     script = ROOT.joinpath("scripts/install.sh").read_text(encoding="utf-8")
 
@@ -42,6 +49,9 @@ def test_install_script_enables_local_api_service() -> None:
     assert "/bin/systemctl start djconnect-updater.service" in script
     assert "visudo -cf" in script
     assert "Local Client API starts automatically via djconnect-api.service." in script
+    assert "release_profile()" in script
+    assert "/etc/djconnect-pi/device-profile" in script
+    assert "djconnect-pi-%s-%s" in script
 
 
 def test_bootstrap_configures_narrow_installer_sudoers_for_pi_user() -> None:
@@ -95,10 +105,13 @@ def test_systemd_runs_api_separately_from_touch_ui() -> None:
     assert "djconnect-pi-api --config /opt/djconnect/config/client.json" in api_service
     assert "Restart=always" in api_service
     assert "djconnect-pi-client --config /opt/djconnect/config/client.json" in client_service
-    assert "Wants=network-online.target djconnect-updater.service" in client_service
-    assert "After=network-online.target systemd-user-sessions.service djconnect-updater.service" in client_service
+    assert "Wants=network-online.target" in client_service
+    assert "After=network-online.target systemd-user-sessions.service" in client_service
+    assert "SuccessExitStatus=SIGTERM" in client_service
+    assert "djconnect-updater.service" not in client_service
     assert "DJCONNECT_DISABLE_CLIENT_API" not in client_service
-    assert "Conflicts=djconnect-client.service" in update_ui_service
+    assert "Conflicts=djconnect-client.service djconnect-vnc.service" in update_ui_service
+    assert "After=systemd-user-sessions.service djconnect-client.service djconnect-vnc.service" in update_ui_service
     assert "djconnect-pi-update-ui --config /opt/djconnect/config/client.json" in update_ui_service
     assert "SuccessExitStatus=1 SIGTERM" in update_ui_service
     assert 'djconnect-pi-update-ui = "djconnect_pi.update_ui:main"' in pyproject
@@ -190,6 +203,11 @@ def test_pi_release_manifest_binds_the_artifact_and_target() -> None:
 
     assert '"artifact_id": "djconnect-pi-${version}.tar.gz"' in workflow
     assert '"target": "rbpi-djconnect"' in workflow
+    assert 'for profile in pi5-arm64 pi-zero-2w-arm64' in workflow
+    assert '"pi5-arm64"' in workflow
+    assert '"pi-zero-2w-arm64"' in workflow
+    assert 'djconnect-pi-pi5-arm64-${version}.tar.gz' in workflow
+    assert 'djconnect-pi-pi-zero-2w-arm64-${version}.tar.gz' in workflow
 
 
 def test_release_workflow_runs_postman_collection_with_newman() -> None:
@@ -326,7 +344,7 @@ def test_repo_only_os_bootstrap_targets_lite_with_minimal_kiosk_runtime() -> Non
     assert "install_vnc" in script
     assert "djconnect-vnc.service" in script
     assert "-display :0" in script
-    assert "-auth guess" in script
+    assert "-auth /dev/null" in script
     assert "-rfbport ${DJCONNECT_VNC_PORT}" in script
     assert "localhost_arg=\"-localhost\"" in script
     assert "ssh -L ${DJCONNECT_VNC_PORT}:127.0.0.1:${DJCONNECT_VNC_PORT}" in script
@@ -533,7 +551,7 @@ def test_install_script_outputs_resources_and_extra_prerequisite_checks() -> Non
 def test_bootstrap_release_download_matches_project_version() -> None:
     bootstrap = ROOT.joinpath("docs/BOOTSTRAP.md").read_text(encoding="utf-8")
     readme = ROOT.joinpath("README.md").read_text(encoding="utf-8")
-    version = _project_version()
+    version = _public_release_version()
 
     assert f"djconnect-pi-{version}.tar.gz" in bootstrap
     assert f"cd djconnect-pi-{version}" in bootstrap

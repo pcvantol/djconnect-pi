@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DJCONNECT_VERSION="${DJCONNECT_VERSION:-3.3.0}"
+DJCONNECT_VERSION="${DJCONNECT_VERSION:-4.0.0-rc.1}"
 DJCONNECT_REPO="${DJCONNECT_REPO:-pcvantol/djconnect-pi-releases}"
 DJCONNECT_HA_URL="${DJCONNECT_HA_URL:-http://homeassistant.local:8123}"
 DJCONNECT_RUNTIME_USER="${DJCONNECT_RUNTIME_USER:-djconnect}"
@@ -12,6 +12,7 @@ DJCONNECT_PIP_CACHE="${DJCONNECT_PIP_CACHE:-/var/cache/djconnect-pip}"
 DJCONNECT_UPGRADE_PIP="${DJCONNECT_UPGRADE_PIP:-0}"
 DJCONNECT_MIN_FREE_MB="${DJCONNECT_MIN_FREE_MB:-3000}"
 DJCONNECT_MIN_SWAP_MB="${DJCONNECT_MIN_SWAP_MB:-1000}"
+DJCONNECT_RELEASE_PROFILE="${DJCONNECT_RELEASE_PROFILE:-}"
 
 if [[ -f /etc/default/locale ]]; then
   # shellcheck disable=SC1091
@@ -40,6 +41,7 @@ Environment:
   DJCONNECT_UPGRADE_PIP=0
   DJCONNECT_MIN_FREE_MB=3000
   DJCONNECT_MIN_SWAP_MB=1000
+  DJCONNECT_RELEASE_PROFILE=pi5-arm64
 
 This installs or updates the DJConnect Pi application only:
 - creates/updates the dedicated runtime user and /opt/djconnect layout
@@ -91,13 +93,13 @@ print_resources() {
   printf '\n-- Resources: %s --\n' "$label"
   printf 'Memory: %s MB available / %s MB total\n' "$mem_available_mb" "$mem_total_mb"
   printf 'Swap:   %s MB free / %s MB total\n' "$swap_free_mb" "$swap_total_mb"
-  df -h / "$DJCONNECT_ROOT" "$(dirname "$DJCONNECT_PIP_CACHE")" 2>/dev/null | awk 'NR==1 || !seen[$1]++'
-  df -ih / "$DJCONNECT_ROOT" "$(dirname "$DJCONNECT_PIP_CACHE")" 2>/dev/null | awk 'NR==1 || !seen[$1]++'
+  df -h / "$DJCONNECT_ROOT" "$(dirname "$DJCONNECT_PIP_CACHE")" 2>/dev/null | awk 'NR==1 || !seen[$1]++' || true
+  df -ih / "$DJCONNECT_ROOT" "$(dirname "$DJCONNECT_PIP_CACHE")" 2>/dev/null | awk 'NR==1 || !seen[$1]++' || true
 }
 
 print_thermal_status() {
   if ! command -v vcgencmd >/dev/null 2>&1; then
-    return
+    return 0
   fi
 
   local temp
@@ -144,8 +146,30 @@ version() {
   printf '%s\n' "${DJCONNECT_VERSION#v}"
 }
 
+release_profile() {
+  local profile="$DJCONNECT_RELEASE_PROFILE"
+  if [[ -z "$profile" && -r /etc/djconnect-pi/device-profile ]]; then
+    profile="$(tr -d '[:space:]' </etc/djconnect-pi/device-profile)"
+  fi
+  case "$profile" in
+    pi5-arm64|pi-zero-2w-arm64) printf '%s\n' "$profile" ;;
+    *)
+      echo "Missing or invalid DJConnect hardware profile. Run scripts/bootstrap_raspberry_pi_os.sh or set DJCONNECT_RELEASE_PROFILE." >&2
+      exit 1
+      ;;
+  esac
+}
+
+release_id() {
+  printf '%s-%s\n' "$(version)" "$(release_profile)"
+}
+
+release_asset() {
+  printf 'djconnect-pi-%s-%s' "$(release_profile)" "$(version)"
+}
+
 state_dir() {
-  printf '%s\n' "${DJCONNECT_INSTALL_STATE}/$(version)"
+  printf '%s\n' "${DJCONNECT_INSTALL_STATE}/$(release_id)"
 }
 
 marker_done() {
@@ -222,7 +246,7 @@ check_github_reachable() {
   print_resources "before GitHub access check"
   local tag="v${DJCONNECT_VERSION#v}"
   local version="${DJCONNECT_VERSION#v}"
-  local url="https://github.com/${DJCONNECT_REPO}/releases/download/${tag}/djconnect-pi-${version}.sha256"
+  local url="https://github.com/${DJCONNECT_REPO}/releases/download/${tag}/$(release_asset).sha256"
 
   if ! curl -fsSIL --connect-timeout 15 --max-time 30 "$url" >/dev/null; then
     echo "Cannot reach DJConnect Pi release asset: ${url}" >&2
@@ -303,7 +327,7 @@ download_release() {
   local tmp
   local release_dir
   version="$(version)"
-  release_dir="${DJCONNECT_ROOT}/releases/${version}"
+  release_dir="${DJCONNECT_ROOT}/releases/$(release_id)"
 
   if marker_done "release_unpacked" && [[ -d "$release_dir" ]]; then
     log "Release ${tag} already unpacked; resuming"
@@ -315,8 +339,8 @@ download_release() {
 
   log "Downloading DJConnect Pi ${tag}"
   print_resources "before release download"
-  curl -fsSL "https://github.com/${DJCONNECT_REPO}/releases/download/${tag}/djconnect-pi-${version}.tar.gz" -o "${tmp}/release.tar.gz"
-  curl -fsSL "https://github.com/${DJCONNECT_REPO}/releases/download/${tag}/djconnect-pi-${version}.sha256" -o "${tmp}/release.sha256"
+  curl -fsSL "https://github.com/${DJCONNECT_REPO}/releases/download/${tag}/$(release_asset).tar.gz" -o "${tmp}/release.tar.gz"
+  curl -fsSL "https://github.com/${DJCONNECT_REPO}/releases/download/${tag}/$(release_asset).sha256" -o "${tmp}/release.sha256"
   print_resources "after release download"
   local expected_hash
   local actual_hash
@@ -329,11 +353,11 @@ download_release() {
     exit 1
   fi
 
-  rm -rf "$release_dir" "${DJCONNECT_ROOT}/releases/.${version}.tmp"
-  mkdir -p "${DJCONNECT_ROOT}/releases/.${version}.tmp"
+  rm -rf "$release_dir" "${DJCONNECT_ROOT}/releases/.$(release_id).tmp"
+  mkdir -p "${DJCONNECT_ROOT}/releases/.$(release_id).tmp"
   print_resources "before release unpack"
-  tar -xzf "${tmp}/release.tar.gz" -C "${DJCONNECT_ROOT}/releases/.${version}.tmp" --strip-components=1
-  mv "${DJCONNECT_ROOT}/releases/.${version}.tmp" "$release_dir"
+  tar -xzf "${tmp}/release.tar.gz" -C "${DJCONNECT_ROOT}/releases/.$(release_id).tmp" --strip-components=1
+  mv "${DJCONNECT_ROOT}/releases/.$(release_id).tmp" "$release_dir"
   mark_done "release_unpacked"
   print_resources "after release unpack"
 }
@@ -346,7 +370,7 @@ install_python_dependencies() {
   local pip_tmp
   local release_state_dir
   version="$(version)"
-  release_dir="${DJCONNECT_ROOT}/releases/${version}"
+  release_dir="${DJCONNECT_ROOT}/releases/$(release_id)"
   wheel_path="$(find "$release_dir/wheels" -maxdepth 1 -type f -name "djconnect_pi-${version}-*.whl" 2>/dev/null | head -n 1 || true)"
   requirements_path="${release_dir}/requirements.lock"
   pip_tmp="${DJCONNECT_PIP_CACHE}/tmp"
@@ -412,7 +436,7 @@ activate_release() {
   version="$(version)"
   log "Activating DJConnect Pi v${version}"
   print_resources "before release activation"
-  ln -sfn "${DJCONNECT_ROOT}/releases/${version}" "${DJCONNECT_ROOT}/current"
+  ln -sfn "${DJCONNECT_ROOT}/releases/$(release_id)" "${DJCONNECT_ROOT}/current"
   chown -R "$DJCONNECT_RUNTIME_USER:$DJCONNECT_RUNTIME_USER" "$DJCONNECT_ROOT"
   print_resources "after release activation"
 }
@@ -421,13 +445,24 @@ write_initial_config() {
   local config="${DJCONNECT_ROOT}/config/client.json"
   if [[ -f "$config" ]]; then
     log "Keeping existing DJConnect config at ${config}"
+    python3 - "$config" "$(release_profile)" <<'PY'
+from pathlib import Path
+import json
+import sys
+
+path = Path(sys.argv[1])
+profile = sys.argv[2]
+payload = json.loads(path.read_text(encoding="utf-8"))
+payload["release_profile"] = profile
+path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+PY
     print_resources "config already present"
     return
   fi
 
   log "Writing initial DJConnect config"
   print_resources "before config write"
-  python3 - "$config" "$DJCONNECT_HA_URL" <<'PY'
+  python3 - "$config" "$DJCONNECT_HA_URL" "$(release_profile)" <<'PY'
 from pathlib import Path
 import json
 import sys
@@ -435,6 +470,7 @@ import uuid
 
 config = Path(sys.argv[1])
 ha_url = sys.argv[2]
+release_profile = sys.argv[3]
 suffix = uuid.getnode().to_bytes(6, "big").hex().upper()[:12]
 payload = {
     "ha_url": ha_url,
@@ -442,9 +478,10 @@ payload = {
     "device_name": "DJConnect Pi",
     "device_token": "",
     "paired": False,
-    "version": "3.3.0",
+    "version": "4.0.0-rc.1",
     "update_repo": "pcvantol/djconnect-pi-releases",
     "update_channel": "stable",
+    "release_profile": release_profile,
     "screen_timeout_seconds": 120,
     "screen_brightness_percent": 100,
     "log_file": "/opt/djconnect/logs/client.log",

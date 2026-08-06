@@ -22,6 +22,8 @@ def make_release() -> dict[str, Any]:
         "assets": [
             {"name": "djconnect-pi-0.2.0.tar.gz", "browser_download_url": "https://example/bundle.tar.gz"},
             {"name": "djconnect-pi-0.2.0.sha256", "browser_download_url": "https://example/bundle.sha256"},
+            {"name": "djconnect-pi-pi5-arm64-0.2.0.tar.gz", "browser_download_url": "https://example/pi5-bundle.tar.gz"},
+            {"name": "djconnect-pi-pi5-arm64-0.2.0.sha256", "browser_download_url": "https://example/pi5-bundle.sha256"},
         ],
     }
 
@@ -40,6 +42,25 @@ def write_tar(path: Path, version: str = "0.2.0") -> None:
 
 def test_asset_url_finds_suffix() -> None:
     assert updater.asset_url(make_release(), ".sha256") == "https://example/bundle.sha256"
+
+
+def test_profile_asset_url_requires_the_matching_hardware_bundle() -> None:
+    release = {
+        "assets": [
+            {"name": "djconnect-pi-pi5-arm64-0.2.0.tar.gz", "browser_download_url": "https://example/pi5.tar.gz"},
+            {"name": "djconnect-pi-pi5-arm64-0.2.0.sha256", "browser_download_url": "https://example/pi5.sha256"},
+            {"name": "djconnect-pi-pi-zero-2w-arm64-0.2.0.tar.gz", "browser_download_url": "https://example/zero.tar.gz"},
+        ]
+    }
+
+    assert updater.profile_asset_url(release, "0.2.0", "pi5-arm64", ".tar.gz") == "https://example/pi5.tar.gz"
+    with pytest.raises(RuntimeError, match="pi-zero-2w-arm64-0.2.0.sha256"):
+        updater.profile_asset_url(release, "0.2.0", "pi-zero-2w-arm64", ".sha256")
+
+
+def test_resolve_release_profile_rejects_unknown_profile() -> None:
+    with pytest.raises(RuntimeError, match="release profile"):
+        updater.resolve_release_profile("wrong-profile")
 
 
 def test_include_prerelease_only_for_beta_channel() -> None:
@@ -93,8 +114,30 @@ def test_public_release_reads_an_exact_versioned_manifest() -> None:
 
 
 def test_public_release_rejects_a_non_semantic_version() -> None:
-    with pytest.raises(ValueError, match="Major.Minor.Patch"):
+    with pytest.raises(ValueError, match="SemVer Major.Minor.Patch"):
         updater.public_release("pcvantol/djconnect-pi-releases", "latest")
+
+
+def test_public_release_accepts_an_exact_release_candidate() -> None:
+    class Response:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict[str, object]:
+            return {
+                "version": "4.0.0-rc.1",
+                "bundle": "https://example/djconnect-pi-4.0.0-rc.1.tar.gz",
+                "checksum": "https://example/djconnect-pi-4.0.0-rc.1.sha256",
+            }
+
+    with patch("djconnect_pi.updater.requests.get", return_value=Response()) as get:
+        release = updater.public_release("pcvantol/djconnect-pi-releases", "4.0.0-rc.1")
+
+    get.assert_called_once_with(
+        "https://github.com/pcvantol/djconnect-pi-releases/releases/download/v4.0.0-rc.1/djconnect-pi-latest.json",
+        timeout=20,
+    )
+    assert release["tag_name"] == "v4.0.0-rc.1"
 
 
 def test_asset_url_raises_for_missing_suffix() -> None:
@@ -185,6 +228,16 @@ def test_wheel_for_release_finds_bundled_wheel(tmp_path: Path) -> None:
     wheel.write_bytes(b"wheel")
 
     assert updater.wheel_for_release(release_dir, "0.2.0") == wheel
+
+
+def test_wheel_for_release_normalizes_release_candidate_for_python_packaging(tmp_path: Path) -> None:
+    release_dir = tmp_path / "release"
+    wheels_dir = release_dir / "wheels"
+    wheels_dir.mkdir(parents=True)
+    wheel = wheels_dir / "djconnect_pi-4.0.0rc1-py3-none-any.whl"
+    wheel.write_bytes(b"wheel")
+
+    assert updater.wheel_for_release(release_dir, "4.0.0-rc.1") == wheel
 
 
 def test_pip_environment_uses_cache_local_tmp(tmp_path: Path) -> None:
@@ -297,20 +350,20 @@ def test_cleanup_old_releases_keeps_current_and_previous(tmp_path: Path) -> None
 
 
 def test_run_dry_run_returns_selected_assets(tmp_path: Path) -> None:
-    cfg = updater.UpdaterConfig(repo="pcvantol/djconnect-pi-releases", install_root=tmp_path)
+    cfg = updater.UpdaterConfig(repo="pcvantol/djconnect-pi-releases", release_profile="pi5-arm64", install_root=tmp_path)
 
     with patch("djconnect_pi.updater.public_latest_release", return_value=make_release()):
         result = json.loads(updater.run(cfg, dry_run=True))
 
     assert result == {
         "version": "0.2.0",
-        "bundle": "https://example/bundle.tar.gz",
-        "checksum": "https://example/bundle.sha256",
+        "bundle": "https://example/pi5-bundle.tar.gz",
+        "checksum": "https://example/pi5-bundle.sha256",
     }
 
 
 def test_run_passes_prerelease_flag_for_beta_channel(tmp_path: Path) -> None:
-    cfg = updater.UpdaterConfig(repo="pcvantol/djconnect-pi-releases", channel="beta", install_root=tmp_path)
+    cfg = updater.UpdaterConfig(repo="pcvantol/djconnect-pi-releases", channel="beta", release_profile="pi5-arm64", install_root=tmp_path)
 
     with patch("djconnect_pi.updater.github_latest_release", return_value=make_release()) as latest:
         updater.run(cfg, dry_run=True)
@@ -319,7 +372,7 @@ def test_run_passes_prerelease_flag_for_beta_channel(tmp_path: Path) -> None:
 
 
 def test_run_stable_uses_public_manifest_instead_of_github_api(tmp_path: Path) -> None:
-    cfg = updater.UpdaterConfig(repo="pcvantol/djconnect-pi-releases", install_root=tmp_path)
+    cfg = updater.UpdaterConfig(repo="pcvantol/djconnect-pi-releases", release_profile="pi5-arm64", install_root=tmp_path)
 
     with (
         patch("djconnect_pi.updater.public_latest_release", return_value=make_release()) as latest_manifest,
@@ -332,7 +385,7 @@ def test_run_stable_uses_public_manifest_instead_of_github_api(tmp_path: Path) -
 
 
 def test_run_uses_an_explicit_release_version_when_requested(tmp_path: Path) -> None:
-    cfg = updater.UpdaterConfig(repo="pcvantol/djconnect-pi-releases", install_root=tmp_path)
+    cfg = updater.UpdaterConfig(repo="pcvantol/djconnect-pi-releases", release_profile="pi5-arm64", install_root=tmp_path)
 
     with (
         patch("djconnect_pi.updater.public_release", return_value=make_release()) as exact_release,
@@ -378,7 +431,7 @@ def test_run_skips_when_current_version_matches(tmp_path: Path) -> None:
     current.mkdir()
     (current / "VERSION").write_text("0.2.0", encoding="utf-8")
 
-    cfg = updater.UpdaterConfig(repo="pcvantol/djconnect-pi-releases", install_root=tmp_path)
+    cfg = updater.UpdaterConfig(repo="pcvantol/djconnect-pi-releases", release_profile="pi5-arm64", install_root=tmp_path)
 
     with (
         patch("djconnect_pi.updater.public_latest_release", return_value=make_release()),
@@ -390,7 +443,7 @@ def test_run_skips_when_current_version_matches(tmp_path: Path) -> None:
 
 
 def test_run_dry_run_does_not_stop_services(tmp_path: Path) -> None:
-    cfg = updater.UpdaterConfig(repo="pcvantol/djconnect-pi-releases", install_root=tmp_path)
+    cfg = updater.UpdaterConfig(repo="pcvantol/djconnect-pi-releases", release_profile="pi5-arm64", install_root=tmp_path)
 
     with (
         patch("djconnect_pi.updater.public_latest_release", return_value=make_release()),
@@ -403,7 +456,7 @@ def test_run_dry_run_does_not_stop_services(tmp_path: Path) -> None:
 
 
 def test_run_restarts_api_and_client_services_after_install(tmp_path: Path) -> None:
-    cfg = updater.UpdaterConfig(repo="pcvantol/djconnect-pi-releases", install_root=tmp_path)
+    cfg = updater.UpdaterConfig(repo="pcvantol/djconnect-pi-releases", release_profile="pi5-arm64", install_root=tmp_path)
     download_calls = 0
 
     def fake_download(*_args: object) -> None:
@@ -469,7 +522,7 @@ def test_refresh_systemd_units_copies_release_units_and_reloads(tmp_path: Path) 
 
 
 def test_run_writes_updater_status_file(tmp_path: Path) -> None:
-    cfg = updater.UpdaterConfig(repo="pcvantol/djconnect-pi-releases", install_root=tmp_path, status_file=tmp_path / "status.json")
+    cfg = updater.UpdaterConfig(repo="pcvantol/djconnect-pi-releases", release_profile="pi5-arm64", install_root=tmp_path, status_file=tmp_path / "status.json")
 
     with (
         patch("djconnect_pi.updater.public_latest_release", return_value=make_release()),
@@ -494,7 +547,7 @@ def test_run_writes_updater_status_file(tmp_path: Path) -> None:
 
 
 def test_run_keeps_update_ui_visible_and_writes_failed_status_on_error(tmp_path: Path) -> None:
-    cfg = updater.UpdaterConfig(repo="pcvantol/djconnect-pi-releases", install_root=tmp_path, status_file=tmp_path / "status.json")
+    cfg = updater.UpdaterConfig(repo="pcvantol/djconnect-pi-releases", release_profile="pi5-arm64", install_root=tmp_path, status_file=tmp_path / "status.json")
 
     with (
         patch("djconnect_pi.updater.public_latest_release", return_value=make_release()),

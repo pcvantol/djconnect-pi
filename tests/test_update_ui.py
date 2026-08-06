@@ -54,7 +54,7 @@ def test_update_progress_uses_app_banner() -> None:
 
     assert "component AppBanner" in update_qml
     assert "AppBanner {}" in update_qml
-    assert 'GradientStop { position: 0.72; color: "#37145a" }' in update_qml
+    assert 'GradientStop { position: 0.72; color: updateProgressRoot.liquidGlassEnabled ? "#7037145a" : "#37145a" }' in update_qml
     assert 'text: "DJConnect"' in update_qml
     assert "Layout.preferredWidth: 128" not in update_qml
 

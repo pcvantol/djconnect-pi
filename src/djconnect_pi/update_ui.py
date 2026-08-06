@@ -49,13 +49,14 @@ def wake_display() -> None:
 class UpdateUiBackend(QObject):
     statusChanged = Signal()
 
-    def __init__(self, status_file: Path, local_url: str, language: str = "en") -> None:
+    def __init__(self, status_file: Path, local_url: str, language: str = "en", release_profile: str = "") -> None:
         super().__init__()
         self.status_file = status_file
         self._device_address = _local_ip_from_config(local_url)
         self._ssh_command = f"ssh pi@{self._device_address}"
         self._vnc_command = f"ssh -L 5901:127.0.0.1:5901 pi@{self._device_address}"
         self._language = normalize_language(language)
+        self._release_profile = release_profile
         self._vnc_instruction = self.tr("vnc_instruction")
         self._mtime = 0.0
         self._title = self.tr("app_update_title")
@@ -126,6 +127,10 @@ class UpdateUiBackend(QObject):
     def detailsOpen(self) -> bool:
         return self._details_open
 
+    @Property(str, constant=True)
+    def releaseProfile(self) -> str:
+        return self._release_profile
+
     @Slot()
     def toggleDetails(self) -> None:
         self._details_open = not self._details_open
@@ -187,7 +192,7 @@ def main() -> None:
     QQuickStyle.setStyle("Basic")
     app = QGuiApplication(sys.argv)
     engine = QQmlApplicationEngine()
-    backend = UpdateUiBackend(Path(cfg.updater_status_file), cfg.local_url, cfg.language)
+    backend = UpdateUiBackend(Path(cfg.updater_status_file), cfg.local_url, cfg.language, cfg.release_profile)
     engine.rootContext().setContextProperty("updater", backend)
     engine.rootContext().setContextProperty("startWindowed", args.windowed)
     engine.load(str(files("djconnect_pi.qml").joinpath("UpdateProgress.qml")))

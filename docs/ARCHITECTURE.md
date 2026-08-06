@@ -44,6 +44,47 @@ src/djconnect_pi/ha_websocket.py  WebSocket fast-path session/capability layer
 src/djconnect_pi/qml/*.qml    touch UI, gestures and animations
 ```
 
+### Hardware-aware presentation
+
+The client keeps its runtime and appliance behavior shared, but selects its
+presentation from the installed release profile. `pi-zero-2w-arm64` keeps the
+compact 720px touch layout for the 4-inch panel. `pi5-arm64` uses the physical
+portrait display canvas, larger type and touch targets, a wider content rhythm,
+and subtle low-cost ambient motion. The Pi 5 profile is deliberately native
+QML rather than a browser kiosk: touch wake, idle blanking, screenshot support
+and Home Assistant DJ-moment wakeups remain owned by the appliance layer.
+
+The standalone update UI follows the same profile. It is legible from wall
+distance, preserves remote-access information and confirmation controls, and
+never changes the shared updater protocol or release safety behavior.
+
+#### Pi 5 motion contract
+
+The wall profile treats motion as feedback, never decoration competing with
+music or room ambience. Splash content fades and settles into place; loading
+indicators breathe slowly; temporary toasts use one short spring-like entrance
+and exit; buttons compress slightly on touch; and update progress interpolates
+between reported values with a restrained travelling highlight. Ambient loops
+run only for the Pi 5 profile and pause while the screen is blanked. The Pi
+Zero profile keeps the same information hierarchy without the extra motion
+cost.
+
+#### Pi 5 glass presentation
+
+The Pi 5 profile uses a native liquid-glass-inspired presentation: translucent
+surfaces pick up the ambient blue/purple mood field, with a fine bright edge
+and a narrow specular highlight. Large, slowly moving colour fields create
+depth behind the interface instead of applying an expensive real-time blur.
+Pairing cards, the app banner, temporary feedback and the updater follow this
+same treatment. It is a DJConnect visual language, not Apple assets or an
+Apple runtime dependency.
+
+For the current 10-inch living-room target, a diagnostic screenshot must be
+`1200x1920` in portrait. `1920x1200` describes the same panel in landscape and
+is not the intended wall orientation. Validate the physical target after a UI
+change with the authenticated local screenshot endpoint, then confirm the
+client, local API and VNC services are active again.
+
 ## Local Client API
 
 `djconnect-pi-api` is a separate daemon process installed as
@@ -90,8 +131,11 @@ The active release is selected by atomically replacing:
 ```
 
 Once the updater detects a newer release, it stops the DJConnect client, local
-API, maintenance and watchdog services before download/install work. It leaves
-`djconnect-updater.service` running so the update can complete.
+API, maintenance and watchdog services before download/install work. The
+dedicated update view also exclusively owns the X display: it waits for the
+touch client and VNC mirror to stop, then the normal client and VNC service are
+started again after the update. It leaves `djconnect-updater.service` running
+so the update can complete.
 Python dependency installation is split into resumable marked steps under the
 target release's `.install-state/` directory, so an interrupted Pi install can
 resume after venv creation, build tools, shiboken6, PySide6 Essentials, PySide6
@@ -163,7 +207,7 @@ profiles are entered only through explicit backend Profile Platform resolution.
   "device_id": "djconnect-raspberry-pi-XXXXXXXXXXXX",
   "device_name": "DJConnect",
   "client_type": "raspberry_pi",
-  "version": "3.3.0",
+  "version": "4.0.0-rc.1",
   "capabilities": {
     "touch": true,
     "voice": false,
@@ -171,7 +215,7 @@ profiles are entered only through explicit backend Profile Platform resolution.
     "tts_supported": false,
     "local_audio": false,
     "local_audio_supported": false,
-    "local_dj_response_endpoint": false,
+    "local_dj_response_endpoint": true,
     "ask_dj_supported": true,
     "ask_dj_mode": "readonly_actions",
     "ask_dj_free_input_supported": false,
@@ -317,8 +361,9 @@ record the interaction as a Music DNA signal.
 The canonical Home Assistant `SYNC_PROMPTS.md` is the source of truth for the
 current Pi Ask DJ contract: `readonly_actions` via server-side history and
 structured actions, with no free prompt input, no local clear action, no
-voice/PTT, no local TTS generation and no Pi-local `/api/device/dj_response`
-endpoint.
+voice/PTT and no local TTS generation. The authenticated Pi-local
+`/api/device/dj_response` endpoint is text-only: it renders an ambient DJ
+moment and temporarily wakes the display; it does not play audio.
 
 Media browsing commands use explicit bounded limits: `queue` sends
 `{"command":"queue","limit":100}` and `playlists` sends
@@ -358,7 +403,7 @@ credentials, local Spotify Web API calls or client-side playback backend logic
 for these examples.
 
 HA responses may include `ha_version` or `ha_major_minor`. The Pi enforces
-major/minor compatibility: client `3.2.z` accepts HA `>=3.2.0` and `<3.3.0`.
+major/minor compatibility: client `4.0.z` accepts HA `>=4.0.0-rc.1` and `<4.1.0`.
 When HA reports an incompatible version, the touch UI shows a blocking
 version-mismatch screen and starts `djconnect-updater.service` once in the
 background to try downloading a compatible client release.
@@ -369,6 +414,7 @@ The local Client API uses:
 - `GET /api/device/pairing-info`
 - `POST /api/device/pair`
 - `POST /api/device/command`
+- `POST /api/device/dj_response`
 - `POST /api/device/forget`
 - `POST /api/device/restart`
 - `POST /api/device/shutdown`
@@ -392,10 +438,10 @@ expose the live touchscreen contents, so it should stay authenticated and local.
 The Pi advertises `_djconnect._tcp` on the local Client API port only while it
 is not paired. After pairing, the local API remains available for HA commands,
 debug screenshots and pairing reset, but discovery is stopped so HA does not
-keep presenting the device as a new pairing candidate. The Pi does not expose a
-local `/api/device/dj_response` endpoint. DJ response text may still be shown
-on the wall screen when it arrives through normal Home Assistant command or
-status response payloads.
+keep presenting the device as a new pairing candidate. Home Assistant may send
+an authenticated text-only DJ moment to `POST /api/device/dj_response`; the
+native QML host displays it and temporarily wakes the screen. It never creates
+or plays local audio.
 
 Spotify credentials remain in Home Assistant. Raspberry Pi clients are
 local-only and store only the local Home Assistant URL supplied as

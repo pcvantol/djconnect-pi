@@ -129,6 +129,13 @@ class ClientAPIHandler(BaseHTTPRequestHandler):
             _LOGGER.debug("Client API command=%s payload_keys=%s", command, sorted(payload))
             self._write_json(self.server.state.command_handler(command, payload))
             return
+        if self.path == "/api/device/dj_response":
+            if not self._authorized():
+                _LOGGER.warning("Client API unauthorized DJ response request")
+                self._write_json({"success": False, "error": "unauthorized"}, HTTPStatus.UNAUTHORIZED)
+                return
+            self._write_json(self.server.state.command_handler("dj_response", payload))
+            return
         if self.path == "/api/device/restart":
             status = self._device_auth_status()
             if status is not HTTPStatus.OK:
@@ -484,7 +491,7 @@ def _capabilities() -> dict[str, object]:
         "tts_supported": False,
         "local_audio": False,
         "local_audio_supported": False,
-        "local_dj_response_endpoint": False,
+        "local_dj_response_endpoint": True,
         "ask_dj_supported": True,
         "ask_dj_mode": "readonly_actions",
         "ask_dj_free_input_supported": False,

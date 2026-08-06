@@ -28,8 +28,8 @@ def test_qml_has_blocking_pairing_and_splash_views() -> None:
     assert "id: splashPanel" in main_qml
     assert 'source: "app-icon.png"' in main_qml
     assert "component AppBanner" in main_qml
-    assert 'radius: 24\n        color: "#171029"' in main_qml
-    assert 'GradientStop { position: 0.72; color: root.moodColor("surface") }' in main_qml
+    assert 'radius: root.wallProfile ? 32 : 24\n        color: root.liquidGlassEnabled ? "#8a101426" : "#171029"' in main_qml
+    assert 'GradientStop { position: 0.72; color: root.liquidGlassEnabled ? "#70" + root.moodColor("surface").slice(1) : root.moodColor("surface") }' in main_qml
     assert 'detailText: "v" + djconnect.version' in main_qml
     assert "!djconnect.paired && !djconnect.demoMode" in main_qml
     assert "property int trVersion: djconnect.translationVersion" in main_qml
@@ -784,6 +784,9 @@ def test_qml_has_backend_toast_overlay() -> None:
     assert "iconName: djconnect.toastIcon" in toast_block
     assert "Canvas {" not in toast_block
     assert "Behavior on opacity" in main_qml
+    assert "scale: djconnect.toastVisible ? 1 : 0.94" in toast_block
+    assert "Behavior on scale" in toast_block
+    assert "SequentialAnimation on border.color" in toast_block
     assert 'root.moodColor("toastStart")' in main_qml
     assert 'root.moodColor("toastEnd")' in main_qml
 
@@ -794,6 +797,18 @@ def test_qml_has_blocking_version_mismatch_view() -> None:
     assert "id: versionMismatchPanel" in main_qml
     assert "djconnect.versionMismatchVisible" in main_qml
     assert "djconnect.versionMismatchText" in main_qml
+
+
+def test_qml_has_pi5_premium_splash_motion_contract() -> None:
+    main_qml = files("djconnect_pi.qml").joinpath("Main.qml").read_text(encoding="utf-8")
+    splash_block = main_qml[main_qml.index("id: splashPanel") : main_qml.index("id: toast")]
+
+    assert "opacity: root.splashVisible ? 1 : 0" in splash_block
+    assert "Behavior on opacity" in splash_block
+    assert "SequentialAnimation on scale" in splash_block
+    assert "easing.type: Easing.OutBack" in splash_block
+    assert "LoadingSpinner {" in splash_block
+    assert "running: splashPanel.visible" in splash_block
     assert 'root.tr("update_trying")' in main_qml
 
 
@@ -805,6 +820,27 @@ def test_qml_has_update_progress_view_with_expandable_logs() -> None:
     assert "id: updateProgressPanel" not in main_qml
     assert "djconnect.updateInProgress" not in main_qml
     assert "id: updateProgressRoot" in update_qml
+    assert 'property bool wallProfile: updater.releaseProfile === "pi5-arm64"' in update_qml
+    assert "width: wallProfile ? Screen.width : 720" in update_qml
+    assert "SequentialAnimation on opacity" in update_qml
+    assert "Component.onCompleted: updateEntrance.start()" in update_qml
+    assert "id: updateProgressGlow" in update_qml
+
+
+def test_qml_has_a_dedicated_pi5_wall_canvas_and_premium_banner_scale() -> None:
+    qml_root = files("djconnect_pi.qml")
+    main_qml = qml_root.joinpath("Main.qml").read_text(encoding="utf-8")
+    update_qml = qml_root.joinpath("UpdateProgress.qml").read_text(encoding="utf-8")
+
+    assert 'property bool wallProfile: djconnect.releaseProfile === "pi5-arm64"' in main_qml
+    assert "width: wallProfile ? Screen.width : 720" in main_qml
+    assert "property int titleSize: root.wallProfile ? 52 : 38" in main_qml
+    assert "running: root.wallProfile && !root.screenBlanked" in main_qml
+    assert "property int motionStandard: wallProfile ? 360 : 240" in main_qml
+    assert "scale: djconnect.toastVisible ? 1 : 0.94" in main_qml
+    assert "property bool liquidGlassEnabled: wallProfile" in main_qml
+    assert "#82ffffff" in main_qml
+    assert "#c8ffffff" in main_qml
     assert "BusyIndicator" not in update_qml
     assert "component AppBanner" in update_qml
     assert "AppBanner {}" in update_qml
@@ -821,10 +857,13 @@ def test_qml_has_update_progress_view_with_expandable_logs() -> None:
     assert 'text: "->"' in update_qml
     assert "id: updateProgressBar" in update_qml
     assert "updateProgressBar.visualPosition" in update_qml
-    assert "Layout.preferredHeight: 36" in update_qml
-    assert "font.pixelSize: 22" in update_qml
+    assert "Behavior on width" in update_qml
+    assert "Layout.preferredHeight: updateProgressRoot.wallProfile ? 48 : 36" in update_qml
+    assert "font.pixelSize: updateProgressRoot.wallProfile ? 28 : 22" in update_qml
     assert "id: detailsButton" in update_qml
-    assert "Layout.preferredHeight: 54" in update_qml
+    assert "Layout.preferredHeight: updateProgressRoot.wallProfile ? 72 : 54" in update_qml
+    assert "property bool liquidGlassEnabled: wallProfile" in update_qml
+    assert "#82ffffff" in update_qml
     assert "#d433ff" in update_qml
     assert "id: updaterRebootButtonShell" in update_qml
     assert "anchors.bottom: remoteAccessPanel.top" in update_qml
