@@ -195,6 +195,7 @@ authorized Universal Receiver session/Broadcast smoke scenario.
   - `GET /api/device/pairing-info`
   - `POST /api/device/pair`
   - `POST /api/device/command`
+  - `POST /api/device/dj_response` (authenticated ambient DJ-moment text; wakes the display temporarily)
   - `POST /api/device/forget`
   - `POST /api/device/restart`
   - `POST /api/device/shutdown`

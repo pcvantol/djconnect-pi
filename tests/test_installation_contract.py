@@ -95,8 +95,9 @@ def test_systemd_runs_api_separately_from_touch_ui() -> None:
     assert "djconnect-pi-api --config /opt/djconnect/config/client.json" in api_service
     assert "Restart=always" in api_service
     assert "djconnect-pi-client --config /opt/djconnect/config/client.json" in client_service
-    assert "Wants=network-online.target djconnect-updater.service" in client_service
-    assert "After=network-online.target systemd-user-sessions.service djconnect-updater.service" in client_service
+    assert "Wants=network-online.target" in client_service
+    assert "After=network-online.target systemd-user-sessions.service" in client_service
+    assert "djconnect-updater.service" not in client_service
     assert "DJCONNECT_DISABLE_CLIENT_API" not in client_service
     assert "Conflicts=djconnect-client.service" in update_ui_service
     assert "djconnect-pi-update-ui --config /opt/djconnect/config/client.json" in update_ui_service

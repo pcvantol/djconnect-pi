@@ -91,13 +91,13 @@ print_resources() {
   printf '\n-- Resources: %s --\n' "$label"
   printf 'Memory: %s MB available / %s MB total\n' "$mem_available_mb" "$mem_total_mb"
   printf 'Swap:   %s MB free / %s MB total\n' "$swap_free_mb" "$swap_total_mb"
-  df -h / "$DJCONNECT_ROOT" "$(dirname "$DJCONNECT_PIP_CACHE")" 2>/dev/null | awk 'NR==1 || !seen[$1]++'
-  df -ih / "$DJCONNECT_ROOT" "$(dirname "$DJCONNECT_PIP_CACHE")" 2>/dev/null | awk 'NR==1 || !seen[$1]++'
+  df -h / "$DJCONNECT_ROOT" "$(dirname "$DJCONNECT_PIP_CACHE")" 2>/dev/null | awk 'NR==1 || !seen[$1]++' || true
+  df -ih / "$DJCONNECT_ROOT" "$(dirname "$DJCONNECT_PIP_CACHE")" 2>/dev/null | awk 'NR==1 || !seen[$1]++' || true
 }
 
 print_thermal_status() {
   if ! command -v vcgencmd >/dev/null 2>&1; then
-    return
+    return 0
   fi
 
   local temp

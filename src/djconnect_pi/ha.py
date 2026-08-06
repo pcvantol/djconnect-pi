@@ -658,7 +658,7 @@ class HAClient:
                 "tts_supported": False,
                 "local_audio": False,
                 "local_audio_supported": False,
-                "local_dj_response_endpoint": False,
+                "local_dj_response_endpoint": True,
                 "ask_dj_supported": True,
                 "ask_dj_mode": "readonly_actions",
                 "ask_dj_free_input_supported": False,

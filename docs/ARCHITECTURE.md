@@ -171,7 +171,7 @@ profiles are entered only through explicit backend Profile Platform resolution.
     "tts_supported": false,
     "local_audio": false,
     "local_audio_supported": false,
-    "local_dj_response_endpoint": false,
+    "local_dj_response_endpoint": true,
     "ask_dj_supported": true,
     "ask_dj_mode": "readonly_actions",
     "ask_dj_free_input_supported": false,
@@ -317,8 +317,9 @@ record the interaction as a Music DNA signal.
 The canonical Home Assistant `SYNC_PROMPTS.md` is the source of truth for the
 current Pi Ask DJ contract: `readonly_actions` via server-side history and
 structured actions, with no free prompt input, no local clear action, no
-voice/PTT, no local TTS generation and no Pi-local `/api/device/dj_response`
-endpoint.
+voice/PTT and no local TTS generation. The authenticated Pi-local
+`/api/device/dj_response` endpoint is text-only: it renders an ambient DJ
+moment and temporarily wakes the display; it does not play audio.
 
 Media browsing commands use explicit bounded limits: `queue` sends
 `{"command":"queue","limit":100}` and `playlists` sends
@@ -369,6 +370,7 @@ The local Client API uses:
 - `GET /api/device/pairing-info`
 - `POST /api/device/pair`
 - `POST /api/device/command`
+- `POST /api/device/dj_response`
 - `POST /api/device/forget`
 - `POST /api/device/restart`
 - `POST /api/device/shutdown`
@@ -392,10 +394,10 @@ expose the live touchscreen contents, so it should stay authenticated and local.
 The Pi advertises `_djconnect._tcp` on the local Client API port only while it
 is not paired. After pairing, the local API remains available for HA commands,
 debug screenshots and pairing reset, but discovery is stopped so HA does not
-keep presenting the device as a new pairing candidate. The Pi does not expose a
-local `/api/device/dj_response` endpoint. DJ response text may still be shown
-on the wall screen when it arrives through normal Home Assistant command or
-status response payloads.
+keep presenting the device as a new pairing candidate. Home Assistant may send
+an authenticated text-only DJ moment to `POST /api/device/dj_response`; the
+native QML host displays it and temporarily wakes the screen. It never creates
+or plays local audio.
 
 Spotify credentials remain in Home Assistant. Raspberry Pi clients are
 local-only and store only the local Home Assistant URL supplied as

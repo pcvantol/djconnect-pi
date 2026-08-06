@@ -165,7 +165,7 @@ def test_pair_sends_raspberry_pi_identity_and_stores_token() -> None:
     assert captured["json"]["capabilities"]["ask_dj_actions_supported"] is True
     assert captured["json"]["capabilities"]["ask_dj_voice_supported"] is False
     assert captured["json"]["capabilities"]["ask_dj_audio_response_supported"] is False
-    assert captured["json"]["capabilities"]["local_dj_response_endpoint"] is False
+    assert captured["json"]["capabilities"]["local_dj_response_endpoint"] is True
     assert "device_type" not in captured["json"]
     assert "device_language" not in captured["json"]
     assert "language" not in captured["json"]
