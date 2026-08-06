@@ -257,9 +257,17 @@ authorized Universal Receiver session/Broadcast smoke scenario.
 
 ## UI Shape
 
-The app is a 720x720 fullscreen touch remote:
+The app is a fullscreen touch remote with hardware-aware presentation:
 
-- full-screen DJConnect startup splash with spinner
+- Pi Zero 2 W / 4-inch uses the compact 720x720 touch layout.
+- Pi 5 / 10-inch wall uses the physical portrait canvas. The current living-room
+  target renders at 1200x1920; 1920x1200 would be the landscape orientation.
+- The Pi 5 route uses premium but restrained motion: an entering splash,
+  breathing loading indicator, spring-like toasts, responsive touch feedback
+  and smoothly interpolated update progress. Motion is intentionally subtle so
+  an ambient screen remains calm when viewed across the room.
+
+- full-screen DJConnect startup splash with breathing spinner
 - dark DJConnect visual theme with blue/purple gradient backgrounds
 - blocking first-run pairing screen until the client is paired
 - blocking version-mismatch screen when HA and Pi versions are incompatible
@@ -268,7 +276,8 @@ The app is a 720x720 fullscreen touch remote:
   unobstructed album art and title/artist overlay. The selected mood is stored
   locally and sent to Home Assistant with status, command, Ask DJ, Track
   Insight and Music DNA requests.
-- macOS-style gradient toast notifications for short action/backend feedback
+- gradient toast notifications for short action/backend feedback, with a soft
+  entrance and exit on the Pi 5 profile
 - HA-provided album art on Now Playing, Queue and Playlists, loaded
   asynchronously; Now Playing artwork is cached locally before QML renders it,
   while Queue and Playlist background caching is limited to the first visible

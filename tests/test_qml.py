@@ -784,6 +784,9 @@ def test_qml_has_backend_toast_overlay() -> None:
     assert "iconName: djconnect.toastIcon" in toast_block
     assert "Canvas {" not in toast_block
     assert "Behavior on opacity" in main_qml
+    assert "scale: djconnect.toastVisible ? 1 : 0.94" in toast_block
+    assert "Behavior on scale" in toast_block
+    assert "SequentialAnimation on border.color" in toast_block
     assert 'root.moodColor("toastStart")' in main_qml
     assert 'root.moodColor("toastEnd")' in main_qml
 
@@ -794,6 +797,18 @@ def test_qml_has_blocking_version_mismatch_view() -> None:
     assert "id: versionMismatchPanel" in main_qml
     assert "djconnect.versionMismatchVisible" in main_qml
     assert "djconnect.versionMismatchText" in main_qml
+
+
+def test_qml_has_pi5_premium_splash_motion_contract() -> None:
+    main_qml = files("djconnect_pi.qml").joinpath("Main.qml").read_text(encoding="utf-8")
+    splash_block = main_qml[main_qml.index("id: splashPanel") : main_qml.index("id: toast")]
+
+    assert "opacity: root.splashVisible ? 1 : 0" in splash_block
+    assert "Behavior on opacity" in splash_block
+    assert "SequentialAnimation on scale" in splash_block
+    assert "easing.type: Easing.OutBack" in splash_block
+    assert "LoadingSpinner {" in splash_block
+    assert "running: splashPanel.visible" in splash_block
     assert 'root.tr("update_trying")' in main_qml
 
 

@@ -58,6 +58,23 @@ The standalone update UI follows the same profile. It is legible from wall
 distance, preserves remote-access information and confirmation controls, and
 never changes the shared updater protocol or release safety behavior.
 
+#### Pi 5 motion contract
+
+The wall profile treats motion as feedback, never decoration competing with
+music or room ambience. Splash content fades and settles into place; loading
+indicators breathe slowly; temporary toasts use one short spring-like entrance
+and exit; buttons compress slightly on touch; and update progress interpolates
+between reported values with a restrained travelling highlight. Ambient loops
+run only for the Pi 5 profile and pause while the screen is blanked. The Pi
+Zero profile keeps the same information hierarchy without the extra motion
+cost.
+
+For the current 10-inch living-room target, a diagnostic screenshot must be
+`1200x1920` in portrait. `1920x1200` describes the same panel in landscape and
+is not the intended wall orientation. Validate the physical target after a UI
+change with the authenticated local screenshot endpoint, then confirm the
+client, local API and VNC services are active again.
+
 ## Local Client API
 
 `djconnect-pi-api` is a separate daemon process installed as
