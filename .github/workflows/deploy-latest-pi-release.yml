@@ -99,7 +99,8 @@ jobs:
           [[ "${PLATFORM_VERSION}" =~ ^[0-9]+\.[0-9]+$ ]]
           [[ "${MANIFEST_ID}" =~ ^release-[A-Za-z0-9._-]+$ ]]
           release_tag="v${release_version}"
-          test "${PLATFORM_VERSION}" = "${release_version%.*}"
+          release_platform_version="$(cut -d. -f1,2 <<< "${release_version}")"
+          test "${PLATFORM_VERSION}" = "${release_platform_version}"
           distribution_artifact_id="djconnect-pi-${release_version}.tar.gz"
           distribution_manifest_id="pi-v${release_version}"
           export RELEASE_VERSION="${release_version}"
