@@ -326,6 +326,7 @@ download_release() {
   local version
   local tmp
   local release_dir
+  local package_version
   version="$(version)"
   release_dir="${DJCONNECT_ROOT}/releases/$(release_id)"
 
@@ -370,8 +371,9 @@ install_python_dependencies() {
   local pip_tmp
   local release_state_dir
   version="$(version)"
+  package_version="${version/-rc./rc}"
   release_dir="${DJCONNECT_ROOT}/releases/$(release_id)"
-  wheel_path="$(find "$release_dir/wheels" -maxdepth 1 -type f -name "djconnect_pi-${version}-*.whl" 2>/dev/null | head -n 1 || true)"
+  wheel_path="$(find "$release_dir/wheels" -maxdepth 1 -type f -name "djconnect_pi-${package_version}-*.whl" 2>/dev/null | head -n 1 || true)"
   requirements_path="${release_dir}/requirements.lock"
   pip_tmp="${DJCONNECT_PIP_CACHE}/tmp"
   release_state_dir="${release_dir}/.install-state"
@@ -387,7 +389,7 @@ install_python_dependencies() {
   fi
 
   if [[ -z "$wheel_path" || ! -f "$wheel_path" ]]; then
-    echo "DJConnect Pi wheel not found in release bundle: ${release_dir}/wheels/djconnect_pi-${version}-*.whl" >&2
+    echo "DJConnect Pi wheel not found in release bundle: ${release_dir}/wheels/djconnect_pi-${package_version}-*.whl" >&2
     exit 1
   fi
   if [[ ! -f "$requirements_path" ]]; then

@@ -419,6 +419,14 @@ def test_install_script_verifies_release_checksum_independent_of_sha_filename() 
     assert "Release checksum mismatch" in script
 
 
+def test_install_script_normalizes_release_candidate_wheel_names() -> None:
+    script = ROOT.joinpath("scripts/install.sh").read_text(encoding="utf-8")
+
+    assert "package_version=" in script
+    assert 'package_version="${version/-rc./rc}"' in script
+    assert 'djconnect_pi-${package_version}-*.whl' in script
+
+
 def test_install_script_can_resume_after_reboot_or_interruption() -> None:
     script = ROOT.joinpath("scripts/install.sh").read_text(encoding="utf-8")
 
@@ -453,7 +461,7 @@ def test_install_script_can_resume_after_reboot_or_interruption() -> None:
     assert "Removing incomplete Python virtualenv before retry" in script
     assert 'rm -rf "${release_dir}/.venv" "${release_dir}/bin"' in script
     assert "wheel_path=" in script
-    assert "djconnect_pi-${version}-*.whl" in script
+    assert "djconnect_pi-${package_version}-*.whl" in script
     assert 'install --no-deps --only-binary=:all: "$wheel_path"' in script
     assert 'install --only-binary=:all: "$release_dir"' not in script
     assert "DJConnect Pi wheel not found" in script
