@@ -13,6 +13,7 @@ Window {
     visibility: startWindowed ? Window.Windowed : Window.FullScreen
     property bool rebootConfirmOpen: false
     property bool wallProfile: updater.releaseProfile === "pi5-arm64"
+    property bool liquidGlassEnabled: wallProfile
     property real typeScale: wallProfile ? Math.min(width / 900, height / 1440) : 1
     property real contentWidth: wallProfile ? Math.min(width - 128, 920) : Math.min(width - 56, 600)
     opacity: 0
@@ -59,16 +60,31 @@ Window {
         Layout.fillWidth: true
         Layout.preferredHeight: updateProgressRoot.wallProfile ? 190 : 132
         radius: updateProgressRoot.wallProfile ? 32 : 24
-        color: "#171029"
-        border.color: "#3b2a63"
+        color: updateProgressRoot.liquidGlassEnabled ? "#8a101426" : "#171029"
+        border.color: updateProgressRoot.liquidGlassEnabled ? "#82ffffff" : "#3b2a63"
         border.width: 1
         clip: true
         gradient: Gradient {
             orientation: Gradient.Horizontal
-            GradientStop { position: 0.0; color: "#12091d" }
-            GradientStop { position: 0.42; color: "#26103f" }
-            GradientStop { position: 0.72; color: "#37145a" }
-            GradientStop { position: 1.0; color: "#141125" }
+            GradientStop { position: 0.0; color: updateProgressRoot.liquidGlassEnabled ? "#8c12091d" : "#12091d" }
+            GradientStop { position: 0.42; color: updateProgressRoot.liquidGlassEnabled ? "#7826103f" : "#26103f" }
+            GradientStop { position: 0.72; color: updateProgressRoot.liquidGlassEnabled ? "#7037145a" : "#37145a" }
+            GradientStop { position: 1.0; color: updateProgressRoot.liquidGlassEnabled ? "#88141125" : "#141125" }
+        }
+
+        Rectangle {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.margins: 1
+            height: updateProgressRoot.liquidGlassEnabled ? 2 : 0
+            radius: height / 2
+            gradient: Gradient {
+                orientation: Gradient.Horizontal
+                GradientStop { position: 0.0; color: "#18ffffff" }
+                GradientStop { position: 0.5; color: "#c8ffffff" }
+                GradientStop { position: 1.0; color: "#18ffffff" }
+            }
         }
 
         RowLayout {

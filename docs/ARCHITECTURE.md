@@ -69,6 +69,16 @@ run only for the Pi 5 profile and pause while the screen is blanked. The Pi
 Zero profile keeps the same information hierarchy without the extra motion
 cost.
 
+#### Pi 5 glass presentation
+
+The Pi 5 profile uses a native liquid-glass-inspired presentation: translucent
+surfaces pick up the ambient blue/purple mood field, with a fine bright edge
+and a narrow specular highlight. Large, slowly moving colour fields create
+depth behind the interface instead of applying an expensive real-time blur.
+Pairing cards, the app banner, temporary feedback and the updater follow this
+same treatment. It is a DJConnect visual language, not Apple assets or an
+Apple runtime dependency.
+
 For the current 10-inch living-room target, a diagnostic screenshot must be
 `1200x1920` in portrait. `1920x1200` describes the same panel in landscape and
 is not the intended wall orientation. Validate the physical target after a UI

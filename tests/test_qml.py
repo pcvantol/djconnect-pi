@@ -28,8 +28,8 @@ def test_qml_has_blocking_pairing_and_splash_views() -> None:
     assert "id: splashPanel" in main_qml
     assert 'source: "app-icon.png"' in main_qml
     assert "component AppBanner" in main_qml
-    assert 'radius: root.wallProfile ? 32 : 24\n        color: "#171029"' in main_qml
-    assert 'GradientStop { position: 0.72; color: root.moodColor("surface") }' in main_qml
+    assert 'radius: root.wallProfile ? 32 : 24\n        color: root.liquidGlassEnabled ? "#8a101426" : "#171029"' in main_qml
+    assert 'GradientStop { position: 0.72; color: root.liquidGlassEnabled ? "#70" + root.moodColor("surface").slice(1) : root.moodColor("surface") }' in main_qml
     assert 'detailText: "v" + djconnect.version' in main_qml
     assert "!djconnect.paired && !djconnect.demoMode" in main_qml
     assert "property int trVersion: djconnect.translationVersion" in main_qml
@@ -838,6 +838,9 @@ def test_qml_has_a_dedicated_pi5_wall_canvas_and_premium_banner_scale() -> None:
     assert "running: root.wallProfile && !root.screenBlanked" in main_qml
     assert "property int motionStandard: wallProfile ? 360 : 240" in main_qml
     assert "scale: djconnect.toastVisible ? 1 : 0.94" in main_qml
+    assert "property bool liquidGlassEnabled: wallProfile" in main_qml
+    assert "#82ffffff" in main_qml
+    assert "#c8ffffff" in main_qml
     assert "BusyIndicator" not in update_qml
     assert "component AppBanner" in update_qml
     assert "AppBanner {}" in update_qml
@@ -859,6 +862,8 @@ def test_qml_has_a_dedicated_pi5_wall_canvas_and_premium_banner_scale() -> None:
     assert "font.pixelSize: updateProgressRoot.wallProfile ? 28 : 22" in update_qml
     assert "id: detailsButton" in update_qml
     assert "Layout.preferredHeight: updateProgressRoot.wallProfile ? 72 : 54" in update_qml
+    assert "property bool liquidGlassEnabled: wallProfile" in update_qml
+    assert "#82ffffff" in update_qml
     assert "#d433ff" in update_qml
     assert "id: updaterRebootButtonShell" in update_qml
     assert "anchors.bottom: remoteAccessPanel.top" in update_qml
