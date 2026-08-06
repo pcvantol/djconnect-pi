@@ -16,6 +16,9 @@ Window {
     property bool wallProfile: djconnect.releaseProfile === "pi5-arm64"
     property real edge: wallProfile ? Math.max(56, width * 0.07) : 28
     property real wallTypeScale: wallProfile ? Math.min(width / 900, height / 1440) : 1
+    property int motionFast: wallProfile ? 180 : 140
+    property int motionStandard: wallProfile ? 360 : 240
+    property int motionAmbient: wallProfile ? 4200 : 0
     property bool splashVisible: true
     property string activeScreen: "now"
     property bool settingsOpen: activeScreen === "settings"
@@ -671,7 +674,15 @@ Window {
             loops: Animation.Infinite
             from: 0
             to: 360
-            duration: 900
+            duration: root.wallProfile ? 1200 : 900
+            easing.type: Easing.InOutSine
+        }
+
+        SequentialAnimation on scale {
+            running: spinner.running && spinner.visible && root.wallProfile
+            loops: Animation.Infinite
+            NumberAnimation { to: 1.12; duration: 760; easing.type: Easing.InOutSine }
+            NumberAnimation { to: 0.94; duration: 760; easing.type: Easing.InOutSine }
         }
     }
 
@@ -4526,16 +4537,41 @@ Window {
             GradientStop { position: 0.5; color: root.moodColor("backgroundMid") }
             GradientStop { position: 1.0; color: root.moodColor("backgroundEnd") }
         }
-        visible: root.splashVisible
+        opacity: root.splashVisible ? 1 : 0
+        visible: opacity > 0
         z: 40
+
+        Behavior on opacity { NumberAnimation { duration: root.motionStandard; easing.type: Easing.OutCubic } }
+
+        Rectangle {
+            width: root.wallProfile ? root.width * 0.84 : root.width * 0.7
+            height: width
+            radius: width / 2
+            anchors.centerIn: parent
+            color: "#5865ff"
+            opacity: root.wallProfile ? 0.12 : 0.08
+            scale: 0.92
+
+            SequentialAnimation on scale {
+                running: splashPanel.visible && root.wallProfile
+                loops: Animation.Infinite
+                NumberAnimation { to: 1.08; duration: 3400; easing.type: Easing.InOutSine }
+                NumberAnimation { to: 0.92; duration: 3400; easing.type: Easing.InOutSine }
+            }
+        }
 
         ModalBlocker {}
 
         Rectangle {
             anchors.centerIn: parent
             width: Math.min(parent.width - 64, 560)
-            height: 300
+            height: root.wallProfile ? 350 : 300
             color: "#00000000"
+            scale: root.splashVisible ? 1 : 0.96
+            y: root.splashVisible ? 0 : 18
+
+            Behavior on scale { NumberAnimation { duration: root.motionStandard; easing.type: Easing.OutBack } }
+            Behavior on y { NumberAnimation { duration: root.motionStandard; easing.type: Easing.OutCubic } }
 
             ColumnLayout {
                 anchors.fill: parent
@@ -4543,23 +4579,23 @@ Window {
 
                 AppBanner {
                     detailText: "v" + djconnect.version
-                    titleSize: 42
-                    detailSize: 20
-                    logoSize: 92
+                    titleSize: root.wallProfile ? 52 : 42
+                    detailSize: root.wallProfile ? 26 : 20
+                    logoSize: root.wallProfile ? 128 : 92
                 }
 
                 Text {
                     text: root.tr("startup_message")
                     color: "#9fb4b8"
-                    font.pixelSize: 18
+                    font.pixelSize: root.wallProfile ? 24 : 18
                     horizontalAlignment: Text.AlignHCenter
                     Layout.fillWidth: true
                 }
 
-                BusyIndicator {
+                LoadingSpinner {
                     running: splashPanel.visible
-                    implicitWidth: 42
-                    implicitHeight: 42
+                    implicitWidth: root.wallProfile ? 54 : 42
+                    implicitHeight: root.wallProfile ? 54 : 42
                     Layout.alignment: Qt.AlignHCenter
                 }
             }
@@ -4580,6 +4616,8 @@ Window {
         visible: opacity > 0
         z: 70
         y: djconnect.toastVisible ? 0 : -16
+        scale: djconnect.toastVisible ? 1 : 0.94
+        transformOrigin: Item.Top
         gradient: Gradient {
             orientation: Gradient.Horizontal
             GradientStop { position: 0.0; color: root.moodColor("toastStart") }
@@ -4587,8 +4625,16 @@ Window {
             GradientStop { position: 1.0; color: root.moodColor("toastEnd") }
         }
 
-        Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
-        Behavior on y { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+        Behavior on opacity { NumberAnimation { duration: root.motionFast; easing.type: Easing.OutCubic } }
+        Behavior on y { NumberAnimation { duration: root.motionStandard; easing.type: Easing.OutBack } }
+        Behavior on scale { NumberAnimation { duration: root.motionStandard; easing.type: Easing.OutBack } }
+
+        SequentialAnimation on border.color {
+            running: djconnect.toastVisible && root.wallProfile
+            loops: Animation.Infinite
+            ColorAnimation { to: "#f0e8ff"; duration: 1200; easing.type: Easing.InOutSine }
+            ColorAnimation { to: "#b8ffffff"; duration: 1200; easing.type: Easing.InOutSine }
+        }
 
         Row {
             anchors.centerIn: parent

@@ -358,7 +358,7 @@ Wants=djconnect-client.service
 Type=simple
 Restart=always
 RestartSec=5
-ExecStart=/usr/bin/x11vnc -display :0 -auth guess -forever -shared -noxdamage -repeat -rfbport ${DJCONNECT_VNC_PORT} ${localhost_arg}
+ExecStart=/usr/bin/x11vnc -display :0 -auth /dev/null -forever -shared -noxdamage -repeat -rfbport ${DJCONNECT_VNC_PORT} ${localhost_arg}
 
 [Install]
 WantedBy=multi-user.target

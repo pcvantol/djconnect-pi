@@ -15,6 +15,18 @@ Window {
     property bool wallProfile: updater.releaseProfile === "pi5-arm64"
     property real typeScale: wallProfile ? Math.min(width / 900, height / 1440) : 1
     property real contentWidth: wallProfile ? Math.min(width - 128, 920) : Math.min(width - 56, 600)
+    opacity: 0
+
+    Component.onCompleted: updateEntrance.start()
+
+    NumberAnimation {
+        id: updateEntrance
+        target: updateProgressRoot
+        property: "opacity"
+        to: 1
+        duration: updateProgressRoot.wallProfile ? 520 : 260
+        easing.type: Easing.OutCubic
+    }
 
     Rectangle {
         anchors.fill: parent
@@ -193,7 +205,10 @@ Window {
                     }
 
                     contentItem: Item {
+                        clip: true
+
                         Rectangle {
+                            id: updateProgressFill
                             width: updateProgressBar.visualPosition * parent.width
                             height: parent.height
                             radius: 18
@@ -202,6 +217,34 @@ Window {
                                 GradientStop { position: 0.0; color: "#7c3cff" }
                                 GradientStop { position: 0.5; color: "#d433ff" }
                                 GradientStop { position: 1.0; color: "#f04dff" }
+                            }
+
+                            Behavior on width {
+                                NumberAnimation {
+                                    duration: updateProgressRoot.wallProfile ? 520 : 260
+                                    easing.type: Easing.OutCubic
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            id: updateProgressGlow
+                            width: parent.width * 0.24
+                            height: parent.height
+                            radius: height / 2
+                            opacity: updateProgressRoot.wallProfile ? 0.22 : 0
+                            gradient: Gradient {
+                                orientation: Gradient.Horizontal
+                                GradientStop { position: 0.0; color: "#00ffffff" }
+                                GradientStop { position: 0.5; color: "#eaffffff" }
+                                GradientStop { position: 1.0; color: "#00ffffff" }
+                            }
+
+                            SequentialAnimation on x {
+                                running: updateProgressRoot.wallProfile && updateProgressBar.value < 100
+                                loops: Animation.Infinite
+                                NumberAnimation { from: -updateProgressGlow.width; to: parent.width; duration: 1800; easing.type: Easing.InOutSine }
+                                PauseAnimation { duration: 900 }
                             }
                         }
                     }
@@ -236,6 +279,8 @@ Window {
                 }
                 border.width: 0
                 opacity: detailsButton.down ? 0.78 : 1.0
+                scale: detailsButton.down ? 0.975 : 1
+                Behavior on scale { NumberAnimation { duration: 110; easing.type: Easing.OutCubic } }
             }
 
             contentItem: Text {
@@ -309,6 +354,8 @@ Window {
                 color: updaterRebootButton.down ? "#7a2a20" : "#9f3a2e"
                 border.color: "#f0a08f"
                 border.width: 1
+                scale: updaterRebootButton.down ? 0.975 : 1
+                Behavior on scale { NumberAnimation { duration: 110; easing.type: Easing.OutCubic } }
             }
 
             contentItem: Text {

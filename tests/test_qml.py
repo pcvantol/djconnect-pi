@@ -808,6 +808,8 @@ def test_qml_has_update_progress_view_with_expandable_logs() -> None:
     assert 'property bool wallProfile: updater.releaseProfile === "pi5-arm64"' in update_qml
     assert "width: wallProfile ? Screen.width : 720" in update_qml
     assert "SequentialAnimation on opacity" in update_qml
+    assert "Component.onCompleted: updateEntrance.start()" in update_qml
+    assert "id: updateProgressGlow" in update_qml
 
 
 def test_qml_has_a_dedicated_pi5_wall_canvas_and_premium_banner_scale() -> None:
@@ -819,6 +821,8 @@ def test_qml_has_a_dedicated_pi5_wall_canvas_and_premium_banner_scale() -> None:
     assert "width: wallProfile ? Screen.width : 720" in main_qml
     assert "property int titleSize: root.wallProfile ? 52 : 38" in main_qml
     assert "running: root.wallProfile && !root.screenBlanked" in main_qml
+    assert "property int motionStandard: wallProfile ? 360 : 240" in main_qml
+    assert "scale: djconnect.toastVisible ? 1 : 0.94" in main_qml
     assert "BusyIndicator" not in update_qml
     assert "component AppBanner" in update_qml
     assert "AppBanner {}" in update_qml
@@ -835,6 +839,7 @@ def test_qml_has_a_dedicated_pi5_wall_canvas_and_premium_banner_scale() -> None:
     assert 'text: "->"' in update_qml
     assert "id: updateProgressBar" in update_qml
     assert "updateProgressBar.visualPosition" in update_qml
+    assert "Behavior on width" in update_qml
     assert "Layout.preferredHeight: updateProgressRoot.wallProfile ? 48 : 36" in update_qml
     assert "font.pixelSize: updateProgressRoot.wallProfile ? 28 : 22" in update_qml
     assert "id: detailsButton" in update_qml

@@ -337,7 +337,7 @@ def test_repo_only_os_bootstrap_targets_lite_with_minimal_kiosk_runtime() -> Non
     assert "install_vnc" in script
     assert "djconnect-vnc.service" in script
     assert "-display :0" in script
-    assert "-auth guess" in script
+    assert "-auth /dev/null" in script
     assert "-rfbport ${DJCONNECT_VNC_PORT}" in script
     assert "localhost_arg=\"-localhost\"" in script
     assert "ssh -L ${DJCONNECT_VNC_PORT}:127.0.0.1:${DJCONNECT_VNC_PORT}" in script
