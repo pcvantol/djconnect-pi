@@ -18,6 +18,7 @@ DJCONNECT_SWAPFILE="${DJCONNECT_SWAPFILE:-/swapfile}"
 DJCONNECT_SWAP_MB="${DJCONNECT_SWAP_MB:-1024}"
 DJCONNECT_FSCK_MAX_MOUNTS="${DJCONNECT_FSCK_MAX_MOUNTS:-30}"
 DJCONNECT_FSCK_INTERVAL="${DJCONNECT_FSCK_INTERVAL:-1m}"
+DJCONNECT_DEVICE_PROFILE="${DJCONNECT_DEVICE_PROFILE:-auto}"
 
 usage() {
   cat <<EOF
@@ -44,9 +45,10 @@ Environment:
   DJCONNECT_SWAP_MB=1024
   DJCONNECT_FSCK_MAX_MOUNTS=30
   DJCONNECT_FSCK_INTERVAL=1m
+  DJCONNECT_DEVICE_PROFILE=auto  # auto, pi5-arm64 or pi-zero-2w-arm64
 
-This prepares a Raspberry Pi OS Lite 64-bit image for a wall-mounted
-DJConnect Pi:
+This prepares a Raspberry Pi OS Lite 64-bit image for a DJConnect Pi appliance
+(Pi 5 wall display or Pi Zero 2 W compact display):
 - validates the Raspberry Pi OS 64-bit baseline
 - expands the root filesystem to fill the SD card
 - configures automatic filesystem repair checks for boot after unsafe power loss
@@ -63,6 +65,7 @@ DJConnect Pi:
 - attempts to install and enable Raspberry Pi Connect
 - installs a localhost-only x11vnc service for secure SSH-tunneled screen sharing
 - configures the modern HyperPixel 4 KMS DPI overlay
+- detects and persists the canonical device profile for the installer/updater
 
 This is a repo-only bootstrap helper. It is intentionally not included in
 DJConnect Pi release tarballs and is not part of the app release cycle.
@@ -93,6 +96,40 @@ check_os_baseline() {
   if [[ ! -f /etc/rpi-issue ]] || ! grep -qi "Raspberry Pi" /etc/rpi-issue; then
     echo "Warning: /etc/rpi-issue does not look like Raspberry Pi OS; continuing anyway." >&2
   fi
+}
+
+detect_device_profile() {
+  local model=""
+  if [[ -r /proc/device-tree/model ]]; then
+    model="$(tr -d '\000' </proc/device-tree/model)"
+  fi
+  case "$DJCONNECT_DEVICE_PROFILE" in
+    pi5-arm64|pi-zero-2w-arm64)
+      printf '%s\n' "$DJCONNECT_DEVICE_PROFILE"
+      ;;
+    auto)
+      case "$model" in
+        *"Raspberry Pi 5"*) printf '%s\n' "pi5-arm64" ;;
+        *"Raspberry Pi Zero 2"*) printf '%s\n' "pi-zero-2w-arm64" ;;
+        *)
+          echo "Unsupported DJConnect Pi hardware model: ${model:-unknown}. Set DJCONNECT_DEVICE_PROFILE explicitly." >&2
+          return 1
+          ;;
+      esac
+      ;;
+    *)
+      echo "DJCONNECT_DEVICE_PROFILE must be auto, pi5-arm64 or pi-zero-2w-arm64." >&2
+      return 1
+      ;;
+  esac
+}
+
+configure_device_profile() {
+  local profile
+  profile="$(detect_device_profile)"
+  log "Configuring DJConnect device profile ${profile}"
+  install -d -m 0755 /etc/djconnect-pi
+  printf '%s\n' "$profile" >/etc/djconnect-pi/device-profile
 }
 
 configure_timezone() {
@@ -468,6 +505,7 @@ configure_nightly_reboot() {
 main() {
   log "DJConnect Pi OS bootstrap ${DJCONNECT_BOOTSTRAP_VERSION}"
   check_os_baseline
+  configure_device_profile
   expand_rootfs
   configure_filesystem_checks
   configure_swapfile

@@ -46,6 +46,12 @@ The native Pi client remains the product implementation for the compact
 4-inch and 10-inch touch displays. It is a Qt Quick/QML application and is not
 replaced by a browser.
 
+Both appliances are initially prepared with the canonical
+`scripts/bootstrap_raspberry_pi_os.sh` source-repository script. It detects or
+accepts the canonical `pi5-arm64` / `pi-zero-2w-arm64` profile, persists it
+under `/etc/djconnect-pi/device-profile`, and keeps the shared OS, service,
+VNC, watchdog and updater baseline identical.
+
 The 10-inch Pi 5 living-room display is also the dedicated hardware target for
 Universal Receiver readiness checks. The Receiver is a separate,
 browser-based, Home Assistant-hosted projection that Chromium renders only
