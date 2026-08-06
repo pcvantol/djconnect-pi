@@ -760,11 +760,13 @@ Window {
         }
 
         Rectangle {
+            property real driftX: 0
+            property real driftY: 0
             width: parent.width * 0.94
             height: width
             radius: width / 2
-            x: -width * 0.30
-            y: parent.height * 0.08
+            x: -width * 0.30 + driftX
+            y: parent.height * 0.08 + driftY
             color: root.moodColor("overlayStart")
             opacity: root.liquidGlassEnabled ? 0.16 : 0
             scale: 0.94
@@ -775,14 +777,28 @@ Window {
                 NumberAnimation { to: 1.08; duration: 7200; easing.type: Easing.InOutSine }
                 NumberAnimation { to: 0.94; duration: 7200; easing.type: Easing.InOutSine }
             }
+            SequentialAnimation on driftX {
+                running: root.wallProfile && !root.screenBlanked
+                loops: Animation.Infinite
+                NumberAnimation { to: parent.width * 0.035; duration: 18000; easing.type: Easing.InOutSine }
+                NumberAnimation { to: 0; duration: 18000; easing.type: Easing.InOutSine }
+            }
+            SequentialAnimation on driftY {
+                running: root.wallProfile && !root.screenBlanked
+                loops: Animation.Infinite
+                NumberAnimation { to: parent.height * 0.018; duration: 21000; easing.type: Easing.InOutSine }
+                NumberAnimation { to: 0; duration: 21000; easing.type: Easing.InOutSine }
+            }
         }
 
         Rectangle {
+            property real driftX: 0
+            property real driftY: 0
             width: parent.width * 0.82
             height: width
             radius: width / 2
-            x: parent.width - width * 0.58
-            y: parent.height * 0.48
+            x: parent.width - width * 0.58 + driftX
+            y: parent.height * 0.48 + driftY
             color: root.moodColor("overlayEnd")
             opacity: root.liquidGlassEnabled ? 0.14 : 0
             scale: 1.05
@@ -792,6 +808,18 @@ Window {
                 loops: Animation.Infinite
                 NumberAnimation { to: 0.92; duration: 8200; easing.type: Easing.InOutSine }
                 NumberAnimation { to: 1.05; duration: 8200; easing.type: Easing.InOutSine }
+            }
+            SequentialAnimation on driftX {
+                running: root.wallProfile && !root.screenBlanked
+                loops: Animation.Infinite
+                NumberAnimation { to: -parent.width * 0.028; duration: 20000; easing.type: Easing.InOutSine }
+                NumberAnimation { to: 0; duration: 20000; easing.type: Easing.InOutSine }
+            }
+            SequentialAnimation on driftY {
+                running: root.wallProfile && !root.screenBlanked
+                loops: Animation.Infinite
+                NumberAnimation { to: -parent.height * 0.014; duration: 17000; easing.type: Easing.InOutSine }
+                NumberAnimation { to: 0; duration: 17000; easing.type: Easing.InOutSine }
             }
         }
 
