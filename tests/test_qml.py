@@ -28,7 +28,7 @@ def test_qml_has_blocking_pairing_and_splash_views() -> None:
     assert "id: splashPanel" in main_qml
     assert 'source: "app-icon.png"' in main_qml
     assert "component AppBanner" in main_qml
-    assert 'radius: 24\n        color: "#171029"' in main_qml
+    assert 'radius: root.wallProfile ? 32 : 24\n        color: "#171029"' in main_qml
     assert 'GradientStop { position: 0.72; color: root.moodColor("surface") }' in main_qml
     assert 'detailText: "v" + djconnect.version' in main_qml
     assert "!djconnect.paired && !djconnect.demoMode" in main_qml
@@ -805,6 +805,20 @@ def test_qml_has_update_progress_view_with_expandable_logs() -> None:
     assert "id: updateProgressPanel" not in main_qml
     assert "djconnect.updateInProgress" not in main_qml
     assert "id: updateProgressRoot" in update_qml
+    assert 'property bool wallProfile: updater.releaseProfile === "pi5-arm64"' in update_qml
+    assert "width: wallProfile ? Screen.width : 720" in update_qml
+    assert "SequentialAnimation on opacity" in update_qml
+
+
+def test_qml_has_a_dedicated_pi5_wall_canvas_and_premium_banner_scale() -> None:
+    qml_root = files("djconnect_pi.qml")
+    main_qml = qml_root.joinpath("Main.qml").read_text(encoding="utf-8")
+    update_qml = qml_root.joinpath("UpdateProgress.qml").read_text(encoding="utf-8")
+
+    assert 'property bool wallProfile: djconnect.releaseProfile === "pi5-arm64"' in main_qml
+    assert "width: wallProfile ? Screen.width : 720" in main_qml
+    assert "property int titleSize: root.wallProfile ? 52 : 38" in main_qml
+    assert "running: root.wallProfile && !root.screenBlanked" in main_qml
     assert "BusyIndicator" not in update_qml
     assert "component AppBanner" in update_qml
     assert "AppBanner {}" in update_qml
@@ -821,10 +835,10 @@ def test_qml_has_update_progress_view_with_expandable_logs() -> None:
     assert 'text: "->"' in update_qml
     assert "id: updateProgressBar" in update_qml
     assert "updateProgressBar.visualPosition" in update_qml
-    assert "Layout.preferredHeight: 36" in update_qml
-    assert "font.pixelSize: 22" in update_qml
+    assert "Layout.preferredHeight: updateProgressRoot.wallProfile ? 48 : 36" in update_qml
+    assert "font.pixelSize: updateProgressRoot.wallProfile ? 28 : 22" in update_qml
     assert "id: detailsButton" in update_qml
-    assert "Layout.preferredHeight: 54" in update_qml
+    assert "Layout.preferredHeight: updateProgressRoot.wallProfile ? 72 : 54" in update_qml
     assert "#d433ff" in update_qml
     assert "id: updaterRebootButtonShell" in update_qml
     assert "anchors.bottom: remoteAccessPanel.top" in update_qml

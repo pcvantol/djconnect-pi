@@ -556,6 +556,10 @@ class DJConnectBackend(QObject):
     def screenBrightnessPercent(self) -> int:
         return self.cfg.screen_brightness_percent
 
+    @Property(str, notify=settingsChanged)
+    def releaseProfile(self) -> str:
+        return self.cfg.release_profile
+
     @Property(str, notify=updateChannelChanged)
     def updateChannel(self) -> str:
         return self.cfg.update_channel

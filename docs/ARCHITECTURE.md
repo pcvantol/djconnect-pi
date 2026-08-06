@@ -44,6 +44,20 @@ src/djconnect_pi/ha_websocket.py  WebSocket fast-path session/capability layer
 src/djconnect_pi/qml/*.qml    touch UI, gestures and animations
 ```
 
+### Hardware-aware presentation
+
+The client keeps its runtime and appliance behavior shared, but selects its
+presentation from the installed release profile. `pi-zero-2w-arm64` keeps the
+compact 720px touch layout for the 4-inch panel. `pi5-arm64` uses the physical
+portrait display canvas, larger type and touch targets, a wider content rhythm,
+and subtle low-cost ambient motion. The Pi 5 profile is deliberately native
+QML rather than a browser kiosk: touch wake, idle blanking, screenshot support
+and Home Assistant DJ-moment wakeups remain owned by the appliance layer.
+
+The standalone update UI follows the same profile. It is legible from wall
+distance, preserves remote-access information and confirmation controls, and
+never changes the shared updater protocol or release safety behavior.
+
 ## Local Client API
 
 `djconnect-pi-api` is a separate daemon process installed as
@@ -90,8 +104,11 @@ The active release is selected by atomically replacing:
 ```
 
 Once the updater detects a newer release, it stops the DJConnect client, local
-API, maintenance and watchdog services before download/install work. It leaves
-`djconnect-updater.service` running so the update can complete.
+API, maintenance and watchdog services before download/install work. The
+dedicated update view also exclusively owns the X display: it waits for the
+touch client and VNC mirror to stop, then the normal client and VNC service are
+started again after the update. It leaves `djconnect-updater.service` running
+so the update can complete.
 Python dependency installation is split into resumable marked steps under the
 target release's `.install-state/` directory, so an interrupted Pi install can
 resume after venv creation, build tools, shiboken6, PySide6 Essentials, PySide6

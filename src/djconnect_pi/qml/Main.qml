@@ -6,14 +6,16 @@ import "MoodTheme.js" as MoodTheme
 
 Window {
     id: root
-    width: 720
-    height: 720
+    width: wallProfile ? Screen.width : 720
+    height: wallProfile ? Screen.height : 720
     visible: true
     color: "#080b18"
     title: "DJConnect"
     visibility: startWindowed ? Window.Windowed : Window.FullScreen
 
-    property real edge: 28
+    property bool wallProfile: djconnect.releaseProfile === "pi5-arm64"
+    property real edge: wallProfile ? Math.max(56, width * 0.07) : 28
+    property real wallTypeScale: wallProfile ? Math.min(width / 900, height / 1440) : 1
     property bool splashVisible: true
     property string activeScreen: "now"
     property bool settingsOpen: activeScreen === "settings"
@@ -744,12 +746,18 @@ Window {
 
         Rectangle {
             anchors.fill: parent
-            opacity: 0.36
+            opacity: root.wallProfile ? 0.48 : 0.36
             gradient: Gradient {
                 orientation: Gradient.Horizontal
                 GradientStop { position: 0.0; color: root.moodColor("overlayStart") }
                 GradientStop { position: 0.48; color: "#00000000" }
                 GradientStop { position: 1.0; color: root.moodColor("overlayEnd") }
+            }
+            SequentialAnimation on opacity {
+                running: root.wallProfile && !root.screenBlanked
+                loops: Animation.Infinite
+                NumberAnimation { to: 0.62; duration: 5200; easing.type: Easing.InOutSine }
+                NumberAnimation { to: 0.42; duration: 5200; easing.type: Easing.InOutSine }
             }
         }
     }
@@ -757,16 +765,16 @@ Window {
     component AppBanner: Rectangle {
         id: appBanner
         property string detailText: root.tr("tagline")
-        property int logoSize: 84
-        property int titleSize: 38
-        property int detailSize: 20
-        property int horizontalPadding: 28
-        property int verticalPadding: 18
-        property int contentSpacing: 22
+        property int logoSize: root.wallProfile ? 128 : 84
+        property int titleSize: root.wallProfile ? 52 : 38
+        property int detailSize: root.wallProfile ? 26 : 20
+        property int horizontalPadding: root.wallProfile ? 38 : 28
+        property int verticalPadding: root.wallProfile ? 28 : 18
+        property int contentSpacing: root.wallProfile ? 30 : 22
 
         Layout.fillWidth: true
-        Layout.preferredHeight: 132
-        radius: 24
+        Layout.preferredHeight: root.wallProfile ? 190 : 132
+        radius: root.wallProfile ? 32 : 24
         color: "#171029"
         border.color: "#3b2a63"
         border.width: 1
