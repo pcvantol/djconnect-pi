@@ -1,5 +1,10 @@
 # Changelog
 
+## 4.0.0-rc.2
+
+- Repair resumable installer upgrades for release candidates by normalizing the
+  SemVer candidate identifier to the PEP 440 Python wheel version.
+
 ## 4.0.0-rc.1
 
 - Publish the first Platform 4.0 release candidate with separate Pi 5 ARM64

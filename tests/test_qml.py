@@ -812,6 +812,19 @@ def test_qml_has_pi5_premium_splash_motion_contract() -> None:
     assert 'root.tr("update_trying")' in main_qml
 
 
+def test_qml_has_pi5_ambient_background_drift_contract() -> None:
+    main_qml = files("djconnect_pi.qml").joinpath("Main.qml").read_text(encoding="utf-8")
+    background = main_qml[main_qml.index("component AppBackground") : main_qml.index("component AppBanner")]
+
+    assert background.count("property real driftX: 0") == 2
+    assert background.count("property real driftY: 0") == 2
+    assert "running: root.wallProfile && !root.screenBlanked" in background
+    assert "duration: 18000" in background
+    assert "duration: 21000" in background
+    assert "duration: 20000" in background
+    assert "duration: 17000" in background
+
+
 def test_qml_has_update_progress_view_with_expandable_logs() -> None:
     qml_root = files("djconnect_pi.qml")
     main_qml = qml_root.joinpath("Main.qml").read_text(encoding="utf-8")
