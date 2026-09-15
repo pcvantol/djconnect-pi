@@ -16,7 +16,7 @@ pluggy==1.6.0
 pytest==9.1.1
 requests==2.34.2
 setuptools==83.0.0
-shiboken6==6.11.1
+shiboken6==6.11.2
 urllib3==2.7.0
 websocket-client==1.9.1
 wheel==0.46.3
