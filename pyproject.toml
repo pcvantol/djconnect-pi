@@ -15,13 +15,13 @@ classifiers = [
 dependencies = [
   "PySide6==6.11.2",
   "requests==2.34.2",
-  "websocket-client==1.9.1",
+  "websocket-client==1.9.2",
   "zeroconf==0.151.3",
 ]
 
 [project.optional-dependencies]
 dev = [
-  "coverage==7.16.0",
+  "coverage==7.16.1",
   "pytest==9.1.1",
 ]
 
