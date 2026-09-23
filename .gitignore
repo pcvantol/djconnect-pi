@@ -138,8 +138,6 @@ Screenshots/
 *Screenshot*.jpg
 *Screenshot*.jpeg
 tmp/ask-dj-airplay-screenshots/*.png
-!screenshots/
-!screenshots/**
 
 # IDE and editor state
 .vscode/
