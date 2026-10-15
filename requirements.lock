@@ -20,4 +20,4 @@ shiboken6==6.11.2
 urllib3==2.7.0
 websocket-client==1.9.2
 wheel==0.46.3
-zeroconf==0.151.3
+zeroconf==0.151.5
