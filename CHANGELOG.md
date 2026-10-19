@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+- Apply one Brand V2 colour source to native pages, controls, dropdowns, status,
+  portal and updater; keep Mood colours local to the explicit choice.
+- Fix the updater glow animation's parent reference found by full-page rendering.
+- Share the iPad-style five-tab navigation, two-column More menu and glass
+  controls across both Pi targets, including the native Apple Session menu glyph.
+- Add the shared Profile-bound DJ Session screen and lifecycle/history adapter;
+  connected acceptance and full Apple feature parity remain in progress.
+- Add server-scoped saved-session search, navigation-only contribution opening,
+  original source/revision links and shared touch text input in five locales.
+- Clear private search input and discard delayed history results on context changes;
+  preserve active-session state when saved-history queries fail.
+
 ## 4.0.0-rc.4
 
 - Adopt the six shared Profile/Session DJ settings on paired Pi clients, with

@@ -23,12 +23,12 @@ def test_qml_has_blocking_pairing_and_splash_views() -> None:
 
     assert "id: pairingPanel" in main_qml
     assert "id: pairingSuccessPanel" in main_qml
-    assert 'id: pairingPanel\n        anchors.fill: parent\n        color: "#070b16"' in main_qml
-    assert 'id: pairingSuccessPanel\n        anchors.fill: parent\n        color: "#070b16"' in main_qml
+    assert 'id: pairingPanel\n        anchors.fill: parent\n        color: BrandTheme.colors.background' in main_qml
+    assert 'id: pairingSuccessPanel\n        anchors.fill: parent\n        color: BrandTheme.colors.background' in main_qml
     assert "id: splashPanel" in main_qml
     assert "BrandLockup {" in main_qml
     assert "component AppBanner" in main_qml
-    assert 'radius: root.wallProfile ? 32 : 24\n        color: root.liquidGlassEnabled ? "#8a101426" : "#171029"' in main_qml
+    assert 'radius: root.wallProfile ? 32 : 24\n        color: root.liquidGlassEnabled ? BrandTheme.alpha(BrandTheme.colors.surface, "8a") : BrandTheme.colors.background' in main_qml
     assert 'GradientStop { position: 0.72; color: root.liquidGlassEnabled ? "#70" + root.moodColor("surface").slice(1) : root.moodColor("surface") }' in main_qml
     assert 'detailText: "v" + djconnect.version' in main_qml
     assert "!djconnect.paired && !djconnect.demoMode" in main_qml
@@ -73,7 +73,7 @@ def test_qml_has_touch_games_panel() -> None:
     assert "property string gameTitle: root.tr(games[gameIndex].titleKey)" in games_qml
     assert "id: gameSelector" in games_qml
     assert "id: gameSegment" in games_qml
-    assert 'color: "#cc0a0522"' in games_qml
+    assert 'color: BrandTheme.alpha(BrandTheme.colors.surface, "cc")' in games_qml
     assert 'GradientStop { position: 0.0; color: gameSegment.checked ? MoodTheme.color(djconnect.moodValue, "gradientStart") : "#00000000" }' in games_qml
     assert 'GradientStop { position: 1.0; color: gameSegment.checked ? MoodTheme.color(djconnect.moodValue, "gradientEnd") : "#00000000" }' in games_qml
     assert "root.tr(modelData.titleKey)" in games_qml
@@ -135,7 +135,7 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert 'root.moodColor("chip")' in main_qml
     assert 'MoodTheme.color(djconnect.moodValue, "gradientStart")' in games_qml
     assert 'MoodTheme.color(djconnect.moodValue, "gradientEnd")' in games_qml
-    assert 'color: "#ffffff"' in main_qml
+    assert 'color: BrandTheme.colors.text' in main_qml
     assert "id: settingsPanel" in main_qml
     assert "id: settingsScroll" in main_qml
     assert "if (visible && settingsScroll.contentItem)" in main_qml
@@ -143,7 +143,7 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "ScrollView" in main_qml
     assert "ScrollBar.horizontal.policy: ScrollBar.AlwaysOff" in main_qml
     assert "contentWidth: availableWidth" in main_qml
-    assert 'color: "#070b16"' in main_qml
+    assert 'color: BrandTheme.colors.background' in main_qml
     assert "font.pixelSize: 24" in main_qml
     assert "root.brightnessOverlayOpacity" in main_qml
     assert "z: 200" in main_qml
@@ -307,12 +307,12 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "sourceSize.width: width" in main_qml
     assert "sourceSize.height: height" in main_qml
     assert main_qml.count("cache: false") >= 1
-    assert "height: 92" not in main_qml
-    assert "color: \"#990b1012\"" not in main_qml
+    assert "height: 92" in main_qml
+    assert "color: BrandTheme.alpha(BrandTheme.colors.surface, \"99\")" not in main_qml
     assert "Layout.preferredHeight: 178" in main_qml
     assert "Layout.preferredHeight: 126" in main_qml
     assert "Layout.preferredHeight: 76" in main_qml
-    assert 'color: djconnect.paired ? (djconnect.backendAvailable ? "#32d35a" : "#ff3b30") : "#e0a83a"' in main_qml
+    assert 'color: djconnect.paired ? (djconnect.backendAvailable ? BrandTheme.colors.success : BrandTheme.colors.danger) : BrandTheme.colors.warning' in main_qml
     assert "width: 14" in main_qml
     assert "height: 14" in main_qml
     assert "id: ambient" not in main_qml
@@ -345,7 +345,7 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "function lineNumbers(text)" in main_qml
     assert "id: logLineNumbers" in main_qml
     assert "text: root.lineNumbers(djconnect.logsText)" in main_qml
-    assert 'color: "#9aa6ad"' in main_qml
+    assert 'color: BrandTheme.colors.disabledText' in main_qml
     assert "wrapMode: TextEdit.NoWrap" in main_qml
     assert "djconnect.copyLogs()" not in main_qml
     assert 'root.tr("copy_logs")' not in main_qml
@@ -357,9 +357,9 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "id: clearLogsButton" in logs_block
     assert 'iconName: "trash"' in logs_block
     assert 'ToolTip.text: root.tr("clear_logs")' in logs_block
-    assert 'color: clearLogsButton.down ? "#8f1f2d" : "#c9364b"' in logs_block
+    assert 'color: clearLogsButton.down ? BrandTheme.colors.dangerPressed : BrandTheme.colors.dangerSurface' in logs_block
     assert 'PurpleButton {\n                    text: root.tr("clear_logs")' not in logs_block
-    assert 'iconName === "trash"' in main_qml
+    assert 'iconName === "trash"' in files("djconnect_pi.qml").joinpath("FeatureIcon.qml").read_text(encoding="utf-8")
     assert "root.clearLogsConfirmOpen = true" in main_qml
     assert 'root.tr("clear_logs_confirm_title")' in main_qml
     assert 'root.tr("clear_logs_confirm_message")' in main_qml
@@ -374,78 +374,29 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
 
 
 def test_qml_has_bottom_navigation_bar() -> None:
-    main_qml = files("djconnect_pi.qml").joinpath("Main.qml").read_text(encoding="utf-8")
-    bottom_nav = main_qml[main_qml.index("id: bottomNav") : main_qml.index("id: pairingPanel")]
-    more_panel = main_qml[main_qml.index("id: morePanel") : main_qml.index("id: askDjPanel")]
-
-    assert "id: bottomNav" in main_qml
-    assert "component MenuIcon: Canvas" in main_qml
-    assert 'iconName === "trackInsight"' in main_qml
-    assert 'iconName === "discover"' in main_qml
-    assert 'iconName === "heart"' in main_qml
-    assert "component NavButton" in main_qml
-    assert "component MoreMenuButton" in main_qml
-    assert "id: morePanel" in main_qml
-    more_button = main_qml[main_qml.index("component MoreMenuButton") : main_qml.index("component PlaybackButton")]
-    assert "Layout.preferredHeight: 66" in more_button
-    assert "anchors.leftMargin: 20" in more_button
-    assert "anchors.rightMargin: 16" in more_button
-    assert "anchors.topMargin: 7" in more_button
-    assert "anchors.bottomMargin: 7" in more_button
-    assert 'iconColor: moreControl.enabled ? "#ffffff" : "#93a0b8"' in more_button
-    assert "height: 104" in main_qml
-    assert "border.width: navControl.checked ? 2 : 0" in main_qml
-    nav_button = main_qml[main_qml.index("component NavButton") : main_qml.index("component MoreMenuButton")]
-    assert "anchors.top: parent.top" not in nav_button
-    assert "visible: navControl.checked" not in nav_button
-    assert 'iconName: "music"' in bottom_nav
-    assert 'iconName: "queue"' in bottom_nav
-    assert 'iconName: "chat"' in bottom_nav
-    assert 'iconName: "trackInsight"' in bottom_nav
-    assert 'iconName: "discover"' in bottom_nav
-    assert 'iconName: "musicdna"' not in bottom_nav
-    assert 'iconName: "more"' in bottom_nav
-    assert 'iconName: "control"' in more_panel
-    assert 'iconName: "queue"' not in more_panel
-    assert 'iconName: "playlists"' in more_panel
-    assert 'iconName: "heart"' in more_panel
-    assert 'iconName: "musicdna"' not in more_panel
-    assert 'iconName: "gamepad"' in more_panel
-    assert 'iconName: "settings"' in more_panel
-    assert 'iconName: "logs"' in more_panel
-    assert 'iconName: "info"' in more_panel
-    assert "iconSymbol" not in main_qml
-    assert 'root.tr("now_playing")' in main_qml
-    assert 'root.tr("control")' in more_panel
-    assert 'root.tr("queue")' in bottom_nav
-    assert 'root.tr("ask_dj")' in bottom_nav
-    assert 'root.tr("track_insight")' in bottom_nav
-    assert 'root.tr("music_discovery")' in bottom_nav
-    assert 'root.tr("music_dna")' not in bottom_nav
-    assert 'root.tr("queue")' not in more_panel
-    assert 'root.tr("more")' in bottom_nav
-    assert 'root.tr("playlists")' in more_panel
-    assert 'root.tr("games")' in main_qml
-    assert 'root.tr("setup")' in main_qml
-    assert 'root.tr("logs")' in more_panel
-    assert 'root.tr("about")' in more_panel
-    assert bottom_nav.index('text: root.tr("now_playing")') < bottom_nav.index('text: root.tr("queue")')
-    assert bottom_nav.index('text: root.tr("queue")') < bottom_nav.index('text: root.tr("ask_dj")')
-    assert bottom_nav.index('text: root.tr("ask_dj")') < bottom_nav.index('text: root.tr("track_insight")')
-    assert bottom_nav.index('text: root.tr("track_insight")') < bottom_nav.index('text: root.tr("music_discovery")')
-    assert bottom_nav.index('text: root.tr("music_discovery")') < bottom_nav.index('text: root.tr("more")')
-    assert more_panel.index('text: root.tr("control")') < more_panel.index('text: root.tr("playlists")')
-    assert more_panel.index('text: root.tr("playlists")') < more_panel.index('text: root.tr("games")')
-    assert more_panel.index('text: root.tr("games")') < more_panel.index('text: root.tr("setup")')
-    assert more_panel.index('text: root.tr("setup")') < more_panel.index('text: root.tr("logs")')
-    assert more_panel.index('text: root.tr("logs")') < more_panel.index('text: root.tr("about")')
-    assert 'root.activeScreen = "now"' in main_qml
-    assert 'root.activeScreen = "control"' in main_qml
-    assert 'root.activeScreen = "trackinsight"' in main_qml
-    assert 'root.activeScreen = "playlists"' in main_qml
-    assert 'root.activeScreen = "games"' in main_qml
-    assert 'root.activeScreen = "settings"' in main_qml
-    assert 'root.activeScreen = "more"' in main_qml
+    main = files("djconnect_pi.qml").joinpath("Main.qml").read_text(encoding="utf-8")
+    icons = files("djconnect_pi.qml").joinpath("FeatureIcon.qml").read_text(encoding="utf-8")
+    nav = main[main.index("id: bottomNav"):main.index("id: pairingPanel")]
+    more = main[main.index("id: morePanel"):main.index("id: trackInsightPanel")]
+    assert "component MenuIcon: FeatureIcon" in main
+    for icon in ("trackInsight", "discover", "heart"):
+        assert f'iconName === "{icon}"' in icons
+    # Portrait iPad has exactly five primary destinations; the same model serves both Pi targets.
+    destinations = ["session", "now", "trackinsight", "discover", "more"]
+    offsets = [nav.index(f'screen: "{key}"') for key in destinations]
+    assert offsets == sorted(offsets)
+    assert nav.count("screen:") == 5
+    assert "root.activeScreen = modelData.screen" in nav
+    assert "radius: height / 2" in nav
+    assert "GridLayout" in more and "columns: 2" in more
+    more_keys = ["ask_dj", "session_history", "music_dna", "queue", "playlists", "games", "setup", "about"]
+    offsets = [more.index(f'root.tr("{key}")') for key in more_keys]
+    assert offsets == sorted(offsets)
+    # Existing Pi utilities remain reachable after the common Apple destinations.
+    assert 'root.activeScreen = "control"' in more
+    assert "djconnect.showLogs()" in more
+    assert "djconnect.loadQueue()" in more and "djconnect.loadPlaylists()" in more
+    assert "djconnect.loadAskDjHistory()" in more and "djconnect.djSession.loadHistory()" in more
 
 
 def test_qml_ask_dj_screen_is_readonly_actions_without_free_input() -> None:
@@ -454,8 +405,10 @@ def test_qml_ask_dj_screen_is_readonly_actions_without_free_input() -> None:
 
     assert 'visible: root.activeScreen === "askdj"' in ask_dj_block
     assert "component AskDjGradientButton" in main_qml
-    assert 'GradientStop { position: 0.0; color: askDjButton.enabled ? root.moodColor("gradientStart") : root.moodDisabledColor("start") }' in main_qml
-    assert 'GradientStop { position: 1.0; color: askDjButton.enabled ? root.moodColor("gradientEnd") : root.moodDisabledColor("end") }' in main_qml
+    action_button = main_qml[main_qml.index("component AskDjGradientButton"):main_qml.index("component MenuIcon")]
+    assert "background: GlassSurface" in action_button
+    assert "pressed: askDjButton.down" in action_button
+    assert "focused: askDjButton.activeFocus" in action_button
     assert "djconnect.refreshAskDjHistory()" in ask_dj_block
     assert "id: askDjRefreshButton" in ask_dj_block
     assert "RefreshIconButton" in ask_dj_block
@@ -524,9 +477,9 @@ def test_qml_ask_dj_track_insight_has_compact_readonly_rendering() -> None:
     assert "root.trackInsightLabel(modelData.title || modelData.id || modelData.kind || \"\")" in ask_dj_block
     assert "!modelData.trackInsight && modelData.items && modelData.items.length > 0" in ask_dj_block
     assert ask_dj_block.count('border.color: root.moodColor("focus")') >= 4
-    assert 'border.color: systemBubble ? "#6aa0b9c8" : (userBubble ? "#a5b4fc" : root.moodColor("accent"))' not in ask_dj_block
-    assert 'border.color: modelData.musicDna ? "#6aa0b9c8" : root.moodColor("accent")' not in ask_dj_block
-    assert 'border.color: modelData.metadataContext ? "#6aa0b9c8" : ((modelData.source === "inferred"' not in ask_dj_block
+    assert 'border.color: systemBubble ? BrandTheme.alpha(BrandTheme.colors.border, "6a") : (userBubble ? "#a5b4fc" : root.moodColor("accent"))' not in ask_dj_block
+    assert 'border.color: modelData.musicDna ? BrandTheme.alpha(BrandTheme.colors.border, "6a") : root.moodColor("accent")' not in ask_dj_block
+    assert 'border.color: modelData.metadataContext ? BrandTheme.alpha(BrandTheme.colors.border, "6a") : ((modelData.source === "inferred"' not in ask_dj_block
 
 
 def test_qml_now_playing_hides_favorite_and_track_insight_buttons() -> None:
@@ -572,7 +525,7 @@ def test_qml_track_insight_panel_renders_contract_fields() -> None:
     assert "root.trackInsightLabel(modelData.title || modelData.kind || \"\")" in panel
     assert "root.trackInsightLabel(modelData.title || modelData.kind || modelData.id || \"\")" in panel
     assert panel.count('color: "#00000000"') >= 3
-    assert 'color: "#172033"' not in panel
+    assert 'color: BrandTheme.colors.surface' not in panel
     assert "visible: !trackInsightScroll.visible" in panel
     assert "Layout.fillHeight: true" in panel
     assert "djconnect.refreshTrackInsight()" in panel
@@ -598,9 +551,9 @@ def test_qml_track_insight_panel_renders_contract_fields() -> None:
     assert "modelData.value || \"\"" in panel
     assert "modelData.details || []" in panel
     assert panel.count('border.color: root.moodColor("focus")') >= 3
-    assert 'border.color: "#3b4a6e"' not in panel
-    assert 'border.color: modelData.musicDna ? "#6aa0b9c8" : root.moodColor("accent")' not in panel
-    assert 'border.color: modelData.metadataContext ? "#6aa0b9c8" : "#3b4a6e"' not in panel
+    assert 'border.color: BrandTheme.colors.border' not in panel
+    assert 'border.color: modelData.musicDna ? BrandTheme.alpha(BrandTheme.colors.border, "6a") : root.moodColor("accent")' not in panel
+    assert 'border.color: modelData.metadataContext ? BrandTheme.alpha(BrandTheme.colors.border, "6a") : BrandTheme.colors.border' not in panel
     assert "bpm" not in panel.casefold()
     assert "key-signature" not in panel.casefold()
 
@@ -610,9 +563,9 @@ def test_qml_music_discovery_nav_and_panel() -> None:
     nav_block = main_qml[main_qml.index("id: bottomNav") : main_qml.index("id: pairingPanel")]
     discover_block = main_qml[main_qml.index("id: musicDiscoveryPanel") : main_qml.index("id: musicDnaPanel")]
 
-    assert 'root.tr("music_discovery")' in nav_block
-    assert 'checked: root.activeScreen === "discover"' in nav_block
-    assert 'onClicked: root.activeScreen = "discover"' in nav_block
+    assert '{screen: "discover", key: "music_discovery", icon: "discover"}' in nav_block
+    assert "root.activeScreen === modelData.screen" in nav_block
+    assert "root.activeScreen = modelData.screen" in nav_block
     assert "djconnect.loadMusicDiscovery()" in main_qml
     assert 'root.tr("music_discovery_requires_music_dna")' in discover_block
     assert "djconnect.acceptMusicDiscoveryConsent()" in discover_block
@@ -851,7 +804,7 @@ def test_qml_has_a_dedicated_pi5_wall_canvas_and_premium_banner_scale() -> None:
     assert "running: root.wallProfile && !root.screenBlanked" in main_qml
     assert "property int motionStandard: wallProfile ? 360 : 240" in main_qml
     assert "scale: djconnect.toastVisible ? 1 : 0.94" in main_qml
-    assert "property bool liquidGlassEnabled: wallProfile" in main_qml
+    assert "property bool liquidGlassEnabled: true" in main_qml
     assert "#82ffffff" in main_qml
     assert "#c8ffffff" in main_qml
     assert "BusyIndicator" not in update_qml
@@ -875,9 +828,9 @@ def test_qml_has_a_dedicated_pi5_wall_canvas_and_premium_banner_scale() -> None:
     assert "font.pixelSize: updateProgressRoot.wallProfile ? 28 : 22" in update_qml
     assert "id: detailsButton" in update_qml
     assert "Layout.preferredHeight: updateProgressRoot.wallProfile ? 72 : 54" in update_qml
-    assert "property bool liquidGlassEnabled: wallProfile" in update_qml
+    assert "property bool liquidGlassEnabled: true" in update_qml
     assert "#82ffffff" in update_qml
-    assert "#d433ff" in update_qml
+    assert "BrandTheme.colors.buttonEnd" in update_qml
     assert "id: updaterRebootButtonShell" in update_qml
     assert "anchors.bottom: remoteAccessPanel.top" in update_qml
     assert "id: updaterRebootButton" in update_qml
@@ -908,18 +861,11 @@ def test_qml_uses_dark_djconnect_gradient_theme() -> None:
         assert "MoodTheme" in text
     assert "id: splashPanel" in main_qml
     mood_theme = qml_root.joinpath("MoodTheme.js").read_text(encoding="utf-8")
-    assert '"default"' in mood_theme
-    assert "#24105c" in mood_theme
-    assert "#4DA3FF" in mood_theme
-    assert "#2EC4B6" in mood_theme
-    assert "#8AC926" in mood_theme
-    assert "#FF2E63" in mood_theme
-    assert "#070b16" in mood_theme
-    assert "#ff5a2e" in mood_theme
-    assert '"chill"' in mood_theme
-    assert '"groove"' in mood_theme
-    assert '"energy"' in mood_theme
-    assert '"party"' in mood_theme
+    assert 'function moodColor(value, token)' in mood_theme
+    assert 'function color(value, token)' in mood_theme
+    assert 'BrandTheme.colors[aliases[token]]' in mood_theme
+    for mood in ("chill", "groove", "energy", "party"):
+        assert '"' + mood + '"' in mood_theme
 
 
 def test_qml_offscreen_smoke_loads() -> None:

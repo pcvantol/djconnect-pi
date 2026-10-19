@@ -1,4 +1,5 @@
 import QtQuick
+import "BrandTheme.js" as BrandTheme
 import QtQuick.Controls
 import QtQuick.Layouts
 import "MoodTheme.js" as MoodTheme
@@ -51,7 +52,7 @@ Rectangle {
         contentItem: Text {
             text: control.text
             font: control.font
-            color: control.enabled ? "#ffffff" : "#94a0b8"
+            color: control.enabled ? BrandTheme.colors.text : BrandTheme.colors.disabledText
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
             elide: Text.ElideRight
@@ -497,7 +498,7 @@ Rectangle {
 
             Text {
                 text: root.tr("games")
-                color: "#f4f8f8"
+                color: BrandTheme.colors.text
                 font.pixelSize: 30
                 font.bold: true
                 Layout.fillWidth: true
@@ -510,8 +511,8 @@ Rectangle {
             Layout.fillWidth: true
             Layout.preferredHeight: 58
             radius: 18
-            color: "#cc0a0522"
-            border.color: "#556088a8"
+            color: BrandTheme.alpha(BrandTheme.colors.surface, "cc")
+            border.color: BrandTheme.alpha(BrandTheme.colors.border, "55")
             border.width: 2
             clip: true
 
@@ -522,8 +523,8 @@ Rectangle {
                 opacity: 0.5
                 gradient: Gradient {
                     orientation: Gradient.Vertical
-                    GradientStop { position: 0.0; color: "#33235673" }
-                    GradientStop { position: 1.0; color: "#11050f26" }
+                    GradientStop { position: 0.0; color: BrandTheme.alpha(BrandTheme.colors.surface, "33") }
+                    GradientStop { position: 1.0; color: BrandTheme.alpha(BrandTheme.colors.surface, "11") }
                 }
             }
 
@@ -550,7 +551,7 @@ Rectangle {
                         contentItem: Text {
                             text: gameSegment.text
                             font: gameSegment.font
-                            color: gameSegment.checked ? "#ffffff" : "#c8c7d5"
+                            color: gameSegment.checked ? BrandTheme.colors.text : BrandTheme.colors.muted
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
                             elide: Text.ElideRight
@@ -587,14 +588,14 @@ Rectangle {
 
             Text {
                 text: root.tr("score") + " " + root.score
-                color: "#f4f8f8"
+                color: BrandTheme.colors.text
                 font.pixelSize: 18
                 font.bold: true
             }
 
             Text {
                 text: root.tr("high") + " " + root.highScore()
-                color: "#9fb4b8"
+                color: BrandTheme.colors.disabledText
                 font.pixelSize: 18
             }
         }
@@ -775,7 +776,7 @@ Rectangle {
                         ctx.lineTo(rx(root.ghostX - 9), ry(root.ghostY + 9))
                         ctx.closePath()
                         ctx.fill()
-                        ctx.fillStyle = "#ffffff"
+                        ctx.fillStyle = BrandTheme.colors.text
                         ctx.beginPath()
                         ctx.arc(rx(root.ghostX - 4), ry(root.ghostY - 2), Math.max(rx(2.6), ry(2.6)), 0, Math.PI * 2)
                         ctx.arc(rx(root.ghostX + 4), ry(root.ghostY - 2), Math.max(rx(2.6), ry(2.6)), 0, Math.PI * 2)
@@ -881,7 +882,7 @@ Rectangle {
                 : root.gameId === "asteroids" ? root.tr("game_help_asteroids")
                 : root.gameId === "fly" ? root.tr("game_help_fly")
                 : root.tr("game_help_pacman")
-            color: "#9fb4b8"
+            color: BrandTheme.colors.disabledText
             font.pixelSize: 15
             wrapMode: Text.WordWrap
             Layout.fillWidth: true

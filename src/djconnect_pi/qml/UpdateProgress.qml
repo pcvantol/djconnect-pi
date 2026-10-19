@@ -1,19 +1,20 @@
 import QtQuick
+import "BrandTheme.js" as BrandTheme
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Window
 
-Window {
+BrandWindow {
     id: updateProgressRoot
     width: wallProfile ? Screen.width : 720
     height: wallProfile ? Screen.height : 720
     visible: true
-    color: "#070b16"
+    color: BrandTheme.colors.background
     title: "DJConnect Update"
     visibility: startWindowed ? Window.Windowed : Window.FullScreen
     property bool rebootConfirmOpen: false
     property bool wallProfile: updater.releaseProfile === "pi5-arm64"
-    property bool liquidGlassEnabled: wallProfile
+    property bool liquidGlassEnabled: true
     property real typeScale: wallProfile ? Math.min(width / 900, height / 1440) : 1
     property real contentWidth: wallProfile ? Math.min(width - 128, 920) : Math.min(width - 56, 600)
     opacity: 0
@@ -33,9 +34,9 @@ Window {
         anchors.fill: parent
         gradient: Gradient {
             orientation: Gradient.Vertical
-            GradientStop { position: 0.0; color: "#24105c" }
-            GradientStop { position: 0.5; color: "#0f2b68" }
-            GradientStop { position: 1.0; color: "#070b16" }
+            GradientStop { position: 0.0; color: BrandTheme.colors.backgroundStart }
+            GradientStop { position: 0.5; color: BrandTheme.colors.backgroundStart }
+            GradientStop { position: 1.0; color: BrandTheme.colors.background }
         }
     }
 
@@ -44,9 +45,9 @@ Window {
         opacity: wallProfile ? 0.48 : 0.34
         gradient: Gradient {
             orientation: Gradient.Horizontal
-            GradientStop { position: 0.0; color: "#2f8cff" }
+            GradientStop { position: 0.0; color: BrandTheme.colors.cyan }
             GradientStop { position: 0.5; color: "#00000000" }
-            GradientStop { position: 1.0; color: "#8b5cf6" }
+            GradientStop { position: 1.0; color: BrandTheme.colors.purple }
         }
         SequentialAnimation on opacity {
             running: updateProgressRoot.wallProfile
@@ -60,16 +61,16 @@ Window {
         Layout.fillWidth: true
         Layout.preferredHeight: updateProgressRoot.wallProfile ? 190 : 132
         radius: updateProgressRoot.wallProfile ? 32 : 24
-        color: updateProgressRoot.liquidGlassEnabled ? "#8a101426" : "#171029"
-        border.color: updateProgressRoot.liquidGlassEnabled ? "#82ffffff" : "#3b2a63"
+        color: updateProgressRoot.liquidGlassEnabled ? BrandTheme.alpha(BrandTheme.colors.surface, "8a") : BrandTheme.colors.background
+        border.color: updateProgressRoot.liquidGlassEnabled ? "#82ffffff" : BrandTheme.colors.surfaceRaised
         border.width: 1
         clip: true
         gradient: Gradient {
             orientation: Gradient.Horizontal
-            GradientStop { position: 0.0; color: updateProgressRoot.liquidGlassEnabled ? "#8c12091d" : "#12091d" }
-            GradientStop { position: 0.42; color: updateProgressRoot.liquidGlassEnabled ? "#7826103f" : "#26103f" }
-            GradientStop { position: 0.72; color: updateProgressRoot.liquidGlassEnabled ? "#7037145a" : "#37145a" }
-            GradientStop { position: 1.0; color: updateProgressRoot.liquidGlassEnabled ? "#88141125" : "#141125" }
+            GradientStop { position: 0.0; color: updateProgressRoot.liquidGlassEnabled ? BrandTheme.alpha(BrandTheme.colors.surface, "8c") : BrandTheme.colors.surface }
+            GradientStop { position: 0.42; color: updateProgressRoot.liquidGlassEnabled ? BrandTheme.alpha(BrandTheme.colors.surface, "78") : BrandTheme.colors.surface }
+            GradientStop { position: 0.72; color: updateProgressRoot.liquidGlassEnabled ? BrandTheme.alpha(BrandTheme.colors.surface, "70") : BrandTheme.colors.surface }
+            GradientStop { position: 1.0; color: updateProgressRoot.liquidGlassEnabled ? BrandTheme.alpha(BrandTheme.colors.surface, "88") : BrandTheme.colors.surface }
         }
 
         Rectangle {
@@ -110,7 +111,7 @@ Window {
 
                 Text {
                     text: "DJConnect"
-                    color: "#ffffff"
+                    color: BrandTheme.colors.text
                     font.pixelSize: updateProgressRoot.wallProfile ? 52 : 38
                     font.bold: true
                     elide: Text.ElideRight
@@ -120,7 +121,7 @@ Window {
 
                 Text {
                     text: updater.title
-                    color: "#c9c3d8"
+                    color: BrandTheme.colors.muted
                     font.pixelSize: updateProgressRoot.wallProfile ? 26 : 20
                     font.bold: true
                     elide: Text.ElideRight
@@ -142,7 +143,7 @@ Window {
 
         Text {
             text: updater.message
-            color: "#d7e2e4"
+            color: BrandTheme.colors.muted
             font.pixelSize: updateProgressRoot.wallProfile ? 24 : 17
             wrapMode: Text.WordWrap
             horizontalAlignment: Text.AlignHCenter
@@ -158,14 +159,14 @@ Window {
 
                 Text {
                     text: updater.t("current_version")
-                    color: "#b9c9e8"
+                    color: BrandTheme.colors.muted
                     font.pixelSize: updateProgressRoot.wallProfile ? 16 : 12
                     font.bold: true
                 }
 
                 Text {
                     text: updater.currentVersion ? updater.currentVersion : "-"
-                    color: "#ffffff"
+                    color: BrandTheme.colors.text
                     font.pixelSize: updateProgressRoot.wallProfile ? 28 : 20
                     font.bold: true
                 }
@@ -173,7 +174,7 @@ Window {
 
             Text {
                 text: "->"
-                color: "#93c5fd"
+                color: BrandTheme.colors.cyan
                 font.pixelSize: updateProgressRoot.wallProfile ? 28 : 20
                 font.bold: true
                 Layout.alignment: Qt.AlignBottom
@@ -184,14 +185,14 @@ Window {
 
                 Text {
                     text: updater.t("target_version")
-                    color: "#b9c9e8"
+                    color: BrandTheme.colors.muted
                     font.pixelSize: updateProgressRoot.wallProfile ? 16 : 12
                     font.bold: true
                 }
 
                 Text {
                     text: updater.targetVersion ? updater.targetVersion : "-"
-                    color: "#ffffff"
+                    color: BrandTheme.colors.text
                     font.pixelSize: updateProgressRoot.wallProfile ? 28 : 20
                     font.bold: true
                 }
@@ -214,9 +215,9 @@ Window {
                     Layout.preferredHeight: updateProgressRoot.wallProfile ? 48 : 36
 
                     background: Rectangle {
-                        color: "#2b174a"
+                        color: BrandTheme.colors.surface
                         radius: 18
-                        border.color: "#8d75ff"
+                        border.color: BrandTheme.colors.buttonStart
                         border.width: 2
                     }
 
@@ -230,9 +231,9 @@ Window {
                             radius: 18
                             gradient: Gradient {
                                 orientation: Gradient.Horizontal
-                                GradientStop { position: 0.0; color: "#7c3cff" }
-                                GradientStop { position: 0.5; color: "#d433ff" }
-                                GradientStop { position: 1.0; color: "#f04dff" }
+                                GradientStop { position: 0.0; color: BrandTheme.colors.buttonMid }
+                                GradientStop { position: 0.5; color: BrandTheme.colors.buttonEnd }
+                                GradientStop { position: 1.0; color: BrandTheme.colors.buttonEnd }
                             }
 
                             Behavior on width {
@@ -259,7 +260,7 @@ Window {
                             SequentialAnimation on x {
                                 running: updateProgressRoot.wallProfile && updateProgressBar.value < 100
                                 loops: Animation.Infinite
-                                NumberAnimation { from: -updateProgressGlow.width; to: parent.width; duration: 1800; easing.type: Easing.InOutSine }
+                                NumberAnimation { from: -updateProgressGlow.width; to: updateProgressGlow.parent.width; duration: 1800; easing.type: Easing.InOutSine }
                                 PauseAnimation { duration: 900 }
                             }
                         }
@@ -268,7 +269,7 @@ Window {
 
                 Text {
                     text: updater.tf("progress_percent", updater.progress.toString())
-                    color: "#b9c9e8"
+                    color: BrandTheme.colors.muted
                     font.pixelSize: updateProgressRoot.wallProfile ? 28 : 22
                     font.bold: true
                     Layout.fillWidth: true
@@ -289,9 +290,9 @@ Window {
                 radius: Math.min(width, height) / 2
                 gradient: Gradient {
                     orientation: Gradient.Horizontal
-                    GradientStop { position: 0.0; color: "#247fff" }
-                    GradientStop { position: 0.58; color: "#7757ff" }
-                    GradientStop { position: 1.0; color: "#c33cff" }
+                    GradientStop { position: 0.0; color: BrandTheme.colors.buttonStart }
+                    GradientStop { position: 0.58; color: BrandTheme.colors.buttonMid }
+                    GradientStop { position: 1.0; color: BrandTheme.colors.buttonEnd }
                 }
                 border.width: 0
                 opacity: detailsButton.down ? 0.78 : 1.0
@@ -301,7 +302,7 @@ Window {
 
             contentItem: Text {
                 text: detailsButton.text
-                color: "#ffffff"
+                color: BrandTheme.colors.text
                 font: detailsButton.font
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
@@ -316,7 +317,7 @@ Window {
 
             Text {
                 text: updater.t("installer_logs")
-                color: "#f4f8f8"
+                color: BrandTheme.colors.text
                 font.pixelSize: 18
                 font.bold: true
                 Layout.fillWidth: true
@@ -332,13 +333,13 @@ Window {
                     text: updater.logs
                     readOnly: true
                     wrapMode: TextEdit.WrapAnywhere
-                    color: "#d7e2e4"
+                    color: BrandTheme.colors.muted
                     font.family: "monospace"
                     font.pixelSize: 13
                     background: Rectangle {
-                        color: "#cc050816"
+                        color: BrandTheme.alpha(BrandTheme.colors.surface, "cc")
                         radius: 8
-                        border.color: "#33405f"
+                        border.color: BrandTheme.colors.border
                         border.width: 1
                     }
                     onTextChanged: Qt.callLater(function() { updaterLogsArea.cursorPosition = updaterLogsArea.length })
@@ -367,8 +368,8 @@ Window {
 
             background: Rectangle {
                 radius: 8
-                color: updaterRebootButton.down ? "#7a2a20" : "#9f3a2e"
-                border.color: "#f0a08f"
+                color: updaterRebootButton.down ? BrandTheme.colors.dangerPressed : BrandTheme.colors.dangerSurface
+                border.color: BrandTheme.colors.danger
                 border.width: 1
                 scale: updaterRebootButton.down ? 0.975 : 1
                 Behavior on scale { NumberAnimation { duration: 110; easing.type: Easing.OutCubic } }
@@ -376,7 +377,7 @@ Window {
 
             contentItem: Text {
                 text: updaterRebootButton.text
-                color: "#ffffff"
+                color: BrandTheme.colors.text
                 font: updaterRebootButton.font
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
@@ -394,8 +395,8 @@ Window {
         width: updateProgressRoot.contentWidth
         height: updateProgressRoot.wallProfile ? 148 : 116
         radius: updateProgressRoot.wallProfile ? 16 : 8
-        color: "#99050816"
-        border.color: "#42537c"
+        color: BrandTheme.alpha(BrandTheme.colors.surface, "99")
+        border.color: BrandTheme.colors.border
         border.width: 1
 
         ColumnLayout {
@@ -405,7 +406,7 @@ Window {
 
             Text {
                 text: updater.t("remote_viewing")
-                color: "#f4f8f8"
+                color: BrandTheme.colors.text
                 font.pixelSize: updateProgressRoot.wallProfile ? 18 : 14
                 font.bold: true
                 Layout.fillWidth: true
@@ -413,7 +414,7 @@ Window {
 
             Text {
                 text: updater.tf("ssh_label", updater.sshCommand)
-                color: "#d7e2e4"
+                color: BrandTheme.colors.muted
                 font.family: "monospace"
                 font.pixelSize: updateProgressRoot.wallProfile ? 17 : 14
                 elide: Text.ElideRight
@@ -422,7 +423,7 @@ Window {
 
             Text {
                 text: updater.tf("vnc_tunnel_label", updater.vncCommand)
-                color: "#d7e2e4"
+                color: BrandTheme.colors.muted
                 font.family: "monospace"
                 font.pixelSize: updateProgressRoot.wallProfile ? 17 : 14
                 elide: Text.ElideRight
@@ -431,7 +432,7 @@ Window {
 
             Text {
                 text: updater.vncInstruction
-                color: "#b9c9e8"
+                color: BrandTheme.colors.muted
                 font.pixelSize: updateProgressRoot.wallProfile ? 16 : 13
                 font.bold: true
                 elide: Text.ElideRight
@@ -443,7 +444,7 @@ Window {
     Rectangle {
         visible: updateProgressRoot.rebootConfirmOpen
         anchors.fill: parent
-        color: "#cc050816"
+        color: BrandTheme.alpha(BrandTheme.colors.surface, "cc")
         z: 50
 
         MouseArea {
@@ -456,8 +457,8 @@ Window {
             width: updateProgressRoot.wallProfile ? Math.min(parent.width - 128, 760) : Math.min(parent.width - 56, 520)
             implicitHeight: rebootConfirmContent.implicitHeight + (updateProgressRoot.wallProfile ? 72 : 44)
             radius: updateProgressRoot.wallProfile ? 20 : 8
-            color: "#171029"
-            border.color: "#f0a08f"
+            color: BrandTheme.colors.background
+            border.color: BrandTheme.colors.danger
             border.width: 1
 
             ColumnLayout {
@@ -468,7 +469,7 @@ Window {
 
                 Text {
                     text: updater.t("reboot_confirm_title")
-                    color: "#ffffff"
+                    color: BrandTheme.colors.text
                     font.pixelSize: updateProgressRoot.wallProfile ? 38 : 28
                     font.bold: true
                     wrapMode: Text.WordWrap
@@ -477,7 +478,7 @@ Window {
 
                 Text {
                     text: updater.t("reboot_confirm_message")
-                    color: "#d7e2e4"
+                    color: BrandTheme.colors.muted
                     font.pixelSize: updateProgressRoot.wallProfile ? 24 : 18
                     wrapMode: Text.WordWrap
                     Layout.fillWidth: true
@@ -501,14 +502,14 @@ Window {
 
                         background: Rectangle {
                             radius: 8
-                            color: confirmRebootButton.down ? "#7a2a20" : "#9f3a2e"
-                            border.color: "#f0a08f"
+                            color: confirmRebootButton.down ? BrandTheme.colors.dangerPressed : BrandTheme.colors.dangerSurface
+                            border.color: BrandTheme.colors.danger
                             border.width: 1
                         }
 
                         contentItem: Text {
                             text: confirmRebootButton.text
-                            color: "#ffffff"
+                            color: BrandTheme.colors.text
                             font: confirmRebootButton.font
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
@@ -526,14 +527,14 @@ Window {
 
                         background: Rectangle {
                             radius: 8
-                            color: cancelRebootButton.down ? "#1f2a44" : "#26365b"
-                            border.color: "#6c7eb2"
+                            color: cancelRebootButton.down ? BrandTheme.colors.surfaceRaised : BrandTheme.colors.surfaceRaised
+                            border.color: BrandTheme.colors.border
                             border.width: 1
                         }
 
                         contentItem: Text {
                             text: cancelRebootButton.text
-                            color: "#ffffff"
+                            color: BrandTheme.colors.text
                             font: cancelRebootButton.font
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter

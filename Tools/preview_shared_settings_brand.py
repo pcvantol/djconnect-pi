@@ -13,6 +13,7 @@ from PySide6.QtQuick import QQuickItem
 from PySide6.QtQuickControls2 import QQuickStyle
 from shiboken6 import delete
 
+from djconnect_pi.brand_theme import apply_palette
 from djconnect_pi.i18n import translate
 from djconnect_pi.shared_settings import SharedSettingsClient, snapshot_response
 
@@ -62,13 +63,14 @@ def main():
     qInstallMessageHandler(lambda kind, context, message: warnings.append(message))
     QQuickStyle.setStyle("Basic")
     app = QGuiApplication([])
+    apply_palette(app)
     engine = QQmlApplicationEngine()
     source = """import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import "QML_ROOT"
-Window {
-    width: 720; height: 720; visible: true; color: "#171029"
+BrandWindow {
+    width: 720; height: 720; visible: true; color: "#080B1A"
     ColumnLayout {
         anchors.fill: parent; anchors.margins: 28; spacing: 12
         BrandLockup { Layout.fillWidth: true; Layout.preferredHeight: width >= 512 ? width / 4 : width * 448 / 1728 }

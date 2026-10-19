@@ -1180,6 +1180,13 @@ for _key, _values in _SHARED_SETTINGS_TRANSLATIONS.items():
         TRANSLATIONS[_language][_key] = _value
 
 
+# Shared native Session experience for both Pi deployment profiles.
+_SESSION_TRANSLATIONS = {'session_title': ('DJ Session', 'DJ-sessie', 'DJ-Session', 'Session DJ', 'Sesión DJ'), 'session_history': ('Previous sessions', 'Eerdere sessies', 'Frühere Sessions', 'Sessions précédentes', 'Sesiones anteriores'), 'session_start': ('Start DJ Session', 'Start DJ-sessie', 'DJ-Session starten', 'Démarrer la session DJ', 'Iniciar sesión DJ'), 'session_end': ('End session', 'Sessie beëindigen', 'Session beenden', 'Terminer la session', 'Finalizar sesión'), 'session_end_confirm': ('End this DJ Session?', 'Deze DJ-sessie beëindigen?', 'Diese DJ-Session beenden?', 'Terminer cette session DJ ?', '¿Finalizar esta sesión DJ?'), 'session_empty': ('Choose your mood and start a session.', 'Kies je stemming en start een sessie.', 'Wähle deine Stimmung und starte eine Session.', 'Choisissez votre ambiance et démarrez une session.', 'Elige tu ambiente e inicia una sesión.'), 'session_listening': ('Your DJ is listening with you.', 'De DJ luistert met je mee.', 'Dein DJ hört mit dir zu.', 'Votre DJ écoute avec vous.', 'Tu DJ escucha contigo.'), 'session_profile_choose': ('Choose your profile', 'Kies je profiel', 'Profil wählen', 'Choisir votre profil', 'Elige tu perfil'), 'session_profile_use': ('Use this profile', 'Gebruik dit profiel', 'Dieses Profil verwenden', 'Utiliser ce profil', 'Usar este perfil'), 'session_profile_missing': ('Choose a profile for this device in Home Assistant, then refresh.', 'Kies in Home Assistant een profiel voor dit apparaat en vernieuw daarna.', 'Wähle in Home Assistant ein Profil für dieses Gerät und aktualisiere dann.', 'Choisissez un profil pour cet appareil dans Home Assistant, puis actualisez.', 'Elige un perfil para este dispositivo en Home Assistant y actualiza.'), 'session_error': ('The session is temporarily unavailable. Refresh to try again.', 'De sessie is tijdelijk niet beschikbaar. Vernieuw om het opnieuw te proberen.', 'Die Session ist vorübergehend nicht verfügbar. Bitte aktualisieren.', 'La session est temporairement indisponible. Actualisez pour réessayer.', 'La sesión no está disponible temporalmente. Actualiza para reintentar.'), 'session_uncertain': ('The result is not yet confirmed. Refresh before trying another action.', 'Het resultaat is nog niet bevestigd. Vernieuw voordat je opnieuw iets uitvoert.', 'Das Ergebnis ist noch nicht bestätigt. Aktualisiere vor einer weiteren Aktion.', 'Le résultat n’est pas encore confirmé. Actualisez avant une autre action.', 'El resultado aún no está confirmado. Actualiza antes de otra acción.'), 'session_history_empty': ('No saved sessions.', 'Geen opgeslagen sessies.', 'Keine gespeicherten Sessions.', 'Aucune session enregistrée.', 'No hay sesiones guardadas.'), 'session_more': ('Load more', 'Meer laden', 'Mehr laden', 'Charger plus', 'Cargar más'), 'session_back': ('Back to DJ Session', 'Terug naar DJ-sessie', 'Zurück zur DJ-Session', 'Retour à la session DJ', 'Volver a la sesión DJ'), 'session_history_readonly': ('Saved session · read only', 'Opgeslagen sessie · alleen-lezen', 'Gespeicherte Session · schreibgeschützt', 'Session enregistrée · lecture seule', 'Sesión guardada · solo lectura'), 'session_unavailable_contribution': ('Contribution unavailable', 'Bijdrage niet beschikbaar', 'Beitrag nicht verfügbar', 'Contribution indisponible', 'Contribución no disponible'), 'session_silence': ('The DJ stayed quiet.', 'De DJ bleef stil.', 'Der DJ blieb still.', 'Le DJ est resté silencieux.', 'El DJ permaneció en silencio.'), 'session_demo_body': ('Example session. No music or DJ audio is started.', 'Voorbeeldsessie. Er wordt geen muziek of DJ-audio gestart.', 'Beispielsession. Es wird keine Musik oder DJ-Audio gestartet.', 'Session exemple. Aucune musique ni voix DJ ne démarre.', 'Sesión de ejemplo. No se inicia música ni audio DJ.')}
+for _key, _values in _SESSION_TRANSLATIONS.items():
+    for _language, _value in zip(SUPPORTED_LANGUAGES, _values, strict=True):
+        TRANSLATIONS[_language][_key] = _value
+
+
 def normalize_language(language: str) -> str:
     if not language:
         return "en"
@@ -1204,3 +1211,28 @@ def translate(language: str, key: str, **values: object) -> str:
     if text is None:
         text = TRANSLATIONS["en"].get(key, key)
     return text.format(**values)
+
+
+_HISTORY_SEARCH_TRANSLATIONS = {
+    "session_search": ("Search this session", "Zoek in deze sessie", "Diese Session durchsuchen", "Rechercher dans cette session", "Buscar en esta sesión"),
+    "session_search_complete": ("All saved entries searched.", "Alle opgeslagen bijdragen doorzocht.", "Alle gespeicherten Beiträge durchsucht.", "Toutes les contributions enregistrées ont été recherchées.", "Se han buscado todas las entradas guardadas."),
+    "session_search_partial": ("More saved entries remain. Load more to continue searching.", "Er zijn nog meer opgeslagen bijdragen. Laad meer om verder te zoeken.", "Weitere gespeicherte Beiträge sind verfügbar. Lade mehr, um weiterzusuchen.", "D’autres contributions enregistrées restent à rechercher. Chargez la suite.", "Quedan más entradas guardadas. Carga más para continuar buscando."),
+    "session_search_empty": ("No matches in this session.", "Geen resultaten in deze sessie.", "Keine Treffer in dieser Session.", "Aucun résultat dans cette session.", "No hay resultados en esta sesión."),
+    "session_open_entry": ("Open contribution", "Open bijdrage", "Beitrag öffnen", "Ouvrir la contribution", "Abrir contribución"),
+}
+for _key, _values in _HISTORY_SEARCH_TRANSLATIONS.items():
+    for _language, _value in zip(("en", "nl", "de", "fr", "es"), _values):
+        TRANSLATIONS[_language][_key] = _value
+
+
+_KEYBOARD_TRANSLATIONS = {
+    "keyboard_shift": ("Uppercase", "Hoofdletters", "Großbuchstaben", "Majuscules", "Mayúsculas"),
+    "keyboard_symbols": ("Letters and symbols", "Letters en symbolen", "Buchstaben und Symbole", "Lettres et symboles", "Letras y símbolos"),
+    "keyboard_accents": ("Accented letters", "Letters met accenten", "Akzentbuchstaben", "Lettres accentuées", "Letras acentuadas"),
+    "keyboard_space": ("Space", "Spatie", "Leerzeichen", "Espace", "Espacio"),
+    "keyboard_delete": ("Delete character", "Teken wissen", "Zeichen löschen", "Effacer le caractère", "Borrar carácter"),
+    "keyboard_hide": ("Hide keyboard", "Toetsenbord verbergen", "Tastatur ausblenden", "Masquer le clavier", "Ocultar teclado"),
+}
+for _key, _values in _KEYBOARD_TRANSLATIONS.items():
+    for _language, _value in zip(("en", "nl", "de", "fr", "es"), _values):
+        TRANSLATIONS[_language][_key] = _value

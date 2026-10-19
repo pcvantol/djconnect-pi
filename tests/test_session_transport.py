@@ -1,0 +1,76 @@
+from types import SimpleNamespace
+from unittest.mock import Mock
+
+import pytest
+import requests
+
+from djconnect_pi.session_transport import SessionError, SessionTransport
+
+
+@pytest.fixture
+def transport(monkeypatch):
+    cfg = SimpleNamespace(paired=True, device_token="synthetic-token", ha_url="http://fixture.invalid",
+        device_id="djconnect-raspberry-pi-fixture", explicit_profile_id="explicit-profile",
+        active_profile_id="resolved-profile", active_profile_type="personal", active_profile_privacy_mode="private", private_session=False, language="nl")
+    response = Mock(status_code=200)
+    response.json.return_value = {"success": True, "session": None}
+    request = Mock(return_value=response)
+    monkeypatch.setattr(requests, "request", request)
+    return SessionTransport(lambda: cfg), cfg, request, response
+
+
+def test_read_is_pure_and_bound_to_device_and_explicit_profile(transport):
+    client, cfg, request, _ = transport
+    assert client.active(client.binding())["session"] is None
+    args, kwargs = request.call_args
+    assert args == ("GET", "http://fixture.invalid/api/djconnect/v1/session/active")
+    assert kwargs["params"] == {"device_id": cfg.device_id, "client_type": "raspberry_pi", "profile_id": "explicit-profile"}
+    assert kwargs["headers"]["Cache-Control"] == "no-store"
+    assert "json" not in kwargs
+
+
+def test_successor_profile_discards_delayed_response(transport):
+    client, cfg, request, response = transport
+    def delayed(*args, **kwargs):
+        cfg.active_profile_id = "successor"
+        return response
+    request.side_effect = delayed
+    with pytest.raises(SessionError, match="context_changed"):
+        client.active(client.binding())
+
+
+@pytest.mark.parametrize("method", ["start", "end"])
+def test_write_timeout_is_uncertain_and_never_replayed(transport, method):
+    client, _, request, _ = transport
+    request.side_effect = requests.Timeout()
+    with pytest.raises(SessionError, match="uncertain"):
+        getattr(client, method)(client.binding(), "groove" if method == "start" else "exact-session")
+    assert request.call_count == 1
+
+
+def test_history_uses_negotiated_representation_and_safe_path_component(transport):
+    client, _, request, _ = transport
+    client.timeline(client.binding(), "session/foreign", window="anchor", anchor_entry_id="entry-1")
+    assert request.call_args.args[1].endswith("session%2Fforeign")
+    assert request.call_args.kwargs["params"]["history_contract_version"] == 2
+    assert request.call_args.kwargs["params"]["anchor_entry_id"] == "entry-1"
+
+
+def test_unauthorized_read_never_exposes_private_error_or_resets_pairing(transport):
+    client, cfg, _, response = transport
+    response.status_code = 403
+    response.json.return_value = {"error": "private-server-body", "profile_id": "secret"}
+    with pytest.raises(SessionError, match="^denied$"):
+        client.active(client.binding())
+    assert cfg.paired and cfg.device_token == "synthetic-token"
+
+
+def test_no_request_with_old_binding_or_invalid_mood(transport):
+    client, cfg, request, _ = transport
+    binding = client.binding()
+    cfg.device_token = "replacement"
+    with pytest.raises(SessionError, match="context_changed"):
+        client.active(binding)
+    with pytest.raises(SessionError, match="invalid"):
+        client.start(client.binding(), "continue")
+    request.assert_not_called()

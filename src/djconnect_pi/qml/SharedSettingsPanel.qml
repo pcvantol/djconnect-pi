@@ -1,4 +1,5 @@
 import QtQuick
+import "BrandTheme.js" as BrandTheme
 import QtQuick.Controls
 import QtQuick.Layouts
 
@@ -76,7 +77,7 @@ ColumnLayout {
 
     Label {
         text: editor.tr("shared_title")
-        color: "#f4f8f8"
+        color: BrandTheme.colors.text
         font.pixelSize: 28
         font.bold: true
         Layout.fillWidth: true
@@ -85,7 +86,7 @@ ColumnLayout {
     }
     Label {
         text: editor.tr(editor.backend.sharedSettings.active ? "shared_scope_active" : "shared_scope_defaults")
-        color: "#d7e2e4"
+        color: BrandTheme.colors.muted
         font.pixelSize: 20
         Layout.fillWidth: true
         wrapMode: Text.WordWrap
@@ -124,10 +125,10 @@ ColumnLayout {
             spacing: 6
             Label {
                 text: editor.tr("shared_field_" + fieldRow.modelData)
-                color: "#d7e2e4"
+                color: BrandTheme.colors.muted
                 font.pixelSize: 22
             }
-            ComboBox {
+            BrandComboBox {
                 id: choice
                 objectName: "shared_choice_" + fieldRow.modelData
                 Layout.fillWidth: true
@@ -154,7 +155,7 @@ ColumnLayout {
     }
     Label {
         text: editor.tr("shared_pi_no_audio")
-        color: "#b9b5d4"
+        color: BrandTheme.colors.muted
         font.pixelSize: 18
         Layout.fillWidth: true
         wrapMode: Text.WordWrap
@@ -163,7 +164,7 @@ ColumnLayout {
         visible: !!editor.backend.sharedSettings.values && !editor.backend.sharedSettings.speaker_available &&
                  ["ha_speaker", "both"].indexOf((editor.backend.sharedSettings.values || {}).announcement_output) >= 0
         text: editor.tr("dj_announcement_speaker_unavailable")
-        color: "#b9b5d4"
+        color: BrandTheme.colors.muted
         font.pixelSize: 18
         Layout.fillWidth: true
         wrapMode: Text.WordWrap
@@ -171,7 +172,7 @@ ColumnLayout {
     Label {
         visible: !!editor.backend.sharedSettings.values && !editor.backend.sharedSettings.voice_available
         text: editor.tr("shared_voice_unavailable")
-        color: "#b9b5d4"
+        color: BrandTheme.colors.muted
         font.pixelSize: 18
         Layout.fillWidth: true
         wrapMode: Text.WordWrap

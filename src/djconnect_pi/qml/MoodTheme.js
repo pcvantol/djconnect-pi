@@ -1,4 +1,5 @@
 .pragma library
+.import "BrandTheme.js" as BrandTheme
 
 var palettes = {
     "default": {
@@ -127,13 +128,27 @@ function key(value) {
     return "party"
 }
 
-function color(value, token) {
+function moodColor(value, token) {
     var theme = palettes[key(value)] || palettes.default
     return theme[token] || palettes.default[token] || "#247fff"
 }
 
+// Mood does not recolour navigation, modal surfaces, controls or status semantics.
+function color(value, token) {
+    var aliases = {
+        gradientStart: "buttonStart", gradientMid: "buttonMid", gradientEnd: "buttonEnd",
+        accent: "cyan", accentSoft: "surfaceRaised", surface: "surface", focus: "focus",
+        chip: "surfaceRaised", backgroundStart: "backgroundStart",
+        backgroundMid: "backgroundMid", backgroundEnd: "background",
+        bannerStart: "background", bannerMid: "surface", bannerEnd: "backgroundMid",
+        overlayStart: "blue", overlayEnd: "purple", toastStart: "buttonStart",
+        toastMid: "buttonMid", toastEnd: "buttonEnd", sliderStart: "blue", sliderEnd: "purple"
+    }
+    return BrandTheme.colors[aliases[token]] || BrandTheme.colors.cyan
+}
+
 function disabled(position) {
-    if (position === "mid") return "#3c3f61"
-    if (position === "end") return "#4b3d65"
-    return "#33415f"
+    if (position === "mid") return BrandTheme.colors.disabledMid
+    if (position === "end") return BrandTheme.colors.disabledEnd
+    return BrandTheme.colors.disabledStart
 }

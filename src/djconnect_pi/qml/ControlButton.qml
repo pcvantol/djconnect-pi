@@ -1,7 +1,7 @@
 import QtQuick
+import "BrandTheme.js" as BrandTheme
 import QtQuick.Controls
 import QtQuick.Layouts
-import "MoodTheme.js" as MoodTheme
 
 Button {
     id: control
@@ -14,24 +14,20 @@ Button {
     font.pixelSize: primary ? 25 : 18
     font.bold: true
 
-    background: Rectangle {
+    background: GlassSurface {
         radius: Math.min(width, height) / 2
-        border.width: 0
-        scale: control.down ? 0.96 : 1.0
-        gradient: Gradient {
-            orientation: Gradient.Horizontal
-            GradientStop { position: 0.0; color: control.enabled ? MoodTheme.color(djconnect.moodValue, "gradientStart") : MoodTheme.disabled("start") }
-            GradientStop { position: 0.58; color: control.enabled ? MoodTheme.color(djconnect.moodValue, "gradientMid") : MoodTheme.disabled("mid") }
-            GradientStop { position: 1.0; color: control.enabled ? MoodTheme.color(djconnect.moodValue, "gradientEnd") : MoodTheme.disabled("end") }
-        }
-
+        interactive: true
+        selected: control.primary
+        pressed: control.down
+        focused: control.activeFocus
+        opacity: control.enabled ? 1 : 0.45
+        scale: control.down ? 0.97 : 1
         Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutCubic } }
-        Behavior on color { ColorAnimation { duration: 140 } }
     }
 
     contentItem: Text {
         text: control.text
-        color: control.enabled ? "#ffffff" : "#94a0b8"
+        color: control.enabled ? BrandTheme.colors.text : BrandTheme.colors.disabledText
         font: control.font
         horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter

@@ -154,25 +154,18 @@ def test_web_portal_media_buttons_and_refresh_are_clickable() -> None:
     assert "setBusy('logsRefreshButton',true,t('refreshing'))" in html
 
 
-def test_web_portal_uses_live_mood_theme_tokens() -> None:
-    html = index_html("3.1.64").decode("utf-8")
+def test_web_portal_uses_shared_brand_colors_independent_of_mood() -> None:
+    from djconnect_pi.brand_theme import colors, css_color
 
-    assert "--mood-gradient-start:#247fff" in html
-    assert "const MOOD_THEMES" in html
-    assert "#4DA3FF" in html
-    assert "#2EC4B6" in html
-    assert "#8AC926" in html
-    assert "#FF2E63" in html
-    assert "if (mood <=24) return 'chill';" in html
-    assert "if (mood <=59) return 'groove';" in html
-    assert "if (mood <=84) return 'energy';" in html
-    assert "function applyMoodTheme(value)" in html
-    assert "applyMoodTheme(data.settings?.mood)" in html
-    assert ".control-button.active" in html
-    assert "border-color:var(--mood-focus)" in html
-    assert "background:linear-gradient(135deg,var(--mood-gradient-start),var(--mood-gradient-end))" in html
-    assert "input[type=\"range\"]" in html
-    assert "accent-color:var(--mood-accent)" in html
+    html = index_html("3.1.64").decode("utf-8")
+    for token, value in colors().items():
+        assert f"--brand-{token}:{css_color(value)}" in html
+    assert "MOOD_THEMES" not in html
+    assert "applyMoodTheme" not in html
+    assert "button:focus-visible" in html
+    assert "option{" in html
+    assert "--brand-gradient-start:var(--brand-buttonStart)" in html
+    assert "accent-color:var(--brand-accent)" in html
 
 
 def test_web_portal_has_local_games_with_sound_hooks() -> None:

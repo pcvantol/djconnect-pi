@@ -259,7 +259,11 @@ authorized Universal Receiver session/Broadcast smoke scenario.
 
 ## UI Shape
 
-The app is a fullscreen touch remote with hardware-aware presentation:
+Both Pi targets use one full app, with shared screens, menu order, glass controls,
+feature icons and server controllers. DJ Session is available through the same
+shared screen on both targets. The compact visual reference is iPhone mini;
+the 10-inch reference is iPad in portrait. Layout adapts to the physical canvas:
+
 
 - Pi Zero 2 W / 4-inch uses the compact 720x720 touch layout.
 - Pi 5 / 10-inch wall uses the physical portrait canvas. The current living-room

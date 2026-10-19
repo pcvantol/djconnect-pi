@@ -25,7 +25,7 @@ Responsibilities:
   `command:"set_output"`
 - render HA-provided album art asynchronously in Now Playing, Queue and
   Playlists so image downloads do not block the QML UI thread
-- render a dark DJConnect blue/purple gradient theme across touch screens
+- render the shared Pi Brand V2 navy/cyan/blue/purple colour system across touch screens, standard controls, portal and updater
 - handle touch gestures and animated control states
 - display DJ response text pushed by Home Assistant as a 10-second toast
 - show startup splash, blocking pairing and local demo mode
@@ -46,9 +46,18 @@ src/djconnect_pi/qml/*.qml    touch UI, gestures and animations
 
 ### Hardware-aware presentation
 
-The client keeps its runtime and appliance behavior shared, but selects its
-presentation from the installed release profile. `pi-zero-2w-arm64` keeps the
-compact 720px touch layout for the 4-inch panel. `pi5-arm64` uses the physical
+Both deployment profiles are full apps and use the same navigation, feature
+screens, glass components, translations and server controllers. DJ Session is a
+shared destination on both the 4-inch and 10-inch clients; it is not gated by the
+hardware profile. `SessionScreen.qml` and `session_controller.py` provide the same
+Profile-confirmation, active-session and saved-session flow on both targets.
+`session_transport.py` binds each request/result to the current paired Profile;
+`session_projection.py` keeps live grants separate from saved history.
+
+The installed release profile only adapts canvas dimensions, typography, spacing,
+and the cost of ambient motion. Glass surfaces and touch feedback are shared. `pi-zero-2w-arm64` keeps the
+compact 720px touch layout for the 4-inch panel, using iPhone mini as the visual
+reference. The large portrait reference is iPad. `pi5-arm64` uses the physical
 portrait display canvas, larger type and touch targets, a wider content rhythm,
 and subtle low-cost ambient motion. The Pi 5 profile is deliberately native
 QML rather than a browser kiosk: touch wake, idle blanking, screenshot support

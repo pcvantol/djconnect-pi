@@ -264,3 +264,35 @@ keys. It loads actual QML through `Tools/preview_shared_settings_brand.py`:40
 fixture views across720x720/1200x1920, five languages and four initial states.
 This uses software/offscreen Qt, not physical Pi display acceptance. See
 [the consumer qualification boundary](docs/SHARED_SETTINGS_AND_BRAND_V2_ADOPTION.md).
+
+
+## Shared phone/tablet presentation checkpoint
+
+Both Pi profiles load the same feature screens and Session controller. Use
+`Tools/preview_brand_colors.py` for actual QML fixture rendering at 720x720 and
+1200x1920; use `Tools/preview_shared_settings_brand.py` for the four shared-settings
+states in all five locales on both formats. Neither tool pairs a device or starts
+music. The compact visual reference is iPhone mini, the large reference iPad portrait.
+
+The Session additions cover explicit Profile confirmation, delayed-result rejection
+on context changes, pure current reads, no automatic replay of uncertain writes,
+independent live-display deadlines and historical retention deadlines. Product demo
+state is labelled and cannot use the server or native delivery grants. History
+schema2 fixtures preserve their pinned Core source/hash separately from local tests.
+
+Current local checkpoint: the full suite reported 448 passed and 13 skipped;
+after the compact toolbar/icon adjustments the relevant QML, locale and Session
+subset reported 51 passed. Actual QML previews checked 36 page views without errors;
+40 localized settings fixture views also passed. Screenshots and logs are fixture
+proof only. No ARM/installed/physical/full-Session-parity qualification is implied.
+
+
+History search checkpoint: 463 passed, 13 skipped. Additional tests cover exact
+Session/query validation, retained-entry types, malformed and surrogate-splitting
+highlight rejection, safe original/revision source links, mandatory Spotify
+attribution, delayed-query withdrawal, navigation-only anchor reads and retaining
+the active Runtime when a saved-session request fails. The QML preview now checks
+40 views and exercises accented touch input/backspace plus private-query clearing.
+The HTTP, WebSocket and fixture security tools passed. The built wheel includes
+all shared Session, keyboard and attribution assets; this does not prove ARM,
+installed behavior, a real HA exchange or physical touch acceptance.

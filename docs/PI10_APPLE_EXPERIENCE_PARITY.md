@@ -1,0 +1,212 @@
+# Shared Pi Apple experience adoption
+
+Owner request, 20 October 2026: bring the Apple experience to the Pi10, including
+menus, pages, navigation, icon meanings, copy and server interactions. This is a
+consumer implementation objective; visual alignment alone is not parity.
+
+## Primary visual reference and current checkpoint
+
+The owner selected **iPad in portrait**, not the wide Mac layout, as the primary
+reference. Source inspection and a colour-only pass were insufficient. The next
+visual implementation must follow actual portrait cards, glass buttons, effects,
+spacing, page hierarchy and navigation, then map them to 1200x1920 Pi10.
+
+The actual installed Mac app was viewed on 20 October: live DJ Session, Mood and
+Presence segmented glass popovers, speech-preferences popover and Now Playing.
+Private reference captures are under `/private/tmp/pi-apple-visual-reference`.
+These prove Mac observations only. Device Hub sees the attached physical iPad Pro
+on iPadOS26.7.1, but screen access currently says **Unlock Your iPad**. The available
+repository iPad screenshot set is dated July and is deliberately not treated as a
+current portrait reference. No device unlock, new pairing or Apple install occurs.
+
+The colour work is **provisional WIP** in the isolated
+`codex/pi-ipad-experience` branch; no new PR, merge, release or Pi install has
+been performed. Its current checks pass (439 tests, 32 real QML page fixture views,
+plus 40 localized shared-settings fixtures before final control refinements).
+These checks do not qualify the owner-requested glass design or full parity.
+Colour/Mood decisions and navigation layout must be revisited against the iPad
+reference before presenting a final candidate.
+
+## Source baseline and scope
+
+Read-only comparison: clean Apple source `9df57f3fd96aeab6624407b1e4c07490125a6565`,
+`Sources/DJConnectUI/DJConnectRootView.swift`, `SessionTimelineScreen.swift`,
+`NativeSessionMomentsView.swift`, `ProfileDJSettingsEditor.swift`,
+`DJConnectAppModel.swift`; `Sources/DJConnectCore/DJConnectClient.swift` and the
+Session Runtime/History/Media/Artwork/Presence transports. This source comparison
+is not installed Apple acceptance. Pi starting point is protected
+`5dc6d7f2a8efe212b5b4222e9ffb049606886e98`, installed as rc.4 before this change.
+
+Core remains contract authority. Pi retains `client_type=raspberry_pi`, explicit
+Profile resolution, server-owned shared settings and no client-side planner.
+The owner explicitly selected a full app with explicit authorized Profile mapping,
+then clarified that **both Pi profiles are full apps using one shared codebase**;
+the absent DJ Session must be added to both. The earlier Pi assessment's reduced
+shared-wall scope is not the selected implementation target. Native layout adapts
+between 720x720 and 1200x1920, while Session/transport/authorization code stays
+shared. Microphone/PTT/local speech remain a separate hardware/product boundary;
+no such capture or playback is silently enabled. There is no new Core,
+Apple or other consumer source writer here.
+
+## Actual gap inventory
+
+| Apple experience | Pi rc.4 | Required outcome |
+| --- | --- | --- |
+| DJ Session is initial destination | Now Playing is initial destination; no Session page | Session-first landing and touch navigation |
+| Start/reconnect/end a Profile-owned Session | No corresponding Pi transport/actions | Existing Core start/active/end routes, explicit input, confirmed results, stale-context rejection |
+| Live Session moments, playback, Persona, Mood, Presence | Playback and independent Ask DJ screens; six-field settings editor | Same effective Session projection, moment ordering, source labels and interaction affordances |
+| Saved Sessions and timeline | Absent | Server-authorized history, pagination, resume/live separation and deletion confirmation |
+| Session media/artwork/forecast/reaction affordances | Absent | Advertised Core contracts only; preserve attribution, expiry and denial states |
+| Now Playing, queue, playlists | Present | Compare command payloads, output selection, progress and search/selection semantics |
+| Ask DJ | Read-only history and structured actions | Align conversation rendering/actions within selected Pi capabilities |
+| Track Insight, Discover and Music DNA | Present, separate views | Compare returned sections/actions, privacy state and empty/error handling |
+| Mac sidebar and compact Apple tabs | Pi bottom bar plus More | Match the observed iPad portrait navigation with equivalent destinations and selected/back state; retain compact-device layout |
+| Settings, logs, About, legal, privacy, feedback | Settings/logs/About exist; other destinations not equivalent | Same human copy/meaning, five locales, device-specific options clearly separated |
+| Feature icons and Brand V2 chrome | Core artwork imported, mixed legacy chrome | Consistent Pi colours now; semantic icon/page/copy inventory still to implement |
+| Native speech, permissions and device integrations | Pi intentionally lacks local voice/microphone | Respect explicit Pi product decision; HA speaker delivery remains server-owned |
+
+## Delivery and acceptance sequence
+
+1. **Colour foundation:** shared Pi Brand V2 tokens across native pages, standard
+   controls/popups, portal, updater and games chrome. Immutable artwork and arcade
+   object colours retained. Contrast and actual QML fixture rendering qualified.
+2. **Session lifecycle and navigation:** adopt Core contracts, Session-first
+   destination and iPad-portrait-aligned Pi10 navigation. No empty buttons or local invented Session state.
+3. **Session presentation and saved history:** moments/media/history with owner
+   scope, identity/generation/revision fences, ordering, expiry and reconnect.
+4. **Remaining screen parity:** systematically reconcile every menu destination,
+   action, icon meaning and localized string against the pinned Apple source.
+5. **Connected/installed proof:** paired HA and named Profile; cross-client start,
+   reconnect, shared edits, successor Session, end, denial/offline and restart;
+   actual 1200x1920 installed screenshots and physical touch acceptance.
+
+Each phase must identify the exact source candidate, tests and remaining gaps.
+An imported logo, mock screen, green test suite or installed package does not
+close this inventory. The rc.4 Pi was unpaired and HA reported `not_configured`;
+that is a connected-acceptance prerequisite, not proof of a Pi session feature.
+
+## Current producer and portrait evidence refresh
+
+Read-only live remote main verification: Core `8b221d07fe2215d9516d18fe92c832332c7a16ab`,
+Apple `e106a467011b9ea84d301a81c4e07251314cc6dd`. Apple moved from9df57f3 during
+reference preparation; its intervening diff changes only binary-intake qualification
+Tools/docs, with no app/UI source delta. An isolated unsigned Debug build succeeded.
+An iPad Pro11 simulator on iPadOS27.0 runs the actual app's explicit `review_demo`
+fixture in Dutch/portrait,1668x2420. This is native simulator UI, not live HA proof.
+The original physical iPad and installed Mac app are not replaced.
+
+Observed stable views: DJ Session, More, Now Playing, Track Insight and Settings.
+Private captures are in `/private/tmp/pi10-ipad-portrait-reference`; initial captures
+of some pages hit the launch overlay and are retained as such. `*-ready.png` are the
+post-launch page captures. The chosen geometry is a five-tab floating glass bar:
+DJ Session, Now Playing, Track Insight, Discover, More. More contains two-column
+rounded glass cards in row order: Ask DJ/Previous sessions, Music DNA/Queue,
+Playlists/Games, Settings/About, Legal/Privacy, Feedback. Session toolbar controls
+form a transparent leading capsule; connection/refresh form a separate trailing
+capsule; the composer floats immediately above the navigation. The Mac's persistent
+sidebar is not the portrait reference. iPad pop-out interaction is still to be
+captured directly; the actual Mac Mood/Presence/voice popovers and shared SwiftUI
+sources were observed but are not labelled iPad visual acceptance.
+
+Core contract audit identified history representation2 (including publication and
+silence rows), separate live `native_delivery` deadline grants, explicit Profile
+onboarding, start/active/end, typed history-open, tail/anchor pagination, source
+withdrawal and generation/context fences. The initial shared Session transport,
+projection and Qt adapter are WIP; no protected merge/release/installed or end-to-end
+parity is claimed. No Core or Apple source has been mutated by this consumer work.
+
+
+## Shared-target checkpoint, 20 October 2026
+
+Both deployment targets are full apps. They load the same `Main.qml`,
+`SessionScreen.qml`, `FeatureIcon.qml`, `SessionController`, Session transport and
+Profile-bound projections. Release-profile conditionals select canvas dimensions,
+type, spacing and motion only; they do not define separate feature implementations.
+The existing compact app pages remain reachable. New Session work applies to both.
+
+Current local evidence: 461 tests passed; 36 actual QML fixture captures cover the
+720x720 compact and 1200x1920 portrait targets, including Session and history.
+These are offline/source checks, not installed or connected acceptance. The More
+screen now has a two-column glass layout and the first eight iPad destinations in
+matching order; the floating bar has the five iPad tabs. The owner additionally
+requested the actual white iOS Session menu glyph: `DJSessionMenuSymbol.qml` ports
+the repository-owned `DJPersonaMark` geometry from Apple e106a467 exactly, rather
+than using the coloured application artwork as a feature symbol. Final render
+verification of that icon is recorded separately from the preceding 461-test run.
+
+Outstanding: the full Session feature inventory above, real profile authorization,
+connected/cross-client behavior, ARM installation and physical touch acceptance.
+No full-parity, release or deployment claim is made by this checkpoint.
+
+
+### Unified interface decision
+
+The owner explicitly authorized one entire interface for both Pi deployment
+targets. The compact target receives DJ Session through the same screen/controller
+as Pi10. Shared glass material and rounded controls now apply to both the main
+app and its separate updater UI. Profile-specific branches retain hardware canvas,
+spacing/type and ambient-motion limits; they do not remove destinations or features.
+The 4-inch client retains its existing pages and device utility actions.
+
+
+### Compact reference: iPhone mini
+
+The owner selected iPhone (mini) as the design reference for the 4-inch target;
+Pi10 retains iPad portrait. This changes responsive presentation, not feature
+ownership or shared code. A dedicated iPhone13mini iOS27.0 simulator
+`45BE4D93-465E-4AF2-BD4D-2B81AA868257` runs the existing Apple Debug build with
+`review_demo`, Dutch locale and Session routing. Its actual 1080x2340 screenshot
+is `/private/tmp/pi4-iphone-mini-reference/dj-session.png`; it is simulator/fixture
+reference, not connected or physical acceptance.
+
+The compact Session toolbar now places overflow and primary actions in a leading
+capsule, with connection/refresh in a trailing capsule. Overflow exposes Persona,
+Presence, voice preferences and saved Sessions. Both targets share the local
+vinyl fallback (adapted from Apple's `AlbumArtworkPlaceholder`) without borrowing
+Now Playing artwork or inventing a Session image grant. The Session content
+scrolls above the persistent five-tab navigation. No microphone or local speech
+capability is inferred from the reference screenshot. Text composer, authorized
+media and remaining Session contracts still require implementation/qualification.
+
+
+Compact checkpoint readback: 51 relevant tests passed after the last UI changes,
+36 actual QML page captures passed with no QML errors, and the settings fixture
+matrix passed 40 cases across five locales and two formats. Durable local preview
+files are under the task visualization directory `pi-iphone-mini-design`.
+The shared app is still an uncommitted candidate in the isolated worktree; no Pi
+installation was performed by these reference/presentation checks.
+
+
+### History search/navigation and attribution checkpoint
+
+The shared Session screen now uses the existing advertised search-v1/history2
+contract. Search is scoped to one selected Session, preserves server ordering,
+validates echoed query/revision, bounded pages and UTF-16 highlight ranges, and
+never manufactures a complete result count. Opening a result revalidates its exact
+Session/entry via the navigation-only route and then requests the anchor window.
+No start/end/playback command is used. Late results after leaving the view or
+changing Profile are discarded; historical-query errors cannot end/replace the
+active Runtime. Session input and pop-outs are cleared on context invalidation.
+
+The shared touch keyboard supports letters, accents, symbols, selection replacement
+and surrogate-safe backspace. It only edits the field; submitting is explicit.
+The UI keeps accepted body text plain, supplies original/previous/revision source
+links and shows Spotify attribution only with the packaged original Apple logo
+and an exact safe Spotify source URL. Body rendering that requires attribution
+waits for the actual local image renderer. The image is a byte-for-byte import
+from Apple e106a467, recorded in branding/SPOTIFY_ATTRIBUTION_SOURCE.json.
+
+Evidence: 463 tests passed, 13 skipped; the real QML preview covers40 views on
+both target sizes, including retained history, the search popup, accented touch
+input/backspace and private-input withdrawal. Existing HTTP, WebSocket and fixture
+security tools passed. The security fixture initially hit sandbox loopback EPERM;
+it passed under the normal approved local-test execution, not against live HA.
+Local wheel SHA256 bf6794410e3b318b97c99d110f52f7e76cece70883c7678bb867e37c0fb59de0;
+nine required Session/controller/keyboard/attribution files matched source bytes.
+This remains local package/fixture evidence, not a release or installation.
+
+Still open: live HA/Profile acceptance, full timeline paging/reading-position
+behavior, search highlighting, text composer/contextual exchange, native
+media/artwork/forecast/reactions, remaining Apple destinations and full visual
+polish. Core and Apple retain their own writers and pending producer work; no
+unpublished contract was adopted for this checkpoint.
