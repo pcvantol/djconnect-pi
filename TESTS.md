@@ -248,3 +248,19 @@ HTTP-only unless HA advertises a websocket command for it.
   and the bundled wheel
 - updater stable/beta prerelease channel handling
 - apt maintenance windows, upgrade command flow and reboot gating
+
+## Shared settings3 and Brand V2 candidate
+
+`tests/test_shared_settings.py` consumes producer-pinned settings3 snapshots and
+checks closed identity, complete first acceptance, stale Session draft rejection,
+operation receipt recovery without PATCH replay, reassignment, unavailable choices,
+no shared config writes and retired paired legacy Mood/output hints.
+`tests/test_app_backend.py` also checks delayed Profile results, denied reads,
+no optimistic quick-control confirmation and no local preference persistence.
+
+`tests/test_brand_v2.py` verifies imported PNG hashes/alpha/dimensions against the
+pinned Core manifest, headset-only micro sizes, local portal assets and five-locale
+keys. It loads actual QML through `Tools/preview_shared_settings_brand.py`:40
+fixture views across720x720/1200x1920, five languages and four initial states.
+This uses software/offscreen Qt, not physical Pi display acceptance. See
+[the consumer qualification boundary](docs/SHARED_SETTINGS_AND_BRAND_V2_ADOPTION.md).

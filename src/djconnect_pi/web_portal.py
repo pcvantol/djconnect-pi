@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import base64
 import json
 import re
 from html import escape
+from importlib.resources import files
 
 from .i18n import LANGUAGES, SUPPORTED_LANGUAGES, TRANSLATIONS
 
@@ -72,6 +74,12 @@ PORTAL_I18N_KEYS = (
 
 
 def index_html(version: str) -> bytes:
+    def asset(name: str) -> str:
+        return "data:image/png;base64," + base64.b64encode(files("djconnect_pi.qml").joinpath(name).read_bytes()).decode("ascii")
+
+    favicon = asset("brand-mark-32.png")
+    compact = asset("brand-wordmark-compact-dark.png")
+    primary = asset("brand-wordmark-primary-dark.png")
     version_text = escape(version)
     portal_i18n = {
         language: {key: TRANSLATIONS[language][key] for key in PORTAL_I18N_KEYS}
@@ -90,6 +98,7 @@ def index_html(version: str) -> bytes:
   <meta name="theme-color" content="#170d3a">
   <meta name="application-name" content="DJConnect">
   <title>DJConnect</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="{favicon}">
   <style>
     :root {{
       color-scheme: dark;
@@ -101,6 +110,7 @@ def index_html(version: str) -> bytes:
       --mood-shadow:rgba(123,97,255,.36);
     }}
     * {{ box-sizing:border-box; }}
+    .brand-lockup {{ display:block; width:min(100%,600px); height:auto; }}
     body {{
       margin:0; min-height:100vh; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
       color:var(--text); background:radial-gradient(circle at 20% 10%,#2536c8 0,#16115a 34%,#2b0b48 68%,#09071c 100%);
@@ -173,7 +183,8 @@ def index_html(version: str) -> bytes:
 </head>
 <body>
   <header>
-    <h1>DJConnect</h1>
+    <h1><picture><source media="(min-width:548px)" srcset="{primary}">
+      <img class="brand-lockup" src="{compact}" alt="DJConnect"></picture></h1>
     <div class="sub">Raspberry Pi web portal · v{version_text} · <a style="color:white" href="https://djconnect.dev">djconnect.dev</a></div>
   </header>
   <main>
@@ -293,7 +304,7 @@ function toast(message) {{
 async function api(path, options={{}}) {{
   const res = await fetch(path, Object.assign({{headers:{{'Content-Type':'application/json'}}}}, options));
   const data = await res.json();
-  if (!res.ok || data.success === false) throw new Error(data.error || data.message || `HTTP ${{res.status}}`);
+  if (!res.ok || data.success === false) throw new Error(data.message || data.error || `HTTP ${{res.status}}`);
   return data;
 }}
 function playCommand() {{ return state.playback && state.playback.is_playing ? 'pause' : 'play'; }}

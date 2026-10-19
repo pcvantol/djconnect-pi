@@ -179,6 +179,8 @@ Window {
             djconnect.loadMusicDna()
         } else if (root.activeScreen === "discover") {
             djconnect.loadMusicDiscovery()
+        } else if (root.activeScreen === "settings") {
+            djconnect.pollSharedSettings()
         }
         if (root.activeScreen !== "now") {
             root.moodPopoverOpen = false
@@ -881,46 +883,27 @@ Window {
             }
         }
 
-        RowLayout {
+        ColumnLayout {
             anchors.fill: parent
             anchors.leftMargin: appBanner.horizontalPadding
             anchors.rightMargin: appBanner.horizontalPadding
             anchors.topMargin: appBanner.verticalPadding
             anchors.bottomMargin: appBanner.verticalPadding
-            spacing: appBanner.contentSpacing
+            spacing: 6
 
-            Image {
-                source: "app-icon.png"
-                Layout.preferredWidth: appBanner.logoSize
-                Layout.preferredHeight: appBanner.logoSize
-                fillMode: Image.PreserveAspectFit
-                smooth: true
-                mipmap: true
+            BrandLockup {
+                Layout.preferredWidth: Math.min(parent.width, (parent.height - bannerDetail.implicitHeight - 6) * 1728 / 448)
+                Layout.fillHeight: true
             }
-
-            ColumnLayout {
+            Text {
+                id: bannerDetail
+                text: appBanner.detailText
+                color: "#c9c3d8"
+                font.pixelSize: appBanner.detailSize
+                font.bold: true
+                wrapMode: Text.WordWrap
+                maximumLineCount: 2
                 Layout.fillWidth: true
-                spacing: 6
-
-                Text {
-                    text: "DJConnect"
-                    color: "#ffffff"
-                    font.pixelSize: appBanner.titleSize
-                    font.bold: true
-                    elide: Text.ElideRight
-                    maximumLineCount: 1
-                    Layout.fillWidth: true
-                }
-
-                Text {
-                    text: appBanner.detailText
-                    color: "#c9c3d8"
-                    font.pixelSize: appBanner.detailSize
-                    font.bold: true
-                    elide: Text.ElideRight
-                    maximumLineCount: 1
-                    Layout.fillWidth: true
-                }
             }
         }
     }
@@ -2272,7 +2255,14 @@ Window {
                 }
             }
 
+            SharedSettingsPanel {
+                backend: djconnect
+                visible: djconnect.paired
+                Layout.fillWidth: true
+            }
+
             Text {
+                visible: !djconnect.sharedSettingsManaged
                 text: root.tr("dj_announcement_settings_title")
                 color: "#f4f8f8"
                 font.pixelSize: 26
@@ -2282,6 +2272,7 @@ Window {
             }
 
             RowLayout {
+                visible: !djconnect.sharedSettingsManaged
                 Layout.fillWidth: true
                 spacing: 14
 
@@ -2295,6 +2286,7 @@ Window {
 
                 ComboBox {
                     id: djAnnouncementOutputBox
+                    visible: !djconnect.sharedSettingsManaged
                     property var outputChoices: djconnect.djAnnouncementSpeakerAvailable ? ["text_only", "ha_speaker"] : ["text_only"]
                     font.pixelSize: 24
                     model: outputChoices
@@ -2311,7 +2303,7 @@ Window {
             }
 
             Text {
-                visible: !djconnect.djAnnouncementSpeakerAvailable
+                visible: !djconnect.sharedSettingsManaged && !djconnect.djAnnouncementSpeakerAvailable
                 text: root.tr("dj_announcement_speaker_unavailable")
                 color: "#b9b5d4"
                 font.pixelSize: 18
@@ -2320,7 +2312,7 @@ Window {
             }
 
             Text {
-                visible: djconnect.djAnnouncementSpeakerAvailable && djconnect.djAnnouncementSpeakerName.length > 0
+                visible: !djconnect.sharedSettingsManaged && djconnect.djAnnouncementSpeakerAvailable && djconnect.djAnnouncementSpeakerName.length > 0
                 text: root.tr("dj_announcement_speaker_configured") + " " + djconnect.djAnnouncementSpeakerName
                 color: "#b9b5d4"
                 font.pixelSize: 18

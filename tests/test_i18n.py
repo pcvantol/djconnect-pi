@@ -39,9 +39,9 @@ def test_qml_translation_keys_exist() -> None:
     qml_root = files("djconnect_pi.qml")
     qml_text = "\n".join(
         qml_root.joinpath(name).read_text(encoding="utf-8")
-        for name in ("Main.qml", "GamesPanel.qml", "UpdateProgress.qml")
+        for name in ("Main.qml", "GamesPanel.qml", "UpdateProgress.qml", "SharedSettingsPanel.qml")
     )
-    keys = set(re.findall(r'(?:root\.tr|djconnect\.t|updater\.t|updater\.tf)\("([^"]+)"', qml_text))
+    keys = set(re.findall(r'(?:root\.tr|editor\.tr|djconnect\.t|updater\.t|updater\.tf)\("([^"]+)"\)', qml_text))
     assert keys <= set(TRANSLATIONS["en"])
 
 

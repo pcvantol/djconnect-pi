@@ -11,6 +11,7 @@ import requests
 from .config import CLIENT_TYPE, Config, normalize_dj_announcement_output
 from .ha_websocket import WebSocketFastPath
 from .i18n import locale_for_language
+from .shared_settings import SharedSettingsClient
 
 _LOGGER = logging.getLogger(__name__)
 DJCONNECT_API_PREFIX = "/api/djconnect/v1"
@@ -127,6 +128,7 @@ class HAClient:
         self.cfg = cfg
         self.timeout = timeout
         self.fast_path = WebSocketFastPath(cfg, default_timeout=timeout)
+        self.shared_settings = SharedSettingsClient(lambda: self.cfg, timeout)
 
     def pair(self, pair_code: str) -> dict[str, Any]:
         payload = self._base_payload(include_language=False, include_mood=False, pair_code=pair_code, ha_pairing_status="pending")
@@ -205,7 +207,7 @@ class HAClient:
 
     def command(self, command: str, **payload: Any) -> dict[str, Any]:
         body = self._base_payload(command=command, request_source="device_command", **payload)
-        if command.startswith("ask_dj_"):
+        if command.startswith("ask_dj_") and not (self.cfg.paired or self.shared_settings.managed):
             body["dj_announcement_output"] = normalize_dj_announcement_output(
                 self.cfg.dj_announcement_output,
                 self.cfg.music_backend_capabilities,
@@ -622,17 +624,18 @@ class HAClient:
         self.cfg.music_backend_available = summary.available
         self.cfg.music_backend_revision = summary.revision
         self.cfg.music_backend_capabilities = dict(summary.capabilities or {})
-        if not self.cfg.dj_announcement_output_user_set:
-            announcement = self.cfg.music_backend_capabilities.get("dj_announcement")
-            preferred = "ha_speaker" if isinstance(announcement, dict) and announcement.get("default_output") == "ha_speaker" else self.cfg.dj_announcement_output
-            if preferred == "text_only" and isinstance(announcement, dict) and announcement.get("speaker_configured") is True:
-                preferred = "ha_speaker"
-            self.cfg.dj_announcement_output = normalize_dj_announcement_output(preferred, self.cfg.music_backend_capabilities)
-        else:
-            self.cfg.dj_announcement_output = normalize_dj_announcement_output(
-                self.cfg.dj_announcement_output,
-                self.cfg.music_backend_capabilities,
-            )
+        if not (self.cfg.paired or self.shared_settings.managed):
+            if not self.cfg.dj_announcement_output_user_set:
+                announcement = self.cfg.music_backend_capabilities.get("dj_announcement")
+                preferred = "ha_speaker" if isinstance(announcement, dict) and announcement.get("default_output") == "ha_speaker" else self.cfg.dj_announcement_output
+                if preferred == "text_only" and isinstance(announcement, dict) and announcement.get("speaker_configured") is True:
+                    preferred = "ha_speaker"
+                self.cfg.dj_announcement_output = normalize_dj_announcement_output(preferred, self.cfg.music_backend_capabilities)
+            else:
+                self.cfg.dj_announcement_output = normalize_dj_announcement_output(
+                    self.cfg.dj_announcement_output,
+                    self.cfg.music_backend_capabilities,
+                )
         target_player: dict[str, str] = {}
         if summary.target_player_id:
             target_player["id"] = summary.target_player_id
@@ -698,10 +701,11 @@ class HAClient:
         self._add_mood(payload)
         if self.cfg.music_dna_key:
             payload["music_dna_key"] = self.cfg.music_dna_key
-        payload["dj_announcement_output"] = normalize_dj_announcement_output(
-            self.cfg.dj_announcement_output,
-            self.cfg.music_backend_capabilities,
-        )
+        if not (self.cfg.paired or self.shared_settings.managed):
+            payload["dj_announcement_output"] = normalize_dj_announcement_output(
+                self.cfg.dj_announcement_output,
+                self.cfg.music_backend_capabilities,
+            )
         return payload
 
     def _add_profile_context(self, payload: dict[str, Any], *, request_source: str = "") -> None:
@@ -749,6 +753,8 @@ class HAClient:
         return {"language": locale, "locale": locale}
 
     def _mood(self) -> int | None:
+        if self.cfg.paired or self.shared_settings.managed:
+            return None
         mood = self.cfg.mood
         if isinstance(mood, int) and 0 <= mood <= 100:
             return mood
