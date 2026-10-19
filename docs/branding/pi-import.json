@@ -1,0 +1,60 @@
+{
+  "producer_repository": "pcvantol/djconnect",
+  "producer_commit": "883cb9f3ff9de8ec7f5ae4c5f04f852e0d8bd866",
+  "producer_pr": 1224,
+  "producer_status": "open_candidate_requires_protected_acceptance",
+  "manifest_sha256": "73cc408e10d88aa1fb8a1be2783b9c577aec398ce3dcd54c2f997ad1425984d2",
+  "archive_sha256": "aa51cf9bd417a2009cdd3bed037f46b5424ac85869fbe3e9fbb2657b4754f977",
+  "archive_bytes": 38523622,
+  "imported": {
+    "src/djconnect_pi/qml/brand-mark-16.png": {
+      "source": "assets/djconnect/brand-v2/mark-16.png",
+      "sha256": "852f439ec0401582dc56130053a5c775d2241a4810bdfadb20a18956ca62ee4e"
+    },
+    "src/djconnect_pi/qml/brand-mark-20.png": {
+      "source": "assets/djconnect/brand-v2/mark-20.png",
+      "sha256": "16647d02fde845f8da0afb55d216e5bb54fc98781e5a1130cf2013417ce44025"
+    },
+    "src/djconnect_pi/qml/brand-mark-24.png": {
+      "source": "assets/djconnect/brand-v2/mark-24.png",
+      "sha256": "6f9be60eae0c1c798528204edb694590a2d52a211a11662ab3c33c9055095c02"
+    },
+    "src/djconnect_pi/qml/brand-mark-32.png": {
+      "source": "assets/djconnect/brand-v2/mark-32.png",
+      "sha256": "f0d4d066342e4319d26bab33fa526c933018b17e8cbab3a8d2135c3f85b8281d"
+    },
+    "src/djconnect_pi/qml/brand-mark-40.png": {
+      "source": "assets/djconnect/brand-v2/mark-40.png",
+      "sha256": "7d18021519e271c42bddd934a651c48f9d224330bde4cea52803d3576ea551f3"
+    },
+    "src/djconnect_pi/qml/brand-mark-64.png": {
+      "source": "assets/djconnect/brand-v2/mark-64.png",
+      "sha256": "b874c1339d816e90d103567bbbc860b3ca01729fa196a20e9340c5ea10995614"
+    },
+    "src/djconnect_pi/qml/brand-mark-128.png": {
+      "source": "assets/djconnect/brand-v2/mark-128.png",
+      "sha256": "e0bacba07f65489f9aeee2ec47937c61913b830a00e2b89564242020d3fb869b"
+    },
+    "src/djconnect_pi/qml/app-icon.png": {
+      "source": "assets/djconnect/brand-v2/mark-512.png",
+      "sha256": "b142f522acc67f3787078451cb4bff9e21de62b976350f3904a6e12503dbb114"
+    },
+    "src/djconnect_pi/qml/brand-wordmark-compact-light.png": {
+      "source": "assets/djconnect/brand-v2/wordmark-compact-light.png",
+      "sha256": "ef0f6a2ca7604301fdcdc00c9716634fc5d9169a756ae07ae294d7514307666e"
+    },
+    "src/djconnect_pi/qml/brand-wordmark-compact-dark.png": {
+      "source": "assets/djconnect/brand-v2/wordmark-compact-dark.png",
+      "sha256": "274651d74fd43774573d1ec8b720be3103886d555ae5c5aa1f78379b99c8d25f"
+    },
+    "src/djconnect_pi/qml/brand-wordmark-primary-light.png": {
+      "source": "assets/djconnect/brand-v2/wordmark-primary-light.png",
+      "sha256": "361e4faf8c1227dc4422722c37029428bdfd2a7c491f89a9759a3982ad4e3839"
+    },
+    "src/djconnect_pi/qml/brand-wordmark-primary-dark.png": {
+      "source": "assets/djconnect/brand-v2/wordmark-primary-dark.png",
+      "sha256": "2cf02b723af311ae507aede0640fff0468d4d24c18135d1482df3188a12f743e"
+    }
+  },
+  "qualification": "source candidate only; not installed or physical Pi acceptance"
+}

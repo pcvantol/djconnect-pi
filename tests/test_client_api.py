@@ -624,3 +624,20 @@ def test_client_api_rejects_oversized_request_body(tmp_path: Path) -> None:
 
     assert response.status_code == 413
     assert response.json()["error"] == "request_too_large"
+
+
+def test_portal_cannot_use_legacy_output_writer_after_shared_adoption(tmp_path):
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+
+
+    cfg = Config(paired=True, device_token="fixture-token", language="nl")
+    state = SimpleNamespace(cfg=cfg, reload_config=Mock())
+    handler = object.__new__(ClientAPIHandler)
+    handler.server = SimpleNamespace(state=state)
+    handler._apply_portal_settings = Mock()
+    result = handler._portal_command("settings", {"dj_announcement_output": "ha_speaker"})
+    assert result["success"] is False
+    assert result["message"]
+    handler._apply_portal_settings.assert_not_called()
+    assert cfg.paired and cfg.device_token == "fixture-token"

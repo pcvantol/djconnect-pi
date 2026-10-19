@@ -1,0 +1,129 @@
+{
+  "success": true,
+  "snapshot": {
+    "contract_version": 3,
+    "defaults": {
+      "persona": "club_dj",
+      "voice": {
+        "kind": "provider_voice",
+        "provider_id": "tts.owned_settings_cloud_fixture",
+        "voice_id": "GuyNeural"
+      },
+      "gender": "male",
+      "mood": "party",
+      "presence": "music_only",
+      "announcement_output": "client_device"
+    },
+    "defaults_revision": 2,
+    "updated_at": "2026-10-16T19:16:18.888000+00:00",
+    "activated": true,
+    "output_choice_confirmed": true,
+    "accepted_contract_version": 3,
+    "session": {
+      "session_id": "session-c12830ac5b92499ba81bf49f1399a1b3",
+      "generation": "9dc080031de54f20bbd6765e75a59054",
+      "settings": {
+        "persona": "club_dj",
+        "voice": {
+          "kind": "provider_voice",
+          "provider_id": "tts.owned_settings_cloud_fixture",
+          "voice_id": "GuyNeural"
+        },
+        "gender": "male",
+        "mood": "groove",
+        "presence": "music_only",
+        "announcement_output": "client_device"
+      },
+      "revision": 2,
+      "defaults_revision": 2,
+      "updated_at": "2026-10-16T19:16:18.898654+00:00"
+    }
+  },
+  "contract_version": 3,
+  "binding": "ff4e9e0f3c0f90538f5f1e328587187e81343b775d8be39313d0b65f6c50ff6b",
+  "scope": "profile_and_active_session",
+  "migration": {
+    "version": 1,
+    "state": "accepted_shared_settings",
+    "requires_review": false,
+    "legacy_cleanup_pending": false
+  },
+  "announcement_output": {
+    "selected": "client_device",
+    "speaker_available": false,
+    "speaker_reason": "announcement_speaker_not_configured",
+    "outputs": [
+      {
+        "value": "both",
+        "available": false
+      },
+      {
+        "value": "client_device",
+        "available": true
+      },
+      {
+        "value": "ha_speaker",
+        "available": false
+      },
+      {
+        "value": "text_only",
+        "available": true
+      }
+    ],
+    "voice_applicability": "applicable",
+    "autoplay_scope": "device_local_default_off"
+  },
+  "allowed_values": {
+    "persona": [
+      "club_dj",
+      "festival_dj",
+      "home_dj",
+      "radio_dj"
+    ],
+    "mood": [
+      "chill",
+      "energy",
+      "groove",
+      "party"
+    ],
+    "presence": [
+      "music_only",
+      "occasional",
+      "balanced",
+      "talkative",
+      "presenter"
+    ],
+    "announcement_output": [
+      "both",
+      "client_device",
+      "ha_speaker",
+      "text_only"
+    ],
+    "voice": {
+      "kinds": [
+        "provider_default",
+        "provider_voice"
+      ],
+      "provider_id": "",
+      "voices": []
+    },
+    "gender": [
+      "default"
+    ]
+  },
+  "writable_fields": [
+    "announcement_output",
+    "gender",
+    "mood",
+    "persona",
+    "presence",
+    "voice"
+  ],
+  "voice_revision": "d86083e040c0e20ee2aa51f3",
+  "voice_availability": {
+    "available": false,
+    "reason": "selected_voice_unavailable"
+  },
+  "as_of": "2026-10-16T19:16:18.903767+00:00",
+  "cache_policy": "private,no-store"
+}

@@ -108,9 +108,11 @@ authorized Universal Receiver session/Broadcast smoke scenario.
   `ask_dj_audio_response_supported:false` and does not expose local message
   input, voice/PTT, TTS or local audio playback. DJ announcements can be
   rendered as text only, or spoken by Home Assistant server-side through the
-  HA speaker configured in DJConnect options. The Pi only chooses
-  `dj_announcement_output` (`text_only` or supported `ha_speaker`) and never
-  configures a speaker entity or plays `audio_url` locally.
+  HA speaker configured in DJConnect options. The paired Pi now edits the six
+  shared Profile/Session settings through the settings3 owner. Shared announcement
+  intent includes `client_device`, `both`, `ha_speaker` and `text_only` for linked
+  clients; this Pi never configures a speaker or plays `audio_url` locally. See
+  [consumer adoption and qualification boundaries](docs/SHARED_SETTINGS_AND_BRAND_V2_ADOPTION.md).
 - Track Insight is server-side in Home Assistant. The Pi posts current track
   metadata, language/locale, optional mood and optional Music DNA key to
   `/api/djconnect/v1/track_insight`, renders direct or wrapped

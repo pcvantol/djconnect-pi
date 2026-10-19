@@ -26,7 +26,7 @@ def test_qml_has_blocking_pairing_and_splash_views() -> None:
     assert 'id: pairingPanel\n        anchors.fill: parent\n        color: "#070b16"' in main_qml
     assert 'id: pairingSuccessPanel\n        anchors.fill: parent\n        color: "#070b16"' in main_qml
     assert "id: splashPanel" in main_qml
-    assert 'source: "app-icon.png"' in main_qml
+    assert "BrandLockup {" in main_qml
     assert "component AppBanner" in main_qml
     assert 'radius: root.wallProfile ? 32 : 24\n        color: root.liquidGlassEnabled ? "#8a101426" : "#171029"' in main_qml
     assert 'GradientStop { position: 0.72; color: root.liquidGlassEnabled ? "#70" + root.moodColor("surface").slice(1) : root.moodColor("surface") }' in main_qml
@@ -717,7 +717,7 @@ def test_qml_screen_blanking_wakes_on_tap() -> None:
     assert "djconnect.djResponseVisible" in main_qml
     assert "djconnect.djResponseText" in main_qml
     assert "djconnect.clearDjResponse()" in main_qml
-    assert "source: \"app-icon.png\"" in main_qml
+    assert "BrandLockup {" in main_qml
     assert "id: albumQuickPlay" not in main_qml
     assert "id: albumQuickPlayIcon" not in main_qml
     assert "function onScreenshotRequested()" in main_qml
