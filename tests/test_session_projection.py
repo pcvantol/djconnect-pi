@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from djconnect_pi.session_projection import history_page, live_moments
+from djconnect_pi.session_projection import active_session, history_page, live_moments
 from djconnect_pi.session_transport import SessionError
 
 
@@ -56,3 +56,16 @@ def test_current_grant_expires_independently_of_historical_permission():
 def test_malformed_native_authority_is_closed_without_crashing(mutation):
     data=deepcopy(live_fixture());mutation(data)
     assert live_moments(data,now=0)==[]
+
+
+@pytest.mark.parametrize("state", ["opening", "ending", "ended", "interrupted"])
+def test_lifecycle_transitions_never_render_live_content(state):
+    data = live_fixture()
+    data["runtime_state"] = state
+    data["broadcast"]["session"] = {"session_id": data["session_id"]}
+    decoded = active_session({"success": True, "session": data})
+    assert live_moments(decoded, now=0) == []
+    if state in {"ended", "interrupted"}:
+        assert decoded == {}
+    else:
+        assert decoded["runtime_state"] == state

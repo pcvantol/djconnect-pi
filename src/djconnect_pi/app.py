@@ -32,7 +32,6 @@ from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
 
 from .brand_theme import apply_palette
-from .session_controller import SessionController
 from .config import (
     CLIENT_TYPE,
     DEFAULT_CONFIG_PATH,
@@ -54,6 +53,7 @@ from .ha import (
 )
 from .i18n import LANGUAGES, normalize_language, translate
 from .logging_config import setup_logging
+from .session_controller import SessionController
 from .shared_settings import SettingsError
 from .system_info import log_raspberry_pi_system_info
 

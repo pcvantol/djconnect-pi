@@ -296,3 +296,11 @@ the active Runtime when a saved-session request fails. The QML preview now check
 The HTTP, WebSocket and fixture security tools passed. The built wheel includes
 all shared Session, keyboard and attribution assets; this does not prove ARM,
 installed behavior, a real HA exchange or physical touch acceptance.
+
+
+PR111 follow-up: 480 tests passed and Ruff0.16.0 passed. The preview now checks44
+actual QML views including opening/ending states; all56 packaged source files
+matched the separately built final wheel. A CodeQL finding in a synthetic test URL
+assertion was corrected to an exact parsed hostname check; its11 tests passed.
+These results supersede prior local counts, while remote exact-head checks remain
+separate. No installation or full Apple parity is claimed.

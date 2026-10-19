@@ -67,6 +67,13 @@ def main():
         for screen in ["session", "history", "now", "control", "queue", "playlists", "askdj", "trackinsight", "discover", "musicdna", "more", "settings", "games"]:
             window.setProperty("activeScreen", screen)
             capture(screen)
+        window.setProperty("activeScreen", "session")
+        for runtime_state in ("opening", "ending"):
+            backend.djSession._session["runtime_state"] = runtime_state
+            backend.djSession.changed.emit()
+            capture("session-" + runtime_state)
+        backend.djSession._session["runtime_state"] = "active"
+        backend.djSession.changed.emit()
         # Render retained source/receipt kinds and the real search popup; data remains a fixture.
         tail = json.loads((ROOT / "tests/fixtures/session_core/retention-v2-touch.json").read_text())["tail_window"]
         sid = tail["session"]["session_id"]

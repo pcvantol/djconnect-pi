@@ -1,7 +1,8 @@
 """Closed, ephemeral Session projections. Historical rows never become live grants."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from itertools import pairwise
 from urllib.parse import urlsplit
 
 from .session_transport import SessionError, identifier
@@ -12,7 +13,7 @@ ARCHIVE_BASES = {"cc0_normalized_fields_v1", "runtime_authored_direction_v1", "o
 
 def timestamp(value):
     try:
-        result = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        result = datetime.fromisoformat(value)
         if result.tzinfo is None:
             return None
         return result.timestamp()
@@ -43,16 +44,18 @@ def active_session(response):
     if not isinstance(session, dict):
         raise SessionError("invalid")
     session_id = identifier(session.get("session_id"))
-    if not isinstance(session.get("runtime_state"), str) or session.get("runtime_state") not in {"opening", "active", "ended", "interrupted"}:
+    if not isinstance(session.get("runtime_state"), str) or session.get("runtime_state") not in {"opening", "active", "ending", "ended", "interrupted"}:
         raise SessionError("invalid")
     broadcast = session.get("broadcast")
     if not isinstance(broadcast, dict) or not isinstance(broadcast.get("session"), dict) or broadcast["session"].get("session_id") != session_id:
         raise SessionError("invalid")
+    if session["runtime_state"] in {"ended", "interrupted"}:
+        return {}
     return session
 
 
 def live_moments(session, now=None, *, spotify_attribution_available=False):
-    now = datetime.now(timezone.utc).timestamp() if now is None else now
+    now = datetime.now(UTC).timestamp() if now is None else now
     if not session or session.get("runtime_state") != "active":
         return []
     session_id = session["session_id"]
@@ -123,7 +126,7 @@ def live_moments(session, now=None, *, spotify_attribution_available=False):
 
 
 def history_page(response, *, session_id=None, now=None):
-    now = datetime.now(timezone.utc).timestamp() if now is None else now
+    now = datetime.now(UTC).timestamp() if now is None else now
     if not isinstance(response, dict) or response.get("success") is not True or response.get("schema_version") != 2 or response.get("history_contract_version") != 2:
         raise SessionError("invalid")
     if session_id is None:
@@ -164,6 +167,6 @@ def history_page(response, *, session_id=None, now=None):
             raise SessionError("invalid")
         if row["kind"] in {"dj_publication", "dj_silence"} and (row.get("text") is not None or row.get("speech_available") is not False):
             raise SessionError("invalid")
-    if any(a["order"] >= b["order"] for a, b in zip(entries, entries[1:])):
+    if any(a["order"] >= b["order"] for a, b in pairwise(entries)):
         raise SessionError("invalid")
     return response

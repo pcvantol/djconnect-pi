@@ -5,9 +5,10 @@ persistent Session cache and never automatically retries a write.
 """
 from __future__ import annotations
 
+from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any
 from urllib.parse import quote
 
 import requests

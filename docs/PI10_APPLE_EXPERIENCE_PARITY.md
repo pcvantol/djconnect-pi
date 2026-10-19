@@ -210,3 +210,21 @@ behavior, search highlighting, text composer/contextual exchange, native
 media/artwork/forecast/reactions, remaining Apple destinations and full visual
 polish. Core and Apple retain their own writers and pending producer work; no
 unpublished contract was adopted for this checkpoint.
+
+
+### Draft review checkpoint #111
+
+The shared candidate is now in draft PR111. The first source checkpoint was
+3351e5a2b815416296af72e1a985cfcea5da4c53. Subsequent fixes align imports/UTC parsing
+with Ruff0.16.0, keep the Qt application alive in tests, narrow malformed-input
+exception handling and validate terminal/transition Session states. Opening/ending
+states have truthful localized labels; ended/interrupted Sessions cannot remain as
+an active Session. The initial CodeQL finding was a substring hostname assertion
+in the synthetic test; it now checks the parsed hostname exactly, without suppressions.
+
+Latest local results: 480 tests passed; Ruff0.16.0 passed;44 actual QML page views
+passed, including opening/ending states and private-input withdrawal. The final
+local wheel b48b7284c2969f26e5489d3e1c21e0f7de6a801562439e66d9e36b77aca7ecb4
+matched all56 packaged Python/QML/JS/PNG source files. Earlier package/test receipts
+above remain historical checkpoints. GitHub checks for the follow-up candidate
+must be read independently; draft review does not authorize release or installation.

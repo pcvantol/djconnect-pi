@@ -1,10 +1,16 @@
-from copy import deepcopy
 import json
+from copy import deepcopy
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import pytest
 
-from djconnect_pi.session_history_view import opened_entry, presented_history, search_page, sources
+from djconnect_pi.session_history_view import (
+    opened_entry,
+    presented_history,
+    search_page,
+    sources,
+)
 from djconnect_pi.session_transport import SessionError
 
 
@@ -35,7 +41,7 @@ def test_attribution_keeps_primary_previous_and_revision_urls_without_changing_p
     links = [link for source in researched['display_sources'] for link in source['links']]
     assert 'https://en.wikipedia.org/w/index.php?oldid=1' in links
     assert 'https://en.wikipedia.org/wiki/Example' in links
-    assert any('musicbrainz.org' in link for link in links)
+    assert any(urlsplit(link).hostname == 'musicbrainz.org' for link in links)
     assert sources({'source_attribution': {'provider':'MusicBrainz','license':'CC0-1.0',
         'url':'https://example.org/current','url_previous':'https://example.org/previous'}})[0]['links'] == ['https://example.org/current','https://example.org/previous']
 

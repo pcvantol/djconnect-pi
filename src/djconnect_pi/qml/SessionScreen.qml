@@ -100,6 +100,7 @@ Item {
                 GlassButton {
                     visible: screen.state.session_id.length > 0 && !screen.historical
                     iconName: "end"; Accessible.name: screen.tr("session_end")
+                    enabled: !screen.owner.busy && screen.state.runtime_state !== "ending"
                     implicitWidth: 52; background: Item {}
                     onClicked: { endConfirmation.expectedSessionId = screen.state.session_id; endConfirmation.open() }
                 }
@@ -195,7 +196,7 @@ Item {
                 RowLayout {
                     Layout.fillWidth: true; spacing: 18
                     DJSessionMenuSymbol { iconColor: BrandTheme.colors.purple; Layout.preferredWidth: 64; Layout.preferredHeight: 64 }
-                    Text { text: screen.tr("session_listening"); color: BrandTheme.colors.text; font.pixelSize: screen.width > 800 ? 30 : 24; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                    Text { text: screen.tr(screen.state.runtime_state === "opening" ? "session_starting" : screen.state.runtime_state === "ending" ? "session_ending" : "session_listening"); color: BrandTheme.colors.text; font.pixelSize: screen.width > 800 ? 30 : 24; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                 }
                 Text {
                     visible: screen.backend.demoMode
@@ -209,6 +210,7 @@ Item {
                     Item { Layout.fillWidth: true }
                     GlassButton {
                         iconName: "trash"; Accessible.name: screen.tr("session_end")
+                        enabled: !screen.owner.busy && screen.state.runtime_state !== "ending"
                         onClicked: { endConfirmation.expectedSessionId = screen.state.session_id; endConfirmation.open() }
                     }
                 }

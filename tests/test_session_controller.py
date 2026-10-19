@@ -25,7 +25,7 @@ class Backend(QObject):
 
 @pytest.fixture
 def controller():
-    app = QCoreApplication.instance() or QCoreApplication([])
+    _app = QCoreApplication.instance() or QCoreApplication([])
     backend = Backend()
     owner = SessionController(backend)
     owner._deadline_timer.stop()

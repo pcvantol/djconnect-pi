@@ -2,14 +2,20 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from PySide6.QtCore import QObject, Property, QTimer, Signal, Slot
+from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
 
 from .config import save_config
-from .session_projection import active_session, history_page, live_moments, timestamp
+from .session_history_view import (
+    live_presentations,
+    opened_entry,
+    page_cursor,
+    presented_history,
+    search_page,
+)
+from .session_projection import active_session, history_page, timestamp
 from .session_transport import SessionError, SessionTransport
-from .session_history_view import live_presentations, opened_entry, page_cursor, presented_history, search_page
 
 
 class SessionController(QObject):
@@ -100,7 +106,7 @@ class SessionController(QObject):
         projected = live_presentations(self._session)
         changed = projected != self._moments
         self._moments = projected
-        now = datetime.now(timezone.utc).timestamp()
+        now = datetime.now(UTC).timestamp()
         if self._timeline:
             retained = [row for row in self._timeline.get("entries", [])
                         if (timestamp(row.get("retained_until")) or 0) > now]
@@ -282,7 +288,7 @@ class SessionController(QObject):
                         result["capabilities"] = {}
             except SessionError as exc:
                 result["error"] = exc.category
-            except Exception:
+            except (AttributeError, KeyError, OverflowError, TypeError, ValueError):
                 result["error"] = "invalid"
             self._ready.emit(result)
 
