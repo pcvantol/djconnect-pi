@@ -1,5 +1,17 @@
 # Changelog
 
+## 4.0.0-rc.4
+
+- Adopt the six shared Profile/Session DJ settings on paired Pi clients, with
+  confirmed owner reads, stale-draft protection and receipt-based recovery.
+- Retire paired local Mood and announcement-output hints without deleting
+  historical config, pairing or Music DNA.
+- Adopt the protected Brand V2 assets in native banners, window icons and the
+  local web portal, including the headset-only small-size variants.
+- Retain the qualified Qt6.11.2 lock and the current protected dependency updates.
+- Prepare a new release identity after the separately published rc.3 device test;
+  publication, operational approval and installed acceptance remain pending.
+
 ## 4.0.0-rc.2
 
 - Repair resumable installer upgrades for release candidates by normalizing the
