@@ -180,16 +180,16 @@ class SharedSettingsClient:
             raise SettingsError("conflict")
         if response.status_code >= 500:
             raise SettingsError("offline")
+        if response.status_code >= 400:
+            raise SettingsError("rejected")
         try:
             data = response.json()
         except ValueError:
-            raise SettingsError("invalid") from None
-        if (
-            response.status_code >= 400
-            or not isinstance(data, dict)
-            or data.get("success") is not True
-        ):
-            raise SettingsError("rejected")
+            raise SettingsError(
+                "uncertain" if method == "patch" else "invalid"
+            ) from None
+        if not isinstance(data, dict) or data.get("success") is not True:
+            raise SettingsError("uncertain" if method == "patch" else "invalid")
         return data
 
     def read(self) -> dict:

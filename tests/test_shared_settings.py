@@ -305,11 +305,46 @@ def test_ha_only_and_profile_authority_fields_cannot_be_patched(owner, field, va
 
 
 def test_paired_startup_never_forwards_legacy_choices_before_first_owner_read():
-    cfg = Config(paired=True, ha_url="http://ha", device_token="fixture", mood=95,
-                 dj_announcement_output="ha_speaker")
+    cfg = Config(
+        paired=True,
+        ha_url="http://ha",
+        device_token="fixture",
+        mood=95,
+        dj_announcement_output="ha_speaker",
+    )
     client = HAClient(cfg)
     assert client.shared_settings.managed is False
     assert "mood" not in client._base_payload()
     assert "mood" not in client._ask_dj_payload()
     assert "dj_announcement_output" not in client._ask_dj_payload()
     assert "X-DJConnect-Mood" not in client._headers()
+
+
+def test_malformed_patch_response_is_resolved_by_receipt_without_replaying(
+    owner, monkeypatch
+):
+    client, _, _ = owner
+    state = client.read()
+    malformed = SimpleNamespace(
+        status_code=200, json=Mock(side_effect=ValueError("private body"))
+    )
+    patch = Mock(return_value=malformed)
+    monkeypatch.setattr(requests, "patch", patch)
+
+    def accepted(url, **kwargs):
+        return response(
+            {
+                "success": True,
+                "contract_version": 3,
+                "phase": "accepted",
+                "receipt": {
+                    "accepted": True,
+                    "operation_id": kwargs["json"]["operation_id"],
+                },
+            }
+        )
+
+    receipt = Mock(side_effect=accepted)
+    monkeypatch.setattr(requests, "post", receipt)
+    assert client.update({"presence": "talkative"}, state["edit_token"])["values"]
+    assert patch.call_count == receipt.call_count == 1
