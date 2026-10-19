@@ -52,7 +52,7 @@ def presented_history(response):
     return result
 
 
-def search_page(response, session_id, query):
+def search_page(response, session_id, query, *, now=None):
     if (not isinstance(response, dict) or response.get("session_id") != session_id
             or response.get("query") != query or not isinstance(response.get("revision"), str)
             or not response["revision"] or type(response.get("complete")) is not bool):
@@ -60,7 +60,7 @@ def search_page(response, session_id, query):
     matches = response.get("matches")
     if not isinstance(matches, list) or type(response.get("returned_count")) is not int or response["returned_count"] != len(matches):
         raise SessionError("invalid")
-    history_page({**response, "session": {"session_id": session_id}, "entries": matches}, session_id=session_id)
+    history_page({**response, "session": {"session_id": session_id}, "entries": matches}, session_id=session_id, now=now)
     cursor = page_cursor(response.get("next_cursor"))
     if response["complete"] == bool(cursor):
         raise SessionError("invalid")
@@ -88,20 +88,20 @@ def search_page(response, session_id, query):
     return result
 
 
-def opened_entry(response, session_id, entry_id):
+def opened_entry(response, session_id, entry_id, *, now=None):
     if (not isinstance(response, dict) or response.get("navigation_only") is not True
             or type(response.get("read_only")) is not bool):
         raise SessionError("invalid")
     entry = response.get("entry")
     if not isinstance(entry, dict) or entry.get("entry_id") != identifier(entry_id):
         raise SessionError("invalid")
-    history_page({**response, "revision": response.get("session", {}).get("revision"), "entries": [entry]}, session_id=session_id)
+    history_page({**response, "revision": response.get("session", {}).get("revision"), "entries": [entry]}, session_id=session_id, now=now)
     return response
 
 
-def live_presentations(session):
+def live_presentations(session, *, now=None):
     result = []
-    for card in live_moments(session, spotify_attribution_available=files("djconnect_pi.qml").joinpath("spotify-attribution.png").is_file()):
+    for card in live_moments(session, now=now, spotify_attribution_available=files("djconnect_pi.qml").joinpath("spotify-attribution.png").is_file()):
         raw = next(row for row in session["broadcast"]["dj_moments"] if isinstance(row, dict) and row.get("moment_id") == card["moment_id"])
         try:
             card["display_sources"] = sources(raw)

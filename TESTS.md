@@ -304,3 +304,10 @@ matched the separately built final wheel. A CodeQL finding in a synthetic test U
 assertion was corrected to an exact parsed hostname check; its11 tests passed.
 These results supersede prior local counts, while remote exact-head checks remain
 separate. No installation or full Apple parity is claimed.
+
+The Session safety suite includes an injected elapsed/UTC clock for rollback,
+forward correction, unchanged-deadline re-fetch, retained search/history expiry,
+GUI queue delay and background/resume without write replay. The real QML preview
+also exercises synthetic native grant render/expiry/background withdrawal on
+both sizes. These checks are offline fixtures and do not establish installed,
+ARM, live Profile authorization or physical foreground/suspend acceptance.

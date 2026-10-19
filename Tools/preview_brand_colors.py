@@ -3,8 +3,10 @@ from __future__ import annotations
 
 import argparse
 from copy import deepcopy
+from datetime import UTC, datetime, timedelta
 import json
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from PySide6.QtCore import Q_ARG, Q_RETURN_ARG, QMetaObject, QObject, QTimer, qInstallMessageHandler
@@ -17,6 +19,7 @@ from shiboken6 import delete
 from djconnect_pi.app import DJConnectBackend
 from djconnect_pi.brand_theme import apply_palette
 from djconnect_pi.config import Config, save_config
+from djconnect_pi.expiry_clock import ExpiryClock
 from djconnect_pi.session_history_view import presented_history, search_page
 from djconnect_pi.session_projection import history_page
 from djconnect_pi.update_ui import UpdateUiBackend
@@ -75,6 +78,44 @@ def main():
             capture("session-" + runtime_state)
         backend.djSession._session["runtime_state"] = "active"
         backend.djSession.changed.emit()
+        # Explicit synthetic current-grant fixture: decode -> controller -> actual QML,
+        # then move elapsed time beyond its original expiry while wall time rolls back.
+        owner = backend.djSession
+        original_clock = owner._clock
+        now = datetime.now(UTC)
+        clock_host = SimpleNamespace(wall=now.timestamp(), tick=0)
+        owner._clock = ExpiryClock(lambda: clock_host.wall, lambda: clock_host.tick)
+        deadline = (now + timedelta(seconds=3)).isoformat()
+        owner._session = {"session_id": "preview-native-session", "runtime_state": "active", "broadcast": {
+            "session_flow": {"items": [{"item_type": "dj_moment", "moment_id": "preview-moment"}]},
+            "dj_moments": [{"moment_id": "preview-moment", "session_id": "preview-native-session",
+                "title": "Offline fixture", "content": "Synthetic contribution for expiry rendering.",
+                "presentation_intent": {"visibility": "owner_only"}}],
+            "native_delivery": {"schema_version": 1, "session_id": "preview-native-session",
+                "revision": "preview-native-revision", "revocation_scope": "session",
+                "current_moment_id": "preview-moment", "active_flow_moment_ids": ["preview-moment"],
+                "admissions": [{"moment_id": "preview-moment", "qualification": "qualified",
+                    "executable_actions": [], "current_display_allowed": True, "active_flow_display_allowed": True,
+                    "source_expires_at": deadline, "display_expires_at": deadline}]}}}
+        owner._expire()
+        QTest.qWait(100)
+        live_rows = window.findChild(QObject, "sessionLiveMomentRows")
+        assert owner.state["moments"] and live_rows is not None and live_rows.property("count") == 1
+        scroll = window.findChild(QObject, "sessionHistoryScroll").property("contentItem")
+        scroll.setProperty("contentY", max(0, scroll.property("contentHeight") - scroll.property("height")))
+        capture("session-native-grant")
+        clock_host.wall -= 3600
+        clock_host.tick = 4
+        owner._expire()
+        capture("session-native-expired")
+        assert live_rows.property("count") == 0, "Expired source remained rendered"
+        owner._expire()  # same cached wire projection cannot resurrect after rollback
+        assert not owner.state["moments"]
+        owner.setForeground(False)
+        capture("session-background-cleared")
+        assert not owner.state["session_id"] and not owner.state["timeline"]
+        owner.setForeground(True)
+        owner._clock = original_clock
         # Render retained source/receipt kinds and the real search popup; data remains a fixture.
         tail = json.loads((ROOT / "tests/fixtures/session_core/retention-v2-touch.json").read_text())["tail_window"]
         sid = tail["session"]["session_id"]

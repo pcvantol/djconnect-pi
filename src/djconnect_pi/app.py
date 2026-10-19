@@ -23,6 +23,7 @@ from PySide6.QtCore import (
     QCoreApplication,
     QIODevice,
     QObject,
+    Qt,
     QTimer,
     Signal,
     Slot,
@@ -2587,6 +2588,7 @@ def main() -> None:
     QPixmapCache.setCacheLimit(QT_PIXMAP_CACHE_LIMIT_KB)
     engine = QQmlApplicationEngine()
     backend = DJConnectBackend(args.config)
+    app.applicationStateChanged.connect(lambda state: backend.djSession.setForeground(state == Qt.ApplicationState.ApplicationActive))
     engine.rootContext().setContextProperty("djconnect", backend)
     engine.rootContext().setContextProperty("startWindowed", args.windowed)
     qml_path = files("djconnect_pi.qml").joinpath("Main.qml")

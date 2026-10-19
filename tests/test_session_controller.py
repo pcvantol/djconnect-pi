@@ -300,3 +300,115 @@ def test_capability_withdrawal_clears_historical_prose_and_cursor(controller):
     assert owner.state['timeline'] == {} and owner.state['search'] == {}
     assert owner.state['sessions'] == [] and not owner.state['has_more_sessions']
     assert not owner.state['history_loaded']
+
+
+def clock_fixture(owner):
+    from djconnect_pi.expiry_clock import ExpiryClock
+    from djconnect_pi.session_projection import timestamp
+    host = SimpleNamespace(wall=timestamp('2026-10-20T00:00:00Z'), tick=0)
+    owner._clock = ExpiryClock(lambda: host.wall, lambda: host.tick)
+    return host
+
+
+def test_clock_rollback_cannot_revive_current_or_source_expired_flow_on_refresh(controller):
+    from test_session_projection import live_fixture
+    owner, backend = controller
+    host = clock_fixture(owner)
+    data = live_fixture()
+    grant = data['broadcast']['native_delivery']['admissions'][0]
+    grant.update(display_expires_at='2026-10-20T00:00:03Z', source_expires_at='2026-10-20T00:00:05Z')
+    data['broadcast']['session'] = {'session_id': data['session_id']}
+    owner.transport.active.return_value = {'success': True, 'session': data}
+    owner.refresh()
+    backend.jobs.pop()()
+    assert owner.state['moments'][0]['body'] == 'Confirmed body'
+    host.tick = 4
+    host.wall -= 3600
+    owner._expire()
+    assert owner.state['moments'] == []
+    owner.refresh()  # same wire deadline, never a new lease
+    backend.jobs.pop()()
+    assert owner.state['moments'] == []
+    data['broadcast']['native_delivery']['current_moment_id'] = None
+    owner.refresh()
+    backend.jobs.pop()()
+    assert owner.state['moments'][0]['current'] is False  # original source still valid for Flow
+    host.tick = 6
+    owner._expire()
+    assert owner.state['moments'] == []
+    owner.refresh()
+    backend.jobs.pop()()
+    assert owner.state['moments'] == []
+
+
+def test_rolled_back_clock_rejects_refetched_history_and_search_after_retention(controller):
+    from test_session_history_view import search_fixture, timeline_fixture
+    owner, backend = controller
+    host = clock_fixture(owner)
+    enable_search(owner)
+    tail = timeline_fixture()
+    for row in tail['entries']:
+        row['retained_until'] = '2026-10-20T00:00:05Z'
+    owner.transport.timeline = Mock(return_value=tail)
+    sid = tail['session']['session_id']
+    owner.openSaved(sid)
+    backend.jobs.pop()()
+    assert owner.state['timeline']['entries']
+    query = search_fixture()
+    query['matches'][0]['retained_until'] = '2026-10-20T00:00:05Z'
+    owner.transport.search = Mock(return_value=query)
+    owner.search(sid, query['query'])
+    backend.jobs.pop()()
+    assert owner.state['search']['matches']
+    host.tick = 6
+    host.wall -= 3600
+    owner._expire()
+    assert not owner.state['timeline']['entries'] and not owner.state['search']
+    owner.openSaved(sid)
+    backend.jobs.pop()()
+    assert owner.state['timeline'] == {} and owner.state['error'] == 'unavailable'
+    owner.search(sid, query['query'])
+    backend.jobs.pop()()
+    assert owner.state['search'] == {} and owner.state['error'] == 'unavailable'
+
+
+def test_gui_queue_delay_cannot_present_expired_historical_response(controller):
+    from test_session_history_view import timeline_fixture
+    owner, backend = controller
+    host = clock_fixture(owner)
+    enable_search(owner)
+    tail = timeline_fixture()
+    for row in tail['entries']:
+        row['retained_until'] = '2026-10-20T00:00:05Z'
+    owner.transport.timeline = Mock(return_value=tail)
+    pending = []
+    owner._ready.disconnect(owner._apply)
+    owner._ready.connect(pending.append)
+    owner.openSaved(tail['session']['session_id'])
+    backend.jobs.pop()()
+    assert pending[0]['timeline']['entries']
+    host.tick = 6
+    host.wall -= 3600
+    owner._apply(pending[0])
+    assert not owner.state['timeline']['entries']
+
+
+def test_background_clears_authority_and_late_results_resume_with_read_only(controller):
+    owner, backend = controller
+    owner._session = {'session_id': 'server-session'}
+    owner._moments = [{'body': 'private live body'}]
+    owner._timeline = {'entries': [{'text': 'private retained body'}]}
+    owner.refresh()
+    old_job = backend.jobs.pop()
+    owner.setForeground(False)
+    assert not owner.state['session_id'] and not owner.state['moments'] and not owner.state['timeline']
+    old_job()
+    assert not owner.state['loaded']
+    owner.start('party')
+    owner.refresh()
+    assert not backend.jobs  # no refresh or writes while backgrounded
+    owner.setForeground(True)
+    assert len(backend.jobs) == 1
+    backend.jobs.pop()()
+    owner.transport.active.assert_called()  # only fresh current read, no replayed start/end
+    assert owner.state['loaded']

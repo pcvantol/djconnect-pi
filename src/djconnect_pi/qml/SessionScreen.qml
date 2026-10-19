@@ -255,8 +255,10 @@ Item {
                 }
             }
             Repeater {
+                objectName: "sessionLiveMomentRows"
                 model: !screen.historical ? screen.state.moments : []
                 GlassCard {
+                    objectName: "sessionLiveMomentCard"
                     required property var modelData
                     Layout.fillWidth: true
                     Text { visible: liveSources.ready; text: modelData.title; textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 26; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }

@@ -2,11 +2,11 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from datetime import UTC, datetime
 
 from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
 
 from .config import save_config
+from .expiry_clock import ExpiryClock
 from .session_history_view import (
     live_presentations,
     opened_entry,
@@ -29,6 +29,8 @@ class SessionController(QObject):
         super().__init__(backend)
         self.backend = backend
         self.transport = SessionTransport(lambda: backend.cfg)
+        self._clock = ExpiryClock()
+        self._foreground = True
         self._session = {}
         self._moments = []
         self._sessions = []
@@ -84,6 +86,16 @@ class SessionController(QObject):
         self.changed.emit()
         self.contextCleared.emit()
 
+    @Slot(bool)
+    def setForeground(self, foreground):
+        if foreground == self._foreground:
+            return
+        self._foreground = foreground
+        # Unfocused/background app loses ephemeral display authority, not the server Session.
+        self.invalidate()
+        if foreground:
+            self.refresh()
+
     def _demo_changed(self):
         self.invalidate()
         if self.backend.demoMode:
@@ -104,10 +116,10 @@ class SessionController(QObject):
         self.changed.emit()
 
     def _expire(self):
-        projected = live_presentations(self._session)
+        now = self._clock.now()
+        projected = live_presentations(self._session, now=now)
         changed = projected != self._moments
         self._moments = projected
-        now = datetime.now(UTC).timestamp()
         if self._timeline:
             retained = [row for row in self._timeline.get("entries", [])
                         if (timestamp(row.get("retained_until")) or 0) > now]
@@ -247,7 +259,7 @@ class SessionController(QObject):
         self._launch("open_entry", {"session_id": session_id, "entry_id": entry_id})
 
     def _launch(self, action, value=""):
-        if self._running:
+        if not self._foreground or self._running:
             return
         if self.backend.demoMode:
             self._demo_action(action, value)
@@ -282,10 +294,10 @@ class SessionController(QObject):
             result = {"serial": serial, "binding": binding, "action": action, "view_epoch": view_epoch}
             try:
                 if action in {"history", "history_more"}:
-                    result["history"] = history_page(self.transport.history(binding, cursor=value))
+                    result["history"] = history_page(self.transport.history(binding, cursor=value), now=self._clock.now())
                     page_cursor(result["history"].get("next_cursor"))
                 elif action == "timeline":
-                    result["timeline"] = presented_history(history_page(self.transport.timeline(binding, value), session_id=value))
+                    result["timeline"] = presented_history(history_page(self.transport.timeline(binding, value), session_id=value, now=self._clock.now()))
                 elif action in {"timeline_refresh", "timeline_page"}:
                     sid = value["session_id"]
                     if action == "timeline_page":
@@ -303,20 +315,20 @@ class SessionController(QObject):
                         response = self.transport.timeline(binding, sid, window="anchor", anchor_entry_id=value["entry_id"])
                     else:
                         response = self.transport.timeline(binding, sid)
-                    result["timeline"] = presented_history(history_page(response, session_id=sid))
+                    result["timeline"] = presented_history(history_page(response, session_id=sid, now=self._clock.now()))
                     if action == "timeline_page" and value.get("revision") and response["revision"] != value["revision"]:
                         raise SessionError("conflict")
                     if action == "timeline_page":
                         result["timeline"]["_page_cursor"] = value["cursor"]
                     result["reading_anchor"] = value.get("entry_id", "")
                 elif action in {"search", "search_more"}:
-                    result["search"] = search_page(self.transport.search(binding, value["session_id"], value["query"], cursor=value["cursor"]), value["session_id"], value["query"])
+                    result["search"] = search_page(self.transport.search(binding, value["session_id"], value["query"], cursor=value["cursor"]), value["session_id"], value["query"], now=self._clock.now())
                     if action == "search_more" and result["search"]["revision"] != value["revision"]:
                         raise SessionError("conflict")
                 elif action == "open_entry":
                     sid, eid = value["session_id"], value["entry_id"]
-                    opened_entry(self.transport.open_entry(binding, sid, eid), sid, eid)
-                    result["timeline"] = presented_history(history_page(self.transport.timeline(binding, sid, window="anchor", anchor_entry_id=eid), session_id=sid))
+                    opened_entry(self.transport.open_entry(binding, sid, eid), sid, eid, now=self._clock.now())
+                    result["timeline"] = presented_history(history_page(self.transport.timeline(binding, sid, window="anchor", anchor_entry_id=eid), session_id=sid, now=self._clock.now()))
                     if not any(row["entry_id"] == eid for row in result["timeline"]["entries"]):
                         raise SessionError("unavailable")
                     result["timeline"]["selected_entry_id"] = eid
@@ -374,7 +386,7 @@ class SessionController(QObject):
             if "session" in result:
                 self._loaded = True
                 self._session = result["session"]
-                self._moments = live_presentations(self._session)
+                self._moments = live_presentations(self._session, now=self._clock.now())
                 self._caps = result.get("capabilities", {})
                 if not self._history_supported():
                     self._timeline = {}
@@ -404,6 +416,8 @@ class SessionController(QObject):
                 self._timeline = result["timeline"]
                 # A fresh projection replaces the whole window, including withdrawn prose.
                 self._search = {}
+        # Worker results may have waited on the GUI queue beyond their original deadline.
+        self._expire()
         self.changed.emit()
         if "timeline" in result and "error" not in result:
             self.timelineUpdated.emit(result.get("reading_anchor", self._timeline.get("selected_entry_id", "")))

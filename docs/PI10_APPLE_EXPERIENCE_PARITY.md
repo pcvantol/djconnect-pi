@@ -262,3 +262,41 @@ bounded page reader is functional forward traversal, not full Apple Flow parity.
 Dates still need presentation matching Apple. Glass uses the current native Qt
 translucent fallback; true backdrop effects remain a design gap. No merge,
 release, install, pairing, HA service effect or credential use occurred here.
+
+### Overnight expiry and foreground checkpoint
+
+All applicable remote checks on b9d494582a6c0a643eb2462bc786270e833c42b1 passed.
+The next bounded change closes a local expiry gap: raw live projections could
+previously render again after the wall clock moved backwards. A process-local,
+thread-safe UTC floor now advances by elapsed time and also checks actual UTC.
+Linux/Pi uses suspend-inclusive BOOTTIME where available; the Mac fixture uses
+monotonic time. A forward clock correction stays conservative. This mechanism
+never changes server deadlines and does not replace a synchronized host clock.
+It remains alive across Profile invalidation and background transitions.
+
+Current/Flow sources, retained history and search/navigation decoding all use
+that same floor. Original presentation expiry still allows separately admitted
+Flow recall until source expiry; no history row becomes a current grant. The
+GUI checks deadlines again after queued worker delivery. App background/focus
+loss clears ephemeral Session content, cursors and late results, blocks new
+Session actions/refreshes while inactive, then performs a fresh read on return.
+It does not end the server Session or replay a prior write. Qt application-state
+wiring is in the actual app entry point; live platform focus/suspend remains to
+be qualified on hardware.
+
+Local evidence:497 tests passed; Ruff0.16.0 passed;52 actual QML views passed.
+The synthetic current-native-grant fixture renders through the real controller
+and QML, disappears after elapsed expiry despite a one-hour UTC rollback, and
+clears on background on720x720 and1200x1920. Additional tests cover re-fetch,
+retained-history/search expiry, allowed Flow recall before source expiry and
+late GUI delivery. These are synthetic negative/renderer checks, not a released
+producer, authenticated HA, ARM, installed or physical qualification. Hostverify
+MATCH. Wheel80a8a7fcaef7247e9ec5a307aaa8d149d36a9476157b77a7b5c3ce86940d7990
+matches all57 packaged sources. Evidence is preserved in pi-expiry-safety under
+the task visualization directory.
+
+Remaining gaps above still apply: full native source/media admission and actual
+foreground/suspend behavior need producer/hardware qualification; continuous
+history navigation, highlighting/date presentation, text composer/context,
+remaining native pages and backdrop glass effects are unfinished. No merge,
+release, installation, pairing or HA service operation is included.
