@@ -69,3 +69,12 @@ def test_lifecycle_transitions_never_render_live_content(state):
         assert decoded == {}
     else:
         assert decoded["runtime_state"] == state
+
+
+@pytest.mark.parametrize('field,value', [('revision', None), ('revision', ''), ('next_cursor', []), ('next_cursor', 'x' * 8193)])
+def test_timeline_rejects_missing_revision_or_malformed_cursor(field, value):
+    from test_session_history_view import timeline_fixture
+    payload = timeline_fixture()
+    payload[field] = value
+    with pytest.raises(SessionError):
+        history_page(payload, session_id=payload['session']['session_id'])

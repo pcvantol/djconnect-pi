@@ -1214,6 +1214,8 @@ def translate(language: str, key: str, **values: object) -> str:
 
 
 _HISTORY_SEARCH_TRANSLATIONS = {
+    "session_history_first": ("Read from the beginning", "Lees vanaf het begin", "Von Anfang an lesen", "Lire depuis le début", "Leer desde el principio"),
+    "session_history_next": ("Next contributions", "Volgende bijdragen", "Nächste Beiträge", "Contributions suivantes", "Contribuciones siguientes"),
     "session_search": ("Search this session", "Zoek in deze sessie", "Diese Session durchsuchen", "Rechercher dans cette session", "Buscar en esta sesión"),
     "session_search_complete": ("All saved entries searched.", "Alle opgeslagen bijdragen doorzocht.", "Alle gespeicherten Beiträge durchsucht.", "Toutes les contributions enregistrées ont été recherchées.", "Se han buscado todas las entradas guardadas."),
     "session_search_partial": ("More saved entries remain. Load more to continue searching.", "Er zijn nog meer opgeslagen bijdragen. Laad meer om verder te zoeken.", "Weitere gespeicherte Beiträge sind verfügbar. Lade mehr, um weiterzusuchen.", "D’autres contributions enregistrées restent à rechercher. Chargez la suite.", "Quedan más entradas guardadas. Carga más para continuar buscando."),

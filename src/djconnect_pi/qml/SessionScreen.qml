@@ -13,6 +13,40 @@ Item {
     property var state: owner.state
     property string proposedMood: "groove"
     readonly property string searchTarget: historical ? ((state.timeline.session || {}).session_id || "") : state.session_id
+    property real readingOffset: 0
+    function readingAnchor() {
+        if (!historical || !historyRows) return ""
+        for (var i = 0; i < historyRows.count; i++) {
+            var card = historyRows.itemAt(i)
+            if (!card) continue
+            var y = card.mapToItem(historyScroll.contentItem, 0, 0).y
+            if (y + card.height > 0) { readingOffset = y; return card.modelData.entry_id }
+        }
+        readingOffset = 0
+        return ""
+    }
+    property string pendingReadingAnchor: ""
+    function restoreReading(anchor) { pendingReadingAnchor = anchor; readingRestore.restart() }
+    Timer {
+        id: readingRestore
+        interval: 32
+        onTriggered: {
+            var anchor = screen.pendingReadingAnchor
+            if (!screen.historical) return
+            var flick = historyScroll.contentItem
+            if (!anchor) { flick.contentY = 0; return }
+            for (var i = 0; i < historyRows.count; i++) {
+                var card = historyRows.itemAt(i)
+                if (card && card.modelData.entry_id === anchor) {
+                    var delta = card.mapToItem(flick, 0, 0).y - screen.readingOffset
+                    flick.contentY = Math.max(0, Math.min(flick.contentY + delta, Math.max(0, flick.contentHeight - flick.height)))
+                    return
+                }
+            }
+            flick.contentY = 0
+        }
+    }
+    function refreshHistory() { if (historical && state.timeline.session) owner.refreshSaved(readingAnchor()) }
     function showSearch() { searchPanel.open(); searchInput.forceActiveFocus() }
     function closeTransient() {
         if (searchPanel) searchPanel.close()
@@ -34,11 +68,14 @@ Item {
         choices.open()
     }
     Timer { interval: 3000; running: screen.visible && screen.backend.paired; repeat: true; triggeredOnStart: true; onTriggered: { if (!screen.historical) screen.owner.refresh(); else if (!screen.state.history_loaded) screen.owner.loadHistory() } }
+    Timer { interval: 15000; running: screen.visible && screen.historical && screen.backend.paired; repeat: true; onTriggered: screen.refreshHistory() }
     Connections {
         target: screen.owner
+        function onTimelineUpdated(anchor) { screen.restoreReading(anchor) }
         function onContextCleared() { screen.closeTransient() }
         function onEntryOpened() {
             searchPanel.close()
+            screen.readingOffset = 0
             screen.navigate("history")
         }
     }
@@ -122,13 +159,15 @@ Item {
                     iconName: "refresh"; Accessible.name: screen.tr("refresh")
                     implicitWidth: 52; background: Item {}
                     enabled: !screen.owner.busy
-                    onClicked: { screen.owner.refresh(); screen.backend.pollSharedSettings() }
+                    onClicked: { if (screen.historical) screen.refreshHistory(); else screen.owner.refresh(); screen.backend.pollSharedSettings() }
                 }
             }
         }
     }
 
     ScrollView {
+        id: historyScroll
+        objectName: "sessionHistoryScroll"
         anchors.top: toolbar.bottom; anchors.bottom: parent.bottom
         anchors.left: parent.left; anchors.right: parent.right
         anchors.margins: 20; anchors.bottomMargin: 132
@@ -227,8 +266,8 @@ Item {
             }
             GlassButton {
                 visible: screen.historical
-                text: screen.tr("session_back")
-                onClicked: { screen.owner.closeSaved(); screen.navigate("session") }
+                text: screen.tr(screen.state.timeline.session ? "session_history" : "session_back")
+                onClicked: { var detail = !!screen.state.timeline.session; screen.owner.closeSaved(); if (!detail) screen.navigate("session") }
             }
             Repeater {
                 model: screen.historical && !screen.state.timeline.session ? screen.state.sessions : []
@@ -247,7 +286,14 @@ Item {
                 visible: screen.historical && !!screen.state.timeline.session
                 text: screen.tr("session_history_readonly"); color: BrandTheme.colors.muted; font.pixelSize: 20
             }
+            GlassButton {
+                visible: screen.historical && !!screen.state.timeline.session
+                text: screen.tr("session_history_first"); enabled: !screen.owner.busy
+                onClicked: screen.owner.firstEntries()
+            }
             Repeater {
+                id: historyRows
+                objectName: "sessionHistoryRows"
                 model: screen.historical ? (screen.state.timeline.entries || []) : []
                 GlassCard {
                     required property var modelData
@@ -262,7 +308,12 @@ Item {
                     Text { text: modelData.occurred_at || ""; color: BrandTheme.colors.muted; font.pixelSize: 16; textFormat: Text.PlainText }
                 }
             }
-            GlassButton { visible: screen.historical && screen.state.has_more_sessions; text: screen.tr("session_more"); enabled: !screen.owner.busy; onClicked: screen.owner.moreHistory() }
+            Flow {
+                visible: screen.historical && !!screen.state.timeline.session
+                Layout.fillWidth: true; spacing: 10
+                GlassButton { text: screen.tr("session_history_next"); visible: !!screen.state.timeline.next_cursor; enabled: !screen.owner.busy; onClicked: screen.owner.nextEntries() }
+            }
+            GlassButton { visible: screen.historical && !screen.state.timeline.session && screen.state.has_more_sessions; text: screen.tr("session_more"); enabled: !screen.owner.busy; onClicked: screen.owner.moreHistory() }
             BusyIndicator { visible: screen.owner.busy; running: visible; Layout.alignment: Qt.AlignHCenter }
         }
     }

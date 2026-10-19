@@ -95,7 +95,7 @@ def opened_entry(response, session_id, entry_id):
     entry = response.get("entry")
     if not isinstance(entry, dict) or entry.get("entry_id") != identifier(entry_id):
         raise SessionError("invalid")
-    history_page({**response, "entries": [entry]}, session_id=session_id)
+    history_page({**response, "revision": response.get("session", {}).get("revision"), "entries": [entry]}, session_id=session_id)
     return response
 
 

@@ -228,3 +228,37 @@ local wheel b48b7284c2969f26e5489d3e1c21e0f7de6a801562439e66d9e36b77aca7ecb4
 matched all56 packaged Python/QML/JS/PNG source files. Earlier package/test receipts
 above remain historical checkpoints. GitHub checks for the follow-up candidate
 must be read independently; draft review does not authorize release or installation.
+
+### Overnight history revalidation and reading checkpoint
+
+PR111 head1ac0a8a passed every applicable GitHub check, including both Python
+runs and CodeQL. This follow-up adds explicit first/next server-cursor pages to
+saved Session detail, replacing each bounded page rather than accumulating old
+private prose. Refresh revalidates the current page; a revoked cursor falls back
+to the visible entry's fresh anchor window. Revision mismatch, denial, expiry or
+an unavailable window cannot leave stale historical prose visible. Capability
+withdrawal clears timeline, search, Session list and cursors. No navigation or
+refresh path sends a Session/playback mutation.
+
+Foreground detail revalidates every15 seconds and on explicit refresh. The view
+restores retained entry identity and pixel offset after layout; opening a search
+result scrolls to its selected entry. The actual QML exercise exposed a layout
+race, fixed by restoring after the next layout frame. History detail now returns
+to the saved Session list before leaving the history destination. First/next copy
+is present in all five locales. Existing Profile/view-epoch fences remain active.
+
+Local qualification:491 tests passed; Ruff0.16.0 passed;46 actual QML views passed
+on720x720 and1200x1920, including synthetic long-history layout replacement on
+both. Visual review confirms readable source cards and toolbar/navigation space;
+these remain offline fixtures, not Apple/live/physical acceptance. Hostverify is
+MATCH. Local wheel4e45f4d773f7c12cf575411ecbe5f0a50a80859ce191f6c4a2531a74e6276349
+matches all56 packaged source files. Evidence: pi-history-reading checkpoint in
+the task visualization directory; previous receipts are preserved.
+
+Still open: backward/continuous timeline navigation, search highlighting,
+monotonic expiry hardening, full native source/media admission qualification,
+text composer/context, media/forecast/reactions and remaining Apple pages. The
+bounded page reader is functional forward traversal, not full Apple Flow parity.
+Dates still need presentation matching Apple. Glass uses the current native Qt
+translucent fallback; true backdrop effects remain a design gap. No merge,
+release, install, pairing, HA service effect or credential use occurred here.

@@ -2,11 +2,12 @@
 from __future__ import annotations
 
 import argparse
+from copy import deepcopy
 import json
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from PySide6.QtCore import Q_ARG, QMetaObject, QObject, QTimer, qInstallMessageHandler
+from PySide6.QtCore import Q_ARG, Q_RETURN_ARG, QMetaObject, QObject, QTimer, qInstallMessageHandler
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
@@ -86,6 +87,33 @@ def main():
         capture("history-detail")
         session_item = window.findChild(QObject, "djSessionScreen")
         assert session_item is not None
+        # Synthetic extra retained rows ensure both viewports can position a non-first anchor.
+        extended = deepcopy(owner._timeline)
+        for i in range(10):
+            extra = deepcopy(tail["entries"][-1])
+            extra.update(entry_id=f"preview-extra-{i}", order=100 + i)
+            extended["entries"].append(extra)
+        owner._timeline = extended
+        owner.changed.emit()
+        QTest.qWait(100)
+        # Recreate real layout replacement and confirm the visible reading identity survives.
+        anchor = tail["entries"][1]["entry_id"]
+        session_item.setProperty("readingOffset", 0)
+        owner.timelineUpdated.emit(anchor)
+        QTest.qWait(100)
+        actual_anchor = QMetaObject.invokeMethod(session_item, "readingAnchor", Q_RETURN_ARG("QVariant"))
+        assert actual_anchor == anchor, (width, actual_anchor, anchor)
+        refreshed = deepcopy(owner._timeline)
+        refreshed["entries"][0]["text"] = None
+        owner._timeline = refreshed
+        owner.changed.emit()
+        owner.timelineUpdated.emit(anchor)
+        QTest.qWait(100)
+        actual_anchor = QMetaObject.invokeMethod(session_item, "readingAnchor", Q_RETURN_ARG("QVariant"))
+        assert actual_anchor == anchor, (width, "reading position lost", actual_anchor, anchor)
+        capture("history-reading-position")
+        owner._timeline = presented_history(history_page(tail, session_id=sid))
+        owner.changed.emit()
         assert QMetaObject.invokeMethod(session_item, "showSearch")
         keyboard = window.findChild(QObject, "sessionTouchKeyboard")
         search_input = window.findChild(QObject, "sessionSearchInput")

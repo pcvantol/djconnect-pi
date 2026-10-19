@@ -168,3 +168,135 @@ def test_unavailable_history_cannot_end_or_replace_current_session(controller):
     backend.jobs.pop()()
     assert owner.state['error'] == 'unavailable'
     assert owner.state['session_id'] == 'current-session'
+
+
+def test_timeline_pages_replace_window_and_reject_changed_revision(controller):
+    from copy import deepcopy
+
+    from test_session_history_view import timeline_fixture
+    owner, backend = controller
+    enable_search(owner)
+    tail = timeline_fixture()
+    owner._timeline = deepcopy(tail)
+    first = deepcopy(tail)
+    first['entries'] = first['entries'][:2]
+    first['next_cursor'] = 'opaque-page-two'
+    owner.transport.timeline = Mock(return_value=first)
+    owner.firstEntries()
+    backend.jobs.pop()()
+    assert owner.transport.timeline.call_args.kwargs == {'window': None, 'cursor': ''}
+    assert len(owner.state['timeline']['entries']) == 2
+    second = deepcopy(tail)
+    second['entries'] = second['entries'][2:]
+    owner.transport.timeline.return_value = second
+    owner.nextEntries()
+    backend.jobs.pop()()
+    assert owner.transport.timeline.call_args.kwargs == {'window': None, 'cursor': 'opaque-page-two'}
+    assert [row['entry_id'] for row in owner.state['timeline']['entries']] == [row['entry_id'] for row in second['entries']]  # no unvalidated prior-page cache
+    owner._timeline['next_cursor'] = 'opaque-page-three'
+    second['revision'] = 'changed-revision'
+    owner.nextEntries()
+    backend.jobs.pop()()
+    assert owner.state['error'] == 'conflict'
+    assert owner.state['timeline'] == {}
+
+
+def test_refresh_revalidates_reading_anchor_and_withdraws_old_body_and_search(controller):
+    from copy import deepcopy
+
+    from test_session_history_view import timeline_fixture
+    owner, backend = controller
+    enable_search(owner)
+    tail = timeline_fixture()
+    row = next(row for row in tail['entries'] if row['kind'] == 'dj_moment')
+    owner._timeline = deepcopy(tail)
+    owner._search = {'matches': [deepcopy(row)]}
+    refreshed = deepcopy(tail)
+    withdrawn = next(entry for entry in refreshed['entries'] if entry['entry_id'] == row['entry_id'])
+    withdrawn.update(kind='dj_publication', text=None, speech_available=False)
+    refreshed['revision'] = 'withdrawal-revision'
+    owner.transport.timeline = Mock(return_value=refreshed)
+    signal = Mock()
+    owner.timelineUpdated.connect(signal)
+    owner.refreshSaved(row['entry_id'])
+    backend.jobs.pop()()
+    assert owner.transport.timeline.call_args.kwargs == {'window': 'anchor', 'anchor_entry_id': row['entry_id']}
+    updated = next(entry for entry in owner.state['timeline']['entries'] if entry['entry_id'] == row['entry_id'])
+    assert updated['kind'] == 'dj_publication' and updated['text'] is None
+    assert owner.state['search'] == {}
+    signal.assert_called_once_with(row['entry_id'])
+
+
+def test_history_refresh_failure_clears_stale_prose_but_keeps_runtime(controller):
+    from test_session_history_view import timeline_fixture
+    owner, backend = controller
+    enable_search(owner)
+    owner._timeline = timeline_fixture()
+    owner._session = {'session_id': 'active-runtime'}
+    owner.transport.timeline = Mock(side_effect=SessionError('unavailable'))
+    owner.refreshSaved(owner._timeline['entries'][0]['entry_id'])
+    backend.jobs.pop()()
+    assert owner.state['timeline'] == {}
+    assert owner.state['session_id'] == 'active-runtime'
+
+
+def test_context_closed_discards_inflight_revalidated_window(controller):
+    from test_session_history_view import timeline_fixture
+    owner, backend = controller
+    enable_search(owner)
+    tail = timeline_fixture()
+    owner._timeline = tail
+    owner.transport.timeline = Mock(return_value=tail)
+    owner.refreshSaved(tail['entries'][0]['entry_id'])
+    owner.closeSaved()
+    backend.jobs.pop()()
+    assert owner.state['timeline'] == {}
+
+
+def test_paged_history_revalidation_keeps_forward_cursor_without_caching_previous_pages(controller):
+    from test_session_history_view import timeline_fixture
+    owner, backend = controller
+    enable_search(owner)
+    tail = timeline_fixture()
+    tail['_page_cursor'] = 'current-page'
+    tail['next_cursor'] = 'next-page'
+    owner._timeline = tail
+    owner.transport.timeline = Mock(return_value=tail)
+    owner.refreshSaved(tail['entries'][0]['entry_id'])
+    backend.jobs.pop()()
+    assert owner.transport.timeline.call_args.kwargs == {'window': None, 'cursor': 'current-page'}
+    assert owner.state['timeline']['next_cursor'] == 'next-page'
+    assert owner.state['timeline']['_page_cursor'] == 'current-page'
+
+
+def test_revoked_page_cursor_falls_back_to_fresh_anchor_without_replaying_actions(controller):
+    from test_session_history_view import timeline_fixture
+    owner, backend = controller
+    enable_search(owner)
+    tail = timeline_fixture()
+    owner._timeline = {**tail, '_page_cursor': 'old-page'}
+    owner.transport.timeline = Mock(side_effect=[SessionError('conflict'), tail])
+    anchor = tail['entries'][0]['entry_id']
+    owner.refreshSaved(anchor)
+    backend.jobs.pop()()
+    assert owner.transport.timeline.call_count == 2
+    assert owner.transport.timeline.call_args.kwargs == {'window': 'anchor', 'anchor_entry_id': anchor}
+    assert '_page_cursor' not in owner.state['timeline']
+    assert owner.state['error'] == ''
+
+
+def test_capability_withdrawal_clears_historical_prose_and_cursor(controller):
+    from test_session_history_view import timeline_fixture
+    owner, backend = controller
+    enable_search(owner)
+    owner._timeline = timeline_fixture()
+    owner._search = {'matches': [{'text': 'private saved query result'}]}
+    owner._sessions = [{'session_id': 'saved'}]
+    owner._history_cursor = 'old-list-page'
+    owner._history_loaded = True
+    owner.transport.capabilities.return_value = {'capabilities': {}, 'contract_versions': {}}
+    owner.refresh()
+    backend.jobs.pop()()
+    assert owner.state['timeline'] == {} and owner.state['search'] == {}
+    assert owner.state['sessions'] == [] and not owner.state['has_more_sessions']
+    assert not owner.state['history_loaded']

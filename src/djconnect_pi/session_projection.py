@@ -145,6 +145,12 @@ def history_page(response, *, session_id=None, now=None):
     header = response.get("session")
     if not isinstance(header, dict) or header.get("session_id") != session_id:
         raise SessionError("invalid")
+    if not isinstance(response.get("revision"), str) or not response["revision"]:
+        raise SessionError("invalid")
+    # Cursors are opaque, but malformed values must never become navigation state.
+    cursor = response.get("next_cursor")
+    if cursor is not None and (not isinstance(cursor, str) or not cursor or len(cursor) > 8192 or any(ord(c) < 32 for c in cursor)):
+        raise SessionError("invalid")
     entries = response.get("entries")
     if not isinstance(entries, list) or len(entries) > 50:
         raise SessionError("invalid")

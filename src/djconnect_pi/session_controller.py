@@ -21,6 +21,7 @@ from .session_transport import SessionError, SessionTransport
 class SessionController(QObject):
     changed = Signal()
     entryOpened = Signal()
+    timelineUpdated = Signal(str)
     contextCleared = Signal()
     _ready = Signal(object)
 
@@ -186,6 +187,27 @@ class SessionController(QObject):
         self._search = {}
         self._launch("timeline", session_id)
 
+    @Slot(str)
+    def refreshSaved(self, anchor_entry_id=""):
+        sid = self._timeline.get("session", {}).get("session_id")
+        if sid:
+            self._launch("timeline_refresh", {"session_id": sid, "entry_id": anchor_entry_id,
+                "page_cursor": self._timeline.get("_page_cursor")})
+
+    @Slot()
+    def firstEntries(self):
+        sid = self._timeline.get("session", {}).get("session_id")
+        if sid:
+            self._launch("timeline_page", {"session_id": sid, "cursor": ""})
+
+    @Slot()
+    def nextEntries(self):
+        sid = self._timeline.get("session", {}).get("session_id")
+        cursor = self._timeline.get("next_cursor")
+        if sid and cursor:
+            self._launch("timeline_page", {"session_id": sid, "cursor": cursor,
+                "revision": self._timeline["revision"]})
+
     @Slot()
     def closeSaved(self):
         self._view_epoch += 1
@@ -241,7 +263,7 @@ class SessionController(QObject):
             self._error = exc.category
             self.changed.emit()
             return
-        if action in {"history", "history_more", "timeline", "open_entry", "search", "search_more"} and not self._history_supported():
+        if action in {"history", "history_more", "timeline", "timeline_refresh", "timeline_page", "open_entry", "search", "search_more"} and not self._history_supported():
             self._error = "unsupported"
             self.changed.emit()
             return
@@ -264,6 +286,29 @@ class SessionController(QObject):
                     page_cursor(result["history"].get("next_cursor"))
                 elif action == "timeline":
                     result["timeline"] = presented_history(history_page(self.transport.timeline(binding, value), session_id=value))
+                elif action in {"timeline_refresh", "timeline_page"}:
+                    sid = value["session_id"]
+                    if action == "timeline_page":
+                        response = self.transport.timeline(binding, sid, window=None, cursor=value["cursor"])
+                    elif value.get("page_cursor") is not None:
+                        try:
+                            response = self.transport.timeline(binding, sid, window=None, cursor=value["page_cursor"])
+                            response = {**response, "_page_cursor": value["page_cursor"]}
+                        except SessionError as exc:
+                            if exc.category != "conflict":
+                                raise
+                            # Changed grant/revision invalidates the cursor: re-read only the visible anchor.
+                            response = self.transport.timeline(binding, sid, window="anchor", anchor_entry_id=value["entry_id"]) if value["entry_id"] else self.transport.timeline(binding, sid)
+                    elif value["entry_id"]:
+                        response = self.transport.timeline(binding, sid, window="anchor", anchor_entry_id=value["entry_id"])
+                    else:
+                        response = self.transport.timeline(binding, sid)
+                    result["timeline"] = presented_history(history_page(response, session_id=sid))
+                    if action == "timeline_page" and value.get("revision") and response["revision"] != value["revision"]:
+                        raise SessionError("conflict")
+                    if action == "timeline_page":
+                        result["timeline"]["_page_cursor"] = value["cursor"]
+                    result["reading_anchor"] = value.get("entry_id", "")
                 elif action in {"search", "search_more"}:
                     result["search"] = search_page(self.transport.search(binding, value["session_id"], value["query"], cursor=value["cursor"]), value["session_id"], value["query"])
                     if action == "search_more" and result["search"]["revision"] != value["revision"]:
@@ -306,7 +351,7 @@ class SessionController(QObject):
         except SessionError:
             self.invalidate()
             return
-        history_action = result["action"] in {"history", "history_more", "timeline", "search", "search_more", "open_entry"}
+        history_action = result["action"] in {"history", "history_more", "timeline", "timeline_refresh", "timeline_page", "search", "search_more", "open_entry"}
         if history_action and result.get("view_epoch") != self._view_epoch:
             self.changed.emit()
             return
@@ -331,6 +376,14 @@ class SessionController(QObject):
                 self._session = result["session"]
                 self._moments = live_presentations(self._session)
                 self._caps = result.get("capabilities", {})
+                if not self._history_supported():
+                    self._timeline = {}
+                    self._sessions = []
+                    self._history_cursor = ""
+                    self._history_loaded = False
+                    self._search = {}
+                elif not self._search_supported():
+                    self._search = {}
             if "history" in result:
                 self._history_loaded = True
                 rows = result["history"]["sessions"]
@@ -349,8 +402,10 @@ class SessionController(QObject):
                 self._search = incoming
             if "timeline" in result:
                 self._timeline = result["timeline"]
-                if result["action"] == "open_entry":
-                    self._search = {}
+                # A fresh projection replaces the whole window, including withdrawn prose.
+                self._search = {}
         self.changed.emit()
+        if "timeline" in result and "error" not in result:
+            self.timelineUpdated.emit(result.get("reading_anchor", self._timeline.get("selected_entry_id", "")))
         if result["action"] == "open_entry" and "error" not in result:
             self.entryOpened.emit()
