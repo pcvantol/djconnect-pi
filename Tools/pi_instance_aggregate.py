@@ -29,9 +29,10 @@ def latest_deployment(client, authority, instance):
         and run.get("path") in {".github/workflows/deploy-latest-pi-release.yml", ".github/workflows/deploy-latest-pi-release.yml@main"}
         and run.get("event") == "workflow_dispatch"]
     require(bool(matching), "LATEST_DEPLOYMENT_MISSING")
-    matching.sort(key=lambda run: (datetime.fromisoformat(run["updated_at"]), int(run["id"])), reverse=True)
+    matching.sort(key=lambda run: int(run["id"]), reverse=True)
     run = matching[0]
-    require(run.get("status") == "completed" and run.get("conclusion") == "success"
+    require(all(datetime.fromisoformat(old["updated_at"]) <= datetime.fromisoformat(run["updated_at"]) for old in matching), "OLDER_DEPLOYMENT_UPDATED_AFTER_NEWER_INTENT")
+    require(type(run.get("run_attempt")) is int and run["run_attempt"] == 1 and run.get("status") == "completed" and run.get("conclusion") == "success"
             and run.get("head_sha") == authority.binding.consumer_sha
             and run.get("actor", {}).get("login") == "pcvantol"
             and run["display_title"] == prefix+authority.binding.request["manifest_id"], "LATEST_DEPLOYMENT_NOT_MATCHING_SUCCESS")

@@ -95,3 +95,13 @@ full integrated production run after the fix passes1664without skips; its test
 collection preceded the last two added race cases, which passed separately in
 the254case run. No app, installer, SSH, source rights or actual device changed.
 Independent exact fix re-review and protected CI remain required.
+
+The exact fix re-review found a remaining ordering counterexample: a higher-ID
+queued intent can have an earlier updated_at than a finishing older deployment.
+Deployment intent ordering now uses run ID; inconsistent later updates to an
+older run fail closed instead of making it current. The selected latest run must
+also have an integer run_attempt exactly1, matching the dispatch controller's
+rerun restriction. Four added two-instance cases cover queued higher-ID/earlier
+update and same-ID attempt2 with an old smoke. A successful real attempt2 is not
+claimed reachable under the current controller; this is an explicit evidence
+consistency rejection. Dedicated total258cases; no hardware action.
