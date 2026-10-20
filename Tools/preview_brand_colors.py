@@ -85,7 +85,7 @@ def main():
         backend.enterDemoMode()
         backend._toast_visible = False
         backend.toastChanged.emit()
-        for screen in ["session", "history", "now", "control", "queue", "playlists", "askdj", "trackinsight", "discover", "musicdna", "more", "settings", "games", "legal", "privacy"]:
+        for screen in ["session", "history", "now", "control", "queue", "playlists", "askdj", "trackinsight", "discover", "musicdna", "more", "settings", "games", "legal", "privacy", "feedback"]:
             window.setProperty("activeScreen", screen)
             capture(screen)
         window.setProperty("activeScreen", "session")
@@ -99,12 +99,29 @@ def main():
         # then move elapsed time beyond its original expiry while wall time rolls back.
         for language in ['en','nl','de','fr','es']:
             backend.setLanguage(language);backend._toast_visible=False;backend.toastChanged.emit()
-            for destination,button_name in [('legal','openLegal'),('privacy','openPrivacy')]:
+            for destination,button_name in [('legal','openLegal'),('privacy','openPrivacy'),('feedback','openFeedback')]:
                 window.setProperty('activeScreen','more');QTest.qWait(50)
                 QMetaObject.invokeMethod(window.findChild(QObject,button_name),'clicked')
                 assert window.property('activeScreen')==destination
                 assert visual_item(window.contentItem(),'appTab-more').property('checked')
                 capture(destination+'-menu-'+language)
+                if destination == 'feedback':
+                    with patch('djconnect_pi.app.QDesktopServices.openUrl', return_value=True) as browser:
+                        assert browser.call_count == 0
+                        QMetaObject.invokeMethod(window.findChild(QObject,'feedbackOpenIssue'),'clicked')
+                        browser.assert_called_once()
+                        from urllib.parse import parse_qs, urlsplit
+                        url=browser.call_args.args[0].toString();parsed=urlsplit(url)
+                        assert parsed.netloc=='github.com' and parsed.path=='/pcvantol/djconnect-pi/issues/new'
+                        assert parse_qs(parsed.query)=={'title':[backend.t('feedback_issue_title')],'body':[backend.t('feedback_issue_template')]}
+                        assert not window.findChild(QObject,'feedbackOpenError').property('visible')
+                    capture('feedback-open-draft-only-'+language)
+                    with patch('djconnect_pi.app.QDesktopServices.openUrl', return_value=False) as browser:
+                        QMetaObject.invokeMethod(window.findChild(QObject,'feedbackOpenIssue'),'clicked')
+                        assert window.findChild(QObject,'feedbackOpenError').property('visible')
+                        browser.assert_called_once()
+                    capture('feedback-no-browser-'+language)
+
                 info_scroll=window.findChild(QObject,'informationScroll').property('contentItem')
                 if language=='nl':
                     info_scroll.setProperty('contentY',max(0,info_scroll.property('contentHeight')-info_scroll.property('height')))

@@ -13,7 +13,7 @@ from copy import deepcopy
 from datetime import datetime
 from importlib.resources import files
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import urlencode, urlparse
 
 import requests
 from PySide6.QtCore import (
@@ -25,10 +25,11 @@ from PySide6.QtCore import (
     QObject,
     Qt,
     QTimer,
+    QUrl,
     Signal,
     Slot,
 )
-from PySide6.QtGui import QGuiApplication, QIcon, QPixmapCache
+from PySide6.QtGui import QDesktopServices, QGuiApplication, QIcon, QPixmapCache
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
 
@@ -728,6 +729,13 @@ class DJConnectBackend(QObject):
     @Property(bool, notify=logsChanged)
     def logsVisible(self) -> bool:
         return self._logs_visible
+
+    @Slot(result=bool)
+    def openFeedbackIssue(self) -> bool:
+        # User click opens a draft only; no private app state or automatic submit.
+        query = urlencode({"title": translate(self.cfg.language, "feedback_issue_title"),
+                           "body": translate(self.cfg.language, "feedback_issue_template")})
+        return QDesktopServices.openUrl(QUrl("https://github.com/pcvantol/djconnect-pi/issues/new?" + query))
 
     @Slot(str, result=str)
     def t(self, key: str) -> str:

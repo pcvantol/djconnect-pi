@@ -1318,3 +1318,58 @@ for _language, _value in zip(SUPPORTED_LANGUAGES, ("More contributions remain av
 
 for _language, _value in zip(SUPPORTED_LANGUAGES, ("Artist image", "Artiestafbeelding", "Künstlerbild", "Image de l’artiste", "Imagen del artista")):
     TRANSLATIONS[_language]["session_forecast_artist_image"] = _value
+
+_FEEDBACK_TRANSLATIONS = {
+    'feedback': (
+        'Feedback',
+        'Feedback',
+        'Feedback',
+        'Commentaires',
+        'Comentarios',
+    ),
+    'feedback_share': (
+        'Share feedback',
+        'Feedback delen',
+        'Feedback teilen',
+        'Partager des commentaires',
+        'Compartir comentarios',
+    ),
+    'feedback_help': (
+        'Open a draft issue for DJConnect Pi on GitHub. Nothing is sent automatically. No device IDs, Profile, Session content or logs are attached. Review your report before publishing it publicly.',
+        'Open een conceptmelding voor DJConnect Pi op GitHub. Er wordt niets automatisch verstuurd. Apparaat-ID’s, profiel, sessie-inhoud en logs worden niet toegevoegd. Controleer je melding voordat je die openbaar publiceert.',
+        'Öffne einen Entwurf für DJConnect Pi auf GitHub. Nichts wird automatisch gesendet. Geräte-IDs, Profil, Session-Inhalte und Protokolle werden nicht angehängt. Prüfe deinen Bericht, bevor du ihn öffentlich veröffentlichst.',
+        'Ouvrez un brouillon de signalement pour DJConnect Pi sur GitHub. Rien n’est envoyé automatiquement. Aucun identifiant d’appareil, profil, contenu de session ou journal n’est joint. Vérifiez votre signalement avant de le publier.',
+        'Abre un borrador para DJConnect Pi en GitHub. No se envía nada automáticamente. No se adjuntan identificadores del dispositivo, perfil, contenido de sesión ni registros. Revisa el informe antes de publicarlo.',
+    ),
+    'feedback_open': (
+        'Open GitHub issue',
+        'GitHub-melding openen',
+        'GitHub-Issue öffnen',
+        'Ouvrir un signalement GitHub',
+        'Abrir un informe en GitHub',
+    ),
+    'feedback_unavailable': (
+        'GitHub could not be opened. Try again when a browser is available.',
+        'GitHub kon niet worden geopend. Probeer het opnieuw wanneer een browser beschikbaar is.',
+        'GitHub konnte nicht geöffnet werden. Versuche es erneut, wenn ein Browser verfügbar ist.',
+        'Impossible d’ouvrir GitHub. Réessayez lorsqu’un navigateur est disponible.',
+        'No se pudo abrir GitHub. Inténtalo de nuevo cuando haya un navegador disponible.',
+    ),
+    'feedback_issue_title': (
+        'DJConnect Pi feedback',
+        'DJConnect Pi-feedback',
+        'DJConnect Pi – Feedback',
+        'Commentaires sur DJConnect Pi',
+        'Comentarios sobre DJConnect Pi',
+    ),
+    'feedback_issue_template': (
+        'What happened?\n\nSteps to reproduce:\n\nWhat did you expect?\n\nPlease remove private data before publishing.',
+        'Wat gebeurde er?\n\nStappen om het te herhalen:\n\nWat verwachtte je?\n\nVerwijder privégegevens voordat je publiceert.',
+        'Was ist passiert?\n\nSchritte zum Reproduzieren:\n\nWas hast du erwartet?\n\nEntferne private Daten vor dem Veröffentlichen.',
+        'Que s’est-il passé ?\n\nÉtapes pour reproduire :\n\nQuel résultat attendiez-vous ?\n\nSupprimez les données privées avant de publier.',
+        '¿Qué ocurrió?\n\nPasos para reproducirlo:\n\n¿Qué esperabas?\n\nElimina los datos privados antes de publicar.',
+    ),
+}
+for _key, _values in _FEEDBACK_TRANSLATIONS.items():
+    for _language, _value in zip(SUPPORTED_LANGUAGES, _values):
+        TRANSLATIONS[_language][_key] = _value

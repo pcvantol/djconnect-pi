@@ -1713,3 +1713,43 @@ media, reactions/actions, contextual/upcoming/two-image Forecast, broad private
 composer lifetimes, full Flow placement/order, full playback header/output controls,
 exact native glass and hardware performance remain open. No merge/release/install,
 pairing, HA/provider/model effects or ARM/installed/live/physical PASS is inferred.
+
+
+### Feedback destination under More
+
+Feedback now follows Privacy in the common Apple More order. Both Pi formats
+show an explicit glass confirmation page with Back and the selected More tab,
+localized in en/nl/de/fr/es. An explicit Open GitHub issue action opens a draft
+for the verified issue-enabled Pi repository. It includes only a static localized
+title and fill-in template. No device identity, Profile, Session body, logs or
+other diagnostic snapshot is exported; no issue is submitted automatically.
+An unavailable browser shows a localized status. Opening this page has no
+network effect, and the native-sheet-to-Pi-page geometry remains an adaptation.
+
+The protected Apple e106a467 MoreView/FeedbackPromptView and model URL/body
+builders were read independently. Pi retains the explicit draft/review interaction
+while adapting the target repository and omitting automatic app-context export.
+Browser opening in tests is intercepted, including actual QML clicks; no real
+browser, issue publication, private credential or HA/provider/model effect occurs.
+
+1157 full tests and Ruff0.16.0 src/tests pass. Ten new tests verify exact encoded
+query fields and no supplied private config/Session values for five languages,
+including true/false browser outcomes.150 actual broad QML views (34 Feedback)
+pass without errors/binding loops on720x720/1200x1920. They include actual menu,
+Back/tab, draft-open and unavailable-browser states; both layouts were inspected.
+The prior96d852Session/art/history/composer views remain separate qualification,
+not added to this UI-only count. Wheel 766c12f2126238dfa48b2a70c36a7c4a3338a0fe6687f62a3a53127205f94bd8 matches all63 packaged sources.
+Evidence: taskvisualizations/pi-feedback-destination; FEEDBACK_REFERENCE.json.
+Initial test import ordering was corrected. Diagnostics retain equivalent
+translation formatting rejected by the existing implicit-concatenation lint rule; final
+format uses one literal per value, with no string changes or rule suppression.
+Host last freshly qualified MATCH during parent96d source work; no repeat host
+mutation, installation, ARM/live HA/Profile/physical acceptance is claimed.
+
+A separate protected8b Persona touch-reaction audit confirms a dedicated paired
+operation1 owner/epoch/receipt and confirmed Settings3 context/output are needed.
+The existing settings3/operation receipt route is not that dispatch owner. A
+future text-only reaction consumer is possible under its actual contract; this
+page does not implement it or activate audio. No producer/API WIP was adopted.
+General Session/Flow/media/private-lifetime and exact native/hardware gates stay
+open. This feedback step does not merge, release, install or pair the shared app.

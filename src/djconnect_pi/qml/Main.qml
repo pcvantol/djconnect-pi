@@ -2341,6 +2341,11 @@ BrandWindow {
                         onClicked: root.activeScreen = "privacy"
                     }
                     MoreMenuButton {
+                        objectName: "openFeedback"
+                        text: root.tr("feedback"); iconName: "chat"
+                        onClicked: root.activeScreen = "feedback"
+                    }
+                    MoreMenuButton {
                         text: root.tr("control"); iconName: "control"
                         onClicked: root.activeScreen = "control"
                     }
@@ -2351,7 +2356,7 @@ BrandWindow {
 
     Rectangle {
         anchors.fill: parent
-        visible: root.activeScreen === "legal" || root.activeScreen === "privacy"
+        visible: root.activeScreen === "legal" || root.activeScreen === "privacy" || root.activeScreen === "feedback"
         color: BrandTheme.colors.background
         z: 17
         AppBackground {}
@@ -2361,6 +2366,7 @@ BrandWindow {
             anchors.fill: parent
             anchors.bottomMargin: root.edge + 126
             privacy: root.activeScreen === "privacy"
+            feedback: root.activeScreen === "feedback"
             backend: djconnect
             onBack: root.activeScreen = "more"
         }
@@ -4077,7 +4083,7 @@ BrandWindow {
                     objectName: "appTab-" + modelData.screen
                     iconName: modelData.icon
                     checkable: true
-                    checked: root.activeScreen === modelData.screen || (modelData.screen === "session" && root.activeScreen === "session-history") || (modelData.screen === "more" && ["askdj", "history", "queue", "playlists", "games", "settings", "control", "musicdna", "legal", "privacy"].indexOf(root.activeScreen) >= 0)
+                    checked: root.activeScreen === modelData.screen || (modelData.screen === "session" && root.activeScreen === "session-history") || (modelData.screen === "more" && ["askdj", "history", "queue", "playlists", "games", "settings", "control", "musicdna", "legal", "privacy", "feedback"].indexOf(root.activeScreen) >= 0)
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     onClicked: root.activeScreen = modelData.screen
