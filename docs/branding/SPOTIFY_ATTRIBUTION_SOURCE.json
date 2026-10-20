@@ -1,0 +1,8 @@
+{
+  "source_repo": "pcvantol/djconnect-app",
+  "source_commit": "e106a467011b9ea84d301a81c4e07251314cc6dd",
+  "source_path": "Apps/Shared/Assets.xcassets/SpotifyAttribution.imageset/Spotify_Full_Logo_RGB_White.png",
+  "sha256": "14a6a4faf018cf8b2f46a35a272db84b3d6b61a094707f225eb0106ea90ef979",
+  "consumer_path": "src/djconnect_pi/qml/spotify-attribution.png",
+  "transformation": "none; byte-for-byte copy"
+}

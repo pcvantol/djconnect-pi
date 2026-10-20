@@ -1,25 +1,35 @@
 # DJConnect Pi
 
-Version: `4.0.0-rc.2` (Platform release candidate; not yet stable)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/pcvantol/djconnect/7e14e5970b3f68d33d243ae6bab2b281fad59bb2/assets/djconnect/brand-v2/wordmark-primary-dark.png">
+  <img src="https://raw.githubusercontent.com/pcvantol/djconnect/7e14e5970b3f68d33d243ae6bab2b281fad59bb2/assets/djconnect/brand-v2/wordmark-primary-light.png" alt="DJConnect" width="640">
+</picture>
 
-Raspberry Pi Zero 2 W touch-display client for DJConnect. This client uses
-Qt Quick/QML with a PySide6 backend and is meant for a Pimoroni HyperPixel 4.0
-Square Touch style kiosk remote: pairing, status, now playing and touch
-playback control, Ask DJ history display with structured touch actions,
-server-backed Music DNA and Music Discovery.
+Version: `4.0.0-rc.5` (release preparation; publication and installation pending)
 
-The Raspberry Pi is the canonical DJConnect Ambient Client. Its default
-Profile Platform behavior is shared: Household, room, guest, kids or party
-profiles are the safe default for a wall or countertop screen. A personal
-profile is used only when Home Assistant resolves the paired Pi device to one
-or when an explicit profile selection is configured; the Pi never infers a
-personal identity locally.
+One shared Qt Quick/QML application with a PySide6 backend serves the compact
+4-inch Pi and the portrait Pi10. The selected product target is the full
+DJConnect app experience on both formats, using iPhone mini and iPad portrait
+as design references. Each target requires an explicit, server-authorized
+DJConnect Profile connection; display size or household placement never implies
+personal identity or permission. Home Assistant remains the Profile/Session owner.
 
-It intentionally does not implement PTT, microphone upload, local DJ response
-audio, a Pi-local DJ response endpoint, ESP firmware OTA, ESP battery sensors
-or Wi-Fi RSSI sensors. It does run a small local Client API daemon for Home
-Assistant pairing, commands and diagnostics. `_djconnect._tcp` mDNS discovery
-is advertised only while the Pi is not yet paired.
+The current draft adds shared DJ Session screens, text composition, retained
+history/search, settings and scoped Forecast display. Full Apple feature and
+visual parity is still in progress. Source/fixture tests do not establish an
+installed release: the last-known Pi10 baseline is rc4/unpaired and the installed
+4-inch app still awaits a separately authorized Session update. See
+[the parity checkpoint and open gaps](docs/PI10_APPLE_EXPERIENCE_PARITY.md).
+
+Current Pi capabilities keep PTT, microphone upload and local DJ response audio
+disabled. This is the implemented and qualified boundary, not a permanent
+product exclusion based on client type. Any future audio support needs a separate
+explicit product decision, actual hardware capability, owner permission and the
+common server capability handshake; no new wire contract or audio activation is
+introduced by this draft. ESP firmware OTA, battery/RSSI sensors and a Pi-local
+DJ response endpoint are not implemented. The separate local Client API daemon
+handles Home Assistant pairing, commands, diagnostics and the web portal;
+`_djconnect._tcp` mDNS is advertised only while unpaired.
 
 Shared spoken intent examples for website/docs alignment live in
 `examples/voice_intents.json`. They document the HA/ESP post-STT intent model;
@@ -34,7 +44,7 @@ The same local API daemon serves the Raspberry Pi web portal at the Pi web
 address, so the portal is installed with the app release and starts
 automatically on boot through `djconnect-api.service`.
 
-The 3.2 Pi contract focuses on stable wall-device behavior: local-only
+The existing 3.2 transport baseline focuses on stable wall-device behavior: local-only
 pairing, `_djconnect._tcp` mDNS while unpaired, `/api/device/pairing-info` for
 explicit Home Assistant pairing, capability reporting that keeps voice/audio
 off, kiosk-safe screen behavior and update/diagnostics surfaces that keep
@@ -98,7 +108,14 @@ authorized Universal Receiver session/Broadcast smoke scenario.
 - Music backend selection is Home Assistant-side. The Pi displays the backend
   summary returned by HA and does not store Spotify credentials or assume
   Spotify Direct over Music Assistant.
-- Ask DJ is `readonly_actions`. The Pi polls server-side history, displays
+- The active DJ Session now supports explicit, Profile-bound text questions when
+  Core advertises contextual dialogue1 and history entries2. Selected Moment/entry
+  references are exact IDs; retained answers require exact receipts and fresh
+  accepted conversation entries. A narrow selected-live-Moment MusicBrainz CC0
+  answer can instead render current-only under its original finite source grant.
+  Sending never retries automatically or requests local speech. General standalone
+  and private-ephemeral composition remain open without a finite display contract.
+- The separate Ask DJ history/actions page polls server-side history, displays
   assistant/system/status/user bubbles and sends only Home Assistant-provided
   structured action payloads through `/api/djconnect/v1/command`. Chat history
   clear is server-side only: the touch UI asks for confirmation, calls
@@ -108,9 +125,11 @@ authorized Universal Receiver session/Broadcast smoke scenario.
   `ask_dj_audio_response_supported:false` and does not expose local message
   input, voice/PTT, TTS or local audio playback. DJ announcements can be
   rendered as text only, or spoken by Home Assistant server-side through the
-  HA speaker configured in DJConnect options. The Pi only chooses
-  `dj_announcement_output` (`text_only` or supported `ha_speaker`) and never
-  configures a speaker entity or plays `audio_url` locally.
+  HA speaker configured in DJConnect options. The paired Pi now edits the six
+  shared Profile/Session settings through the settings3 owner. Shared announcement
+  intent includes `client_device`, `both`, `ha_speaker` and `text_only` for linked
+  clients; this Pi never configures a speaker or plays `audio_url` locally. See
+  [consumer adoption and qualification boundaries](docs/SHARED_SETTINGS_AND_BRAND_V2_ADOPTION.md).
 - Track Insight is server-side in Home Assistant. The Pi posts current track
   metadata, language/locale, optional mood and optional Music DNA key to
   `/api/djconnect/v1/track_insight`, renders direct or wrapped
@@ -257,7 +276,11 @@ authorized Universal Receiver session/Broadcast smoke scenario.
 
 ## UI Shape
 
-The app is a fullscreen touch remote with hardware-aware presentation:
+Both Pi targets use one full app, with shared screens, menu order, glass controls,
+feature icons and server controllers. DJ Session is available through the same
+shared screen on both targets. The compact visual reference is iPhone mini;
+the 10-inch reference is iPad in portrait. Layout adapts to the physical canvas:
+
 
 - Pi Zero 2 W / 4-inch uses the compact 720x720 touch layout.
 - Pi 5 / 10-inch wall uses the physical portrait canvas. The current living-room
@@ -293,8 +316,9 @@ The app is a fullscreen touch remote with hardware-aware presentation:
   platform-specific Unicode glyph rendering
 - Ask DJ screen that displays the shared Home Assistant conversation feed,
   decodes assistant, system, status and other-client user messages, and renders
-  HA-provided structured action buttons without free prompt input, voice, PTT,
-  TTS or local audio path. The chat clear button is a confirmed server-side
+  HA-provided structured action buttons. This legacy feed has no free prompt
+  input or local voice/PTT/TTS/audio path; the separate current Session composer
+  provides scoped text questions. The chat clear button is a confirmed server-side
   operation and keeps local history intact if HA returns an error.
 - Track Insight screen that refreshes the current-track analysis from Home
   Assistant, shows title/artist/artwork, summary, genre/subgenre, energy,
@@ -309,13 +333,13 @@ The app is a fullscreen touch remote with hardware-aware presentation:
   advertises feedback support
 - Music DNA screen for server-backed opt-in, disable, clear and compact profile
   display; optional dashboard blocks are hidden when absent or ineligible
-- Profile adoption is ambient-first: shared profile content may appear on the
-  wall display, but personal Ask DJ history, personal recommendations and
-  personal Music DNA appear only when the backend resolves an explicit personal
-  DJConnect Profile for this Pi.
-- fixed bottom menu bar for Speelt nu, Wachtrij, Ask DJ, Track Insight, Ontdek
-  and Meer; Meer contains Bediening, Afspeellijsten, Music DNA, Games,
-  Instellingen, Logs and Over
+- Both display formats use an explicit server-authorized Profile connection.
+  Personal history, recommendations and Music DNA remain owner/capability scoped;
+  neither a large wall display nor a compact screen supplies implicit authority.
+- shared five-tab bottom navigation: DJ Session, Now Playing, Track Insight,
+  Discover and More. Queue, playlists, controls and supporting destinations remain
+  available through their existing routes. DJ Session uses the white Session
+  Pulse/DJPersonaMark, not the colored app identity as its tab icon
 - settings for screen blanking, automatic return-to-Speelt-nu timeout
   (`30`, `60`, `120` seconds or `Uit`), brightness, language, logs, pairing
   reset, Home Assistant WebSocket fast path, update checks, reboot/shutdown
@@ -393,9 +417,9 @@ not a private source clone:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/download/v4.0.0-rc.2/djconnect-pi-4.0.0-rc.2.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/download/v4.0.0-rc.5/djconnect-pi-4.0.0-rc.5.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-4.0.0-rc.2
+cd djconnect-pi-4.0.0-rc.5
 sudo ./scripts/install.sh
 ```
 
@@ -536,9 +560,9 @@ installer:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/download/v4.0.0-rc.2/djconnect-pi-4.0.0-rc.2.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/download/v4.0.0-rc.5/djconnect-pi-4.0.0-rc.5.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-4.0.0-rc.2
+cd djconnect-pi-4.0.0-rc.5
 sudo ./scripts/install.sh
 ```
 

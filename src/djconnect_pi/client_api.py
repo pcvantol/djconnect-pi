@@ -281,6 +281,12 @@ class ClientAPIHandler(BaseHTTPRequestHandler):
         if not command:
             return {"success": False, "error": "missing_command"}
         if command == "settings":
+            if "dj_announcement_output" in payload:
+                self.server.state.reload_config()
+                cfg = self.server.state.cfg
+                if cfg.paired:
+                    return {"success": False, "error": "settings_contract_upgrade_required",
+                            "message": translate(cfg.language, "shared_error_unsupported")}
             self._apply_portal_settings(payload)
             return {"success": True, "command": command}
         if command == "forget_pairing":
@@ -493,8 +499,8 @@ def _capabilities() -> dict[str, object]:
         "local_audio_supported": False,
         "local_dj_response_endpoint": True,
         "ask_dj_supported": True,
-        "ask_dj_mode": "readonly_actions",
-        "ask_dj_free_input_supported": False,
+        "ask_dj_mode": "text",
+        "ask_dj_free_input_supported": True,
         "ask_dj_actions_supported": True,
         "ask_dj_voice_supported": False,
         "ask_dj_audio_response_supported": False,

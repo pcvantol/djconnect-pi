@@ -1,0 +1,7 @@
+{
+  "producer": "pcvantol/djconnect",
+  "protected_source": "8b221d07fe2215d9516d18fe92c832332c7a16ab",
+  "path": "docs/verification/fixtures/ASK_DJ_CONTEXTUAL_DIALOGUE_V1.json",
+  "sha256": "9be892d55c8aaee4871e54ac68ed04945fb0676ce5472e2091a83ee66b2151a8",
+  "scope": "Observed sanitized HA transport fixtures; no live Pi/provider/installed proof"
+}

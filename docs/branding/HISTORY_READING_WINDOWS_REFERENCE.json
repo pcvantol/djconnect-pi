@@ -1,0 +1,18 @@
+{
+  "core_protected_main": "8b221d07fe2215d9516d18fe92c832332c7a16ab",
+  "source_sha256": {
+    "custom_components/djconnect/historical_projection_query.py": "5ece0136910e9fc9d01185aee7b8a0fea49bda213e2a033a38a817ad5ac0bf7a",
+    "docs/product/SESSION_CONVERSATION_HISTORY_CONTRACT.md": "e61b63e8d7e7b0fa5cab704f0755ae7b222ae048c90d85a39bcbbf2e4dc1b4bf"
+  },
+  "consumer": "Pi draft PR111, bounded chronological saved-history reading windows for current and archive origins",
+  "request_contract": "Existing owner GET history2, window=None, default20 wire rows; first page plus freshly supplied opaque next cursors. No before cursor, new endpoint or write.",
+  "local_bounds": "At most5 pages/100 current bodies. Extend/revalidation replace every displayed page atomically from fresh first/next reads. Strict same revision, unique IDs/increasing order and cursor cycle checks. Next keeps access beyond100; Previous stores only prefix page count and optional ID/pixel in existing bounded metadata trail, never bodies.",
+  "expiry_and_scope": "Existing Profile/binding/view/foreground/control-ticket checks before and after each GET; original per-entry retention and known parent deadline apply. GUI queue expiry withdraws rows before changed.",
+  "wire_metadata": "Unknown wire _prefix_pages cannot become local traversal authority; only the dedicated validated reader sets it.",
+  "design_limit": "Canonical chronological saved entries are presented below one another within a bounded current-history/archive window. This does not interleave native/current grants, invent a backward cursor or complete native newest-first continuous Flow parity.",
+  "qualification_limit": "Synthetic owner transports/actual Qt/source/package only, not ARM/installed/live/physical evidence.",
+  "apple_current_main_observation": {
+    "sha": "471fa6a4ef4ade3263a1076af0b816ce29b98f2f",
+    "change": "Protected PR159 opt-in Golden integration release checks. No Pi model calls or Golden execution inferred; pinned UI design remains e106a467."
+  }
+}

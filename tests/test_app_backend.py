@@ -1248,7 +1248,7 @@ def test_ask_dj_action_tap_sends_structured_payload_only(tmp_path: Path) -> None
 
     backend._send_ask_dj_action_worker({"kind": "confirmation", "response_value": "yes"})
 
-    backend.client.ask_dj_action.assert_called_once_with({"kind": "confirmation", "response_value": "yes", "dj_announcement_output": "text_only"})
+    backend.client.ask_dj_action.assert_called_once_with({"kind": "confirmation", "response_value": "yes"})
 
 
 def test_ask_dj_action_accepts_music_assistant_payload_without_spotify_uri(tmp_path: Path) -> None:
@@ -1269,11 +1269,10 @@ def test_ask_dj_action_accepts_music_assistant_payload_without_spotify_uri(tmp_p
     backend._send_ask_dj_action_worker(action)
 
     expected = dict(action)
-    expected["dj_announcement_output"] = "text_only"
     backend.client.ask_dj_action.assert_called_once_with(expected)
 
 
-def test_ask_dj_action_sends_configured_ha_speaker_output(tmp_path: Path) -> None:
+def test_ask_dj_action_does_not_forward_retired_local_ha_speaker_output(tmp_path: Path) -> None:
     ensure_app()
     backend = DJConnectBackend(tmp_path / "config.json")
     backend.cfg.paired = True
@@ -1292,7 +1291,7 @@ def test_ask_dj_action_sends_configured_ha_speaker_output(tmp_path: Path) -> Non
     backend._send_ask_dj_action_worker({"kind": "confirmation", "response_value": "yes"})
 
     backend.client.ask_dj_action.assert_called_once_with(
-        {"kind": "confirmation", "response_value": "yes", "dj_announcement_output": "ha_speaker"}
+        {"kind": "confirmation", "response_value": "yes"}
     )
 
 
@@ -2869,3 +2868,50 @@ def test_backend_shuffle_and_repeat_dispatch_commands(tmp_path: Path) -> None:
         ("set_repeat", {"value": "context"}),
         ("set_repeat", {"value": "track"}),
     ]
+
+
+def test_shared_settings_quick_controls_do_not_persist_or_optimistically_confirm(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "fixture-token"
+    backend._shared_settings.managed = True
+    backend._shared_settings_state = {"values": {"mood": "chill"}, "available": True}
+    before = backend.config_path.read_bytes()
+    backend._executor.submit = Mock()
+    backend._session_executor.submit = backend._executor.submit
+    backend._question_executor.submit = backend._executor.submit
+    backend.setMoodValue(95)
+    assert backend.moodValue == 0
+    assert backend.config_path.read_bytes() == before
+    assert backend.sharedSettingsBusy is True
+    assert backend.sharedSettings["values"]["mood"] == "chill"
+    backend.shutdown()
+
+
+def test_shared_settings_delayed_old_profile_result_is_discarded(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    old_context = backend._shared_settings.context()
+    old_epoch = backend._shared_settings_epoch
+    backend.cfg.active_profile_id = "replacement"
+    backend._invalidate_shared_settings_if_context_changed()
+    with patch("djconnect_pi.app.QTimer.singleShot") as refresh:
+        backend._apply_shared_settings({"epoch": old_epoch, "context": old_context,
+                                        "projection": {"values": {"mood": "party"}}})
+    assert backend.sharedSettings == {}
+    refresh.assert_called_once()
+    backend.shutdown()
+
+
+def test_shared_settings_denied_clears_visible_choices_but_preserves_pairing(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "fixture-token"
+    backend._shared_settings_state = {"values": {"mood": "party"}}
+    backend._apply_shared_settings({"epoch": backend._shared_settings_epoch,
+                                    "context": backend._shared_settings.context(), "error": "denied"})
+    assert "values" not in backend.sharedSettings
+    assert backend.cfg.paired and backend.cfg.device_token == "fixture-token"
+    backend.shutdown()

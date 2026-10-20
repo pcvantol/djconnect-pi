@@ -268,3 +268,26 @@ For every future DJConnect Pi release:
 - clean stale files from `screenshots/`, then regenerate the representative
   720x720 screen set after release deploy or UI validation so screenshots do
   not mix old and new app versions
+
+
+## 4.0.0-rc.4 preparation review
+
+This candidate packages protected shared-settings/Brand V2 source from Pi main
+`2d6f8b69cfe6e76ac1dca4eb5c5ac0ccd5201f80`. The source review and exact-main
+qualification do not qualify a published or installed rc.4 artifact.
+
+The exact Python/runtime and packaging lock was reviewed again. Protected
+zeroconf0.151.5 and GitHub Actions updates are retained. PySide6/Qt remains6.11.2;
+the6.12.0 dependency proposal in PR106 stays a separate owning change. No automatic
+runtime, OS package or tool upgrade is introduced into this release preparation.
+The installer still performs no apt maintenance. Node/Newman publication tooling
+and OS bootstrap packages were inventoried without running publication or OS work.
+
+The live Pi5 ARM64 reference at the existing `djconnect-pi10` SSH alias reports
+`rbpi5-djconnect`, release4.0.0-rc.2/pi5-arm64, native UI/API active and browser kiosk
+inactive. Its existing Python3.13.5/Qt6.11.1 runtime is not the candidate lock.
+Qualification must use a separate environment and preserve the current release,
+services, config, pairing and display. A source/version match alone is insufficient.
+The current canonical operational manifest binds rc.1 to the Pi Zero target only;
+it does not authorize rc.4 or Pi5 deployment. A new exact artifact/target binding
+is required before any operational installation.

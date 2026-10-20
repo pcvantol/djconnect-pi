@@ -1,0 +1,28 @@
+{
+  "core_protected_source": "8b221d07fe2215d9516d18fe92c832332c7a16ab",
+  "source_sha256": {
+    "examples/client_contracts/session_forecast_v1/transport-fixtures.json": "909c9bc4f882f5db84b0b92a4fef4102c3f8d123337cf0770160f590fba24cac",
+    "custom_components/djconnect/http.py": "e20af966b2bd4e57bc6a6f6bb88a8ecbdb838a4e07c92a943a20bae7ebeb188c",
+    "custom_components/djconnect/session_runtime.py": "61eeae0d89b9b74158aee947f1f9d6dfa398a0addc16ca42dc7143d8337d494e",
+    "docs/product/SESSION_FORECAST_V1.md": "fa959a90cd6636735d9885768641a5be3be08425622e4af050b1d4ce4ae4ed8a",
+    "docs/product/SESSION_ARTWORK_DELIVERY_CONTRACT_V1.md": "a65d238cbee59b26d5c1405b14c1235cb3523a06ad3cd868133403e0034427ca",
+    "custom_components/djconnect/forecast_imagery.py": "28c15f023ddc1df1c43a3997d8a551fc74ae08a473b494398165d226c9e2fd9c",
+    "custom_components/djconnect/session_artwork.py": "8b3e4d0b57af50fb7b4aa3d4668c951c891ceb8bf3d947a21fb858f11b902d54",
+    "examples/client_contracts/session_artwork_v1/transport-examples.json": "f41037f05a79ff528988e31a23759c7c5ff66b19a742ac546c97a53540ee07da"
+  },
+  "fixture_provenance": {
+    "core_protected_source": "8b221d07fe2215d9516d18fe92c832332c7a16ab",
+    "source_sha256": {
+      "examples/client_contracts/session_forecast_v1/transport-fixtures.json": "909c9bc4f882f5db84b0b92a4fef4102c3f8d123337cf0770160f590fba24cac",
+      "examples/client_contracts/session_artwork_v1/assets/artist.png": "c84cb44d143ac921adb1f2322753b86b3c0b2a50fd26b3e0f1ebca99b64ef950"
+    },
+    "transport": "Original expired20 owner-chain bytes unchanged; replay only original clock. Actual Core provider/CDN boundary fixtures, not live qualification.",
+    "pixels": "Original owned synthetic artist PNG from protected Session artwork fixtures, used solely as test bytes; no artist photo/license claim."
+  },
+  "consumer_subset": "Ready Forecast, one current Spotify artist, active playing exact anchor; explicit personal/household private Profile only. No legacy private-session setting.",
+  "route_authority": "Only existing same-configured-HA /session/forecast/art managed capability GET, headerless. Ordinary /session/media/image requires paired Profile identity and is deliberately unsupported here. No preparation POST, CDN URL, provider fetch or bearer forwarding.",
+  "display": "RAM-only original static PNG/JPEG <=2MiB, <=2048 side/4M pixels, no redirect, animation, disk cache, crop or overlay. PreserveAspectFit with canonical Spotify link/packaged logo. Unsupported media remains text-only.",
+  "fences": "Current owner binding, foreground, visibility, lifecycle, original immutable Forecast revision/content scope and earliest asset/Forecast deadline. One worker, one latest desired lease, max32 attempts per Session; no polling retry. Getter withdrawal plus precise deadline and fallback timer clear renderer before notification.",
+  "limits": "No general Session/history artwork, limited/contextual/upcoming/two-image forecasts, actions/audio or new producer rights. Original fixtures are expired today and clock-replayed solely in tests. Synthetic owned PNG is not an artist photo or live acceptance.",
+  "qualification": "Local source/synthetic HTTP boundary/real Qt decode/QML/package only; no ARM/install/live Profile/HA/physical proof. Full Apple geometry/glass/imagery parity remains open."
+}

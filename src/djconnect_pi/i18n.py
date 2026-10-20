@@ -148,7 +148,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "logs_cleared": "Logs gewist",
         "about": "Over",
         "about_title": "Over DJConnect",
-        "tagline": "Muziekbediening met karakter",
+        "tagline": "Jouw muziek. Jouw DJ.",
         "app_section": "APP",
         "connection_section": "VERBINDING",
         "notices_section": "KENNISGEVINGEN",
@@ -430,7 +430,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "logs_cleared": "Logs cleared",
         "about": "About",
         "about_title": "About DJConnect",
-        "tagline": "Music control with character",
+        "tagline": "Your music. Your DJ.",
         "app_section": "APP",
         "connection_section": "CONNECTION",
         "notices_section": "NOTICES",
@@ -635,7 +635,7 @@ _EXTRA_TRANSLATIONS: dict[str, dict[str, str]] = {
         "screen_off": "Bildschirm aus", "return_to_now": "Zurück zu Läuft gerade", "return_to_now_off": "Aus",
         "brightness": "Helligkeit", "updates": "Updates", "language": "Sprache",
         "log_level": "Loglevel", "client_api_url": "Client-Adresse", "clear_logs": "Logs löschen",
-        "clear_logs_confirm_title": "Logs löschen?", "about": "Über", "tagline": "Musiksteuerung mit Charakter",
+        "clear_logs_confirm_title": "Logs löschen?", "about": "Über", "tagline": "Deine Musik. Dein DJ.",
         "connection_section": "VERBINDUNG", "notices_section": "HINWEISE", "protocol_version": "Protokoll",
         "device_name": "Gerätename", "client_type": "Client-Typ", "web_address": "Webadresse",
         "pairing_status": "Kopplung", "music": "Musik", "music_backend": "Musik-Backend",
@@ -736,7 +736,7 @@ _EXTRA_TRANSLATIONS: dict[str, dict[str, str]] = {
         "brightness": "Luminosité", "updates": "Mises à jour",
         "language": "Langue", "log_level": "Niveau de log", "client_api_url": "Adresse client",
         "clear_logs": "Effacer les logs", "clear_logs_confirm_title": "Effacer les logs ?", "about": "À propos",
-        "tagline": "Contrôle musical avec du caractère", "connection_section": "CONNEXION",
+        "tagline": "Votre musique. Votre DJ.", "connection_section": "CONNEXION",
         "version": "Version", "protocol_version": "Protocole", "device_name": "Nom de l'appareil",
         "client_type": "Type de client", "web_address": "Adresse web", "pairing_status": "Appairage",
         "music": "Musique", "music_backend": "Backend musique", "target_player": "Lecteur cible",
@@ -832,7 +832,7 @@ _EXTRA_TRANSLATIONS: dict[str, dict[str, str]] = {
         "brightness": "Brillo", "updates": "Actualizaciones",
         "language": "Idioma", "log_level": "Nivel de log", "client_api_url": "Dirección del cliente",
         "clear_logs": "Borrar logs", "clear_logs_confirm_title": "¿Borrar logs?", "about": "Acerca de",
-        "tagline": "Control musical con carácter", "connection_section": "CONEXIÓN", "protocol_version": "Protocolo",
+        "tagline": "Tu música. Tu DJ.", "connection_section": "CONEXIÓN", "protocol_version": "Protocolo",
         "device_name": "Nombre del dispositivo", "client_type": "Tipo de cliente", "web_address": "Dirección web",
         "pairing_status": "Vinculación", "music": "Música", "music_backend": "Backend musical",
         "target_player": "Reproductor destino", "capabilities": "Capacidades", "backend_error": "Error de backend",
@@ -878,6 +878,315 @@ for _language, _translations in _EXTRA_TRANSLATIONS.items():
     TRANSLATIONS[_language] = {**TRANSLATIONS["en"], **_translations}
 
 
+# Shared Settings3 presentation; protocol values remain untranslated.
+_SHARED_SETTINGS_TRANSLATIONS = {
+    'shared_title': (
+        'Your DJ',
+        'Jouw DJ',
+        'Dein DJ',
+        'Votre DJ',
+        'Tu DJ',
+    ),
+    'shared_scope_active': (
+        'Changes apply now and to your next session.',
+        'Wijzigingen gelden nu en voor je volgende sessie.',
+        'Änderungen gelten jetzt und für deine nächste Session.',
+        'Les modifications s’appliquent maintenant et à votre prochaine session.',
+        'Los cambios se aplican ahora y a tu próxima sesión.',
+    ),
+    'shared_scope_defaults': (
+        'Choose the defaults for your next session. This does not start music.',
+        'Kies de standaard voor je volgende sessie. Dit start geen muziek.',
+        'Wähle die Vorgaben für deine nächste Session. Dabei startet keine Musik.',
+        'Choisissez les réglages de votre prochaine session. La musique ne démarre pas.',
+        'Elige los ajustes de tu próxima sesión. Esto no inicia música.',
+    ),
+    'shared_selection_required': (
+        'Review all six choices and confirm together. The current session has no confirmed selection yet.',
+        'Controleer alle zes keuzes en bevestig ze samen. Deze sessie heeft nog geen bevestigde selectie.',
+        'Prüfe alle sechs Einstellungen und bestätige sie gemeinsam. Für diese Session ist noch keine Auswahl bestätigt.',
+        'Vérifiez les six choix et confirmez-les ensemble. Cette session n’a pas encore de sélection confirmée.',
+        'Revisa las seis opciones y confírmalas juntas. Esta sesión aún no tiene una selección confirmada.',
+    ),
+    'shared_field_persona': (
+        'DJ personality',
+        'DJ-persoonlijkheid',
+        'DJ-Persönlichkeit',
+        'Personnalité du DJ',
+        'Personalidad del DJ',
+    ),
+    'shared_field_voice': (
+        'Voice',
+        'Stem',
+        'Stimme',
+        'Voix',
+        'Voz',
+    ),
+    'shared_field_gender': (
+        'Voice preference',
+        'Stemvoorkeur',
+        'Stimmpräferenz',
+        'Préférence de voix',
+        'Preferencia de voz',
+    ),
+    'shared_field_mood': (
+        'Mood',
+        'Stemming',
+        'Stimmung',
+        'Ambiance',
+        'Ambiente',
+    ),
+    'shared_field_presence': (
+        'DJ presence',
+        'DJ-aanwezigheid',
+        'DJ-Präsenz',
+        'Présence du DJ',
+        'Presencia del DJ',
+    ),
+    'shared_field_announcement_output': (
+        'DJ announcements',
+        'DJ-aankondigingen',
+        'DJ-Ansagen',
+        'Annonces du DJ',
+        'Anuncios del DJ',
+    ),
+    'shared_voice_default': (
+        'Provider default',
+        'Standaardstem van de aanbieder',
+        'Standardstimme des Anbieters',
+        'Voix par défaut du fournisseur',
+        'Voz predeterminada del proveedor',
+    ),
+    'shared_persona_home_dj': (
+        'Home DJ',
+        'Home DJ',
+        'Home DJ',
+        'Home DJ',
+        'Home DJ',
+    ),
+    'shared_persona_radio_dj': (
+        'Radio DJ',
+        'Radio DJ',
+        'Radio DJ',
+        'Radio DJ',
+        'Radio DJ',
+    ),
+    'shared_persona_club_dj': (
+        'Club DJ',
+        'Club DJ',
+        'Club DJ',
+        'Club DJ',
+        'Club DJ',
+    ),
+    'shared_persona_festival_dj': (
+        'Festival DJ',
+        'Festival DJ',
+        'Festival DJ',
+        'Festival DJ',
+        'Festival DJ',
+    ),
+    'shared_gender_default': (
+        'No preference',
+        'Geen voorkeur',
+        'Keine Präferenz',
+        'Sans préférence',
+        'Sin preferencia',
+    ),
+    'shared_gender_female': (
+        'Female',
+        'Vrouwelijk',
+        'Weiblich',
+        'Féminine',
+        'Femenina',
+    ),
+    'shared_gender_male': (
+        'Male',
+        'Mannelijk',
+        'Männlich',
+        'Masculine',
+        'Masculina',
+    ),
+    'shared_mood_chill': (
+        'Calm',
+        'Rustig',
+        'Ruhig',
+        'Calme',
+        'Tranquilo',
+    ),
+    'shared_mood_groove': (
+        'Groove',
+        'Groove',
+        'Groove',
+        'Groove',
+        'Groove',
+    ),
+    'shared_mood_energy': (
+        'Energy',
+        'Energie',
+        'Energie',
+        'Énergie',
+        'Energía',
+    ),
+    'shared_mood_party': (
+        'Party',
+        'Feest',
+        'Party',
+        'Fête',
+        'Fiesta',
+    ),
+    'shared_presence_music_only': (
+        'Music only',
+        'Alleen muziek',
+        'Nur Musik',
+        'Musique uniquement',
+        'Solo música',
+    ),
+    'shared_presence_occasional': (
+        'Occasionally',
+        'Af en toe',
+        'Gelegentlich',
+        'De temps en temps',
+        'De vez en cuando',
+    ),
+    'shared_presence_balanced': (
+        'Balanced',
+        'Gebalanceerd',
+        'Ausgewogen',
+        'Équilibrée',
+        'Equilibrada',
+    ),
+    'shared_presence_talkative': (
+        'Talkative',
+        'Praatgraag',
+        'Gesprächig',
+        'Bavarde',
+        'Conversadora',
+    ),
+    'shared_presence_presenter': (
+        'Presenter',
+        'Presentator',
+        'Moderator',
+        'Présentation',
+        'Presentador',
+    ),
+    'shared_announcement_output_client_device': (
+        'My DJConnect devices',
+        'Mijn DJConnect-apparaten',
+        'Meine DJConnect-Geräte',
+        'Mes appareils DJConnect',
+        'Mis dispositivos DJConnect',
+    ),
+    'shared_announcement_output_both': (
+        'My DJConnect devices + HA speaker',
+        'Mijn DJConnect-apparaten + HA-speaker',
+        'Meine DJConnect-Geräte + HA-Lautsprecher',
+        'Mes appareils DJConnect + enceinte HA',
+        'Mis dispositivos DJConnect + altavoz HA',
+    ),
+    'shared_announcement_output_ha_speaker': (
+        'HA speaker only',
+        'Alleen HA-speaker',
+        'Nur HA-Lautsprecher',
+        'Enceinte HA uniquement',
+        'Solo altavoz HA',
+    ),
+    'shared_announcement_output_text_only': (
+        'Text only (no speech)',
+        'Alleen tekst (geen spraak)',
+        'Nur Text (keine Sprachausgabe)',
+        'Texte uniquement (sans voix)',
+        'Solo texto (sin voz)',
+    ),
+    'shared_pi_no_audio': (
+        'This Pi does not play DJ speech. Your choices also apply to your other linked devices.',
+        'Deze Pi speelt geen DJ-spraak af. Je keuzes gelden ook voor je andere gekoppelde apparaten.',
+        'Dieser Pi spielt keine DJ-Sprache ab. Deine Auswahl gilt auch für deine anderen verknüpften Geräte.',
+        'Ce Pi ne diffuse pas la voix du DJ. Vos choix s’appliquent aussi à vos autres appareils liés.',
+        'Este Pi no reproduce la voz del DJ. Tus opciones también se aplican a tus otros dispositivos vinculados.',
+    ),
+    'shared_unavailable_selection': (
+        'Saved selection unavailable',
+        'Opgeslagen keuze niet beschikbaar',
+        'Gespeicherte Auswahl nicht verfügbar',
+        'Choix enregistré indisponible',
+        'Opción guardada no disponible',
+    ),
+    'shared_voice_unavailable': (
+        'The saved voice is currently unavailable. Your choice has been kept.',
+        'De opgeslagen stem is nu niet beschikbaar. Je keuze blijft behouden.',
+        'Die gespeicherte Stimme ist derzeit nicht verfügbar. Deine Auswahl bleibt erhalten.',
+        'La voix enregistrée est indisponible. Votre choix est conservé.',
+        'La voz guardada no está disponible. Se conserva tu elección.',
+    ),
+    'shared_reload': (
+        'Reload',
+        'Vernieuwen',
+        'Neu laden',
+        'Actualiser',
+        'Actualizar',
+    ),
+    'shared_apply': (
+        'Confirm choices',
+        'Keuzes bevestigen',
+        'Auswahl bestätigen',
+        'Confirmer les choix',
+        'Confirmar opciones',
+    ),
+    'shared_error_unsupported': (
+        'Shared DJ settings are not available here yet. Update DJConnect or use a supported client.',
+        'Gedeelde DJ-instellingen zijn hier nog niet beschikbaar. Werk DJConnect bij of gebruik een ondersteunde client.',
+        'Gemeinsame DJ-Einstellungen sind hier noch nicht verfügbar. Aktualisiere DJConnect oder nutze einen unterstützten Client.',
+        'Les réglages DJ partagés ne sont pas encore disponibles ici. Mettez DJConnect à jour ou utilisez un client compatible.',
+        'Los ajustes DJ compartidos aún no están disponibles aquí. Actualiza DJConnect o usa un cliente compatible.',
+    ),
+    'shared_error_denied': (
+        'You no longer have access to these settings. Reload after checking your profile.',
+        'Je hebt geen toegang meer tot deze instellingen. Controleer je profiel en vernieuw.',
+        'Du hast keinen Zugriff mehr auf diese Einstellungen. Prüfe dein Profil und lade neu.',
+        'Vous n’avez plus accès à ces réglages. Vérifiez votre profil puis actualisez.',
+        'Ya no tienes acceso a estos ajustes. Revisa tu perfil y actualiza.',
+    ),
+    'shared_error_conflict': (
+        'The settings or session changed elsewhere. Reload before confirming again.',
+        'De instellingen of sessie zijn elders gewijzigd. Vernieuw voordat je opnieuw bevestigt.',
+        'Die Einstellungen oder Session wurden woanders geändert. Lade sie vor einer neuen Bestätigung neu.',
+        'Les réglages ou la session ont changé ailleurs. Actualisez avant de confirmer à nouveau.',
+        'Los ajustes o la sesión cambiaron en otro lugar. Actualiza antes de volver a confirmar.',
+    ),
+    'shared_error_uncertain': (
+        'The result has not been confirmed. Reload to check; your change will not be sent again automatically.',
+        'Het resultaat is nog niet bevestigd. Vernieuw om te controleren; je wijziging wordt niet automatisch opnieuw verstuurd.',
+        'Das Ergebnis ist noch nicht bestätigt. Lade zum Prüfen neu; deine Änderung wird nicht automatisch erneut gesendet.',
+        'Le résultat n’est pas confirmé. Actualisez pour vérifier ; votre modification ne sera pas renvoyée automatiquement.',
+        'El resultado no está confirmado. Actualiza para comprobarlo; el cambio no se enviará otra vez automáticamente.',
+    ),
+    'shared_error_offline': (
+        'Settings are temporarily unreachable. Your last confirmed choices have not been changed.',
+        'De instellingen zijn tijdelijk niet bereikbaar. Je laatst bevestigde keuzes zijn niet gewijzigd.',
+        'Die Einstellungen sind vorübergehend nicht erreichbar. Deine zuletzt bestätigte Auswahl wurde nicht geändert.',
+        'Les réglages sont temporairement inaccessibles. Vos derniers choix confirmés n’ont pas été modifiés.',
+        'Los ajustes no están disponibles temporalmente. Tus últimas opciones confirmadas no se han cambiado.',
+    ),
+    'shared_error_rejected': (
+        'The choices could not be confirmed. Reload and check the available options.',
+        'De keuzes konden niet worden bevestigd. Vernieuw en controleer de beschikbare opties.',
+        'Die Auswahl konnte nicht bestätigt werden. Lade neu und prüfe die verfügbaren Optionen.',
+        'Les choix n’ont pas pu être confirmés. Actualisez et vérifiez les options disponibles.',
+        'No se pudieron confirmar las opciones. Actualiza y revisa las opciones disponibles.',
+    ),
+}
+for _key, _values in _SHARED_SETTINGS_TRANSLATIONS.items():
+    for _language, _value in zip(SUPPORTED_LANGUAGES, _values, strict=True):
+        TRANSLATIONS[_language][_key] = _value
+
+
+# Shared native Session experience for both Pi deployment profiles.
+_SESSION_TRANSLATIONS = {'session_title': ('DJ Session', 'DJ-sessie', 'DJ-Session', 'Session DJ', 'Sesión DJ'), 'session_history': ('Previous sessions', 'Eerdere sessies', 'Frühere Sessions', 'Sessions précédentes', 'Sesiones anteriores'), 'session_start': ('Start DJ Session', 'Start DJ-sessie', 'DJ-Session starten', 'Démarrer la session DJ', 'Iniciar sesión DJ'), 'session_end': ('End session', 'Sessie beëindigen', 'Session beenden', 'Terminer la session', 'Finalizar sesión'), 'session_end_confirm': ('End this DJ Session?', 'Deze DJ-sessie beëindigen?', 'Diese DJ-Session beenden?', 'Terminer cette session DJ ?', '¿Finalizar esta sesión DJ?'), 'session_empty': ('Choose your mood and start a session.', 'Kies je stemming en start een sessie.', 'Wähle deine Stimmung und starte eine Session.', 'Choisissez votre ambiance et démarrez une session.', 'Elige tu ambiente e inicia una sesión.'), 'session_listening': ('Your DJ is listening with you.', 'De DJ luistert met je mee.', 'Dein DJ hört mit dir zu.', 'Votre DJ écoute avec vous.', 'Tu DJ escucha contigo.'), 'session_profile_choose': ('Choose your profile', 'Kies je profiel', 'Profil wählen', 'Choisir votre profil', 'Elige tu perfil'), 'session_profile_use': ('Use this profile', 'Gebruik dit profiel', 'Dieses Profil verwenden', 'Utiliser ce profil', 'Usar este perfil'), 'session_profile_missing': ('Choose a profile for this device in Home Assistant, then refresh.', 'Kies in Home Assistant een profiel voor dit apparaat en vernieuw daarna.', 'Wähle in Home Assistant ein Profil für dieses Gerät und aktualisiere dann.', 'Choisissez un profil pour cet appareil dans Home Assistant, puis actualisez.', 'Elige un perfil para este dispositivo en Home Assistant y actualiza.'), 'session_error': ('The session is temporarily unavailable. Refresh to try again.', 'De sessie is tijdelijk niet beschikbaar. Vernieuw om het opnieuw te proberen.', 'Die Session ist vorübergehend nicht verfügbar. Bitte aktualisieren.', 'La session est temporairement indisponible. Actualisez pour réessayer.', 'La sesión no está disponible temporalmente. Actualiza para reintentar.'), 'session_uncertain': ('The result is not yet confirmed. Refresh before trying another action.', 'Het resultaat is nog niet bevestigd. Vernieuw voordat je opnieuw iets uitvoert.', 'Das Ergebnis ist noch nicht bestätigt. Aktualisiere vor einer weiteren Aktion.', 'Le résultat n’est pas encore confirmé. Actualisez avant une autre action.', 'El resultado aún no está confirmado. Actualiza antes de otra acción.'), 'session_history_empty': ('No saved sessions.', 'Geen opgeslagen sessies.', 'Keine gespeicherten Sessions.', 'Aucune session enregistrée.', 'No hay sesiones guardadas.'), 'session_more': ('Load more', 'Meer laden', 'Mehr laden', 'Charger plus', 'Cargar más'), 'session_back': ('Back to DJ Session', 'Terug naar DJ-sessie', 'Zurück zur DJ-Session', 'Retour à la session DJ', 'Volver a la sesión DJ'), 'session_history_readonly': ('Saved session · read only', 'Opgeslagen sessie · alleen-lezen', 'Gespeicherte Session · schreibgeschützt', 'Session enregistrée · lecture seule', 'Sesión guardada · solo lectura'), 'session_unavailable_contribution': ('Contribution unavailable', 'Bijdrage niet beschikbaar', 'Beitrag nicht verfügbar', 'Contribution indisponible', 'Contribución no disponible'), 'session_silence': ('The DJ stayed quiet.', 'De DJ bleef stil.', 'Der DJ blieb still.', 'Le DJ est resté silencieux.', 'El DJ permaneció en silencio.'), 'session_demo_body': ('Example session. No music or DJ audio is started.', 'Voorbeeldsessie. Er wordt geen muziek of DJ-audio gestart.', 'Beispielsession. Es wird keine Musik oder DJ-Audio gestartet.', 'Session exemple. Aucune musique ni voix DJ ne démarre.', 'Sesión de ejemplo. No se inicia música ni audio DJ.')}
+for _key, _values in _SESSION_TRANSLATIONS.items():
+    for _language, _value in zip(SUPPORTED_LANGUAGES, _values, strict=True):
+        TRANSLATIONS[_language][_key] = _value
+
+
 def normalize_language(language: str) -> str:
     if not language:
         return "en"
@@ -902,3 +1211,214 @@ def translate(language: str, key: str, **values: object) -> str:
     if text is None:
         text = TRANSLATIONS["en"].get(key, key)
     return text.format(**values)
+
+
+_HISTORY_SEARCH_TRANSLATIONS = {
+    "session_history_title": ("Session history", "Sessiegeschiedenis", "Session-Verlauf", "Historique de session", "Historial de sesión"),
+    "session_history_view_readonly": ("Session history · read only", "Sessiegeschiedenis · alleen-lezen", "Session-Verlauf · schreibgeschützt", "Historique de session · lecture seule", "Historial de sesión · solo lectura"),
+    "session_datetime_format": ("d MMM yyyy · HH:mm", "d MMM yyyy · HH:mm", "d. MMM yyyy · HH:mm", "d MMM yyyy · HH:mm", "d MMM yyyy · HH:mm"),
+    "session_history_first": ("Read from the beginning", "Lees vanaf het begin", "Von Anfang an lesen", "Lire depuis le début", "Leer desde el principio"),
+    "session_history_previous": ("Previous contributions", "Vorige bijdragen", "Vorherige Beiträge", "Contributions précédentes", "Contribuciones anteriores"),
+    "session_history_next": ("Next contributions", "Volgende bijdragen", "Nächste Beiträge", "Contributions suivantes", "Contribuciones siguientes"),
+    "session_search": ("Search this session", "Zoek in deze sessie", "Diese Session durchsuchen", "Rechercher dans cette session", "Buscar en esta sesión"),
+    "session_search_complete": ("All saved entries searched.", "Alle opgeslagen bijdragen doorzocht.", "Alle gespeicherten Beiträge durchsucht.", "Toutes les contributions enregistrées ont été recherchées.", "Se han buscado todas las entradas guardadas."),
+    "session_search_limit": ("Refine your search to see more results.", "Verfijn je zoekopdracht om meer resultaten te zien.", "Verfeinere deine Suche, um weitere Ergebnisse zu sehen.", "Affinez votre recherche pour voir plus de résultats.", "Refina tu búsqueda para ver más resultados."),
+    "session_search_partial": ("More saved entries remain. Load more to continue searching.", "Er zijn nog meer opgeslagen bijdragen. Laad meer om verder te zoeken.", "Weitere gespeicherte Beiträge sind verfügbar. Lade mehr, um weiterzusuchen.", "D’autres contributions enregistrées restent à rechercher. Chargez la suite.", "Quedan más entradas guardadas. Carga más para continuar buscando."),
+    "session_search_empty": ("No matches in this session.", "Geen resultaten in deze sessie.", "Keine Treffer in dieser Session.", "Aucun résultat dans cette session.", "No hay resultados en esta sesión."),
+    "session_open_entry": ("Open contribution", "Open bijdrage", "Beitrag öffnen", "Ouvrir la contribution", "Abrir contribución"),
+}
+for _key, _values in _HISTORY_SEARCH_TRANSLATIONS.items():
+    for _language, _value in zip(("en", "nl", "de", "fr", "es"), _values):
+        TRANSLATIONS[_language][_key] = _value
+
+
+_KEYBOARD_TRANSLATIONS = {
+    "keyboard_shift": ("Uppercase", "Hoofdletters", "Großbuchstaben", "Majuscules", "Mayúsculas"),
+    "keyboard_symbols": ("Letters and symbols", "Letters en symbolen", "Buchstaben und Symbole", "Lettres et symboles", "Letras y símbolos"),
+    "keyboard_accents": ("Accented letters", "Letters met accenten", "Akzentbuchstaben", "Lettres accentuées", "Letras acentuadas"),
+    "keyboard_space": ("Space", "Spatie", "Leerzeichen", "Espace", "Espacio"),
+    "keyboard_delete": ("Delete character", "Teken wissen", "Zeichen löschen", "Effacer le caractère", "Borrar carácter"),
+    "keyboard_hide": ("Hide keyboard", "Toetsenbord verbergen", "Tastatur ausblenden", "Masquer le clavier", "Ocultar teclado"),
+}
+for _key, _values in _KEYBOARD_TRANSLATIONS.items():
+    for _language, _value in zip(("en", "nl", "de", "fr", "es"), _values):
+        TRANSLATIONS[_language][_key] = _value
+
+
+_SESSION_LIFECYCLE_TRANSLATIONS = {
+    "session_starting": ("Your session is starting…", "Je sessie wordt gestart…", "Deine Session wird gestartet…", "Votre session démarre…", "Tu sesión se está iniciando…"),
+    "session_ending": ("Your session is ending…", "Je sessie wordt beëindigd…", "Deine Session wird beendet…", "Votre session se termine…", "Tu sesión se está finalizando…"),
+}
+for _key, _values in _SESSION_LIFECYCLE_TRANSLATIONS.items():
+    for _language, _value in zip(("en", "nl", "de", "fr", "es"), _values):
+        TRANSLATIONS[_language][_key] = _value
+
+
+_SESSION_COMPOSER_TRANSLATIONS = {
+    "session_clear_reference": ("Clear contribution reference", "Verwijzing naar bijdrage wissen", "Beitragsverweis entfernen", "Retirer la référence à la contribution", "Quitar la referencia a la contribución"),
+    "session_question_reference_unavailable": ("The selected contribution is no longer available. Select a contribution again.", "De geselecteerde bijdrage is niet meer beschikbaar. Kies opnieuw een bijdrage.", "Der ausgewählte Beitrag ist nicht mehr verfügbar. Wähle erneut einen Beitrag.", "La contribution sélectionnée n’est plus disponible. Sélectionnez une contribution à nouveau.", "La contribución seleccionada ya no está disponible. Vuelve a elegir una contribución."),
+    "session_question_title": ("Talk to your DJ", "Praat met je DJ", "Sprich mit deinem DJ", "Parlez à votre DJ", "Habla con tu DJ"),
+    "session_question_placeholder": ("Chat with the DJ…", "Chat met de DJ…", "Mit dem DJ chatten…", "Discutez avec le DJ…", "Habla con el DJ…"),
+    "session_send": ("Send", "Versturen", "Senden", "Envoyer", "Enviar"),
+    "session_ask_about": ("Ask about this", "Vraag hierover", "Hierzu fragen", "Poser une question", "Preguntar sobre esto"),
+    "session_question_selected": ("About the selected contribution", "Over de geselecteerde bijdrage", "Über den ausgewählten Beitrag", "À propos de la contribution sélectionnée", "Sobre la contribución seleccionada"),
+    "session_retained_flow": ("Saved contributions · read only", "Opgeslagen bijdragen · alleen-lezen", "Gespeicherte Beiträge · schreibgeschützt", "Contributions enregistrées · lecture seule", "Contribuciones guardadas · solo lectura"),
+    "session_archive_older": ("Older sessions", "Oudere sessies", "Ältere Sessions", "Sessions plus anciennes", "Sesiones anteriores"),
+    "session_archive_newer": ("Newer sessions", "Nieuwere sessies", "Neuere Sessions", "Sessions plus récentes", "Sesiones más recientes"),
+    "session_archive_newest": ("Most recent sessions", "Nieuwste sessies", "Neueste Sessions", "Sessions les plus récentes", "Sesiones más recientes del archivo"),
+    "session_archive_reset": ("The archive changed. Showing the most recent sessions.", "Het archief is gewijzigd. Je ziet de nieuwste sessies.", "Das Archiv wurde geändert. Die neuesten Sessions werden angezeigt.", "L’archive a changé. Les sessions les plus récentes sont affichées.", "El archivo ha cambiado. Se muestran las sesiones más recientes."),
+    "session_archive_window_empty": ("No available sessions in this window.", "Geen beschikbare sessies in dit venster.", "Keine verfügbaren Sessions in diesem Fenster.", "Aucune session disponible dans cette fenêtre.", "No hay sesiones disponibles en esta ventana."),
+    "session_archive_limit": ("More sessions are available on the server. This screen shows at most 100.", "Er staan meer sessies op de server. Dit scherm toont er maximaal 100.", "Weitere Sitzungen sind auf dem Server verfügbar. Dieser Bildschirm zeigt höchstens 100.", "D’autres sessions sont disponibles sur le serveur. Cet écran en affiche au maximum 100.", "Hay más sesiones disponibles en el servidor. Esta pantalla muestra como máximo 100."),
+    "session_question_sending": ("Sending…", "Wordt verstuurd…", "Wird gesendet…", "Envoi…", "Enviando…"),
+    "session_question_accepted": ("Question sent", "Vraag verstuurd", "Frage gesendet", "Question envoyée", "Pregunta enviada"),
+    "session_question_accepted_unavailable": ("Question accepted. The saved answer is not available yet.", "Vraag ontvangen. Het opgeslagen antwoord is nog niet beschikbaar.", "Frage angenommen. Die gespeicherte Antwort ist noch nicht verfügbar.", "Question reçue. La réponse enregistrée n’est pas encore disponible.", "Pregunta recibida. La respuesta guardada aún no está disponible."),
+    "session_question_uncertain": ("Delivery is not confirmed. Refresh before sending another question.", "Verzending is niet bevestigd. Vernieuw voordat je opnieuw een vraag verstuurt.", "Zustellung nicht bestätigt. Vor einer weiteren Frage aktualisieren.", "Envoi non confirmé. Actualisez avant d’envoyer une autre question.", "Envío sin confirmar. Actualiza antes de enviar otra pregunta."),
+    "session_question_failed": ("The question could not be confirmed. Refresh and check the session.", "De vraag kon niet worden bevestigd. Vernieuw en controleer de sessie.", "Die Frage konnte nicht bestätigt werden. Aktualisiere die Session.", "La question n’a pas pu être confirmée. Actualisez la session.", "No se pudo confirmar la pregunta. Actualiza la sesión."),
+    "session_you": ("You", "Jij", "Du", "Vous", "Tú"),
+    "session_dj": ("DJ", "DJ", "DJ", "DJ", "DJ"),
+}
+for _key, _values in _SESSION_COMPOSER_TRANSLATIONS.items():
+    for _language, _value in zip(("en", "nl", "de", "fr", "es"), _values):
+        TRANSLATIONS[_language][_key] = _value
+
+_SESSION_FORECAST_TRANSLATIONS = {
+    "session_flow": ("Flow", "Flow", "Flow", "Fil", "Flujo"),
+    "session_forecast": ("Outlook · about 15 min", "Vooruitblik · ±15 min", "Ausblick · ca. 15 Min.", "Perspectives · env. 15 min", "Perspectiva · unos 15 min"),
+    "session_forecast_current": ("Current", "Huidig", "Aktuell", "Actuel", "Actual"),
+    "session_forecast_intention": ("Intention", "Voornemen", "Absicht", "Intention", "Intención"),
+    "session_forecast_conditional_target": ("Possible direction", "Mogelijke richting", "Mögliche Richtung", "Direction possible", "Dirección posible"),
+    "session_forecast_empty": ("No current outlook available.", "Er is nu geen vooruitblik beschikbaar.", "Derzeit ist kein Ausblick verfügbar.", "Aucune perspective actuelle disponible.", "No hay una perspectiva actual disponible."),
+    "session_forecast_source": ("Current music source", "Bron van de huidige muziek", "Quelle der aktuellen Musik", "Source de la musique actuelle", "Fuente de la música actual"),
+}
+for _key, _values in _SESSION_FORECAST_TRANSLATIONS.items():
+    for _language, _value in zip(("en", "nl", "de", "fr", "es"), _values):
+        TRANSLATIONS[_language][_key] = _value
+
+for _language, _value in zip(("en", "nl", "de", "fr", "es"), (
+    "Observed playback", "Waargenomen playback", "Beobachtete Wiedergabe", "Lecture observée", "Reproducción observada",
+)):
+    TRANSLATIONS[_language]["session_history_playback"] = _value
+
+
+_INFORMATION_TRANSLATIONS = {'legal': ('Legal', 'Juridisch', 'Rechtliches', 'Mentions légales', 'Información legal'), 'legal_oss': ('Open-source software', 'Opensourcesoftware', 'Open-Source-Software', 'Logiciels libres', 'Software de código abierto'), 'legal_oss_body': ('DJConnect Pi uses Python and Qt/PySide. DJConnect Pi is MIT licensed; included libraries have their own licences.', 'DJConnect Pi gebruikt Python en Qt/PySide. DJConnect Pi valt onder de MIT-licentie; meegeleverde bibliotheken hebben hun eigen licenties.', 'DJConnect Pi verwendet Python und Qt/PySide. DJConnect Pi steht unter der MIT-Lizenz; enthaltene Bibliotheken haben eigene Lizenzen.', 'DJConnect Pi utilise Python et Qt/PySide. DJConnect Pi est sous licence MIT ; les bibliothèques incluses ont leurs propres licences.', 'DJConnect Pi utiliza Python y Qt/PySide. DJConnect Pi tiene licencia MIT; las bibliotecas incluidas tienen sus propias licencias.'), 'legal_license': ('View MIT licence', 'MIT-licentie bekijken', 'MIT-Lizenz ansehen', 'Voir la licence MIT', 'Ver licencia MIT'), 'privacy_profile_heading': ('Your linked Profile', 'Je gekoppelde profiel', 'Dein verknüpftes Profil', 'Votre profil associé', 'Tu perfil vinculado'), 'privacy_profile_body': ('Private DJ Session content requires your explicitly linked Profile. Your Home Assistant manages Profiles, Sessions and music-service connections.', 'Privé-inhoud van de DJ-sessie vereist je expliciet gekoppelde profiel. Je eigen Home Assistant beheert profielen, sessies en koppelingen met muziekdiensten.', 'Private Inhalte der DJ-Session erfordern dein ausdrücklich verknüpftes Profil. Dein Home Assistant verwaltet Profile, Sessions und Musikdienst-Verbindungen.', 'Le contenu privé de la session DJ nécessite votre profil explicitement associé. Votre Home Assistant gère les profils, les sessions et les connexions aux services musicaux.', 'El contenido privado de la sesión DJ requiere tu perfil vinculado explícitamente. Tu Home Assistant gestiona los perfiles, las sesiones y las conexiones con servicios de música.'), 'privacy_storage_heading': ('On this Pi', 'Op deze Pi', 'Auf diesem Pi', 'Sur ce Pi', 'En esta Pi'), 'privacy_storage_body': ('Pairing and settings are saved locally. DJ Session and search content stays in app memory and is cleared on Profile, context or app-focus withdrawal.', 'De koppeling en instellingen worden lokaal opgeslagen. Inhoud van de DJ-sessie en zoekresultaten blijft in het app-geheugen en wordt gewist bij verlies van profiel, context of app-focus.', 'Kopplung und Einstellungen werden lokal gespeichert. Inhalte der DJ-Session und Suchergebnisse bleiben im App-Speicher und werden bei Profil-, Kontext- oder Fokusverlust gelöscht.', 'L’association et les réglages sont enregistrés localement. Le contenu de la session DJ et les résultats de recherche restent en mémoire et sont effacés lors d’un changement de profil, de contexte ou de perte de focus de l’app.', 'El emparejamiento y los ajustes se guardan localmente. El contenido de la sesión DJ y los resultados de búsqueda permanecen en la memoria de la app y se borran al perder el perfil, el contexto o el foco de la app.'), 'privacy_audio_heading': ('Microphone and DJ speech', 'Microfoon en DJ-spraak', 'Mikrofon und DJ-Sprache', 'Microphone et voix du DJ', 'Micrófono y voz del DJ'), 'privacy_audio_body': ('This Pi app does not record microphone audio or play local DJ speech. Music control goes through your own Home Assistant and music service.', 'Deze Pi-app neemt geen microfoonaudio op en speelt geen lokale DJ-spraak af. Muziekbediening verloopt via je eigen Home Assistant en muziekdienst.', 'Diese Pi-App zeichnet kein Mikrofon-Audio auf und spielt keine lokale DJ-Sprache ab. Musik wird über deinen Home Assistant und Musikdienst gesteuert.', 'Cette app Pi n’enregistre pas le microphone et ne diffuse pas localement la voix du DJ. La musique est contrôlée par votre Home Assistant et votre service musical.', 'Esta app Pi no graba audio del micrófono ni reproduce localmente la voz del DJ. La música se controla mediante tu Home Assistant y tu servicio de música.'), 'legal_independence': ('DJConnect is not affiliated with, endorsed by, or sponsored by Apple, Home Assistant, or any supported music service.', 'DJConnect is niet gelieerd aan, goedgekeurd door of gesponsord door Apple, Home Assistant of ondersteunde muziekdiensten.', 'DJConnect is not affiliated with, endorsed by, or sponsored by Apple, Home Assistant, or any supported music service.', 'DJConnect is not affiliated with, endorsed by, or sponsored by Apple, Home Assistant, or any supported music service.', 'DJConnect is not affiliated with, endorsed by, or sponsored by Apple, Home Assistant, or any supported music service.'), 'legal_trademarks': ('Home Assistant is a trademark of the Open Home Foundation. Other service names are trademarks of their respective owners.', 'Home Assistant is een handelsmerk van de Open Home Foundation. Andere dienstnamen zijn handelsmerken van hun respectieve eigenaren.', 'Home Assistant is a trademark of the Open Home Foundation. Other service names are trademarks of their respective owners.', 'Home Assistant is a trademark of the Open Home Foundation. Other service names are trademarks of their respective owners.', 'Home Assistant is a trademark of the Open Home Foundation. Other service names are trademarks of their respective owners.'), 'privacy_ai_body': ('AI and Assist answers can be incorrect and depend on your own Home Assistant and Assist configuration.', 'AI- en Assist-antwoorden kunnen onjuist zijn en hangen af van je eigen Home Assistant- en Assist-configuratie.', 'AI and Assist answers can be incorrect and depend on your own Home Assistant and Assist configuration.', 'AI and Assist answers can be incorrect and depend on your own Home Assistant and Assist configuration.', 'AI and Assist answers can be incorrect and depend on your own Home Assistant and Assist configuration.')}
+for _key, _values in _INFORMATION_TRANSLATIONS.items():
+    for _language, _value in zip(SUPPORTED_LANGUAGES, _values):
+        TRANSLATIONS[_language][_key] = _value
+
+_CURRENT_RESPONSE_TRANSLATIONS = {
+    "session_current_response": ("Current answer · not saved", "Huidig antwoord · niet opgeslagen", "Aktuelle Antwort · nicht gespeichert", "Réponse actuelle · non enregistrée", "Respuesta actual · no guardada"),
+    "session_question_current_answer": ("Answer received · not saved", "Antwoord ontvangen · niet opgeslagen", "Antwort erhalten · nicht gespeichert", "Réponse reçue · non enregistrée", "Respuesta recibida · no guardada"),
+}
+for _key, _values in _CURRENT_RESPONSE_TRANSLATIONS.items():
+    for _language, _value in zip(SUPPORTED_LANGUAGES, _values):
+        TRANSLATIONS[_language][_key] = _value
+
+for _language, _value in zip(SUPPORTED_LANGUAGES, ("More contributions remain available through Next contributions.", "Meer bijdragen blijven beschikbaar via Volgende bijdragen.", "Weitere Beiträge sind über Nächste Beiträge verfügbar.", "Les autres contributions restent accessibles via Contributions suivantes.", "Las demás contribuciones siguen disponibles en Contribuciones siguientes.")):
+    TRANSLATIONS[_language]["session_history_window_limit"] = _value
+
+for _language, _value in zip(SUPPORTED_LANGUAGES, ("Artist image", "Artiestafbeelding", "Künstlerbild", "Image de l’artiste", "Imagen del artista")):
+    TRANSLATIONS[_language]["session_forecast_artist_image"] = _value
+
+_FEEDBACK_TRANSLATIONS = {
+    'feedback': (
+        'Feedback',
+        'Feedback',
+        'Feedback',
+        'Commentaires',
+        'Comentarios',
+    ),
+    'feedback_share': (
+        'Share feedback',
+        'Feedback delen',
+        'Feedback teilen',
+        'Partager des commentaires',
+        'Compartir comentarios',
+    ),
+    'feedback_help': (
+        'Open a draft issue for DJConnect Pi on GitHub. Nothing is sent automatically. No device IDs, Profile, Session content or logs are attached. Review your report before publishing it publicly.',
+        'Open een conceptmelding voor DJConnect Pi op GitHub. Er wordt niets automatisch verstuurd. Apparaat-ID’s, profiel, sessie-inhoud en logs worden niet toegevoegd. Controleer je melding voordat je die openbaar publiceert.',
+        'Öffne einen Entwurf für DJConnect Pi auf GitHub. Nichts wird automatisch gesendet. Geräte-IDs, Profil, Session-Inhalte und Protokolle werden nicht angehängt. Prüfe deinen Bericht, bevor du ihn öffentlich veröffentlichst.',
+        'Ouvrez un brouillon de signalement pour DJConnect Pi sur GitHub. Rien n’est envoyé automatiquement. Aucun identifiant d’appareil, profil, contenu de session ou journal n’est joint. Vérifiez votre signalement avant de le publier.',
+        'Abre un borrador para DJConnect Pi en GitHub. No se envía nada automáticamente. No se adjuntan identificadores del dispositivo, perfil, contenido de sesión ni registros. Revisa el informe antes de publicarlo.',
+    ),
+    'feedback_open': (
+        'Open GitHub issue',
+        'GitHub-melding openen',
+        'GitHub-Issue öffnen',
+        'Ouvrir un signalement GitHub',
+        'Abrir un informe en GitHub',
+    ),
+    'feedback_unavailable': (
+        'GitHub could not be opened. Try again when a browser is available.',
+        'GitHub kon niet worden geopend. Probeer het opnieuw wanneer een browser beschikbaar is.',
+        'GitHub konnte nicht geöffnet werden. Versuche es erneut, wenn ein Browser verfügbar ist.',
+        'Impossible d’ouvrir GitHub. Réessayez lorsqu’un navigateur est disponible.',
+        'No se pudo abrir GitHub. Inténtalo de nuevo cuando haya un navegador disponible.',
+    ),
+    'feedback_issue_title': (
+        'DJConnect Pi feedback',
+        'DJConnect Pi-feedback',
+        'DJConnect Pi – Feedback',
+        'Commentaires sur DJConnect Pi',
+        'Comentarios sobre DJConnect Pi',
+    ),
+    'feedback_issue_template': (
+        'What happened?\n\nSteps to reproduce:\n\nWhat did you expect?\n\nPlease remove private data before publishing.',
+        'Wat gebeurde er?\n\nStappen om het te herhalen:\n\nWat verwachtte je?\n\nVerwijder privégegevens voordat je publiceert.',
+        'Was ist passiert?\n\nSchritte zum Reproduzieren:\n\nWas hast du erwartet?\n\nEntferne private Daten vor dem Veröffentlichen.',
+        'Que s’est-il passé ?\n\nÉtapes pour reproduire :\n\nQuel résultat attendiez-vous ?\n\nSupprimez les données privées avant de publier.',
+        '¿Qué ocurrió?\n\nPasos para reproducirlo:\n\n¿Qué esperabas?\n\nElimina los datos privados antes de publicar.',
+    ),
+}
+for _key, _values in _FEEDBACK_TRANSLATIONS.items():
+    for _language, _value in zip(SUPPORTED_LANGUAGES, _values):
+        TRANSLATIONS[_language][_key] = _value
+
+_ARTWORK_PREPARE_TRANSLATIONS = {
+    'session_artwork_load': (
+        'Load image',
+        'Afbeelding laden',
+        'Bild laden',
+        'Charger l’image',
+        'Cargar imagen',
+    ),
+    'session_artwork_loading': (
+        'Loading image…',
+        'Afbeelding laden…',
+        'Bild wird geladen…',
+        'Chargement de l’image…',
+        'Cargando imagen…',
+    ),
+    'session_artwork_unavailable': (
+        'No image is available for this contribution.',
+        'Er is geen afbeelding beschikbaar voor deze bijdrage.',
+        'Für diesen Beitrag ist kein Bild verfügbar.',
+        'Aucune image n’est disponible pour cette contribution.',
+        'No hay imagen disponible para esta contribución.',
+    ),
+    'session_artwork_uncertain': (
+        'The image request could not be confirmed. You can try again later.',
+        'De afbeeldingsaanvraag kon niet worden bevestigd. Je kunt het later opnieuw proberen.',
+        'Die Bildanfrage konnte nicht bestätigt werden. Du kannst es später erneut versuchen.',
+        'La demande d’image n’a pas pu être confirmée. Vous pouvez réessayer plus tard.',
+        'No se pudo confirmar la solicitud de imagen. Puedes volver a intentarlo más tarde.',
+    ),
+}
+for _key, _values in _ARTWORK_PREPARE_TRANSLATIONS.items():
+    for _language, _value in zip(SUPPORTED_LANGUAGES, _values):
+        TRANSLATIONS[_language][_key] = _value
+
+
+_PLAYBACK_CONTROL_TRANSLATIONS = {
+    "session_playback_controls": ("Playback controls", "Afspeelbediening", "Wiedergabesteuerung", "Commandes de lecture", "Controles de reproducción"),
+    "session_playback_sent": (
+        "Command sent. Playback updates from the server.",
+        "Opdracht verstuurd. De server werkt de afspeelstatus bij.",
+        "Befehl gesendet. Der Server aktualisiert den Wiedergabestatus.",
+        "Commande envoyée. Le serveur actualise l’état de lecture.",
+        "Orden enviada. El servidor actualiza el estado de reproducción.",
+    ),
+}
+for _key, _values in _PLAYBACK_CONTROL_TRANSLATIONS.items():
+    for _language, _value in zip(SUPPORTED_LANGUAGES, _values):
+        TRANSLATIONS[_language][_key] = _value

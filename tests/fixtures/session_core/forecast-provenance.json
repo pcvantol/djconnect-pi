@@ -1,0 +1,44 @@
+{
+  "protected_source": "8b221d07fe2215d9516d18fe92c832332c7a16ab",
+  "source_hashes": {
+    "session_forecast.py": "72dda9f5f2554859668b4362cfb446206cc0bc7831f6b7f8e4c99f2f2cd24808",
+    "forecast_expression.py": "e733cd995259e0f4c4b613bd03b83f786e122b5abeafa4ca6db3270278581d1d"
+  },
+  "sha256": "ad66e5a07d983edef8597dd65c8331c6cf59e5b18e4b3f3c90b4a65bc4a1f2b2",
+  "proof": "Released pure ForecastProjection/realize with explicit synthetic semantics, fixed clocks; not Runtime/Planner/HA/provider/model acceptance",
+  "fixture_input": {
+    "has_current": true,
+    "supported": true,
+    "title": "Observed track",
+    "artist": "Observed artist",
+    "album": "Observed album",
+    "source_url": "https://open.spotify.com/track/0000000000000000000001",
+    "guidance": "maintaining_energy",
+    "aim": "groove"
+  },
+  "construction": {
+    "session_id": "forecast-fixture-session",
+    "current_item_id": "observed-fixture-item",
+    "wall_clock": "2026-10-20T02:45:00+00:00",
+    "monotonic_clock": 0,
+    "locales": [
+      "en",
+      "nl",
+      "de",
+      "fr",
+      "es"
+    ],
+    "personas": [
+      "home_dj",
+      "radio_dj",
+      "club_dj",
+      "festival_dj"
+    ],
+    "steps": [
+      "ForecastProjection with fixed clocks",
+      "accept_observation",
+      "update explicit fixture_input",
+      "as_dict unchanged"
+    ]
+  }
+}

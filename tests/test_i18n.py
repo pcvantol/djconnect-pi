@@ -38,10 +38,10 @@ def test_translation_placeholders_match_english() -> None:
 def test_qml_translation_keys_exist() -> None:
     qml_root = files("djconnect_pi.qml")
     qml_text = "\n".join(
-        qml_root.joinpath(name).read_text(encoding="utf-8")
-        for name in ("Main.qml", "GamesPanel.qml", "UpdateProgress.qml")
+        entry.read_text(encoding="utf-8")
+        for entry in qml_root.iterdir() if entry.name.endswith(".qml")
     )
-    keys = set(re.findall(r'(?:root\.tr|djconnect\.t|updater\.t|updater\.tf)\("([^"]+)"', qml_text))
+    keys = set(re.findall(r'(?:root\.tr|editor\.tr|screen\.tr|keyboard\.tr|djconnect\.t|updater\.t|updater\.tf)\("([^"]+)"\)', qml_text))
     assert keys <= set(TRANSLATIONS["en"])
 
 

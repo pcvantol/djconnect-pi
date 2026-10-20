@@ -9,10 +9,11 @@ import subprocess
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
+from copy import deepcopy
 from datetime import datetime
 from importlib.resources import files
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import urlencode, urlparse
 
 import requests
 from PySide6.QtCore import (
@@ -22,14 +23,17 @@ from PySide6.QtCore import (
     QCoreApplication,
     QIODevice,
     QObject,
+    Qt,
     QTimer,
+    QUrl,
     Signal,
     Slot,
 )
-from PySide6.QtGui import QGuiApplication, QPixmapCache
+from PySide6.QtGui import QDesktopServices, QGuiApplication, QIcon, QPixmapCache
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
 
+from .brand_theme import apply_palette
 from .config import (
     CLIENT_TYPE,
     DEFAULT_CONFIG_PATH,
@@ -51,6 +55,8 @@ from .ha import (
 )
 from .i18n import LANGUAGES, normalize_language, translate
 from .logging_config import setup_logging
+from .session_controller import SessionController
+from .shared_settings import SettingsError
 from .system_info import log_raspberry_pi_system_info
 
 _LOGGER = logging.getLogger(__name__)
@@ -127,6 +133,8 @@ class DJConnectBackend(QObject):
     languageChanged = Signal()
     translationsChanged = Signal()
     moodChanged = Signal()
+    sharedSettingsChanged = Signal()
+    _sharedSettingsReady = Signal(object)
     profileChanged = Signal()
     djAnnouncementChanged = Signal()
     wakeScreenRequested = Signal()
@@ -153,6 +161,11 @@ class DJConnectBackend(QObject):
         self.config_path = config_path
         self.cfg: Config = load_config(config_path)
         self.client = HAClient(self.cfg)
+        self._shared_settings_state = {}
+        self._shared_settings_epoch = 0
+        self._shared_settings_inflight = False
+        self._shared_settings = self.client.shared_settings
+        self._shared_owner_context = self._shared_settings.context()
         self.playback = Playback()
         self._dj_response_text = ""
         self._dj_response_visible = False
@@ -213,6 +226,10 @@ class DJConnectBackend(QObject):
         self._backend_available = True
         self._busy = False
         self._executor = ThreadPoolExecutor(max_workers=UI_WORKER_COUNT, thread_name_prefix="djconnect")
+        # Bounded independent lanes: slow text generation cannot occupy Session control.
+        self._session_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="djconnect-session")
+        self._question_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="djconnect-question")
+        self._session_controller = SessionController(self)
         self._poll_timer = QTimer(self)
         self._poll_timer.setInterval(5000)
         self._poll_timer.timeout.connect(self.refresh)
@@ -234,8 +251,92 @@ class DJConnectBackend(QObject):
         self._musicDnaReady.connect(self._apply_music_dna_data)
         self._musicDiscoveryReady.connect(self._apply_music_discovery_data)
         self._trackInsightReady.connect(self._apply_track_insight_data)
+        self._sharedSettingsReady.connect(self._apply_shared_settings)
+        self._shared_settings_timer = QTimer(self)
+        self._shared_settings_timer.setInterval(15000)
+        self._shared_settings_timer.timeout.connect(self.pollSharedSettings)
+        self._shared_settings_timer.timeout.connect(self._session_controller.refresh)
+        self._shared_settings_timer.start()
+        QTimer.singleShot(350, self.pollSharedSettings)
         QTimer.singleShot(250, self.refresh)
         _LOGGER.info("DJConnect Pi client backend started for %s", self.cfg.device_id)
+
+    @Property("QVariantMap", notify=sharedSettingsChanged)
+    def sharedSettings(self) -> dict:
+        return deepcopy(self._shared_settings_state)
+
+    @Property(bool, notify=sharedSettingsChanged)
+    def sharedSettingsManaged(self) -> bool:
+        return self.cfg.paired or self._shared_settings.managed
+
+    @Property(QObject, constant=True)
+    def djSession(self):
+        return self._session_controller
+
+    @Property(bool, notify=sharedSettingsChanged)
+    def sharedSettingsBusy(self) -> bool:
+        return self._shared_settings_inflight
+
+    def _invalidate_shared_settings_if_context_changed(self) -> None:
+        context = self._shared_settings.context()
+        if context != self._shared_owner_context:
+            self._shared_owner_context = context
+            self._shared_settings_epoch += 1
+            self._shared_settings_state = {}
+            self.sharedSettingsChanged.emit()
+
+    @Slot()
+    def pollSharedSettings(self) -> None:
+        self._invalidate_shared_settings_if_context_changed()
+        if self._demo_mode or not self.paired or self._shared_settings_inflight:
+            return
+        self._start_shared_settings()
+
+    @Slot("QVariantMap")
+    def saveSharedSettings(self, patch: dict) -> None:
+        if self._demo_mode or not self.paired or self._shared_settings_inflight:
+            return
+        self._start_shared_settings(deepcopy(patch))
+
+    def _start_shared_settings(self, patch: dict | None = None) -> None:
+        self._shared_settings_inflight = True
+        self.sharedSettingsChanged.emit()
+        epoch = self._shared_settings_epoch
+        context = self._shared_settings.context()
+
+        def worker() -> None:
+            result = {"epoch": epoch, "context": context}
+            try:
+                owner = self._shared_settings
+                if patch is None:
+                    result["projection"] = owner.read()
+                else:
+                    token = patch.pop("_edit_token", self._shared_settings_state.get("edit_token", ""))
+                    result["projection"] = owner.update(patch, token)
+            except SettingsError as exc:
+                result["error"] = exc.category
+            except Exception:  # noqa: BLE001 - never expose unexpected private transport content
+                result["error"] = "invalid"
+            self._sharedSettingsReady.emit(result)
+
+        self._executor.submit(worker)
+
+    @Slot(object)
+    def _apply_shared_settings(self, result: dict) -> None:
+        self._shared_settings_inflight = False
+        if result["epoch"] != self._shared_settings_epoch or tuple(result["context"]) != self._shared_settings.context():
+            self.sharedSettingsChanged.emit()
+            QTimer.singleShot(0, self.pollSharedSettings)
+            return
+        if "projection" in result:
+            self._shared_settings_state = {**result["projection"], "available": True, "error": ""}
+        else:
+            error = result.get("error", "invalid")
+            if error in {"denied", "unsupported"}:
+                self._shared_settings_state = {}
+            self._shared_settings_state = {**self._shared_settings_state, "available": False, "error": error}
+        self.sharedSettingsChanged.emit()
+        self.moodChanged.emit()
 
     @Property(str, notify=profileChanged)
     def activeProfileId(self) -> str:
@@ -536,6 +637,11 @@ class DJConnectBackend(QObject):
 
     @Property(int, notify=moodChanged)
     def moodValue(self) -> int:
+        if self.sharedSettingsManaged:
+            if self._shared_settings_state.get("selection_required"):
+                return -1
+            return {"chill": 0, "groove": 35, "energy": 70, "party": 100}.get(
+                self._shared_settings_state.get("values", {}).get("mood"), -1)
         if self.cfg.mood is None:
             return -1
         return max(0, min(100, int(self.cfg.mood)))
@@ -624,6 +730,13 @@ class DJConnectBackend(QObject):
     def logsVisible(self) -> bool:
         return self._logs_visible
 
+    @Slot(result=bool)
+    def openFeedbackIssue(self) -> bool:
+        # User click opens a draft only; no private app state or automatic submit.
+        query = urlencode({"title": translate(self.cfg.language, "feedback_issue_title"),
+                           "body": translate(self.cfg.language, "feedback_issue_template")})
+        return QDesktopServices.openUrl(QUrl("https://github.com/pcvantol/djconnect-pi/issues/new?" + query))
+
     @Slot(str, result=str)
     def t(self, key: str) -> str:
         return self.tr_key(key)
@@ -634,6 +747,7 @@ class DJConnectBackend(QObject):
     @Slot(str)
     def setHaUrl(self, value: str) -> None:
         self.cfg.ha_url = value.strip()
+        self._invalidate_shared_settings_if_context_changed()
         save_config(self.config_path, self.cfg)
         self.settingsChanged.emit()
         _LOGGER.info("User saved Home Assistant URL setting")
@@ -745,6 +859,10 @@ class DJConnectBackend(QObject):
 
     @Slot(int)
     def setMoodValue(self, value: int) -> None:
+        if self.sharedSettingsManaged:
+            mood = "chill" if value < 25 else "groove" if value < 60 else "energy" if value < 85 else "party"
+            self.saveSharedSettings({"mood": mood})
+            return
         mood = max(0, min(100, int(value)))
         if self.cfg.mood == mood:
             return
@@ -757,6 +875,9 @@ class DJConnectBackend(QObject):
 
     @Slot(str)
     def setDjAnnouncementOutput(self, value: str) -> None:
+        if self.sharedSettingsManaged:
+            self.saveSharedSettings({"announcement_output": value})
+            return
         output = normalize_dj_announcement_output(value, self.cfg.music_backend_capabilities)
         if self.cfg.dj_announcement_output == output:
             return
@@ -829,6 +950,7 @@ class DJConnectBackend(QObject):
         language_changed = latest.language != self.cfg.language
         self.cfg = latest
         self.client.cfg = self.cfg
+        self._invalidate_shared_settings_if_context_changed()
         self.pairedChanged.emit()
         self.settingsChanged.emit()
         self.logLevelChanged.emit()
@@ -1620,10 +1742,11 @@ class DJConnectBackend(QObject):
 
     def _send_ask_dj_action_worker(self, action: dict[str, object]) -> None:
         action = dict(action)
-        action["dj_announcement_output"] = normalize_dj_announcement_output(
-            self.cfg.dj_announcement_output,
-            self.cfg.music_backend_capabilities,
-        )
+        if not self.sharedSettingsManaged:
+            action["dj_announcement_output"] = normalize_dj_announcement_output(
+                self.cfg.dj_announcement_output,
+                self.cfg.music_backend_capabilities,
+            )
         try:
             data = self.client.ask_dj_action(action)
             self._apply_profile_context(data)
@@ -1825,6 +1948,9 @@ class DJConnectBackend(QObject):
     def _forget_pairing(self) -> None:
         if self._demo_mode:
             self.exitDemoMode()
+        self._shared_settings_epoch += 1
+        self._shared_settings_state = {}
+        self.sharedSettingsChanged.emit()
         self.cfg.device_token = ""
         self.cfg.paired = False
         self.cfg.active_profile_id = ""
@@ -2074,6 +2200,11 @@ class DJConnectBackend(QObject):
         return (self.cfg.active_profile_id, self.cfg.active_profile_type, self.cfg.active_profile_privacy_mode)
 
     def _clear_profile_scoped_caches(self) -> None:
+        if hasattr(self, "_session_controller"):
+            self._session_controller.invalidate()
+        self._shared_settings_epoch += 1
+        self._shared_settings_state = {}
+        self.sharedSettingsChanged.emit()
         self._clear_ask_dj_cache()
         self._music_dna_enabled = False
         self._music_dna_summary = ""
@@ -2281,6 +2412,7 @@ class DJConnectBackend(QObject):
         self.backendAvailableChanged.emit()
 
     def _persist_backend_summary(self) -> None:
+        self._invalidate_shared_settings_if_context_changed()
         try:
             save_config(self.config_path, self.cfg)
             self.settingsChanged.emit()
@@ -2323,6 +2455,10 @@ class DJConnectBackend(QObject):
         _LOGGER.info("Stopping DJConnect Pi client backend")
         self._poll_timer.stop()
         self._event_timer.stop()
+        self._session_controller.setForeground(False)
+        self._session_controller.shutdownImages()
+        self._session_executor.shutdown(wait=False, cancel_futures=True)
+        self._question_executor.shutdown(wait=False, cancel_futures=True)
         self._executor.shutdown(wait=False, cancel_futures=True)
 
     @Slot()
@@ -2458,9 +2594,16 @@ def main() -> None:
 
     QQuickStyle.setStyle("Basic")
     app = QGuiApplication(sys.argv)
+    apply_palette(app)
+    app_icon = QIcon()
+    for size in (16, 20, 24, 32, 40, 64, 128):
+        app_icon.addFile(str(files("djconnect_pi.qml").joinpath(f"brand-mark-{size}.png")))
+    app_icon.addFile(str(files("djconnect_pi.qml").joinpath("app-icon.png")))
+    app.setWindowIcon(app_icon)
     QPixmapCache.setCacheLimit(QT_PIXMAP_CACHE_LIMIT_KB)
     engine = QQmlApplicationEngine()
     backend = DJConnectBackend(args.config)
+    app.applicationStateChanged.connect(lambda state: backend.djSession.setForeground(state == Qt.ApplicationState.ApplicationActive))
     engine.rootContext().setContextProperty("djconnect", backend)
     engine.rootContext().setContextProperty("startWindowed", args.windowed)
     qml_path = files("djconnect_pi.qml").joinpath("Main.qml")

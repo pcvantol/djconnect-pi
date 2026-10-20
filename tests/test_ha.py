@@ -160,8 +160,8 @@ def test_pair_sends_raspberry_pi_identity_and_stores_token() -> None:
     assert captured["json"]["capabilities"]["tts_supported"] is False
     assert captured["json"]["capabilities"]["local_audio_supported"] is False
     assert captured["json"]["capabilities"]["ask_dj_supported"] is True
-    assert captured["json"]["capabilities"]["ask_dj_mode"] == "readonly_actions"
-    assert captured["json"]["capabilities"]["ask_dj_free_input_supported"] is False
+    assert captured["json"]["capabilities"]["ask_dj_mode"] == "text"
+    assert captured["json"]["capabilities"]["ask_dj_free_input_supported"] is True
     assert captured["json"]["capabilities"]["ask_dj_actions_supported"] is True
     assert captured["json"]["capabilities"]["ask_dj_voice_supported"] is False
     assert captured["json"]["capabilities"]["ask_dj_audio_response_supported"] is False
@@ -1480,7 +1480,7 @@ def test_ask_dj_history_clear_uses_advertised_websocket_route() -> None:
     assert payload["music_dna_key"] == "dna-1"
 
 
-def test_ask_dj_history_clear_falls_back_to_http_when_websocket_fails() -> None:
+def test_ask_dj_history_clear_rejection_is_not_replayed() -> None:
     cfg = Config(
         ha_url="http://ha.local:8123",
         device_id="djconnect-raspberry-pi-ABCDEF123456",
@@ -1497,11 +1497,11 @@ def test_ask_dj_history_clear_falls_back_to_http_when_websocket_fails() -> None:
     with (
         patch("djconnect_pi.ha_websocket._websocket_create_connection", side_effect=sockets),
         patch("djconnect_pi.ha.requests.post", side_effect=_session_or_http_response({"success": True, "cleared": True, "history_revision": 4, "clear_revision": 2, "messages": []})) as post,
+        pytest.raises(DJConnectError),
     ):
-        data = client.ask_dj_history_clear()
+        client.ask_dj_history_clear()
 
-    assert data["cleared"] is True
-    assert [call.args[0] for call in post.call_args_list].count("http://ha.local:8123/api/djconnect/v1/ask_dj/history/clear") == 1
+    assert [call.args[0] for call in post.call_args_list].count("http://ha.local:8123/api/djconnect/v1/ask_dj/history/clear") == 0
     assert client.diagnostics()["fastPathTransport"] == "http"
 
 
@@ -1765,7 +1765,7 @@ def test_websocket_missing_server_support_flags_falls_back_to_http() -> None:
     assert client.diagnostics()["fastPathTransport"] == "http"
 
 
-def test_websocket_error_result_falls_back_to_http() -> None:
+def test_websocket_error_result_is_not_replayed() -> None:
     cfg = Config(ha_url="http://ha.local:8123", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1", websocket_fast_path_enabled=True, ha_websocket_token="ha-token")
     client = HAClient(cfg)
     sockets = [
@@ -1782,11 +1782,11 @@ def test_websocket_error_result_falls_back_to_http() -> None:
     with (
         patch("djconnect_pi.ha_websocket._websocket_create_connection", side_effect=sockets),
         patch("djconnect_pi.ha.requests.post", side_effect=_session_or_http_response({"success": True, "fallback": True})) as post,
+        pytest.raises(DJConnectError),
     ):
-        data = client.command("play")
+        client.command("play")
 
-    assert data["fallback"] is True
-    assert [call.args[0] for call in post.call_args_list].count("http://ha.local:8123/api/djconnect/v1/command") == 1
+    assert [call.args[0] for call in post.call_args_list].count("http://ha.local:8123/api/djconnect/v1/command") == 0
 
 
 def test_remote_or_non_http_url_stays_http() -> None:

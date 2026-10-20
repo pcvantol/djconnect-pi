@@ -1,0 +1,23 @@
+{
+  "scope": "Pi consumer resource ceilings for streamed Session JSON, not producer HTTP wire limits or new admission rights",
+  "producer_reference": "8b221d07fe2215d9516d18fe92c832332c7a16ab",
+  "limits": {
+    "control_bytes": 2097152,
+    "active_start_broadcast_question_bytes": 8388608,
+    "history_search_bytes": 33554432,
+    "chunk_bytes": 16384,
+    "maximum_nesting": 64,
+    "maximum_structural_tokens": 100000
+  },
+  "rationale": "A synthetic maximum text shape of50history rows x32768characters x12ASCIIbytes per escaped astral Unicode character is19660800bytes before metadata; fits32MiB. This transport budget test is not full producer/display qualification. Unknown/extreme legal metadata may remain unsupported: fail explicitly, never truncate facts or attribution. Active/control budgets are local resource choices, not copied DialogueFrame/socket/display caps.",
+  "ownership": "Bound decoded streamed bytes and structural allocations before json.loads; parsing creates a new exclusive tree, no deepcopy. Close response before isolated session on every outcome. No disk/body cache.",
+  "preserved": [
+    "binding before denial and between chunks/after decode",
+    "401/403 without header/body decode",
+    "503/read unavailable versus write uncertain",
+    "no automatic POST replay",
+    "original Profile/Session/revision/source/media/expiry fences"
+  ],
+  "verification": "42newtests,1439fulltests,201targeted,130actualQMLviews on bothformats/fivelocales; separate ARM/package/review evidence required",
+  "limitations": "Synthetic mocked requests plus real urllib3 gzip decoder and actual Qt mouse/controller; no HA/provider/live Profile/installed/physical proof."
+}

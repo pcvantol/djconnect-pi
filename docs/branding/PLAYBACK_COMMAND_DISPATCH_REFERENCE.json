@@ -1,0 +1,40 @@
+{
+  "slice": "Playback command dispatch without WebSocket-to-HTTP write replay",
+  "producer_sources": [
+    {
+      "repository": "pcvantol/djconnect",
+      "commit": "8b221d07fe2215d9516d18fe92c832332c7a16ab",
+      "path": "custom_components/djconnect/http.py",
+      "sha256": "e20af966b2bd4e57bc6a6f6bb88a8ecbdb838a4e07c92a943a20bae7ebeb188c"
+    },
+    {
+      "repository": "pcvantol/djconnect",
+      "commit": "8b221d07fe2215d9516d18fe92c832332c7a16ab",
+      "path": "custom_components/djconnect/api_handlers.py",
+      "sha256": "0a377fba0b3781b92ebcd4dd2b27088add261e5231c7851a1236635232f28765"
+    }
+  ],
+  "producer_routes": "Existing paired HTTP command view delegates to async_handle_command_payload, which authorizes runtime device, resolves Profile context and executes the backend command. No expected Session/item wire fields are added.",
+  "local_baseline": "8b683fed182e77e76e23d0d997ba3fc0d31a8eba",
+  "proof": "Actual client plus synthetic socket send/recv, partial send, timeout, decode, rejected and missing acknowledgement; no network or producer execution.",
+  "boundaries": [
+    "No Session controls UI added in this prerequisite slice",
+    "No general exactly-once server guarantee or deduplication introduced",
+    "Existing HTTP redirect/auth/context behavior is not newly qualified",
+    "No new endpoint, owner permission, playback capability, audio or installed acceptance"
+  ],
+  "read_fallback_allowlist": {
+    "djconnect/command": [
+      "status",
+      "devices",
+      "queue",
+      "playlists"
+    ],
+    "routes": [
+      "djconnect/capabilities",
+      "djconnect/ask_dj/history",
+      "djconnect/music_dna/profile",
+      "djconnect/music_discovery/feed"
+    ]
+  }
+}
