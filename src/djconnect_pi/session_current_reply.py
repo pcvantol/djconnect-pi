@@ -29,6 +29,9 @@ def current_reply(response, binding, request, session, *, now):
     reference = moment_reference(session, request.get("selected") or {}, now=now)
     if not reference or reference != request.get("live_reference"):
         return {}
+    question = request.get("text")
+    if not isinstance(question, str) or not 1 <= len(question) <= 4000 or not question.strip():
+        raise SessionError("invalid")
     assistant = response.get("assistant_message")
     body = response.get("text")
     if (response.get("error") is not None or not isinstance(assistant, dict) or assistant.get("role") != "assistant"
@@ -40,7 +43,7 @@ def current_reply(response, binding, request, session, *, now):
     attribution = sources(response)
     if not attribution or any(row["provider"] != "MusicBrainz" or row["license"] != "CC0-1.0" or not row["links"] for row in attribution):
         raise SessionError("invalid")
-    return {"text": body, "reply_id": receipt["turn_id"], "session_id": request["session_id"],
+    return {"text": body, "question_text": question, "reply_id": receipt["turn_id"], "session_id": request["session_id"],
         "reference": reference, "display_sources": attribution,
         "requires_spotify_attribution": reference["requires_spotify_attribution"], "spotify_source_url": reference["spotify_source_url"]}
 

@@ -1090,3 +1090,44 @@ all applicable CI (24 successes/4 conditional skips). This follow-up needs its o
 CI readback. General private/standalone chat, user bubble, playback-only/Forecast
 positions and continuous Flow remain open. No Core/Apple WIP, new contract, model,
 HA, provider, installation, merge or physical acceptance is included.
+
+
+### Own question beside the current-only answer — 20 October
+
+The confirmed current-only response now carries the exact bounded local request
+text. A trailing glass user card, capped at85% of available width, precedes the
+DJ answer and uses the existing five-language You label. This follows the role
+separation/alignment of protected Apple e106a467 AskDJMessageBubble; geometry and
+PlainText are Pi adaptations, not an exact native markdown/effects claim. Source
+provenance: docs/branding/CURRENT_QUESTION_REFERENCE.json.
+
+The question is not a returned server echo or a historical entry. It is retained
+only in the same single RAM-only current-reply object as its admitted answer.
+Receipt/source/style/revision/deadline/Profile/Session/foreground gates continue
+to govern the whole pair. New question, End or withdrawal removes both. Reading
+position/focus uses their shared container and receipt identity. No pending or
+uncertain question bubble, new archive write, transport field, microphone/audio,
+standalone/private-session gate or automatic replay is introduced.
+
+Six new tests check missing/non-string/empty/oversized question rejection and an
+exact local prompt despite a foreign server user-message echo. Snapshot mutation
+cannot change the retained prompt. Existing expiry and scope tests withdraw the
+entire object. The native QML harness checks literal image markup/emoji/newline,
+PlainText, bounded user-card width and atomic blanking in all five locales on
+both canvases, while retaining earlier reply-return/reading probes. A PySide
+QQuickText enum conversion limitation in the first harness is preserved in
+diagnostics; the final check evaluates the enum within QML itself.
+
+Validation and package results are recorded in pi-session-current-question under
+task visualizations. Parent d8e1d463 passed all applicable CI (24 successes/4
+conditional skips); the new head requires independent checks. This is confirmed
+selected-Moment credit UX only, not general ephemeral or standalone parity.
+
+
+Final local result:851 full tests passed, Ruff0.16.0 src/tests passed, hostverify
+MATCH.190 dedicated QML views plus116 broad views without errors/binding loops.
+Wheel c218e31f1b345367eaddfa33174403881511e1656396bb2729ab5cba98a4202c
+matches all60 packaged sources. Both actual canvas captures were visually checked;
+this specific user-card comparison uses pinned Apple source and existing offline
+Session simulator references, not a newly staged native conversation screenshot.
+No live, ARM, installed or physical proof is inferred.

@@ -41,11 +41,12 @@ def test_selected_live_credit_renders_current_text_without_history_read_or_media
     send(owner, backend)
     reply = owner.state["current_reply"]
     assert reply["text"] == fixture["body"]["text"]
+    assert reply["question_text"] == "Who composed this?"
     assert reply["display_sources"][0]["license"] == "CC0-1.0"
     assert owner.state["question_status"] == "current_answer"
     assert owner.transport.timeline.call_count == before
     assert owner._question_receipt == {} and not owner.state["conversation"]
-    assert set(reply) == {"text", "reply_id", "session_id", "reference", "display_sources", "requires_spotify_attribution", "spotify_source_url"}
+    assert set(reply) == {"text", "question_text", "reply_id", "session_id", "reference", "display_sources", "requires_spotify_attribution", "spotify_source_url"}
 
 
 @pytest.mark.parametrize("mutation", ["revision", "style", "expiry", "withdrawal", "foreground", "new_question", "end"])
@@ -114,12 +115,44 @@ def test_malformed_or_unqualified_response_does_not_render(controller, mutation)
 def test_live_reply_requires_original_finite_reference_and_retains_literal_prose(controller):
     owner, _ = controller
     _, _, answer = setup_reply(owner)
-    request = {"session_id": "s1", "client_message_id": "synthetic-reply", "selected": {"kind": "selected_moment", "session_id": "s1", "moment_id": "m1"}}
+    request = {"text": "Literal <img> 🎧\nQuestion", "session_id": "s1", "client_message_id": "synthetic-reply", "selected": {"kind": "selected_moment", "session_id": "s1", "moment_id": "m1"}}
     request["live_reference"] = moment_reference(owner._session, request["selected"], now=owner._clock.now())
     response = answer(owner.transport.binding(), request)
     response["text"] = response["assistant_message"]["text"] = "Literal <img> 🎧\nCurrent text"
     projected = current_reply(response, owner.transport.binding(), request, owner._session, now=owner._clock.now())
     assert projected["text"] == response["text"]
+    assert projected["question_text"] == request["text"]
     assert projected["reference"]["deadline"] == timestamp("2026-10-20T01:00:00Z")
     owner._session["broadcast"]["native_delivery"]["admissions"][0]["display_expires_at"] = "2026-10-20T02:00:00Z"
     assert not current_reply(response, owner.transport.binding(), request, owner._session, now=owner._clock.now())
+
+
+@pytest.mark.parametrize("question", [None, True, "", "   ", "x" * 4001])
+def test_current_response_rejects_missing_or_unbounded_local_question(controller, question):
+    owner, _ = controller
+    _, _, answer = setup_reply(owner)
+    request = {"text": question, "session_id": "s1", "client_message_id": "synthetic-reply",
+        "selected": {"kind": "selected_moment", "session_id": "s1", "moment_id": "m1"}}
+    request["live_reference"] = moment_reference(owner._session, request["selected"], now=owner._clock.now())
+    from djconnect_pi.session_transport import SessionError
+    with pytest.raises(SessionError):
+        current_reply(answer(owner.transport.binding(), request), owner.transport.binding(), request, owner._session, now=owner._clock.now())
+
+
+def test_current_question_uses_exact_local_request_not_server_echo(controller):
+    owner, backend = controller
+    _, _, answer = setup_reply(owner)
+    def foreign_echo(binding, request):
+        response = answer(binding, request)
+        response["user_message"] = {"role": "user", "text": "Foreign returned prompt"}
+        return response
+    owner.transport.question.side_effect = foreign_echo
+    prompt = "Literal <img> 🎧\nLocal question"
+    assert owner.sendQuestion(prompt)
+    backend.jobs.pop()()
+    shown = owner.state["current_reply"]
+    assert shown["question_text"] == prompt
+    shown["question_text"] = "Mutated GUI snapshot"
+    assert owner.state["current_reply"]["question_text"] == prompt
+    owner.setForeground(False)
+    assert not owner.state["current_reply"]

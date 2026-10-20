@@ -1,0 +1,10 @@
+{
+  "apple_repository": "pcvantol/djconnect-app",
+  "apple_protected_main": "e106a467011b9ea84d301a81c4e07251314cc6dd",
+  "source": "Sources/DJConnectUI/DJConnectRootView.swift",
+  "symbol": "AskDJMessageBubble",
+  "observed_behavior": "User message uses trailing alignment with leading space and its own frosted surface; user role has a localized You label.",
+  "pi_adaptation": "Confirmed current-only local question in a trailing glass card capped at85% of available width, before its admitted response. Both share one current-reply identity and withdrawal. Pi PlainText instead of native markdown; not exact native geometry/effects.",
+  "source_of_question": "Exact bounded local request text; no returned user-message echo, history read or persistence. Only shown after narrow qualified current response acceptance.",
+  "proof_limit": "Local synthetic transport/QML and pinned source comparison only; no ARM/install/live/physical acceptance."
+}

@@ -9,7 +9,7 @@ from unittest.mock import Mock, patch
 
 from PySide6.QtCore import Q_ARG, Q_RETURN_ARG, QMetaObject, QObject, QPoint, QTimer, qInstallMessageHandler
 from PySide6.QtGui import QGuiApplication
-from PySide6.QtQml import QQmlApplicationEngine
+from PySide6.QtQml import QQmlApplicationEngine, QQmlExpression
 from PySide6.QtQuickControls2 import QQuickStyle
 from PySide6.QtTest import QTest
 from shiboken6 import delete
@@ -453,11 +453,16 @@ def main():
             backend.setLanguage(language);backend._toast_visible=False;backend.toastChanged.emit()
             complete_navigation()
             assert owner.selectMoment(native_session['session_id'],current['moment_id'])
-            field.setProperty('text','Synthetic question about selected live credit')
+            field.setProperty('text','Synthetic <img> 🎧\nQuestion about selected live credit')
             QMetaObject.invokeMethod(screen,'submitQuestion')
             assert owner.questionBusy
             backend._executor.submit.call_args.args[0]();complete_navigation()
             assert owner.state['current_reply']['text']==current_response['text']
+            question_text=window.findChild(QObject,'sessionCurrentQuestionText')
+            assert question_text.property('text')==owner.state['current_reply']['question_text']=='Synthetic <img> 🎧\nQuestion about selected live credit'
+            assert QQmlExpression(engine.rootContext(),question_text,'textFormat === 0').evaluate()[0] is True  # Qt PlainText
+            question_card=window.findChild(QObject,'sessionCurrentQuestion')
+            assert question_card.property('width')<=window.findChild(QObject,'sessionCurrentReply').property('width')*0.85+1
             assert not owner._question_receipt
             capture('current-response-not-saved-'+language)
             assert window.findChild(QObject,'sessionCurrentReply').property('visible')
@@ -494,6 +499,8 @@ def main():
         window.setProperty('activeScreen','session');QTest.qWait(120)
         assert not owner.state['current_reply'] and flick.property('contentY')<1
         assert not reply_card.property('visible')
+        assert not window.findChild(QObject,'sessionCurrentQuestion').property('visible')
+        assert window.findChild(QObject,'sessionCurrentQuestionText').property('text')==''
         capture('current-reply-return-withdrawn-top')
         owner.transport.question=original_question
         backend.setLanguage('nl');backend._toast_visible=False;backend.toastChanged.emit()

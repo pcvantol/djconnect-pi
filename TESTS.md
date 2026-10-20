@@ -482,3 +482,10 @@ receipt identity/pixel only, same still-valid card after history, withdrawal ->
 top, and no response body/grant in the descriptor. An explicitly synthetic long
 response makes this reading case distinct on both phone and tablet; unchanged
 released prose remains in the separate five-language rendering probes.
+
+
+Current-only question cards use exact bounded local request text, never a server
+user-message echo. Tests cover malformed prompt bounds, immutable GUI snapshots,
+combined question/answer withdrawal, literal markup/emoji/newline and native QML
+PlainText evaluation on both layouts/five locales. The user card has no separate
+persistence or rights lifetime. Pending/uncertain turns remain outside this UI.
