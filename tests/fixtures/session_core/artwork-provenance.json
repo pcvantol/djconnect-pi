@@ -1,0 +1,15 @@
+{
+  "protected_source": "8b221d07fe2215d9516d18fe92c832332c7a16ab",
+  "source_sha256": {
+    "custom_components/djconnect/session_artwork.py": "8b3e4d0b57af50fb7b4aa3d4668c951c891ceb8bf3d947a21fb858f11b902d54",
+    "custom_components/djconnect/http.py": "e20af966b2bd4e57bc6a6f6bb88a8ecbdb838a4e07c92a943a20bae7ebeb188c",
+    "custom_components/djconnect/session_runtime.py": "61eeae0d89b9b74158aee947f1f9d6dfa398a0addc16ca42dc7143d8337d494e",
+    "custom_components/djconnect/capability_contract.py": "fd71046a17cd7708b543399fe569009127698f4fdd90a77f868ad42e418c8ff6",
+    "docs/product/SESSION_ARTWORK_DELIVERY_CONTRACT_V1.md": "a65d238cbee59b26d5c1405b14c1235cb3523a06ad3cd868133403e0034427ca",
+    "examples/client_contracts/session_artwork_v1/transport-examples.json": "f41037f05a79ff528988e31a23759c7c5ff66b19a742ac546c97a53540ee07da"
+  },
+  "fixture_sha256": "f41037f05a79ff528988e31a23759c7c5ff66b19a742ac546c97a53540ee07da",
+  "fixture_label_preserved": "Original isolated transport fixture still says LOCAL_UNPUBLISHED_NOT_FINAL_DELIVERY_PIN at historical16128ef. It is not current Runtime/live qualification. Released implementation/capability at8b is the contract authority, not that historical label.",
+  "overlays": "Tests join original native/media data with synthetic IDs/clocks; current artist flag is explicitly synthetic and original flow-only artist grant is independently refused. No rights are inferred from these joins in production.",
+  "pixels": "Original protected owned synthetic artist PNG already stored as forecast-test-pixels.png; no artist-photo or provider-license claim."
+}

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DJCONNECT_VERSION="${DJCONNECT_VERSION:-4.0.0-rc.4}"
+DJCONNECT_VERSION="${DJCONNECT_VERSION:-4.0.0-rc.5}"
 DJCONNECT_REPO="${DJCONNECT_REPO:-pcvantol/djconnect-pi-releases}"
 DJCONNECT_HA_URL="${DJCONNECT_HA_URL:-http://homeassistant.local:8123}"
 DJCONNECT_RUNTIME_USER="${DJCONNECT_RUNTIME_USER:-djconnect}"
@@ -13,6 +13,10 @@ DJCONNECT_UPGRADE_PIP="${DJCONNECT_UPGRADE_PIP:-0}"
 DJCONNECT_MIN_FREE_MB="${DJCONNECT_MIN_FREE_MB:-3000}"
 DJCONNECT_MIN_SWAP_MB="${DJCONNECT_MIN_SWAP_MB:-1000}"
 DJCONNECT_RELEASE_PROFILE="${DJCONNECT_RELEASE_PROFILE:-}"
+APPROVED_ARTIFACT=""
+APPROVED_ARTIFACT_SHA256=""
+APPROVED_SOURCE_SHA=""
+APPROVED_SEAL_DIR=""
 
 if [[ -f /etc/default/locale ]]; then
   # shellcheck disable=SC1091
@@ -168,6 +172,108 @@ release_asset() {
   printf 'djconnect-pi-%s-%s' "$(release_profile)" "$(version)"
 }
 
+
+parse_approved_input() {
+  while [[ "$#" -gt 0 ]]; do
+    [[ "$#" -ge 2 ]] || { echo APPROVED_INPUT_INVALID >&2; return 64; }
+    case "$1" in
+      --approved-artifact) [[ -z "$APPROVED_ARTIFACT" ]] || return 64; APPROVED_ARTIFACT="$2" ;;
+      --artifact-sha256) [[ -z "$APPROVED_ARTIFACT_SHA256" ]] || return 64; APPROVED_ARTIFACT_SHA256="$2" ;;
+      --source-sha) [[ -z "$APPROVED_SOURCE_SHA" ]] || return 64; APPROVED_SOURCE_SHA="$2" ;;
+      *) echo APPROVED_INPUT_INVALID >&2; return 64 ;;
+    esac
+    shift 2
+  done
+  if [[ -n "$APPROVED_ARTIFACT$APPROVED_ARTIFACT_SHA256$APPROVED_SOURCE_SHA" ]]; then
+    [[ -f "$APPROVED_ARTIFACT" && ! -L "$APPROVED_ARTIFACT" && "$APPROVED_ARTIFACT_SHA256" =~ ^[0-9a-f]{64}$ && "$APPROVED_SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo APPROVED_INPUT_INVALID >&2; return 64; }
+  fi
+}
+
+verify_approved_release() {
+  [[ -n "$APPROVED_ARTIFACT" ]] || return 0
+  local profile prefix release_dir
+  [[ -f "${DJCONNECT_ROOT}/config/client.json" && ! -L "${DJCONNECT_ROOT}/config/client.json" ]] || { echo APPROVED_CONFIG_MISSING >&2; return 65; }
+  profile="$(release_profile)"
+  prefix="$(release_asset)"
+  release_dir="${DJCONNECT_ROOT}/releases/$(release_id)"
+  if [[ -e "$release_dir" || -L "$release_dir" ]]; then
+    [[ ! -L "$release_dir" && -f "$(state_dir)/approved-artifact.sha256" && "$(cat "$(state_dir)/approved-artifact.sha256")" == "$APPROVED_ARTIFACT_SHA256" && -f "${release_dir}/SOURCE_COMMIT" && "$(cat "${release_dir}/SOURCE_COMMIT")" == "$APPROVED_SOURCE_SHA" ]] || { echo APPROVED_RELEASE_CONFLICT >&2; return 65; }
+  fi
+  # Seal into this process's root-private scratch before any service/installer effects.
+  # Verify the sealed bytes, not a later mutable caller path. Never use a remote checksum.
+  APPROVED_SEAL_DIR="$(mktemp -d)"
+  trap '[[ -z "$APPROVED_SEAL_DIR" ]] || rm -rf -- "$APPROVED_SEAL_DIR"' EXIT
+  cp -- "$APPROVED_ARTIFACT" "${APPROVED_SEAL_DIR}/artifact.tar.gz"
+  APPROVED_ARTIFACT="${APPROVED_SEAL_DIR}/artifact.tar.gz"
+  python3 - "$APPROVED_ARTIFACT" "$APPROVED_ARTIFACT_SHA256" "$APPROVED_SOURCE_SHA" "$(version)" "$profile" "$prefix" <<'PYVERIFY'
+import hashlib
+from pathlib import Path, PurePosixPath
+import sys
+import tarfile
+
+path, expected_hash, source, version, profile, prefix = sys.argv[1:]
+def need(condition):
+    if not condition:
+        raise ValueError('APPROVED_ARTIFACT_INVALID')
+try:
+    artifact = Path(path)
+    need(artifact.stat().st_size <= 33554432)
+    with artifact.open('rb') as stream:
+        need(hashlib.file_digest(stream, 'sha256').hexdigest() == expected_hash)
+    with tarfile.open(artifact, 'r:gz') as archive:
+        seen = set()
+        size = 0
+        for member in archive:
+            name = PurePosixPath(member.name)
+            need(not name.is_absolute() and '..' not in name.parts and '\\' not in member.name)
+            need(len(member.name.encode('utf-8')) <= 4096 and all(ord(c) >= 32 for c in member.name))
+            need(bool(name.parts) and name.parts[0] == prefix and name.as_posix() not in seen)
+            need(member.name == name.as_posix() or (member.isdir() and member.name == name.as_posix()+'/'))
+            need(member.isfile() or member.isdir())
+            seen.add(name.as_posix())
+            size += member.size
+            need(size <= 67108864 and len(seen) <= 4096)
+        for name, expected in [('VERSION', version), ('SOURCE_COMMIT', source), ('RELEASE_PROFILE', profile)]:
+            member = archive.getmember(prefix+'/'+name)
+            need(member.isfile() and member.size <= 128)
+            value = archive.extractfile(member).read(129).decode('ascii')
+            need(value == expected+'\n')
+except (AssertionError, OSError, ValueError, KeyError, tarfile.TarError, UnicodeError, EOFError):
+    raise SystemExit('APPROVED_ARTIFACT_INVALID') from None
+PYVERIFY
+}
+
+
+approved_config_digest() {
+  python3 - "${DJCONNECT_ROOT}/config/client.json" <<'PYCONFIG'
+import hashlib
+import json
+from pathlib import Path
+import sys
+try:
+    with Path(sys.argv[1]).open('rb') as stream:
+        raw = stream.read(2097153)
+    if len(raw) > 2097152:
+        raise ValueError
+    def pairs(items):
+        result = {}
+        for key, value in items:
+            if key in result:
+                raise ValueError
+            result[key] = value
+        return result
+    def nonfinite(_value):
+        raise ValueError
+    cfg = json.loads(raw, object_pairs_hook=pairs, parse_constant=nonfinite)
+    if not isinstance(cfg, dict):
+        raise ValueError
+    cfg.pop('release_profile', None)
+    print(hashlib.sha256(json.dumps(cfg, ensure_ascii=True, sort_keys=True, separators=(',', ':')).encode()).hexdigest())
+except (OSError, ValueError, TypeError, RecursionError):
+    raise SystemExit('APPROVED_CONFIG_INVALID') from None
+PYCONFIG
+}
+
 state_dir() {
   printf '%s\n' "${DJCONNECT_INSTALL_STATE}/$(release_id)"
 }
@@ -242,6 +348,7 @@ check_writable_paths() {
 }
 
 check_github_reachable() {
+  [[ -z "$APPROVED_ARTIFACT" ]] || return 0
   log "Checking GitHub release access"
   print_resources "before GitHub access check"
   local tag="v${DJCONNECT_VERSION#v}"
@@ -340,8 +447,13 @@ download_release() {
 
   log "Downloading DJConnect Pi ${tag}"
   print_resources "before release download"
-  curl -fsSL "https://github.com/${DJCONNECT_REPO}/releases/download/${tag}/$(release_asset).tar.gz" -o "${tmp}/release.tar.gz"
-  curl -fsSL "https://github.com/${DJCONNECT_REPO}/releases/download/${tag}/$(release_asset).sha256" -o "${tmp}/release.sha256"
+  if [[ -n "$APPROVED_ARTIFACT" ]]; then
+    cp -- "$APPROVED_ARTIFACT" "${tmp}/release.tar.gz"
+    printf '%s\n' "$APPROVED_ARTIFACT_SHA256" > "${tmp}/release.sha256"
+  else
+    curl -fsSL "https://github.com/${DJCONNECT_REPO}/releases/download/${tag}/$(release_asset).tar.gz" -o "${tmp}/release.tar.gz"
+    curl -fsSL "https://github.com/${DJCONNECT_REPO}/releases/download/${tag}/$(release_asset).sha256" -o "${tmp}/release.sha256"
+  fi
   print_resources "after release download"
   local expected_hash
   local actual_hash
@@ -360,6 +472,9 @@ download_release() {
   tar -xzf "${tmp}/release.tar.gz" -C "${DJCONNECT_ROOT}/releases/.$(release_id).tmp" --strip-components=1
   mv "${DJCONNECT_ROOT}/releases/.$(release_id).tmp" "$release_dir"
   mark_done "release_unpacked"
+  if [[ -n "$APPROVED_ARTIFACT" ]]; then
+    printf '%s\n' "$APPROVED_ARTIFACT_SHA256" > "$(state_dir)/approved-artifact.sha256"
+  fi
   print_resources "after release unpack"
 }
 
@@ -480,7 +595,7 @@ payload = {
     "device_name": "DJConnect Pi",
     "device_token": "",
     "paired": False,
-    "version": "4.0.0-rc.4",
+    "version": "4.0.0-rc.5",
     "update_repo": "pcvantol/djconnect-pi-releases",
     "update_channel": "stable",
     "release_profile": release_profile,
@@ -582,6 +697,9 @@ configure_xwrapper() {
 }
 
 main() {
+  parse_approved_input "$@"
+  verify_approved_release
+  if [[ -n "$APPROVED_ARTIFACT" ]]; then approved_config_digest >/dev/null; fi
   log "DJConnect Pi installer ${DJCONNECT_VERSION}"
   stop_running_updater_early
   stop_running_client_early
@@ -598,8 +716,17 @@ main() {
   check_github_reachable
   download_release
   install_python_dependencies
-  activate_release
-  write_initial_config
+  if [[ -n "$APPROVED_ARTIFACT" ]]; then
+    local config_before config_after
+    config_before="$(approved_config_digest)"
+    write_initial_config
+    config_after="$(approved_config_digest)"
+    [[ "$config_before" == "$config_after" ]] || { echo APPROVED_CONFIG_CHANGED >&2; return 65; }
+    activate_release
+  else
+    activate_release
+    write_initial_config
+  fi
   install_systemd_units
 
   log "DJConnect Pi installation complete"

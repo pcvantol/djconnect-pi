@@ -1,0 +1,17 @@
+{
+  "apple_design_pin": "e106a467011b9ea84d301a81c4e07251314cc6dd",
+  "core_producer_pin": "8b221d07fe2215d9516d18fe92c832332c7a16ab",
+  "source_sha256": {
+    "Sources/DJConnectUI/SessionTimelineScreen.swift": "23031742cc2d7fc5b3fdb704d0e049aa77a2f484c35ca676b6b0928efaf7f923",
+    "custom_components/djconnect/historical_projection_query.py": "5ece0136910e9fc9d01185aee7b8a0fea49bda213e2a033a38a817ad5ac0bf7a"
+  },
+  "change": "Current Flow places pending question/current-only reply before saved contributions and reverses only the admitted retained Flow presentation, matching pinned Apple Timeline lines510-525. Canonical ascending owner/controller model and chronological history destination are unchanged. No wire, rights, cache, expiry, context, receipt, selected-entry or source/media authority change.",
+  "qualification": "Actual card Y-order in five locales/two formats, canonical model order immutability, pending/current reply before visible saved rows, exact confirmed assistant-ID at12px focus, and existing same-ID/pixel return/withdrawal/touch tests. New current-only plus saved geometry join is explicitly synthetic and not additional producer authority.",
+  "limitations": [
+    "Current playback/header grouping remains Pi adaptation and a local open presentation gap",
+    "No complete native continuous/backward Flow claim or beforecursor",
+    "No broader private/standalone lifetime grant",
+    "No new ARM/installed/liveHA/Profile/physical acceptance"
+  ],
+  "prior_read_only_audit": "taskvisualizations/pi-flow-order-audit remains pinned to660cc151; this implementation follows it and does not rewrite its historical results"
+}

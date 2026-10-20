@@ -1,0 +1,842 @@
+[
+  {
+    "locale": "en",
+    "persona": "home_dj",
+    "now": 1792464300.0,
+    "projection": {
+      "contract_version": 1,
+      "session_id": "forecast-fixture-session",
+      "revision": 1,
+      "state": "ready",
+      "issued_at": "2026-10-20T02:45:00+00:00",
+      "valid_until": "2026-10-20T02:47:00+00:00",
+      "nominal_window_seconds": 900,
+      "supported_window_seconds": 900,
+      "current_anchor": {
+        "item_id": "observed-fixture-item",
+        "source_url": "https://open.spotify.com/track/0000000000000000000001"
+      },
+      "summary": "I can keep a steady thread around Observed artist, adding context when it helps.",
+      "sections": [
+        {
+          "id": "current",
+          "title": "Now",
+          "claim_type": "current",
+          "text": "Now playing: Observed track — Observed artist.",
+          "source_url": "https://open.spotify.com/track/0000000000000000000001"
+        },
+        {
+          "id": "guidance",
+          "title": "The coming minutes",
+          "claim_type": "intention",
+          "text": "I can keep a steady thread around Observed artist, adding context when it helps."
+        },
+        {
+          "id": "aim",
+          "title": "What I am aiming for",
+          "claim_type": "conditional_target",
+          "text": "The aim is a steady flow that can carry the current musical thread without rushing it."
+        }
+      ],
+      "imagery": []
+    }
+  },
+  {
+    "locale": "en",
+    "persona": "radio_dj",
+    "now": 1792464300.0,
+    "projection": {
+      "contract_version": 1,
+      "session_id": "forecast-fixture-session",
+      "revision": 1,
+      "state": "ready",
+      "issued_at": "2026-10-20T02:45:00+00:00",
+      "valid_until": "2026-10-20T02:47:00+00:00",
+      "nominal_window_seconds": 900,
+      "supported_window_seconds": 900,
+      "current_anchor": {
+        "item_id": "observed-fixture-item",
+        "source_url": "https://open.spotify.com/track/0000000000000000000001"
+      },
+      "summary": "A steady musical thread is the intention, with sourced context around Observed artist when useful.",
+      "sections": [
+        {
+          "id": "current",
+          "title": "Now",
+          "claim_type": "current",
+          "text": "Now playing: Observed track — Observed artist.",
+          "source_url": "https://open.spotify.com/track/0000000000000000000001"
+        },
+        {
+          "id": "guidance",
+          "title": "The coming minutes",
+          "claim_type": "intention",
+          "text": "A steady musical thread is the intention, with sourced context around Observed artist when useful."
+        },
+        {
+          "id": "aim",
+          "title": "What I am aiming for",
+          "claim_type": "conditional_target",
+          "text": "The aim is a steady flow that can carry the current musical thread without rushing it."
+        }
+      ],
+      "imagery": []
+    }
+  },
+  {
+    "locale": "en",
+    "persona": "club_dj",
+    "now": 1792464300.0,
+    "projection": {
+      "contract_version": 1,
+      "session_id": "forecast-fixture-session",
+      "revision": 1,
+      "state": "ready",
+      "issued_at": "2026-10-20T02:45:00+00:00",
+      "valid_until": "2026-10-20T02:47:00+00:00",
+      "nominal_window_seconds": 900,
+      "supported_window_seconds": 900,
+      "current_anchor": {
+        "item_id": "observed-fixture-item",
+        "source_url": "https://open.spotify.com/track/0000000000000000000001"
+      },
+      "summary": "Keep the thread steady: room for Observed artist, with a short detail only if it adds something.",
+      "sections": [
+        {
+          "id": "current",
+          "title": "Now",
+          "claim_type": "current",
+          "text": "Now playing: Observed track — Observed artist.",
+          "source_url": "https://open.spotify.com/track/0000000000000000000001"
+        },
+        {
+          "id": "guidance",
+          "title": "The coming minutes",
+          "claim_type": "intention",
+          "text": "Keep the thread steady: room for Observed artist, with a short detail only if it adds something."
+        },
+        {
+          "id": "aim",
+          "title": "What I am aiming for",
+          "claim_type": "conditional_target",
+          "text": "The aim is a steady flow that can carry the current musical thread without rushing it."
+        }
+      ],
+      "imagery": []
+    }
+  },
+  {
+    "locale": "en",
+    "persona": "festival_dj",
+    "now": 1792464300.0,
+    "projection": {
+      "contract_version": 1,
+      "session_id": "forecast-fixture-session",
+      "revision": 1,
+      "state": "ready",
+      "issued_at": "2026-10-20T02:45:00+00:00",
+      "valid_until": "2026-10-20T02:47:00+00:00",
+      "nominal_window_seconds": 900,
+      "supported_window_seconds": 900,
+      "current_anchor": {
+        "item_id": "observed-fixture-item",
+        "source_url": "https://open.spotify.com/track/0000000000000000000001"
+      },
+      "summary": "The aim is a steady thread, with Observed artist as the anchor and a clear detail when it fits.",
+      "sections": [
+        {
+          "id": "current",
+          "title": "Now",
+          "claim_type": "current",
+          "text": "Now playing: Observed track — Observed artist.",
+          "source_url": "https://open.spotify.com/track/0000000000000000000001"
+        },
+        {
+          "id": "guidance",
+          "title": "The coming minutes",
+          "claim_type": "intention",
+          "text": "The aim is a steady thread, with Observed artist as the anchor and a clear detail when it fits."
+        },
+        {
+          "id": "aim",
+          "title": "What I am aiming for",
+          "claim_type": "conditional_target",
+          "text": "The aim is a steady flow that can carry the current musical thread without rushing it."
+        }
+      ],
+      "imagery": []
+    }
+  },
+  {
+    "locale": "nl",
+    "persona": "home_dj",
+    "now": 1792464300.0,
+    "projection": {
+      "contract_version": 1,
+      "session_id": "forecast-fixture-session",
+      "revision": 1,
+      "state": "ready",
+      "issued_at": "2026-10-20T02:45:00+00:00",
+      "valid_until": "2026-10-20T02:47:00+00:00",
+      "nominal_window_seconds": 900,
+      "supported_window_seconds": 900,
+      "current_anchor": {
+        "item_id": "observed-fixture-item",
+        "source_url": "https://open.spotify.com/track/0000000000000000000001"
+      },
+      "summary": "Ik kan de draad rond Observed artist gelijkmatig houden en context toevoegen wanneer die helpt.",
+      "sections": [
+        {
+          "id": "current",
+          "title": "Nu",
+          "claim_type": "current",
+          "text": "Nu speelt: Observed track — Observed artist.",
+          "source_url": "https://open.spotify.com/track/0000000000000000000001"
+        },
+        {
+          "id": "guidance",
+          "title": "De komende minuten",
+          "claim_type": "intention",
+          "text": "Ik kan de draad rond Observed artist gelijkmatig houden en context toevoegen wanneer die helpt."
+        },
+        {
+          "id": "aim",
+          "title": "Waar ik op mik",
+          "claim_type": "conditional_target",
+          "text": "Het doel is een gelijkmatige flow die de huidige muzikale draad zonder haast kan dragen."
+        }
+      ],
+      "imagery": []
+    }
+  },
+  {
+    "locale": "nl",
+    "persona": "radio_dj",
+    "now": 1792464300.0,
+    "projection": {
+      "contract_version": 1,
+      "session_id": "forecast-fixture-session",
+      "revision": 1,
+      "state": "ready",
+      "issued_at": "2026-10-20T02:45:00+00:00",
+      "valid_until": "2026-10-20T02:47:00+00:00",
+      "nominal_window_seconds": 900,
+      "supported_window_seconds": 900,
+      "current_anchor": {
+        "item_id": "observed-fixture-item",
+        "source_url": "https://open.spotify.com/track/0000000000000000000001"
+      },
+      "summary": "Een gelijkmatige muzikale draad is het voornemen, met broncontext rond Observed artist wanneer die iets toevoegt.",
+      "sections": [
+        {
+          "id": "current",
+          "title": "Nu",
+          "claim_type": "current",
+          "text": "Nu speelt: Observed track — Observed artist.",
+          "source_url": "https://open.spotify.com/track/0000000000000000000001"
+        },
+        {
+          "id": "guidance",
+          "title": "De komende minuten",
+          "claim_type": "intention",
+          "text": "Een gelijkmatige muzikale draad is het voornemen, met broncontext rond Observed artist wanneer die iets toevoegt."
+        },
+        {
+          "id": "aim",
+          "title": "Waar ik op mik",
+          "claim_type": "conditional_target",
+          "text": "Het doel is een gelijkmatige flow die de huidige muzikale draad zonder haast kan dragen."
+        }
+      ],
+      "imagery": []
+    }
+  },
+  {
+    "locale": "nl",
+    "persona": "club_dj",
+    "now": 1792464300.0,
+    "projection": {
+      "contract_version": 1,
+      "session_id": "forecast-fixture-session",
+      "revision": 1,
+      "state": "ready",
+      "issued_at": "2026-10-20T02:45:00+00:00",
+      "valid_until": "2026-10-20T02:47:00+00:00",
+      "nominal_window_seconds": 900,
+      "supported_window_seconds": 900,
+      "current_anchor": {
+        "item_id": "observed-fixture-item",
+        "source_url": "https://open.spotify.com/track/0000000000000000000001"
+      },
+      "summary": "De draad gelijkmatig houden: ruimte voor Observed artist, met alleen een kort detail als dat iets toevoegt.",
+      "sections": [
+        {
+          "id": "current",
+          "title": "Nu",
+          "claim_type": "current",
+          "text": "Nu speelt: Observed track — Observed artist.",
+          "source_url": "https://open.spotify.com/track/0000000000000000000001"
+        },
+        {
+          "id": "guidance",
+          "title": "De komende minuten",
+          "claim_type": "intention",
+          "text": "De draad gelijkmatig houden: ruimte voor Observed artist, met alleen een kort detail als dat iets toevoegt."
+        },
+        {
+          "id": "aim",
+          "title": "Waar ik op mik",
+          "claim_type": "conditional_target",
+          "text": "Het doel is een gelijkmatige flow die de huidige muzikale draad zonder haast kan dragen."
+        }
+      ],
+      "imagery": []
+    }
+  },
+  {
+    "locale": "nl",
+    "persona": "festival_dj",
+    "now": 1792464300.0,
+    "projection": {
+      "contract_version": 1,
+      "session_id": "forecast-fixture-session",
+      "revision": 1,
+      "state": "ready",
+      "issued_at": "2026-10-20T02:45:00+00:00",
+      "valid_until": "2026-10-20T02:47:00+00:00",
+      "nominal_window_seconds": 900,
+      "supported_window_seconds": 900,
+      "current_anchor": {
+        "item_id": "observed-fixture-item",
+        "source_url": "https://open.spotify.com/track/0000000000000000000001"
+      },
+      "summary": "Het doel is een gelijkmatige draad, met Observed artist als anker en een helder detail wanneer het past.",
+      "sections": [
+        {
+          "id": "current",
+          "title": "Nu",
+          "claim_type": "current",
+          "text": "Nu speelt: Observed track — Observed artist.",
+          "source_url": "https://open.spotify.com/track/0000000000000000000001"
+        },
+        {
+          "id": "guidance",
+          "title": "De komende minuten",
+          "claim_type": "intention",
+          "text": "Het doel is een gelijkmatige draad, met Observed artist als anker en een helder detail wanneer het past."
+        },
+        {
+          "id": "aim",
+          "title": "Waar ik op mik",
+          "claim_type": "conditional_target",
+          "text": "Het doel is een gelijkmatige flow die de huidige muzikale draad zonder haast kan dragen."
+        }
+      ],
+      "imagery": []
+    }
+  },
+  {
+    "locale": "de",
+    "persona": "home_dj",
+    "now": 1792464300.0,
+    "projection": {
+      "contract_version": 1,
+      "session_id": "forecast-fixture-session",
+      "revision": 1,
+      "state": "ready",
+      "issued_at": "2026-10-20T02:45:00+00:00",
+      "valid_until": "2026-10-20T02:47:00+00:00",
+      "nominal_window_seconds": 900,
+      "supported_window_seconds": 900,
+      "current_anchor": {
+        "item_id": "observed-fixture-item",
+        "source_url": "https://open.spotify.com/track/0000000000000000000001"
+      },
+      "summary": "Ich kann den Faden um Observed artist gleichmäßig halten und Kontext ergänzen, wenn er hilft.",
+      "sections": [
+        {
+          "id": "current",
+          "title": "Jetzt",
+          "claim_type": "current",
+          "text": "Jetzt spielt: Observed track — Observed artist.",
+          "source_url": "https://open.spotify.com/track/0000000000000000000001"
+        },
+        {
+          "id": "guidance",
+          "title": "Die nächsten Minuten",
+          "claim_type": "intention",
+          "text": "Ich kann den Faden um Observed artist gleichmäßig halten und Kontext ergänzen, wenn er hilft."
+        },
+        {
+          "id": "aim",
+          "title": "Worauf ich abziele",
+          "claim_type": "conditional_target",
+          "text": "Das Ziel ist ein gleichmäßiger Fluss, der den aktuellen musikalischen Faden ohne Eile trägt."
+        }
+      ],
+      "imagery": []
+    }
+  },
+  {
+    "locale": "de",
+    "persona": "radio_dj",
+    "now": 1792464300.0,
+    "projection": {
+      "contract_version": 1,
+      "session_id": "forecast-fixture-session",
+      "revision": 1,
+      "state": "ready",
+      "issued_at": "2026-10-20T02:45:00+00:00",
+      "valid_until": "2026-10-20T02:47:00+00:00",
+      "nominal_window_seconds": 900,
+      "supported_window_seconds": 900,
+      "current_anchor": {
+        "item_id": "observed-fixture-item",
+        "source_url": "https://open.spotify.com/track/0000000000000000000001"
+      },
+      "summary": "Ein gleichmäßiger musikalischer Faden ist die Absicht, mit belegtem Kontext zu Observed artist, wenn er nützt.",
+      "sections": [
+        {
+          "id": "current",
+          "title": "Jetzt",
+          "claim_type": "current",
+          "text": "Jetzt spielt: Observed track — Observed artist.",
+          "source_url": "https://open.spotify.com/track/0000000000000000000001"
+        },
+        {
+          "id": "guidance",
+          "title": "Die nächsten Minuten",
+          "claim_type": "intention",
+          "text": "Ein gleichmäßiger musikalischer Faden ist die Absicht, mit belegtem Kontext zu Observed artist, wenn er nützt."
+        },
+        {
+          "id": "aim",
+          "title": "Worauf ich abziele",
+          "claim_type": "conditional_target",
+          "text": "Das Ziel ist ein gleichmäßiger Fluss, der den aktuellen musikalischen Faden ohne Eile trägt."
+        }
+      ],
+      "imagery": []
+    }
+  },
+  {
+    "locale": "de",
+    "persona": "club_dj",
+    "now": 1792464300.0,
+    "projection": {
+      "contract_version": 1,
+      "session_id": "forecast-fixture-session",
+      "revision": 1,
+      "state": "ready",
+      "issued_at": "2026-10-20T02:45:00+00:00",
+      "valid_until": "2026-10-20T02:47:00+00:00",
+      "nominal_window_seconds": 900,
+      "supported_window_seconds": 900,
+      "current_anchor": {
+        "item_id": "observed-fixture-item",
+        "source_url": "https://open.spotify.com/track/0000000000000000000001"
+      },
+      "summary": "Den Faden ruhig halten: Raum für Observed artist, ein kurzes Detail nur mit Mehrwert.",
+      "sections": [
+        {
+          "id": "current",
+          "title": "Jetzt",
+          "claim_type": "current",
+          "text": "Jetzt spielt: Observed track — Observed artist.",
+          "source_url": "https://open.spotify.com/track/0000000000000000000001"
+        },
+        {
+          "id": "guidance",
+          "title": "Die nächsten Minuten",
+          "claim_type": "intention",
+          "text": "Den Faden ruhig halten: Raum für Observed artist, ein kurzes Detail nur mit Mehrwert."
+        },
+        {
+          "id": "aim",
+          "title": "Worauf ich abziele",
+          "claim_type": "conditional_target",
+          "text": "Das Ziel ist ein gleichmäßiger Fluss, der den aktuellen musikalischen Faden ohne Eile trägt."
+        }
+      ],
+      "imagery": []
+    }
+  },
+  {
+    "locale": "de",
+    "persona": "festival_dj",
+    "now": 1792464300.0,
+    "projection": {
+      "contract_version": 1,
+      "session_id": "forecast-fixture-session",
+      "revision": 1,
+      "state": "ready",
+      "issued_at": "2026-10-20T02:45:00+00:00",
+      "valid_until": "2026-10-20T02:47:00+00:00",
+      "nominal_window_seconds": 900,
+      "supported_window_seconds": 900,
+      "current_anchor": {
+        "item_id": "observed-fixture-item",
+        "source_url": "https://open.spotify.com/track/0000000000000000000001"
+      },
+      "summary": "Das Ziel ist ein gleichmäßiger Faden, mit Observed artist als Anker und einem klaren Detail, wenn es passt.",
+      "sections": [
+        {
+          "id": "current",
+          "title": "Jetzt",
+          "claim_type": "current",
+          "text": "Jetzt spielt: Observed track — Observed artist.",
+          "source_url": "https://open.spotify.com/track/0000000000000000000001"
+        },
+        {
+          "id": "guidance",
+          "title": "Die nächsten Minuten",
+          "claim_type": "intention",
+          "text": "Das Ziel ist ein gleichmäßiger Faden, mit Observed artist als Anker und einem klaren Detail, wenn es passt."
+        },
+        {
+          "id": "aim",
+          "title": "Worauf ich abziele",
+          "claim_type": "conditional_target",
+          "text": "Das Ziel ist ein gleichmäßiger Fluss, der den aktuellen musikalischen Faden ohne Eile trägt."
+        }
+      ],
+      "imagery": []
+    }
+  },
+  {
+    "locale": "fr",
+    "persona": "home_dj",
+    "now": 1792464300.0,
+    "projection": {
+      "contract_version": 1,
+      "session_id": "forecast-fixture-session",
+      "revision": 1,
+      "state": "ready",
+      "issued_at": "2026-10-20T02:45:00+00:00",
+      "valid_until": "2026-10-20T02:47:00+00:00",
+      "nominal_window_seconds": 900,
+      "supported_window_seconds": 900,
+      "current_anchor": {
+        "item_id": "observed-fixture-item",
+        "source_url": "https://open.spotify.com/track/0000000000000000000001"
+      },
+      "summary": "Je peux garder un fil régulier autour de Observed artist, avec du contexte lorsqu’il est utile.",
+      "sections": [
+        {
+          "id": "current",
+          "title": "Maintenant",
+          "claim_type": "current",
+          "text": "En ce moment : Observed track — Observed artist.",
+          "source_url": "https://open.spotify.com/track/0000000000000000000001"
+        },
+        {
+          "id": "guidance",
+          "title": "Les prochaines minutes",
+          "claim_type": "intention",
+          "text": "Je peux garder un fil régulier autour de Observed artist, avec du contexte lorsqu’il est utile."
+        },
+        {
+          "id": "aim",
+          "title": "Ce que je vise",
+          "claim_type": "conditional_target",
+          "text": "L’objectif est un mouvement régulier qui prolonge le fil musical actuel sans le presser."
+        }
+      ],
+      "imagery": []
+    }
+  },
+  {
+    "locale": "fr",
+    "persona": "radio_dj",
+    "now": 1792464300.0,
+    "projection": {
+      "contract_version": 1,
+      "session_id": "forecast-fixture-session",
+      "revision": 1,
+      "state": "ready",
+      "issued_at": "2026-10-20T02:45:00+00:00",
+      "valid_until": "2026-10-20T02:47:00+00:00",
+      "nominal_window_seconds": 900,
+      "supported_window_seconds": 900,
+      "current_anchor": {
+        "item_id": "observed-fixture-item",
+        "source_url": "https://open.spotify.com/track/0000000000000000000001"
+      },
+      "summary": "Un fil musical régulier est l’intention, avec du contexte sourcé autour de Observed artist lorsqu’il apporte quelque chose.",
+      "sections": [
+        {
+          "id": "current",
+          "title": "Maintenant",
+          "claim_type": "current",
+          "text": "En ce moment : Observed track — Observed artist.",
+          "source_url": "https://open.spotify.com/track/0000000000000000000001"
+        },
+        {
+          "id": "guidance",
+          "title": "Les prochaines minutes",
+          "claim_type": "intention",
+          "text": "Un fil musical régulier est l’intention, avec du contexte sourcé autour de Observed artist lorsqu’il apporte quelque chose."
+        },
+        {
+          "id": "aim",
+          "title": "Ce que je vise",
+          "claim_type": "conditional_target",
+          "text": "L’objectif est un mouvement régulier qui prolonge le fil musical actuel sans le presser."
+        }
+      ],
+      "imagery": []
+    }
+  },
+  {
+    "locale": "fr",
+    "persona": "club_dj",
+    "now": 1792464300.0,
+    "projection": {
+      "contract_version": 1,
+      "session_id": "forecast-fixture-session",
+      "revision": 1,
+      "state": "ready",
+      "issued_at": "2026-10-20T02:45:00+00:00",
+      "valid_until": "2026-10-20T02:47:00+00:00",
+      "nominal_window_seconds": 900,
+      "supported_window_seconds": 900,
+      "current_anchor": {
+        "item_id": "observed-fixture-item",
+        "source_url": "https://open.spotify.com/track/0000000000000000000001"
+      },
+      "summary": "Garder le fil régulier : de la place pour Observed artist, un bref détail seulement s’il apporte quelque chose.",
+      "sections": [
+        {
+          "id": "current",
+          "title": "Maintenant",
+          "claim_type": "current",
+          "text": "En ce moment : Observed track — Observed artist.",
+          "source_url": "https://open.spotify.com/track/0000000000000000000001"
+        },
+        {
+          "id": "guidance",
+          "title": "Les prochaines minutes",
+          "claim_type": "intention",
+          "text": "Garder le fil régulier : de la place pour Observed artist, un bref détail seulement s’il apporte quelque chose."
+        },
+        {
+          "id": "aim",
+          "title": "Ce que je vise",
+          "claim_type": "conditional_target",
+          "text": "L’objectif est un mouvement régulier qui prolonge le fil musical actuel sans le presser."
+        }
+      ],
+      "imagery": []
+    }
+  },
+  {
+    "locale": "fr",
+    "persona": "festival_dj",
+    "now": 1792464300.0,
+    "projection": {
+      "contract_version": 1,
+      "session_id": "forecast-fixture-session",
+      "revision": 1,
+      "state": "ready",
+      "issued_at": "2026-10-20T02:45:00+00:00",
+      "valid_until": "2026-10-20T02:47:00+00:00",
+      "nominal_window_seconds": 900,
+      "supported_window_seconds": 900,
+      "current_anchor": {
+        "item_id": "observed-fixture-item",
+        "source_url": "https://open.spotify.com/track/0000000000000000000001"
+      },
+      "summary": "L’objectif est un fil régulier, avec Observed artist comme repère et un détail clair lorsqu’il convient.",
+      "sections": [
+        {
+          "id": "current",
+          "title": "Maintenant",
+          "claim_type": "current",
+          "text": "En ce moment : Observed track — Observed artist.",
+          "source_url": "https://open.spotify.com/track/0000000000000000000001"
+        },
+        {
+          "id": "guidance",
+          "title": "Les prochaines minutes",
+          "claim_type": "intention",
+          "text": "L’objectif est un fil régulier, avec Observed artist comme repère et un détail clair lorsqu’il convient."
+        },
+        {
+          "id": "aim",
+          "title": "Ce que je vise",
+          "claim_type": "conditional_target",
+          "text": "L’objectif est un mouvement régulier qui prolonge le fil musical actuel sans le presser."
+        }
+      ],
+      "imagery": []
+    }
+  },
+  {
+    "locale": "es",
+    "persona": "home_dj",
+    "now": 1792464300.0,
+    "projection": {
+      "contract_version": 1,
+      "session_id": "forecast-fixture-session",
+      "revision": 1,
+      "state": "ready",
+      "issued_at": "2026-10-20T02:45:00+00:00",
+      "valid_until": "2026-10-20T02:47:00+00:00",
+      "nominal_window_seconds": 900,
+      "supported_window_seconds": 900,
+      "current_anchor": {
+        "item_id": "observed-fixture-item",
+        "source_url": "https://open.spotify.com/track/0000000000000000000001"
+      },
+      "summary": "Puedo mantener un hilo constante alrededor de Observed artist, con contexto cuando ayude.",
+      "sections": [
+        {
+          "id": "current",
+          "title": "Ahora",
+          "claim_type": "current",
+          "text": "Ahora suena: Observed track — Observed artist.",
+          "source_url": "https://open.spotify.com/track/0000000000000000000001"
+        },
+        {
+          "id": "guidance",
+          "title": "Los próximos minutos",
+          "claim_type": "intention",
+          "text": "Puedo mantener un hilo constante alrededor de Observed artist, con contexto cuando ayude."
+        },
+        {
+          "id": "aim",
+          "title": "Lo que busco",
+          "claim_type": "conditional_target",
+          "text": "El objetivo es un flujo constante que sostenga el hilo musical actual sin apresurarlo."
+        }
+      ],
+      "imagery": []
+    }
+  },
+  {
+    "locale": "es",
+    "persona": "radio_dj",
+    "now": 1792464300.0,
+    "projection": {
+      "contract_version": 1,
+      "session_id": "forecast-fixture-session",
+      "revision": 1,
+      "state": "ready",
+      "issued_at": "2026-10-20T02:45:00+00:00",
+      "valid_until": "2026-10-20T02:47:00+00:00",
+      "nominal_window_seconds": 900,
+      "supported_window_seconds": 900,
+      "current_anchor": {
+        "item_id": "observed-fixture-item",
+        "source_url": "https://open.spotify.com/track/0000000000000000000001"
+      },
+      "summary": "Un hilo musical constante es la intención, con contexto fundamentado sobre Observed artist cuando aporte algo.",
+      "sections": [
+        {
+          "id": "current",
+          "title": "Ahora",
+          "claim_type": "current",
+          "text": "Ahora suena: Observed track — Observed artist.",
+          "source_url": "https://open.spotify.com/track/0000000000000000000001"
+        },
+        {
+          "id": "guidance",
+          "title": "Los próximos minutos",
+          "claim_type": "intention",
+          "text": "Un hilo musical constante es la intención, con contexto fundamentado sobre Observed artist cuando aporte algo."
+        },
+        {
+          "id": "aim",
+          "title": "Lo que busco",
+          "claim_type": "conditional_target",
+          "text": "El objetivo es un flujo constante que sostenga el hilo musical actual sin apresurarlo."
+        }
+      ],
+      "imagery": []
+    }
+  },
+  {
+    "locale": "es",
+    "persona": "club_dj",
+    "now": 1792464300.0,
+    "projection": {
+      "contract_version": 1,
+      "session_id": "forecast-fixture-session",
+      "revision": 1,
+      "state": "ready",
+      "issued_at": "2026-10-20T02:45:00+00:00",
+      "valid_until": "2026-10-20T02:47:00+00:00",
+      "nominal_window_seconds": 900,
+      "supported_window_seconds": 900,
+      "current_anchor": {
+        "item_id": "observed-fixture-item",
+        "source_url": "https://open.spotify.com/track/0000000000000000000001"
+      },
+      "summary": "Mantener el hilo constante: espacio para Observed artist, un detalle breve solo si aporta algo.",
+      "sections": [
+        {
+          "id": "current",
+          "title": "Ahora",
+          "claim_type": "current",
+          "text": "Ahora suena: Observed track — Observed artist.",
+          "source_url": "https://open.spotify.com/track/0000000000000000000001"
+        },
+        {
+          "id": "guidance",
+          "title": "Los próximos minutos",
+          "claim_type": "intention",
+          "text": "Mantener el hilo constante: espacio para Observed artist, un detalle breve solo si aporta algo."
+        },
+        {
+          "id": "aim",
+          "title": "Lo que busco",
+          "claim_type": "conditional_target",
+          "text": "El objetivo es un flujo constante que sostenga el hilo musical actual sin apresurarlo."
+        }
+      ],
+      "imagery": []
+    }
+  },
+  {
+    "locale": "es",
+    "persona": "festival_dj",
+    "now": 1792464300.0,
+    "projection": {
+      "contract_version": 1,
+      "session_id": "forecast-fixture-session",
+      "revision": 1,
+      "state": "ready",
+      "issued_at": "2026-10-20T02:45:00+00:00",
+      "valid_until": "2026-10-20T02:47:00+00:00",
+      "nominal_window_seconds": 900,
+      "supported_window_seconds": 900,
+      "current_anchor": {
+        "item_id": "observed-fixture-item",
+        "source_url": "https://open.spotify.com/track/0000000000000000000001"
+      },
+      "summary": "El objetivo es un hilo constante, con Observed artist como referencia y un detalle claro cuando encaje.",
+      "sections": [
+        {
+          "id": "current",
+          "title": "Ahora",
+          "claim_type": "current",
+          "text": "Ahora suena: Observed track — Observed artist.",
+          "source_url": "https://open.spotify.com/track/0000000000000000000001"
+        },
+        {
+          "id": "guidance",
+          "title": "Los próximos minutos",
+          "claim_type": "intention",
+          "text": "El objetivo es un hilo constante, con Observed artist como referencia y un detalle claro cuando encaje."
+        },
+        {
+          "id": "aim",
+          "title": "Lo que busco",
+          "claim_type": "conditional_target",
+          "text": "El objetivo es un flujo constante que sostenga el hilo musical actual sin apresurarlo."
+        }
+      ],
+      "imagery": []
+    }
+  }
+]

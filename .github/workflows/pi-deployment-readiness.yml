@@ -1,45 +1,109 @@
-name: Pi deployment readiness
+name: Pi two-instance deployment readiness
+
+run-name: "Pi readiness / ${{ inputs.deployment_instance }} / ${{ inputs.manifest_id }}"
 
 on:
   workflow_dispatch:
     inputs:
-      manifest_id: {required: true, type: string}
+      action:
+        required: true
+        type: choice
+        options: ["deployment"]
+      execution_mode:
+        required: true
+        type: choice
+        options: ["execute"]
       candidate_sha: {required: true, type: string}
+      manifest_id: {required: true, type: string}
       artifact_id: {required: true, type: string}
       artifact_sha256: {required: true, type: string}
+      target:
+        required: true
+        type: choice
+        options: ["rbpi-djconnect"]
+      platform_version:
+        required: true
+        type: choice
+        options: ["4.0"]
+      release_profile:
+        required: true
+        type: choice
+        options: ["INTERNAL_RELEASE"]
+      deployment_instance:
+        required: true
+        type: choice
+        options: ["wall-4inch", "wall-10inch"]
+      device_profile:
+        required: true
+        type: choice
+        options: ["pi-zero-2w-arm64", "pi5-arm64"]
+      inventory_sha256: {required: true, type: string}
 
 permissions:
   contents: read
+  actions: read
+  statuses: write
+
+concurrency:
+  group: pi-rc5-readiness-${{ inputs.deployment_instance }}
+  cancel-in-progress: false
 
 jobs:
-  readiness:
-    runs-on: [self-hosted, macOS]
+  software-assurance-governance:
+    permissions:
+      contents: read
+    uses: pcvantol/djconnect/.github/workflows/software-assurance-governance.yml@dd02d6470f061e6e755e6fb47ae5331c34f89875
+    with:
+      execution_profile: release
+      owner: pcvantol/djconnect-pi
+
+  instance:
+    needs: software-assurance-governance
+    # Qualified deployment relay, never a source-build job. Closed existing SSH configuration.
+    runs-on: [self-hosted, macOS, ARM64, internal-release, private-network-deployment]
+    timeout-minutes: 25
     env:
-      PI_HOST: ${{ secrets.DJCONNECT_PI_SSH_HOST }}
-      PI_USER: ${{ vars.DJCONNECT_PI_SSH_USER || 'pi' }}
-      PI_PORT: ${{ vars.DJCONNECT_PI_SSH_PORT || '22' }}
-      SSH_PRIVATE_KEY: ${{ secrets.DJCONNECT_PI_SSH_PRIVATE_KEY }}
-      SSH_KNOWN_HOSTS: ${{ secrets.DJCONNECT_PI_SSH_KNOWN_HOSTS }}
+      GH_TOKEN: ${{ github.token }}
+      PI_INPUTS_JSON: ${{ toJSON(inputs) }}
+      PI_RC5_OPERATIONAL_CORE_SHA: ${{ vars.PI_RC5_OPERATIONAL_CORE_SHA }}
+      PI_RC5_OPERATIONAL_MANIFEST_SHA256: ${{ vars.PI_RC5_OPERATIONAL_MANIFEST_SHA256 }}
     steps:
-      - name: Validate approved Pi manifest binding
-        env:
-          MANIFEST_ID: ${{ inputs.manifest_id }}
-          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
-          ARTIFACT_ID: ${{ inputs.artifact_id }}
-          ARTIFACT_SHA256: ${{ inputs.artifact_sha256 }}
+      - name: Checkout exact consumer
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: Set up isolated deployment tooling
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.14"
+      - name: Install exact deployment-tool dependencies
         run: |
-          set -euo pipefail
-          manifest="$(mktemp)"; trap 'rm -f "$manifest"' EXIT
-          curl --fail --silent --show-error --location https://raw.githubusercontent.com/pcvantol/djconnect/main/docs/release/PLATFORM_3_3_CURRENT_MAIN_MANIFEST_PROPOSAL.json --output "$manifest"
-          test "$(jq -r '.status' "$manifest")" = APPROVED_DEPLOYMENT_DISPATCH_PENDING
-          test "$(jq -r '.approval.state' "$manifest")" = APPROVED
-          test "$(jq -r '.manifest_id' "$manifest")" = "$MANIFEST_ID"
-          jq -e --arg sha "$CANDIDATE_SHA" '.repositories[] | select(.repository == "pcvantol/djconnect-pi" and .source_sha == $sha)' "$manifest" >/dev/null
-          jq -e --arg artifact "$ARTIFACT_ID" --arg sha "$ARTIFACT_SHA256" '.artifact_bindings[] | select(.target == "rbpi-djconnect" and .artifact_id == $artifact and .artifact_sha256 == $sha)' "$manifest" >/dev/null
-      - name: Verify SSH readiness without mutation
+          python -m pip install --only-binary=:all: --requirement Tools/pi_deployment_requirements.lock
+      - name: Require approved operational manifest source
         run: |
-          set -euo pipefail
-          test -n "$PI_HOST" && test -n "$SSH_PRIVATE_KEY" && test -n "$SSH_KNOWN_HOSTS"
-          key="$(mktemp)"; hosts="$(mktemp)"; trap 'rm -f "$key" "$hosts"' EXIT
-          printf '%s\n' "$SSH_PRIVATE_KEY" > "$key"; printf '%s\n' "$SSH_KNOWN_HOSTS" > "$hosts"; chmod 600 "$key" "$hosts"
-          ssh -i "$key" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$hosts" -p "$PI_PORT" "$PI_USER@$PI_HOST" 'set -euo pipefail; hostname; cat /opt/djconnect/current/VERSION; /opt/djconnect/current/bin/djconnect-pi-updater --help >/dev/null'
+          python -m Tools.pi_instance_release --operation readiness --prepare
+      - name: Canonical deployment readiness preflight
+        uses: pcvantol/djconnect/.github/actions/deployment-readiness-preflight@9b40f422911f08c2076b11e49eb21e98ae5eaa1a
+        with:
+          target: ${{ inputs.target }}
+          manifest_id: ${{ inputs.manifest_id }}
+          candidate_sha: ${{ inputs.candidate_sha }}
+          artifact_id: ${{ inputs.artifact_id }}
+          artifact_sha256: ${{ inputs.artifact_sha256 }}
+          expected_runner_os: macOS
+          expected_runner_arch: ARM64
+          required_configuration: PI_INSTANCE_ENDPOINT_REF,PI_INSTANCE_SSH_CONFIG,GH_TOKEN,PI_RC5_OPERATIONAL_CORE_SHA,PI_RC5_OPERATIONAL_MANIFEST_SHA256
+          smoke_contract: pi-rc5-instance-readback-v1
+      - name: Record successful canonical preflight
+        run: |
+          echo "PI_CANONICAL_PREFLIGHT_PASSED=true" >> "$GITHUB_ENV"
+      - name: Verify fresh instance identity without mutation
+        run: |
+          python -m Tools.pi_instance_release --operation readiness
+      - name: Preserve redacted instance evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: pi-readiness-evidence-${{ inputs.deployment_instance }}
+          path: ${{ runner.temp }}/pi-qualified-instance-${{ github.run_id }}-${{ github.run_attempt }}/pi-readiness-evidence.json
+          if-no-files-found: warn

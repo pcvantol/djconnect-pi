@@ -1,467 +1,126 @@
-name: Deploy Qualified Pi Release
+name: Deploy Qualified Pi Instance
+
+run-name: "Pi deploy / ${{ inputs.deployment_instance }} / ${{ inputs.manifest_id }}"
 
 on:
   workflow_dispatch:
     inputs:
       action:
-        description: "Must be deployment."
         required: true
         type: choice
-        options: [deployment]
-      candidate_sha:
-        description: "Exact qualified source main SHA."
-        required: true
-        type: string
-      artifact_id:
-        description: "Exact immutable Pi artifact identifier from the approved manifest."
-        required: true
-        type: string
-      artifact_sha256:
-        description: "SHA-256 of the exact immutable Pi artifact from the approved manifest."
-        required: true
-        type: string
+        options: ["deployment"]
       execution_mode:
-        description: "Must be execute."
         required: true
         type: choice
-        options: [execute]
-      manifest_id:
-        description: "Immutable Pi release manifest identifier, for example pi-v3.3.0."
-        required: true
-        type: string
-      platform_version:
-        description: "Platform Major.Minor version, for example 3.3."
-        required: true
-        type: string
-      release_profile:
-        description: "Supported release profile."
-        required: true
-        type: choice
-        options: [INTERNAL_RELEASE]
+        options: ["execute"]
+      candidate_sha: {required: true, type: string}
+      manifest_id: {required: true, type: string}
+      artifact_id: {required: true, type: string}
+      artifact_sha256: {required: true, type: string}
       target:
-        description: "Manifest-allowlisted deployment target class."
         required: true
         type: choice
-        options: [rbpi-djconnect]
-      timeout_seconds:
-        description: "Maximum time to wait for the target updater."
-        required: false
-        default: "1800"
-        type: string
+        options: ["rbpi-djconnect"]
+      platform_version:
+        required: true
+        type: choice
+        options: ["4.0"]
+      release_profile:
+        required: true
+        type: choice
+        options: ["INTERNAL_RELEASE"]
+      deployment_instance:
+        required: true
+        type: choice
+        options: ["wall-4inch", "wall-10inch"]
+      device_profile:
+        required: true
+        type: choice
+        options: ["pi-zero-2w-arm64", "pi5-arm64"]
+      inventory_sha256: {required: true, type: string}
 
 permissions:
   contents: read
+  actions: read
+  statuses: write
 
 concurrency:
-  group: pi-qualified-release-deployment-${{ inputs.manifest_id }}
+  group: pi-rc5-mutation-${{ inputs.deployment_instance }}
   cancel-in-progress: false
 
 jobs:
-  authorize:
-    name: Authorize qualified Pi deployment
-    runs-on: ubuntu-latest
-    outputs:
-      release_version: ${{ steps.contract.outputs.release_version }}
-      artifact_id: ${{ steps.contract.outputs.artifact_id }}
-      artifact_sha256: ${{ steps.contract.outputs.artifact_sha256 }}
-      release_tag: ${{ steps.contract.outputs.release_tag }}
-      target: ${{ steps.contract.outputs.target }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5
-        with:
-          ref: main
-          fetch-depth: 0
-      - id: contract
-        name: Validate exact source evidence and published artifact
-        env:
-          ACTION: ${{ inputs.action }}
-          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
-          ARTIFACT_ID: ${{ inputs.artifact_id }}
-          ARTIFACT_SHA256: ${{ inputs.artifact_sha256 }}
-          EXECUTION_MODE: ${{ inputs.execution_mode }}
-          MANIFEST_ID: ${{ inputs.manifest_id }}
-          PLATFORM_VERSION: ${{ inputs.platform_version }}
-          RELEASE_PROFILE: ${{ inputs.release_profile }}
-          TARGET: ${{ inputs.target }}
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          test "${ACTION}" = "deployment"
-          test "${EXECUTION_MODE}" = "execute"
-          test "${RELEASE_PROFILE}" = "INTERNAL_RELEASE"
-          test "${TARGET}" = "rbpi-djconnect"
-          [[ "${CANDIDATE_SHA}" =~ ^[0-9a-f]{40}$ ]]
-          [[ "${ARTIFACT_ID}" =~ ^release-asset:pcvantol/djconnect-pi-releases:v([0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?):djconnect-pi-([0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?)\.tar\.gz$ ]]
-          release_version="${BASH_REMATCH[1]}"
-          test "${BASH_REMATCH[3]}" = "${release_version}"
-          [[ "${ARTIFACT_SHA256}" =~ ^[0-9a-f]{64}$ ]]
-          [[ "${PLATFORM_VERSION}" =~ ^[0-9]+\.[0-9]+$ ]]
-          [[ "${MANIFEST_ID}" =~ ^release-[A-Za-z0-9._-]+$ ]]
-          release_tag="v${release_version}"
-          release_platform_version="$(cut -d. -f1,2 <<< "${release_version}")"
-          test "${PLATFORM_VERSION}" = "${release_platform_version}"
-          distribution_artifact_id="djconnect-pi-${release_version}.tar.gz"
-          distribution_manifest_id="pi-v${release_version}"
-          export RELEASE_VERSION="${release_version}"
-          export RELEASE_TAG="${release_tag}"
-          export DISTRIBUTION_ARTIFACT_ID="${distribution_artifact_id}"
-          export DISTRIBUTION_MANIFEST_ID="${distribution_manifest_id}"
-          git cat-file -e "${CANDIDATE_SHA}^{commit}"
-          git merge-base --is-ancestor "${CANDIDATE_SHA}" origin/main
-          gh api "repos/${GITHUB_REPOSITORY}/commits/${CANDIDATE_SHA}/status" \
-            --jq '.statuses[] | select(.context == "Post-Merge Release Evidence / Reconcile release evidence" and .state == "success" and .description == "POST_MERGE_RELEASE_EVIDENCE_QUALIFIED") | .context' \
-            | grep -Fx 'Post-Merge Release Evidence / Reconcile release evidence'
-
-          workdir="$(mktemp -d)"
-          trap 'rm -rf "${workdir}"' EXIT
-          base="https://github.com/pcvantol/djconnect-pi-releases/releases/download/${release_tag}"
-          curl --fail-with-body --location --silent --show-error \
-            "${base}/djconnect-pi-${release_version}-release-manifest.json" \
-            --output "${workdir}/release-manifest.json"
-          curl --fail-with-body --location --silent --show-error \
-            "${base}/djconnect-pi-${release_version}.tar.gz" --output "${workdir}/release.tar.gz"
-          curl --fail-with-body --location --silent --show-error \
-            "${base}/djconnect-pi-${release_version}.sha256" --output "${workdir}/release.sha256"
-          actual_sha256="$(sha256sum "${workdir}/release.tar.gz" | awk '{print $1}')"
-          checksum_sha256="$(awk 'NR == 1 {print $1}' "${workdir}/release.sha256")"
-          python3 - "${workdir}/release-manifest.json" "${actual_sha256}" "${checksum_sha256}" <<'PY'
-          import json
-          import os
-          import re
-          import sys
-
-          manifest = json.load(open(sys.argv[1], encoding="utf-8"))
-          expected = {
-              "schema_version": 1,
-              "kind": "djconnect_pi_release_artifact",
-              "manifest_id": os.environ["DISTRIBUTION_MANIFEST_ID"],
-              "candidate_sha": os.environ["CANDIDATE_SHA"],
-              "platform_version": os.environ["PLATFORM_VERSION"],
-              "version": os.environ["RELEASE_VERSION"],
-              "release_tag": os.environ["RELEASE_TAG"],
-              "artifact_id": os.environ["DISTRIBUTION_ARTIFACT_ID"],
-              "target": os.environ["TARGET"],
-          }
-          for key, value in expected.items():
-              if manifest.get(key) != value:
-                  raise SystemExit(f"Release manifest {key} does not match the approved deployment request")
-          for key, value in {
-              "artifact_sha256": os.environ["ARTIFACT_SHA256"],
-              "checksum_sha256": os.environ["ARTIFACT_SHA256"],
-          }.items():
-              if not re.fullmatch(r"[0-9a-f]{64}", value) or manifest.get(key) != value:
-                  raise SystemExit(f"Release manifest {key} does not match the downloaded artifact")
-          if sys.argv[2] != os.environ["ARTIFACT_SHA256"] or sys.argv[3] != os.environ["ARTIFACT_SHA256"]:
-              raise SystemExit("Downloaded artifact checksum does not match the approved deployment request")
-          PY
-          {
-            echo "release_version=${release_version}"
-            echo "release_tag=${release_tag}"
-            echo "artifact_id=${ARTIFACT_ID}"
-            echo "artifact_sha256=${actual_sha256}"
-            echo "target=${TARGET}"
-          } >> "${GITHUB_OUTPUT}"
-
-      - name: Require approved operational manifest source
-        shell: bash
-        env:
-          MANIFEST_ID: ${{ inputs.manifest_id }}
-          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
-          ARTIFACT_ID: ${{ inputs.artifact_id }}
-          ARTIFACT_SHA256: ${{ inputs.artifact_sha256 }}
-          TARGET: ${{ inputs.target }}
-          RELEASE_PROFILE: ${{ inputs.release_profile }}
-        run: |
-          set -euo pipefail
-          manifest="$(mktemp)"
-          trap 'rm -f "$manifest"' EXIT
-          curl --fail --silent --show-error --location \
-            https://raw.githubusercontent.com/pcvantol/djconnect/main/docs/release/PLATFORM_4_0_RC1_PI_OPERATIONAL_MANIFEST.json \
-            --output "$manifest"
-          test "$(jq -r '.status' "$manifest")" = APPROVED_DEPLOYMENT_DISPATCH_PENDING
-          test "$(jq -r '.approval.state' "$manifest")" = APPROVED
-          test "$(jq -r '.manifest_id' "$manifest")" = "$MANIFEST_ID"
-          test "$(jq -r '.release_profile' "$manifest")" = "$RELEASE_PROFILE"
-          jq -e --arg sha "$CANDIDATE_SHA" '.repositories[] | select(.repository == "pcvantol/djconnect-pi" and .source_sha == $sha)' "$manifest" >/dev/null
-          jq -e --arg target "$TARGET" --arg artifact "$ARTIFACT_ID" --arg sha "$ARTIFACT_SHA256" \
-            '.artifact_bindings[] | select(.target == $target and .artifact_id == $artifact and .artifact_sha256 == $sha)' "$manifest" >/dev/null
-
-  deploy:
-    name: Deploy authorized Pi artifact
-    needs: authorize
+  software-assurance-governance:
     permissions:
       contents: read
-      statuses: write
-    # This is a deployment relay, never a source-build job. The qualified
-    # macOS runner is the only approved GitHub Actions path to the private Pi
-    # network and receives target credentials only in this job.
-    runs-on: [self-hosted, macOS]
+    uses: pcvantol/djconnect/.github/workflows/software-assurance-governance.yml@dd02d6470f061e6e755e6fb47ae5331c34f89875
+    with:
+      execution_profile: release
+      owner: pcvantol/djconnect-pi
+
+  instance:
+    needs: software-assurance-governance
+    # Qualified deployment relay, never a source-build job. Closed existing SSH configuration.
+    runs-on: [self-hosted, macOS, ARM64, internal-release, private-network-deployment]
+    timeout-minutes: 25
     env:
-      RELEASE_REPO: pcvantol/djconnect-pi-releases
-      PI_HOST: ${{ secrets.DJCONNECT_PI_SSH_HOST }}
-      PI_USER: ${{ vars.DJCONNECT_PI_SSH_USER || 'pi' }}
-      PI_PORT: ${{ vars.DJCONNECT_PI_SSH_PORT || '22' }}
-      TIMEOUT_SECONDS: ${{ inputs.timeout_seconds }}
-      RELEASE_VERSION: ${{ needs.authorize.outputs.release_version }}
-      ARTIFACT_ID: ${{ needs.authorize.outputs.artifact_id }}
-      ARTIFACT_SHA256: ${{ needs.authorize.outputs.artifact_sha256 }}
-      TARGET: ${{ needs.authorize.outputs.target }}
-      SSH_PRIVATE_KEY: ${{ secrets.DJCONNECT_PI_SSH_PRIVATE_KEY }}
-      SSH_KNOWN_HOSTS: ${{ secrets.DJCONNECT_PI_SSH_KNOWN_HOSTS }}
+      GH_TOKEN: ${{ github.token }}
+      PI_INPUTS_JSON: ${{ toJSON(inputs) }}
+      PI_RC5_OPERATIONAL_CORE_SHA: ${{ vars.PI_RC5_OPERATIONAL_CORE_SHA }}
+      PI_RC5_OPERATIONAL_MANIFEST_SHA256: ${{ vars.PI_RC5_OPERATIONAL_MANIFEST_SHA256 }}
     steps:
-      - name: Materialize target-scoped SSH credentials
-        id: ssh
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -n "${PI_HOST}"
-          [[ "${PI_PORT}" =~ ^[0-9]{1,5}$ ]]
-          test -n "${SSH_PRIVATE_KEY}"
-          test -n "${SSH_KNOWN_HOSTS}"
-          key_file="${RUNNER_TEMP}/djconnect-pi-deployment-key"
-          known_hosts_file="${RUNNER_TEMP}/djconnect-pi-known-hosts"
-          printf '%s\n' "${SSH_PRIVATE_KEY}" > "${key_file}"
-          printf '%s\n' "${SSH_KNOWN_HOSTS}" > "${known_hosts_file}"
-          chmod 600 "${key_file}" "${known_hosts_file}"
-          echo "key_file=${key_file}" >> "${GITHUB_OUTPUT}"
-          echo "known_hosts_file=${known_hosts_file}" >> "${GITHUB_OUTPUT}"
-
-      - name: Check target capability and current version
-        shell: bash
-        env:
-          SSH_KEY_FILE: ${{ steps.ssh.outputs.key_file }}
-          SSH_KNOWN_HOSTS_FILE: ${{ steps.ssh.outputs.known_hosts_file }}
-        run: |
-          set -euo pipefail
-          ssh_opts=(-i "${SSH_KEY_FILE}" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=${SSH_KNOWN_HOSTS_FILE}" -p "${PI_PORT}")
-          ssh "${ssh_opts[@]}" "${PI_USER}@${PI_HOST}" \
-            'set -euo pipefail
-             echo "host=$(hostname)"
-             echo "current_version=$(cat /opt/djconnect/current/VERSION 2>/dev/null || true)"
-             /opt/djconnect/current/bin/djconnect-pi-updater --help | grep -F -- "--release-version"
-             systemctl is-active djconnect-api.service 2>/dev/null || true
-             systemctl is-active djconnect-client.service 2>/dev/null || true'
-
-      - name: Stage the exact approved RC bootstrap bundle
-        id: rc-bootstrap
-        shell: bash
-        run: |
-          set -euo pipefail
-          bundle="${RUNNER_TEMP}/djconnect-pi-${RELEASE_VERSION}.tar.gz"
-          curl --fail --silent --show-error --location --retry 3 --retry-all-errors \
-            "https://github.com/${RELEASE_REPO}/releases/download/v${RELEASE_VERSION}/djconnect-pi-${RELEASE_VERSION}.tar.gz" \
-            --output "${bundle}"
-          test "$(shasum -a 256 "${bundle}" | awk '{print $1}')" = "${ARTIFACT_SHA256}"
-          echo "bundle=${bundle}" >> "${GITHUB_OUTPUT}"
-
-      - name: Install the exact approved artifact on Pi
-        shell: bash
-        env:
-          SSH_KEY_FILE: ${{ steps.ssh.outputs.key_file }}
-          SSH_KNOWN_HOSTS_FILE: ${{ steps.ssh.outputs.known_hosts_file }}
-          RC_BOOTSTRAP_BUNDLE: ${{ steps.rc-bootstrap.outputs.bundle }}
-        run: |
-          set -euo pipefail
-          ssh_opts=(-i "${SSH_KEY_FILE}" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=${SSH_KNOWN_HOSTS_FILE}" -p "${PI_PORT}")
-          remote_bundle="/home/${PI_USER}/djconnect-install/djconnect-pi-${RELEASE_VERSION}.tar.gz"
-          ssh "${ssh_opts[@]}" "${PI_USER}@${PI_HOST}" "mkdir -p /home/${PI_USER}/djconnect-install"
-          scp -i "${SSH_KEY_FILE}" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=${SSH_KNOWN_HOSTS_FILE}" -P "${PI_PORT}" \
-            "${RC_BOOTSTRAP_BUNDLE}" "${PI_USER}@${PI_HOST}:${remote_bundle}"
-          ssh "${ssh_opts[@]}" "${PI_USER}@${PI_HOST}" \
-            'set -euo pipefail
-             updater=/opt/djconnect/current/bin/djconnect-pi-updater
-             common_args=(
-               --config /opt/djconnect/config/client.json
-               --install-root /opt/djconnect
-               --repo "'"${RELEASE_REPO}"'"
-             )
-
-             if "${updater}" "${common_args[@]}" --channel stable --release-version "'"${RELEASE_VERSION}"'" --dry-run >/dev/null 2>&1; then
-               sudo -n "${updater}" "${common_args[@]}" --channel stable --release-version "'"${RELEASE_VERSION}"'"
-             else
-               # A pre-4.0 updater cannot consume an RC wheel. The canonical
-               # release installer is staged from the exact SHA-256-verified
-               # artifact and is permitted by the narrow bootstrap sudoers rule.
-               [[ "'"${RELEASE_VERSION}"'" =~ -rc\.[0-9]+$ ]]
-               bootstrap_dir="/home/'"${PI_USER}"'/djconnect-install/djconnect-pi-'"${RELEASE_VERSION}"'"
-               mkdir -p "${bootstrap_dir}"
-               tar -xzf "/home/'"${PI_USER}"'/djconnect-install/djconnect-pi-'"${RELEASE_VERSION}"'.tar.gz" \
-                 -C "/home/'"${PI_USER}"'/djconnect-install"
-               test "$(cat "${bootstrap_dir}/VERSION")" = "'"${RELEASE_VERSION}"'"
-               # The installer stores the value as a shell default expression;
-               # VERSION above is the authoritative artifact identity check.
-               set +e
-               grep -F "DJCONNECT_VERSION=\\\"'"${RELEASE_VERSION}"'\\\"" "${bootstrap_dir}/scripts/install.sh" >/dev/null
-               set -e
-               grep -F -- "'"${RELEASE_VERSION}"'" "${bootstrap_dir}/scripts/install.sh" >/dev/null
-               echo "Bootstrapping the legacy updater with the exact approved RC installer."
-               sudo -n "${bootstrap_dir}/scripts/install.sh"
-             fi'
-
-      - name: Monitor exact artifact installation
-        shell: bash
-        env:
-          SSH_KEY_FILE: ${{ steps.ssh.outputs.key_file }}
-          SSH_KNOWN_HOSTS_FILE: ${{ steps.ssh.outputs.known_hosts_file }}
-        run: |
-          set -euo pipefail
-          ssh_opts=(-i "${SSH_KEY_FILE}" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=${SSH_KNOWN_HOSTS_FILE}" -p "${PI_PORT}")
-          deadline=$((SECONDS + TIMEOUT_SECONDS))
-          last_snapshot=""
-
-          while (( SECONDS < deadline )); do
-            snapshot="$(
-              ssh "${ssh_opts[@]}" "${PI_USER}@${PI_HOST}" \
-                'python3 - <<'"'"'PY'"'"'
-          from __future__ import annotations
-
-          import json
-          import subprocess
-          from pathlib import Path
-
-          status_path = Path("/opt/djconnect/config/updater-status.json")
-          version_path = Path("/opt/djconnect/current/VERSION")
-
-          def service_state(name: str) -> str:
-              result = subprocess.run(
-                  ["systemctl", "is-active", name],
-                  text=True,
-                  capture_output=True,
-                  check=False,
-              )
-              return result.stdout.strip() or result.stderr.strip() or "unknown"
-
-          status = {}
-          if status_path.exists():
-              try:
-                  status = json.loads(status_path.read_text(encoding="utf-8"))
-              except json.JSONDecodeError as exc:
-                  status = {"state": "unreadable", "message": str(exc)}
-
-          current_version = ""
-          if version_path.exists():
-              current_version = version_path.read_text(encoding="utf-8").strip()
-
-          print(json.dumps({
-              "current_version": current_version,
-              "status_state": str(status.get("state", "")),
-              "status_message": str(status.get("message", "")),
-              "target_version": str(status.get("target_version", "")),
-              "progress": int(status.get("progress", 0) or 0),
-              "api_service": service_state("djconnect-api.service"),
-              "client_service": service_state("djconnect-client.service"),
-              "updater_service": service_state("djconnect-updater.service"),
-          }, sort_keys=True))
-          PY'
-            )"
-
-            if [[ "${snapshot}" != "${last_snapshot}" ]]; then
-              echo "${snapshot}"
-              last_snapshot="${snapshot}"
-            fi
-
-            current_version="$(
-              SNAPSHOT="${snapshot}" python3 - <<'PY'
-          import json
-          import os
-
-          print(json.loads(os.environ["SNAPSHOT"]).get("current_version", ""))
-          PY
-            )"
-            status_state="$(
-              SNAPSHOT="${snapshot}" python3 - <<'PY'
-          import json
-          import os
-
-          print(json.loads(os.environ["SNAPSHOT"]).get("status_state", ""))
-          PY
-            )"
-
-            if [[ "${current_version}" == "${RELEASE_VERSION}" ]]; then
-              echo "DJConnect Pi ${RELEASE_VERSION} is installed."
-              exit 0
-            fi
-
-            if [[ "${status_state}" == "failed" ]]; then
-              echo "Updater reported failure before installing ${RELEASE_VERSION}." >&2
-              exit 1
-            fi
-
-            sleep 10
-          done
-
-          echo "Timed out waiting for DJConnect Pi ${RELEASE_VERSION} to install." >&2
-          exit 1
-
-      - name: Produce deployment evidence
-        if: success()
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          import json
-          import os
-          from datetime import UTC, datetime
-
-          evidence = {
-              "schema_version": 1,
-              "kind": "djconnect_pi_deployment_evidence",
-              "candidate_sha": os.environ["CANDIDATE_SHA"],
-              "platform_version": os.environ["PLATFORM_VERSION"],
-              "release_profile": os.environ["RELEASE_PROFILE"],
-              "manifest_id": os.environ["MANIFEST_ID"],
-              "version": os.environ["RELEASE_VERSION"],
-              "artifact_id": os.environ["ARTIFACT_ID"],
-              "artifact_sha256": os.environ["ARTIFACT_SHA256"],
-              "target": os.environ["TARGET"],
-              "deployment_workflow_run": os.environ["GITHUB_RUN_ID"],
-              "result": "DEPLOYED_PENDING_SMOKE",
-              "timestamp": datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
-          }
-          with open("pi-deployment-evidence.json", "w", encoding="utf-8") as handle:
-              json.dump(evidence, handle, indent=2, sort_keys=True)
-              handle.write("\n")
-          PY
-        env:
-          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
-          PLATFORM_VERSION: ${{ inputs.platform_version }}
-          RELEASE_PROFILE: ${{ inputs.release_profile }}
-          MANIFEST_ID: ${{ inputs.manifest_id }}
-          RELEASE_VERSION: ${{ needs.authorize.outputs.release_version }}
-          ARTIFACT_ID: ${{ needs.authorize.outputs.artifact_id }}
-          ARTIFACT_SHA256: ${{ needs.authorize.outputs.artifact_sha256 }}
-          TARGET: ${{ needs.authorize.outputs.target }}
-
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: success()
+      - name: Checkout exact consumer
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          name: pi-deployment-evidence
-          path: pi-deployment-evidence.json
-          if-no-files-found: error
-
-      - name: Publish deployment decision
+          fetch-depth: 0
+      - name: Set up isolated deployment tooling
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.14"
+      - name: Install exact deployment-tool dependencies
+        run: |
+          python -m pip install --only-binary=:all: --requirement Tools/pi_deployment_requirements.lock
+      - name: Require approved operational manifest source
+        run: |
+          python -m Tools.pi_instance_release --operation deploy --prepare
+      - name: Canonical deployment readiness preflight
+        uses: pcvantol/djconnect/.github/actions/deployment-readiness-preflight@9b40f422911f08c2076b11e49eb21e98ae5eaa1a
+        with:
+          target: ${{ inputs.target }}
+          manifest_id: ${{ inputs.manifest_id }}
+          candidate_sha: ${{ inputs.candidate_sha }}
+          artifact_id: ${{ inputs.artifact_id }}
+          artifact_sha256: ${{ inputs.artifact_sha256 }}
+          expected_runner_os: macOS
+          expected_runner_arch: ARM64
+          required_configuration: PI_INSTANCE_ENDPOINT_REF,PI_INSTANCE_SSH_CONFIG,GH_TOKEN,PI_RC5_OPERATIONAL_CORE_SHA,PI_RC5_OPERATIONAL_MANIFEST_SHA256
+          smoke_contract: pi-rc5-instance-readback-v1
+      - name: Record successful canonical preflight
+        run: |
+          echo "PI_CANONICAL_PREFLIGHT_PASSED=true" >> "$GITHUB_ENV"
+      - name: Install exact approved staged profile artifact
+        run: |
+          python -m Tools.pi_instance_release --operation deploy
+      - name: Preserve redacted instance evidence
         if: always()
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: pi-deployment-evidence-${{ inputs.deployment_instance }}
+          path: ${{ runner.temp }}/pi-qualified-instance-${{ github.run_id }}-${{ github.run_attempt }}/pi-deploy-evidence.json
+          if-no-files-found: warn
+      - name: Publish scoped instance decision
+        if: always()
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
         env:
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
-          DEPLOYMENT_RESULT: ${{ job.status }}
+          INSTANCE: ${{ inputs.deployment_instance }}
+          PHASE_RESULT: ${{ job.status }}
         with:
           script: |
-            await github.rest.repos.createCommitStatus({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              sha: process.env.CANDIDATE_SHA,
-              context: "Deployment / Execute approved release",
-              state: process.env.DEPLOYMENT_RESULT === "success" ? "success" : "failure",
-              description: process.env.DEPLOYMENT_RESULT === "success" ? "PI_DEPLOYMENT_PENDING_SMOKE" : "PI_DEPLOYMENT_NOT_COMPLETED",
-              target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
-            });
-
-      - name: Remove target-scoped SSH credentials
-        if: always()
-        shell: bash
-        env:
-          SSH_KEY_FILE: ${{ steps.ssh.outputs.key_file }}
-          SSH_KNOWN_HOSTS_FILE: ${{ steps.ssh.outputs.known_hosts_file }}
-        run: |
-          rm -f "${SSH_KEY_FILE}" "${SSH_KNOWN_HOSTS_FILE}"
+            const sha = process.env.CANDIDATE_SHA; const instance = process.env.INSTANCE;
+            if (!/^[0-9a-f]{40}$/.test(sha) || !["wall-4inch", "wall-10inch"].includes(instance)) return;
+            const success = process.env.PHASE_RESULT === "success";
+            await github.rest.repos.createCommitStatus({owner: context.repo.owner, repo: context.repo.repo, sha,
+              context: "Deployment / Execute approved release / " + instance,
+              state: success ? "success" : "failure",
+              description: success ? "DEPLOYED_PENDING_SMOKE" : "DEPLOYMENT_NOT_COMPLETED",
+              target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`});

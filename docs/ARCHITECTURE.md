@@ -25,7 +25,7 @@ Responsibilities:
   `command:"set_output"`
 - render HA-provided album art asynchronously in Now Playing, Queue and
   Playlists so image downloads do not block the QML UI thread
-- render a dark DJConnect blue/purple gradient theme across touch screens
+- render the shared Pi Brand V2 navy/cyan/blue/purple colour system across touch screens, standard controls, portal and updater
 - handle touch gestures and animated control states
 - display DJ response text pushed by Home Assistant as a 10-second toast
 - show startup splash, blocking pairing and local demo mode
@@ -46,9 +46,18 @@ src/djconnect_pi/qml/*.qml    touch UI, gestures and animations
 
 ### Hardware-aware presentation
 
-The client keeps its runtime and appliance behavior shared, but selects its
-presentation from the installed release profile. `pi-zero-2w-arm64` keeps the
-compact 720px touch layout for the 4-inch panel. `pi5-arm64` uses the physical
+Both deployment profiles are full apps and use the same navigation, feature
+screens, glass components, translations and server controllers. DJ Session is a
+shared destination on both the 4-inch and 10-inch clients; it is not gated by the
+hardware profile. `SessionScreen.qml` and `session_controller.py` provide the same
+Profile-confirmation, active-session and saved-session flow on both targets.
+`session_transport.py` binds each request/result to the current paired Profile;
+`session_projection.py` keeps live grants separate from saved history.
+
+The installed release profile only adapts canvas dimensions, typography, spacing,
+and the cost of ambient motion. Glass surfaces and touch feedback are shared. `pi-zero-2w-arm64` keeps the
+compact 720px touch layout for the 4-inch panel, using iPhone mini as the visual
+reference. The large portrait reference is iPad. `pi5-arm64` uses the physical
 portrait display canvas, larger type and touch targets, a wider content rhythm,
 and subtle low-cost ambient motion. The Pi 5 profile is deliberately native
 QML rather than a browser kiosk: touch wake, idle blanking, screenshot support
@@ -217,8 +226,8 @@ profiles are entered only through explicit backend Profile Platform resolution.
     "local_audio_supported": false,
     "local_dj_response_endpoint": true,
     "ask_dj_supported": true,
-    "ask_dj_mode": "readonly_actions",
-    "ask_dj_free_input_supported": false,
+    "ask_dj_mode": "text",
+    "ask_dj_free_input_supported": true,
     "ask_dj_actions_supported": true
   }
 }
@@ -280,10 +289,13 @@ view cache before displaying new data:
 Playback controls, pairing state, local settings and diagnostics remain
 device-owned and are not cleared by a profile change.
 
-Ask DJ on Raspberry Pi is `readonly_actions` and remains server-side. The touch
-UI polls Home Assistant history/status, renders backend responses as
+The owner-selected full Pi app adds a gated active-Session text composer on the
+existing Profile-authorized Ask DJ route. Text mode is advertised; voice/audio
+remain false. Exact references, unique client-message IDs and receipt owner/context
+checks precede fresh history readback. No raw media/action response is executed.
+The separate legacy Ask DJ history/actions page polls Home Assistant history/status, renders backend responses as
 authoritative and sends only HA-provided structured action payloads. It does
-not expose free prompt input, local-only history clear, voice/PTT, local TTS or
+not expose local-only history clear, voice/PTT, local TTS or
 local audio playback. Chat clear is a confirmed server-side operation through
 `djconnect/ask_dj/history/clear` or
 `POST /api/djconnect/v1/ask_dj/history/clear`; the Pi keeps existing bubbles
@@ -359,8 +371,11 @@ payloads include Pi identity, `section_id` and `discovery_item_id` so HA can
 record the interaction as a Music DNA signal.
 
 The canonical Home Assistant `SYNC_PROMPTS.md` is the source of truth for the
-current Pi Ask DJ contract: `readonly_actions` via server-side history and
-structured actions, with no free prompt input, no local clear action, no
+installed Pi baseline. This owner-selected full-app draft extends that earlier
+readonly baseline with active-Session text under contextual dialogue1/history2;
+canonical consumer-document reconciliation remains a Core follow-up before
+release. The separate history/actions page retains server-side history and
+structured actions, with no local clear action, no
 voice/PTT and no local TTS generation. The authenticated Pi-local
 `/api/device/dj_response` endpoint is text-only: it renders an ambient DJ
 moment and temporarily wakes the display; it does not play audio.

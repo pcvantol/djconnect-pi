@@ -6,6 +6,7 @@ import re
 from html import escape
 from importlib.resources import files
 
+from .brand_theme import colors, css_color
 from .i18n import LANGUAGES, SUPPORTED_LANGUAGES, TRANSLATIONS
 
 PORTAL_I18N_KEYS = (
@@ -80,6 +81,8 @@ def index_html(version: str) -> bytes:
     favicon = asset("brand-mark-32.png")
     compact = asset("brand-wordmark-compact-dark.png")
     primary = asset("brand-wordmark-primary-dark.png")
+    theme = colors()
+    theme_css = ";".join(f"--brand-{key}:{css_color(value)}" for key, value in theme.items())
     version_text = escape(version)
     portal_i18n = {
         language: {key: TRANSLATIONS[language][key] for key in PORTAL_I18N_KEYS}
@@ -95,90 +98,94 @@ def index_html(version: str) -> bytes:
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#170d3a">
+  <meta name="theme-color" content="{theme['background']}">
   <meta name="application-name" content="DJConnect">
   <title>DJConnect</title>
   <link rel="icon" type="image/png" sizes="32x32" href="{favicon}">
   <style>
     :root {{
       color-scheme: dark;
-      --bg:#10092b; --panel:rgba(20,14,45,.88); --panel2:rgba(52,21,96,.72);
-      --line:rgba(180,142,255,.32); --text:#f7f2ff; --muted:#c7b8df;
-      --purple:#c135ff; --blue:#4b7dff; --green:#34d65f; --red:#ff5b5b;
-      --mood-gradient-start:#247fff; --mood-gradient-mid:#7757ff; --mood-gradient-end:#c33cff;
-      --mood-accent:#7B61FF; --mood-accent-soft:rgba(36,20,95,.32); --mood-focus:#D184FF;
-      --mood-shadow:rgba(123,97,255,.36);
+      {theme_css};
+      --bg:var(--brand-background); --panel:var(--brand-surface); --panel2:var(--brand-surfaceRaised);
+      --line:var(--brand-border); --text:var(--brand-text); --muted:var(--brand-muted);
+      --purple:var(--brand-purple); --blue:var(--brand-blue); --green:var(--brand-success); --red:var(--brand-danger);
+      --brand-gradient-start:var(--brand-buttonStart); --brand-gradient-mid:var(--brand-buttonMid); --brand-gradient-end:var(--brand-buttonEnd);
+      --brand-accent:var(--brand-cyan); --brand-accent-soft:var(--brand-surfaceRaised);
+      --brand-shadow:rgba(99,138,255,.20);
     }}
     * {{ box-sizing:border-box; }}
     .brand-lockup {{ display:block; width:min(100%,600px); height:auto; }}
     body {{
       margin:0; min-height:100vh; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-      color:var(--text); background:radial-gradient(circle at 20% 10%,#2536c8 0,#16115a 34%,#2b0b48 68%,#09071c 100%);
+      color:var(--text); background:radial-gradient(circle at 20% 10%,var(--brand-backgroundStart) 0,var(--brand-backgroundMid) 48%,var(--bg) 100%);
     }}
-    header {{ position:sticky; top:0; z-index:2; padding:18px; background:rgba(8,7,28,.82); backdrop-filter:blur(18px); border-bottom:1px solid var(--line); }}
+    header {{ position:sticky; top:0; z-index:2; padding:18px; background:var(--brand-glass); backdrop-filter:blur(18px); border-bottom:1px solid var(--line); }}
     h1 {{ margin:0; font-size:28px; letter-spacing:0; }}
     .sub {{ margin-top:4px; color:var(--muted); font-weight:700; }}
     main {{ width:min(1120px,100%); margin:0 auto; padding:16px; display:grid; gap:14px; grid-template-columns:1fr; }}
     section {{ background:linear-gradient(135deg,var(--panel),var(--panel2)); border:1px solid var(--line); border-radius:8px; padding:16px; box-shadow:0 14px 50px rgba(0,0,0,.18); }}
-    h2 {{ margin:0 0 12px; font-size:18px; color:#dfd3ff; }}
+    h2 {{ margin:0 0 12px; font-size:18px; color:var(--text); }}
     .grid {{ display:grid; gap:10px; }}
     .wide {{ grid-column:1 / -1; }}
     .now {{ display:grid; grid-template-columns:132px 1fr; gap:16px; align-items:center; }}
-    .art {{ width:132px; height:132px; border-radius:8px; object-fit:cover; background:#151030; border:1px solid var(--line); }}
+    .art {{ width:132px; height:132px; border-radius:8px; object-fit:cover; background:var(--brand-surface); border:1px solid var(--line); }}
     .title {{ font-size:34px; font-weight:850; line-height:1.04; overflow-wrap:anywhere; }}
     .artist {{ color:var(--muted); font-size:20px; margin-top:4px; }}
     .status {{ display:flex; align-items:center; gap:8px; color:var(--muted); font-weight:700; min-width:0; overflow-wrap:anywhere; }}
     .dot {{ width:14px; height:14px; border-radius:50%; background:var(--red); box-shadow:0 0 14px currentColor; flex:0 0 auto; }}
     .dot.ok {{ background:var(--green); }}
     .controls {{ display:grid; grid-template-columns:repeat(5,92px); gap:16px; margin-top:14px; align-items:center; }}
-    .control-button {{ min-height:92px; width:92px; border-radius:14px; font-size:38px; box-shadow:inset 0 -3px 0 rgba(0,0,0,.18),0 8px 18px var(--mood-shadow); }}
-    .control-button.active {{ border-color:var(--mood-focus); background:linear-gradient(135deg,var(--mood-gradient-start),var(--mood-gradient-end)); }}
-    .volume-head {{ display:flex; align-items:center; justify-content:space-between; color:var(--mood-accent); font-size:26px; font-weight:850; margin:18px 0 6px; }}
+    .control-button {{ min-height:92px; width:92px; border-radius:14px; font-size:38px; box-shadow:inset 0 -3px 0 rgba(0,0,0,.18),0 8px 18px var(--brand-shadow); }}
+    .control-button.active {{ border-color:var(--brand-focus); background:linear-gradient(135deg,var(--brand-gradient-start),var(--brand-gradient-end)); }}
+    .volume-head {{ display:flex; align-items:center; justify-content:space-between; color:var(--brand-accent); font-size:26px; font-weight:850; margin:18px 0 6px; }}
     .volume-controls {{ display:grid; grid-template-columns:56px 1fr 56px; gap:10px; align-items:center; }}
     button, select, input {{
-      min-height:48px; border-radius:8px; border:1px solid rgba(217,177,255,.48);
-      background:linear-gradient(135deg,var(--mood-gradient-start),var(--mood-gradient-end));
-      color:white; font-size:17px; font-weight:800; padding:8px 12px;
+      min-height:48px; border-radius:8px; border:1px solid var(--line);
+      background:linear-gradient(135deg,var(--brand-gradient-start),var(--brand-gradient-end));
+      color:var(--text); font-size:17px; font-weight:800; padding:8px 12px;
     }}
-    select, input {{ background:rgba(16,10,42,.9); font-weight:700; width:100%; }}
-    input[type="range"] {{ accent-color:var(--mood-accent); }}
-    button.secondary {{ background:rgba(30,24,66,.86); }}
-    button.warning {{ background:#8a5a12; color:#fff3c4; }}
-    button.danger {{ background:#6f1d2d; color:#ffd8df; }}
+    select, input {{ background:var(--brand-surface); font-weight:700; width:100%; }}
+    input[type="range"] {{ accent-color:var(--brand-accent); }}
+    button.secondary {{ background:var(--brand-surfaceRaised); }}
+    button.warning {{ background:var(--brand-warningSurface); color:var(--brand-warning); }}
+    button.danger {{ background:var(--brand-dangerSurface); color:var(--brand-danger); }}
     .row {{ display:grid; grid-template-columns:148px 1fr; gap:10px; padding:8px 0; border-top:1px solid rgba(255,255,255,.08); }}
     .row:first-child {{ border-top:0; }}
     .key {{ color:var(--muted); font-weight:800; }}
     .value {{ overflow-wrap:anywhere; }}
     .list {{ display:grid; gap:10px; max-height:480px; overflow:auto; }}
-    .item {{ display:grid; grid-template-columns:64px 1fr 58px; gap:12px; align-items:center; min-height:76px; padding:8px; border:1px solid rgba(255,255,255,.10); border-radius:8px; background:rgba(8,7,28,.34); }}
-    .thumb {{ width:64px; height:64px; border-radius:8px; object-fit:cover; background:linear-gradient(135deg,var(--mood-gradient-start),var(--mood-gradient-end)); display:flex; align-items:center; justify-content:center; color:#fff; font-size:24px; }}
+    .item {{ display:grid; grid-template-columns:64px 1fr 58px; gap:12px; align-items:center; min-height:76px; padding:8px; border:1px solid var(--line); border-radius:8px; background:var(--brand-background); }}
+    .thumb {{ width:64px; height:64px; border-radius:8px; object-fit:cover; background:linear-gradient(135deg,var(--brand-gradient-start),var(--brand-gradient-end)); display:flex; align-items:center; justify-content:center; color:var(--text); font-size:24px; }}
     .item-title {{ font-size:18px; font-weight:850; overflow-wrap:anywhere; }}
     .item-sub {{ color:var(--muted); font-size:14px; margin-top:2px; overflow-wrap:anywhere; }}
     .play {{ border-radius:50%; min-height:54px; width:54px; padding:0; font-size:22px; }}
     .game-wrap {{ display:grid; gap:10px; }}
     .game-tabs {{ display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }}
-    .game-tabs button.active {{ border-color:var(--mood-focus); background:linear-gradient(135deg,var(--mood-gradient-start),var(--mood-gradient-end)); }}
+    .game-tabs button.active {{ border-color:var(--brand-focus); background:linear-gradient(135deg,var(--brand-gradient-start),var(--brand-gradient-end)); }}
     #gameCanvas {{ width:100%; aspect-ratio:320/170; border:1px solid var(--line); border-radius:8px; background:#05080a; touch-action:none; image-rendering:pixelated; }}
     .game-hud {{ display:flex; justify-content:space-between; gap:10px; color:var(--muted); font-weight:800; }}
     .game-controls {{ display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:8px; }}
     .game-controls button {{ min-height:54px; padding:6px; }}
     .diag-list {{ display:grid; gap:8px; }}
-    .diag {{ display:grid; grid-template-columns:1fr auto; gap:10px; align-items:center; padding:10px; border:1px solid rgba(255,255,255,.10); border-radius:8px; background:rgba(8,7,28,.34); }}
+    .diag {{ display:grid; grid-template-columns:1fr auto; gap:10px; align-items:center; padding:10px; border:1px solid var(--line); border-radius:8px; background:var(--brand-background); }}
     .diag-name {{ font-weight:850; }}
     .diag-detail {{ color:var(--muted); font-size:13px; margin-top:2px; overflow-wrap:anywhere; }}
-    .chip {{ border-radius:999px; padding:5px 9px; font-weight:900; font-size:12px; text-transform:uppercase; letter-spacing:.02em; background:var(--mood-accent-soft); color:#fff; border:1px solid var(--mood-accent); }}
+    .chip {{ border-radius:999px; padding:5px 9px; font-weight:900; font-size:12px; text-transform:uppercase; letter-spacing:.02em; background:var(--brand-accent-soft); color:var(--text); border:1px solid var(--brand-accent); }}
     .chip.running {{ background:rgba(52,214,95,.22); color:#97ffb1; border:1px solid rgba(52,214,95,.44); }}
     .chip.stopped {{ background:rgba(255,193,7,.18); color:#ffe08a; border:1px solid rgba(255,193,7,.42); }}
     .chip.failed {{ background:rgba(255,91,91,.20); color:#ffb5b5; border:1px solid rgba(255,91,91,.48); }}
     .chip.unknown {{ background:rgba(160,170,195,.18); color:#d8defa; border:1px solid rgba(160,170,195,.36); }}
     .two {{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }}
     pre {{ margin:0; min-height:260px; max-height:420px; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; background:rgba(4,3,18,.68); border:1px solid var(--line); border-radius:8px; padding:12px; font:14px/1.35 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }}
-    .toast {{ position:fixed; left:50%; bottom:28px; width:max-content; max-width:calc(100% - 32px); opacity:0; transform:translate(-50%,16px); transition:.18s; background:linear-gradient(90deg,var(--mood-gradient-start),var(--mood-gradient-mid) 52%,var(--mood-gradient-end)); border:2px solid rgba(255,255,255,.70); border-radius:999px; padding:16px 28px; font-weight:900; font-size:18px; color:white; z-index:20; }}
+    .toast {{ position:fixed; left:50%; bottom:28px; width:max-content; max-width:calc(100% - 32px); opacity:0; transform:translate(-50%,16px); transition:.18s; background:linear-gradient(90deg,var(--brand-gradient-start),var(--brand-gradient-mid) 52%,var(--brand-gradient-end)); border:2px solid rgba(255,255,255,.70); border-radius:999px; padding:16px 28px; font-weight:900; font-size:18px; color:var(--text); z-index:20; }}
     .toast::before {{ content:"▶"; display:inline-block; margin-right:14px; font-size:18px; }}
     .toast.show {{ opacity:1; transform:translate(-50%,0); }}
     button.busy {{ opacity:.72; cursor:progress; }}
     @media (min-width:840px) {{ main {{ grid-template-columns:1.1fr .9fr; }} }}
     @media (max-width:640px) {{ .now {{ grid-template-columns:1fr; }} .controls {{ grid-template-columns:repeat(2,1fr); }} .two {{ grid-template-columns:1fr; }} .row {{ grid-template-columns:1fr; }} }}
+    button:focus-visible, select:focus-visible, input:focus-visible {{ outline:3px solid var(--brand-focus); outline-offset:3px; }}
+    button:disabled, select:disabled, input:disabled {{ color:var(--brand-disabledText); background:var(--brand-disabledStart); cursor:default; }}
+    option {{ color:var(--text); background:var(--brand-surface); }}
   </style>
 </head>
 <body>
@@ -260,33 +267,6 @@ let state = {{}};
 let settingsTimer = 0;
 let toastTimer = 0;
 const I18N = {portal_i18n_json};
-const MOOD_THEMES = {{
-  default: ['#247fff','#7757ff','#c33cff','#7B61FF','rgba(36,20,95,.32)','#D184FF','rgba(123,97,255,.36)'],
-  chill: ['#4DA3FF','#7B61FF','#D184FF','#7B61FF','rgba(41,63,114,.36)','#D184FF','rgba(123,97,255,.36)'],
-  groove: ['#2EC4B6','#7B61FF','#D184FF','#2EC4B6','rgba(42,77,94,.46)','#D184FF','rgba(123,97,255,.46)'],
-  energy: ['#8AC926','#FFD166','#FF6A3D','#FFD166','rgba(76,63,24,.48)','#FFE5A3','rgba(255,209,102,.58)'],
-  party: ['#FF2E63','#A855F7','#FFD166','#A855F7','rgba(68,22,98,.50)','#FFD166','rgba(168,85,247,.66)']
-}};
-function moodKey(value) {{
-  if (value === null || value === undefined || Number.isNaN(Number(value))) return 'default';
-  const mood = Number(value);
-  if (mood < 0) return 'default';
-  if (mood <= 24) return 'chill';
-  if (mood <= 59) return 'groove';
-  if (mood <= 84) return 'energy';
-  return 'party';
-}}
-function applyMoodTheme(value) {{
-  const theme = MOOD_THEMES[moodKey(value)] || MOOD_THEMES.default;
-  const rootStyle = document.documentElement.style;
-  rootStyle.setProperty('--mood-gradient-start', theme[0]);
-  rootStyle.setProperty('--mood-gradient-mid', theme[1]);
-  rootStyle.setProperty('--mood-gradient-end', theme[2]);
-  rootStyle.setProperty('--mood-accent', theme[3]);
-  rootStyle.setProperty('--mood-accent-soft', theme[4]);
-  rootStyle.setProperty('--mood-focus', theme[5]);
-  rootStyle.setProperty('--mood-shadow', theme[6]);
-}}
 function currentLanguage() {{ return (state.settings && state.settings.language) || document.getElementById('language')?.value || 'en'; }}
 function t(key) {{ const lang = currentLanguage(); return (I18N[lang] && I18N[lang][key]) || I18N.en[key] || key; }}
 function translateStatic() {{
@@ -501,7 +481,6 @@ function diagnosticsHtml(item) {{
 }}
 function render(data) {{
   state = data;
-  applyMoodTheme(data.settings?.mood);
   translateStatic();
   const playback = data.playback || {{}};
   document.getElementById('statusDot').classList.toggle('ok', !!data.backend_available);

@@ -1,0 +1,29 @@
+{
+  "protected_brand_source": "7e14e5970b3f68d33d243ae6bab2b281fad59bb2",
+  "source_files": {
+    "assets/djconnect/brand-v2/wordmark-primary-dark.png": {
+      "alpha": true,
+      "bytes": 566999,
+      "height": 512,
+      "mode": "RGBA",
+      "role": "wordmark-primary",
+      "sha256": "2cf02b723af311ae507aede0640fff0468d4d24c18135d1482df3188a12f743e",
+      "theme": "dark",
+      "width": 2048
+    },
+    "assets/djconnect/brand-v2/wordmark-primary-light.png": {
+      "alpha": true,
+      "bytes": 567084,
+      "height": 512,
+      "mode": "RGBA",
+      "role": "wordmark-primary",
+      "sha256": "361e4faf8c1227dc4422722c37029428bdfd2a7c491f89a9759a3982ad4e3839",
+      "theme": "light",
+      "width": 2048
+    }
+  },
+  "readme": "Pinned picture element; exact protected PNGs, no recolor/crop/asset rewrite",
+  "product_target": "Direct Peter instruction: same full app both formats with explicit authorized Profile",
+  "runtime_boundary": "Existing audio capabilities remain off; future product/hardware/owner/common handshake decision required. No Core review-only contract promoted.",
+  "scope": "README source in existing Pi worktree only; no release-repository source write, merge/install or claim that installed 4inch Session is delivered."
+}

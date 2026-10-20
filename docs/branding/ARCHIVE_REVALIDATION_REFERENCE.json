@@ -1,0 +1,10 @@
+{
+  "core_protected_main": "8b221d07fe2215d9516d18fe92c832332c7a16ab",
+  "source_sha256": {
+    "custom_components/djconnect/historical_projection_query.py": "5ece0136910e9fc9d01185aee7b8a0fea49bda213e2a033a38a817ad5ac0bf7a",
+    "custom_components/djconnect/persistence/history.py": "f395db12ed9c27a358adde11cd4b45e8407da20d4a4535cb967b74d295c71314"
+  },
+  "contract": "Existing owner Session-list GET, descending created_at/session_id keyset; owner revision, retention policy/revision and opaque cursors. No producer change.",
+  "local_limits": "At most5 newly read pages of20 headers;100 shown maximum. next_cursor stays truthful; extra sessions remain unavailable in this bounded screen. Not complete older-archive parity.",
+  "proof": "Synthetic owner responses/controller/QML only, not new Runtime/provider/live/ARM evidence."
+}

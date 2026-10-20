@@ -6,12 +6,14 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 SENSITIVE_MARKERS = ("token", "authorization", "bearer", "password", "secret")
+# This managed URL is itself a bearer capability, including in urllib3 DEBUG logs.
+SENSITIVE_PATHS = ("/api/djconnect/v1/session/forecast/art/", "/api/djconnect/v1/session/media/image/")
 
 
 class RedactingFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         message = record.getMessage()
-        if any(marker in message.lower() for marker in SENSITIVE_MARKERS):
+        if any(marker in message.lower() for marker in (*SENSITIVE_MARKERS, *SENSITIVE_PATHS)):
             record.msg = "[redacted sensitive log message]"
             record.args = ()
         return True

@@ -13,7 +13,7 @@ from copy import deepcopy
 from datetime import datetime
 from importlib.resources import files
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import urlencode, urlparse
 
 import requests
 from PySide6.QtCore import (
@@ -23,14 +23,17 @@ from PySide6.QtCore import (
     QCoreApplication,
     QIODevice,
     QObject,
+    Qt,
     QTimer,
+    QUrl,
     Signal,
     Slot,
 )
-from PySide6.QtGui import QGuiApplication, QIcon, QPixmapCache
+from PySide6.QtGui import QDesktopServices, QGuiApplication, QIcon, QPixmapCache
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
 
+from .brand_theme import apply_palette
 from .config import (
     CLIENT_TYPE,
     DEFAULT_CONFIG_PATH,
@@ -52,6 +55,7 @@ from .ha import (
 )
 from .i18n import LANGUAGES, normalize_language, translate
 from .logging_config import setup_logging
+from .session_controller import SessionController
 from .shared_settings import SettingsError
 from .system_info import log_raspberry_pi_system_info
 
@@ -222,6 +226,10 @@ class DJConnectBackend(QObject):
         self._backend_available = True
         self._busy = False
         self._executor = ThreadPoolExecutor(max_workers=UI_WORKER_COUNT, thread_name_prefix="djconnect")
+        # Bounded independent lanes: slow text generation cannot occupy Session control.
+        self._session_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="djconnect-session")
+        self._question_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="djconnect-question")
+        self._session_controller = SessionController(self)
         self._poll_timer = QTimer(self)
         self._poll_timer.setInterval(5000)
         self._poll_timer.timeout.connect(self.refresh)
@@ -247,6 +255,7 @@ class DJConnectBackend(QObject):
         self._shared_settings_timer = QTimer(self)
         self._shared_settings_timer.setInterval(15000)
         self._shared_settings_timer.timeout.connect(self.pollSharedSettings)
+        self._shared_settings_timer.timeout.connect(self._session_controller.refresh)
         self._shared_settings_timer.start()
         QTimer.singleShot(350, self.pollSharedSettings)
         QTimer.singleShot(250, self.refresh)
@@ -259,6 +268,10 @@ class DJConnectBackend(QObject):
     @Property(bool, notify=sharedSettingsChanged)
     def sharedSettingsManaged(self) -> bool:
         return self.cfg.paired or self._shared_settings.managed
+
+    @Property(QObject, constant=True)
+    def djSession(self):
+        return self._session_controller
 
     @Property(bool, notify=sharedSettingsChanged)
     def sharedSettingsBusy(self) -> bool:
@@ -716,6 +729,13 @@ class DJConnectBackend(QObject):
     @Property(bool, notify=logsChanged)
     def logsVisible(self) -> bool:
         return self._logs_visible
+
+    @Slot(result=bool)
+    def openFeedbackIssue(self) -> bool:
+        # User click opens a draft only; no private app state or automatic submit.
+        query = urlencode({"title": translate(self.cfg.language, "feedback_issue_title"),
+                           "body": translate(self.cfg.language, "feedback_issue_template")})
+        return QDesktopServices.openUrl(QUrl("https://github.com/pcvantol/djconnect-pi/issues/new?" + query))
 
     @Slot(str, result=str)
     def t(self, key: str) -> str:
@@ -2180,6 +2200,8 @@ class DJConnectBackend(QObject):
         return (self.cfg.active_profile_id, self.cfg.active_profile_type, self.cfg.active_profile_privacy_mode)
 
     def _clear_profile_scoped_caches(self) -> None:
+        if hasattr(self, "_session_controller"):
+            self._session_controller.invalidate()
         self._shared_settings_epoch += 1
         self._shared_settings_state = {}
         self.sharedSettingsChanged.emit()
@@ -2433,6 +2455,10 @@ class DJConnectBackend(QObject):
         _LOGGER.info("Stopping DJConnect Pi client backend")
         self._poll_timer.stop()
         self._event_timer.stop()
+        self._session_controller.setForeground(False)
+        self._session_controller.shutdownImages()
+        self._session_executor.shutdown(wait=False, cancel_futures=True)
+        self._question_executor.shutdown(wait=False, cancel_futures=True)
         self._executor.shutdown(wait=False, cancel_futures=True)
 
     @Slot()
@@ -2568,6 +2594,7 @@ def main() -> None:
 
     QQuickStyle.setStyle("Basic")
     app = QGuiApplication(sys.argv)
+    apply_palette(app)
     app_icon = QIcon()
     for size in (16, 20, 24, 32, 40, 64, 128):
         app_icon.addFile(str(files("djconnect_pi.qml").joinpath(f"brand-mark-{size}.png")))
@@ -2576,6 +2603,7 @@ def main() -> None:
     QPixmapCache.setCacheLimit(QT_PIXMAP_CACHE_LIMIT_KB)
     engine = QQmlApplicationEngine()
     backend = DJConnectBackend(args.config)
+    app.applicationStateChanged.connect(lambda state: backend.djSession.setForeground(state == Qt.ApplicationState.ApplicationActive))
     engine.rootContext().setContextProperty("djconnect", backend)
     engine.rootContext().setContextProperty("startWindowed", args.windowed)
     qml_path = files("djconnect_pi.qml").joinpath("Main.qml")

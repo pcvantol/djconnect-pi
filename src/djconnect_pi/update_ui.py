@@ -15,6 +15,7 @@ from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
 
+from .brand_theme import apply_palette
 from .config import DEFAULT_CONFIG_PATH, load_config
 from .i18n import normalize_language, translate
 from .logging_config import setup_logging
@@ -191,6 +192,7 @@ def main() -> None:
 
     QQuickStyle.setStyle("Basic")
     app = QGuiApplication(sys.argv)
+    apply_palette(app)
     engine = QQmlApplicationEngine()
     backend = UpdateUiBackend(Path(cfg.updater_status_file), cfg.local_url, cfg.language, cfg.release_profile)
     engine.rootContext().setContextProperty("updater", backend)
