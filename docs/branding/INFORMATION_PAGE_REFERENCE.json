@@ -1,0 +1,35 @@
+{
+  "apple_source_commit": "e106a467011b9ea84d301a81c4e07251314cc6dd",
+  "ui_source": "Sources/DJConnectUI/DJConnectRootView.swift",
+  "declarations": [
+    "MoreView",
+    "LegalNoticesView",
+    "PrivacyView"
+  ],
+  "copied_localization_keys": [
+    "ui.djconnect.is.not.affiliated.with.endorsed.by.or.sponsored.by",
+    "ui.spotify.is.a.trademark.of.spotify.ab.home.assistant.is",
+    "ui.ai.and.assist.answers.can.be.incorrect.and.depend.on"
+  ],
+  "locales": [
+    "en",
+    "nl",
+    "de",
+    "fr",
+    "es"
+  ],
+  "pi_behavior_sources": [
+    "AGENTS.md",
+    "src/djconnect_pi/config.py",
+    "src/djconnect_pi/session_controller.py",
+    "src/djconnect_pi/session_transport.py",
+    "LICENSE",
+    "pyproject.toml"
+  ],
+  "limits": [
+    "Source/design comparison, no new native More screenshot or exact SF fidelity",
+    "Pi privacy copy adapts to local storage/Session behavior; no Apple APNs/storage guarantees copied",
+    "Feedback and complete third-party notice inventory remain open",
+    "No install/live/physical acceptance"
+  ]
+}

@@ -83,7 +83,7 @@ def main():
         backend.enterDemoMode()
         backend._toast_visible = False
         backend.toastChanged.emit()
-        for screen in ["session", "history", "now", "control", "queue", "playlists", "askdj", "trackinsight", "discover", "musicdna", "more", "settings", "games"]:
+        for screen in ["session", "history", "now", "control", "queue", "playlists", "askdj", "trackinsight", "discover", "musicdna", "more", "settings", "games", "legal", "privacy"]:
             window.setProperty("activeScreen", screen)
             capture(screen)
         window.setProperty("activeScreen", "session")
@@ -95,6 +95,23 @@ def main():
         backend.djSession.changed.emit()
         # Explicit synthetic current-grant fixture: decode -> controller -> actual QML,
         # then move elapsed time beyond its original expiry while wall time rolls back.
+        for language in ['en','nl','de','fr','es']:
+            backend.setLanguage(language);backend._toast_visible=False;backend.toastChanged.emit()
+            for destination,button_name in [('legal','openLegal'),('privacy','openPrivacy')]:
+                window.setProperty('activeScreen','more');QTest.qWait(50)
+                QMetaObject.invokeMethod(window.findChild(QObject,button_name),'clicked')
+                assert window.property('activeScreen')==destination
+                assert visual_item(window.contentItem(),'appTab-more').property('checked')
+                capture(destination+'-menu-'+language)
+                info_scroll=window.findChild(QObject,'informationScroll').property('contentItem')
+                if language=='nl':
+                    info_scroll.setProperty('contentY',max(0,info_scroll.property('contentHeight')-info_scroll.property('height')))
+                    capture(destination+'-scrolled-end')
+                QMetaObject.invokeMethod(window.findChild(QObject,'informationBack'),'clicked')
+                assert window.property('activeScreen')=='more'
+        backend.setLanguage('nl');backend._toast_visible=False;backend.toastChanged.emit()
+        capture('more-adaptive-menu')
+        window.setProperty('activeScreen','session')
         owner = backend.djSession
         original_clock = owner._clock
         now = datetime.now(UTC)

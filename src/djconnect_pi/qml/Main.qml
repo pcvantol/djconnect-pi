@@ -2290,7 +2290,7 @@ BrandWindow {
                 ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
                 GridLayout {
                     width: parent.width
-                    columns: 2
+                    columns: root.width < 900 ? 1 : 3
                     columnSpacing: 16
                     rowSpacing: 16
                     MoreMenuButton {
@@ -2323,19 +2323,46 @@ BrandWindow {
                         onClicked: root.activeScreen = "settings"
                     }
                     MoreMenuButton {
+                        text: root.tr("logs"); iconName: "logs"
+                        onClicked: djconnect.showLogs()
+                    }
+                    MoreMenuButton {
                         text: root.tr("about"); iconName: "info"
                         onClicked: root.aboutOpen = true
+                    }
+                    MoreMenuButton {
+                        objectName: "openLegal"
+                        text: root.tr("legal"); iconName: "document"
+                        onClicked: root.activeScreen = "legal"
+                    }
+                    MoreMenuButton {
+                        objectName: "openPrivacy"
+                        text: root.tr("privacy"); iconName: "privacy"
+                        onClicked: root.activeScreen = "privacy"
                     }
                     MoreMenuButton {
                         text: root.tr("control"); iconName: "control"
                         onClicked: root.activeScreen = "control"
                     }
-                    MoreMenuButton {
-                        text: root.tr("logs"); iconName: "logs"
-                        onClicked: djconnect.showLogs()
-                    }
                 }
             }
+        }
+    }
+
+    Rectangle {
+        anchors.fill: parent
+        visible: root.activeScreen === "legal" || root.activeScreen === "privacy"
+        color: BrandTheme.colors.background
+        z: 17
+        AppBackground {}
+        ModalBlocker {}
+        InformationPage {
+            objectName: "informationPage"
+            anchors.fill: parent
+            anchors.bottomMargin: root.edge + 126
+            privacy: root.activeScreen === "privacy"
+            backend: djconnect
+            onBack: root.activeScreen = "more"
         }
     }
 
@@ -4050,7 +4077,7 @@ BrandWindow {
                     objectName: "appTab-" + modelData.screen
                     iconName: modelData.icon
                     checkable: true
-                    checked: root.activeScreen === modelData.screen || (modelData.screen === "session" && root.activeScreen === "session-history") || (modelData.screen === "more" && ["askdj", "history", "queue", "playlists", "games", "settings", "control", "musicdna"].indexOf(root.activeScreen) >= 0)
+                    checked: root.activeScreen === modelData.screen || (modelData.screen === "session" && root.activeScreen === "session-history") || (modelData.screen === "more" && ["askdj", "history", "queue", "playlists", "games", "settings", "control", "musicdna", "legal", "privacy"].indexOf(root.activeScreen) >= 0)
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     onClicked: root.activeScreen = modelData.screen

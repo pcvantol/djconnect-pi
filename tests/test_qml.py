@@ -388,8 +388,8 @@ def test_qml_has_bottom_navigation_bar() -> None:
     assert nav.count("screen:") == 5
     assert "root.activeScreen = modelData.screen" in nav
     assert "radius: height / 2" in nav
-    assert "GridLayout" in more and "columns: 2" in more
-    more_keys = ["ask_dj", "session_history", "music_dna", "queue", "playlists", "games", "setup", "about"]
+    assert "GridLayout" in more and "columns: root.width < 900 ? 1 : 3" in more
+    more_keys = ["ask_dj", "session_history", "music_dna", "queue", "playlists", "games", "setup", "logs", "about", "legal", "privacy"]
     offsets = [more.index(f'root.tr("{key}")') for key in more_keys]
     assert offsets == sorted(offsets)
     # Existing Pi utilities remain reachable after the common Apple destinations.

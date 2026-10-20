@@ -19,13 +19,12 @@ on iPadOS26.7.1, but screen access currently says **Unlock Your iPad**. The avai
 repository iPad screenshot set is dated July and is deliberately not treated as a
 current portrait reference. No device unlock, new pairing or Apple install occurs.
 
-The colour work is **provisional WIP** in the isolated
-`codex/pi-ipad-experience` branch; no new PR, merge, release or Pi install has
-been performed. Its current checks pass (439 tests, 32 real QML page fixture views,
-plus 40 localized shared-settings fixtures before final control refinements).
-These checks do not qualify the owner-requested glass design or full parity.
-Colour/Mood decisions and navigation layout must be revisited against the iPad
-reference before presenting a final candidate.
+The shared app is now under draft review in PR111 on codex/pi-ipad-experience.
+The dated checkpoints below record the current implementation and qualification;
+the original rc.4 gap table remains an installed-baseline comparison. Source,
+fixture/package and simulator proof do not qualify installed/live/physical Apple
+parity. No merge, release, Pi install or new pairing has been performed by this
+nightly work. Full functional/visual parity remains open.
 
 ## Source baseline and scope
 
@@ -960,3 +959,46 @@ review arrived. No other-lane writes, repeated pings, model/provider/HA action,
 merge, release, installation or pairing occurred. PR111 remains draft. Continuous
 Flow/server windows, standalone/private-ephemeral composer, media/actions, remaining
 Apple pages and real backdrop effects stay open.
+
+
+### 2026-10-20 — Privacy/legal destinations and adaptive More navigation
+
+Both targets now expose Privacy and Legal as real shared destinations under More,
+with a selected More tab, glass cards, scrollable content and explicit Back.
+The common menu order follows protected Apple e106a467 MoreView; compact uses
+one column and portrait tablet three, following its adaptive grid intent. Logs
+precedes About and the Pi-specific Control utility follows the common destinations.
+Feedback is still absent; logs retain Pi visibility policy rather than silently
+adopting Apple's diagnostic flag. Privacy/shield and document glyphs are Pi-owned
+semantic equivalents, not exact SF Symbol geometry.
+
+The Privacy page describes explicit Profile authority, Pi-local pairing/settings,
+RAM-only Session/search withdrawal, no Pi Spotify credentials, and the existing
+no-microphone/no-local-DJ-audio behavior. It does not import Apple's private-storage,
+APNs or blanket personal-data assertions. Existing Apple independence, trademark
+and AI/Assist notices are reused unchanged in all five locales. OSS text describes
+Python/Qt/PySide and the existing MIT project licence; an explicit user click can
+open the source licence. This is product information, not a new legal agreement
+or a complete third-party notice inventory. No network is fetched by opening the
+pages and the external licence link is not automatically opened in the fixtures.
+Provenance: docs/branding/INFORMATION_PAGE_REFERENCE.json.
+
+Validation:827 tests passed, Ruff0.16.0 src/tests passed, hostverify MATCH.
+Actual QML:116 broad views including five-language menu/Back/selected-tab checks,
+scrolled page ends and both menu sizes;176 Session/composer regression views.
+No QML errors/binding loops. The existing static menu test now expects the adaptive
+grid/order; the first preview import-shadowing error and superseded fixed-grid
+assertion are retained in diagnostics. Local wheel SHA256
+48d5694d2d9cca702555e21fc1624157888db47e65982736dee15a7646952c6d
+matches all59 packaged sources, including InformationPage.qml. Evidence:
+pi-information-destinations under task visualizations. This is local source/
+fixture/package/Qt evidence, not ARM, installed/live or physical acceptance.
+Apple More/privacy/legal alignment here uses pinned source and existing design
+references; no new native More-screen screenshot or exact visual parity is claimed.
+
+Parenta15799a passed all applicable CI (24 successes/4 conditional skips). Protected
+Core8b221d07/Apple e106a467 remain the selected references. No other-lane writes,
+producer contract, model/provider/HA effect, merge, release, installation or pairing
+is included. PR111 stays draft. Continuous Flow, standalone/private-ephemeral
+composition, rich actions/media, feedback, remaining Apple pages and actual
+backdrop/SF fidelity remain open.

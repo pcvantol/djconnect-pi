@@ -222,6 +222,14 @@ Canvas {
                     var a = i * Math.PI / 4
                     line(16 + Math.cos(a) * 8, 16 + Math.sin(a) * 8, 16 + Math.cos(a) * 11, 16 + Math.sin(a) * 11)
                 }
+            } else if (iconName === "document") {
+                roundRect(8, 4, 16, 24, 2)
+                line(12, 11, 20, 11); line(12, 16, 20, 16); line(12, 21, 17, 21)
+            } else if (iconName === "privacy") {
+                ctx.beginPath(); ctx.moveTo(px(16), py(4)); ctx.lineTo(px(26), py(8)); ctx.lineTo(px(25), py(18)); ctx.quadraticCurveTo(px(23), py(25), px(16), py(29)); ctx.quadraticCurveTo(px(9), py(25), px(7), py(18)); ctx.lineTo(px(6), py(8)); ctx.closePath(); ctx.stroke()
+                line(16, 11, 16, 21)
+            } else if (iconName === "back") {
+                line(20, 7, 11, 16); line(11, 16, 20, 25)
             } else if (iconName === "logs") {
                 roundRect(9, 6, 13, 18, 2)
                 line(13, 11, 18, 11); line(13, 16, 17, 16)

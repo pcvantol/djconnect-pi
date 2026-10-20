@@ -460,3 +460,9 @@ five locales/both formats, restores a surviving result position, invokes the
 actual revalidation timer callback behind a held read, closes before dispatch,
 and verifies denied-result withdrawal. Periodic refresh uses the existing owner
 GET only; these synthetic proofs do not contact HA, providers or models.
+
+
+The broad page preview now renders Privacy/Legal via actual More-menu clicks in
+all five locales on both canvases. It verifies selected More tab, Back navigation,
+page-end scrolling and adaptive one-/three-column menu presentation. No external
+licence link is opened, and no server request is required for either static page.
