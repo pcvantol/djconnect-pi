@@ -1521,3 +1521,44 @@ are in docs/branding/RETAINED_FLOW_SELECTION_REFERENCE.json. All six-kind reques
 cases are explicitly synthetic; released producer bytes are unchanged.
 
 Final retained Flow selection qualification:980 full tests PASS (18 new cases), Ruff0.16.0 src/tests PASS, current shared-root hostverify MATCH.426 dedicated actual QML views plus116 broad views completed without errors/binding loops on720x720 and1200x1920/all five languages. Both new composer layouts were visually inspected against existing native references and pinned Apple source; exact inline/native geometry and glass effects remain open. Wheel32edb508939bdccb7ec3b09a2592e935912c6ebaed5408da6878aff7139cc68f matches all61 packaged source files. Evidence: taskvisualizations/pi-session-retained-flow-selection. Source/synthetic transport/Qt/package only; no ARM/installed/live HA/Profile/physical qualification. Diagnostics preserve an initial test End call missing its required Session-ID argument, a fixture using single-result visual lookup as an iterator, and hostverify's obsolete default repository root; corrected explicit shared-root verification was MATCH. Product gates were not loosened for fixtures.
+
+
+### Continuous reading within bounded saved-history windows
+
+Current-session history and archive detail now have More when reading from the
+chronological first page. It shows fresh first/next pages below one another,
+through at most5 pages of20 rows. Each extension and15s/manual revalidation starts
+a new owner read at the first page and replaces the entire visible prefix
+atomically. No old first-page body is appended to a new later page. Same root
+revision, canonical increasing order/unique IDs,20-row wire bounds and cursor
+cycle checks are required. Any denial/conflict/malformed page clears the prefix.
+
+At100 current bodies, localized copy points to the existing Next contributions
+control. It continues beyond100 using Core's existing forward cursor. Previous
+can re-read the former prefix and restore a still-retained ID/pixel; the existing
+32-descriptor trail stores only page budget and reading metadata. Revision drift
+uses the existing fresh visible-anchor fallback and clears the old trail. No
+backward cursor or unlimited body cache is created. First remains available.
+A non-renderable local marker can only come from this reader; unknown wire
+_prefix_pages never changes the navigation budget.
+
+Existing per-GET Profile/view/foreground/binding/control-ticket checks, GUI queue
+expiry, source attribution, known parent retention and question-context fences
+still govern. Runtime is not replaced by these reads. Native/current grants are
+not mixed into the chronological saved prefix. This improves continuous retained
+reading, not complete newest-first/native Flow interleaving or media/action rights.
+Source hashes and limits: docs/branding/HISTORY_READING_WINDOWS_REFERENCE.json.
+
+The latest protected Apple head observed via API is471fa6a4, PR159 Golden
+integration release checks. It does not change this Pi history contract or
+release PR162 imagery; it is not permission to run model/Golden/provider calls.
+Pinned UI design remains e106a467 and protected Core remains8b221d07.
+
+New host qualification issue: shared-root --verify now reports one required
+maintenance.verification_artifact_retention DRIFT. A read-only inventory found
+seven old ignored Core/receiver verification files (six videos and one preserved
+zero-byte lock). They were not deleted/moved/modified; the Core owner received
+one concrete report. This is kept separate from passing local product/Qt checks;
+current host MATCH is not claimed, nor any release/install/live acceptance.
+
+Final product/source check:1000 full tests PASS, including20 new history-prefix cases. Ruff0.16.0 src/tests PASS.100 focused actual current/archive history-window QML views plus426 Session/composer regression and116 broad views completed without errors/binding loops on both formats/all five locales. Both format reading/limit captures were visually inspected. Wheel a443092a4155b4e07aa41d75253c37a1ba9e03e087c0d54e6830c42fc60263f8 matches all61 packaged sources. Evidence: taskvisualizations/pi-session-history-reading-windows. Current host qualification is separately DRIFT for seven expired ignored Core/receiver verification files; no host MATCH, cleanup or qualified delivery is claimed. No ARM/installed/live HA/Profile/physical acceptance. Diagnostic fixture edit-template and QML return-type failures are preserved separately; final focused harnas uses QVariant correctly and hides only its fixture language toast.

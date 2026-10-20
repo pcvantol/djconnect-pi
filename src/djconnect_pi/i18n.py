@@ -1312,3 +1312,6 @@ _CURRENT_RESPONSE_TRANSLATIONS = {
 for _key, _values in _CURRENT_RESPONSE_TRANSLATIONS.items():
     for _language, _value in zip(SUPPORTED_LANGUAGES, _values):
         TRANSLATIONS[_language][_key] = _value
+
+for _language, _value in zip(SUPPORTED_LANGUAGES, ("More contributions remain available through Next contributions.", "Meer bijdragen blijven beschikbaar via Volgende bijdragen.", "Weitere Beiträge sind über Nächste Beiträge verfügbar.", "Les autres contributions restent accessibles via Contributions suivantes.", "Las demás contribuciones siguen disponibles en Contribuciones siguientes.")):
+    TRANSLATIONS[_language]["session_history_window_limit"] = _value

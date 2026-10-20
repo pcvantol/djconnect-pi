@@ -570,3 +570,16 @@ selected_entry send/fresh confirmation and source-expiry cancellation in five
 languages on both formats. No new user-facing strings; existing i18n keys reused.
 
 Final retained Flow selection qualification:980 full tests PASS (18 new cases), Ruff0.16.0 src/tests PASS, current shared-root hostverify MATCH.426 dedicated actual QML views plus116 broad views completed without errors/binding loops on720x720 and1200x1920/all five languages. Both new composer layouts were visually inspected against existing native references and pinned Apple source; exact inline/native geometry and glass effects remain open. Wheel32edb508939bdccb7ec3b09a2592e935912c6ebaed5408da6878aff7139cc68f matches all61 packaged source files. Evidence: taskvisualizations/pi-session-retained-flow-selection. Source/synthetic transport/Qt/package only; no ARM/installed/live HA/Profile/physical qualification. Diagnostics preserve an initial test End call missing its required Session-ID argument, a fixture using single-result visual lookup as an iterator, and hostverify's obsolete default repository root; corrected explicit shared-root verification was MATCH. Product gates were not loosened for fixtures.
+
+
+Saved-history reading prefix:20 new cases cover fresh first+next aggregation,
+full shown-prefix revalidation with fresh cursors, bounded100-body navigation and
+fresh Previous return, same-revision/ID/order/cycle/20-wire-row/denial/expiry/owner
+failure, before/between-read view cancellation, revision-anchor fallback, unsafe
+reading offsets, actual monotone GUI-queue expiry and rejection of unknown wire
+prefix markers. The dedicated real QML harness covers current and archive origin,
+both formats/all five locales, actual More/Next/Previous/15s callbacks, fresh body
+replacement, ID/pixel position, limit copy and denial withdrawal. These are
+synthetic owner transports, not live producer/installed/native-hardware acceptance.
+
+Final product/source check:1000 full tests PASS, including20 new history-prefix cases. Ruff0.16.0 src/tests PASS.100 focused actual current/archive history-window QML views plus426 Session/composer regression and116 broad views completed without errors/binding loops on both formats/all five locales. Both format reading/limit captures were visually inspected. Wheel a443092a4155b4e07aa41d75253c37a1ba9e03e087c0d54e6830c42fc60263f8 matches all61 packaged sources. Evidence: taskvisualizations/pi-session-history-reading-windows. Current host qualification is separately DRIFT for seven expired ignored Core/receiver verification files; no host MATCH, cleanup or qualified delivery is claimed. No ARM/installed/live HA/Profile/physical acceptance. Diagnostic fixture edit-template and QML return-type failures are preserved separately; final focused harnas uses QVariant correctly and hides only its fixture language toast.

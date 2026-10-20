@@ -798,6 +798,18 @@ Item {
                     onAskAbout: (sessionId, entryId) => { if (screen.owner.selectEntry(sessionId, entryId)) { screen.navigate("session"); composerPanel.open() } }
                 }
             }
+            GlassButton {
+                objectName: "sessionHistoryExtend"
+                visible: screen.historical && !!screen.state.timeline.session && screen.state.timeline._page_cursor === "" && !!screen.state.timeline.next_cursor && (screen.state.timeline._prefix_pages || 1) < 5
+                text: screen.tr("session_more"); enabled: !screen.owner.busy
+                onClicked: screen.owner.extendEntries(screen.readingAnchor(), screen.readingOffset)
+            }
+            Text {
+                objectName: "sessionHistoryWindowLimit"
+                visible: screen.historical && !!screen.state.timeline.next_cursor && (screen.state.timeline._prefix_pages || 0) >= 5
+                text: screen.tr("session_history_window_limit"); textFormat: Text.PlainText
+                color: BrandTheme.colors.muted; font.pixelSize: 18; wrapMode: Text.WordWrap; Layout.fillWidth: true
+            }
             Flow {
                 visible: screen.historical && !!screen.state.timeline.session
                 Layout.fillWidth: true; spacing: 10
