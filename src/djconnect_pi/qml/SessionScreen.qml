@@ -173,13 +173,17 @@ Item {
     }
     Timer {
         id: flowReturnRestore
+        objectName: "sessionArtworkReadingRestore"
         interval: 32
+        property int artworkTries: 0
+        property string artworkLayout: ""
         onTriggered: {
             var saved = screen.flowReturn
-            screen.flowReturn = null
+            if (!saved) return
+            if (saved.kind !== "moment_text") screen.flowReturn = null
             var flick = historyScroll.contentItem
-            if (!screen.visible || screen.historical || flick.dragging) return
-            if (!saved || saved.session !== screen.state.session_id || saved.profile !== screen.backend.activeProfileId) { flick.contentY = 0; return }
+            if (!screen.visible || screen.historical || flick.dragging) { screen.flowReturn = null; return }
+            if (!saved || saved.session !== screen.state.session_id || saved.profile !== screen.backend.activeProfileId) { screen.flowReturn = null; flick.contentY = 0; return }
             if (saved.kind === "current_reply") {
                 // The getter revalidates the live source; the descriptor grants nothing.
                 if (screen.state.current_reply.reply_id === saved.id && currentReplyCard.visible) {
@@ -195,12 +199,22 @@ Item {
                 var id = card ? (nativeRow ? card.modelData.moment_id : card.modelData.entry_id) : ""
                 if (id === saved.id) {
                     var target = saved.kind === "moment_text" ? card.bodyItem : card
-                    if (!target || !target.visible) { flick.contentY = 0; return }
+                    if (!target || !target.visible) { screen.flowReturn = null; flick.contentY = 0; return }
+                    if (saved.kind === "moment_text") { card.ensurePolished(); target.ensurePolished(); flick.ensurePolished() }
                     var delta = target.mapToItem(flick, 0, 0).y - saved.offset
                     flick.contentY = Math.max(0, Math.min(flick.contentY + delta, Math.max(0, flick.contentHeight - flick.height)))
+                    if (saved.kind === "moment_text") {
+                        var mark = card.height + "|" + target.height + "|" + target.y + "|" + flick.contentHeight
+                        var settled = artworkLayout === mark && Math.abs(target.mapToItem(flick, 0, 0).y - saved.offset) <= 1
+                        artworkLayout = mark
+                        artworkTries++
+                        if (!settled && artworkTries < 8) { restart(); return }
+                        screen.flowReturn = null
+                    }
                     return
                 }
             }
+            screen.flowReturn = null
             flick.contentY = 0
         }
     }
@@ -481,7 +495,7 @@ Item {
     Connections {
         target: screen.owner
         function onArtworkAboutToChange() { if (screen.visible && !screen.historical && !screen.showForecast && !screen.followQuestionReply && !historyScroll.contentItem.moving && !screen.flowReturn) screen.rememberArtworkReading() }
-        function onArtworkChanged() { if (screen.visible && !screen.historical && !screen.showForecast && !screen.followQuestionReply && !historyScroll.contentItem.moving && screen.flowReturn) flowReturnRestore.restart() }
+        function onArtworkChanged() { if (screen.visible && !screen.historical && !screen.showForecast && !screen.followQuestionReply && !historyScroll.contentItem.moving && screen.flowReturn) { flowReturnRestore.artworkTries = 0; flowReturnRestore.artworkLayout = ""; flowReturnRestore.restart() } }
         function onForecastImageAboutToChange() { screen.rememberForecastReading() }
         function onForecastImageChanged() { if (screen.forecastReading) forecastReadingRestore.restart() }
         function onPendingQuestionReady() { pendingQuestionPosition.restart() }
@@ -780,6 +794,19 @@ Item {
                     }
                     Text { visible: liveSources.ready; text: modelData.title; textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 26; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                     Text { id: momentBody; objectName: "sessionLiveMomentBody"; visible: liveSources.ready; text: modelData.body; textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 23; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                    GlassButton {
+                        objectName: "sessionPrepareArtwork"
+                        visible: liveSources.ready && modelData.current && screen.state.artwork_prepare.available && screen.state.artwork_prepare.moment_id === modelData.moment_id
+                        text: screen.tr(screen.state.artwork_prepare.status === "loading" ? "session_artwork_loading" : "session_artwork_load")
+                        enabled: !screen.owner.busy && !screen.owner.questionBusy
+                        onClicked: screen.owner.prepareArtwork(screen.state.session_id, modelData.moment_id)
+                    }
+                    Text {
+                        objectName: "sessionPrepareArtworkStatus"
+                        visible: modelData.current && liveSources.ready && (screen.state.artwork_prepare.status === "unavailable" || screen.state.artwork_prepare.status === "uncertain")
+                        text: screen.tr(screen.state.artwork_prepare.status === "uncertain" ? "session_artwork_uncertain" : "session_artwork_unavailable")
+                        textFormat: Text.PlainText; color: BrandTheme.colors.muted; font.pixelSize: 20; wrapMode: Text.WordWrap; Layout.fillWidth: true
+                    }
                     GlassButton {
                         visible: screen.state.composer_available && liveSources.ready
                         text: screen.tr("session_ask_about"); enabled: !screen.owner.busy

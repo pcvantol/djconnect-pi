@@ -20,6 +20,7 @@ from .config import save_config
 from .expiry_clock import ExpiryClock
 from .i18n import locale_for_language, translate
 from .session_artwork import MomentImages
+from .session_artwork_prepare import ArtworkPreparation
 from .session_current_reply import current_reply, moment_reference, reply_valid
 from .session_forecast import ForecastReceiver, forecast_supported
 from .session_forecast_image import ForecastImages
@@ -116,6 +117,8 @@ class SessionController(QObject):
         self._moment_images.changed.connect(self.artworkChanged.emit)
         self._moment_images.aboutToChange.connect(self.artworkAboutToChange.emit)
         self.changed.connect(self._moment_images.sync)
+        self._artwork_prepare = ArtworkPreparation(self)
+        self.changed.connect(self._artwork_prepare.sync)
         self._ready.connect(self._apply)
         backend.demoModeChanged.connect(self._demo_changed)
         self._deadline_timer = QTimer(self)
@@ -141,6 +144,7 @@ class SessionController(QObject):
         return {"session_id": self._session.get("session_id", ""),
             "runtime_state": self._session.get("runtime_state", ""),
             "playback": session_playback(self._session),
+            "artwork_prepare": self._artwork_prepare.snapshot(),
             "forecast_supported": forecast_supported(self._session, self._caps),
             "forecast": self._forecast.snapshot(),
             "mood": self._session.get("selected_mood", ""),
@@ -187,16 +191,23 @@ class SessionController(QObject):
 
     @Slot(bool)
     def setMomentArtworkVisible(self, visible):
+        if not visible:
+            self._artwork_prepare.hide()
         self._moment_images.set_visible(visible)
+
+    @Slot(str, str, result=bool)
+    def prepareArtwork(self, session_id, moment_id):
+        return self._artwork_prepare.start(session_id, moment_id)
 
     @Slot()
     def shutdownImages(self):
         self._forecast_images.shutdown()
         self._moment_images.shutdown()
+        self._artwork_prepare.shutdown()
 
     @Property(bool, notify=changed)
     def busy(self):
-        return bool(self._running)
+        return bool(self._running or self._artwork_prepare.running)
 
     @Property(bool, notify=changed)
     def lifecycleBusy(self):
@@ -452,7 +463,7 @@ class SessionController(QObject):
 
     @Slot(str, result=bool)
     def sendQuestion(self, body):
-        if self._running or self._question_running or not self._foreground or not self._composer_supported() or not isinstance(body, str) or not 1 <= len(body.strip()) <= 4000:
+        if self.busy or self._question_running or not self._foreground or not self._composer_supported() or not isinstance(body, str) or not 1 <= len(body.strip()) <= 4000:
             return False
         if not self._selection_valid():
             self._selection = {}
@@ -797,6 +808,8 @@ class SessionController(QObject):
 
     def _launch(self, action, value=""):
         if not self._foreground:
+            return
+        if self._artwork_prepare.running and action != "end":
             return
         # End supersedes reads, but never another lifecycle write. Late read results lose their ticket.
         if self._running and (action != "end" or self._running_action in {"start", "end"}):

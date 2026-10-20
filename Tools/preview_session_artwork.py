@@ -20,6 +20,7 @@ from djconnect_pi.brand_theme import apply_palette
 from djconnect_pi.config import Config, save_config
 from djconnect_pi.expiry_clock import ExpiryClock
 from djconnect_pi.session_history_view import live_presentations
+from djconnect_pi.session_transport import SessionError
 
 ROOT=Path(__file__).resolve().parents[1]
 
@@ -59,7 +60,7 @@ def main():
             with patch.object(QTimer,'singleShot'):backend=DJConnectBackend(config)
             for timer in backend.findChildren(QTimer):timer.stop()
             backend._executor.submit=Mock();control=[];backend._session_executor.submit=control.append;backend._question_executor.submit=Mock()
-            owner=backend.djSession;store=owner._moment_images;jobs=[];store.executor=SimpleNamespace(submit=jobs.append,shutdown=lambda **kw:None)
+            owner=backend.djSession;owner._artwork_prepare.executor=SimpleNamespace(submit=control.append,shutdown=lambda **kw:None);store=owner._moment_images;jobs=[];store.executor=SimpleNamespace(submit=jobs.append,shutdown=lambda **kw:None)
             owner.transport.active=Mock(return_value={'success':True,'session':None});owner.transport.capabilities=Mock(return_value={})
             engine=QQmlApplicationEngine();engine.rootContext().setContextProperty('djconnect',backend);engine.rootContext().setContextProperty('startWindowed',True)
             engine.load(str(ROOT/'src/djconnect_pi/qml/Main.qml'));assert engine.rootObjects(),warnings
@@ -119,8 +120,12 @@ def main():
                 capture('moment-late-art-preserves-body-pixel-'+language)
                 elapsed[0]=.6;QMetaObject.invokeMethod(store.deadline_timer,'timeout');QTest.qWait(180)
                 body=visual(screen,'sessionLiveMomentBody')
-                assert abs(body.mapToItem(flick,0,0).y()-before)<3, (width,language,before,body.mapToItem(flick,0,0).y(),screen.property('flowReturn').toVariant())
+                assert abs(body.mapToItem(flick,0,0).y()-before)<3, (width,language,before,body.mapToItem(flick,0,0).y(),(screen.property('flowReturn').toVariant() if screen.property('flowReturn') is not None else None))
                 capture('moment-art-expiry-preserves-body-pixel-'+language)
+                QMetaObject.invokeMethod(screen,'clearFlowReturn');position=flick.property('contentY')
+                QMetaObject.invokeMethod(window.findChild(QObject,'sessionArtworkReadingRestore'),'timeout')
+                QTest.qWait(40);assert abs(flick.property('contentY')-position)<.1
+                capture('moment-cleared-reading-late-callback-no-jump-'+language)
                 s,elapsed=install(language,'album_story');assert len(jobs)==1;jobs.pop(0)();QTest.qWait(150)
                 art=visual(screen,'sessionMomentArtworkImage');assert owner.momentArtwork
                 flick.setProperty('contentY',max(0,min(flick.property('contentY')+art.mapToItem(flick,0,0).y()-12,flick.property('contentHeight')-flick.property('height'))))
@@ -144,6 +149,33 @@ def main():
                 assert screen.property('followQuestionReply')
                 capture('moment-art-keeps-explicit-user-follow-state-'+language)
                 screen.setProperty('followQuestionReply',False)
+                # Explicit preparation has no effect until actual user click.
+                s,elapsed=install(language,mutate=lambda x:x['broadcast'].update(session_media=[]))
+                fresh=make_frame(language)[0]
+                owner.transport.prepare_artwork=Mock(return_value={'success':True,'contract_version':1,'session_media':deepcopy(fresh['broadcast']['session_media'])})
+                owner.transport.active=Mock(return_value={'success':True,'session':fresh})
+                button=visual(screen,'sessionPrepareArtwork');assert button.property('visible') and button.property('enabled')
+                owner.transport.prepare_artwork.assert_not_called()
+                QMetaObject.invokeMethod(button,'clicked');QTest.qWait(40)
+                assert owner._artwork_prepare.running and owner.busy and not button.property('enabled')
+                capture('moment-explicit-prepare-pending-'+language)
+                drain();assert len(jobs)==1;jobs.pop(0)();QTest.qWait(100)
+                owner.transport.prepare_artwork.assert_called_once()
+                assert owner.momentArtwork and not owner.busy
+                capture('moment-explicit-prepare-fresh-owner-ready-'+language)
+                s,elapsed=install(language,mutate=lambda x:x['broadcast'].update(session_media=[]))
+                owner.transport.prepare_artwork=Mock(side_effect=SessionError('uncertain'))
+                button=visual(screen,'sessionPrepareArtwork');QMetaObject.invokeMethod(button,'clicked');drain()
+                assert visual(screen,'sessionPrepareArtworkStatus').property('visible') and owner.state['moments'] and not owner.momentArtwork
+                owner.transport.prepare_artwork.assert_called_once()
+                capture('moment-explicit-prepare-uncertain-no-replay-'+language)
+                s,elapsed=install(language,mutate=lambda x:x['broadcast'].update(session_media=[]))
+                fresh=make_frame(language)[0];fresh['broadcast']['session_media'][0]['artwork']['current_display_allowed']=False
+                owner.transport.prepare_artwork=Mock(return_value={'success':True,'contract_version':1,'session_media':deepcopy(fresh['broadcast']['session_media'])})
+                owner.transport.active=Mock(return_value={'success':True,'session':fresh})
+                button=visual(screen,'sessionPrepareArtwork');QMetaObject.invokeMethod(button,'clicked');drain()
+                assert not jobs and not owner.momentArtwork and owner.state['artwork_prepare']['status']=='unavailable' and owner.state['moments']
+                capture('moment-explicit-prepare-flow-only-refused-'+language)
                 s,elapsed=install(language);assert len(jobs)==1;late=jobs.pop(0);before=len(calls)
                 owner.setForeground(False);late();QTest.qWait(100)
                 assert not owner.momentArtwork and len(calls)==before

@@ -1753,3 +1753,66 @@ future text-only reaction consumer is possible under its actual contract; this
 page does not implement it or activate audio. No producer/API WIP was adopted.
 General Session/Flow/media/private-lifetime and exact native/hardware gates stay
 open. This feedback step does not merge, release, install or pair the shared app.
+
+
+### Explicit preparation for one current native Moment
+
+A shared Load image button now performs the existing owner-authorized preparation
+for one exact current native Moment, only after an explicit click. It requires
+artwork v1, explicit personal/household private Profile and the original finite
+native/source reference. It neither guesses subject/account/CDN nor targets a
+retained entry. It is independent of free-text input authority. The normal paired
+POST contains only version1, Session and one original moment_id target plus normal
+identity. No preparation is triggered by reads, visibility, reconnect or retry.
+
+The POST response never grants local pixels. After its exact envelope/target is
+checked, a fresh owner active GET must independently retain the same original
+Session/current native reference. Only its bounded media metadata is imported;
+Runtime values, conversation, selection and draft are not replaced. A fresh
+validated source withdrawal clears only a still-original client context; a
+superseded result cannot clear a newer one. Image ready/current/subject/attribution,
+original native/asset deadlines and the existing paired byte decoder remain
+mandatory. Flow-only/unsupported media keeps valid native text with typed feedback.
+Malformed/unavailable/uncertain optional results preserve text/draft; owner denial
+withdraws private context. Refresh never replays the POST. No new audio, model,
+history, playback, permission or producer field is introduced.
+
+One dedicated max1 preparation worker keeps the existing End/control worker free.
+A real held-POST Qt subprocess proves End dispatch/completion before that POST is
+released, with no follow-up read/publication afterward. Other control/input reads
+are gated during the one pending preparation; client POST24s/GET8s are bounded.
+Hide/Profile/foreground/source/context/deadline cancels queued dispatch and clears
+the stored request descriptor; already started HTTP may finish. Ready completion
+also clears metadata. Optional status metadata is retained only until the original
+native deadline, without body/grant cache or deadline renewal. Four new i18n keys
+cover Load/loading/unavailable/uncertain in all five languages. The explicit button
+is a Pi adaptation, not an asserted exact Apple gesture.
+
+The new load-button layout exposed a strict native-body pixel failure during
+image-only expiry. The initial diagnostic also mishandled a null descriptor;
+its exact underlying layout timing is not asserted. The actual product now uses
+bounded8x32ms polished-layout settling/clamp/verification for moment_text only,
+with the existing3px qualification tolerance unchanged. A cleared late callback
+is inert. Original history/current-reply restore paths and touch/context/explicit
+reply-follow cancellation remain. Final actual QML covers late arrival, expiry
+and cleared late callbacks on both formats. Intermediate logs/captures remain.
+
+1188 full tests and Ruff0.16.0 src/tests pass, including31 new preparation tests.
+The no-replay refresh case keeps artwork capability available, rather than passing
+because capability disappeared.936 closed-source actual QML views comprise170
+Moment-art/preparation,90 Forecast,426 composer,100 history windows and150 broad
+views, across five locales/two formats, without errors/binding loops. Both format
+pending/ready/uncertain/unavailable layouts were inspected. The source/wire joins,
+current-artist flag, clocks, POST and follow-up active response are explicitly
+synthetic; no Core/provider execution or artist-photo/license quality is claimed.
+Original200 native frames and protected media bytes are unchanged, including the
+historical LOCAL_UNPUBLISHED label. Wheel bfaa489e7bbd48a16085f060973eb2a438416aef667886edf7b6917b5d674988 matches all64 sources.
+Evidence: taskvisualizations/pi-session-artwork-preparation;
+ARTWORK_PREPARATION_REFERENCE.json pins the protected8b implementation/contracts.
+Fresh qualified host readback returned MATCH; no cleanup or host mutation occurred.
+
+This delivers current-Moment preparation, not retained/historical preparation,
+flow-only art, reactions, broad media or full Apple parity. General Flow/order,
+private/standalone lifetime, full playback header, exact native glass and physical
+performance remain open. No merge, release, install, pairing, live HA/Profile,
+provider/model, ARM or physical acceptance follows from these local results.

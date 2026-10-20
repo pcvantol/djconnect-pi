@@ -126,6 +126,13 @@ class SessionTransport:
         return self._request(binding, "POST", "session/start", {
             "mood": mood, "language": locale_for_language(binding.language)})
 
+    def prepare_artwork(self, binding, session_id: str, moment_id: str):
+        sid, mid = identifier(session_id), identifier(moment_id)
+        if len(sid) > 128 or len(mid) > 128:
+            raise SessionError("invalid")
+        return self._request(binding, "POST", "session/media/prepare", {
+            "contract_version": 1, "session_id": sid, "targets": [{"moment_id": mid}]}, timeout=24.0)
+
     def end(self, binding, session_id: str):
         return self._request(binding, "POST", "session/end", {"session_id": identifier(session_id)})
 

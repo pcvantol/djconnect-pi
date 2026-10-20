@@ -1373,3 +1373,37 @@ _FEEDBACK_TRANSLATIONS = {
 for _key, _values in _FEEDBACK_TRANSLATIONS.items():
     for _language, _value in zip(SUPPORTED_LANGUAGES, _values):
         TRANSLATIONS[_language][_key] = _value
+
+_ARTWORK_PREPARE_TRANSLATIONS = {
+    'session_artwork_load': (
+        'Load image',
+        'Afbeelding laden',
+        'Bild laden',
+        'Charger l’image',
+        'Cargar imagen',
+    ),
+    'session_artwork_loading': (
+        'Loading image…',
+        'Afbeelding laden…',
+        'Bild wird geladen…',
+        'Chargement de l’image…',
+        'Cargando imagen…',
+    ),
+    'session_artwork_unavailable': (
+        'No image is available for this contribution.',
+        'Er is geen afbeelding beschikbaar voor deze bijdrage.',
+        'Für diesen Beitrag ist kein Bild verfügbar.',
+        'Aucune image n’est disponible pour cette contribution.',
+        'No hay imagen disponible para esta contribución.',
+    ),
+    'session_artwork_uncertain': (
+        'The image request could not be confirmed. You can try again later.',
+        'De afbeeldingsaanvraag kon niet worden bevestigd. Je kunt het later opnieuw proberen.',
+        'Die Bildanfrage konnte nicht bestätigt werden. Du kannst es später erneut versuchen.',
+        'La demande d’image n’a pas pu être confirmée. Vous pouvez réessayer plus tard.',
+        'No se pudo confirmar la solicitud de imagen. Puedes volver a intentarlo más tarde.',
+    ),
+}
+for _key, _values in _ARTWORK_PREPARE_TRANSLATIONS.items():
+    for _language, _value in zip(SUPPORTED_LANGUAGES, _values):
+        TRANSLATIONS[_language][_key] = _value
