@@ -412,6 +412,9 @@ def main():
         assert not owner.state['session_id'] and not owner.state['conversation'] and not owner.questionBusy
         owner.transport.end.assert_called_once()
         assert owner.transport.question.call_count==prior_question_count  # revoked before dispatch
+        assert not owner.state['pending_question']
+        assert not window.findChild(QObject,'sessionPendingQuestion').property('visible')
+        assert window.findChild(QObject,'sessionPendingQuestionText').property('text')==''
         capture('composer-ended-late-answer-withdrawn')
         # Original published native grant, same UI/caps; no metadata or deadline rewrite.
         frames=json.loads((ROOT/'tests/fixtures/session_core/native-expressive-snapshots.json').read_text())
@@ -456,7 +459,16 @@ def main():
             field.setProperty('text','Synthetic <img> 🎧\nQuestion about selected live credit')
             QMetaObject.invokeMethod(screen,'submitQuestion')
             assert owner.questionBusy
-            backend._executor.submit.call_args.args[0]();complete_navigation()
+            question_job=backend._executor.submit.call_args.args[0]
+            QTest.qWait(60)
+            assert window.findChild(QObject,'sessionPendingQuestion').property('visible')
+            assert window.findChild(QObject,'sessionPendingQuestionText').property('text')==owner.state['pending_question']['text']
+            assert QQmlExpression(engine.rootContext(),window.findChild(QObject,'sessionPendingQuestionText'),'textFormat === 0').evaluate()[0] is True
+            assert not owner.state['current_reply']
+            capture('current-question-pending-'+language)
+            question_job();complete_navigation()
+            assert not owner.state['pending_question']
+            assert not window.findChild(QObject,'sessionPendingQuestion').property('visible')
             assert owner.state['current_reply']['text']==current_response['text']
             question_text=window.findChild(QObject,'sessionCurrentQuestionText')
             assert question_text.property('text')==owner.state['current_reply']['question_text']=='Synthetic <img> 🎧\nQuestion about selected live credit'

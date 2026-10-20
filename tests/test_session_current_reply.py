@@ -156,3 +156,52 @@ def test_current_question_uses_exact_local_request_not_server_echo(controller):
     assert owner.state["current_reply"]["question_text"] == prompt
     owner.setForeground(False)
     assert not owner.state["current_reply"]
+
+
+
+def test_pending_question_is_local_bounded_input_not_an_answer_or_history(controller):
+    owner, backend = controller
+    setup_reply(owner)
+    prompt = "Local <img> 🎧\nQuestion"
+    assert owner.sendQuestion(prompt)
+    pending = owner.state["pending_question"]
+    assert pending["text"] == prompt and pending["session_id"] == "s1"
+    assert pending["client_message_id"].startswith("pi-turn-")
+    assert set(pending) == {"text", "session_id", "client_message_id"}
+    assert not owner.state["current_reply"] and not owner.state["conversation"]
+    owner.transport.question.assert_not_called()
+    pending["text"] = "Changed GUI copy"
+    assert owner.state["pending_question"]["text"] == prompt
+    backend.jobs.pop()()
+    assert not owner.state["pending_question"]
+    assert owner.state["current_reply"]["question_text"] == prompt
+
+
+@pytest.mark.parametrize("withdrawal", ["expiry", "revision", "foreground", "end"])
+def test_pending_input_withdraws_before_queued_post_and_cannot_revive(controller, withdrawal):
+    owner, backend = controller
+    host, _, _ = setup_reply(owner)
+    assert owner.sendQuestion("Pending local question")
+    worker = backend.jobs.pop()
+    if withdrawal == "expiry": host.tick = 3600
+    if withdrawal == "revision": owner._session["broadcast"]["native_delivery"]["revision"] = "r2"
+    if withdrawal == "foreground": owner.setForeground(False)
+    if withdrawal == "end": owner.end("s1")
+    assert not owner.state["pending_question"]
+    owner._expire()
+    worker()
+    owner.transport.question.assert_not_called()
+    assert not owner.state["pending_question"] and not owner.state["current_reply"]
+
+
+def test_uncertain_delivery_clears_pending_input_without_replay(controller):
+    from djconnect_pi.session_transport import SessionError
+    owner, backend = controller
+    setup_reply(owner)
+    owner.transport.question.side_effect = SessionError("uncertain")
+    assert owner.sendQuestion("Pending local question")
+    backend.jobs.pop()()
+    assert not owner.state["pending_question"] and not owner.state["current_reply"]
+    assert owner.state["question_status"] == "uncertain"
+    owner.refresh();backend.jobs.pop()()
+    owner.transport.question.assert_called_once()

@@ -67,6 +67,7 @@ Item {
         followQuestionReply = false
         replyRestore.stop()
         currentReplyPosition.stop()
+        pendingQuestionPosition.stop()
         var groups = [liveMomentRows, conversationRows]
         for (var g = 0; g < groups.length; g++) {
             for (var i = 0; i < groups[g].count; i++) {
@@ -274,6 +275,14 @@ Item {
         }
     }
     Timer {
+        id: pendingQuestionPosition; interval: 32
+        onTriggered: {
+            if (!screen.visible || screen.historical || !screen.followQuestionReply || !screen.state.pending_question.text || historyScroll.contentItem.dragging) return
+            var flick = historyScroll.contentItem
+            flick.contentY = Math.max(0, Math.min(flick.contentY + pendingQuestionCard.mapToItem(flick, 0, 0).y - 12, Math.max(0, flick.contentHeight - flick.height)))
+        }
+    }
+    Timer {
         id: currentReplyPosition; interval: 32
         onTriggered: {
             if (!screen.visible || screen.historical || !screen.followQuestionReply || !screen.state.current_reply.text || historyScroll.contentItem.dragging) return
@@ -288,6 +297,7 @@ Item {
     }
     Connections {
         target: screen.owner
+        function onPendingQuestionReady() { pendingQuestionPosition.restart() }
         function onCurrentReplyReady() { currentReplyPosition.restart() }
         function onQuestionConfirmed(entryId) { if (screen.followQuestionReply) { screen.pendingReplyId = entryId; replyRestore.restart() } }
         function onSelectionInvalidated() { screen.clearComposer() }
@@ -588,6 +598,17 @@ Item {
                     Text { text: screen.displayDate(modelData.occurred_at); color: BrandTheme.colors.muted; font.pixelSize: 16; textFormat: Text.PlainText }
                     SessionAttribution { id: conversationSources; sources: modelData.display_sources || []; requiresSpotify: modelData.requires_spotify_attribution || false; spotifyURL: modelData.spotify_source_url || ""; Layout.fillWidth: true }
                 }
+            }
+            GlassCard {
+                id: pendingQuestionCard
+                objectName: "sessionPendingQuestion"
+                visible: !screen.historical && !!screen.state.pending_question.text
+                Layout.fillWidth: true
+                Layout.maximumWidth: parent.width * 0.85
+                Layout.alignment: Qt.AlignRight
+                Text { text: screen.tr("session_you"); textFormat: Text.PlainText; color: BrandTheme.colors.muted; font.pixelSize: 18; Layout.fillWidth: true }
+                Text { objectName: "sessionPendingQuestionText"; text: screen.state.pending_question.text || ""; textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 22; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                Text { text: screen.tr("session_question_sending"); textFormat: Text.PlainText; color: BrandTheme.colors.muted; font.pixelSize: 16; wrapMode: Text.WordWrap; Layout.fillWidth: true }
             }
             ColumnLayout {
                 id: currentReplyCard

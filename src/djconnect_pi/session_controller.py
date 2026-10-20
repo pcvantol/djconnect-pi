@@ -45,6 +45,7 @@ class SessionController(QObject):
     entryOpened = Signal()
     questionConfirmed = Signal(str)
     currentReplyReady = Signal()
+    pendingQuestionReady = Signal()
     searchUpdated = Signal()
     timelineUpdated = Signal(str)
     timelinePositioned = Signal(str, float)
@@ -63,6 +64,8 @@ class SessionController(QObject):
         self._forecast_dirty = False
         self._moments = []
         self._conversation = []
+        self._pending_question = {}
+        self._pending_question_binding = None
         self._current_reply = {}
         self._current_reply_binding = None
         self._current_reply_dirty = False
@@ -96,6 +99,10 @@ class SessionController(QObject):
 
     @Property("QVariantMap", notify=changed)
     def state(self):
+        if self._pending_question and not self._pending_question_valid():
+            self._withdraw_question()
+            self._current_reply_dirty = True
+            self._question_status = "reference_unavailable"
         if self._current_reply and not self._current_reply_valid():
             self._current_reply = {}
             self._current_reply_binding = None
@@ -111,7 +118,7 @@ class SessionController(QObject):
             "mood": self._session.get("selected_mood", ""),
             "presence": self._session.get("selected_presence", ""),
             "persona": self._session.get("dj_persona", ""),
-            "composer_available": self._composer_supported(), "current_reply": deepcopy(self._current_reply), "conversation": deepcopy(self._conversation),
+            "composer_available": self._composer_supported(), "pending_question": deepcopy(self._pending_question), "current_reply": deepcopy(self._current_reply), "conversation": deepcopy(self._conversation),
             "selection": deepcopy(self._selection), "question_status": self._question_status,
             "moments": deepcopy(self._moments), "sessions": deepcopy(self._sessions),
             "timeline": deepcopy(self._timeline), "search": deepcopy(self._search), "error": self._error,
@@ -147,6 +154,8 @@ class SessionController(QObject):
         return bool(self._question_running)
 
     def _withdraw_question(self):
+        self._pending_question = {}
+        self._pending_question_binding = None
         self._question_reference = {}
         self._current_reply = {}
         self._current_reply_binding = None
@@ -223,6 +232,10 @@ class SessionController(QObject):
         self._forecast_dirty = False
         changed = forecast_changed or receipt_expired or projected != self._moments or self._current_reply_dirty
         self._current_reply_dirty = False
+        if self._pending_question and not self._pending_question_valid():
+            self._withdraw_question()
+            self._question_status = "reference_unavailable"
+            changed = True
         if self._question_reference and self._question_reference != moment_reference(self._session, self._question_reference["selected"], now=now):
             self._withdraw_question()
             changed = True
@@ -256,6 +269,16 @@ class SessionController(QObject):
             changed = True
         if changed:
             self.changed.emit()
+
+    def _pending_question_valid(self):
+        try:
+            return (bool(self._question_running) and self._foreground and self._composer_supported()
+                and self._pending_question_binding == self.transport.binding()
+                and self._pending_question.get("session_id") == self._session.get("session_id")
+                and (not self._question_reference or self._question_reference == moment_reference(
+                    self._session, self._question_reference["selected"], now=self._clock.now())))
+        except SessionError:
+            return False
 
     def _current_reply_valid(self):
         try:
@@ -562,12 +585,16 @@ class SessionController(QObject):
         question_epoch = self._question_epoch
         self._error = ""
         if action == "question":
+            self._pending_question = {"text": value["text"], "session_id": value["session_id"], "client_message_id": value["client_message_id"]}
+            self._pending_question_binding = binding
             self._question_reference = deepcopy(value.get("live_reference", {}))
             self._current_reply = {}
             self._current_reply_binding = None
             self._question_receipt = {}
             self._question_status = "sending"
         self.changed.emit()
+        if action == "question":
+            self.pendingQuestionReady.emit()
 
         def worker():
             result = {"serial": serial, "binding": binding, "action": action, "view_epoch": view_epoch, "question_epoch": question_epoch}
@@ -696,6 +723,8 @@ class SessionController(QObject):
             return
         if question:
             self._question_running = 0
+            self._pending_question = {}
+            self._pending_question_binding = None
             if result["question_epoch"] != self._question_epoch:
                 self.changed.emit()
                 return

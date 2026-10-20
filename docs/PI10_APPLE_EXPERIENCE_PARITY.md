@@ -1131,3 +1131,56 @@ matches all60 packaged sources. Both actual canvas captures were visually checke
 this specific user-card comparison uses pinned Apple source and existing offline
 Session simulator references, not a newly staged native conversation screenshot.
 No live, ARM, installed or physical proof is inferred.
+
+
+### Local question while a request is pending — 20 October
+
+A submitted Session question now appears immediately as a trailing glass user
+card with the existing five-language Sending label. It is explicitly local input,
+not a receipt, generated answer or retained history. One RAM-only object contains
+only bounded text, current Session and unique client_message_id, with its binding
+kept private in the controller. No transport or producer contract changes.
+
+It exists only while that single bounded question worker is pending. Current
+Profile/Session/privacy/foreground and the original selected-Moment reference
+continue to gate display. Getter and deadline tick withdraw it before painting
+when scope/source is lost; queued revoked requests are not submitted. End clears
+it while an already started POST may still finish server-side. Completion clears
+pending input atomically before current-only or retained confirmation. Failure or
+uncertain delivery removes the bubble and keeps existing status/revalidation
+behavior; no replay, synthetic answer or historical insertion occurs.
+
+Only an explicit own submit can focus the pending card after layout. Existing
+touch cancellation and history navigation suppress following. Pending cards do
+not add a reading-position descriptor, uncertain-turn history or new rights.
+The confirmed user/answer pair and its receipt-ID/pixel restoration remain intact.
+Visual role/shape follows the existing pinned Apple user-card reference, with Pi
+PlainText and85% width adaptation; this is not exact native effects parity.
+
+Six new tests cover exact local input before dispatch, immutable snapshots,
+combined scope/source/End withdrawal before queued POST, and uncertain completion
+without replay after refresh. Actual QML holds the question worker explicitly in
+all five languages on both canvases, checks literal markup/emoji/newline and
+PlainText, then completes acceptance and verifies pending withdrawal. End probes
+also require the visible pending card and its text to be empty.
+
+Final local results and package proof are preserved in pi-session-pending-question
+under task visualizations. Parent7064194 passed all applicable CI (24successes/
+4conditional skips). The new head needs independent checks. Complete Flow,
+uncertain-turn retention, broader private/standalone contexts and live/ARM/
+installed/physical acceptance remain open; no install/merge/HA/model action.
+
+
+Local verification:857 full tests passed, Ruff0.16.0 src/tests passed, hostverify
+MATCH. The first complete QML run passed200 dedicated views plus116 broad views.
+A later added assertion exposed a synthetic worker-selection race: holding the
+question across a fixture poll made the shared mock executor's last submission a
+control read. Final harness captures the actual question worker before waiting;
+product behavior was not relaxed. Final readback/diagnostic and the byte-matched
+wheel4084340b9be3ddb1ac3b0ca444727d987076c880d7281a1a9e04755d5b68723e
+(all60 packaged sources) are preserved with the checkpoint evidence.
+
+Final qualified QML run:200 dedicated views and116 broad views passed with no
+errors/binding loops. Both pending layouts were visually inspected, including
+local literal markup, separate Sending state and absence of a fabricated answer.
+This remains synthetic local Qt/design proof only.

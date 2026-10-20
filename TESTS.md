@@ -489,3 +489,10 @@ user-message echo. Tests cover malformed prompt bounds, immutable GUI snapshots,
 combined question/answer withdrawal, literal markup/emoji/newline and native QML
 PlainText evaluation on both layouts/five locales. The user card has no separate
 persistence or rights lifetime. Pending/uncertain turns remain outside this UI.
+
+
+Pending Session questions are local input only. Controller tests distinguish
+pre-dispatch/accepted/uncertain/withdrawn states, prove no replay after refresh and
+no queued POST after source/foreground/End withdrawal. Actual QML holds one worker
+in each locale/layout to check user text, Sending copy, native PlainText and atomic
+replacement/blanking, without a server or model call.
