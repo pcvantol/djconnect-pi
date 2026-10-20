@@ -47,6 +47,7 @@ class SessionController(QObject):
     currentReplyReady = Signal()
     pendingQuestionReady = Signal()
     searchUpdated = Signal()
+    historyUpdated = Signal()
     timelineUpdated = Signal(str)
     timelinePositioned = Signal(str, float)
     selectionInvalidated = Signal()
@@ -90,6 +91,7 @@ class SessionController(QObject):
         self._loaded = False
         self._history_loaded = False
         self._history_cursor = ""
+        self._history_pages = 1
         self._search = {}
         self._view_epoch = getattr(self, "_view_epoch", 0) + 1
         self._ready.connect(self._apply)
@@ -131,7 +133,8 @@ class SessionController(QObject):
             "loaded": self._loaded, "history_loaded": self._history_loaded,
             "has_previous_entries": bool(self._timeline_trail),
             "search_limit_reached": bool(self._search.get("next_cursor")) and self._search.get("_pages", 1) >= 5,
-            "has_more_sessions": bool(self._history_cursor)}
+            "history_limit_reached": bool(self._history_cursor) and self._history_pages >= 5,
+            "has_more_sessions": bool(self._history_cursor) and self._history_pages < 5}
 
     @Slot(str, result=str)
     def formatTimestamp(self, value):
@@ -191,6 +194,7 @@ class SessionController(QObject):
         self._loaded = False
         self._history_loaded = False
         self._history_cursor = ""
+        self._history_pages = 1
         self._search = {}
         self._view_epoch = getattr(self, "_view_epoch", 0) + 1
         self._error = ""
@@ -221,7 +225,7 @@ class SessionController(QObject):
                              "selected_mood": value, "broadcast": {}}
         elif action == "end":
             self._session = {}
-        elif action in {"history", "history_more"}:
+        elif action in {"history", "history_more", "history_refresh"}:
             self._history_loaded = True
         self._loaded = True
         self.changed.emit()
@@ -236,6 +240,8 @@ class SessionController(QObject):
             return False
         self._sessions = [row for row in self._sessions if row["session_id"] not in expired]
         self._history_cursor = ""
+        # Keep the displayed-page budget so the next fresh traversal need not collapse.
+
         if self._timeline.get("session", {}).get("session_id") in expired:
             self._timeline = {}
             self._timeline_trail = []
@@ -428,12 +434,17 @@ class SessionController(QObject):
 
     @Slot()
     def loadHistory(self):
-        self._launch("history")
+        self._launch("history", {"pages": 1})
 
     @Slot()
     def moreHistory(self):
-        if self._history_cursor:
-            self._launch("history_more", self._history_cursor)
+        if self._history_cursor and self._history_pages < 5:
+            self._launch("history_more", {"pages": self._history_pages + 1})
+
+    @Slot()
+    def refreshArchive(self):
+        if self._history_loaded and not self._timeline:
+            self._launch("history_refresh", {"pages": self._history_pages})
 
     @Slot()
     def readCurrentHistory(self):
@@ -536,6 +547,41 @@ class SessionController(QObject):
             self._launch("search_refresh", {"session_id": self._search["session_id"],
                 "query": self._search["query"], "pages": self._search.get("_pages", 1)})
 
+    def _read_history(self, binding, value, view_epoch):
+        cursor, rows, cursors, scope = "", [], set(), None
+        previous = None
+        for number in range(min(5, max(1, value.get("pages", 1)))):
+            if not self._foreground or self._view_epoch != view_epoch:
+                raise SessionError("context_changed")
+            if self.transport.binding() != binding:
+                raise SessionError("context_changed")
+            page = history_page(self.transport.history(binding, cursor=cursor), now=self._clock.now())
+            if len(page["sessions"]) > 20:
+                raise SessionError("invalid")
+            revision = page.get("revision")
+            policy = page.get("retention_revision")
+            if (page["sessions"] or page.get("next_cursor")) and (not isinstance(revision, str) or not revision or type(policy) is not int or policy < 0):
+                raise SessionError("invalid")
+            current = (revision, page.get("retention_days"), policy)
+            if scope is not None and current != scope:
+                raise SessionError("conflict")
+            scope = current
+            for row in page["sessions"]:
+                stamp = timestamp(row.get("created_at"))
+                key = (stamp, row["session_id"]) if stamp is not None else None
+                if key is None or (previous is not None and key >= previous) or any(old["session_id"] == row["session_id"] for old in rows):
+                    raise SessionError("invalid")
+                rows.append(row)
+                previous = key
+            cursor = page_cursor(page.get("next_cursor"))
+            if cursor and cursor in cursors:
+                raise SessionError("invalid")
+            if cursor:
+                cursors.add(cursor)
+            if not cursor:
+                break
+        return {**page, "sessions": rows, "_pages": number + 1}
+
     def _read_search(self, binding, value, view_epoch):
         # Re-read all displayed pages: no old body survives solely through pagination.
         cursor, rows, seen_cursors, revision = "", [], set(), None
@@ -590,7 +636,7 @@ class SessionController(QObject):
             self._error = exc.category
             self.changed.emit()
             return
-        if action in {"history", "history_more", "timeline", "timeline_refresh", "timeline_page", "timeline_previous", "open_entry", "search", "search_more", "search_refresh"} and not self._history_supported():
+        if action in {"history", "history_more", "history_refresh", "timeline", "timeline_refresh", "timeline_page", "timeline_previous", "open_entry", "search", "search_more", "search_refresh"} and not self._history_supported():
             self._error = "unsupported"
             self.changed.emit()
             return
@@ -652,9 +698,8 @@ class SessionController(QObject):
                         result["current_reply"] = current_reply(response, binding, value, fresh, now=self._clock.now())
                     else:
                         result["conversation"] = self._read_conversation(binding, value["session_id"], result["question_receipt"])
-                elif action in {"history", "history_more"}:
-                    result["history"] = history_page(self.transport.history(binding, cursor=value), now=self._clock.now())
-                    page_cursor(result["history"].get("next_cursor"))
+                elif action in {"history", "history_more", "history_refresh"}:
+                    result["history"] = self._read_history(binding, value, view_epoch)
                 elif action == "timeline":
                     result["timeline"] = presented_history(history_page(self.transport.timeline(binding, value), session_id=value, now=self._clock.now()))
                 elif action == "timeline_previous":
@@ -822,18 +867,24 @@ class SessionController(QObject):
                 if confirmed:
                     self.questionConfirmed.emit(confirmed)
                 return
-        history_action = result["action"] in {"history", "history_more", "timeline", "timeline_refresh", "timeline_page", "timeline_previous", "search", "search_more", "search_refresh", "open_entry"}
+        history_action = result["action"] in {"history", "history_more", "history_refresh", "timeline", "timeline_refresh", "timeline_page", "timeline_previous", "search", "search_more", "search_refresh", "open_entry"}
         if history_action and result.get("view_epoch") != self._view_epoch:
             self.changed.emit()
             return
         if "history" in result and "error" not in result:
             try:
-                result["history"] = history_page(result["history"], now=self._clock.now())
+                page = result["history"]
+                checked = []
+                # The aggregate is bounded to100 headers; each wire page stays20.
+                for start in range(0, max(1, len(page["sessions"])), 50):
+                    checked.extend(history_page({**page, "sessions": page["sessions"][start:start + 50]}, now=self._clock.now())["sessions"])
+                result["history"] = {**page, "sessions": checked}
             except SessionError as exc:
                 result["error"] = exc.category
-        if "error" in result and result["action"] in {"history", "history_more"}:
+        if "error" in result and result["action"] in {"history", "history_more", "history_refresh"}:
             self._sessions = []
             self._history_cursor = ""
+            self._history_pages = 1
         if "error" in result and history_action and result["error"] not in {"denied", "context_changed", "unpaired"}:
             self._search = {}
             self._timeline = {}
@@ -876,6 +927,7 @@ class SessionController(QObject):
                     self._conversation = []
                     self._sessions = []
                     self._history_cursor = ""
+                    self._history_pages = 1
                     self._history_loaded = False
                     self._search = {}
                 elif not self._search_supported():
@@ -883,12 +935,14 @@ class SessionController(QObject):
             if "history" in result:
                 self._history_loaded = True
                 rows = result["history"]["sessions"]
-                # Cursor pages remain server-ordered; duplicate identity is replaced, not appended twice.
-                if result["action"] == "history_more":
-                    incoming_ids = {row["session_id"] for row in rows}
-                    self._sessions = [row for row in self._sessions if row["session_id"] not in incoming_ids] + rows
-                else:
-                    self._sessions = rows
+                # Atomic replacement from newly read pages, never append cached headers.
+                old_deadlines = {row["session_id"]: row.get("_history_deadline") for row in self._sessions}
+                for row in rows:
+                    old = old_deadlines.get(row["session_id"])
+                    if old is not None:
+                        row["_history_deadline"] = min(old, row["_history_deadline"]) if row.get("_history_deadline") is not None else old
+                self._sessions = rows
+                self._history_pages = result["history"].get("_pages", 1)
                 self._history_cursor = page_cursor(result["history"].get("next_cursor"))
             if "search" in result:
                 self._search = result["search"]
@@ -919,6 +973,8 @@ class SessionController(QObject):
         self.changed.emit()
         if confirmed:
             self.questionConfirmed.emit(confirmed)
+        if "history" in result and "error" not in result:
+            self.historyUpdated.emit()
         if "search" in result and "error" not in result:
             self.searchUpdated.emit()
         if "timeline" in result and "error" not in result:

@@ -117,7 +117,7 @@ def main():
                     assert job not in executed
                     executed.add(job);job()
                 QTest.qWait(50)
-                if not owner.busy and not screen.property('historyReadPending'): return
+                if not owner.busy and not screen.property('historyReadPending') and not screen.property('archiveIntent'): return
             raise AssertionError('bounded synthetic navigation did not settle')
         assert panel and field and keyboard and screen
         mood_button=window.findChild(QObject,'sessionToolbarMood')
@@ -481,11 +481,13 @@ def main():
             assert not owner._question_receipt
             capture('current-response-not-saved-'+language)
             assert window.findChild(QObject,'sessionCurrentReply').property('visible')
+            complete_navigation()
             accepted_transport=owner.transport.question
             owner.transport.question=Mock(side_effect=SessionError('uncertain'))
             assert owner.selectMoment(native_session['session_id'],current['moment_id'])
             field.setProperty('text','Synthetic uncertain delivery probe')
             QMetaObject.invokeMethod(screen,'submitQuestion')
+            assert owner.questionBusy
             uncertain_job=backend._executor.submit.call_args.args[0]
             uncertain_job();complete_navigation()
             assert owner.state['question_status']=='uncertain' and not owner.state['pending_question']
@@ -713,7 +715,7 @@ def main():
         QMetaObject.invokeMethod(more_tab,'clicked')
         QTest.qWait(80)  # The archive control must actually be visible before a user can click it.
         owner.transport.history=Mock(return_value={'success':True,'schema_version':2,'history_contract_version':2,
-            'retention_days':90,'sessions':[{'session_id':archive_sid,'revision':'archive-revision','lifecycle_status':'ENDED','created_at':'2026-10-19T12:00:00Z','started_at':'2026-10-19T12:00:00Z','ended_at':'2026-10-19T13:00:00Z'}],'next_cursor':None})
+            'revision':'synthetic-owner-r1','retention_revision':1,'retention_days':90,'sessions':[{'session_id':archive_sid,'revision':'archive-revision','lifecycle_status':'ENDED','created_at':'2026-10-19T12:00:00Z','started_at':'2026-10-19T12:00:00Z','ended_at':'2026-10-19T13:00:00Z'}],'next_cursor':None})
         QMetaObject.invokeMethod(window.findChild(QObject,'openSessionArchive'),'clicked')
         QTest.qWait(80)
         complete_navigation()
@@ -750,6 +752,66 @@ def main():
             assert session_tab.property('checked')==(origin=='session')
             assert owner.state['session_id']==session['session_id']
             capture('navigation-search-open-'+label)
+        # Fresh multi-page archive reads, scoped real QML polling and ID/pixel restore.
+        archive_now=owner._clock.now()
+        def fresh_pages():
+            pages=[]
+            for number in range(6):
+                rows=[]
+                for index in range(20):
+                    row_id=number*20+index
+                    stamp=datetime.fromtimestamp(archive_now-172800-row_id*60,UTC).isoformat()
+                    ended=datetime.fromtimestamp(archive_now-171000-row_id*60,UTC).isoformat()
+                    rows.append({'session_id':f'synthetic-archive-{row_id:03d}','revision':f'header-{row_id}',
+                        'lifecycle_status':'ENDED','created_at':stamp,'started_at':stamp,'ended_at':ended,'interrupted_at':''})
+                pages.append({'success':True,'schema_version':2,'history_contract_version':2,
+                    'revision':'synthetic-owner-r1','retention_days':90,'retention_revision':1,'sessions':rows,
+                    'next_cursor':f'p-{number+1}' if number<5 else None})
+            return pages
+        for language in ['en','nl','de','fr','es']:
+            complete_navigation();backend.setLanguage(language);backend._toast_visible=False;backend.toastChanged.emit();complete_navigation()
+            pages=fresh_pages()
+            def archive_response(binding,*,cursor=''):
+                return deepcopy(pages[int(cursor.split('-')[-1]) if cursor else 0])
+            owner.transport.history=Mock(side_effect=archive_response)
+            window.setProperty('activeScreen','history');owner.closeSaved();complete_navigation()
+            QMetaObject.invokeMethod(window.findChild(QObject,'sessionHistoryRevalidationTimer'),'stop')
+            owner.loadHistory();backend._executor.submit.call_args.args[0]();QTest.qWait(80)
+            for _ in range(4):
+                QMetaObject.invokeMethod(window.findChild(QObject,'sessionArchiveMore'),'clicked');complete_navigation()
+            assert len(owner.state['sessions'])==100 and owner.state['history_limit_reached']
+            assert window.findChild(QObject,'sessionArchiveLimit').property('visible')
+            assert not window.findChild(QObject,'sessionArchiveMore').property('visible')
+            stale_count=owner.transport.history.call_count
+            QMetaObject.invokeMethod(window.findChild(QObject,'sessionArchiveMore'),'clicked');QTest.qWait(20)
+            assert not screen.property('archiveReadActive') and owner.transport.history.call_count==stale_count
+            flick.setProperty('contentY',320);QTest.qWait(80)
+            QMetaObject.invokeMethod(screen,'rememberArchive')
+            saved=screen.property('archiveReturn').toVariant()
+            assert saved and set(saved)=={'id','profile','offset'}
+            capture('archive-five-page-limit-'+language)
+            pages[0]['sessions'].pop(0)
+            for payload in pages:payload['revision']='synthetic-owner-r2'
+            before=owner.transport.history.call_count
+            QMetaObject.invokeMethod(window.findChild(QObject,'sessionHistoryRevalidationTimer'),'triggered');complete_navigation()
+            assert owner.transport.history.call_count==before+5
+            assert len(owner.state['sessions'])==99 and owner.state['sessions'][0]['session_id']=='synthetic-archive-001'
+            QMetaObject.invokeMethod(screen,'rememberArchive')
+            restored=screen.property('archiveReturn').toVariant()
+            assert restored['id']==saved['id'] and abs(restored['offset']-saved['offset'])<2,(saved,restored)
+            capture('archive-fresh-pages-reading-preserved-'+language)
+            for payload in pages:payload['sessions']=[r for r in payload['sessions'] if r['session_id']!=restored['id']]
+            QMetaObject.invokeMethod(screen,'refreshArchiveList');complete_navigation()
+            assert all(r['session_id']!=restored['id'] for r in owner.state['sessions']) and flick.property('contentY')<1
+            capture('archive-withdrawn-reading-anchor-top-'+language)
+        owner.refresh();held_archive_read=backend._executor.submit.call_args.args[0]
+        before=owner.transport.history.call_count
+        QMetaObject.invokeMethod(window.findChild(QObject,'sessionHistoryRevalidationTimer'),'triggered');QTest.qWait(60)
+        assert screen.property('archiveIntent').toVariant() and owner.transport.history.call_count==before
+        window.setProperty('activeScreen','more');QTest.qWait(60)
+        held_archive_read();QTest.qWait(80)
+        assert not screen.property('archiveIntent') and owner.transport.history.call_count==before
+        capture('archive-queued-revalidation-cancelled')
         # Explicit policy-derived header expiry, independent of later entry deadlines.
         saved_clock=owner._clock
         header_now=owner._clock.now()
@@ -768,9 +830,10 @@ def main():
             owner.loadHistory();backend._executor.submit.call_args.args[0]();QTest.qWait(60)
             assert len(owner.state['sessions'])==1
             capture('history-header-retained-'+language)
+            complete_navigation()
             owner.transport.timeline=Mock(return_value=opened_page(archive_sid))
             owner.openSaved(archive_sid);backend._executor.submit.call_args.args[0]();QTest.qWait(60)
-            assert owner.state['timeline']['entries'] and owner._timeline['_session_deadline']==header_now+5
+            assert owner.state['timeline']['entries'] and abs(owner._timeline['_session_deadline']-(header_now+5))<0.001,(language,owner.state['error'],owner.busy,owner.state['timeline'],header_now)
             assert owner.selectEntry(archive_sid,owner.state['timeline']['entries'][0]['entry_id'])
             field.setProperty('text','Synthetic draft about this expiring Session')
             elapsed[0]=6;owner._expire();QTest.qWait(60)

@@ -161,7 +161,60 @@ Item {
         if (!historical) return
         if (state.timeline.session) owner.refreshSaved(readingAnchor())
         else if (currentHistory) openCurrentHistory()
+        else if (state.history_loaded) refreshArchiveList()
         else openArchive()
+    }
+    property var archiveIntent: null
+    property bool archiveReadActive: false
+    property var archiveReturn: null
+    function cancelArchiveRead() { archiveRead.stop(); archivePosition.stop(); archiveIntent = null; archiveReadActive = false; archiveReturn = null }
+    function rememberArchive() {
+        archiveReturn = null
+        var flick = historyScroll.contentItem
+        if (flick.dragging) return
+        historyContent.ensurePolished()
+        for (var i = 0; i < archiveRows.count; i++) {
+            var row = archiveRows.itemAt(i)
+            if (!row) continue
+            var y = row.mapToItem(flick, 0, 0).y
+            if (y + row.height > 0 && y < flick.height && isFinite(y) && Math.abs(y) <= 1000000) {
+                archiveReturn = {id: row.modelData.session_id, profile: backend.activeProfileId, offset: y}
+                return
+            }
+        }
+    }
+    function refreshArchiveList() {
+        if (!visible || !historical || currentHistory || state.timeline.session || archiveIntent || archiveReadActive) return
+        rememberArchive()
+        archiveIntent = {profile: backend.activeProfileId}
+        archiveRead.restart()
+    }
+    Timer {
+        id: archiveRead; interval: 0
+        onTriggered: {
+            var intent = screen.archiveIntent
+            if (!intent || screen.owner.busy) return
+            if (screen.visible && screen.historical && !screen.currentHistory && !screen.state.timeline.session && intent.profile === screen.backend.activeProfileId) { screen.archiveReadActive = true; screen.owner.refreshArchive() }
+            screen.archiveIntent = null
+        }
+    }
+    Timer {
+        id: archivePosition; interval: 32
+        onTriggered: {
+            var saved = screen.archiveReturn
+            screen.archiveReturn = null
+            var flick = historyScroll.contentItem
+            if (!saved || !screen.visible || !screen.historical || screen.currentHistory || screen.state.timeline.session || flick.dragging || saved.profile !== screen.backend.activeProfileId) return
+            historyContent.ensurePolished()
+            for (var i = 0; i < archiveRows.count; i++) {
+                var row = archiveRows.itemAt(i)
+                if (row && row.modelData.session_id === saved.id) {
+                    flick.contentY = Math.max(0, Math.min(flick.contentY + row.mapToItem(flick, 0, 0).y - saved.offset, Math.max(0, flick.contentHeight - flick.height)))
+                    return
+                }
+            }
+            flick.contentY = 0
+        }
     }
     property var searchReturn: null
     property var searchRefreshIntent: null
@@ -226,8 +279,8 @@ Item {
         if (endConfirmation) endConfirmation.close()
         if (owner) owner.clearSearch()
     }
-    onVisibleChanged: if (!visible) { clearFlowReturn(); historyRead.stop(); historyReadProfile = ""; historyReadSession = ""; historyReadPending = false; readingRestore.stop(); pendingReadingAnchor = ""; closeTransient() }
-    onHistoricalChanged: { readingRestore.stop(); pendingReadingAnchor = ""; readingOffset = 0; if (!historical && flowReturn) flowReturnRestore.restart() }
+    onVisibleChanged: if (!visible) { cancelArchiveRead(); clearFlowReturn(); historyRead.stop(); historyReadProfile = ""; historyReadSession = ""; historyReadPending = false; readingRestore.stop(); pendingReadingAnchor = ""; closeTransient() }
+    onHistoricalChanged: { if (!historical) cancelArchiveRead(); readingRestore.stop(); pendingReadingAnchor = ""; readingOffset = 0; if (!historical && flowReturn) flowReturnRestore.restart() }
     onSearchTargetChanged: { if (searchPanel) searchPanel.close(); if (searchInput) searchInput.clear(); if (owner) owner.clearSearch() }
     signal navigate(string destination)
     function tr(key) { backend.translationVersion; return backend.t(key) }
@@ -256,7 +309,7 @@ Item {
         choices.open()
     }
     Timer { interval: 3000; running: screen.visible && screen.backend.paired && !screen.historyReadPending && !screen.searchRefreshPending; repeat: true; triggeredOnStart: true; onTriggered: { if (!screen.historical) screen.owner.refresh(); else if (!screen.currentHistory && !screen.state.history_loaded) screen.owner.loadHistory() } }
-    Timer { interval: 15000; running: screen.visible && screen.historical && screen.backend.paired; repeat: true; onTriggered: screen.refreshHistory() }
+    Timer { objectName: "sessionHistoryRevalidationTimer"; interval: 15000; running: screen.visible && screen.historical && screen.backend.paired; repeat: true; onTriggered: screen.refreshHistory() }
     Timer {
         id: replyRestore
         interval: 32
@@ -293,7 +346,7 @@ Item {
     }
     Connections {
         target: historyScroll.contentItem
-        function onDraggingChanged() { if (historyScroll.contentItem.dragging) { screen.followQuestionReply = false; readingRestore.stop(); if (!screen.historical) screen.clearFlowReturn() } }
+        function onDraggingChanged() { if (historyScroll.contentItem.dragging) { archivePosition.stop(); screen.archiveReturn = null; screen.followQuestionReply = false; readingRestore.stop(); if (!screen.historical) screen.clearFlowReturn() } }
     }
     Connections {
         target: screen.owner
@@ -303,9 +356,10 @@ Item {
         function onSelectionInvalidated() { screen.clearComposer() }
         function onTimelineUpdated(anchor) { screen.restoreReading(anchor) }
         function onTimelinePositioned(anchor, offset) { screen.readingOffset = offset; screen.restoreReading(anchor) }
-        function onChanged() { if (!screen.state.search.query) screen.cancelSearchRead(); if (screen.historyReadPending && !screen.owner.busy) historyRead.restart(); if (screen.searchRefreshPending && !screen.owner.busy) searchRead.restart() }
+        function onHistoryUpdated() { archivePosition.restart() }
+        function onChanged() { if (!screen.owner.busy) screen.archiveReadActive = false; if (!screen.historical || screen.currentHistory || screen.state.timeline.session) screen.cancelArchiveRead(); if (screen.archiveIntent && !screen.owner.busy) archiveRead.restart(); if (!screen.state.search.query) screen.cancelSearchRead(); if (screen.historyReadPending && !screen.owner.busy) historyRead.restart(); if (screen.searchRefreshPending && !screen.owner.busy) searchRead.restart() }
         function onSearchUpdated() { searchPosition.restart() }
-        function onContextCleared() { screen.clearFlowReturn(); historyRead.stop(); screen.historyReadProfile = ""; screen.historyReadSession = ""; readingRestore.stop(); screen.pendingReadingAnchor = ""; screen.readingOffset = 0; screen.closeTransient(); if (screen.historical) screen.navigate(screen.currentHistory ? "session" : "more"); screen.historyReadPending = false }
+        function onContextCleared() { screen.cancelArchiveRead(); screen.clearFlowReturn(); historyRead.stop(); screen.historyReadProfile = ""; screen.historyReadSession = ""; readingRestore.stop(); screen.pendingReadingAnchor = ""; screen.readingOffset = 0; screen.closeTransient(); if (screen.historical) screen.navigate(screen.currentHistory ? "session" : "more"); screen.historyReadPending = false }
         function onEntryOpened() {
             if (!screen.historical) screen.rememberFlow()
             searchPanel.close()
@@ -316,7 +370,7 @@ Item {
 
     Connections {
         target: screen.backend
-        function onProfileChanged() { screen.clearFlowReturn(); if (screen.historyReadPending) screen.navigate(screen.historyReadKind === "current" ? "session" : "more"); historyRead.stop(); screen.historyReadProfile = ""; screen.historyReadSession = ""; screen.historyReadPending = false; screen.closeTransient(); screen.proposedMood = "groove" }
+        function onProfileChanged() { screen.cancelArchiveRead(); screen.clearFlowReturn(); if (screen.historyReadPending) screen.navigate(screen.historyReadKind === "current" ? "session" : "more"); historyRead.stop(); screen.historyReadProfile = ""; screen.historyReadSession = ""; screen.historyReadPending = false; screen.closeTransient(); screen.proposedMood = "groove" }
         function onSharedSettingsChanged() {
             if (choices.opened && choices.editToken !== (screen.backend.sharedSettings.edit_token || "")) choices.close()
         }
@@ -459,6 +513,7 @@ Item {
         clip: true; contentWidth: availableWidth
         ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
         ColumnLayout {
+            id: historyContent
             width: parent.width; spacing: 22
             Text {
                 text: screen.tr(screen.historical ? (screen.state.timeline.session ? "session_history_title" : "session_history") : "session_title") + (screen.backend.demoMode ? " · " + screen.tr("demo_mode") : "")
@@ -645,11 +700,14 @@ Item {
                 onClicked: { var detail = !!screen.state.timeline.session; var current = screen.currentHistory; screen.owner.closeSaved(); if (current) screen.navigate("session"); else if (!detail) screen.navigate("more") }
             }
             Repeater {
+                id: archiveRows
+                objectName: "sessionArchiveRows"
                 model: screen.historical && !screen.state.timeline.session ? screen.state.sessions : []
                 GlassButton {
                     required property var modelData
                     Layout.fillWidth: true; implicitHeight: 78
                     objectName: "sessionArchiveRow"
+                    enabled: !screen.owner.busy && !screen.archiveIntent
                     text: screen.tr("session_title") + " · " + screen.displayDate(modelData.started_at || modelData.created_at)
                     onClicked: screen.owner.openSaved(modelData.session_id)
                 }
@@ -700,7 +758,8 @@ Item {
                 GlassButton { objectName: "sessionHistoryPrevious"; text: screen.tr("session_history_previous"); visible: screen.state.has_previous_entries; enabled: !screen.owner.busy; onClicked: screen.owner.previousEntries(screen.readingAnchor()) }
                 GlassButton { objectName: "sessionHistoryNext"; text: screen.tr("session_history_next"); visible: !!screen.state.timeline.next_cursor; enabled: !screen.owner.busy; onClicked: screen.owner.nextEntries(screen.readingAnchor(), screen.readingOffset) }
             }
-            GlassButton { visible: screen.historical && !screen.state.timeline.session && screen.state.has_more_sessions; text: screen.tr("session_more"); enabled: !screen.owner.busy; onClicked: screen.owner.moreHistory() }
+            GlassButton { visible: screen.historical && !screen.state.timeline.session && screen.state.has_more_sessions; objectName: "sessionArchiveMore"; text: screen.tr("session_more"); enabled: !screen.owner.busy && !screen.archiveIntent; onClicked: { if (screen.visible && screen.historical && !screen.currentHistory && !screen.state.timeline.session && screen.state.has_more_sessions && !screen.owner.busy && !screen.archiveIntent) { screen.rememberArchive(); screen.archiveReadActive = true; screen.owner.moreHistory() } } }
+            Text { objectName: "sessionArchiveLimit"; visible: screen.historical && !screen.state.timeline.session && screen.state.history_limit_reached; text: screen.tr("session_archive_limit"); textFormat: Text.PlainText; color: BrandTheme.colors.muted; font.pixelSize: 18; wrapMode: Text.WordWrap; Layout.fillWidth: true }
             BusyIndicator { visible: screen.owner.busy; running: visible; Layout.alignment: Qt.AlignHCenter }
         }
     }

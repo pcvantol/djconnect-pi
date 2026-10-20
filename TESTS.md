@@ -510,3 +510,14 @@ Pending status polish is qualified in actual QML: Sending is hidden only in the
 dock while its pending card is visible; accepted/uncertain status returns after
 completion. All five locales on both layouts include a real controller with
 synthetic uncertain transport, preserving no-replay behavior and warning text.
+
+
+Archive freshness qualifies first-to-last fresh owner traversal for all shown
+pages, strict revision/policy/keyset/cursor consistency and atomic replacement.
+Tests cover100headers across5requested20-row pages, truthful incompleteness,
+Profile/view cancellation and no cached earlier headers. Actual QML checks the
+15s timer, More, ID/pixel preservation, missing-ID fallback, five-language limit
+copy and queued cancellation behind a held read on both layouts. Older-window
+paging and real device/server acceptance are not inferred.
+
+Archive slice final:13 new synthetic cases,885 full tests;262 dedicated and116 broad actual QML views, no errors/binding loops. Partial expiry preserves the traversal budget; stale More is fenced, active reads debounce and polished fresh layouts preserve the anchor. Diagnostic fixture worker ordering and ISO rounding failures are retained separately from the corrected product layout finding. Local package60-source match; no installed/live claim.

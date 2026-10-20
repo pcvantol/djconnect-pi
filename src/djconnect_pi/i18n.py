@@ -1262,6 +1262,7 @@ _SESSION_COMPOSER_TRANSLATIONS = {
     "session_send": ("Send", "Versturen", "Senden", "Envoyer", "Enviar"),
     "session_ask_about": ("Ask about this", "Vraag hierover", "Hierzu fragen", "Poser une question", "Preguntar sobre esto"),
     "session_question_selected": ("About the selected contribution", "Over de geselecteerde bijdrage", "Über den ausgewählten Beitrag", "À propos de la contribution sélectionnée", "Sobre la contribución seleccionada"),
+    "session_archive_limit": ("More sessions are available on the server. This screen shows at most 100.", "Er staan meer sessies op de server. Dit scherm toont er maximaal 100.", "Weitere Sitzungen sind auf dem Server verfügbar. Dieser Bildschirm zeigt höchstens 100.", "D’autres sessions sont disponibles sur le serveur. Cet écran en affiche au maximum 100.", "Hay más sesiones disponibles en el servidor. Esta pantalla muestra como máximo 100."),
     "session_question_sending": ("Sending…", "Wordt verstuurd…", "Wird gesendet…", "Envoi…", "Enviando…"),
     "session_question_accepted": ("Question sent", "Vraag verstuurd", "Frage gesendet", "Question envoyée", "Pregunta enviada"),
     "session_question_accepted_unavailable": ("Question accepted. The saved answer is not available yet.", "Vraag ontvangen. Het opgeslagen antwoord is nog niet beschikbaar.", "Frage angenommen. Die gespeicherte Antwort ist noch nicht verfügbar.", "Question reçue. La réponse enregistrée n’est pas encore disponible.", "Pregunta recibida. La respuesta guardada aún no está disponible."),

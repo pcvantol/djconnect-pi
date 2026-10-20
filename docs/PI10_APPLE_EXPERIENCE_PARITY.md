@@ -1266,3 +1266,51 @@ no errors/binding loops; Ruff0.16.0 src/tests passed and hostverify MATCH.
 Wheel dfd6b13d5085413b4b12fd74d18d233126ca39ebade2db13134b6e666c67ffc5
 matches all60 packaged sources. Pending/uncertain captures were visually checked
 on both canvases. Evidence: pi-session-sending-polish under task visualizations.
+
+
+### Fresh multi-page archive list — six-hour continuation
+
+The archive already polled every15seconds, but refreshHistory reopened the first
+page and discarded loaded pages/reading position. The controller also appended
+cached earlier headers on More. The shared client now re-reads every displayed
+page from the first owner GET, using only cursors from that new traversal. More
+and periodic/manual refresh replace the whole visible list atomically. No old
+header survives solely because it was loaded on an earlier page.
+
+Every fresh page requires the same owner revision and explicit retention policy/
+revision. Descending created_at/session_id key order, unique IDs, cursor cycles,
+per-page20-row bounds and existing expiry are validated. Scope/view/Profile/
+foreground loss stops before/between GETs and rejects late GUI results. Conflict,
+invalid response or denial withdraws old list data/cursors. No immediate retry
+loop or write replay occurs; a later ordinary timer tick can request a new first
+page after a failed read. GUI admission still rechecks expiry; known earlier
+header deadlines are not extended by refetch.
+
+One local Profile-bound archive-read intent waits for existing control work and
+cancels when navigation/context changes. The existing15s timer uses it; active
+history still uses its separate owner detail revalidation. Revalidation/More
+remember only the first visible Session ID and finite bounded pixel offset, then
+resolve against the newly admitted rows after layout. Missing ID -> top; dragging
+cancels restoration. Archive rows and More are disabled during their read so taps
+cannot silently target a busy controller. No header/body cache is added to the
+reading descriptor.
+
+This slice bounds reads and UI memory to5pages of20headers. At the bound the
+original server cursor remains incomplete, More is hidden and five-language copy
+says the server has additional sessions. It is an explicit consumer limitation,
+not complete older-archive/window paging or full Apple parity. Producer authority
+is unchanged; source provenance: docs/branding/ARCHIVE_REVALIDATION_REFERENCE.json.
+
+Thirteen new synthetic transport tests qualify fresh earlier-page replacement,
+body/header withdrawal, revision/policy/ID/order/cursor conflicts and denial,
+100-row aggregate GUI admission, max-page behavior, scope cancellation, Profile
+loss between pages, original deadline clamping and wire-row limits. Actual QML
+uses real More/timer/navigation on both canvases and all locales, checking limit
+copy, changed server rows, retained ID/pixel, missing-anchor top and queued cancel.
+Initial diagnostics are preserved: an uncertain-question fixture submitted while a control read was busy; a header deadline assertion ignored ISO microsecond rounding. The final harness drains scoped reads and compares deadline precision appropriately. An actual archive reading-position shift led to layout polishing before capture/restore and a single active-read guard. Stale More clicks at the bound are rejected. Partial local header expiry retains the displayed-page budget for the next fresh traversal; no product rights or admission checks were relaxed.
+
+Source/fixture/package/Qt proof remains separate from HA/Profile/ARM/installed/
+physical acceptance. No Core/Apple WIP, model call, history write or new endpoint.
+Existing producer8b221d07 remains pinned while other lanes work independently.
+
+Final qualification:885 full Python tests passed, Ruff0.16.0 src/tests passed, hostverify MATCH.262 dedicated actual QML views plus116 broad views completed without errors/binding loops. Both archive layouts were visually inspected. Local wheel597df779624ff595642cd1229ce32d10b830500338bc98ed21ea415bb4667d6f matches all60 packaged source files. Evidence: taskvisualizations/pi-session-archive-freshness. These are local synthetic transport/source/package/Qt results, not ARM, installed or live acceptance.
