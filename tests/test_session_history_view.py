@@ -165,3 +165,31 @@ def test_empty_observation_keeps_original_text_fallback():
     row = {'kind': 'playback_observed', 'playback': {'coverage': 'observed_playing_not_full_listen'}, 'text': 'Original observation'}
     shown = presented_history({'entries': [row]})['entries'][0]
     assert shown['historical_playback'] == {} and shown['text'] == row['text']
+
+
+@pytest.mark.parametrize('flag', [None, False])
+def test_released_spotify_history_without_native_flag_requires_packaged_logo(flag):
+    page = timeline_fixture()
+    row = page['entries'][2]
+    if flag is None: row.pop('requires_spotify_attribution', None)
+    else: row['requires_spotify_attribution'] = flag
+    original = deepcopy(page)
+    rendered = presented_history(page)['entries'][2]
+    assert rendered['requires_spotify_attribution'] is True
+    assert urlsplit(rendered['spotify_source_url']).hostname == 'open.spotify.com'
+    assert page == original
+
+
+def test_spotify_history_link_alone_requires_attribution_and_invalid_provider_link_fails_closed():
+    page = timeline_fixture()
+    row = page['entries'][2]
+    row['source_attribution']['provider'] = ''
+    assert presented_history(page)['entries'][2]['requires_spotify_attribution']
+    row['source_attribution'].update(provider='Spotify', url='https://example.org/no-spotify-source')
+    with pytest.raises(SessionError): presented_history(page)
+
+
+@pytest.mark.parametrize('flag', ['true', 1, None])
+def test_malformed_historical_spotify_flag_does_not_become_a_display_grant(flag):
+    page = timeline_fixture();page['entries'][2]['requires_spotify_attribution'] = flag
+    with pytest.raises(SessionError): presented_history(page)

@@ -1343,3 +1343,59 @@ lifetime, a new producer handoff or live cancellation acceptance. Core/Apple WIP
 remains untouched. All preceding parity gaps remain open.
 
 Final local qualification for read cancellation:903 full tests passed;66 composer tests; Ruff0.16.0 src/tests passed.262 actual QML views on both formats/all locales completed without errors/binding loops, including existing late-End and receipt reconciliation flows. UI source is unchanged; this is no new visual parity claim. Local wheel157e10199dceb42996aeadc7fef96d2d465157f55a74367a0d8a9336bd1a60af matches all60 packaged sources. Proof: taskvisualizations/pi-session-conversation-read-fences. No ARM/installed/live/physical claim.
+
+### Typed retained contributions in current Flow
+
+Current Flow previously discarded all history2 rows except conversation_user and
+conversation_dj. The same fresh owner tail now supplies a separate Saved
+contributions/read-only section with playback_observed, admitted historical
+dj_moment, dj_publication metadata, dj_silence and conversation roles in canonical
+server order. A tail is bounded to20 entries; an exact receipt anchor can contribute
+up to20 additional same-revision entries, with canonical identity/content/order
+conflicts rejected. Original text, attribution links, dates and retained_until
+remain owner-authoritative. Publication/silence placeholders never acquire body
+or speech. Native Moments remain a separate independently admitted surface; no
+history row becomes current playback, a native grant, media, action or speech.
+
+The readonly history capability controls reading; contextual free-input capability
+continues to control composition independently. A client can therefore read valid
+retained rows with its composer disabled. Receipt confirmation still uses only
+the exact two typed conversation roles/identities, not other retained content.
+All retained rows are withdrawn with existing context/Profile/foreground/history
+capability and GUI-queue/tick expiry fences. Only metadata reading descriptors
+are preserved; the current window is RAM-only. Existing Flow return/scroll logic
+resolves any retained card by exact entry ID in the fresh model.
+
+SessionRetainedEntry.qml is shared by Flow and the historical timeline. It keeps
+the observed-playback field hierarchy, literal PlainText, source/revision links,
+packaged-logo readiness and dates. The historical-screen Ask-about selection stays
+there; no new actionable button or authority is inferred for a Flow row. A stable
+five-language key labels the separate readonly section. This improves coverage,
+not continuous/backward Flow: older chronology still uses the existing explicit
+history screen, and native/current cards are not interleaved into an invented
+retained timeline order.
+
+Actual screen review found that a released historical Spotify source can lack
+the native requires_spotify_attribution flag. Historical Spotify provider/links
+now impose the existing packaged-logo+valid-source readiness fence too, including
+on the historical screen. A missing qualifying Spotify link fails closed; a
+malformed explicit flag is rejected. This is an additional display restriction,
+not a new grant. Existing original producer fixture bytes remain unchanged.
+Provenance: docs/branding/RETAINED_FLOW_REFERENCE.json.
+
+Initial diagnostics remain separate: a missing Theme import in the extracted
+component was fixed; a synthetic traversal incorrectly started at QQuickWindow
+rather than its screen item and was corrected. Tests that expected no native
+Moments were corrected to explicitly remove native grants from their synthetic
+Runtime; historical data is not used to infer their absence. The old long-chat
+fixture used26 rows for a20-row request; it now uses18 older+2 new rows. No product
+bound or source/admission check was loosened for fixtures.
+
+Core has supplied local documentary review material802c1cce/833c76b2 concerning
+full Profile-authorized Pi feature parity and hardware/capability-based audio
+availability. It is not a protected consumer release and is not adopted here.
+The explicit standalone private response lifetime gap remains open; no20minute
+RAM-idle timer is used as a display grant. No audio activation, producer write,
+model call, merge, installation or live/physical acceptance follows from this slice.
+
+Final retained Flow qualification:922 full tests passed, including13 new typed-Flow cases and6 historical Spotify attribution cases. Ruff0.16.0 src/tests passed; hostverify MATCH.292 dedicated actual QML views plus116 broad views on both formats/all locales completed without errors/binding loops. Both format captures were visually inspected; the repaired Spotify logo is visible on the mixed retained surface. Local wheelbc6ecf1509307c2c472404e97d157ad602c80d76d151b55dea88e155d9def6e7 matches all61 packaged source files including SessionRetainedEntry.qml. Evidence: taskvisualizations/pi-session-retained-flow. Source/synthetic transport/Qt/package proof only; no live Profile/HA/ARM/installed/physical acceptance. Earlier intermediate test/package/render results and diagnostics are kept separately, not promoted to final source proof.

@@ -66,6 +66,17 @@ def presented_history(response):
     for row in result.get("entries", []):
         row["historical_playback"] = historical_playback(row)
         row["display_sources"] = sources(row)
+        if type(row.get("requires_spotify_attribution", False)) is not bool:
+            raise SessionError("invalid")
+        # History2 can carry Spotify attribution without the native-delivery flag.
+        # Requiring its logo is a presentation restriction, never an added grant.
+        spotify = any(source["provider"].casefold() == "spotify" or any(
+            urlsplit(link).hostname == "open.spotify.com" for link in source["links"])
+            for source in row["display_sources"])
+        playback = row.get("playback")
+        if isinstance(playback, dict):
+            spotify = spotify or urlsplit(safe_link(playback.get("source_url"))).hostname == "open.spotify.com"
+        row["requires_spotify_attribution"] = row.get("requires_spotify_attribution") is True or spotify
         row["spotify_source_url"] = spotify_source(row)
     return result
 

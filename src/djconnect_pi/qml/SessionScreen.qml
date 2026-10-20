@@ -521,7 +521,7 @@ Item {
                 textFormat: Text.PlainText; Layout.fillWidth: true
             }
             VinylPlaceholder {
-                visible: !screen.historical && screen.state.loaded && screen.state.moments.length === 0 && screen.state.conversation.length === 0 &&
+                visible: !screen.historical && screen.state.loaded && screen.state.moments.length === 0 && screen.state.retained_flow.length === 0 &&
                     (!screen.state.profile_confirmation_required || screen.backend.demoMode)
                 Layout.preferredWidth: Math.min(parent.width, screen.compact ? screen.height * 0.38 : 520)
                 Layout.preferredHeight: width
@@ -570,7 +570,7 @@ Item {
                 GlassButton { text: screen.tr("session_start"); primary: true; enabled: !screen.owner.busy; onClicked: screen.owner.start(screen.proposedMood) }
             }
             GlassCard {
-                visible: !screen.historical && screen.state.session_id.length > 0 && screen.state.moments.length === 0 && screen.state.conversation.length === 0
+                visible: !screen.historical && screen.state.session_id.length > 0 && screen.state.moments.length === 0 && screen.state.retained_flow.length === 0
                 Layout.fillWidth: true
                 RowLayout {
                     Layout.fillWidth: true; spacing: 18
@@ -640,18 +640,20 @@ Item {
                 }
                 SessionAttribution { id: playbackSources; requiresSpotify: !!screen.state.playback.requires_spotify_attribution; spotifyURL: screen.state.playback.source_url || ""; Layout.fillWidth: true }
             }
+            Text {
+                objectName: "sessionRetainedFlowLabel"
+                visible: !screen.historical && screen.state.retained_flow.length > 0
+                text: screen.tr("session_retained_flow"); textFormat: Text.PlainText
+                color: BrandTheme.colors.muted; font.pixelSize: 18; wrapMode: Text.WordWrap; Layout.fillWidth: true
+            }
             Repeater {
                 id: conversationRows
                 objectName: "sessionConversationRows"
-                model: !screen.historical ? screen.state.conversation : []
-                GlassCard {
+                model: !screen.historical ? screen.state.retained_flow : []
+                SessionRetainedEntry {
                     objectName: "sessionConversationCard"
                     required property var modelData
-                    Layout.fillWidth: true
-                    Text { text: screen.tr(modelData.kind === "conversation_user" ? "session_you" : "session_dj"); color: BrandTheme.colors.muted; font.pixelSize: 18; textFormat: Text.PlainText }
-                    Text { visible: conversationSources.ready; text: modelData.text || ""; color: BrandTheme.colors.text; font.pixelSize: 22; textFormat: Text.PlainText; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                    Text { text: screen.displayDate(modelData.occurred_at); color: BrandTheme.colors.muted; font.pixelSize: 16; textFormat: Text.PlainText }
-                    SessionAttribution { id: conversationSources; sources: modelData.display_sources || []; requiresSpotify: modelData.requires_spotify_attribution || false; spotifyURL: modelData.spotify_source_url || ""; Layout.fillWidth: true }
+                    entry: modelData; translate: screen.tr; dateText: screen.displayDate(modelData.occurred_at)
                 }
             }
             GlassCard {
@@ -729,27 +731,11 @@ Item {
                 id: historyRows
                 objectName: "sessionHistoryRows"
                 model: screen.historical ? (screen.state.timeline.entries || []) : []
-                GlassCard {
-                    id: historyCard
+                SessionRetainedEntry {
                     required property var modelData
-                    readonly property var played: modelData.historical_playback || {}
-                    Layout.fillWidth: true
-                    Text {
-                        visible: historySources.ready
-                        text: modelData.kind === "playback_observed" ? screen.tr("session_history_playback") : modelData.kind === "conversation_user" ? screen.tr("session_you") : modelData.kind === "conversation_dj" ? screen.tr("session_dj") : modelData.kind === "dj_silence" ? screen.tr("session_silence") : modelData.kind === "dj_publication" ? screen.tr("session_unavailable_contribution") : (modelData.summary || screen.tr("session_title"))
-                        color: BrandTheme.colors.text; font.pixelSize: 24; font.bold: true; wrapMode: Text.WordWrap; textFormat: Text.PlainText; Layout.fillWidth: true
-                    }
-                    Text { text: modelData.text || ""; visible: historySources.ready && text.length > 0 && !historyCard.played.title && !historyCard.played.artist && !historyCard.played.album; color: BrandTheme.colors.text; font.pixelSize: 22; wrapMode: Text.WordWrap; textFormat: Text.PlainText; Layout.fillWidth: true }
-                    Text { visible: historySources.ready && text.length > 0; text: historyCard.played.title || ""; textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 26; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                    Text { visible: historySources.ready && text.length > 0; text: historyCard.played.artist || ""; textFormat: Text.PlainText; color: BrandTheme.colors.muted; font.pixelSize: 23; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                    Text { visible: historySources.ready && text.length > 0; text: historyCard.played.album || ""; textFormat: Text.PlainText; color: BrandTheme.colors.muted; font.pixelSize: 19; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                    SessionAttribution { id: historySources; sources: modelData.display_sources || []; requiresSpotify: modelData.requires_spotify_attribution || false; spotifyURL: modelData.spotify_source_url || ""; Layout.fillWidth: true }
-                    GlassButton {
-                        visible: screen.state.composer_available && historySources.ready
-                        text: screen.tr("session_ask_about"); enabled: !screen.owner.busy
-                        onClicked: { if (screen.owner.selectEntry(modelData.session_id, modelData.entry_id)) { screen.navigate("session"); composerPanel.open() } }
-                    }
-                    Text { objectName: "sessionHistoryEntryDate"; text: screen.displayDate(modelData.occurred_at); color: BrandTheme.colors.muted; font.pixelSize: 16; textFormat: Text.PlainText }
+                    entry: modelData; translate: screen.tr; dateText: screen.displayDate(modelData.occurred_at)
+                    selectionAvailable: screen.state.composer_available; selectionBusy: screen.owner.busy
+                    onAskAbout: (sessionId, entryId) => { if (screen.owner.selectEntry(sessionId, entryId)) { screen.navigate("session"); composerPanel.open() } }
                 }
             }
             Flow {

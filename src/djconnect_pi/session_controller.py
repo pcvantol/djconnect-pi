@@ -65,6 +65,7 @@ class SessionController(QObject):
         self._forecast_dirty = False
         self._moments = []
         self._conversation = []
+        self._retained_flow = []
         self._pending_question = {}
         self._pending_question_binding = None
         self._current_reply = {}
@@ -124,7 +125,7 @@ class SessionController(QObject):
             "mood": self._session.get("selected_mood", ""),
             "presence": self._session.get("selected_presence", ""),
             "persona": self._session.get("dj_persona", ""),
-            "composer_available": self._composer_supported(), "pending_question": deepcopy(self._pending_question), "current_reply": deepcopy(self._current_reply), "conversation": deepcopy(self._conversation),
+            "composer_available": self._composer_supported(), "pending_question": deepcopy(self._pending_question), "current_reply": deepcopy(self._current_reply), "conversation": deepcopy(self._conversation), "retained_flow": deepcopy(self._retained_flow),
             "selection": deepcopy(self._selection), "question_status": self._question_status,
             "moments": deepcopy(self._moments), "sessions": deepcopy(self._sessions),
             "timeline": deepcopy(self._timeline), "search": deepcopy(self._search), "error": self._error,
@@ -185,6 +186,7 @@ class SessionController(QObject):
         self._session = {}
         self._moments = []
         self._conversation = []
+        self._retained_flow = []
         self._selection = {}
         self._question_status = ""
         self._sessions = []
@@ -289,6 +291,10 @@ class SessionController(QObject):
                 self._search = {}
                 self._error = "unavailable"
                 changed = True
+        retained_flow = [row for row in self._retained_flow if (timestamp(row.get("retained_until")) or 0) > now]
+        if retained_flow != self._retained_flow:
+            self._retained_flow = retained_flow
+            changed = True
         retained_conversation = [row for row in self._conversation if (timestamp(row.get("retained_until")) or 0) > now]
         if retained_conversation != self._conversation:
             self._conversation = retained_conversation
@@ -704,7 +710,7 @@ class SessionController(QObject):
                         result["private_response"] = True
                         result["current_reply"] = current_reply(response, binding, value, fresh, now=self._clock.now())
                     else:
-                        result["conversation"] = self._read_conversation(binding, value["session_id"], result["question_receipt"], check_conversation_read)
+                        result.update(self._read_conversation(binding, value["session_id"], result["question_receipt"], check_conversation_read))
                 elif action in {"history", "history_more", "history_refresh"}:
                     result["history"] = self._read_history(binding, value, view_epoch)
                 elif action == "timeline":
@@ -783,10 +789,10 @@ class SessionController(QObject):
                         result["capabilities"] = {}
                     caps = result["capabilities"]
                     sid = result["session"].get("session_id")
-                    if sid and caps.get("capabilities", {}).get("ask_dj_contextual_dialogue") is True and caps.get("contract_versions", {}).get("session_history_entries") == 2:
+                    if sid and caps.get("capabilities", {}).get("session_conversation_history") is True and caps.get("contract_versions", {}).get("session_history_entries") == 2:
                         result["receipt_update"] = receipt_snapshot
                         try:
-                            result["conversation"] = self._read_conversation(binding, sid, receipt_snapshot, check_conversation_read)
+                            result.update(self._read_conversation(binding, sid, receipt_snapshot, check_conversation_read))
                         except SessionError as exc:
                             if exc.category in {"denied", "unpaired", "context_changed"}:
                                 raise
@@ -858,6 +864,7 @@ class SessionController(QObject):
             if "error" in result:
                 self._question_status = "accepted_unavailable" if result.get("question_accepted") else "uncertain" if result["error"] == "uncertain" else "failed"
                 self._conversation = []
+                self._retained_flow = []
                 self._selection = {}
                 if result["error"] not in {"denied", "context_changed", "unpaired"}:
                     self._error = result["error"]
@@ -868,6 +875,7 @@ class SessionController(QObject):
                 self._selection = {}
                 # The question's GET is a receipt check, not a replacement Runtime snapshot.
                 self._conversation = result.get("conversation", [])
+                self._retained_flow = result.get("retained_flow", [])
                 self._expire()
                 confirmed = self._confirm_question()
                 self.changed.emit()
@@ -909,6 +917,7 @@ class SessionController(QObject):
             self._forecast.reset()
             self._moments = []
             self._conversation = []
+            self._retained_flow = []
             self._selection = {}
             self._timeline = {}
             self._timeline_trail = []
@@ -928,10 +937,12 @@ class SessionController(QObject):
                 if not self._composer_supported():
                     self._withdraw_question()
                 self._conversation = result.get("conversation", [])
+                self._retained_flow = result.get("retained_flow", [])
                 if not self._history_supported():
                     self._timeline = {}
                     self._timeline_trail = []
                     self._conversation = []
+                    self._retained_flow = []
                     self._sessions = []
                     self._history_cursor = ""
                     self._history_pages = 1
@@ -1017,14 +1028,19 @@ class SessionController(QObject):
         check()
         page = history_page(self.transport.timeline(binding, session_id), session_id=session_id, now=self._clock.now())
         check()
+        if len(page["entries"]) > 20:
+            raise SessionError("invalid")
+        retained = presented_history(page)["entries"]
         rows = conversation_entries(page)
+        def projection(entries):
+            return {"retained_flow": entries, "conversation": conversation_entries({"entries": entries})}
         if (receipt.get("session_id") != session_id or len(receipt.get("entry_ids", [])) != 2
                 or confirmed_question_entry(rows, receipt)):
-            return rows
+            return projection(retained)
         if receipt.get("confirmed") and receipt.get("anchor_entry_id"):
             anchors = [receipt["anchor_entry_id"]]  # Revalidate the displayed answer window.
         elif receipt.get("anchor_attempted"):
-            return rows
+            return projection(retained)
         else:
             anchors = receipt["entry_ids"]  # Receipt order conveys no canonical timeline order.
         receipt["anchor_attempted"] = True
@@ -1043,16 +1059,17 @@ class SessionController(QObject):
                 raise SessionError("invalid")
             # Never combine grants from different revision windows or clear unrelated loaded pages.
             if anchor["revision"] != page["revision"]:
-                return rows
+                return projection(retained)
             anchored_rows = conversation_entries(anchor)
             if confirmed_question_entry(anchored_rows, receipt):
                 receipt["anchor_entry_id"] = entry_id
-                merged = {row["entry_id"]: row for row in rows}
-                if any(row["entry_id"] in merged and merged[row["entry_id"]] != row for row in anchored_rows):
+                anchored = presented_history(anchor)["entries"]
+                merged = {row["entry_id"]: row for row in retained}
+                if any(row["entry_id"] in merged and merged[row["entry_id"]] != row for row in anchored):
                     raise SessionError("invalid")
-                merged.update({row["entry_id"]: row for row in anchored_rows})
+                merged.update({row["entry_id"]: row for row in anchored})
                 combined = sorted(merged.values(), key=lambda row: row["order"])
                 if len({row["order"] for row in combined}) != len(combined):
                     raise SessionError("invalid")
-                return combined
-        return rows
+                return projection(combined)
+        return projection(retained)

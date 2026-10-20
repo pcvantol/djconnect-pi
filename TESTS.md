@@ -527,3 +527,17 @@ boundaries and foreground/Profile/End withdrawal. They verify exact GET counts,
 no late publication and no automatic POST replay. Existing retained rows before
 End completion are distinguished from new reader output. Synthetic fixtures only;
 not network cancellation, server question cancellation or physical acceptance.
+
+Retained Flow tests cover all six history2 kinds in owner order, independent
+readonly/free-input capability, absence of native-grant promotion, original input
+immutability and copied GUI state, expiry/foreground/Profile/capability/denial/empty
+withdrawal, exact typed receipt-anchor merge,20-row tail bound, separate current
+Runtime versus historical playback and atomic expiry before GUI publication.
+Historical Spotify tests cover absent/false native flags, provider or link
+attribution, missing valid source and malformed explicit flags. Dedicated actual
+QML uses unchanged released rows plus clearly synthetic playback/conversation and
+short-lifetime overlays; both layouts/five languages check shared cards, literal
+markup/emoji/newline as PlainText, disabled composer/actions, logo readiness and
+expiry. These are fixture/controller/Qt proofs, not ARM, installed or live evidence.
+
+Final retained Flow qualification:922 full tests passed, including13 new typed-Flow cases and6 historical Spotify attribution cases. Ruff0.16.0 src/tests passed; hostverify MATCH.292 dedicated actual QML views plus116 broad views on both formats/all locales completed without errors/binding loops. Both format captures were visually inspected; the repaired Spotify logo is visible on the mixed retained surface. Local wheelbc6ecf1509307c2c472404e97d157ad602c80d76d151b55dea88e155d9def6e7 matches all61 packaged source files including SessionRetainedEntry.qml. Evidence: taskvisualizations/pi-session-retained-flow. Source/synthetic transport/Qt/package proof only; no live Profile/HA/ARM/installed/physical acceptance. Earlier intermediate test/package/render results and diagnostics are kept separately, not promoted to final source proof.

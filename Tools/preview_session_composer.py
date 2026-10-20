@@ -227,7 +227,7 @@ def main():
             'historical_view_only':True,'current_display_allowed':False,'input_type':'text',
             'turn_id':f'older-turn-{i//2}','role':'user' if i%2==0 else 'assistant',
             'client_message_id':f'older-client-{i//2}','text':'Earlier retained conversation. '*10}
-            for i in range(24)])
+            for i in range(18)])
         page['entries']=list(prior_entries)
         owner._session=session;owner._caps=caps;owner._loaded=True;owner.changed.emit()
         if owner.busy:
@@ -294,11 +294,13 @@ def main():
         QMetaObject.invokeMethod(history_button,'clicked');complete_navigation()
         saved=screen.property('flowReturn').toVariant()
         kept=owner._conversation
-        owner._conversation=[row for row in kept if row['entry_id']!=saved['id']];owner.changed.emit()
+        kept_flow=owner._retained_flow
+        owner._conversation=[row for row in kept if row['entry_id']!=saved['id']]
+        owner._retained_flow=[row for row in kept_flow if row['entry_id']!=saved['id']];owner.changed.emit()
         QMetaObject.invokeMethod(back_to_flow,'clicked');QTest.qWait(100)
         assert abs(flick.property('contentY'))<1
         capture('flow-return-withdrawn-entry-top')
-        owner._conversation=kept;owner.changed.emit();QTest.qWait(80)
+        owner._conversation=kept;owner._retained_flow=kept_flow;owner.changed.emit();QTest.qWait(80)
         flick.setProperty('contentY',420)
         QMetaObject.invokeMethod(history_button,'clicked');complete_navigation()
         assert screen.property('flowReturn').toVariant()
@@ -566,7 +568,7 @@ def main():
                     'source_url':p['current_anchor']['source_url'],'updated_at':p['issued_at']}}}
             owner._caps={**caps,'capabilities':{**caps['capabilities'],**forecast_caps['capabilities']},
                 'contract_versions':{**caps['contract_versions'],**forecast_caps['contract_versions']}}
-            owner._moments=[];owner._conversation=[];owner._loaded=True
+            owner._moments=[];owner._conversation=[];owner._retained_flow=[];owner._loaded=True
             owner._forecast.reset();owner._forecast.receive(owner._session,owner._caps,stamp);owner.changed.emit()
             field.setProperty('text','Synthetic unsent draft')
             forecast_button=window.findChild(QObject,'sessionForecastMode')
@@ -860,6 +862,62 @@ def main():
         assert window.property('activeScreen')=='session' and not owner.state['timeline'] and not owner.state['session_id']
         assert screen.property('flowReturn') is None
         capture('navigation-current-foreground-withdrawn')
+        # Released history2 kinds in current Flow, with explicitly synthetic transport/lifetime overlays.
+        for language in ['en','nl','de','fr','es']:
+            backend.setLanguage(language);backend._toast_visible=False;backend.toastChanged.emit();QTest.qWait(60)
+            if owner.busy: backend._executor.submit.call_args.args[0]()
+            owner.invalidate()
+            elapsed_flow=[0.0];stamp=1792480000.0
+            owner._clock=ExpiryClock(lambda:stamp,lambda:elapsed_flow[0])
+            flow_session={'session_id':'synthetic-retained-flow','runtime_state':'active','broadcast':{'session':{'session_id':'synthetic-retained-flow'}}}
+            flow_page=deepcopy(json.loads((ROOT/'tests/fixtures/session_core/retention-v2-touch.json').read_text())['tail_window'])
+            flow_page['session']['session_id']=flow_session['session_id']
+            for row in flow_page['entries']:
+                row['session_id']=flow_session['session_id']
+                row['retained_until']=datetime.fromtimestamp(stamp+5,UTC).isoformat()
+            base=deepcopy(flow_page['entries'][0])
+            played=deepcopy(base);played.update(entry_id='synthetic-retained-playback',order=7,kind='playback_observed',
+                playback={'coverage':'observed_playing_not_full_listen','title':'<img> letterlijk 🎵\nObserved track','artist':'Observed artist','album':'Observed album'})
+            flow_page['entries'].append(played)
+            for i,role in enumerate(['user','assistant']):
+                row=deepcopy(base);row.update(entry_id='synthetic-retained-'+role,order=8+i,
+                    kind='conversation_user' if i==0 else 'conversation_dj',role=role,input_type='text',
+                    turn_id='synthetic-retained-turn',client_message_id='synthetic-retained-client',text='Retained '+role+' text')
+                flow_page['entries'].append(row)
+            readonly_caps={'capabilities':{'session_conversation_history':True,'ask_dj_contextual_dialogue':False},'contract_versions':{'session_history_entries':2}}
+            owner.transport.active=Mock(return_value={'success':True,'session':flow_session})
+            owner.transport.capabilities=Mock(return_value=readonly_caps)
+            owner.transport.timeline=Mock(return_value=flow_page)
+            owner.setForeground(True)
+            if not owner.busy: owner.refresh()
+            backend._executor.submit.call_args.args[0]();QTest.qWait(80)
+            window.setProperty('activeScreen','session');QTest.qWait(60)
+            assert len(owner.state['retained_flow'])==9 and len(owner.state['conversation'])==2
+            assert not owner.state['moments'] and not owner.state['composer_available']
+            cards=window.findChild(QObject,'sessionConversationRows')
+            assert cards.property('count')==9
+            assert window.findChild(QObject,'sessionRetainedFlowLabel').property('visible')
+            flick.setProperty('contentY',0)
+            capture('retained-flow-mixed-'+language)
+            playback_cards=[];literal_text=[]
+            def check_readonly(item):
+                if item.objectName()=='sessionConversationCard':
+                    assert not item.property('selectionAvailable')
+                    assert item.property('attributionReady')
+                    if item.property('entry').get('kind')=='playback_observed': playback_cards.append(item)
+                if item.property('text')=='<img> letterlijk 🎵\nObserved track':
+                    literal_text.append(item)
+                    assert QQmlExpression(engine.rootContext(),item,'textFormat === 0').evaluate()[0] is True
+                for child in item.childItems(): check_readonly(child)
+            check_readonly(screen)
+            assert len(playback_cards)==1 and literal_text
+            flick.setProperty('contentY',min(playback_cards[0].property('y'),max(0,flick.property('contentHeight')-flick.property('height'))))
+            capture('retained-flow-playback-and-conversation-'+language)
+            assert owner.state['retained_flow'][6]['historical_playback']['title']=='<img> letterlijk 🎵\nObserved track'
+            elapsed_flow[0]=6;owner._expire();QTest.qWait(80)
+            assert not owner.state['retained_flow'] and cards.property('count')==0
+            assert not window.findChild(QObject,'sessionRetainedFlowLabel').property('visible')
+            capture('retained-flow-expired-'+language)
         backend.shutdown()
         delete(window);delete(engine)
     errors=[value for value in warnings if any(word in value for word in ('ReferenceError','TypeError','Error:','Cannot assign','is not a type','failed to load','Binding loop detected'))]
