@@ -272,11 +272,46 @@ def main():
                 backend._executor.submit.call_args.args[0]()
         history_button=window.findChild(QObject,'sessionReadCurrentHistory')
         assert history_button.property('enabled')
+        flick.setProperty('contentY',420);QTest.qWait(80)
         QMetaObject.invokeMethod(history_button,'clicked')
         complete_navigation()
         assert window.property('activeScreen')=='session-history'
         assert owner.state['timeline']['session']['session_id']==session['session_id']
         capture('active-session-history-from-beginning')
+        saved=screen.property('flowReturn').toVariant()
+        assert saved and saved['kind']=='conversation' and set(saved)=={'session','profile','kind','id','offset'}
+        back_to_flow=window.findChild(QObject,'sessionHistoryBack')
+        QMetaObject.invokeMethod(back_to_flow,'clicked');QTest.qWait(100)
+        assert window.property('activeScreen')=='session'
+        QMetaObject.invokeMethod(screen,'rememberFlow')
+        restored=screen.property('flowReturn').toVariant()
+        assert restored['id']==saved['id'] and abs(restored['offset']-saved['offset'])<1,(width,saved,restored)
+        capture('flow-return-same-entry-and-pixel')
+        # Body withdrawal during history must not restore an absent entry or cache its prose.
+        QMetaObject.invokeMethod(history_button,'clicked');complete_navigation()
+        saved=screen.property('flowReturn').toVariant()
+        kept=owner._conversation
+        owner._conversation=[row for row in kept if row['entry_id']!=saved['id']];owner.changed.emit()
+        QMetaObject.invokeMethod(back_to_flow,'clicked');QTest.qWait(100)
+        assert abs(flick.property('contentY'))<1
+        capture('flow-return-withdrawn-entry-top')
+        owner._conversation=kept;owner.changed.emit();QTest.qWait(80)
+        flick.setProperty('contentY',420)
+        QMetaObject.invokeMethod(history_button,'clicked');complete_navigation()
+        assert screen.property('flowReturn').toVariant()
+        # Scrolling history must keep the independent Flow reading identity.
+        history_saved=screen.property('flowReturn').toVariant()
+        touch=QTest.touchEvent(window,touch_device,False)
+        touch.press(0,QPoint(width//2,260),window).commit();QTest.qWait(80)
+        touch.move(0,QPoint(width//2,360),window).commit();QTest.qWait(80)
+        touch.release(0,QPoint(width//2,360),window).commit();QTest.qWait(400)
+        assert screen.property('flowReturn').toVariant()==history_saved
+        QMetaObject.invokeMethod(back_to_flow,'clicked');QTest.qWait(100)
+        QMetaObject.invokeMethod(screen,'rememberFlow')
+        after_history_drag=screen.property('flowReturn').toVariant()
+        assert after_history_drag['id']==history_saved['id'] and abs(after_history_drag['offset']-history_saved['offset'])<1
+        capture('flow-return-after-history-touch-scroll')
+        QMetaObject.invokeMethod(history_button,'clicked');complete_navigation()
         # Real shared QML previous-page control, re-reading canonical rows rather than cached prose.
         first_page={**page,'entries':list(prior_entries[:2]),'next_cursor':'preview-next'}
         second_page={**page,'entries':list(prior_entries[2:4]),'next_cursor':None}
@@ -392,6 +427,13 @@ def main():
         QMetaObject.invokeMethod(panel,'close')
         window.setProperty('activeScreen','session')
         flick.setProperty('contentY',0)
+        QTest.qWait(80)
+        QMetaObject.invokeMethod(screen,'rememberFlow')
+        native_reading=screen.property('flowReturn').toVariant()
+        assert native_reading['kind']=='moment'
+        assert native_reading['id'] in {row['moment_id'] for row in owner.state['moments']}
+        capture('flow-reading-native-moment-identity')
+        QMetaObject.invokeMethod(screen,'clearFlowReturn')
         playback_card=window.findChild(QObject,'sessionPlaybackMetadata')
         assert owner.state['playback']['title']==snapshot['playback']['title']
         assert owner.state['playback']['source_url']==snapshot['playback']['source_url']
@@ -556,6 +598,7 @@ def main():
         QMetaObject.invokeMethod(history_button,'clicked');complete_navigation()
         owner.setForeground(False)
         assert window.property('activeScreen')=='session' and not owner.state['timeline'] and not owner.state['session_id']
+        assert screen.property('flowReturn') is None
         capture('navigation-current-foreground-withdrawn')
         backend.shutdown()
         delete(window);delete(engine)

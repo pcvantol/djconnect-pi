@@ -19,7 +19,7 @@ Item {
     readonly property string composerContext: state.session_id + "|" + backend.activeProfileId
     property bool forecastMode: false
     readonly property bool showForecast: !historical && state.forecast_supported && forecastMode
-    onComposerContextChanged: { forecastMode = false; closeTransient(); if (historyReadPending && historyReadKind === "current") { historyRead.stop(); historyReadPending = false; navigate("session") } }
+    onComposerContextChanged: { clearFlowReturn(); forecastMode = false; closeTransient(); if (historyReadPending && historyReadKind === "current") { historyRead.stop(); historyReadPending = false; navigate("session") } }
     function clearComposer() { followQuestionReply = false; pendingReplyId = ""; draft = ""; if (composeInput) composeInput.clear(); if (composerPanel) composerPanel.close(); if (owner) owner.clearSelection() }
     function submitQuestion() { if (owner.sendQuestion(composeInput.text)) { forecastMode = false; followQuestionReply = true; draft = ""; composeInput.clear(); composerPanel.close() } }
     property string proposedMood: "groove"
@@ -58,12 +58,58 @@ Item {
             flick.contentY = 0
         }
     }
+    // Only identity/position survives the history view, never a cached body.
+    property var flowReturn: null
+    function clearFlowReturn() { flowReturnRestore.stop(); flowReturn = null }
+    function rememberFlow() {
+        clearFlowReturn()
+        if (historical || showForecast || !state.session_id) return
+        followQuestionReply = false
+        replyRestore.stop()
+        var groups = [liveMomentRows, conversationRows]
+        for (var g = 0; g < groups.length; g++) {
+            for (var i = 0; i < groups[g].count; i++) {
+                var card = groups[g].itemAt(i)
+                if (!card) continue
+                var y = card.mapToItem(historyScroll.contentItem, 0, 0).y
+                if (y + card.height > 0 && y < historyScroll.contentItem.height && isFinite(y) && Math.abs(y) <= 1000000) {
+                    flowReturn = {session: state.session_id, profile: backend.activeProfileId,
+                        kind: g === 0 ? "moment" : "conversation",
+                        id: g === 0 ? card.modelData.moment_id : card.modelData.entry_id, offset: y}
+                    return
+                }
+            }
+        }
+    }
+    Timer {
+        id: flowReturnRestore
+        interval: 32
+        onTriggered: {
+            var saved = screen.flowReturn
+            screen.flowReturn = null
+            var flick = historyScroll.contentItem
+            if (!screen.visible || screen.historical || flick.dragging) return
+            if (!saved || saved.session !== screen.state.session_id || saved.profile !== screen.backend.activeProfileId) { flick.contentY = 0; return }
+            var rows = saved.kind === "moment" ? liveMomentRows : conversationRows
+            for (var i = 0; i < rows.count; i++) {
+                var card = rows.itemAt(i)
+                var id = card ? (saved.kind === "moment" ? card.modelData.moment_id : card.modelData.entry_id) : ""
+                if (id === saved.id) {
+                    var delta = card.mapToItem(flick, 0, 0).y - saved.offset
+                    flick.contentY = Math.max(0, Math.min(flick.contentY + delta, Math.max(0, flick.contentHeight - flick.height)))
+                    return
+                }
+            }
+            flick.contentY = 0
+        }
+    }
     property string historyReadProfile: ""
     property bool historyReadPending: false
     property string historyReadKind: "archive"
     property string historyReadSession: ""
     function openCurrentHistory() {
         if (!state.session_id) return
+        if (!historical) rememberFlow()
         historyReadPending = true
         historyReadKind = "current"
         historyReadSession = state.session_id
@@ -73,6 +119,7 @@ Item {
         historyRead.restart()
     }
     function openArchive() {
+        clearFlowReturn()
         historyReadPending = true
         historyReadKind = "archive"
         historyReadProfile = backend.activeProfileId
@@ -110,8 +157,8 @@ Item {
         if (endConfirmation) endConfirmation.close()
         if (owner) owner.clearSearch()
     }
-    onVisibleChanged: if (!visible) { historyRead.stop(); historyReadProfile = ""; historyReadSession = ""; historyReadPending = false; readingRestore.stop(); pendingReadingAnchor = ""; closeTransient() }
-    onHistoricalChanged: { readingRestore.stop(); pendingReadingAnchor = ""; readingOffset = 0 }
+    onVisibleChanged: if (!visible) { clearFlowReturn(); historyRead.stop(); historyReadProfile = ""; historyReadSession = ""; historyReadPending = false; readingRestore.stop(); pendingReadingAnchor = ""; closeTransient() }
+    onHistoricalChanged: { readingRestore.stop(); pendingReadingAnchor = ""; readingOffset = 0; if (!historical && flowReturn) flowReturnRestore.restart() }
     onSearchTargetChanged: { if (searchPanel) searchPanel.close(); if (searchInput) searchInput.clear(); if (owner) owner.clearSearch() }
     signal navigate(string destination)
     function tr(key) { backend.translationVersion; return backend.t(key) }
@@ -160,7 +207,7 @@ Item {
     }
     Connections {
         target: historyScroll.contentItem
-        function onDraggingChanged() { if (historyScroll.contentItem.dragging) { screen.followQuestionReply = false; readingRestore.stop() } }
+        function onDraggingChanged() { if (historyScroll.contentItem.dragging) { screen.followQuestionReply = false; readingRestore.stop(); if (!screen.historical) screen.clearFlowReturn() } }
     }
     Connections {
         target: screen.owner
@@ -169,8 +216,9 @@ Item {
         function onTimelineUpdated(anchor) { screen.restoreReading(anchor) }
         function onTimelinePositioned(anchor, offset) { screen.readingOffset = offset; screen.restoreReading(anchor) }
         function onChanged() { if (screen.historyReadPending && !screen.owner.busy) historyRead.restart() }
-        function onContextCleared() { historyRead.stop(); screen.historyReadProfile = ""; screen.historyReadSession = ""; readingRestore.stop(); screen.pendingReadingAnchor = ""; screen.readingOffset = 0; screen.closeTransient(); if (screen.historical) screen.navigate(screen.currentHistory ? "session" : "more"); screen.historyReadPending = false }
+        function onContextCleared() { screen.clearFlowReturn(); historyRead.stop(); screen.historyReadProfile = ""; screen.historyReadSession = ""; readingRestore.stop(); screen.pendingReadingAnchor = ""; screen.readingOffset = 0; screen.closeTransient(); if (screen.historical) screen.navigate(screen.currentHistory ? "session" : "more"); screen.historyReadPending = false }
         function onEntryOpened() {
+            if (!screen.historical) screen.rememberFlow()
             searchPanel.close()
             screen.readingOffset = 0
             screen.navigate(screen.currentHistory || !screen.historical ? "session-history" : "history")
@@ -179,7 +227,7 @@ Item {
 
     Connections {
         target: screen.backend
-        function onProfileChanged() { if (screen.historyReadPending) screen.navigate(screen.historyReadKind === "current" ? "session" : "more"); historyRead.stop(); screen.historyReadProfile = ""; screen.historyReadSession = ""; screen.historyReadPending = false; screen.closeTransient(); screen.proposedMood = "groove" }
+        function onProfileChanged() { screen.clearFlowReturn(); if (screen.historyReadPending) screen.navigate(screen.historyReadKind === "current" ? "session" : "more"); historyRead.stop(); screen.historyReadProfile = ""; screen.historyReadSession = ""; screen.historyReadPending = false; screen.closeTransient(); screen.proposedMood = "groove" }
         function onSharedSettingsChanged() {
             if (choices.opened && choices.editToken !== (screen.backend.sharedSettings.edit_token || "")) choices.close()
         }
@@ -404,6 +452,7 @@ Item {
                 }
             }
             Repeater {
+                id: liveMomentRows
                 objectName: "sessionLiveMomentRows"
                 model: !screen.historical ? screen.state.moments : []
                 GlassCard {

@@ -869,3 +869,43 @@ release, install or pairing occurred. PR111 remains draft. This is local source/
 fixture/package/Qt qualification, not live Profile/HA, ARM, installed or physical
 acceptance. Continuous Flow, Flow-position restoration across history navigation,
 media/actions, remaining Apple destinations and native backdrop design stay open.
+
+
+### 2026-10-20 — Return from current history to the same Flow contribution
+
+Current-history navigation now remembers one bounded RAM-only reading descriptor:
+Session, Profile, Moment/conversation kind, exact visible ID and finite pixel
+offset. Search/open from Flow captures the same origin position. No old prose,
+source grant or historical body is cached. After layout, return locates the ID
+only in the current admitted Moment or retained conversation model and clamps the
+scroll offset. A withdrawn/missing ID falls back to the top. This covers visible
+Moment/conversation cards; playback-only, empty and Forecast positions are not
+remembered by this descriptor.
+
+Archive entry, leaving Session, Profile/Session change and foreground/context
+withdrawal clear the descriptor and pending timer. A Flow touch drag cancels the
+queued restoration. History scrolling deliberately preserves the independent
+Flow descriptor. Reply-following is stopped when capturing the reading position,
+so an old reply timer cannot override the explicit navigation return. Neither a
+new server read contract nor a timeline order/grant is inferred from position.
+
+Validation:817 tests passed in the qualified host environment; Ruff0.16.0
+src/tests passed; hostverify MATCH. Actual QML:160 dedicated controller views plus
+86 broad regression views, no errors/binding loops. Both sizes exercise exact
+entry/pixel restoration, withdrawal fallback and injected Qt history-touch drag;
+the native Moment branch captures an ID from the unchanged released producer
+fixture. Existing foreground navigation probes also verify descriptor withdrawal.
+Local wheel SHA256
+6bac8c059997dd95a35432a579b4b6839cc4ea7012af5ddcc448af32b50de1b0
+matches all58 packaged sources. Evidence: pi-session-flow-return under task
+visualizations. Earlier evidence remains intact. The first restricted test run
+had804 passes/13 environment skips; the qualified run above has817 passes.
+
+Parent3aa4d6d passed all applicable CI (24 successes/4 conditional skips). Core
+protected main8b221d07 and Apple e106a467 are unchanged. Core recorded its own
+historical-website/voice-route WIP checkpoint aad9a3df; this Pi change neither
+adopts it nor adds voice. No new Pi review or released handoff arrived. PR111
+stays draft; no merge, install, pairing, HA/model/provider action occurred.
+Source/fixture/package/local Qt-touch proof is not ARM, installed/live Profile/HA
+or physical acceptance. Continuous Flow/server windows, remaining Apple pages,
+media/actions and real backdrop effects remain open.

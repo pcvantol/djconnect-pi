@@ -443,3 +443,11 @@ Empty search clears still revoke tickets while avoiding redundant GUI change
 signals. Both preview harnesses now fail on QML binding-loop warnings as well.
 Final navigation checkpoint:817 tests,86 broad/152 dedicated views. No server
 contract, lifecycle write, media grant or installed/live/physical proof is added.
+
+
+The shared Session composer preview additionally verifies return from current
+history to the same still-present Flow contribution and pixel offset on both
+canvases. It checks metadata-only descriptors, withdrawn-entry fallback, history
+Qt-touch scrolling without losing Flow position, native Moment ID capture and
+foreground withdrawal. These are local synthetic transport/actual QML checks,
+not physical touch, installed Pi or live Profile/HA qualification.
