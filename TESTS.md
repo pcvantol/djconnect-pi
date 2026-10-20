@@ -890,3 +890,61 @@ measurement, not a new host check. Wheel900b213e70eb46a95a39c70d2c5bff3285978af4
 matches all64 packaged sources. Evidence:taskvisualizations/pi-flow-presentation-order.
 All results are local synthetic-transport/Qt/package, not live HA/Profile, ARM,
 installed or physical acceptance. Exact new-head CI is recorded separately.
+
+
+### Music context before the native Moment; first-visible Flow reading anchor
+
+The shared current Flow now places its existing admitted Runtime music metadata
+before native Moment cards, following the pinned Apple e106 currentHeader ->
+NativeSessionMomentsView musicContext/currentCard hierarchy. The card contents,
+source/logo readiness, metadata identity, native/image admission and deadlines
+are unchanged. This adopts container order only; full native album artwork,
+gestures, playback controls, favorites/output volume and exact glass stay open.
+No unsupported playback artwork URL is promoted into the current-Moment grant.
+
+A new actual QML probe exposed a presentation-related reading bug: with current
+reply and saved cards both visible, rememberFlow chose a saved conversation353px
+below the reading edge instead of the current reply crossing the top. The function
+now compares actual visible Y positions across admitted native, retained and
+current-only cards and stores the topmost intersecting card. The one descriptor
+still contains only Session/Profile/kind/ID/finite bounded offset, with no body,
+grant or deadline cache. Restoration still looks up current admitted models;
+missing ID, scope/context/foreground loss and touch cancellation retain their
+existing behavior. Playback-only/pending-card reading positions remain open.
+Explicit reply-follow and artwork-body reading restoration keep their own gates.
+
+The current-only/saved join is explicitly synthetic UI geometry, not extra
+producer authority or live Runtime evidence. The failing first720x720 probe and
+intermediate header-only qualification are preserved separately. New actual
+geometry checks cover music before Moment on every applicable artwork fixture,
+plus first-visible current-response identity with both reply and saved content
+visible, across five locales/two sizes. CURRENT_HEADER_ORDER_REFERENCE.json pins
+the exact native source and limits. No new strings, transport or producer fields.
+
+
+Broad QML review found the initial music-before-Moment swap placed the720px
+Moment card358px below the reading edge, failing the original half-viewport
+first-fold gate. The compact header now keeps title, artist/album, progress/time
+and a clickable44px Spotify source in two rows; tablet artist/album stay on
+separate lines. No metadata is dropped or elided. The original150-view broad
+harness and visibility threshold are unchanged and pass on the compact header.
+This is a Pi-responsive metadata adaptation, not complete native artwork/control
+header parity. Superseded geometry/package/proofs remain separate.
+
+
+Final qualification for current-header order and first-visible reading:956 actual
+QML views (436composer,180Moment/artwork,90Forecast,100history,150broad), five
+locales/two formats, no errors/bindingloops. Both music-before-Moment layouts and
+the overlapping current-response/saved reading case were inspected. All existing
+ID/pixelreturn/touch/withdrawal/expiry/image-reading checks remain. Ruff0.16.0
+src/tests PASS; fresh read-only qualifiedhost MATCH during this resumed slice.
+The last full local Python suite remains1188passed on ancestor660cc151; it is not
+claimed rerun for this QML-only change (immediate parentca5b22f).
+Wheel894862fa5dafbe5afa2c6756cd8688f1a89ae94962ebb23bb1ae4aca73e31ce9
+matches all64 packaged sources. Evidence:taskvisualizations/pi-session-current-header,
+with failing/intermediate results kept separately. The first broad run
+found a true720px first-fold regression (Moment card358px below the reading
+edge). Compact metadata combines artist/album and progress/time, with
+Spotify attribution beside the title. Tablet details stay separate. All fields
+remain; original first-fold tests were not changed or weakened. No liveHA/Profile, ARM,
+installed, provider/licence or physical acceptance follows. Exact-head CI separate.

@@ -134,27 +134,29 @@ Item {
         replyRestore.stop()
         currentReplyPosition.stop()
         pendingQuestionPosition.stop()
+        // Use actual visible order, including current-only replies above saved rows.
+        var best = null
         var groups = [liveMomentRows, conversationRows]
         for (var g = 0; g < groups.length; g++) {
             for (var i = 0; i < groups[g].count; i++) {
                 var card = groups[g].itemAt(i)
                 if (!card) continue
                 var y = card.mapToItem(historyScroll.contentItem, 0, 0).y
-                if (y + card.height > 0 && y < historyScroll.contentItem.height && isFinite(y) && Math.abs(y) <= 1000000) {
-                    flowReturn = {session: state.session_id, profile: backend.activeProfileId,
+                if (y + card.height > 0 && y < historyScroll.contentItem.height && isFinite(y) && Math.abs(y) <= 1000000 && (!best || y < best.offset)) {
+                    best = {session: state.session_id, profile: backend.activeProfileId,
                         kind: g === 0 ? "moment" : "conversation",
                         id: g === 0 ? card.modelData.moment_id : card.modelData.entry_id, offset: y}
-                    return
                 }
             }
         }
         if (currentReplyCard.visible && state.current_reply.reply_id) {
             var replyY = currentReplyCard.mapToItem(historyScroll.contentItem, 0, 0).y
-            if (replyY + currentReplyCard.height > 0 && replyY < historyScroll.contentItem.height && isFinite(replyY) && Math.abs(replyY) <= 1000000) {
-                flowReturn = {session: state.session_id, profile: backend.activeProfileId,
+            if (replyY + currentReplyCard.height > 0 && replyY < historyScroll.contentItem.height && isFinite(replyY) && Math.abs(replyY) <= 1000000 && (!best || replyY < best.offset)) {
+                best = {session: state.session_id, profile: backend.activeProfileId,
                     kind: "current_reply", id: state.current_reply.reply_id, offset: replyY}
             }
         }
+        flowReturn = best
     }
     function rememberArtworkReading() {
         for (var i = 0; i < liveMomentRows.count; i++) {
@@ -767,6 +769,58 @@ Item {
                     }
                 }
             }
+            // Current music context precedes admitted native Moments, as in the Apple header.
+            GlassCard {
+                objectName: "sessionPlaybackMetadata"
+                visible: !screen.historical && !!screen.state.playback.item_id
+                Layout.fillWidth: true
+                padding: screen.compact ? 16 : 22
+                spacing: screen.compact ? 8 : 16
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 12
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: screen.compact ? 4 : 12
+                        Text { visible: playbackSources.ready && text.length > 0; text: screen.state.playback.title || ""; textFormat: Text.PlainText; font.pixelSize: screen.compact ? 24 : 30; font.bold: true; color: BrandTheme.colors.text; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                        Text {
+                            visible: screen.compact && playbackSources.ready && text.length > 0
+                            text: [screen.state.playback.artist || "", screen.state.playback.album || ""].filter(function(value) { return value.length > 0 }).join(" · ")
+                            textFormat: Text.PlainText; font.pixelSize: 18; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true
+                        }
+                        Text { visible: !screen.compact && playbackSources.ready && text.length > 0; text: screen.state.playback.artist || ""; textFormat: Text.PlainText; font.pixelSize: 23; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                        Text { visible: !screen.compact && playbackSources.ready && text.length > 0; text: screen.state.playback.album || ""; textFormat: Text.PlainText; font.pixelSize: 19; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                    }
+                    SessionAttribution {
+                        id: playbackSources
+                        requiresSpotify: !!screen.state.playback.requires_spotify_attribution
+                        spotifyURL: screen.state.playback.source_url || ""
+                        visible: requiresSpotify
+                        Layout.preferredWidth: 90; Layout.alignment: Qt.AlignTop
+                    }
+                }
+                RowLayout {
+                    visible: playbackSources.ready && screen.state.playback.time_label !== undefined
+                    Layout.fillWidth: true
+                    ProgressBar {
+                        id: playbackProgress
+                        value: screen.state.playback.progress || 0; Layout.fillWidth: true
+                        Accessible.name: screen.tr("now_playing")
+                        background: Rectangle { implicitHeight: 6; radius: 3; color: BrandTheme.colors.text; opacity: 0.18 }
+                        contentItem: Item {
+                            implicitHeight: 6
+                            Rectangle { width: playbackProgress.visualPosition * parent.width; height: parent.height; radius: 3; color: BrandTheme.colors.text }
+                        }
+                    }
+                    Text { text: screen.state.playback.time_label || ""; textFormat: Text.PlainText; font.pixelSize: screen.compact ? 16 : 18; color: BrandTheme.colors.muted }
+                }
+                RowLayout {
+                    visible: playbackSources.ready && !!screen.state.playback.target_name
+                    Layout.fillWidth: true
+                    FeatureIcon { iconName: "music"; Layout.preferredWidth: 22; Layout.preferredHeight: 22 }
+                    Text { text: screen.state.playback.target_name || ""; textFormat: Text.PlainText; font.pixelSize: 19; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true; Accessible.name: screen.tr("output_device") + ": " + text }
+                }
+            }
             Repeater {
                 id: liveMomentRows
                 objectName: "sessionLiveMomentRows"
@@ -815,33 +869,6 @@ Item {
                     SessionAttribution { id: liveSources; sources: modelData.display_sources || []; requiresSpotify: modelData.requires_spotify_attribution || false; spotifyURL: modelData.spotify_source_url || ""; Layout.fillWidth: true }
 
                 }
-            }
-            GlassCard {
-                objectName: "sessionPlaybackMetadata"
-                visible: !screen.historical && !!screen.state.playback.item_id
-                Layout.fillWidth: true
-                Text { visible: playbackSources.ready && text.length > 0; text: screen.state.playback.title || ""; textFormat: Text.PlainText; font.pixelSize: screen.compact ? 26 : 30; font.bold: true; color: BrandTheme.colors.text; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                Text { visible: playbackSources.ready && text.length > 0; text: screen.state.playback.artist || ""; textFormat: Text.PlainText; font.pixelSize: 23; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                Text { visible: playbackSources.ready && text.length > 0; text: screen.state.playback.album || ""; textFormat: Text.PlainText; font.pixelSize: 19; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                ProgressBar {
-                    id: playbackProgress
-                    visible: playbackSources.ready && screen.state.playback.time_label !== undefined
-                    value: screen.state.playback.progress || 0; Layout.fillWidth: true
-                    Accessible.name: screen.tr("now_playing")
-                    background: Rectangle { implicitHeight: 6; radius: 3; color: BrandTheme.colors.text; opacity: 0.18 }
-                    contentItem: Item {
-                        implicitHeight: 6
-                        Rectangle { width: playbackProgress.visualPosition * parent.width; height: parent.height; radius: 3; color: BrandTheme.colors.text }
-                    }
-                }
-                Text { visible: playbackSources.ready && text.length > 0; text: screen.state.playback.time_label || ""; textFormat: Text.PlainText; font.pixelSize: 18; color: BrandTheme.colors.muted; Layout.alignment: Qt.AlignRight }
-                RowLayout {
-                    visible: playbackSources.ready && !!screen.state.playback.target_name
-                    Layout.fillWidth: true
-                    FeatureIcon { iconName: "music"; Layout.preferredWidth: 22; Layout.preferredHeight: 22 }
-                    Text { text: screen.state.playback.target_name || ""; textFormat: Text.PlainText; font.pixelSize: 19; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true; Accessible.name: screen.tr("output_device") + ": " + text }
-                }
-                SessionAttribution { id: playbackSources; requiresSpotify: !!screen.state.playback.requires_spotify_attribution; spotifyURL: screen.state.playback.source_url || ""; Layout.fillWidth: true }
             }
             GlassCard {
                 id: pendingQuestionCard

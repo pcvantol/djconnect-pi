@@ -91,6 +91,10 @@ def main():
                 owner._session=s;owner._caps=c;owner._moments=live_presentations(s,now=stamp);owner._loaded=True
                 owner.transport.active=Mock(return_value={'success':True,'session':deepcopy(s)});owner.transport.capabilities=Mock(return_value=c)
                 owner.changed.emit();window.setProperty('activeScreen','session');drain();QTest.qWait(100)
+                if owner.state['playback'].get('item_id') and owner.state['moments']:
+                    music=visual(screen,'sessionPlaybackMetadata');moment=visual(screen,'sessionLiveMomentCard')
+                    assert music.property('visible') and moment.property('visible')
+                    assert music.mapToItem(screen,0,0).y()+music.property('height')<=moment.mapToItem(screen,0,0).y()
                 return s,elapsed
             for language in ['en','nl','de','fr','es']:
                 s,elapsed=install(language);assert len(jobs)==1, (len(jobs), store.visible, owner._foreground, bool(owner._session), owner._caps, backend.cfg.explicit_profile_id, backend.cfg.active_profile_type, backend.cfg.active_profile_privacy_mode, bool(store.desired),screen.property('historical'),screen.property('showForecast'))
@@ -98,6 +102,7 @@ def main():
                 art=visual(screen,'sessionMomentArtworkImage');card=visual(screen,'sessionMomentArtworkCard')
                 assert owner.momentArtwork and card.property('visible') and art.property('source').toString().startswith('data:image/png;base64,')
                 assert art.property('cache') is False and QQmlExpression(engine.rootContext(),art,'status===1 && fillMode===1').evaluate()[0]
+                flick.setProperty('contentY',0);capture('current-header-music-before-moment-'+language)
                 flick.setProperty('contentY',max(0,min(flick.property('contentY')+art.mapToItem(flick,0,0).y()-12,flick.property('contentHeight')-flick.property('height'))))
                 capture('moment-artist-synthetic-current-grant-'+language)
                 # Image expires before the independent original native text deadline.
