@@ -16,12 +16,37 @@ from Tools.pi_instance_contract import (
 )
 
 
+def latest_deployment(client, authority, instance):
+    # Any later attempt for this physical instance invalidates older smoke,
+    # including a different manifest/consumer and an inconclusive mutation.
+    listing = client.json("repos/"+PI+"/actions/workflows/deploy-latest-pi-release.yml/runs?event=workflow_dispatch&per_page=20")
+    runs = listing.get("workflow_runs")
+    require(isinstance(runs, list) and type(listing.get("total_count")) is int
+            and 0 <= listing["total_count"] <= 20 and len(runs) <= 20, "DEPLOYMENT_RUN_LIST_INVALID")
+    prefix = "Pi deploy / "+instance+" / "
+    matching = [run for run in runs if run.get("head_branch") == "main"
+        and isinstance(run.get("display_title"), str) and run["display_title"].startswith(prefix)
+        and run.get("path") in {".github/workflows/deploy-latest-pi-release.yml", ".github/workflows/deploy-latest-pi-release.yml@main"}
+        and run.get("event") == "workflow_dispatch"]
+    require(bool(matching), "LATEST_DEPLOYMENT_MISSING")
+    matching.sort(key=lambda run: (datetime.fromisoformat(run["updated_at"]), int(run["id"])), reverse=True)
+    run = matching[0]
+    require(run.get("status") == "completed" and run.get("conclusion") == "success"
+            and run.get("head_sha") == authority.binding.consumer_sha
+            and run.get("actor", {}).get("login") == "pcvantol"
+            and run["display_title"] == prefix+authority.binding.request["manifest_id"], "LATEST_DEPLOYMENT_NOT_MATCHING_SUCCESS")
+    return str(run["id"]), run.get("run_attempt"), run["updated_at"]
+
+
 def aggregate(client, authority, current: dict) -> dict:
     selected = authority.binding.request["deployment_instance"]
     other = next(instance for instance in CONFIGURATION_REFS if instance != selected)
     results = {selected: current["result"], other: "SMOKE_INCONCLUSIVE"}
     report = {"result": "DEPLOYMENT_SMOKE_FAILED", "instances": results, "smoke_workflow_runs": {selected: current["workflow_run_id"]}}
     try:
+        selected_deploy = latest_deployment(client, authority, selected)
+        require(current.get("deployment_workflow_run") == selected_deploy[0], "CURRENT_SMOKE_DEPLOYMENT_SUPERSEDED")
+        other_deploy = latest_deployment(client, authority, other)
         raw, _blob = github_file(client, CORE, OPERATIONAL_PATH, authority.operational_core_sha)
         require(hashlib.sha256(raw).hexdigest() == authority.operational_manifest_sha256, "OPERATIONAL_BYTES_MISMATCH")
         manifest = strict_json(raw)
@@ -61,6 +86,9 @@ def aggregate(client, authority, current: dict) -> dict:
                 and evidence.get("installed_version") == other_authority.binding.version
                 and evidence.get("installed_device_profile") == request["device_profile"]
                 and all(evidence.get(key) is True for key in ("api_reachable", "client_active", "api_active")), "OTHER_SMOKE_BINDING_INVALID")
+        require(evidence.get("deployment_workflow_run") == other_deploy[0], "OTHER_SMOKE_DEPLOYMENT_SUPERSEDED")
+        require(latest_deployment(client, authority, selected) == selected_deploy
+                and latest_deployment(client, authority, other) == other_deploy, "DEPLOYMENT_CHANGED_DURING_AGGREGATION")
         latest, _blob = github_file(client, CORE, OPERATIONAL_PATH, "main")
         require(hashlib.sha256(latest).hexdigest() == authority.operational_manifest_sha256, "OPERATIONAL_MANIFEST_SUPERSEDED")
         results[other] = "SMOKE_PASS";report["smoke_workflow_runs"][other] = str(run["id"])

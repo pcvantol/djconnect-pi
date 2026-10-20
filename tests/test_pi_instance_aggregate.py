@@ -17,6 +17,22 @@ class AggregateClient(Client):
     def __init__(self):
         super().__init__();self.aggregate_case = "valid"
     def json(self, path):
+        if "/workflows/deploy-latest" in path:
+            runs = []
+            for instance, run_id in (("wall-4inch", 90), ("wall-10inch", 91)):
+                row = {"id": run_id, "head_sha": CONSUMER, "head_branch": "main", "display_title": "Pi deploy / "+instance+" / "+self.request["manifest_id"],
+                    "path": ".github/workflows/deploy-latest-pi-release.yml", "event": "workflow_dispatch", "actor": {"login": "pcvantol"},
+                    "status": "completed", "conclusion": "success", "run_attempt": 1, "updated_at": "2026-10-20T16:00:00Z"}
+                runs.append(row)
+                if getattr(self, "later_instance", None) == instance:
+                    changed = {**row, "id": run_id+100, "updated_at": "2026-10-20T17:01:00Z"}
+                    mode = self.later_mode
+                    if mode in {"queued", "in_progress"}:changed.update(status=mode, conclusion=None)
+                    elif mode in {"failure", "cancelled", "timed_out"}:changed["conclusion"] = mode
+                    elif mode == "manifest":changed["display_title"] += "-new"
+                    elif mode == "consumer":changed["head_sha"] = "f"*40
+                    runs.append(changed)
+            return {"workflow_runs": runs, "total_count": len(runs)}
         if "/workflows/smoke-rbpi" in path:
             run = {"id": 100, "head_sha": CONSUMER, "head_branch": "main", "display_title": "Pi smoke / wall-10inch / "+self.request["manifest_id"],
                 "path": ".github/workflows/smoke-rbpi-djconnect.yml", "event": "workflow_dispatch", "actor": {"login": "pcvantol"},
@@ -36,7 +52,7 @@ class AggregateClient(Client):
         other = next(row for row in self.manifest["artifact_bindings"] if row["deployment_instance"] == "wall-10inch")
         request = {**self.request, **{key: other[key] for key in ("deployment_instance", "device_profile", "artifact_id", "artifact_sha256")}}
         authority = resolve(self, request, CONSUMER, self.configuration)
-        record = {**authority.receipt(), "result": "SMOKE_PASS", "workflow_run_id": "100",
+        record = {**authority.receipt(), "result": "SMOKE_PASS", "workflow_run_id": "100", "deployment_workflow_run": "91",
             "installed_source": request["candidate_sha"], "installed_version": authority.binding.version,
             "installed_device_profile": request["device_profile"], "api_reachable": True, "client_active": True, "api_active": True}
         if self.aggregate_case == "wrong-pair":record["operational_manifest_sha256"] = "f"*64
@@ -48,7 +64,7 @@ class AggregateClient(Client):
 
 def test_both_matching_required_instances_can_be_overall_operational():
     client = AggregateClient();authority = resolve(client, client.request, CONSUMER, client.configuration)
-    result = wire.aggregate(client, authority, {"result": "SMOKE_PASS", "workflow_run_id": "101"})
+    result = wire.aggregate(client, authority, {"result": "SMOKE_PASS", "workflow_run_id": "101", "deployment_workflow_run": "90"})
     assert result["result"] == "DEPLOYMENT_OPERATIONAL" and client.effects == 0
 
 
@@ -56,5 +72,29 @@ def test_both_matching_required_instances_can_be_overall_operational():
 def test_no_old_or_partial_success_can_complete_the_release(case):
     client = AggregateClient();client.aggregate_case = case
     authority = resolve(client, client.request, CONSUMER, client.configuration)
-    result = wire.aggregate(client, authority, {"result": "SMOKE_PASS", "workflow_run_id": "101"})
+    result = wire.aggregate(client, authority, {"result": "SMOKE_PASS", "workflow_run_id": "101", "deployment_workflow_run": "90"})
+    assert result["result"] == "DEPLOYMENT_SMOKE_FAILED" and client.effects == 0
+
+
+@pytest.mark.parametrize("instance", ["wall-4inch", "wall-10inch"])
+@pytest.mark.parametrize("mode", ["queued", "in_progress", "failure", "cancelled", "timed_out", "manifest", "consumer", "success-unmatched"])
+def test_later_deployment_on_either_instance_invalidates_older_smoke(instance, mode):
+    client = AggregateClient();client.later_instance = instance;client.later_mode = mode
+    authority = resolve(client, client.request, CONSUMER, client.configuration)
+    result = wire.aggregate(client, authority, {"result": "SMOKE_PASS", "workflow_run_id": "101", "deployment_workflow_run": "90"})
+    assert result["result"] == "DEPLOYMENT_SMOKE_FAILED" and client.effects == 0
+
+
+@pytest.mark.parametrize("instance", ["wall-4inch", "wall-10inch"])
+def test_deployment_changes_while_aggregating_cannot_publish_operational(instance):
+    client = AggregateClient();original = client.json;calls = 0
+    def read(path):
+        nonlocal calls
+        if "/workflows/deploy-latest" in path:
+            calls += 1
+            if calls > 2:client.later_instance = instance;client.later_mode = "in_progress"
+        return original(path)
+    client.json = read
+    authority = resolve(client, client.request, CONSUMER, client.configuration)
+    result = wire.aggregate(client, authority, {"result": "SMOKE_PASS", "workflow_run_id": "101", "deployment_workflow_run": "90"})
     assert result["result"] == "DEPLOYMENT_SMOKE_FAILED" and client.effects == 0

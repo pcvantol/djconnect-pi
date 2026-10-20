@@ -77,3 +77,21 @@ new dedicated workflow initially selected an invalid governance profile `ci`;
 the actual canonical check rejected it. It now uses the existing repository
 `balanced` CI profile. Release/deployment workflows retain `release`. No policy
 is bypassed. The original failure log is retained.
+
+## Independent aggregation P1 correction
+
+Core's bounded conformance review rejected reuse of an older smoke after a newer
+failed/in-progress deployment. Aggregation now independently reads the latest
+relevant deployment for each physical instance, including other manifests and
+consumer revisions, and requires completed success plus the exact deployment-run
+reference in each smoke. It rechecks both deployment snapshots before reporting
+overall success. Missing, truncated, queued, failed, cancelled, timed-out, changed
+or unmatched attempts fail overall closed. This is a readback snapshot, not an
+atomic cross-workflow lock or permission for another mutation.
+
+Sixteen new two-instance cases cover those later attempts; two additional cases
+change deployment during aggregation. The dedicated suite passes254cases. The
+full integrated production run after the fix passes1664without skips; its test
+collection preceded the last two added race cases, which passed separately in
+the254case run. No app, installer, SSH, source rights or actual device changed.
+Independent exact fix re-review and protected CI remain required.
