@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 4.0.0-rc.5
+
 - Apply one Brand V2 colour source to native pages, controls, dropdowns, status,
   portal and updater; keep Mood colours local to the explicit choice.
 - Fix the updater glow animation's parent reference found by full-page rendering.
@@ -13,6 +15,20 @@
   original source/revision links and shared touch text input in five locales.
 - Clear private search input and discard delayed history results on context changes;
   preserve active-session state when saved-history queries fail.
+
+- Add fresh paged Session history, retained-flow selection and scoped current
+  replies, with original expiry, context withdrawal and single-attempt writes.
+- Add bounded RAM-only current Forecast/Moment artwork and explicit current
+  Moment image preparation under separate owner media grants.
+- Add Session playback controls with fresh owner/backend checks, explicit
+  current-track save where supported, and no automatic command replay.
+- Add Privacy/Legal and an explicit, context-free Feedback draft destination.
+- Classify Session HTTP401/403 before decoding denial bodies, preserving device
+  pairing while withdrawing the denied client Session.
+- Gate publication on governance, qualified protected source and matching release
+  versions; include source identity in both hardware-profile packages.
+- This candidate does not establish installed/live Profile, physical-touch or
+  complete Apple-parity acceptance; separate protected deployment remains required.
 
 ## 4.0.0-rc.4
 

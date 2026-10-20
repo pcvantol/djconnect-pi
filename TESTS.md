@@ -1099,3 +1099,22 @@ Current device/service/resource/paired-flag observations and the planned immutab
 An independent bounded Apple-chat review of exact9f555826 found that non-JSON HTTP401/403 could be misclassified as uncertain/invalid. The shared transport now classifies denial after the original binding fence and before any JSON decode. Full production-byte suite1376PASS;128targetedtransport/playbacktestsPASS;Ruff0.16.0src/testsPASS.42newcases includeGET/POST,isolated/ordinarytransport,401/403,empty/malformed/non-object bodies,bindingreplacementprecedence,503/noReplay,and realtransport→controllerwithdrawal at owner/status/effect boundaries while pairing/token remain.
 
 The actual QML playback harness passes100views with zeroerrors/bindingloops across5locales/bothformats, including realQtbutton→synthetic malformedHTTP denial→clearedSession/draft/closedpop-out. The existing150broad rc.5-preparation views remain a separate predecessor checkpoint. No new installed/live/physical claim or producerfixture is created. Four separate extracted-installer-function fixturechecks are external deployment research, not additional product-suite tests or fullinstaller/rollback proof.
+
+
+### rc.5 publication guard qualification
+
+`tests/test_release_candidate.py` adds 21 cases covering matching source
+versions, missing/failed/pending/duplicate/stale release evidence, each of the
+five version boundaries, and missing/duplicate/prefix-only changelog headings.
+Together with the existing installation contract, 60 targeted cases pass.
+The real publication source-gate Bash step also passes six isolated executions
+against local synthetic Git repositories and mocked status responses: qualified
+source succeeds; failed/missing/wrong-SHA/wrong-version/unmerged source fails.
+The actual build step was executed offline for all three bundles with pip wheel
+intercepted to reuse the qualified 5922 wheel, proving source-marker/manifest and
+profile/version/archive-hash joins. These external audit cases are not additional
+product tests, workflow dispatches, publication or installed proof. Initial
+missing-changelog and lint diagnostics are retained. Runtime/QML sources are
+unchanged; older QML and ARM proofs retain their original source qualification.
+
+The final complete local suite passes1397tests; Ruff0.16.0 for the publication helper, tests and src passes. Six extracted Bash blocks and git diff checks pass. These results qualify this local source correction, not live deployment.

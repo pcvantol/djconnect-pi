@@ -33,3 +33,36 @@ After being told the review fix, final candidate/artifacts and two-host route we
 Core independently confirmed there is currently no released rc.5 two-host operational binding or matching qualified consumer. The later historical RC2 manifest also binds only its old candidate/rc.2/rbpi-djconnect and explicitly reserves Pi5 for separate targeted deployment/smoke. Both current Pi deployment/smoke workflows still hardcode the RC1 manifest, a single canonical rbpi-djconnect target, a generic artifact regex and one SSH-host binding. Changing an alias/enum/secret is not a qualified two-host route. The exact protected input/smoke/runtime policies, new reviewed operational binding and matching allowlisted physical host/profile consumer must precede dispatch. No Core or workflow source has been changed by this correction.
 
 Additional isolated local package-function checks cover both profiles with existing/new synthetic configs. Exact packaged activate_release/write_initial_config preserve all existing identity/token/Profile/unknown fields except the intentional release_profile value, retain the previous release, and permit an explicit local symlink rollback. Ownership commands were mocked; no root, target activation or automatic rollback is proved. The installer stops UI before downloads/dependency checks and activates before config/unit refresh, so approved deployment must cover explicit failure restoration. Evidence remains outside source in pi-deployment-screenshot-preflight.
+
+
+## Publication guard and package provenance correction
+
+The publication job now depends on the existing Software Assurance governance
+job. Before building, it requires the checked-out commit to be in protected main
+lineage and to carry the exact successful qualified Post-Merge Release Evidence
+status. The requested public version must match the wheel, runtime, protocol and
+both installer defaults. Missing, duplicate or prefix-only changelog headings
+are rejected before building. An actual isolated run of the original package
+step exposed the missing rc.5 changelog section; this section is now present.
+Every generic/profile bundle includes SOURCE_COMMIT before hashing, bound to the
+same commit as its release manifest. Existing immutable-release behavior remains.
+
+These are Pi-owned publication corrections, not a new operational contract or
+permission to deploy. The 65 packaged runtime sources remain byte-identical to
+5922e0ca. Previous local archive hashes are not final published artifact hashes;
+new source-marker/release-note bytes require fresh publication readbacks.
+
+Qualification includes 60 targeted cases (21 new publication tests and 39
+existing installation-contract cases), six offline executions of the actual
+source-gate Bash step, and the actual bundle-building step for generic/Zero2W/Pi5
+with the already qualified wheel substituted for pip wheel. The latter uses a
+synthetic local Git identity: it checks marker/manifest/version/profile/wheel and
+archive hashes, not a real publication or new operational candidate. Diagnostics
+from the missing-changelog run remain preserved. No QML or physical acceptance
+is added by this publication change. Evidence: publication-guards-final under
+pi-deployment-screenshot-preflight; earlier WIP evidence remains separate.
+
+The current actual-root host verification is MATCH after Core's separately
+human-approved retention work. Pi made no changes to other-lane evidence. This
+host readiness is separate from source review, protected publication and the
+still-required two-host operational binding.
