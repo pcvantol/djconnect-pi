@@ -61,6 +61,7 @@ Item {
     onSearchTargetChanged: { if (searchPanel) searchPanel.close(); if (searchInput) searchInput.clear(); if (owner) owner.clearSearch() }
     signal navigate(string destination)
     function tr(key) { backend.translationVersion; return backend.t(key) }
+    function displayDate(value) { backend.translationVersion; return owner.formatTimestamp(value || "") }
     function openChoice(field, button) {
         choices.field = field
         choices.editToken = backend.sharedSettings.edit_token || ""
@@ -276,7 +277,7 @@ Item {
                 GlassButton {
                     required property var modelData
                     Layout.fillWidth: true; implicitHeight: 78
-                    text: screen.tr("session_title") + " · " + (modelData.started_at || modelData.created_at || "")
+                    text: screen.tr("session_title") + " · " + screen.displayDate(modelData.started_at || modelData.created_at)
                     onClicked: screen.owner.openSaved(modelData.session_id)
                 }
             }
@@ -307,7 +308,7 @@ Item {
                     }
                     Text { text: modelData.text || ""; visible: historySources.ready && text.length > 0; color: BrandTheme.colors.text; font.pixelSize: 22; wrapMode: Text.WordWrap; textFormat: Text.PlainText; Layout.fillWidth: true }
                     SessionAttribution { id: historySources; sources: modelData.display_sources || []; requiresSpotify: modelData.requires_spotify_attribution || false; spotifyURL: modelData.spotify_source_url || ""; Layout.fillWidth: true }
-                    Text { text: modelData.occurred_at || ""; color: BrandTheme.colors.muted; font.pixelSize: 16; textFormat: Text.PlainText }
+                    Text { objectName: "sessionHistoryEntryDate"; text: screen.displayDate(modelData.occurred_at); color: BrandTheme.colors.muted; font.pixelSize: 16; textFormat: Text.PlainText }
                 }
             }
             Flow {
@@ -321,6 +322,7 @@ Item {
     }
     Popup {
         id: searchPanel
+        objectName: "sessionSearchPanel"
         property bool keyboardVisible: true
         onOpened: keyboardVisible = true
         x: 16; y: toolbar.y + toolbar.height + 8
@@ -379,7 +381,7 @@ Item {
                             required property var modelData
                             Layout.fillWidth: true
                             Text { visible: searchSources.ready; text: modelData.summary || screen.tr("session_title"); textFormat: Text.PlainText; color: BrandTheme.colors.text; font.bold: true; font.pixelSize: 22; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                            Text { visible: searchSources.ready; text: modelData.text || ""; textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 20; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                            Text { objectName: "sessionSearchHighlightedBody"; visible: searchSources.ready; text: modelData.highlighted_text || ""; textFormat: Text.StyledText; color: BrandTheme.colors.text; font.pixelSize: 20; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                             SessionAttribution { id: searchSources; sources: modelData.display_sources || []; requiresSpotify: modelData.requires_spotify_attribution || false; spotifyURL: modelData.spotify_source_url || ""; Layout.fillWidth: true }
                             GlassButton {
                                 text: screen.tr("session_open_entry"); enabled: !screen.owner.busy

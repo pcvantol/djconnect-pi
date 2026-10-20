@@ -338,3 +338,38 @@ implemented and verified; no source/model operation or new Core writer was
 requested. No response has yet been consumed. Other native source/media families,
 continuous history, highlights/dates, composer/context, remaining pages and real
 glass backdrop effects remain open. No merge, install, pairing or HA change.
+
+### History date and literal-search presentation checkpoint
+
+All applicable checks on fa3a97e3d8b6b9c127eff91e07ed3a169934a4a6 passed.
+Saved Session dates now use the selected app locale and local timezone, replacing
+raw ISO strings in the Session list and entry cards. The format is a stable i18n
+key in en/nl/de/fr/es. Invalid or timezone-less values remain blank; equivalent
+UTC/offset inputs display the same instant. Server-owned factual prose is not
+reformatted or translated by this presentation change.
+
+Search results now emphasize the exact server UTF-16 ranges. Ranges are checked
+against character boundaries, merged when overlapping, and rendered with generated
+bold/underline tags only. Every body fragment is HTML-escaped and line breaks
+are preserved. Original accepted text remains unchanged in state; no local query
+matching, semantic rewriting, model call or source fetch occurs. The native Qt
+text document test proves literal image markup, emoji and newline round trips;
+actual QML screenshots show the malicious-looking image tag as text. Attribution
+and Spotify renderer readiness still fence the body.
+
+Local validation:710 full tests passed, Ruff0.16.0 passed,86 actual QML views
+passed, including dates and search in all five locales on both sizes plus literal
+markup/emoji rendering. Hostverify MATCH. Local wheel
+79107fb101ba7142a3167de3e6757308cd8347c32b1175d0ff782f111bcab139
+matches all57 packaged sources. Evidence is in pi-history-polish under the task
+visualization directory. These are local fixture/package proofs, not ARM,
+installed, live Profile/HA or physical acceptance.
+
+The protected Core source was also checked for selected single/bulk history
+removal: the design explicitly forbids advertising before complete producer
+qualification, and current main has neither delete capability nor implementation.
+No delete control/request was invented. The prior specific Ask DJ consumer gate
+question remains pending; no repeat ping or producer WIP adoption occurred.
+Continuous/backward history, composer/context, additional media/source families,
+forecast/reactions, remaining Apple destinations and backdrop effects remain open.
+No merge, release, installation, pairing or HA operation occurred.

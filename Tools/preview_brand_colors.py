@@ -206,7 +206,37 @@ def main():
             "returned_count": 2, "total_count": 2, "complete": True, "next_cursor": None,
             "normalization": "NFKC-casefold", "highlight_units": "utf16"}, sid, "synthetic")
         owner.changed.emit()
+        panel = window.findChild(QObject, "sessionSearchPanel")
+        panel.setProperty("keyboardVisible", False)
         capture("history-search")
+        displayed = visual_item(window.contentItem(), "sessionSearchHighlightedBody")
+        assert displayed is not None and "<b><u>synthetic</u></b>" in displayed.property("text")
+        search_result = deepcopy(owner._search)
+        for locale in ("en", "nl", "de", "fr", "es"):
+            backend.setLanguage(locale)
+            backend._toast_visible = False
+            backend.toastChanged.emit()
+            QMetaObject.invokeMethod(panel, "close")
+            scroll.setProperty("contentY", 0)
+            capture("history-dates-" + locale)
+            date_label = visual_item(window.contentItem(), "sessionHistoryEntryDate")
+            assert date_label is not None and "2026" in date_label.property("text")
+            assert "2026-10-18T" not in date_label.property("text")
+            QMetaObject.invokeMethod(session_item, "showSearch")
+            panel.setProperty("keyboardVisible", False)
+            capture("history-highlights-" + locale)
+        backend.setLanguage("nl")
+        literal = deepcopy(search_result)
+        literal["matches"] = [deepcopy(matches[0])]
+        literal["matches"][0].update(text='😀 <img src="https://untrusted.invalid/leak">\nA & B',
+            highlights=[{"start_utf16": 0, "length_utf16": 2}])
+        literal["returned_count"] = 1
+        literal["total_count"] = 1
+        owner._search = search_page(literal, sid, "synthetic")
+        owner.changed.emit()
+        backend._toast_visible = False
+        backend.toastChanged.emit()
+        capture("history-highlight-literal")
         owner.invalidate()
         assert search_input.property("text") == "", "Private query survives context invalidation"
         owner.closeSaved()

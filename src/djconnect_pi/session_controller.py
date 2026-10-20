@@ -3,10 +3,20 @@ from __future__ import annotations
 
 from copy import deepcopy
 
-from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
+from PySide6.QtCore import (
+    Property,
+    QDateTime,
+    QLocale,
+    QObject,
+    Qt,
+    QTimer,
+    Signal,
+    Slot,
+)
 
 from .config import save_config
 from .expiry_clock import ExpiryClock
+from .i18n import locale_for_language, translate
 from .session_history_view import (
     live_presentations,
     opened_entry,
@@ -64,6 +74,18 @@ class SessionController(QObject):
             "history_available": self._history_supported(), "search_available": self._search_supported(),
             "loaded": self._loaded, "history_loaded": self._history_loaded,
             "has_more_sessions": bool(self._history_cursor)}
+
+    @Slot(str, result=str)
+    def formatTimestamp(self, value):
+        if timestamp(value) is None:
+            return ""
+        parsed = QDateTime.fromString(value, Qt.DateFormat.ISODateWithMs)
+        if not parsed.isValid():
+            parsed = QDateTime.fromString(value, Qt.DateFormat.ISODate)
+        if not parsed.isValid():
+            return ""
+        language = self.backend.cfg.language
+        return QLocale(locale_for_language(language)).toString(parsed.toLocalTime(), translate(language, "session_datetime_format"))
 
     @Property(bool, notify=changed)
     def busy(self):

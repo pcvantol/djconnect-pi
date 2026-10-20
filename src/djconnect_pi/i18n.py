@@ -1214,6 +1214,7 @@ def translate(language: str, key: str, **values: object) -> str:
 
 
 _HISTORY_SEARCH_TRANSLATIONS = {
+    "session_datetime_format": ("d MMM yyyy · HH:mm", "d MMM yyyy · HH:mm", "d. MMM yyyy · HH:mm", "d MMM yyyy · HH:mm", "d MMM yyyy · HH:mm"),
     "session_history_first": ("Read from the beginning", "Lees vanaf het begin", "Von Anfang an lesen", "Lire depuis le début", "Leer desde el principio"),
     "session_history_next": ("Next contributions", "Volgende bijdragen", "Nächste Beiträge", "Contributions suivantes", "Contribuciones siguientes"),
     "session_search": ("Search this session", "Zoek in deze sessie", "Diese Session durchsuchen", "Rechercher dans cette session", "Buscar en esta sesión"),

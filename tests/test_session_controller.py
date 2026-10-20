@@ -412,3 +412,15 @@ def test_background_clears_authority_and_late_results_resume_with_read_only(cont
     backend.jobs.pop()()
     owner.transport.active.assert_called()  # only fresh current read, no replayed start/end
     assert owner.state['loaded']
+
+
+@pytest.mark.parametrize('language', ['en', 'nl', 'de', 'fr', 'es'])
+def test_history_dates_are_localized_and_equivalent_offsets_show_same_instant(controller, language):
+    owner, backend = controller
+    backend.cfg.language = language
+    formatted = owner.formatTimestamp('2026-10-18T12:34:00Z')
+    assert formatted == owner.formatTimestamp('2026-10-18T14:34:00+02:00')
+    assert '2026' in formatted and '·' in formatted
+    assert '2026-10-18' not in formatted and 'T12:34' not in formatted
+    assert owner.formatTimestamp('2026-10-18T12:34:00') == ''  # no guessed timezone
+    assert owner.formatTimestamp('not-a-date') == ''

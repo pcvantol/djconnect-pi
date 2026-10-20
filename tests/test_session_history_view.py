@@ -98,3 +98,41 @@ def test_spotify_row_needs_valid_source_url_and_no_foreign_credentials():
     row['playback']['source_url'] = 'https://user:password@open.spotify.com/track/x'
     with pytest.raises(SessionError):
         presented_history(tail)
+
+
+def test_server_highlights_keep_literal_markup_emoji_and_linebreaks_without_duplicate_prose():
+    from PySide6.QtGui import QTextDocument
+    data = search_fixture()
+    body = '<img src="https://untrusted.invalid/leak"> & 😀\nhello & goodbye'
+    data['matches'][0]['text'] = body
+    start = len(body[:body.index('😀')].encode('utf-16-le')) // 2
+    data['matches'][0]['highlights'] = [
+        {'start_utf16': start + 3, 'length_utf16': 5},
+        {'start_utf16': start, 'length_utf16': 8},
+        {'start_utf16': start, 'length_utf16': 2},
+    ]
+    parsed = search_page(data, data['session_id'], data['query'])
+    row = parsed['matches'][0]
+    assert row['text'] == body and 'highlighted_text' not in data['matches'][0]
+    markup = row['highlighted_text']
+    assert '<img' not in markup and '<a' not in markup and '<br>' in markup
+    assert markup.count('<b><u>') == 1  # overlapping ranges are merged
+    document = QTextDocument()
+    document.setHtml(markup)
+    assert document.toPlainText() == body
+
+
+def test_search_rejects_highlight_that_splits_emoji_surrogate_pair():
+    data = search_fixture()
+    data['matches'][0]['text'] = 'A😀B'
+    data['matches'][0]['highlights'] = [{'start_utf16': 2, 'length_utf16': 1}]
+    with pytest.raises(SessionError):
+        search_page(data, data['session_id'], data['query'])
+
+
+def test_emphasis_follows_server_range_without_local_query_matching():
+    data = search_fixture()
+    data['matches'][0]['text'] = 'before 😀 after'
+    data['matches'][0]['highlights'] = [{'start_utf16': 7, 'length_utf16': 2}]
+    parsed = search_page(data, data['session_id'], data['query'])
+    assert parsed['matches'][0]['highlighted_text'] == 'before <b><u>😀</u></b> after'

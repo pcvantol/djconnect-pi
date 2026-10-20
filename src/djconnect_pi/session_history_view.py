@@ -1,5 +1,6 @@
 """Read-only search/navigation and attribution presentation over Core history2."""
 from copy import deepcopy
+from html import escape
 from importlib.resources import files
 from urllib.parse import urlsplit
 
@@ -52,6 +53,30 @@ def presented_history(response):
     return result
 
 
+def _highlighted_text(body, marks):
+    # Called only after server UTF-16 ranges passed exact character-boundary validation.
+    indices = {0: 0}
+    offset = 0
+    for index, char in enumerate(body):
+        offset += len(char.encode("utf-16-le")) // 2
+        indices[offset] = index + 1
+    spans = sorted((indices[mark["start_utf16"]], indices[mark["start_utf16"] + mark["length_utf16"]]) for mark in marks)
+    merged = []
+    for start, end in spans:
+        if merged and start <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(end, merged[-1][1]))
+        else:
+            merged.append((start, end))
+    fragments = []
+    previous = 0
+    for start, end in merged:
+        fragments.extend((escape(body[previous:start]), "<b><u>", escape(body[start:end]), "</u></b>"))
+        previous = end
+    fragments.append(escape(body[previous:]))
+    # The only generated tags are emphasis and line breaks. User markup stays literal.
+    return "".join(fragments).replace("\n", "<br>")
+
+
 def search_page(response, session_id, query, *, now=None):
     if (not isinstance(response, dict) or response.get("session_id") != session_id
             or response.get("query") != query or not isinstance(response.get("revision"), str)
@@ -85,6 +110,8 @@ def search_page(response, session_id, query, *, now=None):
                 raise SessionError("invalid")
     result = deepcopy(response)
     result["matches"] = presented_history({"entries": matches})["entries"]
+    for row in result["matches"]:
+        row["highlighted_text"] = _highlighted_text(row["text"], row["highlights"])
     return result
 
 

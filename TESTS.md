@@ -318,3 +318,9 @@ prose, current/Flow identity, qualified source links and denial/expiry. The QML
 preview renders six NL producer cases per target and checks that the first
 accepted card is above the fold. These source-shaped Runtime fixtures do not
 qualify live providers or Pi hardware.
+
+History presentation checks include all five date locales, equivalent timestamp
+offsets and invalid/no-timezone inputs. Search emphasis tests cover exact UTF-16
+server ranges, overlapping ranges, surrogate-splitting rejection, literal HTML,
+emoji and line breaks. The QML preview renders dates/highlights in every locale
+on both dimensions, including a literal image-tag negative case.
