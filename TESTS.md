@@ -1085,3 +1085,11 @@ remain historical and are not deleted. Pi performed no cleanup/mtime/other-lane
 source writes. This resolves that host gate only, not installed/live/physical
 acceptance or source/release approval. Product proof remains1334tests on code237,
 1046QMLviews on controls a54, with unchanged UI/controller bytes in later code.
+
+## rc.5 deployment preparation — 20 October 2026
+
+The distinct rc.5 version preparation passes the full local Python suite:1334tests, Ruff0.16.0 src/tests, shell syntax and diff checks. An initial1333pass/1failure run exposed stale rc.4 README/bootstrap download examples; the examples now match rc.5 and explicitly require separate publication. The final full run passes without weakening the existing installation-contract assertion.
+
+Predecessor6078e706 has25successful applicable CI checks/4conditional skips and passed in-memory compilation of all29 Python source modules on each actual ARM target using its existing Python3.13.5/Qt6.11.2 runtime. This is not rc.5 ARM package import, QML rendering, installation, server execution or hardware acceptance. The existing playback UI qualification remains separately bound to its earlier exact source.
+
+Current device/service/resource/paired-flag observations and the planned immutable package/source/target/capture receipts are documented in `docs/PI_4_0_RC5_PREPARATION.md`. External evidence: `pi-deployment-screenshot-preflight`. No candidate publication, device activation, reset, pairing or Profile substitution has occurred.

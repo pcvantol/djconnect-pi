@@ -2055,3 +2055,11 @@ private_session. Other authorized owner Profile modes still need comparison with
 the released command permissions; this is local Pi follow-up, not a new permanent
 Pi restriction or a claimed Core dependency. Media/native display grants and
 private question lifetime remain separate from music-command authority.
+
+## rc.5 candidate for Peters post-deployment screenshots — 20 October
+
+Peter explicitly requested screenshots from the actual deployed 4-inch Pi and Pi10 after a completed slice. A distinct rc.5 candidate is prepared on the existing branch/PR; dependencies, UI and authorization behavior are unchanged from the current playback slice except the public application version. No old public artifact is overwritten. The full local suite passes1334tests; package/ARM/installed proofs remain separate.
+
+Fresh read-only preflight confirms 4-inch `rbpi-djconnect` on rc.3 with paired flag true, and Pi10 `rbpi5-djconnect` on rc.4 with paired flag false/no explicit Profile. Both native app services are active and both use Python3.13.5/Qt6.11.2. The narrow existing 4-inch installer is NOPASSWD despite general privileged Python reads being denied. No credentials were printed or pairing/configuration/display changed.
+
+`PI_4_0_RC5_PREPARATION.md` records concrete protected-review/publication/exact-hash-target gates and the real loopback scenegraph capture plan. The existing deployment workflow permits only the older `rbpi-djconnect` operational target; its approval must not be silently reused for Pi10. A candidate wheel/draft PR is not installation or complete Apple parity. Captures will identify installed source/version and honest unpaired/unavailable states, without injecting fixtures to manufacture a live Session.
