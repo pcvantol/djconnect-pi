@@ -45,6 +45,7 @@ class AggregateClient(Client):
             if self.aggregate_case == "missing":runs = []
             if self.aggregate_case == "newest-failed":runs.append({**run, "id": 99, "conclusion": "failure", "updated_at": "2026-10-20T17:01:00Z"})
             if self.aggregate_case == "newest-pending":runs.append({**run, "id": 101, "status": "in_progress", "conclusion": None, "updated_at": "2026-10-20T17:01:00Z"})
+            if self.aggregate_case == "queued-smoke-earlier-update":runs.append({**run, "id": 101, "status": "queued", "conclusion": None, "updated_at": "2026-10-20T16:59:00Z"})
             if self.aggregate_case == "wrong-consumer":runs[0]["head_sha"] = "f"*40
             return {"workflow_runs": runs, "total_count": 21 if self.aggregate_case == "incomplete-list" else len(runs)}
         if "/actions/runs/100/artifacts" in path:
@@ -72,7 +73,7 @@ def test_both_matching_required_instances_can_be_overall_operational():
     assert result["result"] == "DEPLOYMENT_OPERATIONAL" and client.effects == 0
 
 
-@pytest.mark.parametrize("case", ["missing", "newest-failed", "newest-pending", "wrong-consumer", "incomplete-list", "expired", "wrong-pair", "wrong-instance"])
+@pytest.mark.parametrize("case", ["missing", "newest-failed", "newest-pending", "wrong-consumer", "incomplete-list", "expired", "wrong-pair", "wrong-instance", "queued-smoke-earlier-update"])
 def test_no_old_or_partial_success_can_complete_the_release(case):
     client = AggregateClient();client.aggregate_case = case
     authority = resolve(client, client.request, CONSUMER, client.configuration)

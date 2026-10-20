@@ -114,3 +114,10 @@ removed from an isolated in-memory function copy. Production bytes are unchanged
 from93ebce32. Six additional cases reject missing, boolean and string attempts
 on both instances.37aggregator/264dedicated cases pass. The exact93eb production
 suite passed1670without skips; no newer full-suite count is inferred here.
+
+The same intent-order rule also applies to the other instance's smoke listing:
+a higher-ID queued smoke cannot be hidden by an older completion timestamp.
+Older runs updated after the newer intent fail closed. One additional negative
+case preserves the previous failed/pending protections;38aggregator cases pass.
+This is a bounded follow-through of the reviewed ordering defect, without a new
+endpoint, mutation, permission or installer change.

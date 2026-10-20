@@ -67,7 +67,8 @@ def aggregate(client, authority, current: dict) -> dict:
             and run.get("event") == "workflow_dispatch" and run.get("actor", {}).get("login") == "pcvantol"]
         require(bool(matching), "OTHER_INSTANCE_SMOKE_PENDING")
         # Never let an older successful run erase a newer failed/inconclusive observation.
-        matching.sort(key=lambda run: (datetime.fromisoformat(run["updated_at"]), int(run["id"])), reverse=True);run = matching[0]
+        matching.sort(key=lambda run: int(run["id"]), reverse=True);run = matching[0]
+        require(all(datetime.fromisoformat(old["updated_at"]) <= datetime.fromisoformat(run["updated_at"]) for old in matching), "OLDER_SMOKE_UPDATED_AFTER_NEWER_INTENT")
         require(run.get("status") == "completed" and run.get("conclusion") == "success", "LATEST_OTHER_SMOKE_NOT_PASS")
         artifacts = client.json("repos/"+PI+"/actions/runs/"+str(run["id"])+"/artifacts?per_page=100").get("artifacts")
         require(isinstance(artifacts, list) and len(artifacts) <= 100, "EVIDENCE_LIST_INVALID")
