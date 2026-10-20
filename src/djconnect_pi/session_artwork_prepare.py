@@ -78,7 +78,7 @@ class ArtworkPreparation(QObject):
 
     def start(self, session_id, moment_id):
         if (self.closed or self.running or self.owner._running or self.owner._question_running
-                or session_id != self.owner._session.get("session_id") or self.owner.backend.demoMode):
+                or session_id != self.owner._session.get("session_id") or self.owner.backend.demoMode or self.owner._playback_control.running):
             return False
         state = self.snapshot()
         if not state["available"] or moment_id != state["moment_id"]:

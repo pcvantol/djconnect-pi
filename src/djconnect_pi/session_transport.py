@@ -13,7 +13,7 @@ from urllib.parse import quote
 
 import requests
 
-from .config import CLIENT_TYPE
+from .config import CLIENT_TYPE, PROTOCOL_VERSION
 from .i18n import locale_for_language
 
 PREFIX = "/api/djconnect/v1/"
@@ -70,7 +70,7 @@ class SessionTransport:
     def binding(self) -> SessionBinding:
         return SessionBinding.capture(self.config())
 
-    def _request(self, binding: SessionBinding, method: str, route: str, payload=None, *, timeout=None) -> dict:
+    def _request(self, binding: SessionBinding, method: str, route: str, payload=None, *, timeout=None, isolated=False) -> dict:
         if binding != self.binding():
             raise SessionError("context_changed")
         headers = {
@@ -86,9 +86,15 @@ class SessionTransport:
         if method == "GET":
             body = {key: str(value).lower() if isinstance(value, bool) else value for key, value in body.items()}
         try:
-            response = requests.request(method, binding.ha_url + PREFIX + route,
-                headers=headers, timeout=self.timeout if timeout is None else timeout, allow_redirects=False,
-                **({"params": body} if method == "GET" else {"json": body}))
+            options = {"headers": headers, "timeout": self.timeout if timeout is None else timeout,
+                       "allow_redirects": False, **({"params": body} if method == "GET" else {"json": body})}
+            if isolated:
+                # Playback never inherits netrc, proxy credentials or cookies from another request.
+                with requests.Session() as session:
+                    session.trust_env = False
+                    response = session.request(method, binding.ha_url + PREFIX + route, **options)
+            else:
+                response = requests.request(method, binding.ha_url + PREFIX + route, **options)
         except requests.RequestException:
             raise SessionError("offline" if method == "GET" else "uncertain") from None
         if binding != self.binding():
@@ -117,8 +123,8 @@ class SessionTransport:
     def capabilities(self, binding):
         return self._request(binding, "GET", "capabilities")
 
-    def active(self, binding):
-        return self._request(binding, "GET", "session/active")
+    def active(self, binding, *, isolated=False):
+        return self._request(binding, "GET", "session/active", isolated=isolated)
 
     def start(self, binding, mood: str):
         if not isinstance(mood, str) or mood not in MOODS:
@@ -132,6 +138,16 @@ class SessionTransport:
             raise SessionError("invalid")
         return self._request(binding, "POST", "session/media/prepare", {
             "contract_version": 1, "session_id": sid, "targets": [{"moment_id": mid}]}, timeout=24.0)
+
+    def playback_status(self, binding):
+        return self._request(binding, "POST", "command", {
+            "command": "status", "request_source": "device_command", "app_version": PROTOCOL_VERSION}, isolated=True)
+
+    def playback_command(self, binding, command: str):
+        if not isinstance(command, str) or command not in {"play", "pause", "previous", "next", "save_current_track"}:
+            raise SessionError("invalid")
+        return self._request(binding, "POST", "command", {
+            "command": command, "request_source": "device_command", "app_version": PROTOCOL_VERSION}, isolated=True)
 
     def end(self, binding, session_id: str):
         return self._request(binding, "POST", "session/end", {"session_id": identifier(session_id)})

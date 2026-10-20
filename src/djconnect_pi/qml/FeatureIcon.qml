@@ -82,7 +82,28 @@ Canvas {
                 ctx.beginPath(); ctx.arc(px(16), py(16), 8 * s / 32, 0, Math.PI); ctx.stroke()
                 line(16, 24, 16, 28); line(12, 28, 20, 28)
             }
-            if (iconName === "waveform" || iconName === "mood_groove" || iconName === "presence_talkative") {
+            // Same Pi-owned transport geometry as Main.qml's existing controls.
+            function transportTriangle(dir, offset) {
+                var cx = px(16) + offset * s
+                var cy = py(16)
+                ctx.beginPath()
+                ctx.moveTo(cx - dir * s * 0.12, cy - s * 0.20)
+                ctx.lineTo(cx - dir * s * 0.12, cy + s * 0.20)
+                ctx.lineTo(cx + dir * s * 0.18, cy)
+                ctx.closePath(); ctx.fill()
+            }
+            if (iconName === "play") {
+                transportTriangle(1, 0)
+            } else if (iconName === "pause") {
+                ctx.fillRect(px(16) - s * 0.18, py(16) - s * 0.22, s * 0.11, s * 0.44)
+                ctx.fillRect(px(16) + s * 0.07, py(16) - s * 0.22, s * 0.11, s * 0.44)
+            } else if (iconName === "previous") {
+                transportTriangle(-1, -0.05); transportTriangle(-1, 0.17)
+                ctx.fillRect(px(16) - s * 0.30, py(16) - s * 0.24, s * 0.07, s * 0.48)
+            } else if (iconName === "next") {
+                transportTriangle(1, 0.05); transportTriangle(1, -0.17)
+                ctx.fillRect(px(16) + s * 0.23, py(16) - s * 0.24, s * 0.07, s * 0.48)
+            } else if (iconName === "waveform" || iconName === "mood_groove" || iconName === "presence_talkative") {
                 waveform()
             } else if (iconName === "mood_chill") {
                 ctx.beginPath(); ctx.moveTo(px(19), py(5))

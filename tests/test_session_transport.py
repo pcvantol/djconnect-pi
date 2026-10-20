@@ -16,6 +16,14 @@ def transport(monkeypatch):
     response.json.return_value = {"success": True, "session": None}
     request = Mock(return_value=response)
     monkeypatch.setattr(requests, "request", request)
+    class IsolatedSession:
+        trust_env = True
+        def __enter__(self): return self
+        def __exit__(self, *args): pass
+        def request(self, *args, **kwargs):
+            assert self.trust_env is False
+            return request(*args, **kwargs)
+    monkeypatch.setattr(requests, "Session", IsolatedSession)
     return SessionTransport(lambda: cfg), cfg, request, response
 
 
@@ -103,3 +111,33 @@ def test_malformed_success_body_after_question_is_an_uncertain_mutation(transpor
     with pytest.raises(SessionError, match='uncertain'):
         client.question(client.binding(), {'text':'Question','client_message_id':'turn','session_id':'active'})
     request.assert_called_once()
+
+
+@pytest.mark.parametrize("command", ["play", "pause", "previous", "next", "save_current_track"])
+def test_playback_command_is_one_paired_profile_http_attempt_without_invented_wire_fences(transport, command):
+    client, cfg, request, _ = transport
+    client.playback_command(client.binding(), command)
+    request.assert_called_once()
+    args, kwargs = request.call_args
+    assert args == ("POST", "http://fixture.invalid/api/djconnect/v1/command")
+    assert kwargs["allow_redirects"] is False
+    assert kwargs["headers"]["Authorization"] == "Bearer synthetic-token"
+    assert kwargs["json"] == {"device_id": cfg.device_id, "client_type": "raspberry_pi", "profile_id": cfg.explicit_profile_id,
+        "command": command, "request_source": "device_command", "app_version": "4.0.0-rc.4"}
+
+
+def test_playback_timeout_is_uncertain_and_never_replayed(transport):
+    client, _, request, _ = transport
+    request.side_effect = requests.Timeout()
+    with pytest.raises(SessionError, match="uncertain"):
+        client.playback_command(client.binding(), "next")
+    request.assert_called_once()
+
+
+
+def test_playback_owner_preflight_can_isolate_ambient_auth_without_changing_identity(transport):
+    client, cfg, request, _ = transport
+    client.active(client.binding(), isolated=True)
+    request.assert_called_once()
+    assert request.call_args.kwargs["params"]["profile_id"] == cfg.explicit_profile_id
+    assert request.call_args.kwargs["headers"]["Authorization"] == "Bearer synthetic-token"

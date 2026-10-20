@@ -21,11 +21,13 @@ Item {
     readonly property bool showForecast: !historical && state.forecast_supported && forecastMode
     function syncMediaVisibility() {
         if (!owner) return
+        owner.setPlaybackControlsVisible(visible && !historical && !showForecast)
         owner.setForecastImagesVisible(showForecast && visible)
         owner.setMomentArtworkVisible(visible && !historical && !showForecast)
     }
     Component.onCompleted: syncMediaVisibility()
-    onShowForecastChanged: { if (!showForecast) clearForecastReading(); syncMediaVisibility() }
+    onShowForecastChanged: { if (showForecast) playbackPanel.close(); if (!showForecast) clearForecastReading(); syncMediaVisibility() }
+    onStateChanged: { if (playbackPanel && state.playback_control && !state.playback_control.available) playbackPanel.close() }
     onComposerContextChanged: { clearForecastReading(); clearFlowReturn(); forecastMode = false; closeTransient(); if (historyReadPending && historyReadKind === "current") { historyRead.stop(); historyReadPending = false; navigate("session") } }
     function clearComposer() { followQuestionReply = false; pendingReplyId = ""; draft = ""; if (composeInput) composeInput.clear(); if (composerPanel) composerPanel.close(); if (owner) owner.clearSelection() }
     function submitQuestion() { if (owner.sendQuestion(composeInput.text)) { forecastMode = false; followQuestionReply = true; draft = ""; composeInput.clear(); composerPanel.close() } }
@@ -417,6 +419,7 @@ Item {
         archiveDetailReturn = null
         cancelSearchRead()
         clearComposer()
+        if (playbackPanel) playbackPanel.close()
         if (searchPanel) searchPanel.close()
         if (searchInput) searchInput.clear()
         if (choices) choices.close()
@@ -426,7 +429,7 @@ Item {
         if (owner) owner.clearSearch()
     }
     onVisibleChanged: { syncMediaVisibility(); if (!visible) { clearForecastReading(); cancelArchiveRead(); if (owner) owner.clearArchive(); clearFlowReturn(); historyRead.stop(); historyReadProfile = ""; historyReadSession = ""; historyReadPending = false; readingRestore.stop(); pendingReadingAnchor = ""; closeTransient() } }
-    onHistoricalChanged: { syncMediaVisibility(); if (!historical) { archiveDetailReturn = null; cancelArchiveRead(); if (owner) owner.clearArchive() } readingRestore.stop(); pendingReadingAnchor = ""; readingOffset = 0; if (!historical && flowReturn) flowReturnRestore.restart() }
+    onHistoricalChanged: { if (historical) playbackPanel.close(); syncMediaVisibility(); if (!historical) { archiveDetailReturn = null; cancelArchiveRead(); if (owner) owner.clearArchive() } readingRestore.stop(); pendingReadingAnchor = ""; readingOffset = 0; if (!historical && flowReturn) flowReturnRestore.restart() }
     onSearchTargetChanged: { if (searchPanel) searchPanel.close(); if (searchInput) searchInput.clear(); if (owner) owner.clearSearch() }
     signal navigate(string destination)
     function tr(key) { backend.translationVersion; return backend.t(key) }
@@ -791,6 +794,13 @@ Item {
                         Text { visible: !screen.compact && playbackSources.ready && text.length > 0; text: screen.state.playback.artist || ""; textFormat: Text.PlainText; font.pixelSize: 23; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                         Text { visible: !screen.compact && playbackSources.ready && text.length > 0; text: screen.state.playback.album || ""; textFormat: Text.PlainText; font.pixelSize: 19; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                     }
+                    GlassButton {
+                        objectName: "sessionPlaybackOpen"
+                        visible: playbackSources.ready && !!screen.state.playback_control.available
+                        iconName: "more"; Accessible.name: screen.tr("session_playback_controls")
+                        Layout.preferredWidth: 48; Layout.preferredHeight: 48; Layout.alignment: Qt.AlignTop
+                        onClicked: playbackPanel.open()
+                    }
                     SessionAttribution {
                         id: playbackSources
                         requiresSpotify: !!screen.state.playback.requires_spotify_attribution
@@ -1038,6 +1048,38 @@ Item {
                     enabled: !screen.owner.busy && !screen.owner.questionBusy && screen.draft.trim().length > 0
                     onClicked: { composeInput.text = screen.draft; screen.submitQuestion() }
                 }
+            }
+        }
+    }
+    Popup {
+        id: playbackPanel
+        objectName: "sessionPlaybackPanel"
+        onAboutToHide: if (screen.owner) screen.owner.cancelPlaybackIntent()
+        x: (screen.width - width) / 2; y: toolbar.y + toolbar.height + 8
+        width: Math.min(screen.width - 32, 520); padding: 20; modal: true; dim: false
+        background: GlassSurface { elevated: true }
+        contentItem: ColumnLayout {
+            spacing: 16
+            Text { text: screen.tr("session_playback_controls"); textFormat: Text.PlainText; font.pixelSize: 25; font.bold: true; color: BrandTheme.colors.text; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+            Text { text: screen.state.playback.title || ""; textFormat: Text.PlainText; font.pixelSize: 20; color: BrandTheme.colors.muted; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+            RowLayout {
+                Layout.fillWidth: true
+                GlassButton { objectName: "sessionPlaybackPrevious"; iconName: "previous"; Accessible.name: screen.tr("previous"); Layout.fillWidth: true; enabled: !!screen.state.playback_control.enabled; onClicked: screen.owner.playbackCommand(screen.state.session_id, screen.state.playback.item_id, "previous") }
+                GlassButton { objectName: "sessionPlaybackToggle"; iconName: screen.state.playback.state === "playing" ? "pause" : "play"; Accessible.name: screen.tr(screen.state.playback.state === "playing" ? "pause" : "play"); Layout.fillWidth: true; enabled: !!screen.state.playback_control.enabled; onClicked: screen.owner.playbackCommand(screen.state.session_id, screen.state.playback.item_id, screen.state.playback.state === "playing" ? "pause" : "play") }
+                GlassButton { objectName: "sessionPlaybackNext"; iconName: "next"; Accessible.name: screen.tr("next"); Layout.fillWidth: true; enabled: !!screen.state.playback_control.enabled; onClicked: screen.owner.playbackCommand(screen.state.session_id, screen.state.playback.item_id, "next") }
+            }
+            GlassButton { objectName: "sessionPlaybackFavorite"; visible: !!screen.state.playback_control.favorite; text: screen.tr("add_to_favorites"); iconName: "heart"; Layout.fillWidth: true; enabled: !!screen.state.playback_control.enabled; onClicked: screen.owner.playbackCommand(screen.state.session_id, screen.state.playback.item_id, "save_current_track") }
+            Text {
+                objectName: "sessionPlaybackStatus"
+                visible: !!screen.state.playback_control.status
+                text: screen.tr(screen.state.playback_control.status === "sending" ? "session_question_sending" : screen.state.playback_control.status === "accepted" ? "session_playback_sent" : "session_uncertain")
+                textFormat: Text.PlainText; font.pixelSize: 18; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                GlassButton { objectName: "sessionPlaybackRefresh"; text: screen.tr("refresh"); enabled: !screen.owner.busy; onClicked: screen.owner.refreshPlayback() }
+                Item { Layout.fillWidth: true }
+                GlassButton { text: screen.tr("close"); onClicked: playbackPanel.close() }
             }
         }
     }

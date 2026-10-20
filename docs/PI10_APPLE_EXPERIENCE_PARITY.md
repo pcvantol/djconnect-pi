@@ -1950,3 +1950,71 @@ historical UI evidence; no new screenshots or visual parity claim. Wheelb957231a
 matches all64 packaged sources. Evidence:taskvisualizations/pi-playback-dispatch-no-replay,
 including actual before/after readbacks and reproducible socket probe. Initial
 lint findings and prior1255-test intermediate run are retained separately.
+
+
+### Shared current-Session playback controls — 2026-10-20
+
+The admitted music context now has an explicit Playback controls pop-out on both
+Pi formats. It offers play/pause, previous/next and current-track save only when
+the backend advertises favorites. It has five-language accessible names/status,
+Back-equivalent Close and explicit Refresh. This is a Pi adaptation of the pinned
+Apple current music actions, not artwork tap/swipe, exact SF or native geometry.
+The added glyphs reuse the existing Pi Main.qml transport geometry. Saving does
+not infer or toggle a favorite state; favorite state/removal and volume/output
+controls remain open. Opening the pop-out never dispatches an action.
+
+One dedicated max1 worker first reads the paired owner active Session, requiring
+original Session/item/state/source equality, then resolves fresh backend status.
+Backend ID/revision/availability, strict favorite capability when applicable and
+observed URI/hash plus playing/paused state must match. The equality hash is the
+released RendererSafePlaybackProjection.from_observation representation; it is
+not a new permission. Only then is one existing command POST sent. These
+preflights and the POST use fresh no-environment HTTP sessions, normal paired
+Bearer/device/explicit Profile, configured HA, redirects disabled and no inherited
+netrc/proxy credentials/cookies. No caller URI/subject or invented expected
+Session/item wire field is added. Session visibility/foreground/Profile/current
+reference/backend/End and worker fences revoke queued dispatch immediately.
+Closing the pop-out before dispatch cancels the local intent; started HTTP may
+finish. End remains available during a held command; other input/control reads
+are temporarily gated. Real worker End-before-release is tested in a separate Qt
+process. Definitive owner Session withdrawal clears only a still-original scope.
+
+Command playback payloads never update Runtime optimistically. An independent
+normal owner refresh supplies the observed UI state. A still-current visible uncertain result locks
+further clicks until explicit refresh, with no automatic write replay. These are
+existing global Profile playback commands, not operation1 receipts or server
+exactly-once/CAS transactions. A server change after the final read remains
+possible; no atomic expected Session/item guarantee is claimed.
+
+Final source qualification:1315 full Python tests (57 new controller/transport
+cases), Ruff0.16.0 src/tests PASS and fresh read-only qualifiedhost MATCH.
+1046 actual QML views:90 playback +436 composer +180 Moment/artwork +90 Forecast
++100 historywindows +150 broad, five locales and720x720/1200x1920; no errors or
+binding loops. Real mouse-button probes cover pending/accepted/uncertain,
+play/pause/save, explicit refresh, no replay, unsupported favorites, close-before-
+dispatch and foreground withdrawal. Glyph pixels and the original half-viewport
+first-fold threshold are asserted with controls active. Existing reading/expiry/
+receipt/search/image/history tests remain. Both final pop-outs were visually
+compared with the pinned source and existing offline mini/iPad references; no new
+native controls screenshot or exact visual parity is claimed. Wheelc32c3c4b78abc83c3725c6ea2917e8704e9e7c144a34ba49c7e2d63ba3789d42 matches
+all65 packaged sources; the source tree stayed closed during final qualification.
+
+Diagnostics preserve a real QML state-binding loop (fixed by immediate revocation
+and deferred notification), missing transport glyphs found during visual review
+(fixed and pixel-tested), initial fixture startup/viewport positioning, wrong
+QImage conversion and teardown order. The first held-worker fixture omitted its
+active mock and attempted fixture.invalid; no HA/provider response or real
+credential was involved. Final fixtures intercept all transport. These are
+local source/synthetic HTTP/Qt/package results, not live Profile/HA/provider/model,
+ARM, installed or physical acceptance. Original native fixture bytes remain
+unchanged; backend metadata/commands/readback transitions are explicitly synthetic.
+SESSION_PLAYBACK_CONTROLS_REFERENCE.json pins authority and limitations.
+Evidence:taskvisualizations/pi-session-playback-controls. PR111 remains draft;
+full Apple parity and installed4-inch Session delivery remain open.
+
+The final popup uses aboutToHide, so queued intent is revoked at the beginning of
+closing, before any exit animation. The real QML close probe now executes the
+held worker immediately after close(), with no GUI tick or animation delay.
+All1046 final-scope views were rerun on this closed source; earlier onClosed
+recordings/packages stay separate under the evidence diagnostics/top-level
+intermediate folders. Python fullsuite1315 and Ruff were also rerun on this source.

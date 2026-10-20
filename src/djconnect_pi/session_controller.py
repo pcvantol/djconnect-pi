@@ -34,6 +34,7 @@ from .session_history_view import (
     presented_history,
     search_page,
 )
+from .session_playback_control import PlaybackControl
 from .session_projection import (
     active_session,
     history_page,
@@ -119,6 +120,8 @@ class SessionController(QObject):
         self.changed.connect(self._moment_images.sync)
         self._artwork_prepare = ArtworkPreparation(self)
         self.changed.connect(self._artwork_prepare.sync)
+        self._playback_control = PlaybackControl(self)
+        self.changed.connect(self._playback_control.sync)
         self._ready.connect(self._apply)
         backend.demoModeChanged.connect(self._demo_changed)
         self._deadline_timer = QTimer(self)
@@ -145,6 +148,7 @@ class SessionController(QObject):
             "runtime_state": self._session.get("runtime_state", ""),
             "playback": session_playback(self._session),
             "artwork_prepare": self._artwork_prepare.snapshot(),
+            "playback_control": self._playback_control.snapshot(),
             "forecast_supported": forecast_supported(self._session, self._caps),
             "forecast": self._forecast.snapshot(),
             "mood": self._session.get("selected_mood", ""),
@@ -195,6 +199,27 @@ class SessionController(QObject):
             self._artwork_prepare.hide()
         self._moment_images.set_visible(visible)
 
+    @Slot(bool)
+    def setPlaybackControlsVisible(self, visible):
+        changed = self._playback_control.visible != bool(visible)
+        self._playback_control.set_visible(visible)
+        if changed:
+            QTimer.singleShot(0, self.changed.emit)
+
+    @Slot(str, str, str, result=bool)
+    def playbackCommand(self, session_id, item_id, command):
+        return self._playback_control.start(session_id, item_id, command)
+
+    @Slot()
+    def cancelPlaybackIntent(self):
+        # Revocation is immediate; notification must not re-enter a QML state binding.
+        self._playback_control.hide()
+        QTimer.singleShot(0, self.changed.emit)
+
+    @Slot()
+    def refreshPlayback(self):
+        self._playback_control.refresh()
+
     @Slot(str, str, result=bool)
     def prepareArtwork(self, session_id, moment_id):
         return self._artwork_prepare.start(session_id, moment_id)
@@ -204,10 +229,11 @@ class SessionController(QObject):
         self._forecast_images.shutdown()
         self._moment_images.shutdown()
         self._artwork_prepare.shutdown()
+        self._playback_control.shutdown()
 
     @Property(bool, notify=changed)
     def busy(self):
-        return bool(self._running or self._artwork_prepare.running)
+        return bool(self._running or self._artwork_prepare.running or self._playback_control.running)
 
     @Property(bool, notify=changed)
     def lifecycleBusy(self):
@@ -232,6 +258,7 @@ class SessionController(QObject):
         self._reconcile_question = False
 
     def invalidate(self):
+        self._playback_control.hide(reset=True)
         self._forecast.reset()
         self._forecast_dirty = False
         self._serial += 1
@@ -809,7 +836,7 @@ class SessionController(QObject):
     def _launch(self, action, value=""):
         if not self._foreground:
             return
-        if self._artwork_prepare.running and action != "end":
+        if (self._artwork_prepare.running or self._playback_control.running) and action != "end":
             return
         # End supersedes reads, but never another lifecycle write. Late read results lose their ticket.
         if self._running and (action != "end" or self._running_action in {"start", "end"}):

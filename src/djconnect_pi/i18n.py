@@ -1407,3 +1407,18 @@ _ARTWORK_PREPARE_TRANSLATIONS = {
 for _key, _values in _ARTWORK_PREPARE_TRANSLATIONS.items():
     for _language, _value in zip(SUPPORTED_LANGUAGES, _values):
         TRANSLATIONS[_language][_key] = _value
+
+
+_PLAYBACK_CONTROL_TRANSLATIONS = {
+    "session_playback_controls": ("Playback controls", "Afspeelbediening", "Wiedergabesteuerung", "Commandes de lecture", "Controles de reproducción"),
+    "session_playback_sent": (
+        "Command sent. Playback updates from the server.",
+        "Opdracht verstuurd. De server werkt de afspeelstatus bij.",
+        "Befehl gesendet. Der Server aktualisiert den Wiedergabestatus.",
+        "Commande envoyée. Le serveur actualise l’état de lecture.",
+        "Orden enviada. El servidor actualiza el estado de reproducción.",
+    ),
+}
+for _key, _values in _PLAYBACK_CONTROL_TRANSLATIONS.items():
+    for _language, _value in zip(SUPPORTED_LANGUAGES, _values):
+        TRANSLATIONS[_language][_key] = _value
