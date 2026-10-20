@@ -286,3 +286,22 @@ def test_lost_pairing_is_text_fallback_without_image_request_or_exception(contro
         owner.setForecastImagesVisible(True);owner.changed.emit()
     assert not jobs and not owner.forecastImage
     request.assert_not_called()
+
+
+@pytest.mark.parametrize('withdrawal', ['hidden', 'expiry', 'foreground'])
+def test_position_notice_precedes_pixel_publication_and_atomic_withdrawal(controller, withdrawal):
+    owner,_=controller;host,jobs=ready(owner);images=owner._forecast_images
+    before=[];after=[]
+    owner.forecastImageAboutToChange.connect(lambda:before.append(bool(images.public)))
+    owner.forecastImageChanged.connect(lambda:after.append(bool(images.public)))
+    owner.setForecastImagesVisible(True)
+    with patch('djconnect_pi.session_forecast_image.fetch_pixels',return_value=DATA):jobs.pop()()
+    assert before == [False] and after[-1] is True
+    images.sync()  # Equal state cannot manufacture a new layout transition.
+    assert before == [False]
+    if withdrawal == 'hidden':owner.setForecastImagesVisible(False)
+    elif withdrawal == 'foreground':owner.setForeground(False)
+    else:host.tick=121;images._deadline_tick()
+    assert before == [False, True] and after[-1] is False and not images.public
+    images.sync()
+    assert before == [False, True]

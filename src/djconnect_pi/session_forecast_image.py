@@ -150,6 +150,7 @@ def fetch_pixels(binding, lease, allowed):
 
 class ForecastImages(QObject):
     changed = Signal()
+    aboutToChange = Signal()
     _ready = Signal(object)
 
     def __init__(self, owner):
@@ -162,6 +163,11 @@ class ForecastImages(QObject):
         self.timer = QTimer(self);self.timer.setInterval(250);self.timer.timeout.connect(self._tick)
         self.deadline_timer = QTimer(self);self.deadline_timer.setSingleShot(True)
         self.deadline_timer.setTimerType(Qt.PreciseTimer);self.deadline_timer.timeout.connect(self._deadline_tick)
+
+    def _replace_public(self, value):
+        if self.public != value:
+            self.aboutToChange.emit()
+            self.public = value
 
     def set_visible(self, visible):
         if self.visible == visible: return
@@ -192,7 +198,7 @@ class ForecastImages(QObject):
         except (SessionError, AttributeError, KeyError, TypeError, ValueError):
             binding = lease = None
         if (binding, lease) != (self.binding, self.desired):
-            self.generation += 1;self.binding = binding;self.desired = lease;self.public = {};self.attempted = ''
+            self.generation += 1;self.binding = binding;self.desired = lease;self._replace_public({});self.attempted = ''
             self.deadline_timer.stop()
             if lease: self.deadline_timer.start(max(1, ceil((lease['deadline'] - self.owner._clock.now()) * 1000)))
             self.changed.emit()
@@ -224,13 +230,13 @@ class ForecastImages(QObject):
         self.running = False
         generation, pixels = result
         if self._valid(generation) and pixels:
-            self.public = {'source': pixels, 'artist': self.desired['artist'], 'source_url': self.desired['source_url']}
+            self._replace_public({'source': pixels, 'artist': self.desired['artist'], 'source_url': self.desired['source_url']})
             self.changed.emit()
         self._start()  # At most one pending latest lease, never a queue of obsolete reads.
 
     def snapshot(self):
         if self.public and not self._valid(self.generation):
-            self.public = {};self.dirty = True
+            self._replace_public({});self.dirty = True
         return dict(self.public)
 
     def _tick(self):
@@ -243,6 +249,6 @@ class ForecastImages(QObject):
             self.deadline_timer.start(max(1, ceil((self.desired['deadline'] - self.owner._clock.now()) * 1000)))
 
     def shutdown(self):
-        self.closed = True;self.generation += 1;self.desired = None;self.public = {};self.timer.stop();self.deadline_timer.stop()
+        self.closed = True;self.generation += 1;self.desired = None;self._replace_public({});self.timer.stop();self.deadline_timer.stop()
         self.changed.emit()
         if self.executor: self.executor.shutdown(wait=False, cancel_futures=True)

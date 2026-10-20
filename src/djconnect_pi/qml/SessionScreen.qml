@@ -19,10 +19,69 @@ Item {
     readonly property string composerContext: state.session_id + "|" + backend.activeProfileId
     property bool forecastMode: false
     readonly property bool showForecast: !historical && state.forecast_supported && forecastMode
-    onShowForecastChanged: if (owner) owner.setForecastImagesVisible(showForecast && visible)
-    onComposerContextChanged: { clearFlowReturn(); forecastMode = false; closeTransient(); if (historyReadPending && historyReadKind === "current") { historyRead.stop(); historyReadPending = false; navigate("session") } }
+    onShowForecastChanged: { if (!showForecast) clearForecastReading(); if (owner) owner.setForecastImagesVisible(showForecast && visible) }
+    onComposerContextChanged: { clearForecastReading(); clearFlowReturn(); forecastMode = false; closeTransient(); if (historyReadPending && historyReadKind === "current") { historyRead.stop(); historyReadPending = false; navigate("session") } }
     function clearComposer() { followQuestionReply = false; pendingReplyId = ""; draft = ""; if (composeInput) composeInput.clear(); if (composerPanel) composerPanel.close(); if (owner) owner.clearSelection() }
     function submitQuestion() { if (owner.sendQuestion(composeInput.text)) { forecastMode = false; followQuestionReply = true; draft = ""; composeInput.clear(); composerPanel.close() } }
+    // A position descriptor grants no image or text retention.
+    property var forecastReading: null
+    property int forecastReadingTries: 0
+    property bool forecastReadingApplied: false
+    property string forecastLayoutMark: ""
+    function clearForecastReading() { forecastReadingRestore.stop(); forecastReading = null }
+    function rememberForecastReading() {
+        clearForecastReading()
+        var flick = forecastScroll.contentItem
+        if (!visible || !showForecast || flick.dragging || flick.moving || state.forecast.revision === undefined) return
+        for (var i = 0; i < forecastRows.count; i++) {
+            var card = forecastRows.itemAt(i)
+            if (!card) continue
+            var y = card.mapToItem(flick, 0, 0).y
+            if (y <= 0 && y + card.height > 0 && isFinite(y) && Math.abs(y) <= 1000000) {
+                forecastReading = {session: state.session_id, profile: backend.activeProfileId,
+                    revision: state.forecast.revision, id: card.modelData.id, offset: y}
+                forecastReadingTries = 0; forecastReadingApplied = false; forecastLayoutMark = ""
+                return
+            }
+        }
+    }
+    Timer {
+        id: forecastReadingRestore
+        objectName: "sessionForecastReadingRestore"
+        interval: 32
+        onTriggered: {
+            var saved = screen.forecastReading
+            var flick = forecastScroll.contentItem
+            if (!saved || !screen.visible || !screen.showForecast || flick.dragging || flick.moving ||
+                saved.session !== screen.state.session_id || saved.profile !== screen.backend.activeProfileId ||
+                saved.revision !== screen.state.forecast.revision) { screen.clearForecastReading(); return }
+            forecastContent.ensurePolished()
+            var target = null
+            for (var i = 0; i < forecastRows.count; i++) {
+                var card = forecastRows.itemAt(i)
+                if (card && card.modelData.id === saved.id) { target = card; break }
+            }
+            screen.forecastReadingTries++
+            if (!target) { screen.clearForecastReading(); return }
+            var mark = [forecastContent.implicitHeight, flick.contentHeight, flick.height, target.y, target.height].join("|")
+            if (mark !== screen.forecastLayoutMark) {
+                screen.forecastLayoutMark = mark; screen.forecastReadingApplied = false
+                if (screen.forecastReadingTries < 8) forecastReadingRestore.restart()
+                else screen.clearForecastReading()
+                return
+            }
+            var destination = Math.max(0, Math.min(flick.contentY + target.mapToItem(flick, 0, 0).y - saved.offset, Math.max(0, flick.contentHeight - flick.height)))
+            if (screen.forecastReadingApplied && Math.abs(flick.contentY - destination) < 1) { screen.clearForecastReading(); return }
+            flick.contentY = destination; screen.forecastReadingApplied = true
+            if (screen.forecastReadingTries < 8) forecastReadingRestore.restart()
+            else screen.clearForecastReading()
+        }
+    }
+    Connections {
+        target: forecastScroll.contentItem
+        function onMovementStarted() { screen.clearForecastReading() }
+        function onDraggingChanged() { if (forecastScroll.contentItem.dragging) screen.clearForecastReading() }
+    }
     property string proposedMood: "groove"
     readonly property string searchTarget: historical ? ((state.timeline.session || {}).session_id || "") : state.session_id
     property real readingOffset: 0
@@ -326,7 +385,7 @@ Item {
         if (endConfirmation) endConfirmation.close()
         if (owner) owner.clearSearch()
     }
-    onVisibleChanged: { if (owner) owner.setForecastImagesVisible(showForecast && visible); if (!visible) { cancelArchiveRead(); if (owner) owner.clearArchive(); clearFlowReturn(); historyRead.stop(); historyReadProfile = ""; historyReadSession = ""; historyReadPending = false; readingRestore.stop(); pendingReadingAnchor = ""; closeTransient() } }
+    onVisibleChanged: { if (owner) owner.setForecastImagesVisible(showForecast && visible); if (!visible) { clearForecastReading(); cancelArchiveRead(); if (owner) owner.clearArchive(); clearFlowReturn(); historyRead.stop(); historyReadProfile = ""; historyReadSession = ""; historyReadPending = false; readingRestore.stop(); pendingReadingAnchor = ""; closeTransient() } }
     onHistoricalChanged: { if (!historical) { archiveDetailReturn = null; cancelArchiveRead(); if (owner) owner.clearArchive() } readingRestore.stop(); pendingReadingAnchor = ""; readingOffset = 0; if (!historical && flowReturn) flowReturnRestore.restart() }
     onSearchTargetChanged: { if (searchPanel) searchPanel.close(); if (searchInput) searchInput.clear(); if (owner) owner.clearSearch() }
     signal navigate(string destination)
@@ -397,6 +456,8 @@ Item {
     }
     Connections {
         target: screen.owner
+        function onForecastImageAboutToChange() { screen.rememberForecastReading() }
+        function onForecastImageChanged() { if (screen.forecastReading) forecastReadingRestore.restart() }
         function onPendingQuestionReady() { pendingQuestionPosition.restart() }
         function onCurrentReplyReady() { currentReplyPosition.restart() }
         function onQuestionConfirmed(entryId) { if (screen.followQuestionReply) { screen.pendingReplyId = entryId; replyRestore.restart() } }
@@ -411,7 +472,7 @@ Item {
         }
         function onChanged() { if (!screen.owner.busy) screen.archiveReadActive = false; if (!screen.historical || screen.currentHistory || screen.state.timeline.session) screen.cancelArchiveRead(); if (screen.archiveIntent && !screen.owner.busy) archiveRead.restart(); if (!screen.state.search.query) screen.cancelSearchRead(); if (screen.historyReadPending && !screen.owner.busy) historyRead.restart(); if (screen.searchRefreshPending && !screen.owner.busy) searchRead.restart() }
         function onSearchUpdated() { searchPosition.restart() }
-        function onContextCleared() { screen.cancelArchiveRead(); screen.clearFlowReturn(); historyRead.stop(); screen.historyReadProfile = ""; screen.historyReadSession = ""; readingRestore.stop(); screen.pendingReadingAnchor = ""; screen.readingOffset = 0; screen.closeTransient(); if (screen.historical) screen.navigate(screen.currentHistory ? "session" : "more"); screen.historyReadPending = false }
+        function onContextCleared() { screen.clearForecastReading(); screen.cancelArchiveRead(); screen.clearFlowReturn(); historyRead.stop(); screen.historyReadProfile = ""; screen.historyReadSession = ""; readingRestore.stop(); screen.pendingReadingAnchor = ""; screen.readingOffset = 0; screen.closeTransient(); if (screen.historical) screen.navigate(screen.currentHistory ? "session" : "more"); screen.historyReadPending = false }
         function onEntryOpened() {
             if (!screen.historical) screen.rememberFlow()
             searchPanel.close()
@@ -538,6 +599,7 @@ Item {
         clip: true; contentWidth: availableWidth
         ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
         ColumnLayout {
+            id: forecastContent
             width: parent.width; spacing: 20
             Text { text: screen.tr("session_forecast"); textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: screen.compact ? 30 : 40; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
             Text { visible: !!screen.state.forecast.source_url; text: screen.tr("session_forecast_source"); textFormat: Text.PlainText; color: BrandTheme.colors.muted; font.pixelSize: 18 }
@@ -558,9 +620,12 @@ Item {
                 SessionAttribution { id: imageAttribution; requiresSpotify: true; spotifyURL: screen.owner.forecastImage.source_url || ""; Layout.fillWidth: true }
             }
             Repeater {
+                id: forecastRows
+                objectName: "sessionForecastRows"
                 model: forecastSource.ready ? screen.state.forecast.sections : []
                 GlassCard {
                     required property var modelData
+                    objectName: "sessionForecastSection-" + modelData.id
                     Layout.fillWidth: true
                     Text { text: screen.tr("session_forecast_" + modelData.claim_type); textFormat: Text.PlainText; color: BrandTheme.colors.cyan; font.pixelSize: 18; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                     Text { text: modelData.title; textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 25; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }

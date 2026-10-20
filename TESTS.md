@@ -641,3 +641,44 @@ host configuration and reported11 differences/1unverified; both logs are retaine
 Pi did no cleanup or changes to other-lane evidence. This supersedes the prior
 retention DRIFT observation only for this fresh host readback. Draft source/package/
 synthetic transport/Qt proof remains separate from ARM/install/live/physical proof.
+
+
+### Forecast reading position during image changes
+
+A late image or image-only expiry no longer pushes a currently read Forecast
+section to another pixel. Before pixel mutation, one RAM-only descriptor records
+Session/Profile, current Forecast revision, the existing section ID and finite
+bounded offset. After layout it looks up only the still-admitted section, settles
+within8x32ms and clamps/validates the position. No prose/pixel/grant is cached in
+this descriptor. Top/image-only reading is not automatically followed. A new
+revision, missing section, hide/context loss or touch movement cancels recovery.
+Actual movement also cancels a queued callback; stale callbacks cannot restore it.
+The original pixel/text expiry and authority gates are unchanged.
+
+Three new notification-order tests prove capture precedes actual pixel insertion
+and removal, including getter/tick expiry. Two additional real-file tests prove
+the application log filter redacts relative/absolute managed Forecast URLs even
+when urllib3 logs DEBUG messages without token/bearer marker words. Ordinary
+request diagnostics remain readable. This repairs a concrete capability-link
+leak in DEBUG logging; it changes neither transport auth nor grants.1077 full tests and Ruff0.16.0 src/tests
+pass.90 actual image/reading views +426 Session/composer +100 history-window +116
+broad views (732 total) pass without errors/binding loops on both formats/five
+locales. Long reading fixtures repeat original prose to3000 chars per section,
+explicitly synthetic within existing wire bounds. Real injected Qt touch proves
+both active-drag suppression and queued cancellation; only the fixture extends
+one layout callback to500ms so a real drag deterministically starts before it,
+then restores the production32ms interval and tests a late callback. Initial
+harness private-ID/visual traversal/short touch sampling diagnostics are retained.
+A superseded broad run failed the existing fixed-delay current-reply pixel check;
+its cause is unestablished. The closed-source run passes the same strict check
+on both formats without changing its tolerance or wait; added geometry-only
+diagnostics remain in the harness.
+product gates were not weakened. Both format late/expired layouts were inspected. Explicit top-of-page and
+unchanged-refresh assertions preserve position without introducing new follow.
+Wheel bc24287d52644feda629c3fed83a53657ac31e7d9c77595a9d6f4a3db4b80342
+matches all62 packaged sources. Evidence: taskvisualizations/pi-session-forecast-reading.
+Host qualification last independently MATCH after owner evidence recovery; no
+new cleanup, install, ARM/live HA/Profile/physical acceptance is inferred. The
+README-only parent also adopts protected Brand V2 wordmarks and the explicit
+full-app/Profile target without activating audio. New reading/source provenance:
+docs/branding/FORECAST_READING_REFERENCE.json and README_REFERENCE.json.

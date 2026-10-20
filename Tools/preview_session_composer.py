@@ -531,7 +531,7 @@ def main():
         window.setProperty('activeScreen','session-history');QTest.qWait(80)
         flick.setProperty('contentY',0)
         window.setProperty('activeScreen','session');QTest.qWait(120)
-        assert abs(reply_card.mapToItem(flick,0,0).y()-reply_y)<2
+        assert abs(reply_card.mapToItem(flick,0,0).y()-reply_y)<2, (width, reply_y, reply_card.mapToItem(flick,0,0).y(), flick.property('contentY'), flick.property('contentHeight'), screen.property('flowReturn').toVariant())
         capture('current-reply-return-same-identity-and-pixel')
         QMetaObject.invokeMethod(screen,'rememberFlow')
         window.setProperty('activeScreen','session-history');QTest.qWait(80)

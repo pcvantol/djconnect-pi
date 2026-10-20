@@ -44,6 +44,7 @@ from .session_transport import SessionError, SessionTransport
 class SessionController(QObject):
     changed = Signal()
     forecastImageChanged = Signal()
+    forecastImageAboutToChange = Signal()
     entryOpened = Signal()
     questionConfirmed = Signal(str)
     currentReplyReady = Signal()
@@ -106,6 +107,7 @@ class SessionController(QObject):
         self._view_epoch = getattr(self, "_view_epoch", 0) + 1
         self._forecast_images = ForecastImages(self)
         self._forecast_images.changed.connect(self.forecastImageChanged.emit)
+        self._forecast_images.aboutToChange.connect(self.forecastImageAboutToChange.emit)
         self.changed.connect(self._forecast_images.sync)
         self._ready.connect(self._apply)
         backend.demoModeChanged.connect(self._demo_changed)

@@ -8,9 +8,9 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-from PySide6.QtCore import QMetaObject, QObject, QTimer, qInstallMessageHandler
+from PySide6.QtCore import QMetaObject, QObject, QPoint, QTimer, qInstallMessageHandler
 from PySide6.QtGui import QGuiApplication
-from PySide6.QtQml import QQmlApplicationEngine, QQmlExpression
+from PySide6.QtQml import QQmlApplicationEngine, QQmlEngine, QQmlExpression
 from PySide6.QtQuickControls2 import QQuickStyle
 from PySide6.QtTest import QTest
 from shiboken6 import delete
@@ -47,7 +47,7 @@ def main():
     parser=argparse.ArgumentParser(__doc__);parser.add_argument('--output',type=Path,required=True)
     output=parser.parse_args().output;output.mkdir(parents=True,exist_ok=True)
     warnings=[];qInstallMessageHandler(lambda kind,context,message:warnings.append(message))
-    QQuickStyle.setStyle('Basic');app=QGuiApplication([]);apply_palette(app);captures=[]
+    QQuickStyle.setStyle('Basic');app=QGuiApplication([]);apply_palette(app);captures=[];touch_device=QTest.createTouchDevice()
     fixtures=json.loads((ROOT/'tests/fixtures/session_core/forecast-transport-v1.json').read_text())
     pixels=(ROOT/'tests/fixtures/session_core/forecast-test-pixels.png').read_bytes();calls=[]
     with patch('djconnect_pi.session_forecast_image.requests.Session',side_effect=lambda:Client(pixels,calls)):
@@ -96,7 +96,10 @@ def main():
                 window.setProperty('activeScreen','session');drain()
                 if not screen.property('showForecast'):QMetaObject.invokeMethod(window.findChild(QObject,'sessionForecastMode'),'clicked')
                 QTest.qWait(60);assert len(jobs)==1
-                jobs.pop(0)();QTest.qWait(200)
+                forecast_flick=window.findChild(QObject,'sessionForecastScroll').property('contentItem')
+                forecast_flick.setProperty('contentY',0)
+                jobs.pop(0)();QTest.qWait(400)
+                assert abs(forecast_flick.property('contentY'))<1,'Late image must not follow when reading the top header'
                 assert owner.forecastImage and art.property('source').toString().startswith('data:image/png;base64,')
                 assert art.property('cache') is False and card.property('visible')
                 assert QQmlExpression(engine.rootContext(),art,'status === 1 && fillMode === 1').evaluate()[0]
@@ -134,6 +137,93 @@ def main():
                 assert not owner.forecastImage and not owner.state['session_id'] and len(calls)==before
                 assert not art.property('source').toString()
                 capture('forecast-artist-background-late-request-withdrawn-'+language)
+                # Explicit synthetic long text exposes reading offsets on both canvases.
+                owner.setForeground(True);drain();owner.invalidate()
+                snapshot=deepcopy(sample['reconnect']['snapshot']);snapshot['session_forecast']=deepcopy(sample['owner_read']['forecast'])
+                f=snapshot['session_forecast'];f['revision']+=100
+                for section in f['sections']:section['text']=((section['text']+' ') * 100)[:3000]
+                f['imagery'][0]['url']=original_path.rsplit('/',1)[0]+'/'+'r'*32
+                f['imagery'][0]['expires_at']=datetime.fromtimestamp(stamp+30,UTC).isoformat()
+                session={**snapshot['session'],'broadcast':snapshot,'dj_persona':sample['persona'],'persona_revision':0,
+                    'session_direction':snapshot['planner']['session_direction']}
+                elapsed=[0.0];wall=[stamp];owner._clock=ExpiryClock(lambda:wall[0],lambda:elapsed[0])
+                owner._session=session;owner._caps={'capabilities':{'session_forecast':True},'contract_versions':{'session_forecast':1}}
+                owner._forecast.receive(session,owner._caps,stamp);owner._loaded=True;owner.changed.emit()
+                window.setProperty('activeScreen','session');drain()
+                if not screen.property('showForecast'):QMetaObject.invokeMethod(window.findChild(QObject,'sessionForecastMode'),'clicked')
+                QTest.qWait(100);assert len(jobs)==1
+                def evaluate(code):
+                    expression=QQmlExpression(QQmlEngine.contextForObject(screen),screen,code);value=expression.evaluate()[0]
+                    assert not expression.hasError(),expression.error().toString()
+                    return value
+                flick=window.findChild(QObject,'sessionForecastScroll').property('contentItem')
+                def visual(item,name):
+                    if item.objectName()==name:return item
+                    for child in item.childItems():
+                        found=visual(child,name)
+                        if found is not None:return found
+                    return None
+                section=visual(screen,'sessionForecastSection-current')
+                assert section
+                flick.setProperty('contentY',flick.property('contentY')+section.mapToItem(flick,0,0).y()+60)
+                QTest.qWait(60)
+                before=section.mapToItem(flick,0,0).y()
+                assert abs(before+60)<1
+                jobs.pop(0)();QTest.qWait(400)
+                after=section.mapToItem(flick,0,0).y()
+                assert abs(after-before)<1,(width,language,'arrival',before,after)
+                assert evaluate('forecastReading === null')
+                capture('forecast-reading-late-image-same-section-pixel-'+language)
+                owner.changed.emit();QTest.qWait(160)
+                section=visual(screen,'sessionForecastSection-current')
+                assert abs(section.mapToItem(flick,0,0).y()-before)<1,(width,language,'unchanged-refresh')
+                elapsed[0]=31
+                QMetaObject.invokeMethod(images.deadline_timer,'timeout');QTest.qWait(400)
+                after=section.mapToItem(flick,0,0).y()
+                assert abs(after-before)<1,(width,language,'expiry',before,after)
+                assert not owner.forecastImage and len(owner.state['forecast']['sections'])==3
+                capture('forecast-reading-expired-image-same-section-pixel-'+language)
+                # Hold a real touch drag while a fresh explicitly synthetic image arrives.
+                f['revision']+=1;f['imagery'][0]['url']=original_path.rsplit('/',1)[0]+'/'+'s'*32
+                f['imagery'][0]['expires_at']=datetime.fromtimestamp(stamp+90,UTC).isoformat()
+                owner._forecast.receive(session,owner._caps,owner._clock.now());owner.changed.emit();QTest.qWait(100)
+                assert len(jobs)==1
+                touch=QTest.touchEvent(window,touch_device,False)
+                touch.press(0,QPoint(width//2,350),window).commit();QTest.qWait(80)
+                touch.move(0,QPoint(width//2,410),window).commit();QTest.qWait(40)
+                touch.move(0,QPoint(width//2,470),window).commit();QTest.qWait(40)
+                assert flick.property('dragging')
+                jobs.pop(0)();QTest.qWait(80)
+                assert evaluate('forecastReading === null') and not window.findChild(QObject,'sessionForecastReadingRestore').property('running')
+                touch.release(0,QPoint(width//2,470),window).commit();QTest.qWait(400)
+                assert evaluate('forecastReading === null') and not window.findChild(QObject,'sessionForecastReadingRestore').property('running')
+                capture('forecast-reading-actual-touch-cancels-follow-'+language)
+                # A second real drag begins after image publication queued a layout restore.
+                QMetaObject.invokeMethod(flick,'cancelFlick');QTest.qWait(60)
+                f['revision']+=1;f['imagery'][0]['url']=original_path.rsplit('/',1)[0]+'/'+'t'*32
+                owner._forecast.receive(session,owner._caps,owner._clock.now());owner.changed.emit();QTest.qWait(400)
+                assert len(jobs)==1
+                section=visual(screen,'sessionForecastSection-current')
+                flick.setProperty('contentY',flick.property('contentY')+section.mapToItem(flick,0,0).y()+60)
+                touch=QTest.touchEvent(window,touch_device,False)
+                touch.press(0,QPoint(width//2,350),window).commit();QTest.qWait(80)
+                assert not flick.property('dragging')
+                restore_timer=window.findChild(QObject,'sessionForecastReadingRestore')
+                restore_timer.setProperty('interval',500)  # Fixture holds layout callback while real touch begins.
+                jobs.pop(0)()
+                assert evaluate('forecastReading !== null')
+                touch.move(0,QPoint(width//2,410),window).commit();QTest.qWait(80)
+                touch.move(0,QPoint(width//2,470),window).commit();QTest.qWait(50)
+                assert flick.property('dragging')
+                assert evaluate('forecastReading === null') and not window.findChild(QObject,'sessionForecastReadingRestore').property('running')
+                touch.release(0,QPoint(width//2,470),window).commit();QTest.qWait(400)
+                assert evaluate('forecastReading === null')
+                restore_timer.setProperty('interval',32)
+                QMetaObject.invokeMethod(flick,'cancelFlick');QTest.qWait(60)
+                flick.setProperty('contentY',200);position=flick.property('contentY')
+                QMetaObject.invokeMethod(restore_timer,'triggered');QTest.qWait(60)
+                assert abs(flick.property('contentY')-position)<1
+                capture('forecast-reading-queued-restore-real-touch-cancel-'+language)
             backend.shutdown();delete(window);delete(engine)
     errors=[m for m in warnings if any(w in m for w in ['ReferenceError','TypeError','Error:','Cannot assign','is not a type','failed to load','Binding loop detected'])]
     (output/'readback.json').write_text(json.dumps({'captures':captures,'qml_errors':errors,'synthetic_managed_byte_reads':len(calls),
