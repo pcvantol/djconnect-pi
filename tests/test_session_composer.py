@@ -385,3 +385,116 @@ def test_question_denial_revokes_a_concurrent_read_instead_of_reconciling_privat
     assert not owner.state['session_id'] and not owner.state['conversation']
     assert owner.state['error'] == 'denied' and not backend.jobs
     owner.transport.question.assert_called_once()
+
+
+@pytest.mark.parametrize('question_first', [True, False])
+def test_exact_receipt_reconciles_after_concurrent_refresh_and_notifies_only_once(controller, question_first):
+    owner, backend = controller
+    setup_composer(owner)
+    owner.transport.capabilities.return_value = deepcopy(owner._caps)
+    confirmed = Mock()
+    owner.questionConfirmed.connect(confirmed)
+    owner.sendQuestion('One deliberate question')
+    question = backend.jobs.pop()
+    owner.refresh()
+    read = backend.jobs.pop()
+    for job in [question, read] if question_first else [read, question]:
+        job()
+    backend.jobs.pop()()
+    assert owner.state['question_status'] == 'accepted'
+    confirmed.assert_called_once_with(owner.state['conversation'][1]['entry_id'])
+    owner.refresh()
+    backend.jobs.pop()()
+    assert confirmed.call_count == 1
+    owner.transport.question.assert_called_once()
+
+
+def test_accepted_receipt_survives_unavailable_history_until_exact_fresh_read(controller):
+    owner, backend = controller
+    setup_composer(owner)
+    owner.transport.capabilities.return_value = deepcopy(owner._caps)
+    owner.transport.timeline.side_effect = SessionError('offline')
+    owner.sendQuestion('Question')
+    backend.jobs.pop()()
+    assert owner.state['question_status'] == 'accepted_unavailable'
+    owner.transport.timeline.side_effect = None
+    owner.refresh()
+    backend.jobs.pop()()
+    assert owner.state['question_status'] == 'accepted'
+    owner.transport.question.assert_called_once()
+
+
+@pytest.mark.parametrize('mutation', ['client', 'turn', 'session', 'partial', 'voice', 'empty'])
+def test_fresh_history_cannot_confirm_a_receipt_with_wrong_identity_or_incomplete_text(controller, mutation):
+    owner, backend = controller
+    page = setup_composer(owner)
+    owner.transport.capabilities.return_value = deepcopy(owner._caps)
+    owner.transport.timeline.side_effect = SessionError('offline')
+    owner.sendQuestion('Question')
+    backend.jobs.pop()()
+    owner.transport.timeline.side_effect = None
+    if mutation == 'partial':
+        page['entries'] = page['entries'][:1]
+    else:
+        key, value = {'client': ('client_message_id', 'another-client'), 'turn': ('turn_id', 'another-turn'),
+            'session': ('session_id', 'another-session'), 'voice': ('input_type', 'voice'), 'empty': ('text', '  ')}[mutation]
+        page['entries'][1][key] = value
+    confirmed = Mock()
+    owner.questionConfirmed.connect(confirmed)
+    owner.refresh()
+    backend.jobs.pop()()
+    assert owner.state['question_status'] == 'accepted_unavailable'
+    confirmed.assert_not_called()
+    owner.transport.question.assert_called_once()
+
+
+def test_confirmed_receipt_is_forgotten_at_original_retention_deadline(controller):
+    owner, backend = controller
+    page = setup_composer(owner)
+    host = clock_fixture(owner)
+    for row in page['entries']:
+        row['retained_until'] = '2026-10-20T00:00:05Z'
+    owner.sendQuestion('Question')
+    backend.jobs.pop()()
+    assert owner.state['question_status'] == 'accepted'
+    host.tick = 6
+    owner._expire()
+    assert not owner._question_receipt and owner.state['question_status'] == ''
+    assert owner.state['conversation'] == []
+
+
+def test_refetch_cannot_extend_confirmed_receipt_deadline(controller):
+    owner, backend = controller
+    page = setup_composer(owner)
+    host = clock_fixture(owner)
+    owner.transport.capabilities.return_value = deepcopy(owner._caps)
+    for row in page['entries']:
+        row['retained_until'] = '2026-10-20T00:00:05Z'
+    owner.sendQuestion('Question')
+    backend.jobs.pop()()
+    original_deadline = owner._question_receipt['retained_until']
+    for row in page['entries']:
+        row['retained_until'] = '2026-10-20T00:00:20Z'
+    owner.refresh()
+    backend.jobs.pop()()
+    assert owner._question_receipt['retained_until'] == original_deadline
+    host.tick = 6
+    owner._expire()
+    assert not owner._question_receipt and owner.state['question_status'] == ''
+
+
+def test_unknown_delivery_cannot_be_confirmed_by_later_history_without_a_receipt(controller):
+    owner, backend = controller
+    setup_composer(owner)
+    owner.transport.capabilities.return_value = deepcopy(owner._caps)
+    owner.transport.question.side_effect = SessionError('uncertain')
+    owner.sendQuestion('Question')
+    backend.jobs.pop()()
+    confirmed = Mock()
+    owner.questionConfirmed.connect(confirmed)
+    owner.refresh()
+    backend.jobs.pop()()
+    assert owner.state['question_status'] == 'uncertain'
+    assert not owner._question_receipt
+    confirmed.assert_not_called()
+    owner.transport.question.assert_called_once()

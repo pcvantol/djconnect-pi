@@ -20,6 +20,7 @@ from .expiry_clock import ExpiryClock
 from .i18n import locale_for_language, translate
 from .session_history_view import (
     accepted_question,
+    confirmed_question_entry,
     conversation_entries,
     live_presentations,
     opened_entry,
@@ -34,6 +35,7 @@ from .session_transport import SessionError, SessionTransport
 class SessionController(QObject):
     changed = Signal()
     entryOpened = Signal()
+    questionConfirmed = Signal(str)
     timelineUpdated = Signal(str)
     selectionInvalidated = Signal()
     contextCleared = Signal()
@@ -50,6 +52,7 @@ class SessionController(QObject):
         self._conversation = []
         self._selection = {}
         self._question_status = ""
+        self._question_receipt = {}
         self._sessions = []
         self._timeline = {}
         self._error = ""
@@ -116,6 +119,7 @@ class SessionController(QObject):
     def _withdraw_question(self):
         # Revoke display authority without pretending that an in-flight POST was cancelled.
         self._question_epoch += 1
+        self._question_receipt = {}
         self._question_status = ""
         self._selection = {}
         self._reconcile_question = False
@@ -174,8 +178,12 @@ class SessionController(QObject):
 
     def _expire(self):
         now = self._clock.now()
+        receipt_expired = self._question_receipt.get("retained_until", float("inf")) <= now
+        if receipt_expired:
+            self._question_receipt = {}
+            self._question_status = ""
         projected = live_presentations(self._session, now=now)
-        changed = projected != self._moments
+        changed = receipt_expired or projected != self._moments
         self._moments = projected
         if self._timeline:
             retained = [row for row in self._timeline.get("entries", [])
@@ -430,6 +438,7 @@ class SessionController(QObject):
         question_epoch = self._question_epoch
         self._error = ""
         if action == "question":
+            self._question_receipt = {}
             self._question_status = "sending"
         self.changed.emit()
 
@@ -441,6 +450,9 @@ class SessionController(QObject):
                         raise SessionError("context_changed")
                     receipt = accepted_question(self.transport.question(binding, value), binding, value)
                     result["question_accepted"] = True
+                    result["question_receipt"] = {"session_id": value["session_id"],
+                        "client_message_id": value["client_message_id"], "turn_id": receipt["turn_id"],
+                        "entry_ids": receipt["entry_ids"]}
                     result["expected_session_id"] = value["session_id"]
                     if question_epoch != self._question_epoch or not self._foreground:
                         raise SessionError("context_changed")
@@ -450,11 +462,6 @@ class SessionController(QObject):
                     result["session"] = fresh
                     page = history_page(self.transport.timeline(binding, value["session_id"]), session_id=value["session_id"], now=self._clock.now())
                     result["conversation"] = conversation_entries(page)
-                    accepted_ids = set(receipt["entry_ids"])
-                    accepted_rows = [row for row in result["conversation"] if row["entry_id"] in accepted_ids]
-                    result["question_visible"] = (len(accepted_ids) == 2 and len(accepted_rows) == 2
-                        and {row["role"] for row in accepted_rows} == {"user", "assistant"}
-                        and all(row.get("client_message_id") == value["client_message_id"] and row["turn_id"] == receipt["turn_id"] for row in accepted_rows))
                 elif action in {"history", "history_more"}:
                     result["history"] = history_page(self.transport.history(binding, cursor=value), now=self._clock.now())
                     page_cursor(result["history"].get("next_cursor"))
@@ -543,6 +550,7 @@ class SessionController(QObject):
             self.invalidate()
             return
         if question:
+            self._question_receipt = result.get("question_receipt", {})
             # A concurrent current read owns Runtime/capability authority. Reconcile with a new
             # read after it, never overwrite it with the question worker's older snapshot.
             if result.get("error") in {"denied", "unpaired"}:
@@ -566,12 +574,15 @@ class SessionController(QObject):
                     self.changed.emit()
                     return
             else:
-                self._question_status = "accepted" if result.get("question_visible") else "accepted_unavailable"
+                self._question_status = "accepted_unavailable"
                 self._selection = {}
                 # The question's GET is a receipt check, not a replacement Runtime snapshot.
                 self._conversation = result.get("conversation", [])
                 self._expire()
+                confirmed = self._confirm_question()
                 self.changed.emit()
+                if confirmed:
+                    self.questionConfirmed.emit(confirmed)
                 return
         history_action = result["action"] in {"history", "history_more", "timeline", "timeline_refresh", "timeline_page", "search", "search_more", "open_entry"}
         if history_action and result.get("view_epoch") != self._view_epoch:
@@ -640,7 +651,10 @@ class SessionController(QObject):
                 self._search = {}
         # Worker results may have waited on the GUI queue beyond their original deadline.
         self._expire()
+        confirmed = self._confirm_question()
         self.changed.emit()
+        if confirmed:
+            self.questionConfirmed.emit(confirmed)
         if "timeline" in result and "error" not in result:
             self.timelineUpdated.emit(result.get("reading_anchor", self._timeline.get("selected_entry_id", "")))
         if result["action"] == "open_entry" and "error" not in result:
@@ -651,3 +665,17 @@ class SessionController(QObject):
         if self._reconcile_question and not self._running and self._composer_supported():
             self._reconcile_question = False
             self.refresh()
+
+    def _confirm_question(self):
+        receipt = self._question_receipt
+        if not receipt or receipt["session_id"] != self._session.get("session_id") or not self._composer_supported():
+            return ""
+        entry_id = confirmed_question_entry(self._conversation, receipt)
+        if not entry_id:
+            return ""
+        first_confirmation = not receipt.get("confirmed")
+        receipt["confirmed"] = True
+        receipt["retained_until"] = min(receipt.get("retained_until", float("inf")),
+            min(timestamp(row["retained_until"]) for row in self._conversation if row["entry_id"] in receipt["entry_ids"]))
+        self._question_status = "accepted"
+        return entry_id if first_confirmation else ""

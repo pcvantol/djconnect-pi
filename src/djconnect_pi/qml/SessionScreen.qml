@@ -12,10 +12,12 @@ Item {
     property var owner: backend.djSession
     property var state: owner.state
     property string draft: ""
+    property bool followQuestionReply: false
+    property string pendingReplyId: ""
     readonly property string composerContext: state.session_id + "|" + backend.activeProfileId
     onComposerContextChanged: clearComposer()
-    function clearComposer() { draft = ""; if (composeInput) composeInput.clear(); if (composerPanel) composerPanel.close(); if (owner) owner.clearSelection() }
-    function submitQuestion() { if (owner.sendQuestion(composeInput.text)) { draft = ""; composeInput.clear(); composerPanel.close() } }
+    function clearComposer() { followQuestionReply = false; pendingReplyId = ""; draft = ""; if (composeInput) composeInput.clear(); if (composerPanel) composerPanel.close(); if (owner) owner.clearSelection() }
+    function submitQuestion() { if (owner.sendQuestion(composeInput.text)) { followQuestionReply = true; draft = ""; composeInput.clear(); composerPanel.close() } }
     property string proposedMood: "groove"
     readonly property string searchTarget: historical ? ((state.timeline.session || {}).session_id || "") : state.session_id
     property real readingOffset: 0
@@ -76,8 +78,30 @@ Item {
     }
     Timer { interval: 3000; running: screen.visible && screen.backend.paired; repeat: true; triggeredOnStart: true; onTriggered: { if (!screen.historical) screen.owner.refresh(); else if (!screen.state.history_loaded) screen.owner.loadHistory() } }
     Timer { interval: 15000; running: screen.visible && screen.historical && screen.backend.paired; repeat: true; onTriggered: screen.refreshHistory() }
+    Timer {
+        id: replyRestore
+        interval: 32
+        onTriggered: {
+            if (!screen.visible || screen.historical || !screen.followQuestionReply) return
+            for (var i = 0; i < conversationRows.count; i++) {
+                var card = conversationRows.itemAt(i)
+                if (card && card.modelData.entry_id === screen.pendingReplyId) {
+                    var flick = historyScroll.contentItem
+                    flick.contentY = Math.max(0, Math.min(flick.contentY + card.mapToItem(flick, 0, 0).y - 12, Math.max(0, flick.contentHeight - flick.height)))
+                    screen.followQuestionReply = false
+                    screen.pendingReplyId = ""
+                    return
+                }
+            }
+        }
+    }
+    Connections {
+        target: historyScroll.contentItem
+        function onDraggingChanged() { if (historyScroll.contentItem.dragging) screen.followQuestionReply = false }
+    }
     Connections {
         target: screen.owner
+        function onQuestionConfirmed(entryId) { if (screen.followQuestionReply) { screen.pendingReplyId = entryId; replyRestore.restart() } }
         function onSelectionInvalidated() { screen.clearComposer() }
         function onTimelineUpdated(anchor) { screen.restoreReading(anchor) }
         function onContextCleared() { screen.closeTransient() }
@@ -283,6 +307,8 @@ Item {
                 }
             }
             Repeater {
+                id: conversationRows
+                objectName: "sessionConversationRows"
                 model: !screen.historical ? screen.state.conversation : []
                 GlassCard {
                     objectName: "sessionConversationCard"

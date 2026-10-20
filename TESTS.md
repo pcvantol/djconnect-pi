@@ -347,3 +347,14 @@ The composer preview also renders pending-question controls, a concurrent read
 with End still available, and the ended state after discarded late work on both
 sizes. Queued questions revoked before dispatch are not sent. Started requests
 are not described as cancelled and are never automatically replayed.
+
+Exact question receipts are reconciled against later typed history after an
+accepted-but-unavailable read or concurrent refresh. Both entry IDs, Session,
+client-message/turn IDs, text input, roles and nonempty bodies must match. A
+missing receipt, partial pair, voice row or foreign identity cannot confirm the
+turn; repeated reads emit no second focus signal. The original confirmation
+retention deadline cannot be extended by a later read.
+The real QML composer harness adds a long retained conversation on both sizes:
+newly confirmed own reply focus, unchanged pixel reading position on refresh and
+injected Qt touch dragging that cancels reply following. This is local Qt touch
+injection, not installed Pi touch or physical acceptance.

@@ -194,3 +194,16 @@ def conversation_entries(page):
         identifier(row.get("turn_id"))
         rows.append(row)
     return presented_history({"entries": rows})["entries"]
+
+
+def confirmed_question_entry(rows, receipt):
+    """Exact typed history readback, never a text match or optimistic receipt bubble."""
+    ids = set(receipt.get("entry_ids", []))
+    matches = [row for row in rows if row["entry_id"] in ids]
+    if (len(ids) != 2 or len(matches) != 2 or {row["role"] for row in matches} != {"user", "assistant"}
+            or not all(row["session_id"] == receipt["session_id"]
+                and row.get("client_message_id") == receipt["client_message_id"]
+                and row["turn_id"] == receipt["turn_id"] and row["input_type"] == "text"
+                and row["text"].strip() for row in matches)):
+        return ""
+    return next(row["entry_id"] for row in matches if row["role"] == "assistant")

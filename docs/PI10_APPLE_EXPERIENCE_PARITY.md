@@ -476,3 +476,44 @@ task visualization directory. These are local synthetic transport/source/package
 results, not live HA/Profile, ARM, installed, physical or complete Apple parity.
 The prior ddc4650 head's applicable CI passed; the next head needs independent
 remote-check readback. PR111 remains draft; no merge/install/pairing/HA/model work.
+
+### 2026-10-20 — Exact receipt reconciliation and reply reading
+
+The concurrent-refresh status gap above is now closed for a complete admitted
+history pair. The controller retains one bounded, RAM-only validated receipt
+(Session/client-message/turn/two entry IDs), never the transient response body.
+A later current history read may confirm it only with both exact typed text rows,
+roles and nonempty bodies. A partial pair, wrong identity or voice row does not
+confirm a text send. Unknown delivery without a receipt remains uncertain; this
+change adds neither an identity guess nor automatic POST replay. Context/End/
+capability/source/background withdrawal still clears the receipt. Confirmation
+metadata expires at its original earliest row deadline, without refetch renewal.
+Expiry clears metadata and expired text before emitting the changed state.
+
+A first exact confirmation emits one reply anchor. Shared QML waits for layout,
+then brings that answer into the viewport above the composer and tabs. Ordinary
+refreshes and repeated confirmation do not trigger another focus change. A touch
+drag while waiting cancels following, preserving the user's older reading. The
+actual shared QML harness covers a long conversation, refresh pixel position and
+Qt-injected touch movement on both720x720 and1200x1920. The existing native Apple
+reference captures remain design references; no new Apple runtime or live Pi
+interaction was claimed.
+
+This is bounded reply/read polish, not complete Flow. Backward/continuous
+conversation paging, missing-pair anchor reconciliation, standalone/private-
+ephemeral composition, rich choices/actions and other native media/destinations/
+backdrop effects remain open. New source/media authority has not been invented.
+Core protected main8b221d07 is unchanged and its separate document reconciliation
+remains open. Apple continues its own work; no Pi review has been received. The
+preceding5c8a8ab head passed all applicable CI checks (24 successes,4 conditional
+skips); this new candidate requires its own remote-check readback.
+
+Validation:751 full tests passed, Ruff0.16.0 src/tests passed and hostverify MATCH.
+The broad actual-QML regression rendered86 views; the final dedicated composer
+harness rendered36 views without QML errors, including long-conversation focus,
+refresh position and injected touch cancellation on both sizes. Local wheel
+SHA256 e46a0a3d4d75c895f7f62a84b2306476a40d926a5a15252f837846848cb7c040
+matches all57 packaged sources. Evidence: pi-session-receipt-reading under the
+task visualization directory. These are synthetic transport/source/package/local
+Qt results, not ARM, installed, live HA/Profile, physical touch or full Apple
+parity. No merge, release, install, pairing, HA operation or model call occurred.
