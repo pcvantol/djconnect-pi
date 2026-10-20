@@ -135,3 +135,92 @@ def test_retained_rows_expired_on_gui_queue_never_publish_in_flow(controller, op
     host.tick = 5;owner._apply(queued.pop())
     assert not owner.state['retained_flow'] and not owner.state['conversation']
     assert observed and not any(observed)
+
+
+@pytest.mark.parametrize('index', range(6))
+def test_each_flow_kind_selects_exact_retained_reference_without_timeline_or_native_promotion(controller, index):
+    owner, backend = controller
+    page = mixed_page(owner); refresh(owner, backend)
+    row = page['entries'][index]
+    assert not owner._timeline and not owner.state['moments']
+    assert owner.selectFlowEntry('s1', row['entry_id'])
+    assert owner.sendQuestion('What about that contribution?')
+    backend.jobs.pop()()
+    request = owner.transport.question.call_args.args[1]
+    assert request['session_id'] == 's1'
+    assert request['selected'] == {'kind':'selected_entry', 'session_id':'s1', 'entry_id':row['entry_id']}
+    assert owner.state['question_status'] == 'accepted'
+    assert not owner.state['moments'] and owner.state['selection'] == {}
+
+
+def test_flow_click_does_not_select_a_missing_or_foreign_row_from_an_old_detail(controller):
+    owner, backend = controller
+    page = mixed_page(owner); refresh(owner, backend)
+    owner._timeline = deepcopy(page)
+    row = page['entries'][0]
+    owner._retained_flow = []
+    assert not owner.selectFlowEntry('s1', row['entry_id'])
+    owner._retained_flow = deepcopy(page['entries'])
+    assert not owner.selectFlowEntry('other-session', row['entry_id'])
+    assert not owner.state['selection']
+    owner.transport.question.assert_not_called()
+
+
+@pytest.mark.parametrize('withdrawal', ['expiry', 'missing', 'foreground', 'capability', 'end'])
+def test_flow_reference_withdrawal_revokes_queued_question_even_with_old_detail(controller, withdrawal):
+    owner, backend = controller
+    page = mixed_page(owner); refresh(owner, backend)
+    owner._timeline = deepcopy(page)
+    row = page['entries'][0]
+    assert owner.selectFlowEntry('s1', row['entry_id']) and owner.sendQuestion('What about that?')
+    question_work = backend.jobs.pop()
+    if withdrawal == 'expiry':
+        owner._retained_flow[0]['retained_until'] = '2000-01-01T00:00:00Z'
+    elif withdrawal == 'missing': owner._retained_flow = []
+    elif withdrawal == 'foreground': owner.setForeground(False)
+    elif withdrawal == 'capability':
+        owner._caps['capabilities']['ask_dj_contextual_dialogue'] = False
+        owner._expire()
+    else: owner.end("s1")
+    # Expiry/missing need no deadline timer or state getter before dispatch.
+    question_work()
+    owner.transport.question.assert_not_called()
+    assert not owner.state['pending_question']
+    assert not owner.state['selection']
+
+
+def test_fresh_flow_withdrawal_clears_draft_notice_and_does_not_borrow_detail_authority(controller):
+    owner, backend = controller
+    page = mixed_page(owner); refresh(owner, backend)
+    owner._timeline = deepcopy(page)
+    assert owner.selectFlowEntry('s1', page['entries'][0]['entry_id'])
+    from unittest.mock import Mock
+    notify = Mock();owner.selectionInvalidated.connect(notify)
+    page['entries'] = [];refresh(owner, backend)
+    assert not owner.state['selection'] and notify.call_count == 1
+    assert owner._timeline['entries']  # Separate old detail cannot keep Flow selection alive.
+    owner.transport.question.assert_not_called()
+
+
+def test_timeline_selection_remains_independent_of_flow_selection_origin(controller):
+    owner, backend = controller
+    page = mixed_page(owner);refresh(owner, backend)
+    assert owner.selectFlowEntry('s1', page['entries'][0]['entry_id'])
+    owner.clearSelection();owner._retained_flow = []
+    owner._timeline = deepcopy(page)
+    assert owner.selectEntry('s1', page['entries'][1]['entry_id'])
+    assert owner.sendQuestion('What about that?')
+    backend.jobs.pop()()
+    assert owner.state['question_status'] == 'accepted'
+
+
+@pytest.mark.parametrize('guard', ['readonly', 'busy', 'question', 'profile'])
+def test_flow_selection_requires_current_composer_and_idle_click(controller, guard):
+    owner, backend = controller
+    page = mixed_page(owner);refresh(owner, backend)
+    if guard == 'readonly': owner._caps['capabilities']['ask_dj_contextual_dialogue'] = False
+    elif guard == 'busy': owner._running = 99
+    elif guard == 'question': owner._question_running = 99
+    else: backend.cfg.explicit_profile_id = 'foreign-profile'
+    assert not owner.selectFlowEntry('s1', page['entries'][0]['entry_id'])
+    owner.transport.question.assert_not_called()

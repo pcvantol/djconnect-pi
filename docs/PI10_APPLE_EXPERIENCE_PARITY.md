@@ -1492,3 +1492,32 @@ for the bounded layout phase. Search/navigational assertions were not weakened.
 
 Final combined qualification:962 full tests passed, including13 archive-window cases and54 pure Forecast receiver cases plus3 current-controller scope cases. Ruff0.16.0 src/tests passed; hostverify MATCH.386 dedicated actual QML views plus116 broad views completed without errors/binding loops on both formats/all five locales. Real QML buttons/timer callbacks prove beyond100 access, fresh window revalidation, ID/pixel restoration after detail, top-visible reset copy, context close, Forecast scope withdrawal/fresh recovery and Persona uncertainty. Local wheel9a8a7bd4ca0f7fe692ce18935d2285379a709336e7d4b86d4aeed3aa237eb45d matches all61 packaged sources. Source/synthetic transport/package/Qt proof only; no ARM/installed/live Profile/HA/physical acceptance.
 Evidence: taskvisualizations/pi-session-archive-windows-forecast-scope.
+
+
+### Ask about a retained contribution directly from current Flow
+
+Saved-contribution cards now expose the existing localized Ask about action when
+current explicit Profile/composer and attribution gates allow it. The actual
+shared card opens the current composer without changing tabs, navigating to an
+archive or replacing active Runtime. Existing unsent draft is preserved. It sends
+the existing selected_entry reference with its original Session/entry IDs, while
+conversation_context.session_id remains the active Session. The released Core
+contract177–207 owns validation and placement; this adds no endpoint or permission.
+
+The local selection records only its model origin, not body/grant data. A Flow
+selection must still occur in fresh retained_flow for the current Session; an
+old separate timeline cannot keep it alive. A detail-origin selection continues
+to use its own fresh timeline. Source removal/expiry, Profile/foreground/capability
+withdrawal and End clear pending/draft through existing fences. Original selected
+ID/source is also checked immediately before a queued POST without waiting for a
+GUI timer. A started server request may finish; there is no write replay or
+fictional cancellation. Buttons disable during an existing question/control read.
+
+Design comparison uses protected Applee106a467 SessionTimelineScreen525–551,
+which selects the entry reference and focuses the active composer. Pi keeps its
+explicit shared button and touch modal; exact native geometry, full Flow order,
+media/actions and broad private/standalone lifetime remain open. Sources/hashes
+are in docs/branding/RETAINED_FLOW_SELECTION_REFERENCE.json. All six-kind request
+cases are explicitly synthetic; released producer bytes are unchanged.
+
+Final retained Flow selection qualification:980 full tests PASS (18 new cases), Ruff0.16.0 src/tests PASS, current shared-root hostverify MATCH.426 dedicated actual QML views plus116 broad views completed without errors/binding loops on720x720 and1200x1920/all five languages. Both new composer layouts were visually inspected against existing native references and pinned Apple source; exact inline/native geometry and glass effects remain open. Wheel32edb508939bdccb7ec3b09a2592e935912c6ebaed5408da6878aff7139cc68f matches all61 packaged source files. Evidence: taskvisualizations/pi-session-retained-flow-selection. Source/synthetic transport/Qt/package only; no ARM/installed/live HA/Profile/physical qualification. Diagnostics preserve an initial test End call missing its required Session-ID argument, a fixture using single-result visual lookup as an iterator, and hostverify's obsolete default repository root; corrected explicit shared-root verification was MATCH. Product gates were not loosened for fixtures.

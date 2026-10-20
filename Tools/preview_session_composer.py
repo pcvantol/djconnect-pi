@@ -948,7 +948,54 @@ def main():
             flick.setProperty('contentY',min(playback_cards[0].property('y'),max(0,flick.property('contentHeight')-flick.property('height'))))
             capture('retained-flow-playback-and-conversation-'+language)
             assert owner.state['retained_flow'][6]['historical_playback']['title']=='<img> letterlijk 🎵\nObserved track'
-            elapsed_flow[0]=6;owner._expire();QTest.qWait(80)
+            # Existing selected_entry route, driven from the actual retained Flow card.
+            def flow_cards(item):
+                if item.objectName()=='sessionConversationCard': yield item
+                for child in item.childItems(): yield from flow_cards(child)
+            writable_caps=deepcopy(readonly_caps)
+            writable_caps['capabilities']['ask_dj_contextual_dialogue']=True
+            writable_caps['contract_versions']['ask_dj_contextual_dialogue']=1
+            owner._caps=writable_caps;owner.transport.capabilities.return_value=writable_caps;owner.changed.emit();QTest.qWait(60)
+            selected_card=next(card for card in flow_cards(screen) if card.property('entry')['entry_id']==played['entry_id'])
+            ask=visual_named(selected_card,'sessionRetainedAskAbout')
+            assert ask.property('visible') and ask.property('enabled')
+            screen.setProperty('draft','Synthetic <img> 🎧 question about this contribution')
+            QMetaObject.invokeMethod(ask,'clicked');QTest.qWait(60)
+            assert panel.property('opened') and field.property('text')==screen.property('draft')
+            assert window.property('activeScreen')=='session' and not owner._timeline
+            assert owner.state['selection']=={'kind':'selected_entry','session_id':flow_session['session_id'],'entry_id':played['entry_id']}
+            capture('retained-flow-selected-question-'+language)
+            def flow_answer(binding,value):
+                selected=value['selected']
+                assert selected=={'kind':'selected_entry','session_id':flow_session['session_id'],'entry_id':played['entry_id']}
+                pair=[]
+                for i,role in enumerate(['user','assistant']):
+                    row=deepcopy(base);row.update(entry_id='synthetic-flow-answer-'+str(i),order=10+i,
+                        kind='conversation_user' if i==0 else 'conversation_dj',role=role,input_type='text',
+                        turn_id='synthetic-flow-selected-turn',client_message_id=value['client_message_id'],
+                        text=value['text'] if i==0 else 'Synthetic response from fresh owner history')
+                    pair.append(row)
+                flow_page['entries']=flow_page['entries'][:9]+pair
+                return {'success':True,'owner_profile_id':binding.resolved_profile_id,'client_message_id':value['client_message_id'],
+                    'conversation':{'schema_version':1,'turn_id':'synthetic-flow-selected-turn','input_type':'text',
+                    'context':{'session_id':value['session_id'],'selected_entry':{'session_id':selected['session_id'],'entry_id':selected['entry_id']}},
+                    'entry_ids':[row['entry_id'] for row in pair]}}
+            owner.transport.question=Mock(side_effect=flow_answer)
+            QMetaObject.invokeMethod(screen,'submitQuestion');held=backend._question_executor.submit.call_args.args[0]
+            assert owner.questionBusy and not ask.property('enabled')
+            capture('retained-flow-question-pending-'+language)
+            held();QTest.qWait(80)
+            assert owner.state['question_status']=='accepted' and not owner.state['selection']
+            assert owner.transport.question.call_count==1 and owner.state['session_id']==flow_session['session_id']
+            capture('retained-flow-confirmed-question-'+language)
+            selected_card=next(card for card in flow_cards(screen) if card.property('entry')['entry_id']==played['entry_id'])
+            ask=visual_named(selected_card,'sessionRetainedAskAbout')
+            QMetaObject.invokeMethod(ask,'clicked');QTest.qWait(40);field.setProperty('text','Synthetic queued question')
+            QMetaObject.invokeMethod(screen,'submitQuestion');late=backend._question_executor.submit.call_args.args[0]
+            elapsed_flow[0]=6;owner._expire();QTest.qWait(80);late();QTest.qWait(40)
+            assert owner.transport.question.call_count==1 and not owner.state['selection'] and not screen.property('draft')
+            assert not owner.state['pending_question'] and not panel.property('opened')
+            capture('retained-flow-selected-source-withdrawn-'+language)
             assert not owner.state['retained_flow'] and cards.property('count')==0
             assert not window.findChild(QObject,'sessionRetainedFlowLabel').property('visible')
             capture('retained-flow-expired-'+language)

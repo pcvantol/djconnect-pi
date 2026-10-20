@@ -1,0 +1,20 @@
+{
+  "sources": {
+    "docs/product/SESSION_CONVERSATION_HISTORY_CONTRACT.md": {
+      "commit": "8b221d07fe2215d9516d18fe92c832332c7a16ab",
+      "sha256": "e61b63e8d7e7b0fa5cab704f0755ae7b222ae048c90d85a39bcbbf2e4dc1b4bf"
+    },
+    "custom_components/djconnect/ask_dj/service.py": {
+      "commit": "8b221d07fe2215d9516d18fe92c832332c7a16ab",
+      "sha256": "5fde45264965adf4f1432d5542cfcefdd761ee11817262f2d3b5a660b211b3a0"
+    },
+    "Sources/DJConnectUI/SessionTimelineScreen.swift": {
+      "commit": "e106a467011b9ea84d301a81c4e07251314cc6dd",
+      "sha256": "23031742cc2d7fc5b3fdb704d0e049aa77a2f484c35ca676b6b0928efaf7f923"
+    }
+  },
+  "existing_contract": "conversation_context.session_id identifies current active Session; selected_entry contains original session_id/entry_id. New retained answer belongs to current Profile/Session, never appends to old archive. Existing owner query revalidates source.",
+  "pi_behavior": "Current Flow saved cards expose existing localized Ask about selection only with explicit composer authority and ready attribution. Selection uses fresh current retained_flow, independent of an old timeline. Current Session stays unchanged. Before queued POST the original selected ID/source is rechecked with monotone expiry. No text or grant cache is added.",
+  "design_reference": "Apple pinned SessionTimelineScreen.swift:525-551 selects entry.reference and focuses active composer. Pi uses shared explicit button/modal composer; separate current/native versus retained layout stays a Pi adaptation, not exact native geometry.",
+  "evidence_limit": "All six-kind request/receipt cases use synthetic transport; no claim that those synthetic server bodies qualify real narration. Existing producer fixture bytes unchanged. No new media/action/audio/private-lifetime rights. Local Qt/source/package only."
+}

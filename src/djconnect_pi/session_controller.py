@@ -74,6 +74,7 @@ class SessionController(QObject):
         self._current_reply_dirty = False
         self._question_reference = {}
         self._selection = {}
+        self._selection_source = "timeline"
         self._question_status = ""
         self._question_receipt = {}
         self._sessions = []
@@ -197,6 +198,7 @@ class SessionController(QObject):
         self._conversation = []
         self._retained_flow = []
         self._selection = {}
+        self._selection_source = "timeline"
         self._question_status = ""
         self._sessions = []
         self._timeline = {}
@@ -331,6 +333,7 @@ class SessionController(QObject):
             return (bool(self._question_running) and self._foreground and self._composer_supported()
                 and self._pending_question_binding == self.transport.binding()
                 and self._pending_question.get("session_id") == self._session.get("session_id")
+                and self._selection_valid()
                 and (not self._question_reference or self._question_reference == moment_reference(
                     self._session, self._question_reference["selected"], now=self._clock.now())))
         except SessionError:
@@ -360,9 +363,16 @@ class SessionController(QObject):
         selected = self._selection
         if selected["kind"] == "selected_moment":
             return selected["session_id"] == self._session.get("session_id") and any(row["moment_id"] == selected["moment_id"] for row in live_presentations(self._session, now=self._clock.now()))
-        return (selected["session_id"] == self._timeline.get("session", {}).get("session_id")
-                and any(row["entry_id"] == selected["entry_id"] and (timestamp(row.get("retained_until")) or 0) > self._clock.now()
-                        for row in self._timeline.get("entries", [])))
+        return self._entry_selection_valid(selected, self._selection_source)
+
+    def _entry_selection_valid(self, selected, source):
+        if source == "flow":
+            session_id, rows = self._session.get("session_id"), self._retained_flow
+        else:
+            session_id, rows = self._timeline.get("session", {}).get("session_id"), self._timeline.get("entries", [])
+        return (selected["session_id"] == session_id
+                and any(row["session_id"] == selected["session_id"] and row["entry_id"] == selected["entry_id"]
+                        and (timestamp(row.get("retained_until")) or 0) > self._clock.now() for row in rows))
 
     @Slot()
     def clearSelection(self):
@@ -382,6 +392,7 @@ class SessionController(QObject):
 
     @Slot(str, str, result=bool)
     def selectEntry(self, session_id, entry_id):
+        self._selection_source = "timeline"
         self._history_selection_dirty = False
         self._selection = {"kind": "selected_entry", "session_id": session_id, "entry_id": entry_id}
         valid = self._selection_valid()
@@ -389,6 +400,20 @@ class SessionController(QObject):
             self._selection = {}
         self.changed.emit()
         return valid
+
+    @Slot(str, str, result=bool)
+    def selectFlowEntry(self, session_id, entry_id):
+        # A Flow click cannot borrow authority from a separately retained detail page.
+        if not self._foreground or self._running or self._question_running or not self._composer_supported():
+            return False
+        selected = {"kind": "selected_entry", "session_id": session_id, "entry_id": entry_id}
+        if not self._entry_selection_valid(selected, "flow"):
+            return False
+        self._history_selection_dirty = False
+        self._selection_source = "flow"
+        self._selection = selected
+        self.changed.emit()
+        return True
 
     @Slot(str, result=bool)
     def sendQuestion(self, body):
@@ -724,6 +749,7 @@ class SessionController(QObject):
             return
         view_epoch = self._view_epoch
         receipt_snapshot = deepcopy(self._question_receipt)
+        selection_source = self._selection_source
         self._serial += 1
         serial = self._serial
         if action == "question":
@@ -761,6 +787,9 @@ class SessionController(QObject):
             try:
                 if action == "question":
                     if question_epoch != self._question_epoch or not self._foreground:
+                        raise SessionError("context_changed")
+                    if (value.get("selected", {}).get("kind") == "selected_entry"
+                            and not self._entry_selection_valid(value["selected"], selection_source)):
                         raise SessionError("context_changed")
                     response = self.transport.question(binding, value)
                     receipt = accepted_question(response, binding, value)

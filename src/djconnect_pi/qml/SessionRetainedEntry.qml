@@ -24,6 +24,7 @@ GlassCard {
     Text { visible: historySources.ready && text.length > 0; text: historyCard.played.album || ""; textFormat: Text.PlainText; color: BrandTheme.colors.muted; font.pixelSize: 19; wrapMode: Text.WordWrap; Layout.fillWidth: true }
     SessionAttribution { id: historySources; sources: entry.display_sources || []; requiresSpotify: entry.requires_spotify_attribution || false; spotifyURL: entry.spotify_source_url || ""; Layout.fillWidth: true }
     GlassButton {
+        objectName: "sessionRetainedAskAbout"
         visible: historyCard.selectionAvailable && historySources.ready
         text: historyCard.translate("session_ask_about"); enabled: !historyCard.selectionBusy
         onClicked: { historyCard.askAbout(entry.session_id, entry.entry_id) }

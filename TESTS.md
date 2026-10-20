@@ -556,3 +556,17 @@ pure producer fixtures and any native/installed/live qualification.
 
 Final combined qualification:962 full tests passed, including13 archive-window cases and54 pure Forecast receiver cases plus3 current-controller scope cases. Ruff0.16.0 src/tests passed; hostverify MATCH.386 dedicated actual QML views plus116 broad views completed without errors/binding loops on both formats/all five locales. Real QML buttons/timer callbacks prove beyond100 access, fresh window revalidation, ID/pixel restoration after detail, top-visible reset copy, context close, Forecast scope withdrawal/fresh recovery and Persona uncertainty. Local wheel9a8a7bd4ca0f7fe692ce18935d2285379a709336e7d4b86d4aeed3aa237eb45d matches all61 packaged sources. Source/synthetic transport/package/Qt proof only; no ARM/installed/live Profile/HA/physical acceptance.
 No duplicate Forecast prose remains after withdrawal; terminal reads preserve state without text renewal. Actual tablet geometry must settle and applied position must verify within8 attempts. Automatic fixture polling bindings alone are disabled, explicit real callbacks remain tested, and production polling is unchanged. Failed/intermediate diagnostics are retained.
+
+
+Retained Flow question selection:18 new cases cover all six released history2
+kinds with exact original IDs and current Session, no native promotion, missing/
+foreign IDs despite an old detail, expiry/removal/foreground/capability/End before
+queued POST, fresh source withdrawal and draft invalidation, separate timeline
+origin and Profile/busy/read-only gates. Synthetic transports do not establish
+actual producer narration/readback for every type. Existing owner contract and
+exact receipt/history checks remain authoritative. Actual QML probes drive the
+shared button, preserved draft/modal/current tab, pending-disabled action, exact
+selected_entry send/fresh confirmation and source-expiry cancellation in five
+languages on both formats. No new user-facing strings; existing i18n keys reused.
+
+Final retained Flow selection qualification:980 full tests PASS (18 new cases), Ruff0.16.0 src/tests PASS, current shared-root hostverify MATCH.426 dedicated actual QML views plus116 broad views completed without errors/binding loops on720x720 and1200x1920/all five languages. Both new composer layouts were visually inspected against existing native references and pinned Apple source; exact inline/native geometry and glass effects remain open. Wheel32edb508939bdccb7ec3b09a2592e935912c6ebaed5408da6878aff7139cc68f matches all61 packaged source files. Evidence: taskvisualizations/pi-session-retained-flow-selection. Source/synthetic transport/Qt/package only; no ARM/installed/live HA/Profile/physical qualification. Diagnostics preserve an initial test End call missing its required Session-ID argument, a fixture using single-result visual lookup as an iterator, and hostverify's obsolete default repository root; corrected explicit shared-root verification was MATCH. Product gates were not loosened for fixtures.

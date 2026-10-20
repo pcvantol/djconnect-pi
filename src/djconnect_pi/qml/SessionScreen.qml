@@ -705,6 +705,9 @@ Item {
                     objectName: "sessionConversationCard"
                     required property var modelData
                     entry: modelData; translate: screen.tr; dateText: screen.displayDate(modelData.occurred_at)
+                    selectionAvailable: screen.state.composer_available
+                    selectionBusy: screen.owner.busy || screen.owner.questionBusy
+                    onAskAbout: (sessionId, entryId) => { if (screen.owner.selectFlowEntry(sessionId, entryId)) composerPanel.open() }
                 }
             }
             GlassCard {
