@@ -141,3 +141,26 @@ def test_playback_owner_preflight_can_isolate_ambient_auth_without_changing_iden
     request.assert_called_once()
     assert request.call_args.kwargs["params"]["profile_id"] == cfg.explicit_profile_id
     assert request.call_args.kwargs["headers"]["Authorization"] == "Bearer synthetic-token"
+
+
+
+@pytest.mark.parametrize("url", ["http://synthetic-user:synthetic-password@fixture.invalid", "ftp://fixture.invalid", "http://fixture.invalid?synthetic=1", "http://fixture.invalid#fragment", "http://fixture.invalid:70000", "http://fixture.invalid\n"])
+@pytest.mark.parametrize("route", ["owner", "status", "write"])
+def test_playback_rejects_credential_or_noncanonical_base_before_dispatch(transport, url, route):
+    client, cfg, request, _ = transport
+    cfg.ha_url = url
+    binding = client.binding()
+    with pytest.raises(SessionError, match="^invalid$"):
+        if route == "owner": client.active(binding, isolated=True)
+        elif route == "status": client.playback_status(binding)
+        else: client.playback_command(binding, "next")
+    request.assert_not_called()
+    assert cfg.paired and cfg.device_token == "synthetic-token"
+
+
+def test_playback_preserves_valid_configured_reverse_proxy_base_path(transport):
+    client, cfg, request, _ = transport
+    cfg.ha_url = "https://fixture.invalid/ha"
+    client.playback_status(client.binding())
+    request.assert_called_once()
+    assert request.call_args.args == ("POST", "https://fixture.invalid/ha/api/djconnect/v1/command")

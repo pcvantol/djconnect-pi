@@ -51,5 +51,12 @@
     "No general playback cover/image grant is inferred from Runtime metadata",
     "No live HA/Profile/provider/model/ARM/installed/physical acceptance"
   ],
-  "fixture": "Original native expressive bytes replayed at original expiry clock; backend status, playback updates, HTTP/socket effects synthetic and intercepted. Existing renderer URI/hash mechanism used only as equality fence, never as a new right."
+  "fixture": "Original native expressive bytes replayed at original expiry clock; backend status, playback updates, HTTP/socket effects synthetic and intercepted. Existing renderer URI/hash mechanism used only as equality fence, never as a new right.",
+  "url_admission": "Isolated playback paths reject embedded userinfo, non-HTTP(S), query/fragment, controls and invalid ports before request preparation. Offline requests probe demonstrates URL userinfo replaces Bearer despite trust_env false. Valid reverse proxy paths remain supported.",
+  "qualification": {
+    "controls_head": "a54aee5db32cb6cc5b57d344548f01fa95cbe6d9",
+    "qml_views": 1046,
+    "transport_followup_full_tests": 1334,
+    "extra_qml_views_after_transport_only_followup": 0
+  }
 }

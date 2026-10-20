@@ -9,7 +9,7 @@ from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
 import requests
 
@@ -73,6 +73,17 @@ class SessionTransport:
     def _request(self, binding: SessionBinding, method: str, route: str, payload=None, *, timeout=None, isolated=False) -> dict:
         if binding != self.binding():
             raise SessionError("context_changed")
+        if isolated:
+            try:
+                base = urlsplit(binding.ha_url)
+                if (base.scheme not in {"http", "https"} or not base.hostname
+                        or base.username is not None or base.password is not None
+                        or base.query or base.fragment
+                        or any(ord(c) <= 32 or ord(c) == 127 for c in binding.ha_url)):
+                    raise ValueError
+                _ = base.port  # Reject malformed/out-of-range ports before request preparation.
+            except ValueError:
+                raise SessionError("invalid") from None
         headers = {
             "Authorization": "Bearer " + binding.token,
             "X-DJConnect-Device-ID": binding.device_id,

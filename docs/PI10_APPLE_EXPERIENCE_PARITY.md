@@ -2018,3 +2018,21 @@ held worker immediately after close(), with no GUI tick or animation delay.
 All1046 final-scope views were rerun on this closed source; earlier onClosed
 recordings/packages stay separate under the evidence diagnostics/top-level
 intermediate folders. Python fullsuite1315 and Ruff were also rerun on this source.
+
+
+### Playback URL admission follow-up — 2026-10-20
+
+An offline requests.prepare_request probe confirms embedded URL credentials can
+replace an explicit Bearer header even with trust_env=False. No request is sent.
+The new isolated playback path now rejects credential-bearing, non-HTTP(S),
+query/fragment, control-character and invalid-port HA bases before preparing any
+request. Valid configured reverse-proxy base paths remain supported. Other
+existing Session routes are unchanged; no new credential or auth fallback.
+
+This transport-only follow-up passes1334 full tests, including19 new base-URL
+admission cases, and Ruff0.16.0 src/tests. Wheelb5a5873d165c04020e353b9d34babfc60182788b80168e2c225f86df58e4fd97 matches all65 packaged
+sources. Controls/UI/controller bytes remain identical to a54aee5db32cb6cc5b57d344548f01fa95cbe6d9,
+where1315 full tests and1046 actual QML views were completed. No extra QML views
+are claimed after this transport-only guard. Both proof layers and intermediate
+packages are separate under pi-session-playback-controls/final-scope and auth-final.
+There is no live HA/Profile/provider/model, ARM, installed or physical claim.
