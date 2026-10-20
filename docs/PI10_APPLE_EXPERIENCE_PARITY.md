@@ -26,6 +26,15 @@ fixture/package and simulator proof do not qualify installed/live/physical Apple
 parity. No merge, release, Pi install or new pairing has been performed by this
 nightly work. Full functional/visual parity remains open.
 
+Current code checkpoint23712dc54bc575a2e2ddacfe377a2b2615dd36f3 has25successful
+applicable CI checks and4conditional skips. Its transport suite passes1334tests;
+controls/UI proof is the separate1046-view checkpointa54aee5. The latest qualified
+host read now has1required DRIFT: verification artifact retention. Older MATCH
+records are historical. A read-only manifest found five Core Pi-live proof files
+newly crossing14days; their owner was informed once. Pi has not removed/moved or
+changed mtime on any evidence. Delivery qualification remains open independently
+of the passing product/source checks; no merge/install/release is authorized.
+
 ## Source baseline and scope
 
 Read-only comparison: clean Apple source `9df57f3fd96aeab6624407b1e4c07490125a6565`,

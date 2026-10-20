@@ -1066,3 +1066,12 @@ where1315 full tests and1046 actual QML views were completed. No extra QML views
 are claimed after this transport-only guard. Both proof layers and intermediate
 packages are separate under pi-session-playback-controls/final-scope and auth-final.
 There is no live HA/Profile/provider/model, ARM, installed or physical claim.
+
+
+Latest host checkpoint:1required DRIFT in maintenance.verification_artifact_retention,
+not a product test failure. The five identified Core Pi-live artifacts crossed
+the14-day policy after the earlier MATCH. Exact metadata and fresh host log are
+in pi-session-playback-controls/auth-final. No cleanup, relocation, mtime change
+or other-lane source write was performed; the Core owner received one concrete
+receipt.1334tests/Ruff and code23712dc CI25success/4conditional skips remain
+separate from this current unresolved host/delivery gate.
