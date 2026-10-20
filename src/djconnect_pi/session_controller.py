@@ -74,6 +74,8 @@ class SessionController(QObject):
         self._question_status = ""
         self._question_receipt = {}
         self._sessions = []
+        self._history_dirty = False
+        self._history_selection_dirty = False
         self._timeline = {}
         self._timeline_trail = []
         self._error = ""
@@ -99,6 +101,8 @@ class SessionController(QObject):
 
     @Property("QVariantMap", notify=changed)
     def state(self):
+        if self._expire_history_headers(self._clock.now()):
+            self._history_dirty = True
         if self._pending_question and not self._pending_question_valid():
             self._withdraw_question()
             self._current_reply_dirty = True
@@ -221,8 +225,33 @@ class SessionController(QObject):
         self._loaded = True
         self.changed.emit()
 
+    def _expire_history_headers(self, now):
+        expired = {row["session_id"] for row in self._sessions
+            if row.get("_history_deadline") is not None and row["_history_deadline"] <= now}
+        deadline = self._timeline.get("_session_deadline")
+        if deadline is not None and deadline <= now:
+            expired.add(self._timeline.get("session", {}).get("session_id"))
+        if not expired:
+            return False
+        self._sessions = [row for row in self._sessions if row["session_id"] not in expired]
+        self._history_cursor = ""
+        if self._timeline.get("session", {}).get("session_id") in expired:
+            self._timeline = {}
+            self._timeline_trail = []
+        if self._search.get("session_id") in expired:
+            self._search = {}
+        if self._selection.get("kind") == "selected_entry" and self._selection.get("session_id") in expired:
+            self._withdraw_question()
+            self._history_selection_dirty = True
+        return True
+
     def _expire(self):
         now = self._clock.now()
+        headers_expired = self._expire_history_headers(now) or self._history_dirty
+        self._history_dirty = False
+        if self._history_selection_dirty:
+            self._history_selection_dirty = False
+            self.selectionInvalidated.emit()
         receipt_expired = self._question_receipt.get("retained_until", float("inf")) <= now
         if receipt_expired:
             self._question_receipt = {}
@@ -230,7 +259,7 @@ class SessionController(QObject):
         projected = live_presentations(self._session, now=now)
         forecast_changed = self._forecast.expire(now) or self._forecast_dirty
         self._forecast_dirty = False
-        changed = forecast_changed or receipt_expired or projected != self._moments or self._current_reply_dirty
+        changed = headers_expired or forecast_changed or receipt_expired or projected != self._moments or self._current_reply_dirty
         self._current_reply_dirty = False
         if self._pending_question and not self._pending_question_valid():
             self._withdraw_question()
@@ -794,6 +823,14 @@ class SessionController(QObject):
         if history_action and result.get("view_epoch") != self._view_epoch:
             self.changed.emit()
             return
+        if "history" in result and "error" not in result:
+            try:
+                result["history"] = history_page(result["history"], now=self._clock.now())
+            except SessionError as exc:
+                result["error"] = exc.category
+        if "error" in result and result["action"] in {"history", "history_more"}:
+            self._sessions = []
+            self._history_cursor = ""
         if "error" in result and history_action and result["error"] not in {"denied", "context_changed", "unpaired"}:
             self._search = {}
             self._timeline = {}
@@ -859,6 +896,13 @@ class SessionController(QObject):
                 elif (result["action"] != "timeline_refresh" or incoming["revision"] != self._timeline.get("revision")
                         or "_page_cursor" not in incoming):
                     self._timeline_trail = []
+                sid = incoming.get("session", {}).get("session_id")
+                deadlines = [row["_history_deadline"] for row in self._sessions
+                    if row["session_id"] == sid and row.get("_history_deadline") is not None]
+                if self._timeline.get("session", {}).get("session_id") == sid and self._timeline.get("_session_deadline") is not None:
+                    deadlines.append(self._timeline["_session_deadline"])
+                if deadlines:
+                    incoming = {**incoming, "_session_deadline": min(deadlines)}
                 self._timeline = incoming
                 # A same-scope/revision background page check must not close an active search.
                 # Search separately re-reads every displayed page; changed scope/revision withdraws it.

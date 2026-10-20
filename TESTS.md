@@ -496,3 +496,11 @@ pre-dispatch/accepted/uncertain/withdrawn states, prove no replay after refresh 
 no queued POST after source/foreground/End withdrawal. Actual QML holds one worker
 in each locale/layout to check user text, Sending copy, native PlainText and atomic
 replacement/blanking, without a server or model call.
+
+
+Session header retention tests derive only the released explicit owner-list
+policy/lifecycle rule; they do not assume a default or invent wire expiry fields.
+They check expiry before GUI admission, parent-before-entry removal, rollback,
+selected-context notification and no body/cursor resurrection. Real QML uses a
+synthetic short-lived terminal header plus longer-lived entries in all locales
+on both layouts, asserting empty rows/detail and cleared selected draft.

@@ -171,7 +171,11 @@ def history_page(response, *, session_id=None, now=None):
         sessions = response.get("sessions")
         if not isinstance(sessions, list) or len(sessions) > 50:
             raise SessionError("invalid")
+        days = response.get("retention_days")
+        if sessions and (type(days) is not int or not 1 <= days <= 90):
+            raise SessionError("invalid")
         ids = set()
+        projected = []
         for header in sessions:
             if not isinstance(header, dict) or not isinstance(header.get("revision"), str) or not header["revision"]:
                 raise SessionError("invalid")
@@ -179,7 +183,20 @@ def history_page(response, *, session_id=None, now=None):
             if value in ids:
                 raise SessionError("invalid")
             ids.add(value)
-        return response
+            status = header.get("lifecycle_status")
+            if status not in {"OPENING", "ACTIVE", "ENDED", "INTERRUPTED"}:
+                raise SessionError("invalid")
+            stamp = header.get("ended_at") or header.get("interrupted_at") or header.get("created_at")
+            started = timestamp(stamp)
+            if started is None:
+                raise SessionError("invalid")
+            # Core public_session has no wire expiry; reproduce its released
+            # session_retained rule using only the explicit response policy.
+            deadline = started + days * 86400 if status in {"ENDED", "INTERRUPTED"} else None
+            if deadline is not None and deadline <= now:
+                raise SessionError("unavailable")
+            projected.append({**header, "_history_deadline": deadline})
+        return {**response, "sessions": projected}
     header = response.get("session")
     if not isinstance(header, dict) or header.get("session_id") != session_id:
         raise SessionError("invalid")

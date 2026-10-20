@@ -1184,3 +1184,53 @@ Final qualified QML run:200 dedicated views and116 broad views passed with no
 errors/binding loops. Both pending layouts were visually inspected, including
 local literal markup, separate Sending state and absence of a fabricated answer.
 This remains synthetic local Qt/design proof only.
+
+
+### Session header retention — 20 October
+
+Audit confirmed a consumer gap: list headers survived locally after Session
+retention elapsed, and a detail could outlive its parent Session if its individual
+entries had later retained_until dates. Protected Core8b221d07 already returns
+retention_days on the owner Session list. Its public_session has no separate
+wire expiry. The released session_retained rule uses ended_at, interrupted_at or
+created_at plus that explicit policy for ENDED/INTERRUPTED; OPENING/ACTIVE remain
+exempt. Core persistence restricts policy to integer1..90. Source hashes and
+provenance: docs/branding/HISTORY_HEADER_RETENTION_REFERENCE.json.
+
+The Pi now validates and derives a local deadline from those exact fields, with
+zoned timestamps and no assumed90-day fallback. Nonempty malformed/missing-policy
+responses are unavailable rather than retained indefinitely; empty lists require
+no invented deadline. Original response bytes/producer fixtures are unchanged.
+List results are rechecked after the GUI queue using the existing monotone clock.
+An expired/invalid response clears old list data/cursors without changing current
+Runtime or replaying any write.
+
+A header deadline removes its list row and cursor locally. Opening detail from a
+known list header carries the earliest known parent deadline into the ephemeral
+read window; the entire timeline/search/trail withdraws at that deadline, even if
+individual rows last longer. Selected historical context withdraws with it; a
+dirty notification ensures the next GUI tick clears its draft even if a getter
+already removed the model. Repeated page reads do not extend a known detail's
+parent deadline. This does not invent a deadline for direct search/open responses
+that contain no retention policy, and is not policy-change/revocation polling or
+full session-list revalidation. Those owner reads remain necessary.
+
+Thirteen new tests cover all four lifecycle states, invalid policy bounds/types,
+unknown/unzoned headers, original body preservation, delayed GUI admission,
+parent-before-entry expiry, rollback/refetch refusal and selected-context notify.
+Actual QML probes read a synthetic policy-bound archive list and longer-lived
+entry window, expire the parent, and verify list/detail/cursor/context/draft
+withdrawal in all five locales on both canvases. Existing native/retained grants
+remain separate; no server contract, history write, delete, pairing or audio path.
+
+Validation/package results are preserved under pi-session-header-retention.
+Parent4a5a260 passed all applicable CI (24successes/4conditional skips); the new
+head requires independent checks. No Core WIP was consumed; its separate current
+retention work is not released evidence. Local proof is not HA/Profile/ARM,
+installed or physical acceptance. PR111 stays draft.
+
+Local final result:870 full tests, Ruff0.16.0 src/tests and hostverify MATCH.
+220 dedicated QML views plus116 broad views passed without errors/binding loops.
+Wheel398b3131bac21e2bdb33fe82e55c0b6536f15a80f09be276ed3623927c71e81f
+matches all60 packaged sources. List/detail withdrawal was visually inspected
+on the actual fixture canvases; no new native simulator or live provider claim.

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 from copy import deepcopy
+from datetime import UTC, datetime
 import json
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -698,7 +699,7 @@ def main():
         QMetaObject.invokeMethod(more_tab,'clicked')
         QTest.qWait(80)  # The archive control must actually be visible before a user can click it.
         owner.transport.history=Mock(return_value={'success':True,'schema_version':2,'history_contract_version':2,
-            'sessions':[{'session_id':archive_sid,'revision':'archive-revision','started_at':'2026-10-19T12:00:00Z'}],'next_cursor':None})
+            'retention_days':90,'sessions':[{'session_id':archive_sid,'revision':'archive-revision','lifecycle_status':'ENDED','created_at':'2026-10-19T12:00:00Z','started_at':'2026-10-19T12:00:00Z','ended_at':'2026-10-19T13:00:00Z'}],'next_cursor':None})
         QMetaObject.invokeMethod(window.findChild(QObject,'openSessionArchive'),'clicked')
         QTest.qWait(80)
         complete_navigation()
@@ -735,6 +736,35 @@ def main():
             assert session_tab.property('checked')==(origin=='session')
             assert owner.state['session_id']==session['session_id']
             capture('navigation-search-open-'+label)
+        # Explicit policy-derived header expiry, independent of later entry deadlines.
+        saved_clock=owner._clock
+        header_now=owner._clock.now()
+        for language in ['en','nl','de','fr','es']:
+            complete_navigation()
+            backend.setLanguage(language);backend._toast_visible=False;backend.toastChanged.emit()
+            complete_navigation()
+            elapsed=[0]
+            owner._clock=ExpiryClock(lambda:header_now,lambda:elapsed[0])
+            ended=datetime.fromtimestamp(header_now-86400+5,UTC).isoformat()
+            owner.transport.history=Mock(return_value={'success':True,'schema_version':2,'history_contract_version':2,
+                'retention_days':1,'retention_revision':1,'revision':'synthetic-header-revision','next_cursor':'synthetic-next',
+                'sessions':[{'session_id':archive_sid,'revision':'synthetic-header-r1','lifecycle_status':'ENDED',
+                    'created_at':ended,'started_at':ended,'ended_at':ended,'interrupted_at':''}]})
+            window.setProperty('activeScreen','history');owner.closeSaved();complete_navigation()
+            owner.loadHistory();backend._executor.submit.call_args.args[0]();QTest.qWait(60)
+            assert len(owner.state['sessions'])==1
+            capture('history-header-retained-'+language)
+            owner.transport.timeline=Mock(return_value=opened_page(archive_sid))
+            owner.openSaved(archive_sid);backend._executor.submit.call_args.args[0]();QTest.qWait(60)
+            assert owner.state['timeline']['entries'] and owner._timeline['_session_deadline']==header_now+5
+            assert owner.selectEntry(archive_sid,owner.state['timeline']['entries'][0]['entry_id'])
+            field.setProperty('text','Synthetic draft about this expiring Session')
+            elapsed[0]=6;owner._expire();QTest.qWait(60)
+            assert not owner.state['sessions'] and not owner.state['timeline'] and not owner.state['has_more_sessions']
+            assert visual_named(window.contentItem(),'sessionArchiveRow') is None
+            assert field.property('text')=='' and not owner.state['selection']
+            capture('history-header-and-detail-expired-'+language)
+        owner._clock=saved_clock
         owner.invalidate()
         assert window.property('activeScreen')=='more' and not owner.state['timeline']
         capture('navigation-archive-context-withdrawn')
