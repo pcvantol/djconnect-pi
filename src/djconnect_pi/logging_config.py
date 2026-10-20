@@ -7,7 +7,7 @@ from pathlib import Path
 
 SENSITIVE_MARKERS = ("token", "authorization", "bearer", "password", "secret")
 # This managed URL is itself a bearer capability, including in urllib3 DEBUG logs.
-SENSITIVE_PATHS = ("/api/djconnect/v1/session/forecast/art/",)
+SENSITIVE_PATHS = ("/api/djconnect/v1/session/forecast/art/", "/api/djconnect/v1/session/media/image/")
 
 
 class RedactingFilter(logging.Filter):

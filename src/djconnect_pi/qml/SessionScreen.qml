@@ -19,7 +19,13 @@ Item {
     readonly property string composerContext: state.session_id + "|" + backend.activeProfileId
     property bool forecastMode: false
     readonly property bool showForecast: !historical && state.forecast_supported && forecastMode
-    onShowForecastChanged: { if (!showForecast) clearForecastReading(); if (owner) owner.setForecastImagesVisible(showForecast && visible) }
+    function syncMediaVisibility() {
+        if (!owner) return
+        owner.setForecastImagesVisible(showForecast && visible)
+        owner.setMomentArtworkVisible(visible && !historical && !showForecast)
+    }
+    Component.onCompleted: syncMediaVisibility()
+    onShowForecastChanged: { if (!showForecast) clearForecastReading(); syncMediaVisibility() }
     onComposerContextChanged: { clearForecastReading(); clearFlowReturn(); forecastMode = false; closeTransient(); if (historyReadPending && historyReadKind === "current") { historyRead.stop(); historyReadPending = false; navigate("session") } }
     function clearComposer() { followQuestionReply = false; pendingReplyId = ""; draft = ""; if (composeInput) composeInput.clear(); if (composerPanel) composerPanel.close(); if (owner) owner.clearSelection() }
     function submitQuestion() { if (owner.sendQuestion(composeInput.text)) { forecastMode = false; followQuestionReply = true; draft = ""; composeInput.clear(); composerPanel.close() } }
@@ -150,6 +156,21 @@ Item {
             }
         }
     }
+    function rememberArtworkReading() {
+        for (var i = 0; i < liveMomentRows.count; i++) {
+            var card = liveMomentRows.itemAt(i)
+            var body = card ? card.bodyItem : null
+            if (!body || !body.visible) continue
+            var y = body.mapToItem(historyScroll.contentItem, 0, 0).y
+            if (y <= 0 && y + body.height > 0 && isFinite(y) && Math.abs(y) <= 1000000) {
+                clearFlowReturn()
+                flowReturn = {session: state.session_id, profile: backend.activeProfileId,
+                    kind: "moment_text", id: card.modelData.moment_id, offset: y}
+                return
+            }
+        }
+        rememberFlow()
+    }
     Timer {
         id: flowReturnRestore
         interval: 32
@@ -167,12 +188,15 @@ Item {
                 } else flick.contentY = 0
                 return
             }
-            var rows = saved.kind === "moment" ? liveMomentRows : conversationRows
+            var nativeRow = saved.kind === "moment" || saved.kind === "moment_text"
+            var rows = nativeRow ? liveMomentRows : conversationRows
             for (var i = 0; i < rows.count; i++) {
                 var card = rows.itemAt(i)
-                var id = card ? (saved.kind === "moment" ? card.modelData.moment_id : card.modelData.entry_id) : ""
+                var id = card ? (nativeRow ? card.modelData.moment_id : card.modelData.entry_id) : ""
                 if (id === saved.id) {
-                    var delta = card.mapToItem(flick, 0, 0).y - saved.offset
+                    var target = saved.kind === "moment_text" ? card.bodyItem : card
+                    if (!target || !target.visible) { flick.contentY = 0; return }
+                    var delta = target.mapToItem(flick, 0, 0).y - saved.offset
                     flick.contentY = Math.max(0, Math.min(flick.contentY + delta, Math.max(0, flick.contentHeight - flick.height)))
                     return
                 }
@@ -385,8 +409,8 @@ Item {
         if (endConfirmation) endConfirmation.close()
         if (owner) owner.clearSearch()
     }
-    onVisibleChanged: { if (owner) owner.setForecastImagesVisible(showForecast && visible); if (!visible) { clearForecastReading(); cancelArchiveRead(); if (owner) owner.clearArchive(); clearFlowReturn(); historyRead.stop(); historyReadProfile = ""; historyReadSession = ""; historyReadPending = false; readingRestore.stop(); pendingReadingAnchor = ""; closeTransient() } }
-    onHistoricalChanged: { if (!historical) { archiveDetailReturn = null; cancelArchiveRead(); if (owner) owner.clearArchive() } readingRestore.stop(); pendingReadingAnchor = ""; readingOffset = 0; if (!historical && flowReturn) flowReturnRestore.restart() }
+    onVisibleChanged: { syncMediaVisibility(); if (!visible) { clearForecastReading(); cancelArchiveRead(); if (owner) owner.clearArchive(); clearFlowReturn(); historyRead.stop(); historyReadProfile = ""; historyReadSession = ""; historyReadPending = false; readingRestore.stop(); pendingReadingAnchor = ""; closeTransient() } }
+    onHistoricalChanged: { syncMediaVisibility(); if (!historical) { archiveDetailReturn = null; cancelArchiveRead(); if (owner) owner.clearArchive() } readingRestore.stop(); pendingReadingAnchor = ""; readingOffset = 0; if (!historical && flowReturn) flowReturnRestore.restart() }
     onSearchTargetChanged: { if (searchPanel) searchPanel.close(); if (searchInput) searchInput.clear(); if (owner) owner.clearSearch() }
     signal navigate(string destination)
     function tr(key) { backend.translationVersion; return backend.t(key) }
@@ -456,6 +480,8 @@ Item {
     }
     Connections {
         target: screen.owner
+        function onArtworkAboutToChange() { if (screen.visible && !screen.historical && !screen.showForecast && !screen.followQuestionReply && !historyScroll.contentItem.moving && !screen.flowReturn) screen.rememberArtworkReading() }
+        function onArtworkChanged() { if (screen.visible && !screen.historical && !screen.showForecast && !screen.followQuestionReply && !historyScroll.contentItem.moving && screen.flowReturn) flowReturnRestore.restart() }
         function onForecastImageAboutToChange() { screen.rememberForecastReading() }
         function onForecastImageChanged() { if (screen.forecastReading) forecastReadingRestore.restart() }
         function onPendingQuestionReady() { pendingQuestionPosition.restart() }
@@ -735,14 +761,32 @@ Item {
                     objectName: "sessionLiveMomentCard"
                     required property var modelData
                     Layout.fillWidth: true
+                    property alias bodyItem: momentBody
+                    ColumnLayout {
+                        objectName: "sessionMomentArtworkCard"
+                        visible: liveSources.ready && !!screen.owner.momentArtwork.source && modelData.current && screen.owner.momentArtwork.moment_id === modelData.moment_id && artworkSource.ready
+                        Layout.fillWidth: true
+                        Image {
+                            objectName: "sessionMomentArtworkImage"
+                            source: parent.visible ? (screen.owner.momentArtwork.source || "") : ""
+                            cache: false; asynchronous: true; retainWhileLoading: false
+                            fillMode: Image.PreserveAspectFit
+                            Layout.preferredWidth: 100 * (screen.owner.momentArtwork.width || 100) / Math.max(screen.owner.momentArtwork.width || 100, screen.owner.momentArtwork.height || 100)
+                            Layout.preferredHeight: 100 * (screen.owner.momentArtwork.height || 100) / Math.max(screen.owner.momentArtwork.width || 100, screen.owner.momentArtwork.height || 100)
+                            Layout.alignment: Qt.AlignLeft
+                            Accessible.name: screen.owner.momentArtwork.artist || ""
+                        }
+                        SessionAttribution { id: artworkSource; requiresSpotify: true; spotifyURL: screen.owner.momentArtwork.source_url || ""; Layout.fillWidth: true }
+                    }
                     Text { visible: liveSources.ready; text: modelData.title; textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 26; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                    Text { visible: liveSources.ready; text: modelData.body; textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 23; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                    Text { id: momentBody; objectName: "sessionLiveMomentBody"; visible: liveSources.ready; text: modelData.body; textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 23; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                     GlassButton {
                         visible: screen.state.composer_available && liveSources.ready
                         text: screen.tr("session_ask_about"); enabled: !screen.owner.busy
                         onClicked: { if (screen.owner.selectMoment(screen.state.session_id, modelData.moment_id)) composerPanel.open() }
                     }
                     SessionAttribution { id: liveSources; sources: modelData.display_sources || []; requiresSpotify: modelData.requires_spotify_attribution || false; spotifyURL: modelData.spotify_source_url || ""; Layout.fillWidth: true }
+
                 }
             }
             GlassCard {

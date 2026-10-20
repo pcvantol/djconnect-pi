@@ -134,18 +134,25 @@ def fetch_pixels(binding, lease, allowed):
                     if not check() or len(body) + len(chunk) > MAX_BYTES: return ''
                     body.extend(chunk)
         if not body or not check() or (length is not None and len(body) != int(length)): return ''
-        if mime == 'image/png' and (not body.startswith(b'\x89PNG\r\n\x1a\n') or b'acTL' in body): return ''
-        if mime == 'image/jpeg' and not body.startswith(b'\xff\xd8\xff'): return ''
-        data = QByteArray(bytes(body)); buffer = QBuffer(data);buffer.open(QIODevice.ReadOnly)
-        reader = QImageReader(buffer);reader.setAutoTransform(False);reader.setDecideFormatFromContent(True)
-        size = reader.size()
-        if (bytes(reader.format()) not in (b'png', b'jpeg', b'jpg') or not 0 < size.width() <= 2048
-                or not 0 < size.height() <= 2048 or size.width() * size.height() > 4_000_000
-                or reader.imageCount() > 1 or reader.read().isNull() or not check()):
-            return ''
-        return 'data:' + mime + ';base64,' + base64.b64encode(body).decode('ascii')
+        return decode_pixels(body, mime, check)
     except (requests.RequestException, TypeError, ValueError, OverflowError):
         return ''
+
+
+def decode_pixels(body, mime, allowed, expected_size=None):
+    """Pure bounded static-image decode; HTTP authorization stays route-specific."""
+    if mime not in ('image/png', 'image/jpeg') or not body or len(body) > MAX_BYTES or not allowed(): return ''
+    if mime == 'image/png' and (not body.startswith(b'\x89PNG\r\n\x1a\n') or b'acTL' in body): return ''
+    if mime == 'image/jpeg' and not body.startswith(b'\xff\xd8\xff'): return ''
+    data = QByteArray(bytes(body)); buffer = QBuffer(data);buffer.open(QIODevice.ReadOnly)
+    reader = QImageReader(buffer);reader.setAutoTransform(False);reader.setDecideFormatFromContent(True)
+    size = reader.size()
+    if (bytes(reader.format()) not in (b'png', b'jpeg', b'jpg') or not 0 < size.width() <= 2048
+            or not 0 < size.height() <= 2048 or size.width() * size.height() > 4_000_000
+            or (expected_size is not None and (size.width(), size.height()) != expected_size)
+            or reader.imageCount() > 1 or reader.read().isNull() or not allowed()):
+        return ''
+    return 'data:' + mime + ';base64,' + base64.b64encode(body).decode('ascii')
 
 
 class ForecastImages(QObject):
@@ -197,12 +204,21 @@ class ForecastImages(QObject):
             lease = self.gate.admit(self.owner._session, self.owner._forecast.snapshot(), binding, self.owner._clock.now()) if eligible else None
         except (SessionError, AttributeError, KeyError, TypeError, ValueError):
             binding = lease = None
+        self._set_lease(binding, lease)
+
+    def _set_lease(self, binding, lease):
         if (binding, lease) != (self.binding, self.desired):
             self.generation += 1;self.binding = binding;self.desired = lease;self._replace_public({});self.attempted = ''
             self.deadline_timer.stop()
             if lease: self.deadline_timer.start(max(1, ceil((lease['deadline'] - self.owner._clock.now()) * 1000)))
             self.changed.emit()
         self._start()
+
+    def fetch(self, binding, lease, allowed):
+        return fetch_pixels(binding, lease, allowed)
+
+    def public_pixels(self, pixels):
+        return {'source': pixels, 'artist': self.desired['artist'], 'source_url': self.desired['source_url']}
 
     def _start(self):
         if self.running or not self._valid(self.generation): return
@@ -217,7 +233,7 @@ class ForecastImages(QObject):
         def work():
             pixels = ''
             try:
-                pixels = fetch_pixels(binding, lease, lambda: self._valid(generation))
+                pixels = self.fetch(binding, lease, lambda: self._valid(generation))
             except (OSError, RuntimeError, SessionError):
                 pass  # Decoder/platform failure keeps text; no identifier/URL diagnostics.
             finally:
@@ -230,7 +246,7 @@ class ForecastImages(QObject):
         self.running = False
         generation, pixels = result
         if self._valid(generation) and pixels:
-            self._replace_public({'source': pixels, 'artist': self.desired['artist'], 'source_url': self.desired['source_url']})
+            self._replace_public(self.public_pixels(pixels))
             self.changed.emit()
         self._start()  # At most one pending latest lease, never a queue of obsolete reads.
 

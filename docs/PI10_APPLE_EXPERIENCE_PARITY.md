@@ -1652,3 +1652,64 @@ new cleanup, install, ARM/live HA/Profile/physical acceptance is inferred. The
 README-only parent also adopts protected Brand V2 wordmarks and the explicit
 full-app/Profile target without activating audio. New reading/source provenance:
 docs/branding/FORECAST_READING_REFERENCE.json and README_REFERENCE.json.
+
+
+### Prepared current-Moment artwork (shared compact/tablet client)
+
+A current admitted native Moment may now show one already prepared Spotify
+track/album/artist image, with original source link/logo and localized accessible
+alt text. The consumer requires advertised session_artwork v1, explicit private
+personal/household Profile, exact Session/current native ID and original finite
+native/source grant, plus a typed prepared current-display media grant. Historical,
+flow-only and playback-thumbnail metadata do not acquire current image rights.
+There is no preparation POST, provider lookup, CDN fallback, playback/history
+promotion or automatic retry. Unknown/loading/invalid artwork leaves native text.
+
+The normal paired device/Bearer/Profile GET is restricted to the configured HA
+session/media/image path and exact Session. Ambient cookies/netrc/proxy credentials,
+redirects and fallback authentication are disabled. Forecast's existing managed
+headerless route remains separate; only the pure static decoder and bounded worker
+mechanics are shared. Original asset/native deadlines, equality-only revisions,
+content/reference fences, withdrawal latches and context/foreground/End checks
+remain mandatory. Static PNG/JPEG is bounded to2MiB,2048 per side/4M pixels and
+must decode to its declared dimensions. Pixels stay RAM-only, without QML cache,
+crop, overlay or animation. One worker/latest lease and32 attempts per Session are
+bounded; an already started HTTP read may finish after withdrawal but cannot publish.
+Managed paired-art paths are now also redacted from file/stderr DEBUG logs.
+
+Pinned Apple e106a467 MomentCard places artwork before text. Its SessionArtworkView
+uses an uncropped100pt maximum dimension, leading alignment, accessible alt text
+and source branding. Pi adopts that order and100 logical-pixel maximum with its
+existing glass card; exact SF/tint/backdrop/native pixel fidelity remains open.
+Late insertion/expiry preserves the currently read native body by ID/pixel when
+that body crosses the upper reading edge. The RAM-only descriptor stores no prose
+or grant. Existing history-return descriptors and explicit question follow retain
+priority; touch/context withdrawal cancels queued restoration. Actual startup
+visibility is synchronized when a Session page starts already selected.
+
+1147 full local tests (68 new artwork cases plus2 extra log-route variants), Ruff
+src/tests and fresh host MATCH pass.120 actual Moment-art views +90 Forecast +426
+Session/composer +100 history windows +116 broad views =852, across five languages
+and both720x720/1200x1920 layouts, without errors/binding loops. Both ready/expired
+format captures were inspected. Long reading text is explicitly synthetic repeated
+12-character lines, bounded to3000 chars. Fixture artist current-display permission
+is explicitly synthetic; the original flow-only permission is separately refused.
+The unmodified protected transport file retains its old LOCAL_UNPUBLISHED label:
+this is consumer conformance against protected implementation/capability, not fresh
+Runtime/provider or narration qualification. Synthetic owned color pixels are not
+artist-photo/album-license or exact visual-parity proof. Original200 native frames
+and media transport bytes remain unchanged.
+
+Wheel 0bbb3b0ab30c64624845f7f77baffa301880b8d99e2dc4573218d825486b59cb matches all63 packaged sources. Evidence:
+taskvisualizations/pi-session-moment-artwork; provenance
+SESSION_MOMENT_ARTWORK_REFERENCE.json and artwork-provenance.json. Diagnostics
+retain the original flow-only fixture mismatch, startup visibility finding and
+long-body test corrections (ordinary paragraph was too short on tablet; current
+visual body must be re-resolved after model refresh). No product admission or pixel
+tolerance was weakened. Earlier Forecast/history/composer evidence remains separate.
+
+This is one prepared current native-image slice. Preparation, historical/flow-only
+media, reactions/actions, contextual/upcoming/two-image Forecast, broad private
+composer lifetimes, full Flow placement/order, full playback header/output controls,
+exact native glass and hardware performance remain open. No merge/release/install,
+pairing, HA/provider/model effects or ARM/installed/live/physical PASS is inferred.

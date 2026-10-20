@@ -1,0 +1,27 @@
+{
+  "protected_source": "8b221d07fe2215d9516d18fe92c832332c7a16ab",
+  "source_sha256": {
+    "custom_components/djconnect/session_artwork.py": "8b3e4d0b57af50fb7b4aa3d4668c951c891ceb8bf3d947a21fb858f11b902d54",
+    "custom_components/djconnect/http.py": "e20af966b2bd4e57bc6a6f6bb88a8ecbdb838a4e07c92a943a20bae7ebeb188c",
+    "custom_components/djconnect/session_runtime.py": "61eeae0d89b9b74158aee947f1f9d6dfa398a0addc16ca42dc7143d8337d494e",
+    "custom_components/djconnect/capability_contract.py": "fd71046a17cd7708b543399fe569009127698f4fdd90a77f868ad42e418c8ff6",
+    "docs/product/SESSION_ARTWORK_DELIVERY_CONTRACT_V1.md": "a65d238cbee59b26d5c1405b14c1235cb3523a06ad3cd868133403e0034427ca",
+    "examples/client_contracts/session_artwork_v1/transport-examples.json": "f41037f05a79ff528988e31a23759c7c5ff66b19a742ac546c97a53540ee07da"
+  },
+  "fixture_sha256": "f41037f05a79ff528988e31a23759c7c5ff66b19a742ac546c97a53540ee07da",
+  "fixture_label_preserved": "Original isolated transport fixture still says LOCAL_UNPUBLISHED_NOT_FINAL_DELIVERY_PIN at historical16128ef. It is not current Runtime/live qualification. Released implementation/capability at8b is the contract authority, not that historical label.",
+  "overlays": "Tests join original native/media data with synthetic IDs/clocks; current artist flag is explicitly synthetic and original flow-only artist grant is independently refused. No rights are inferred from these joins in production.",
+  "pixels": "At most2MiB static PNG/JPEG, actual Qt decode up to2048 per side/4M pixels, declared size must match. RAM data URI/cache false/retain false/PreserveAspectFit. One worker/latest lease, max32 attempts per Session, no automatic retry. Hide/Forecast/history/foreground/context/Profile/End/deadline removes pixels and refuses late publication; already started HTTP can finish.",
+  "apple_reference": "e106a467011b9ea84d301a81c4e07251314cc6dd",
+  "apple_source_sha256": {
+    "Sources/DJConnectUI/NativeSessionMomentsView.swift": "26ec91fd9d0c3e7c749f2b97186ebbcc8a85dd2ad9dc1badd588dfeb249884be",
+    "Sources/DJConnectUI/SessionArtworkView.swift": "92f32dc9a00b1826fda789de08ce43b127cf03b5e1331e9ce4f406d51b588b43"
+  },
+  "scope": "Already prepared current native Moment only; no prepare POST/provider lookup/history/current-playback thumbnail adoption. Explicit personal/household private Profile plus advertised session_artwork v1 and independent native/source/display authority.",
+  "authorization": "Normal paired device/Bearer/Profile identity only to exact configured HA session/media/image/{Session}/{asset}; fresh Session trust_env false, no redirect/cookie/netrc/proxy fallback. Forecast headerless GET remains separate; sharing is pure static decode and bounded worker mechanics only.",
+  "admission": "Exact Session/current native ID/reference; opaque equality projection/media revisions; typed Spotify subject/canonical attribution/role/edition/explicit current grant/no-store/no-crop; zoned capture/expiry maximum300s and earliest native deadline. Original asset floors, observed withdrawal latches and bounded metadata; no TTL renewal or synthetic grants in production.",
+  "layout": "Pinned Apple MomentCard orders image before text; SessionArtworkView scales to max100pt and left aligns with accessible alt and separate Spotify attribution. Pi uses100 logical pixels/max dimension, no exact glass/tint/native pixel claim. One ID/offset descriptor targets current admitted body when its upper edge crosses viewport; no text cache; drag/context or explicit reply follow wins.",
+  "fixtures": "120 Moment Qt views plus90 Forecast,426 composer,100 history and116 broad (852 total), five locales/two formats. Long body repeats12-character lines within3000 chars, explicitly synthetic layout only. Original transport artist is active-flow-only and refused; current-artist flag is synthetic. Fixture historical LOCAL_UNPUBLISHED label preserved; protected implementation/capability is authority, not historical fixture label.",
+  "privacy": "File/stderr DEBUG redactor now also blocks paired session/media/image URLs; ordinary diagnostics unchanged. No credentials/managed path logged by new worker.",
+  "qualification": "1147 full local tests, Ruff0.16.0 src/tests PASS, fresh host MATCH,852 actual Qt views. Wheel 0bbb3b0ab30c64624845f7f77baffa301880b8d99e2dc4573218d825486b59cb matches63 sources. Source/synthetic paired HTTP/Qt/package only, no live HA/Profile/provider/ARM/install/physical proof."
+}

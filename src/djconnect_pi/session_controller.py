@@ -19,6 +19,7 @@ from PySide6.QtCore import (
 from .config import save_config
 from .expiry_clock import ExpiryClock
 from .i18n import locale_for_language, translate
+from .session_artwork import MomentImages
 from .session_current_reply import current_reply, moment_reference, reply_valid
 from .session_forecast import ForecastReceiver, forecast_supported
 from .session_forecast_image import ForecastImages
@@ -45,6 +46,8 @@ class SessionController(QObject):
     changed = Signal()
     forecastImageChanged = Signal()
     forecastImageAboutToChange = Signal()
+    artworkChanged = Signal()
+    artworkAboutToChange = Signal()
     entryOpened = Signal()
     questionConfirmed = Signal(str)
     currentReplyReady = Signal()
@@ -109,6 +112,10 @@ class SessionController(QObject):
         self._forecast_images.changed.connect(self.forecastImageChanged.emit)
         self._forecast_images.aboutToChange.connect(self.forecastImageAboutToChange.emit)
         self.changed.connect(self._forecast_images.sync)
+        self._moment_images = MomentImages(self)
+        self._moment_images.changed.connect(self.artworkChanged.emit)
+        self._moment_images.aboutToChange.connect(self.artworkAboutToChange.emit)
+        self.changed.connect(self._moment_images.sync)
         self._ready.connect(self._apply)
         backend.demoModeChanged.connect(self._demo_changed)
         self._deadline_timer = QTimer(self)
@@ -174,9 +181,18 @@ class SessionController(QObject):
     def setForecastImagesVisible(self, visible):
         self._forecast_images.set_visible(visible)
 
+    @Property("QVariantMap", notify=artworkChanged)
+    def momentArtwork(self):
+        return self._moment_images.snapshot()
+
+    @Slot(bool)
+    def setMomentArtworkVisible(self, visible):
+        self._moment_images.set_visible(visible)
+
     @Slot()
     def shutdownImages(self):
         self._forecast_images.shutdown()
+        self._moment_images.shutdown()
 
     @Property(bool, notify=changed)
     def busy(self):
