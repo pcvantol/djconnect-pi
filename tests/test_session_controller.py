@@ -583,3 +583,22 @@ def test_previous_revision_fallback_discards_old_pixel_position(controller):
     owner.previousEntries(anchor); backend.jobs.pop()()
     positioned.assert_not_called()
     assert not owner._timeline_trail
+
+
+def test_forecast_uses_captured_active_read_and_expires_before_gui_state(controller):
+    from test_session_forecast import CAPS, FRAMES, session
+    owner, backend = controller
+    frame = FRAMES[0]; clock = [frame['now']]
+    owner._clock = SimpleNamespace(now=lambda: clock[0])
+    owner.transport.capabilities = Mock(return_value=CAPS)
+    owner.transport.active = Mock(return_value={'success': True, 'session': session(frame)})
+    owner.refresh(); backend.jobs.pop()()
+    assert owner.state['forecast_supported'] and owner.state['forecast']['sections']
+    notified = Mock(); owner.changed.connect(notified)
+    clock[0] += 120
+    assert not owner.state['forecast']['sections']
+    assert owner.state['forecast']['state'] == 'expired'
+    owner._expire()
+    notified.assert_called_once()  # A GUI getter must not swallow the timer notification.
+    owner.setForeground(False)
+    assert not owner.state['forecast_supported'] and not owner.state['forecast']['sections']

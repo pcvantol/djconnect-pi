@@ -398,6 +398,46 @@ def main():
         QTest.qWait(80)
         assert not owner.state['playback'] and not playback_card.property('visible')
         capture('session-playback-ending-withdrawn')
+        # Pure released ForecastProjection fixtures; no Runtime/model/provider calls.
+        forecast_frames=json.loads((ROOT/'tests/fixtures/session_core/forecast-v1.json').read_text())
+        forecast_caps={'capabilities':{'session_forecast':True},'contract_versions':{'session_forecast':1}}
+        window.setProperty('activeScreen','session')
+        for language in ['en','nl','de','fr','es']:
+            frame=next(row for row in forecast_frames if row['locale']==language and row['persona']=='home_dj')
+            p=frame['projection'];stamp=frame['now']
+            owner._clock=ExpiryClock(lambda:stamp,lambda:0)
+            backend.setLanguage(language);backend._toast_visible=False;backend.toastChanged.emit()
+            owner._session={'session_id':p['session_id'],'runtime_state':'active','broadcast':{
+                'session':{'session_id':p['session_id']},'session_forecast':p,'playback':{
+                    'state':'playing','item_id':p['current_anchor']['item_id'],'title':'Observed track',
+                    'source_url':p['current_anchor']['source_url'],'updated_at':p['issued_at']}}}
+            owner._caps={**caps,'capabilities':{**caps['capabilities'],**forecast_caps['capabilities']},
+                'contract_versions':{**caps['contract_versions'],**forecast_caps['contract_versions']}}
+            owner._moments=[];owner._conversation=[];owner._loaded=True
+            owner._forecast.reset();owner._forecast.receive(owner._session,owner._caps,stamp);owner.changed.emit()
+            field.setProperty('text','Synthetic unsent draft')
+            forecast_button=window.findChild(QObject,'sessionForecastMode')
+            assert forecast_button.property('visible')
+            QTest.qWait(80)
+            flick.setProperty('contentY',min(90,max(0,flick.property('contentHeight')-flick.property('height'))))
+            flow_position=flick.property('contentY')
+            if width < 900: assert flow_position > 50
+            QMetaObject.invokeMethod(forecast_button,'clicked')
+            capture('session-forecast-'+language)
+            assert screen.property('showForecast') and screen.property('draft')=='Synthetic unsent draft'
+            QMetaObject.invokeMethod(window.findChild(QObject,'sessionFlowMode'),'clicked')
+            assert not screen.property('showForecast') and screen.property('draft')=='Synthetic unsent draft'
+            QTest.qWait(80)
+            assert abs(flick.property('contentY')-flow_position)<1
+            assert field.property('text')=='Synthetic unsent draft'
+        QMetaObject.invokeMethod(forecast_button,'clicked')
+        owner._clock=ExpiryClock(lambda:stamp+120,lambda:0)
+        assert not owner.state['forecast']['sections']
+        owner._expire()
+        assert not owner.state['forecast']['sections']
+        capture('session-forecast-expired')
+        owner.invalidate()
+        assert not owner.state['forecast']['sections']
         backend.shutdown()
         delete(window);delete(engine)
     errors=[value for value in warnings if any(word in value for word in ('ReferenceError','TypeError','Error:','Cannot assign','is not a type','failed to load'))]

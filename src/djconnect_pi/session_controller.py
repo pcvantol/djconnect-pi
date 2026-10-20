@@ -19,6 +19,7 @@ from PySide6.QtCore import (
 from .config import save_config
 from .expiry_clock import ExpiryClock
 from .i18n import locale_for_language, translate
+from .session_forecast import ForecastReceiver, forecast_supported
 from .session_history_view import (
     accepted_question,
     confirmed_question_entry,
@@ -55,6 +56,8 @@ class SessionController(QObject):
         self._clock = ExpiryClock()
         self._foreground = True
         self._session = {}
+        self._forecast = ForecastReceiver()
+        self._forecast_dirty = False
         self._moments = []
         self._conversation = []
         self._selection = {}
@@ -86,9 +89,13 @@ class SessionController(QObject):
 
     @Property("QVariantMap", notify=changed)
     def state(self):
+        if self._forecast.expire(self._clock.now()):
+            self._forecast_dirty = True
         return {"session_id": self._session.get("session_id", ""),
             "runtime_state": self._session.get("runtime_state", ""),
             "playback": session_playback(self._session),
+            "forecast_supported": forecast_supported(self._session, self._caps),
+            "forecast": self._forecast.snapshot(),
             "mood": self._session.get("selected_mood", ""),
             "presence": self._session.get("selected_presence", ""),
             "persona": self._session.get("dj_persona", ""),
@@ -135,6 +142,8 @@ class SessionController(QObject):
         self._reconcile_question = False
 
     def invalidate(self):
+        self._forecast.reset()
+        self._forecast_dirty = False
         self._serial += 1
         self._running = 0
         self._running_action = ""
@@ -194,7 +203,9 @@ class SessionController(QObject):
             self._question_receipt = {}
             self._question_status = ""
         projected = live_presentations(self._session, now=now)
-        changed = receipt_expired or projected != self._moments
+        forecast_changed = self._forecast.expire(now) or self._forecast_dirty
+        self._forecast_dirty = False
+        changed = forecast_changed or receipt_expired or projected != self._moments
         self._moments = projected
         if self._timeline:
             retained = [row for row in self._timeline.get("entries", [])
@@ -681,6 +692,7 @@ class SessionController(QObject):
                 self._question_status = question_status
             self._search = {}
             self._session = {}
+            self._forecast.reset()
             self._moments = []
             self._conversation = []
             self._selection = {}
@@ -698,6 +710,7 @@ class SessionController(QObject):
                 self._session = result["session"]
                 self._moments = live_presentations(self._session, now=self._clock.now())
                 self._caps = result.get("capabilities", self._caps)
+                self._forecast.receive(self._session, self._caps, self._clock.now())
                 if not self._composer_supported():
                     self._withdraw_question()
                 self._conversation = result.get("conversation", [])

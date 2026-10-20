@@ -723,3 +723,60 @@ current/source Session identities in its own work; no Pi review/handoff arrived.
 No repeat pings, other-lane writes, model/HA work, merge, release, install or
 pairing occurred. PR111 remains draft. Full Flow, rich interactions/media,
 remaining pages, native backdrop effects and hardware/live acceptance stay open.
+
+### 2026-10-20 — Read-only Forecast v1 text subset
+
+The same Session UI now has Flow/Outlook selection on both sizes when the paired
+active Runtime advertises exact session_forecast/version1. It consumes the
+existing owner-bound broadcast.session_forecast; no new endpoint, generation,
+Planner, lookup, playback command or automatic write is added. Source authority
+is protected Core8b221d07 SESSION_FORECAST_V1.md, capability_contract.py and
+session_forecast.py. This is a Pi text adoption of that released contract, not a
+claim of finished Apple Forecast layout, imagery or joint/live acceptance.
+
+The closed receiver requires matching active Session/snapshot, explicit supported
+capability, bounded integer revision, original zoned issued/deadline (maximum120s),
+nominal900s and supported0/900 semantics, at most three typed known sections and
+bounded plain text. Current anchors must match the same Runtime playback item
+and original source link. Current/intention/conditional-target labels stay
+distinct; server order/title/body are preserved. Imagery and unknown/internal
+fields never leave the receiver. Canonical Spotify current context waits on the
+existing packaged-logo readiness fence with its original clickable source.
+
+Lower revisions withdraw displayed text. Expired/withdrawn/invalid frames cannot
+revive at the same revision; equivalent reads cannot extend the earliest accepted
+deadline. Existing elapsed-time UTC floor governs expiry, including GUI state
+reads. Subscription revocation, capability loss, replacement, background and
+binding invalidation withdraw content. This projection is not retained history,
+a Moment grant, queue promise or locally advancing fifteen-minute countdown.
+Flow/Forecast toggling preserves composer input and Flow scroll position; explicit
+question send returns to Flow. User-facing labels use stable keys in all five
+languages. Native artwork/artist imagery remains unimplemented, without fetches.
+
+Twenty unchanged pure producer projections were realized by the exact released
+ForecastProjection/realize code in a temporary package with explicitly synthetic
+semantics and fixed clocks: five languages/four Personas. Fixture SHA256
+ad66e5a07d983edef8597dd65c8331c6cf59e5b18e4b3f3c90b4a65bc4a1f2b2.
+forecast-provenance.json records source byte hashes and exact construction.
+These are pure expression/projection fixtures, not Runtime/Planner, provider,
+model or live owner-admission proof; no Core WIP/export or producer write used.
+
+Validation:809 full tests passed; Ruff0.16.0 src/tests passed; hostverify MATCH.
+Tests cover immutable prose/role/source preservation, expiry/rollback, original
+deadline retention, revision rollback, wrong Session/anchor, malformed claims,
+subscription/capability withdrawal and controller active-read/GUI expiry.
+A GUI state read that expires text retains a pending change notification for the
+next deadline tick; its test prevents a getter from swallowing visible withdrawal.
+Actual QML:114 dedicated views (five-language Forecast/toggle/draft/Flow-position
+and expiry on both sizes) plus86 broad regression views, no QML errors.
+Local wheel SHA256
+09711965c5605a2760e7104252b0a177ef2b2f046c736292faf1bcbd3ce0289b
+matches all58 packaged sources. Evidence: pi-session-forecast-final under task
+visualizations; earlier source/captures/checkpoints retained.
+
+Parente86c969 passed all applicable CI (24 successes/4 conditional skips). Core
+protected main8b221d07 remains unchanged; other-lane WIP and budget stay untouched.
+No new concrete Pi review/released handoff arrived. PR111 remains draft. Full
+Flow/continuous history, rich actions, media/native artwork, remaining Apple pages,
+real backdrop glass and live Profile/HA/ARM/installed/physical acceptance remain
+open. No merge, release, install, pairing, HA effect or model/provider call occurred.

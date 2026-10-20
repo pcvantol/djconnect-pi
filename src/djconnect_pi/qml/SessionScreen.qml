@@ -16,9 +16,11 @@ Item {
     property bool followQuestionReply: false
     property string pendingReplyId: ""
     readonly property string composerContext: state.session_id + "|" + backend.activeProfileId
-    onComposerContextChanged: closeTransient()
+    property bool forecastMode: false
+    readonly property bool showForecast: !historical && state.forecast_supported && forecastMode
+    onComposerContextChanged: { forecastMode = false; closeTransient() }
     function clearComposer() { followQuestionReply = false; pendingReplyId = ""; draft = ""; if (composeInput) composeInput.clear(); if (composerPanel) composerPanel.close(); if (owner) owner.clearSelection() }
-    function submitQuestion() { if (owner.sendQuestion(composeInput.text)) { followQuestionReply = true; draft = ""; composeInput.clear(); composerPanel.close() } }
+    function submitQuestion() { if (owner.sendQuestion(composeInput.text)) { forecastMode = false; followQuestionReply = true; draft = ""; composeInput.clear(); composerPanel.close() } }
     property string proposedMood: "groove"
     readonly property string searchTarget: historical ? ((state.timeline.session || {}).session_id || "") : state.session_id
     property real readingOffset: 0
@@ -233,10 +235,46 @@ Item {
         }
     }
 
+    RowLayout {
+        id: modeSwitch
+        visible: !screen.historical && screen.state.forecast_supported
+        anchors.left: parent.left; anchors.top: toolbar.bottom
+        anchors.leftMargin: 20; anchors.topMargin: 10; height: 48
+        GlassButton { objectName: "sessionFlowMode"; text: screen.tr("session_flow"); primary: !screen.forecastMode; onClicked: screen.forecastMode = false }
+        GlassButton { objectName: "sessionForecastMode"; text: screen.tr("session_forecast"); primary: screen.forecastMode; onClicked: screen.forecastMode = true }
+    }
+    ScrollView {
+        id: forecastScroll
+        objectName: "sessionForecastScroll"
+        visible: screen.showForecast
+        anchors.top: modeSwitch.bottom; anchors.bottom: parent.bottom
+        anchors.left: parent.left; anchors.right: parent.right
+        anchors.margins: 20; anchors.bottomMargin: composerDock.visible ? composerDock.height + 144 : 132
+        clip: true; contentWidth: availableWidth
+        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+        ColumnLayout {
+            width: parent.width; spacing: 20
+            Text { text: screen.tr("session_forecast"); textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: screen.compact ? 30 : 40; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+            Text { visible: !!screen.state.forecast.source_url; text: screen.tr("session_forecast_source"); textFormat: Text.PlainText; color: BrandTheme.colors.muted; font.pixelSize: 18 }
+            SessionAttribution { id: forecastSource; requiresSpotify: !!screen.state.forecast.source_url; spotifyURL: screen.state.forecast.source_url || ""; Layout.fillWidth: true }
+            Repeater {
+                model: forecastSource.ready ? screen.state.forecast.sections : []
+                GlassCard {
+                    required property var modelData
+                    Layout.fillWidth: true
+                    Text { text: screen.tr("session_forecast_" + modelData.claim_type); textFormat: Text.PlainText; color: BrandTheme.colors.cyan; font.pixelSize: 18; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                    Text { text: modelData.title; textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 25; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                    Text { text: modelData.text; textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 23; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                }
+            }
+            Text { visible: screen.state.forecast.sections.length === 0; text: screen.tr("session_forecast_empty"); textFormat: Text.PlainText; color: BrandTheme.colors.muted; font.pixelSize: 23; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+        }
+    }
     ScrollView {
         id: historyScroll
+        visible: !screen.showForecast
         objectName: "sessionHistoryScroll"
-        anchors.top: toolbar.bottom; anchors.bottom: parent.bottom
+        anchors.top: modeSwitch.visible ? modeSwitch.bottom : toolbar.bottom; anchors.bottom: parent.bottom
         anchors.left: parent.left; anchors.right: parent.right
         anchors.margins: 20; anchors.bottomMargin: composerDock.visible ? composerDock.height + 144 : 132
         clip: true; contentWidth: availableWidth

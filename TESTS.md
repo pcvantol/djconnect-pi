@@ -410,3 +410,14 @@ Context/view withdrawal cancels pending restoration; active dragging suppresses
 it. Final page-position checkpoint:778 tests,86 broad/102 dedicated actual QML
 views; local synthetic/source/package/Qt proof only. Continuous Flow and broader
 forward revisit history remain open.
+
+Forecast v1 text tests use20 immutable pure released Core projection/expression
+fixtures (five languages/four Personas), generated with explicit synthetic
+semantics and fixed clocks; provenance pins source hashes/construction. They are
+not Runtime/Planner/provider/HA/model acceptance. Tests preserve original prose,
+claim roles and source identity; reject invalid scope, revisions, deadline renewal,
+subscription/capability withdrawal and expired same-revision revival. Controller
+coverage proves active-read admission and expiry before GUI state read. Real QML
+Flow/Forecast toggles preserve actual input text and Flow scroll position in five
+languages on both sizes; expiry removes sections. Final checkpoint:809 tests,
+86 broad/114 dedicated QML views. No imagery fetch, new request or generation.
