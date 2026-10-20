@@ -171,3 +171,57 @@ def test_declared_and_actual_github_metadata_are_bounded():
     assert response.tell() == 0
     response = Response(b"x"*101)
     with pytest.raises(wire.BindingError):wire.GitHubRead.bounded(response, 100)
+
+
+@pytest.mark.parametrize("repository", [wire.CORE, wire.PI])
+@pytest.mark.parametrize("status", ["ahead", "identical"])
+def test_real_github_reader_accepts_only_generated_ancestor_comparison(repository, status):
+    client = wire.GitHubRead("synthetic-not-a-credential");calls = []
+    sha = "a"*40
+    class Opener:
+        def open(self, request, timeout):
+            calls.append(request)
+            path = request.full_url.removeprefix("https://api.github.com/")
+            if path == "repos/"+repository+"/branches/main":
+                data = {"protected": True}
+            elif path == "repos/"+repository+"/compare/"+sha+"...main?per_page=1&page=2":
+                data = {"status": status, "merge_base_commit": {"sha": sha}}
+            elif path == "repos/"+repository+"/commits/"+sha+"/status":
+                data = {"sha": sha, "statuses": [{"context": "Post-Merge Release Evidence / Reconcile release evidence",
+                    "state": "success", "description": "POST_MERGE_RELEASE_EVIDENCE_QUALIFIED"}]}
+            else:
+                raise AssertionError("Unexpected GitHub route")
+            return Response(json.dumps(data).encode())
+    client.opener = Opener()
+    wire.qualified(client, repository, sha)
+    assert len(calls) == 3
+    assert calls[1].full_url == "https://api.github.com/repos/"+repository+"/compare/"+sha+"...main?per_page=1&page=2"
+    assert all(call.get_header("Authorization") == "Bearer synthetic-not-a-credential" for call in calls)
+
+
+@pytest.mark.parametrize("path", [
+    "repos/pcvantol/djconnect/compare/"+"a"*40+"...main?per_page=1&page=2/../contents/file",
+    "repos/pcvantol/djconnect/compare/"+"a"*40+"...main?per_page=1&page=2&extra=1",
+    "repos/pcvantol/djconnect/compare/"+"a"*40+"...main?per_page=1&page=2\n",
+    "repos/pcvantol/djconnect/../contents/file",
+    "repos/pcvantol/djconnect/compare/../main?per_page=1",
+    "repos/other/djconnect/compare/"+"a"*40+"...main?per_page=1",
+    "repos/pcvantol/other/compare/"+"a"*40+"...main?per_page=1",
+    "repos/pcvantol/djconnect/compare/"+"A"*40+"...main?per_page=1",
+    "repos/pcvantol/djconnect/compare/"+"a"*39+"...main?per_page=1",
+    "repos/pcvantol/djconnect/compare/"+"a"*40+"...other?per_page=1",
+    "repos/pcvantol/djconnect/compare/"+"a"*40+"...main?per_page=2",
+    "repos/pcvantol/djconnect/compare/"+"a"*40+"...main?per_page=1&extra=1",
+    "repos/pcvantol/djconnect/compare/"+"a"*40+"...main?per_page=1/../contents/file",
+    "repos/pcvantol/djconnect/compare/"+"a"*40+"...main?per_page=1\n",
+])
+def test_compare_exception_rejects_altered_or_traversal_routes_before_http(path):
+    client = wire.GitHubRead("synthetic-not-a-credential");calls = []
+    class Opener:
+        def open(self, request, timeout):
+            calls.append(request)
+            raise AssertionError("Invalid path reached HTTP")
+    client.opener = Opener()
+    with pytest.raises(wire.BindingError, match="GITHUB_PATH_INVALID"):
+        client.get(path)
+    assert calls == []
