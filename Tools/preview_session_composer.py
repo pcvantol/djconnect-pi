@@ -18,6 +18,7 @@ from djconnect_pi.brand_theme import apply_palette
 from djconnect_pi.config import Config, save_config
 from djconnect_pi.expiry_clock import ExpiryClock
 from djconnect_pi.session_projection import timestamp
+from djconnect_pi.session_transport import SessionError
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -517,6 +518,78 @@ def main():
         owner._clock=ExpiryClock(lambda:timestamp(seed['retained_until']),lambda:0);owner._expire()
         assert not owner.state['timeline']['entries']
         capture('history-observed-playback-expired')
+        # Bounded multi-page search is freshly re-read, never old-body appended.
+        owner.invalidate();window.setProperty('activeScreen','session')
+        search_caps={**caps,'capabilities':{**caps['capabilities'],'session_flow_text_search':True},
+            'contract_versions':{**caps['contract_versions'],'session_flow_text_search':1}}
+        owner.transport.active=Mock(return_value={'success':True,'session':session})
+        owner._session=session;owner._caps=search_caps;owner._loaded=True
+        owner._clock=ExpiryClock(lambda:timestamp(seed['occurred_at'])+1,lambda:0)
+        owner.transport.capabilities=Mock(return_value=search_caps)
+        owner.changed.emit()
+        search_pages=[]
+        for number in range(6):
+            rows=[]
+            for n in range(2):
+                row=deepcopy(seed)
+                row.update(entry_id=f'synthetic-search-{number}-{n}',session_id=session['session_id'],order=number*2+n+1,
+                    text=('Synthetic <img> 🎧 retained search text. '*10),highlights=[{'start_utf16':0,'length_utf16':9}])
+                rows.append(row)
+            search_pages.append({'success':True,'schema_version':2,'history_contract_version':2,
+                'session_id':session['session_id'],'query':'Synthetic','revision':'synthetic-search-revision',
+                'matches':rows,'returned_count':2,'complete':False,'next_cursor':f'search-{number+1}',
+                'total_count':None,'normalization':'NFKC-casefold','highlight_units':'utf16'})
+        owner.transport.search=Mock(side_effect=lambda binding,sid,q,**kw:deepcopy(search_pages[int(kw['cursor'].split('-')[-1]) if kw['cursor'] else 0]))
+        search_panel=window.findChild(QObject,'sessionSearchPanel')
+        search_field=window.findChild(QObject,'sessionSearchInput')
+        QMetaObject.invokeMethod(screen,'showSearch');QTest.qWait(80)
+        complete_navigation()
+        search_field.setProperty('text','Synthetic')
+        QMetaObject.invokeMethod(screen,'searchNow');complete_navigation()
+        search_panel.setProperty('keyboardVisible',False)
+        for _ in range(4):
+            complete_navigation();owner.moreSearch();complete_navigation()
+        assert owner.state['search_limit_reached'] and len(owner.state['search']['matches'])==10,(owner.state['error'],owner.state['search'],search_panel.property('opened'))
+        for language in ['en','nl','de','fr','es']:
+            backend.setLanguage(language);backend._toast_visible=False;backend.toastChanged.emit()
+            capture('search-bounded-scan-limit-'+language)
+        # Revalidation replaces all displayed bodies atomically; surviving visible identity stays put.
+        # Obtain the actual Flickable through its ScrollView rather than assuming visual parents.
+        search_flick=window.findChild(QObject,'sessionSearchScroll').property('contentItem')
+        search_flick.setProperty('contentY',160);QTest.qWait(80)
+        QMetaObject.invokeMethod(screen,'rememberSearch')
+        search_position=screen.property('searchReturn').toVariant()
+        removed=search_pages[4]['matches'].pop();search_pages[4]['returned_count']=1
+        search_pages[3]['matches'][0]['text']='Fresh replacement <img> 🎧 from the synthetic server'
+        QMetaObject.invokeMethod(screen,'refreshSearchResults');complete_navigation()
+        assert removed['entry_id'] not in {row['entry_id'] for row in owner.state['search']['matches']}
+        assert any(row['text'].startswith('Fresh replacement') for row in owner.state['search']['matches'])
+        QMetaObject.invokeMethod(screen,'rememberSearch')
+        restored_search_position=screen.property('searchReturn').toVariant()
+        assert restored_search_position['id']==search_position['id'] and abs(restored_search_position['offset']-search_position['offset'])<1
+        capture('search-revalidated-withdrawal-position')
+        # Actual timer callback waits for a busy read; closing cancels before query dispatch.
+        complete_navigation()
+        owner.refresh();held_search_control=backend._executor.submit.call_args.args[0]
+        search_tick=window.findChild(QObject,'sessionSearchRevalidationTimer')
+        QMetaObject.invokeMethod(search_tick,'triggered');QTest.qWait(30)
+        assert screen.property('searchRefreshPending')
+        before_search=owner.transport.search.call_count
+        QMetaObject.invokeMethod(search_panel,'close');QTest.qWait(80)
+        held_search_control();QTest.qWait(80)
+        assert not screen.property('searchRefreshPending') and owner.transport.search.call_count==before_search
+        assert search_field.property('text')=='' and not owner.state['search']
+        capture('search-close-cancels-busy-timer-intent')
+        QMetaObject.invokeMethod(screen,'showSearch');complete_navigation()
+        search_field.setProperty('text','Synthetic')
+        QMetaObject.invokeMethod(screen,'searchNow');complete_navigation()
+        owner.transport.search=Mock(side_effect=SessionError('denied'))
+        QMetaObject.invokeMethod(search_tick,'triggered');complete_navigation()
+        assert not owner.state['search']
+        capture('search-denied-withdrawal')
+        QMetaObject.invokeMethod(search_panel,'close');QTest.qWait(80)
+        assert search_field.property('text')=='' and not screen.property('searchRefreshPending')
+        owner.transport.capabilities=Mock(return_value=caps)
         # Current-history and archive routing share source code, not authority.
         owner.invalidate();window.setProperty('activeScreen','session')
         owner._session=session;owner._caps=caps;owner._loaded=True;owner.changed.emit()

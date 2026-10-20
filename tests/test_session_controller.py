@@ -615,3 +615,116 @@ def test_empty_view_clears_keep_ticket_fence_without_recursive_gui_notification(
     owner.clearSearch()
     assert owner._search == {} and owner._view_epoch == before + 2
     notified.assert_called_once()
+
+
+def search_pages(count=2):
+    from copy import deepcopy
+
+    from test_session_history_view import search_fixture
+    seed = search_fixture()
+    pages = []
+    for i in range(count):
+        page = deepcopy(seed)
+        page["matches"][0].update(entry_id=f"synthetic-search-{i}", order=i+1)
+        page.update(complete=i==count-1, next_cursor=f"cursor-{i+1}" if i<count-1 else None,
+            total_count=None)
+        pages.append(page)
+    return pages
+
+
+def test_search_more_revalidates_previous_pages_and_refresh_withdraws_old_body(controller):
+    from copy import deepcopy
+    owner, backend = controller
+    enable_search(owner)
+    pages = search_pages()
+    owner.transport.search = Mock(side_effect=lambda binding,sid,q,**kw: deepcopy(pages[0 if not kw['cursor'] else 1]))
+    owner.search(pages[0]['session_id'], pages[0]['query']);backend.jobs.pop()()
+    owner.moreSearch();backend.jobs.pop()()
+    assert owner.transport.search.call_count == 3  # first page is re-read, never body-appended.
+    assert len(owner.state['search']['matches']) == 2 and owner.state['search']['_pages'] == 2
+    assert [call.kwargs['cursor'] for call in owner.transport.search.call_args_list] == ['', '', 'cursor-1']
+    pages[0]['matches'][0]['text'] = 'Fresh server body retained on revalidation'
+    pages[1]['matches'] = [];pages[1]['returned_count'] = 0
+    owner.refreshSearch();backend.jobs.pop()()
+    assert [row['text'] for row in owner.state['search']['matches']] == ['Fresh server body retained on revalidation']
+    assert owner.state['search']['complete'] is True
+
+
+@pytest.mark.parametrize('failure', ['revision','duplicate_id','order','cycle','denied'])
+def test_search_revalidation_refuses_mixed_or_revoked_pages(controller, failure):
+    owner, backend = controller
+    enable_search(owner)
+    pages = search_pages()
+    owner.transport.search = Mock(return_value=pages[0])
+    owner.search(pages[0]['session_id'], pages[0]['query']);backend.jobs.pop()()
+    assert owner.state['search']['matches']
+    if failure == 'revision': pages[1]['revision'] = 'different-revision'
+    if failure == 'duplicate_id': pages[1]['matches'][0]['entry_id'] = pages[0]['matches'][0]['entry_id']
+    if failure == 'order': pages[1]['matches'][0]['order'] = pages[0]['matches'][0]['order']
+    if failure == 'cycle': pages[1].update(complete=False,next_cursor='cursor-1')
+    owner.transport.search = Mock(side_effect=[pages[0], SessionError('denied') if failure=='denied' else pages[1]])
+    owner.moreSearch();backend.jobs.pop()()
+    assert owner.state['search'] == {}
+    assert owner.state['error'] == ('denied' if failure=='denied' else 'conflict' if failure=='revision' else 'invalid')
+
+
+def test_search_scan_bound_is_partial_and_new_query_resets_budget(controller):
+    owner, backend = controller
+    enable_search(owner)
+    pages = search_pages(6)
+    owner.transport.search = Mock(side_effect=lambda binding,sid,q,**kw: pages[int(kw['cursor'].split('-')[-1]) if kw['cursor'] else 0])
+    owner.search(pages[0]['session_id'], pages[0]['query']);backend.jobs.pop()()
+    for _ in range(4): owner.moreSearch();backend.jobs.pop()()
+    assert owner.state['search']['_pages'] == 5 and owner.state['search_limit_reached']
+    assert not owner.state['search']['complete'] and len(owner.state['search']['matches']) == 5
+    before = owner.transport.search.call_count
+    owner.moreSearch()
+    assert not backend.jobs and owner.transport.search.call_count == before
+    owner.refreshSearch();backend.jobs.pop()()
+    assert owner.transport.search.call_count == before+5
+    owner.search(pages[0]['session_id'], pages[0]['query']);backend.jobs.pop()()
+    assert owner.state['search']['_pages'] == 1 and not owner.state['search_limit_reached']
+
+
+def test_search_refresh_cancelled_before_dispatch_does_not_send_private_query(controller):
+    owner, backend = controller
+    enable_search(owner)
+    data = search_pages()[0]
+    owner.transport.search = Mock(return_value=data)
+    owner.search(data['session_id'],data['query']);backend.jobs.pop()()
+    owner.refreshSearch();job=backend.jobs.pop()
+    owner.clearSearch();before=owner.transport.search.call_count
+    job()
+    assert owner.transport.search.call_count==before and not owner.state['search']
+
+
+def test_same_revision_history_poll_keeps_search_but_revision_change_withdraws_it(controller):
+    from copy import deepcopy
+
+    from test_session_history_view import search_fixture, timeline_fixture
+    owner, backend = controller
+    enable_search(owner)
+    data, tail = search_fixture(), timeline_fixture()
+    owner._timeline = deepcopy(tail)
+    owner.transport.search = Mock(return_value=data)
+    owner.search(data['session_id'],data['query']);backend.jobs.pop()()
+    owner.transport.timeline = Mock(return_value=tail)
+    owner.refreshSaved(tail['entries'][0]['entry_id']);backend.jobs.pop()()
+    assert owner.state['search']['query']==data['query']
+    tail['revision']='new-history-revision'
+    owner.refreshSaved(tail['entries'][0]['entry_id']);backend.jobs.pop()()
+    assert owner.state['search']=={}
+
+
+def test_withdrawn_search_between_pages_stops_additional_private_reads(controller):
+    owner, backend = controller
+    enable_search(owner)
+    pages = search_pages()
+    owner.transport.search = Mock(return_value=pages[0])
+    owner.search(pages[0]['session_id'],pages[0]['query']);backend.jobs.pop()()
+    def withdraw_after_first(*args, **kwargs):
+        owner.clearSearch()
+        return pages[0]
+    owner.transport.search = Mock(side_effect=withdraw_after_first)
+    owner.moreSearch();backend.jobs.pop()()
+    assert owner.transport.search.call_count==1 and not owner.state['search']

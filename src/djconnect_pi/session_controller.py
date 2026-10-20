@@ -43,6 +43,7 @@ class SessionController(QObject):
     changed = Signal()
     entryOpened = Signal()
     questionConfirmed = Signal(str)
+    searchUpdated = Signal()
     timelineUpdated = Signal(str)
     timelinePositioned = Signal(str, float)
     selectionInvalidated = Signal()
@@ -107,6 +108,7 @@ class SessionController(QObject):
             "history_available": self._history_supported(), "search_available": self._search_supported(),
             "loaded": self._loaded, "history_loaded": self._history_loaded,
             "has_previous_entries": bool(self._timeline_trail),
+            "search_limit_reached": bool(self._search.get("next_cursor")) and self._search.get("_pages", 1) >= 5,
             "has_more_sessions": bool(self._history_cursor)}
 
     @Slot(str, result=str)
@@ -437,10 +439,40 @@ class SessionController(QObject):
 
     @Slot()
     def moreSearch(self):
-        if self._search.get("next_cursor"):
+        if self._search.get("next_cursor") and self._search.get("_pages", 1) < 5:
             self._launch("search_more", {"session_id": self._search["session_id"],
-                "query": self._search["query"], "cursor": self._search["next_cursor"],
-                "revision": self._search["revision"]})
+                "query": self._search["query"], "pages": self._search.get("_pages", 1) + 1})
+
+    @Slot()
+    def refreshSearch(self):
+        if self._search.get("query"):
+            self._launch("search_refresh", {"session_id": self._search["session_id"],
+                "query": self._search["query"], "pages": self._search.get("_pages", 1)})
+
+    def _read_search(self, binding, value, view_epoch):
+        # Re-read all displayed pages: no old body survives solely through pagination.
+        cursor, rows, seen_cursors, revision = "", [], set(), None
+        for number in range(min(5, max(1, value.get("pages", 1)))):
+            if not self._foreground or self._view_epoch != view_epoch:
+                raise SessionError("context_changed")
+            page = search_page(self.transport.search(binding, value["session_id"], value["query"], cursor=cursor),
+                value["session_id"], value["query"], now=self._clock.now())
+            if revision is not None and page["revision"] != revision:
+                raise SessionError("conflict")
+            revision = page["revision"]
+            # Core's search traversal is canonical, increasing and non-overlapping.
+            for row in page["matches"]:
+                if any(old["entry_id"] == row["entry_id"] or old["order"] >= row["order"] for old in rows):
+                    raise SessionError("invalid")
+                rows.append(row)
+            cursor = page.get("next_cursor")
+            if cursor and cursor in seen_cursors:
+                raise SessionError("invalid")
+            if cursor:
+                seen_cursors.add(cursor)
+            if not cursor:
+                break
+        return {**page, "matches": rows, "returned_count": len(rows), "_pages": number + 1}
 
     @Slot(str, str)
     def openEntry(self, session_id, entry_id):
@@ -471,13 +503,13 @@ class SessionController(QObject):
             self._error = exc.category
             self.changed.emit()
             return
-        if action in {"history", "history_more", "timeline", "timeline_refresh", "timeline_page", "timeline_previous", "open_entry", "search", "search_more"} and not self._history_supported():
+        if action in {"history", "history_more", "timeline", "timeline_refresh", "timeline_page", "timeline_previous", "open_entry", "search", "search_more", "search_refresh"} and not self._history_supported():
             self._error = "unsupported"
             self.changed.emit()
             return
         if action == "question" and not self._composer_supported():
             return
-        if action in {"search", "search_more"} and not self._search_supported():
+        if action in {"search", "search_more", "search_refresh"} and not self._search_supported():
             self._error = "unsupported"
             self.changed.emit()
             return
@@ -578,10 +610,8 @@ class SessionController(QObject):
                         result["timeline"]["_page_cursor"] = value["cursor"]
                         result["timeline_trail"] = value.get("trail", [])
                     result["reading_anchor"] = value.get("entry_id", "")
-                elif action in {"search", "search_more"}:
-                    result["search"] = search_page(self.transport.search(binding, value["session_id"], value["query"], cursor=value["cursor"]), value["session_id"], value["query"], now=self._clock.now())
-                    if action == "search_more" and result["search"]["revision"] != value["revision"]:
-                        raise SessionError("conflict")
+                elif action in {"search", "search_more", "search_refresh"}:
+                    result["search"] = self._read_search(binding, value, view_epoch)
                 elif action == "open_entry":
                     sid, eid = value["session_id"], value["entry_id"]
                     opened_entry(self.transport.open_entry(binding, sid, eid), sid, eid, now=self._clock.now())
@@ -677,7 +707,7 @@ class SessionController(QObject):
                 if confirmed:
                     self.questionConfirmed.emit(confirmed)
                 return
-        history_action = result["action"] in {"history", "history_more", "timeline", "timeline_refresh", "timeline_page", "timeline_previous", "search", "search_more", "open_entry"}
+        history_action = result["action"] in {"history", "history_more", "timeline", "timeline_refresh", "timeline_page", "timeline_previous", "search", "search_more", "search_refresh", "open_entry"}
         if history_action and result.get("view_epoch") != self._view_epoch:
             self.changed.emit()
             return
@@ -738,11 +768,7 @@ class SessionController(QObject):
                     self._sessions = rows
                 self._history_cursor = page_cursor(result["history"].get("next_cursor"))
             if "search" in result:
-                incoming = result["search"]
-                if result["action"] == "search_more":
-                    incoming_ids = {row["entry_id"] for row in incoming["matches"]}
-                    incoming["matches"] = [row for row in self._search.get("matches", []) if row["entry_id"] not in incoming_ids] + incoming["matches"]
-                self._search = incoming
+                self._search = result["search"]
             if "timeline" in result:
                 incoming = result["timeline"]
                 if "timeline_trail" in result:
@@ -751,14 +777,20 @@ class SessionController(QObject):
                         or "_page_cursor" not in incoming):
                     self._timeline_trail = []
                 self._timeline = incoming
-                # A fresh projection replaces the whole window, including withdrawn prose.
-                self._search = {}
+                # A same-scope/revision background page check must not close an active search.
+                # Search separately re-reads every displayed page; changed scope/revision withdraws it.
+                if not (result["action"] == "timeline_refresh"
+                        and incoming.get("session", {}).get("session_id") == self._search.get("session_id")
+                        and incoming["revision"] == self._search.get("revision")):
+                    self._search = {}
         # Worker results may have waited on the GUI queue beyond their original deadline.
         self._expire()
         confirmed = self._confirm_question()
         self.changed.emit()
         if confirmed:
             self.questionConfirmed.emit(confirmed)
+        if "search" in result and "error" not in result:
+            self.searchUpdated.emit()
         if "timeline" in result and "error" not in result:
             reading = result.get("reading_restore", {})
             if reading and any(row["entry_id"] == reading["entry_id"] for row in self._timeline.get("entries", [])):

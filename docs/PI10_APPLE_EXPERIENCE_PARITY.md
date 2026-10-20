@@ -909,3 +909,54 @@ stays draft; no merge, install, pairing, HA/model/provider action occurred.
 Source/fixture/package/local Qt-touch proof is not ARM, installed/live Profile/HA
 or physical acceptance. Continuous Flow/server windows, remaining Apple pages,
 media/actions and real backdrop effects remain open.
+
+
+### 2026-10-20 — Bounded fresh search pages and visible-result revalidation
+
+An open search now requests revalidation every15 seconds. One local intent waits
+for an already-running control read, bound to the same Profile, Session and query;
+closing/editing/context withdrawal cancels it. The worker checks foreground/view
+before each GET, including between pages. Closing the popup clears its private
+query/results. No write, generation, provider call or replay is introduced.
+
+Search More and revalidation both re-read all displayed pages from the first
+owner query, following only freshly returned cursors. Pages publish atomically;
+old result bodies are never appended from a cache. Every page must retain the
+same revision and strictly increasing, non-overlapping entry IDs/orders. Cursor
+cycles, revision drift, malformed pages or denial withdraw the old result set.
+A new query can read the changed revision afresh; failure does not auto-replay.
+Only existing protected Core8b221d07 historical_projection_query.async_search_entries
+and advertised text-search1/history2 are used. No Core WIP is adopted.
+
+The local scan budget is five pages per query (transport requests20 rows each).
+More hides at that bound while server complete remains false; five-language copy
+asks the user to refine the query. Incomplete/empty scan windows never claim a
+complete search. This is an explicit bounded consumer limitation, not unlimited
+Apple search parity. A surviving visible result restores its ID/pixel after
+layout; missing IDs fall back to the top and dragging cancels queued restore.
+A same-Session/revision history background check preserves the independently
+revalidated search. Changed revision/scope clears it.
+
+Validation:827 qualified full tests passed; Ruff0.16.0 src/tests passed; hostverify
+MATCH. Ten added tests cover fresh previous-page reads/body withdrawal, revision/
+identity/order/cursor conflicts, denied pages, scan budget/reset, cancellation
+before and between reads, and same-revision history coexistence. Actual QML:
+176 dedicated views plus86 broad regression views without errors/binding loops.
+Both formats show five localized limit labels, literal markup/highlights/sources,
+retention replacement with exact reading position, the actual timer callback
+waiting behind a held read, close-before-dispatch cancellation and denial. Initial
+fixture probes are retained: they attempted search while a visibility poll was
+still busy; the final harness waits for the UI's existing enabled condition.
+Local wheel SHA256
+041a8a14cfe87c86bbcc33c91b009b02b1d85efd810a16012ec25592c3e19990
+matches all58 sources. Evidence: pi-session-search-revalidation under task
+visualizations. This is local synthetic transport/source/package/Qt proof, not
+ARM, installed/live Profile/HA or physical acceptance.
+
+Parentabb8bcd passed all applicable CI (24 successes/4 conditional skips). Core
+protected main8b221d07 and Apple e106a467 are unchanged. Core recorded its own
+583f6e65 test-only WIP checkpoint/327 Golden steps; no producer release or new Pi
+review arrived. No other-lane writes, repeated pings, model/provider/HA action,
+merge, release, installation or pairing occurred. PR111 remains draft. Continuous
+Flow/server windows, standalone/private-ephemeral composer, media/actions, remaining
+Apple pages and real backdrop effects stay open.

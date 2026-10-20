@@ -451,3 +451,12 @@ canvases. It checks metadata-only descriptors, withdrawn-entry fallback, history
 Qt-touch scrolling without losing Flow position, native Moment ID capture and
 foreground withdrawal. These are local synthetic transport/actual QML checks,
 not physical touch, installed Pi or live Profile/HA qualification.
+
+
+Search qualification additionally covers bounded fresh multi-page traversal,
+revision/ID/order/cursor rejection, withdrawn bodies, scan-limit reset and stopped
+private reads after cancellation. The QML harness renders the limit copy in all
+five locales/both formats, restores a surviving result position, invokes the
+actual revalidation timer callback behind a held read, closes before dispatch,
+and verifies denied-result withdrawal. Periodic refresh uses the existing owner
+GET only; these synthetic proofs do not contact HA, providers or models.

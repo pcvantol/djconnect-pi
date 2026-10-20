@@ -146,8 +146,60 @@ Item {
         else if (currentHistory) openCurrentHistory()
         else openArchive()
     }
+    property var searchReturn: null
+    property var searchRefreshIntent: null
+    readonly property bool searchRefreshPending: !!searchRefreshIntent
+    function cancelSearchRead() { searchRead.stop(); searchPosition.stop(); searchRefreshIntent = null; searchReturn = null }
+    function rememberSearch() {
+        searchReturn = null
+        for (var i = 0; i < searchRows.count; i++) {
+            var card = searchRows.itemAt(i)
+            if (!card) continue
+            var y = card.mapToItem(searchScroll.contentItem, 0, 0).y
+            if (y + card.height > 0 && y < searchScroll.contentItem.height && isFinite(y) && Math.abs(y) <= 1000000) {
+                searchReturn = {id: card.modelData.entry_id, offset: y}
+                return
+            }
+        }
+    }
+    function refreshSearchResults() {
+        if (!searchPanel.opened || !state.search.query || searchRefreshPending) return
+        rememberSearch()
+        searchRefreshIntent = {session: state.search.session_id, query: state.search.query, profile: backend.activeProfileId}
+        searchRead.restart()
+    }
+    Timer {
+        id: searchRead; interval: 0
+        onTriggered: {
+            var intent = screen.searchRefreshIntent
+            if (!intent || screen.owner.busy) return
+            if (searchPanel.opened && intent.profile === screen.backend.activeProfileId && intent.session === screen.state.search.session_id && intent.query === screen.state.search.query) screen.owner.refreshSearch()
+            screen.searchRefreshIntent = null
+        }
+    }
+    Timer { objectName: "sessionSearchRevalidationTimer"; interval: 15000; repeat: true; running: searchPanel.opened; onTriggered: screen.refreshSearchResults() }
+    Timer {
+        id: searchPosition; interval: 32
+        onTriggered: {
+            var saved = screen.searchReturn
+            screen.searchReturn = null
+            var flick = searchScroll.contentItem
+            if (!searchPanel.opened || flick.dragging) return
+            for (var i = 0; saved && i < searchRows.count; i++) {
+                var card = searchRows.itemAt(i)
+                if (card && card.modelData.entry_id === saved.id) {
+                    flick.contentY = Math.max(0, Math.min(flick.contentY + card.mapToItem(flick, 0, 0).y - saved.offset, Math.max(0, flick.contentHeight - flick.height)))
+                    return
+                }
+            }
+            flick.contentY = 0
+        }
+    }
+    Connections { target: searchScroll.contentItem; function onDraggingChanged() { if (searchScroll.contentItem.dragging) { searchPosition.stop(); screen.searchReturn = null } } }
+    function searchNow() { cancelSearchRead(); owner.search(searchTarget, searchInput.text) }
     function showSearch() { searchPanel.open(); searchInput.forceActiveFocus() }
     function closeTransient() {
+        cancelSearchRead()
         clearComposer()
         if (searchPanel) searchPanel.close()
         if (searchInput) searchInput.clear()
@@ -186,7 +238,7 @@ Item {
         choices.x = Math.max(12, Math.min(button.mapToItem(screen, 0, 0).x, width - choices.width - 12))
         choices.open()
     }
-    Timer { interval: 3000; running: screen.visible && screen.backend.paired && !screen.historyReadPending; repeat: true; triggeredOnStart: true; onTriggered: { if (!screen.historical) screen.owner.refresh(); else if (!screen.currentHistory && !screen.state.history_loaded) screen.owner.loadHistory() } }
+    Timer { interval: 3000; running: screen.visible && screen.backend.paired && !screen.historyReadPending && !screen.searchRefreshPending; repeat: true; triggeredOnStart: true; onTriggered: { if (!screen.historical) screen.owner.refresh(); else if (!screen.currentHistory && !screen.state.history_loaded) screen.owner.loadHistory() } }
     Timer { interval: 15000; running: screen.visible && screen.historical && screen.backend.paired; repeat: true; onTriggered: screen.refreshHistory() }
     Timer {
         id: replyRestore
@@ -215,7 +267,8 @@ Item {
         function onSelectionInvalidated() { screen.clearComposer() }
         function onTimelineUpdated(anchor) { screen.restoreReading(anchor) }
         function onTimelinePositioned(anchor, offset) { screen.readingOffset = offset; screen.restoreReading(anchor) }
-        function onChanged() { if (screen.historyReadPending && !screen.owner.busy) historyRead.restart() }
+        function onChanged() { if (!screen.state.search.query) screen.cancelSearchRead(); if (screen.historyReadPending && !screen.owner.busy) historyRead.restart(); if (screen.searchRefreshPending && !screen.owner.busy) searchRead.restart() }
+        function onSearchUpdated() { searchPosition.restart() }
         function onContextCleared() { screen.clearFlowReturn(); historyRead.stop(); screen.historyReadProfile = ""; screen.historyReadSession = ""; readingRestore.stop(); screen.pendingReadingAnchor = ""; screen.readingOffset = 0; screen.closeTransient(); if (screen.historical) screen.navigate(screen.currentHistory ? "session" : "more"); screen.historyReadPending = false }
         function onEntryOpened() {
             if (!screen.historical) screen.rememberFlow()
@@ -660,6 +713,7 @@ Item {
         objectName: "sessionSearchPanel"
         property bool keyboardVisible: true
         onOpened: keyboardVisible = true
+        onClosed: { screen.cancelSearchRead(); searchInput.clear(); screen.owner.clearSearch() }
         x: 16; y: toolbar.y + toolbar.height + 8
         width: screen.width - 32; height: Math.min(screen.height - y - 126, 760)
         padding: 20; modal: true; dim: false
@@ -678,12 +732,12 @@ Item {
                     Accessible.name: screen.tr("session_search")
                     selectByMouse: true
                     onTextEdited: screen.owner.clearSearch()
-                    onAccepted: if (!screen.owner.busy) screen.owner.search(screen.searchTarget, text)
+                    onAccepted: if (!screen.owner.busy) screen.searchNow()
                 }
                 GlassButton {
                     iconName: "search"; Accessible.name: screen.tr("session_search")
                     enabled: !screen.owner.busy && searchInput.text.trim().length > 0
-                    onClicked: screen.owner.search(screen.searchTarget, searchInput.text)
+                    onClicked: screen.searchNow()
                 }
                 GlassButton { text: screen.tr("close"); onClicked: searchPanel.close() }
             }
@@ -695,7 +749,7 @@ Item {
             }
             Text {
                 visible: !!screen.state.search.query
-                text: screen.tr(screen.state.search.complete ? "session_search_complete" : "session_search_partial")
+                text: screen.tr(screen.state.search_limit_reached ? "session_search_limit" : screen.state.search.complete ? "session_search_complete" : "session_search_partial")
                 color: BrandTheme.colors.muted; font.pixelSize: 18
                 wrapMode: Text.WordWrap; Layout.fillWidth: true
             }
@@ -705,12 +759,15 @@ Item {
             }
             ScrollView {
                 id: searchScroll
+                objectName: "sessionSearchScroll"
                 Layout.fillWidth: true; Layout.fillHeight: true
                 contentWidth: availableWidth; clip: true
                 ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
                 ColumnLayout {
                     width: searchScroll.availableWidth; spacing: 14
                     Repeater {
+                        id: searchRows
+                        objectName: "sessionSearchRows"
                         model: screen.state.search.matches || []
                         GlassCard {
                             required property var modelData
@@ -725,9 +782,9 @@ Item {
                         }
                     }
                     GlassButton {
-                        visible: !!screen.state.search.next_cursor
+                        visible: !!screen.state.search.next_cursor && !screen.state.search_limit_reached
                         text: screen.tr("session_more"); enabled: !screen.owner.busy
-                        onClicked: screen.owner.moreSearch()
+                        onClicked: { screen.rememberSearch(); screen.owner.moreSearch() }
                     }
                     BusyIndicator { visible: screen.owner.busy; running: visible; Layout.alignment: Qt.AlignHCenter }
                 }
@@ -740,7 +797,7 @@ Item {
                 onSubmitted: {
                     if (!screen.owner.busy && searchInput.text.trim().length > 0) {
                         searchPanel.keyboardVisible = false
-                        screen.owner.search(screen.searchTarget, searchInput.text)
+                        screen.searchNow()
                     }
                 }
                 onDismissed: searchPanel.keyboardVisible = false
