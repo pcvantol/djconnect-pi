@@ -55,6 +55,7 @@ class SessionController(QObject):
         self._question_receipt = {}
         self._sessions = []
         self._timeline = {}
+        self._timeline_trail = []
         self._error = ""
         self._serial = 0
         self._running = 0
@@ -90,6 +91,7 @@ class SessionController(QObject):
             "profile_confirmation_required": not bool(self.backend.cfg.explicit_profile_id),
             "history_available": self._history_supported(), "search_available": self._search_supported(),
             "loaded": self._loaded, "history_loaded": self._history_loaded,
+            "has_previous_entries": bool(self._timeline_trail),
             "has_more_sessions": bool(self._history_cursor)}
 
     @Slot(str, result=str)
@@ -137,6 +139,7 @@ class SessionController(QObject):
         self._question_status = ""
         self._sessions = []
         self._timeline = {}
+        self._timeline_trail = []
         self._caps = {}
         self._loaded = False
         self._history_loaded = False
@@ -359,12 +362,31 @@ class SessionController(QObject):
         cursor = self._timeline.get("next_cursor")
         if sid and cursor:
             self._launch("timeline_page", {"session_id": sid, "cursor": cursor,
-                "revision": self._timeline["revision"]})
+                "revision": self._timeline["revision"],
+                "trail": (self._timeline_trail + [self._timeline_descriptor()])[-32:]})
+
+    def _timeline_descriptor(self):
+        if "_page_cursor" in self._timeline:
+            return {"window": None, "cursor": self._timeline["_page_cursor"]}
+        if self._timeline.get("window") == "anchor":
+            return {"window": "anchor", "anchor_entry_id": self._timeline["anchor_entry_id"]}
+        return {"window": "tail"}
+
+    @Slot()
+    @Slot(str)
+    def previousEntries(self, anchor_entry_id=""):
+        sid = self._timeline.get("session", {}).get("session_id")
+        if sid and self._timeline_trail:
+            self._launch("timeline_previous", {"session_id": sid, "target": deepcopy(self._timeline_trail[-1]),
+                "trail": deepcopy(self._timeline_trail[:-1]), "revision": self._timeline["revision"],
+                "visible_anchor": anchor_entry_id if any(row["entry_id"] == anchor_entry_id for row in self._timeline.get("entries", []))
+                    else next((row["entry_id"] for row in self._timeline.get("entries", [])), "")})
 
     @Slot()
     def closeSaved(self):
         self._view_epoch += 1
         self._timeline = {}
+        self._timeline_trail = []
         self._search = {}
         self.changed.emit()
 
@@ -421,7 +443,7 @@ class SessionController(QObject):
             self._error = exc.category
             self.changed.emit()
             return
-        if action in {"history", "history_more", "timeline", "timeline_refresh", "timeline_page", "open_entry", "search", "search_more"} and not self._history_supported():
+        if action in {"history", "history_more", "timeline", "timeline_refresh", "timeline_page", "timeline_previous", "open_entry", "search", "search_more"} and not self._history_supported():
             self._error = "unsupported"
             self.changed.emit()
             return
@@ -476,6 +498,31 @@ class SessionController(QObject):
                     page_cursor(result["history"].get("next_cursor"))
                 elif action == "timeline":
                     result["timeline"] = presented_history(history_page(self.transport.timeline(binding, value), session_id=value, now=self._clock.now()))
+                elif action == "timeline_previous":
+                    sid, target = value["session_id"], value["target"]
+                    try:
+                        response = self.transport.timeline(binding, sid, **target)
+                        decoded = history_page(response, session_id=sid, now=self._clock.now())
+                        if target.get("window") == "anchor" and not any(row["entry_id"] == target["anchor_entry_id"] for row in decoded["entries"]):
+                            raise SessionError("unavailable")
+                        if decoded["revision"] != value["revision"]:
+                            raise SessionError("conflict")
+                        result["timeline"] = presented_history(decoded)
+                        if target.get("window") is None:
+                            result["timeline"]["_page_cursor"] = target["cursor"]
+                        result["timeline_trail"] = value["trail"]
+                    except SessionError as exc:
+                        if exc.category != "conflict":
+                            raise
+                        # An old cursor/revision is not a grant. Re-read only a currently visible entry.
+                        anchor = value["visible_anchor"]
+                        response = self.transport.timeline(binding, sid, window="anchor", anchor_entry_id=anchor) if anchor else self.transport.timeline(binding, sid)
+                        decoded = history_page(response, session_id=sid, now=self._clock.now())
+                        if anchor and not any(row["entry_id"] == anchor for row in decoded["entries"]):
+                            raise SessionError("unavailable")
+                        result["timeline"] = presented_history(decoded)
+                        result["timeline_trail"] = []
+                        result["reading_anchor"] = anchor
                 elif action in {"timeline_refresh", "timeline_page"}:
                     sid = value["session_id"]
                     if action == "timeline_page":
@@ -498,6 +545,7 @@ class SessionController(QObject):
                         raise SessionError("conflict")
                     if action == "timeline_page":
                         result["timeline"]["_page_cursor"] = value["cursor"]
+                        result["timeline_trail"] = value.get("trail", [])
                     result["reading_anchor"] = value.get("entry_id", "")
                 elif action in {"search", "search_more"}:
                     result["search"] = search_page(self.transport.search(binding, value["session_id"], value["query"], cursor=value["cursor"]), value["session_id"], value["query"], now=self._clock.now())
@@ -598,13 +646,14 @@ class SessionController(QObject):
                 if confirmed:
                     self.questionConfirmed.emit(confirmed)
                 return
-        history_action = result["action"] in {"history", "history_more", "timeline", "timeline_refresh", "timeline_page", "search", "search_more", "open_entry"}
+        history_action = result["action"] in {"history", "history_more", "timeline", "timeline_refresh", "timeline_page", "timeline_previous", "search", "search_more", "open_entry"}
         if history_action and result.get("view_epoch") != self._view_epoch:
             self.changed.emit()
             return
         if "error" in result and history_action and result["error"] not in {"denied", "context_changed", "unpaired"}:
             self._search = {}
             self._timeline = {}
+            self._timeline_trail = []
             self._error = result["error"]
             self.changed.emit()
             return
@@ -619,6 +668,7 @@ class SessionController(QObject):
             self._conversation = []
             self._selection = {}
             self._timeline = {}
+            self._timeline_trail = []
             self._sessions = []
             self._loaded = False
             self._history_loaded = False
@@ -636,6 +686,7 @@ class SessionController(QObject):
                 self._conversation = result.get("conversation", [])
                 if not self._history_supported():
                     self._timeline = {}
+                    self._timeline_trail = []
                     self._conversation = []
                     self._sessions = []
                     self._history_cursor = ""
@@ -660,7 +711,13 @@ class SessionController(QObject):
                     incoming["matches"] = [row for row in self._search.get("matches", []) if row["entry_id"] not in incoming_ids] + incoming["matches"]
                 self._search = incoming
             if "timeline" in result:
-                self._timeline = result["timeline"]
+                incoming = result["timeline"]
+                if "timeline_trail" in result:
+                    self._timeline_trail = result["timeline_trail"]
+                elif (result["action"] != "timeline_refresh" or incoming["revision"] != self._timeline.get("revision")
+                        or "_page_cursor" not in incoming):
+                    self._timeline_trail = []
+                self._timeline = incoming
                 # A fresh projection replaces the whole window, including withdrawn prose.
                 self._search = {}
         # Worker results may have waited on the GUI queue beyond their original deadline.

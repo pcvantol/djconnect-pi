@@ -561,3 +561,43 @@ matches all57 packaged sources. Evidence: pi-session-answer-anchors-final under
 the task visualization directory; earlier attempts/checkpoints are preserved.
 This is local synthetic transport/source/package/Qt proof, not ARM, installed,
 live HA/Profile, physical touch or complete Apple acceptance. PR111 stays draft.
+
+### 2026-10-20 — Fresh previous-page navigation
+
+Shared chronological history now has a localized Previous contributions control.
+It reissues the existing server read for an earlier page instead of displaying a
+cached body. At most32 RAM-only cursor/window descriptors are retained. Signed
+cursors remain opaque; only Core authorizes returned Profile/Session/revision,
+retention and source projections. No credentials or cursor signing material is
+stored, and the separate current Session is not ended or replayed.
+
+An invalid old cursor or changed revision causes one fresh read of the currently
+visible entry, clearing the previous trail. A missing/withdrawn anchor or denied
+read cannot revive old text. First-page navigation, detail close, Profile or
+background invalidation, capability withdrawal and context errors clear prior
+navigation. Ordinary same-page revalidation retains a still-valid trail. Existing
+read tickets/view epochs reject late previous results, including End priority.
+
+Actual shared QML exercises the previous button and freshly restored first page
+on both sizes and renders its label in all five languages. Explicit previous-page
+navigation starts at the top of that page; per-page old pixel restoration and
+continuous/backward Flow stitching remain open. This is a bounded chronological
+pager improvement, not full Apple history/interaction parity. Native media,
+remaining destinations, toolbar/playback composition and backdrop effects also
+remain open.
+
+The preceding4b3db8b head passed all applicable CI checks (24 successes/4
+conditional skips). Core protected main8b221d07 remains unchanged; its separate
+WIP/source-budget improvements are not adopted. No Pi review/released producer
+handoff was received. No repeat lane pings, Core/Apple writes, model calls, HA
+operations, merge, release, installation or pairing occurred.
+
+Validation:770 full tests passed, Ruff0.16.0 src/tests passed and hostverify MATCH.
+Final broad actual-QML regression:86 views; final controller/composer/history
+harness:52 views, including previous controls in five languages on both sizes,
+with no QML errors. Local wheel SHA256
+084b4f3d9433117c94bb842146e6971aea08055d38577d7d68f32b15aac909c9
+matches all57 packaged sources. Evidence: pi-session-history-previous under the
+task visualization directory. This is local synthetic transport/source/package/
+Qt proof, not ARM, installed, live HA/Profile, physical or complete Apple
+acceptance. Earlier evidence remains preserved. PR111 remains draft.

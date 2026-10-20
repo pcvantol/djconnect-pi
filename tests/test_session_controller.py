@@ -426,3 +426,113 @@ def test_history_dates_are_localized_and_equivalent_offsets_show_same_instant(co
     assert '2026-10-18' not in formatted and 'T12:34' not in formatted
     assert owner.formatTimestamp('2026-10-18T12:34:00') == ''  # no guessed timezone
     assert owner.formatTimestamp('not-a-date') == ''
+
+
+def paged_timeline(owner):
+    from copy import deepcopy
+
+    from test_session_history_view import timeline_fixture
+    enable_search(owner)
+    clock_fixture(owner)
+    original = timeline_fixture()
+    pages = []
+    for index in range(3):
+        page = deepcopy(original)
+        page.pop('window', None)
+        page.pop('anchor_entry_id', None)
+        page['entries'] = page['entries'][index*2:index*2+2]
+        page['next_cursor'] = f'page-{index+1}' if index < 2 else None
+        pages.append(page)
+    def read(binding, sid, **kwargs):
+        cursor = kwargs.get('cursor', '')
+        return deepcopy(pages[int(cursor[-1])] if cursor else pages[0])
+    owner.transport.timeline = Mock(side_effect=read)
+    owner._timeline = deepcopy(original)
+    owner.firstEntries()
+    return pages
+
+
+def test_previous_page_is_a_fresh_server_read_with_no_retained_body_cache(controller):
+    owner, backend = controller
+    pages = paged_timeline(owner)
+    backend.jobs.pop()()
+    owner.nextEntries(); backend.jobs.pop()()
+    owner.nextEntries(); backend.jobs.pop()()
+    assert owner.state['has_previous_entries']
+    assert owner._timeline_trail == [{'window':None,'cursor':''},{'window':None,'cursor':'page-1'}]
+    owner.previousEntries(); backend.jobs.pop()()
+    assert owner.transport.timeline.call_args.kwargs == {'window':None,'cursor':'page-1'}
+    assert owner.state['timeline']['entries'][0]['entry_id'] == pages[1]['entries'][0]['entry_id']
+    owner.previousEntries(); backend.jobs.pop()()
+    assert owner.transport.timeline.call_args.kwargs == {'window':None,'cursor':''}
+    assert not owner.state['has_previous_entries']
+
+
+@pytest.mark.parametrize('changed_revision', [False, True])
+def test_stale_previous_page_uses_fresh_visible_anchor_and_forgets_old_trail(controller, changed_revision):
+    from copy import deepcopy
+    owner, backend = controller
+    pages = paged_timeline(owner)
+    backend.jobs.pop()()
+    owner.nextEntries(); backend.jobs.pop()()
+    owner.nextEntries(); backend.jobs.pop()()
+    anchor = pages[2]['entries'][1]['entry_id']
+    fresh = deepcopy(pages[2]); fresh['revision'] = 'new-server-revision'
+    fresh.update(window='anchor', anchor_entry_id=anchor)
+    old_page = deepcopy(pages[1]); old_page['revision'] = 'different-revision'
+    owner.transport.timeline.side_effect = [old_page if changed_revision else SessionError('conflict'), fresh]
+    owner.previousEntries(anchor); backend.jobs.pop()()
+    assert owner.transport.timeline.call_args.kwargs == {'window':'anchor','anchor_entry_id':anchor}
+    assert owner.state['timeline']['revision'] == 'new-server-revision'
+    assert not owner.state['has_previous_entries']
+
+
+def test_withdrawn_previous_target_clears_prose_and_old_navigation(controller):
+    owner, backend = controller
+    paged_timeline(owner); backend.jobs.pop()()
+    owner.nextEntries(); backend.jobs.pop()()
+    owner.transport.timeline.side_effect = SessionError('unavailable')
+    owner.previousEntries(); backend.jobs.pop()()
+    assert owner.state['timeline'] == {} and not owner.state['has_previous_entries']
+
+
+@pytest.mark.parametrize('withdrawal', ['close', 'background', 'profile'])
+def test_late_previous_page_cannot_restore_a_closed_or_changed_context(controller, withdrawal):
+    owner, backend = controller
+    paged_timeline(owner); backend.jobs.pop()()
+    owner.nextEntries(); backend.jobs.pop()()
+    owner.previousEntries()
+    work = backend.jobs.pop()
+    if withdrawal == 'close':
+        owner.closeSaved()
+    elif withdrawal == 'background':
+        owner.setForeground(False)
+    else:
+        backend.cfg.active_profile_id = 'another-owner'
+        owner.invalidate()
+    work()
+    assert owner.state['timeline'] == {} and not owner.state['has_previous_entries']
+
+
+def test_first_page_and_capability_withdrawal_forget_previous_navigation(controller):
+    owner, backend = controller
+    paged_timeline(owner); backend.jobs.pop()()
+    owner.nextEntries(); backend.jobs.pop()()
+    owner.firstEntries(); backend.jobs.pop()()
+    assert not owner.state['has_previous_entries']
+    owner.nextEntries(); backend.jobs.pop()()
+    owner.transport.capabilities.return_value = {'capabilities':{},'contract_versions':{}}
+    owner.refresh(); backend.jobs.pop()()
+    assert not owner.state['has_previous_entries'] and owner.state['timeline'] == {}
+
+
+def test_previous_cursor_fallback_refuses_a_missing_visible_anchor(controller):
+    from copy import deepcopy
+    owner, backend = controller
+    pages = paged_timeline(owner); backend.jobs.pop()()
+    owner.nextEntries(); backend.jobs.pop()()
+    missing = deepcopy(pages[0])
+    owner.transport.timeline.side_effect = [SessionError('conflict'), missing]
+    owner.previousEntries(); backend.jobs.pop()()
+    assert owner.state['timeline'] == {} and not owner.state['has_previous_entries']
+    assert owner.state['error'] == 'unavailable'

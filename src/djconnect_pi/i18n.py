@@ -1218,6 +1218,7 @@ _HISTORY_SEARCH_TRANSLATIONS = {
     "session_history_view_readonly": ("Session history · read only", "Sessiegeschiedenis · alleen-lezen", "Session-Verlauf · schreibgeschützt", "Historique de session · lecture seule", "Historial de sesión · solo lectura"),
     "session_datetime_format": ("d MMM yyyy · HH:mm", "d MMM yyyy · HH:mm", "d. MMM yyyy · HH:mm", "d MMM yyyy · HH:mm", "d MMM yyyy · HH:mm"),
     "session_history_first": ("Read from the beginning", "Lees vanaf het begin", "Von Anfang an lesen", "Lire depuis le début", "Leer desde el principio"),
+    "session_history_previous": ("Previous contributions", "Vorige bijdragen", "Vorherige Beiträge", "Contributions précédentes", "Contribuciones anteriores"),
     "session_history_next": ("Next contributions", "Volgende bijdragen", "Nächste Beiträge", "Contributions suivantes", "Contribuciones siguientes"),
     "session_search": ("Search this session", "Zoek in deze sessie", "Diese Session durchsuchen", "Rechercher dans cette session", "Buscar en esta sesión"),
     "session_search_complete": ("All saved entries searched.", "Alle opgeslagen bijdragen doorzocht.", "Alle gespeicherten Beiträge durchsucht.", "Toutes les contributions enregistrées ont été recherchées.", "Se han buscado todas las entradas guardadas."),

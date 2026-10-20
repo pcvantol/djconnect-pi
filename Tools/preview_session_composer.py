@@ -195,6 +195,36 @@ def main():
         assert window.property('activeScreen')=='history'
         assert owner.state['timeline']['session']['session_id']==session['session_id']
         capture('active-session-history-from-beginning')
+        # Real shared QML previous-page control, re-reading canonical rows rather than cached prose.
+        first_page={**page,'entries':list(prior_entries[:2]),'next_cursor':'preview-next'}
+        second_page={**page,'entries':list(prior_entries[2:4]),'next_cursor':None}
+        def paged_history(binding,sid,**kwargs):
+            return second_page if kwargs.get('cursor')=='preview-next' else first_page
+        owner.transport.timeline.side_effect=paged_history
+        for _ in range(3):
+            if owner.busy:
+                backend._executor.submit.call_args.args[0]()
+        owner.firstEntries();backend._executor.submit.call_args.args[0]()
+        owner.nextEntries();backend._executor.submit.call_args.args[0]()
+        assert owner.state['has_previous_entries']
+        for locale in ('en','nl','de','fr','es'):
+            backend.setLanguage(locale);backend._toast_visible=False;backend.toastChanged.emit()
+            QTest.qWait(80)
+            flick.setProperty('contentY',max(0,flick.property('contentHeight')-flick.property('height')))
+            capture('history-previous-control-'+locale)
+        backend.setLanguage('nl');backend._toast_visible=False;backend.toastChanged.emit()
+        for _ in range(3):
+            if owner.busy:
+                backend._executor.submit.call_args.args[0]()
+        previous_button=window.findChild(QObject,'sessionHistoryPrevious')
+        assert previous_button.property('enabled') and previous_button.property('visible')
+        QMetaObject.invokeMethod(previous_button,'clicked')
+        backend._executor.submit.call_args.args[0]()
+        assert not owner.state['has_previous_entries']
+        assert owner.state['timeline']['entries'][0]['entry_id']==first_page['entries'][0]['entry_id']
+        capture('history-previous-page-freshly-restored')
+        owner.transport.timeline.side_effect=None
+
         # Read-only anchor recovery for a receipt outside the fresh tail.
         owner.closeSaved();window.setProperty('activeScreen','session')
         prior_entries.clear();page['entries']=[];owner.invalidate()

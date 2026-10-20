@@ -368,3 +368,13 @@ copies. Revision drift, malformed/withdrawn anchors and order collisions cannot
 confirm a reply. Denied private history clears old Session content. The current
 Session can also open the existing chronological history pager from its first
 page through the real QML navigation path, with five-locale read-only wording.
+
+Previous-page history navigation retains at most32 RAM-only request descriptors,
+never old body pages. A previous action reissues the existing owner read with its
+opaque cursor/window and current revision. Cursor conflict or revision drift
+revalidates the currently visible anchor once and drops the old trail; a missing
+or withdrawn anchor cannot restore prose. First-page navigation, source/context
+withdrawal, close and background invalidation clear the trail. Real QML exercises
+the previous button and fresh restored first page on both sizes, including all
+five locale labels. Explicit page navigation starts at that page's beginning;
+continuous Flow and per-page prior pixel-position restoration remain separate.

@@ -378,7 +378,8 @@ Item {
             Flow {
                 visible: screen.historical && !!screen.state.timeline.session
                 Layout.fillWidth: true; spacing: 10
-                GlassButton { text: screen.tr("session_history_next"); visible: !!screen.state.timeline.next_cursor; enabled: !screen.owner.busy; onClicked: screen.owner.nextEntries() }
+                GlassButton { objectName: "sessionHistoryPrevious"; text: screen.tr("session_history_previous"); visible: screen.state.has_previous_entries; enabled: !screen.owner.busy; onClicked: screen.owner.previousEntries(screen.readingAnchor()) }
+                GlassButton { objectName: "sessionHistoryNext"; text: screen.tr("session_history_next"); visible: !!screen.state.timeline.next_cursor; enabled: !screen.owner.busy; onClicked: screen.owner.nextEntries() }
             }
             GlassButton { visible: screen.historical && !screen.state.timeline.session && screen.state.has_more_sessions; text: screen.tr("session_more"); enabled: !screen.owner.busy; onClicked: screen.owner.moreHistory() }
             BusyIndicator { visible: screen.owner.busy; running: visible; Layout.alignment: Qt.AlignHCenter }
