@@ -475,3 +475,10 @@ refuses malformed/error/unqualified responses and proves no retained-history or
 executable/media fields appear. QML uses explicit synthetic question workers on
 both canvases/five languages. These tests do not qualify broad private/standalone
 chat or a live model/provider/HA response.
+
+
+The shared QML composer harness also checks current-only reply return position:
+receipt identity/pixel only, same still-valid card after history, withdrawal ->
+top, and no response body/grant in the descriptor. An explicitly synthetic long
+response makes this reading case distinct on both phone and tablet; unchanged
+released prose remains in the separate five-language rendering probes.

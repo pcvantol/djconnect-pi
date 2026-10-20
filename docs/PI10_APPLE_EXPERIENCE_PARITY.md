@@ -1060,3 +1060,33 @@ mode, standalone, dependent follow-up responses without an explicit live selecti
 other source bases, current-reply reading descriptors, complete Flow/media and
 remaining Apple/native design parity remain open. PR111 remains draft; no merge,
 release, Pi install, pairing or live/ARM/physical acceptance is included.
+
+
+### Current-only reply reading position — 20 October follow-up
+
+Returning from current history now also restores a still-valid current-only
+answer's card and pixel offset. The existing single RAM-only descriptor stores
+only Session/Profile, kind, receipt turn ID and finite bounded offset. It does
+not retain body, source grant or deadline, and cannot reauthorize a response.
+The state getter must still admit the live reference at restoration; a withdrawn
+or replaced ID falls back to the top. Existing Profile/Session/foreground clearing
+and touch-drag cancellation apply. Capturing the position also stops queued
+current-answer focus so it cannot override the return position.
+
+Actual QML probes cover both720x720 and1200x1920: same reply identity/pixel on
+return and source-body withdrawal while away. The long reading probe explicitly
+repeats synthetic response text to place the reply alone in the viewport; the
+five-language original released-prose probes remain unchanged. Initial tablet
+fixture failure is preserved: a short response legitimately left the previous
+Moment visible first, so its descriptor was selected. No product navigation or
+rights were changed to satisfy that fixture.
+
+Validation:845 full tests passed, Ruff0.16.0 src/tests passed, hostverify MATCH.
+Final QML:190 dedicated controller views plus116 broad views without errors or
+binding loops. Local wheel a307d4d3ff7b7471e00acd3cfe1c1ee42abd4b8e3cad0ed7a970d2f5b0b32b94
+matches all60 packaged sources. Evidence: pi-session-current-reply-position under
+task visualizations. Parent e513693 passed
+all applicable CI (24 successes/4 conditional skips). This follow-up needs its own
+CI readback. General private/standalone chat, user bubble, playback-only/Forecast
+positions and continuous Flow remain open. No Core/Apple WIP, new contract, model,
+HA, provider, installation, merge or physical acceptance is included.

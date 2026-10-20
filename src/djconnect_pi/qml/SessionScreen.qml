@@ -66,6 +66,7 @@ Item {
         if (historical || showForecast || !state.session_id) return
         followQuestionReply = false
         replyRestore.stop()
+        currentReplyPosition.stop()
         var groups = [liveMomentRows, conversationRows]
         for (var g = 0; g < groups.length; g++) {
             for (var i = 0; i < groups[g].count; i++) {
@@ -80,6 +81,13 @@ Item {
                 }
             }
         }
+        if (currentReplyCard.visible && state.current_reply.reply_id) {
+            var replyY = currentReplyCard.mapToItem(historyScroll.contentItem, 0, 0).y
+            if (replyY + currentReplyCard.height > 0 && replyY < historyScroll.contentItem.height && isFinite(replyY) && Math.abs(replyY) <= 1000000) {
+                flowReturn = {session: state.session_id, profile: backend.activeProfileId,
+                    kind: "current_reply", id: state.current_reply.reply_id, offset: replyY}
+            }
+        }
     }
     Timer {
         id: flowReturnRestore
@@ -90,6 +98,14 @@ Item {
             var flick = historyScroll.contentItem
             if (!screen.visible || screen.historical || flick.dragging) return
             if (!saved || saved.session !== screen.state.session_id || saved.profile !== screen.backend.activeProfileId) { flick.contentY = 0; return }
+            if (saved.kind === "current_reply") {
+                // The getter revalidates the live source; the descriptor grants nothing.
+                if (screen.state.current_reply.reply_id === saved.id && currentReplyCard.visible) {
+                    var replyDelta = currentReplyCard.mapToItem(flick, 0, 0).y - saved.offset
+                    flick.contentY = Math.max(0, Math.min(flick.contentY + replyDelta, Math.max(0, flick.contentHeight - flick.height)))
+                } else flick.contentY = 0
+                return
+            }
             var rows = saved.kind === "moment" ? liveMomentRows : conversationRows
             for (var i = 0; i < rows.count; i++) {
                 var card = rows.itemAt(i)

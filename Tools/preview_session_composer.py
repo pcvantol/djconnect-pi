@@ -461,6 +461,40 @@ def main():
             assert not owner._question_receipt
             capture('current-response-not-saved-'+language)
             assert window.findChild(QObject,'sessionCurrentReply').property('visible')
+        # Current-only replies have no retained entry ID. Remember only their
+        # receipt identity/position, and resolve against the still-live card.
+        # Explicit synthetic long reply ensures a distinct visible reply on
+        # tablet too; short content may legitimately leave a Moment visible first.
+        current_response=deepcopy(current_response)
+        current_response['text']=(current_response['text']+'\n')*40
+        current_response['assistant_message']['text']=current_response['text']
+        complete_navigation()
+        assert owner.selectMoment(native_session['session_id'],current['moment_id'])
+        field.setProperty('text','Synthetic long reading-position fixture')
+        QMetaObject.invokeMethod(screen,'submitQuestion')
+        assert owner.questionBusy
+        backend._executor.submit.call_args.args[0]();complete_navigation()
+        reply_card=window.findChild(QObject,'sessionCurrentReply')
+        flick.setProperty('contentY',max(0,min(flick.property('contentY')+reply_card.mapToItem(flick,0,0).y()-12,flick.property('contentHeight')-flick.property('height'))))
+        QTest.qWait(80)
+        reply_y=reply_card.mapToItem(flick,0,0).y()
+        QMetaObject.invokeMethod(screen,'rememberFlow')
+        reply_reading=screen.property('flowReturn').toVariant()
+        assert reply_reading['kind']=='current_reply' and reply_reading['id']==owner.state['current_reply']['reply_id']
+        assert set(reply_reading)=={'session','profile','kind','id','offset'}
+        window.setProperty('activeScreen','session-history');QTest.qWait(80)
+        flick.setProperty('contentY',0)
+        window.setProperty('activeScreen','session');QTest.qWait(120)
+        assert abs(reply_card.mapToItem(flick,0,0).y()-reply_y)<2
+        capture('current-reply-return-same-identity-and-pixel')
+        QMetaObject.invokeMethod(screen,'rememberFlow')
+        window.setProperty('activeScreen','session-history');QTest.qWait(80)
+        # A withdrawn reply must not be restored from position metadata.
+        owner._current_reply={};owner._current_reply_binding=None;owner.changed.emit()
+        window.setProperty('activeScreen','session');QTest.qWait(120)
+        assert not owner.state['current_reply'] and flick.property('contentY')<1
+        assert not reply_card.property('visible')
+        capture('current-reply-return-withdrawn-top')
         owner.transport.question=original_question
         backend.setLanguage('nl');backend._toast_visible=False;backend.toastChanged.emit()
         playback_card=window.findChild(QObject,'sessionPlaybackMetadata')
