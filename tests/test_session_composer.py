@@ -622,3 +622,64 @@ def test_only_same_revision_canonical_ordered_rows_are_merged_from_tail_and_anch
     else:
         assert [row['order'] for row in owner.state['conversation']] == [1, 2, 10]
         assert owner.state['question_status'] == 'accepted'
+
+
+@pytest.mark.parametrize('operation', ['question', 'refresh'])
+@pytest.mark.parametrize('stage', ['active', 'tail', 'anchor'])
+@pytest.mark.parametrize('withdrawal', ['foreground', 'profile', 'end'])
+def test_conversation_read_stops_between_requests_when_its_authority_is_withdrawn(controller, stage, withdrawal, operation):
+    owner, backend = controller
+    page = setup_composer(owner)
+    owner.transport.capabilities.return_value = deepcopy(owner._caps)
+    if operation == 'refresh':
+        owner.sendQuestion('Earlier explicit question')
+        backend.jobs.pop()()
+        assert owner.state['question_status'] == 'accepted'
+    previous_conversation = deepcopy(owner.state["conversation"])
+    active_response = deepcopy(owner.transport.active.return_value)
+    reads = []
+
+    def withdraw():
+        if withdrawal == 'foreground':
+            owner.setForeground(False)
+        elif withdrawal == 'profile':
+            backend.cfg.active_profile_id = 'different-profile'
+        else:
+            owner.end('s1')
+
+    def active(binding):
+        if stage == 'active':
+            withdraw()
+        return deepcopy(active_response)
+
+    def timeline(binding, sid, **kwargs):
+        reads.append(kwargs.get('window', 'tail'))
+        result = deepcopy(page)
+        if kwargs.get('window') != 'anchor':
+            result['entries'] = []
+            if stage == 'tail':
+                withdraw()
+        else:
+            result['entries'] = result['entries'][:1]
+            result.update(window='anchor', anchor_entry_id=kwargs['anchor_entry_id'],
+                window_limit=20, scanned_order_min=1, scanned_order_max=6, scan_complete=True,
+                coverage='bounded_saved_entry_window', next_cursor=None)
+            if stage == 'anchor':
+                withdraw()
+        return result
+
+    owner.transport.active.side_effect = active
+    owner.transport.timeline.side_effect = timeline
+    if operation == 'question':
+        owner.sendQuestion('One explicit question')
+    else:
+        owner.refresh()
+    backend.jobs.pop()()
+    assert reads == {'active': [], 'tail': ['tail'], 'anchor': ['tail', 'anchor']}[stage]
+    if withdrawal == 'end':
+        # Existing retained rows remain until End completes; no late read replaces them.
+        assert owner.state['conversation'] == previous_conversation
+    else:
+        assert not owner.state['conversation']
+    assert not owner.state['current_reply']
+    owner.transport.question.assert_called_once()

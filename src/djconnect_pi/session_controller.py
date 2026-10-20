@@ -674,6 +674,12 @@ class SessionController(QObject):
         if action == "question":
             self.pendingQuestionReady.emit()
 
+        def check_conversation_read():
+            running = self._question_running if action == "question" else self._running
+            if (not self._foreground or serial != running or self.transport.binding() != binding
+                    or (action == "question" and question_epoch != self._question_epoch)):
+                raise SessionError("context_changed")
+
         def worker():
             result = {"serial": serial, "binding": binding, "action": action, "view_epoch": view_epoch, "question_epoch": question_epoch}
             try:
@@ -689,6 +695,7 @@ class SessionController(QObject):
                     result["expected_session_id"] = value["session_id"]
                     if question_epoch != self._question_epoch or not self._foreground:
                         raise SessionError("context_changed")
+                    check_conversation_read()
                     fresh = active_session(self.transport.active(binding))
                     if fresh.get("session_id") != value["session_id"]:
                         raise SessionError("context_changed")
@@ -697,7 +704,7 @@ class SessionController(QObject):
                         result["private_response"] = True
                         result["current_reply"] = current_reply(response, binding, value, fresh, now=self._clock.now())
                     else:
-                        result["conversation"] = self._read_conversation(binding, value["session_id"], result["question_receipt"])
+                        result["conversation"] = self._read_conversation(binding, value["session_id"], result["question_receipt"], check_conversation_read)
                 elif action in {"history", "history_more", "history_refresh"}:
                     result["history"] = self._read_history(binding, value, view_epoch)
                 elif action == "timeline":
@@ -779,7 +786,7 @@ class SessionController(QObject):
                     if sid and caps.get("capabilities", {}).get("ask_dj_contextual_dialogue") is True and caps.get("contract_versions", {}).get("session_history_entries") == 2:
                         result["receipt_update"] = receipt_snapshot
                         try:
-                            result["conversation"] = self._read_conversation(binding, sid, receipt_snapshot)
+                            result["conversation"] = self._read_conversation(binding, sid, receipt_snapshot, check_conversation_read)
                         except SessionError as exc:
                             if exc.category in {"denied", "unpaired", "context_changed"}:
                                 raise
@@ -1006,8 +1013,10 @@ class SessionController(QObject):
         self._question_status = "accepted"
         return entry_id if first_confirmation else ""
 
-    def _read_conversation(self, binding, session_id, receipt):
+    def _read_conversation(self, binding, session_id, receipt, check):
+        check()
         page = history_page(self.transport.timeline(binding, session_id), session_id=session_id, now=self._clock.now())
+        check()
         rows = conversation_entries(page)
         if (receipt.get("session_id") != session_id or len(receipt.get("entry_ids", [])) != 2
                 or confirmed_question_entry(rows, receipt)):
@@ -1020,8 +1029,10 @@ class SessionController(QObject):
             anchors = receipt["entry_ids"]  # Receipt order conveys no canonical timeline order.
         receipt["anchor_attempted"] = True
         for entry_id in anchors:
+            check()
             anchor = history_page(self.transport.timeline(binding, session_id, window="anchor",
                 anchor_entry_id=entry_id), session_id=session_id, now=self._clock.now())
+            check()
             lower, upper = anchor.get("scanned_order_min"), anchor.get("scanned_order_max")
             if (anchor.get("window") != "anchor" or anchor.get("anchor_entry_id") != entry_id
                     or anchor.get("coverage") != "bounded_saved_entry_window" or anchor.get("next_cursor") is not None

@@ -1314,3 +1314,32 @@ physical acceptance. No Core/Apple WIP, model call, history write or new endpoin
 Existing producer8b221d07 remains pinned while other lanes work independently.
 
 Final qualification:885 full Python tests passed, Ruff0.16.0 src/tests passed, hostverify MATCH.262 dedicated actual QML views plus116 broad views completed without errors/binding loops. Both archive layouts were visually inspected. Local wheel597df779624ff595642cd1229ce32d10b830500338bc98ed21ea415bb4667d6f matches all60 packaged source files. Evidence: taskvisualizations/pi-session-archive-freshness. These are local synthetic transport/source/package/Qt results, not ARM, installed or live acceptance.
+
+### Conversation read cancellation between owner requests
+
+The receipt/history route already rejected late GUI publication, but could still
+issue a tail or second exact-anchor GET after foreground/Profile loss or End had
+superseded its worker. Each conversation GET now checks the captured owner binding,
+foreground, its bounded worker ticket and (for a question) question generation,
+both before and after the read. The post-acceptance Runtime read is checked before
+dispatch too. Refresh and question workers use the same guard; no POST is retried.
+An already started request can finish remotely; this does not claim transport
+cancellation or cancellation of a server-side question. Ordinary navigation does
+not revoke an otherwise valid running question. Existing retained rows can remain
+while End is pending; a superseded reader cannot replace them.
+
+Eighteen synthetic controller cases withdraw authority after the active read,
+after the tail and after the first anchor, for both question completion and later
+read-only reconciliation. Foreground loss, Profile replacement and End are distinct
+cases. They assert the exact stopped request sequence, no late new answer and one
+explicit POST. An initial refresh fixture accidentally withdrew the contextual
+capability; it was corrected to retain the original supported capabilities rather
+than loosening the product gate. An initial End assertion confused previously
+visible retained rows with a newly published result; the final assertion checks
+that a superseded reader cannot change those rows.
+
+This is a bounded consumer safety fix, not continuous Flow, broader private reply
+lifetime, a new producer handoff or live cancellation acceptance. Core/Apple WIP
+remains untouched. All preceding parity gaps remain open.
+
+Final local qualification for read cancellation:903 full tests passed;66 composer tests; Ruff0.16.0 src/tests passed.262 actual QML views on both formats/all locales completed without errors/binding loops, including existing late-End and receipt reconciliation flows. UI source is unchanged; this is no new visual parity claim. Local wheel157e10199dceb42996aeadc7fef96d2d465157f55a74367a0d8a9336bd1a60af matches all60 packaged sources. Proof: taskvisualizations/pi-session-conversation-read-fences. No ARM/installed/live/physical claim.

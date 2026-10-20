@@ -521,3 +521,9 @@ copy and queued cancellation behind a held read on both layouts. Older-window
 paging and real device/server acceptance are not inferred.
 
 Archive slice final:13 new synthetic cases,885 full tests;262 dedicated and116 broad actual QML views, no errors/binding loops. Partial expiry preserves the traversal budget; stale More is fenced, active reads debounce and polished fresh layouts preserve the anchor. Diagnostic fixture worker ordering and ISO rounding failures are retained separately from the corrected product layout finding. Local package60-source match; no installed/live claim.
+
+Conversation read cancellation:18 cases cross question/refresh with three request
+boundaries and foreground/Profile/End withdrawal. They verify exact GET counts,
+no late publication and no automatic POST replay. Existing retained rows before
+End completion are distinguished from new reader output. Synthetic fixtures only;
+not network cancellation, server question cancellation or physical acceptance.
