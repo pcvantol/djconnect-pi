@@ -70,7 +70,7 @@ class SessionTransport:
     def binding(self) -> SessionBinding:
         return SessionBinding.capture(self.config())
 
-    def _request(self, binding: SessionBinding, method: str, route: str, payload=None) -> dict:
+    def _request(self, binding: SessionBinding, method: str, route: str, payload=None, *, timeout=None) -> dict:
         if binding != self.binding():
             raise SessionError("context_changed")
         headers = {
@@ -87,7 +87,7 @@ class SessionTransport:
             body = {key: str(value).lower() if isinstance(value, bool) else value for key, value in body.items()}
         try:
             response = requests.request(method, binding.ha_url + PREFIX + route,
-                headers=headers, timeout=self.timeout, allow_redirects=False,
+                headers=headers, timeout=self.timeout if timeout is None else timeout, allow_redirects=False,
                 **({"params": body} if method == "GET" else {"json": body}))
         except requests.RequestException:
             raise SessionError("offline" if method == "GET" else "uncertain") from None
@@ -102,7 +102,7 @@ class SessionTransport:
         except (ValueError, TypeError):
             raise SessionError("invalid" if method == "GET" else "uncertain") from None
         if not isinstance(data, dict):
-            raise SessionError("invalid")
+            raise SessionError("invalid" if method == "GET" else "uncertain")
         code = data.get("error") if isinstance(data.get("error"), str) else ""
         if response.status_code in (401, 403):
             raise SessionError("denied")
@@ -111,7 +111,7 @@ class SessionTransport:
         if response.status_code == 409:
             raise SessionError("conflict")
         if response.status_code >= 400 or data.get("success") is not True:
-            raise SessionError("unavailable")
+            raise SessionError("unavailable" if method == "GET" or response.status_code >= 400 else "uncertain")
         return deepcopy(data)
 
     def capabilities(self, binding):
@@ -155,6 +155,28 @@ class SessionTransport:
             raise SessionError("invalid")
         route = "session/history/" + quote(identifier(session_id), safe="") + "/search"
         return self._request(binding, "GET", route, {**self._page(cursor, limit), "q": query})
+
+    def question(self, binding, request):
+        body = request["text"].strip() if isinstance(request.get("text"), str) else ""
+        if not body or len(body) > 4000:
+            raise SessionError("invalid")
+        context = {"session_id": identifier(request["session_id"])}
+        selected = request.get("selected") or {}
+        if selected:
+            kind = selected.get("kind")
+            if kind not in {"selected_entry", "selected_moment"}:
+                raise SessionError("invalid")
+            key = "entry_id" if kind == "selected_entry" else "moment_id"
+            context[kind] = {"session_id": identifier(selected["session_id"]), key: identifier(selected[key])}
+        values = [request["client_message_id"], context["session_id"]]
+        if selected:
+            values.extend(context[selected["kind"]].values())
+        if any(len(identifier(value)) > 128 or value != value.strip() for value in values):
+            raise SessionError("invalid")
+        return self._request(binding, "POST", "ask_dj/message", {
+            "text": body, "client_message_id": request["client_message_id"],
+            "conversation_context": context, "conversation_scope": "profile",
+            "language": locale_for_language(binding.language), "audio_response": "never"}, timeout=(8, 120))
 
     def open_entry(self, binding, session_id: str, entry_id: str):
         return self._request(binding, "POST", "session/history/open", {

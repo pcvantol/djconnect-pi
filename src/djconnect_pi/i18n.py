@@ -1248,3 +1248,24 @@ _SESSION_LIFECYCLE_TRANSLATIONS = {
 for _key, _values in _SESSION_LIFECYCLE_TRANSLATIONS.items():
     for _language, _value in zip(("en", "nl", "de", "fr", "es"), _values):
         TRANSLATIONS[_language][_key] = _value
+
+
+_SESSION_COMPOSER_TRANSLATIONS = {
+    "session_clear_reference": ("Clear contribution reference", "Verwijzing naar bijdrage wissen", "Beitragsverweis entfernen", "Retirer la référence à la contribution", "Quitar la referencia a la contribución"),
+    "session_question_reference_unavailable": ("The selected contribution is no longer available. Select a contribution again.", "De geselecteerde bijdrage is niet meer beschikbaar. Kies opnieuw een bijdrage.", "Der ausgewählte Beitrag ist nicht mehr verfügbar. Wähle erneut einen Beitrag.", "La contribution sélectionnée n’est plus disponible. Sélectionnez une contribution à nouveau.", "La contribución seleccionada ya no está disponible. Vuelve a elegir una contribución."),
+    "session_question_title": ("Talk to your DJ", "Praat met je DJ", "Sprich mit deinem DJ", "Parlez à votre DJ", "Habla con tu DJ"),
+    "session_question_placeholder": ("Chat with the DJ…", "Chat met de DJ…", "Mit dem DJ chatten…", "Discutez avec le DJ…", "Habla con el DJ…"),
+    "session_send": ("Send", "Versturen", "Senden", "Envoyer", "Enviar"),
+    "session_ask_about": ("Ask about this", "Vraag hierover", "Hierzu fragen", "Poser une question", "Preguntar sobre esto"),
+    "session_question_selected": ("About the selected contribution", "Over de geselecteerde bijdrage", "Über den ausgewählten Beitrag", "À propos de la contribution sélectionnée", "Sobre la contribución seleccionada"),
+    "session_question_sending": ("Sending…", "Wordt verstuurd…", "Wird gesendet…", "Envoi…", "Enviando…"),
+    "session_question_accepted": ("Question sent", "Vraag verstuurd", "Frage gesendet", "Question envoyée", "Pregunta enviada"),
+    "session_question_accepted_unavailable": ("Question accepted. The saved answer is not available yet.", "Vraag ontvangen. Het opgeslagen antwoord is nog niet beschikbaar.", "Frage angenommen. Die gespeicherte Antwort ist noch nicht verfügbar.", "Question reçue. La réponse enregistrée n’est pas encore disponible.", "Pregunta recibida. La respuesta guardada aún no está disponible."),
+    "session_question_uncertain": ("Delivery is not confirmed. Refresh before sending another question.", "Verzending is niet bevestigd. Vernieuw voordat je opnieuw een vraag verstuurt.", "Zustellung nicht bestätigt. Vor einer weiteren Frage aktualisieren.", "Envoi non confirmé. Actualisez avant d’envoyer une autre question.", "Envío sin confirmar. Actualiza antes de enviar otra pregunta."),
+    "session_question_failed": ("The question could not be confirmed. Refresh and check the session.", "De vraag kon niet worden bevestigd. Vernieuw en controleer de sessie.", "Die Frage konnte nicht bestätigt werden. Aktualisiere die Session.", "La question n’a pas pu être confirmée. Actualisez la session.", "No se pudo confirmar la pregunta. Actualiza la sesión."),
+    "session_you": ("You", "Jij", "Du", "Vous", "Tú"),
+    "session_dj": ("DJ", "DJ", "DJ", "DJ", "DJ"),
+}
+for _key, _values in _SESSION_COMPOSER_TRANSLATIONS.items():
+    for _language, _value in zip(("en", "nl", "de", "fr", "es"), _values):
+        TRANSLATIONS[_language][_key] = _value

@@ -8,6 +8,8 @@ ColumnLayout {
     objectName: "sessionTouchKeyboard"
     property var target
     property var backend
+    property string submitIcon: "search"
+    property string submitLabel: keyboard.tr("session_search")
     property bool shifted: false
     property bool numbers: false
     property bool accents: false
@@ -104,7 +106,7 @@ ColumnLayout {
             onClicked: keyboard.deleteKey()
         }
         GlassButton {
-            iconName: "search"; Accessible.name: keyboard.tr("session_search")
+            iconName: keyboard.submitIcon; Accessible.name: keyboard.submitLabel
             focusPolicy: Qt.NoFocus; implicitHeight: 44; padding: 6; Layout.preferredWidth: 48
             onClicked: keyboard.submitted()
         }

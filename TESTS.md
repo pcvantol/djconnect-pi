@@ -46,8 +46,9 @@ HTTP-only unless HA advertises a websocket command for it.
   user-disable setting, `/api/djconnect/v1/websocket/session` bootstrap with
   DJConnect bearer auth, in-memory short-lived token caching, capabilities
   dispatch, redacted diagnostics, one-shot HTTP fallback and secret-safe logs
-- Ask DJ capability payloads advertise `readonly_actions`, structured actions
-  support, no free prompt input and no voice, TTS or local audio support
+- Ask DJ capability payloads advertise text input and structured actions, while
+  voice, TTS and local audio remain unsupported; actual composition additionally
+  requires the exact contextual dialogue/history contracts and explicit owner Profile
 - Ask DJ, Track Insight, Music DNA and Music Discovery payloads propagate
   language/locale, Pi identity and optional Music DNA context without adding
   local voice, TTS or profile aggregation
@@ -324,3 +325,13 @@ offsets and invalid/no-timezone inputs. Search emphasis tests cover exact UTF-16
 server ranges, overlapping ranges, surrogate-splitting rejection, literal HTML,
 emoji and line breaks. The QML preview renders dates/highlights in every locale
 on both dimensions, including a literal image-tag negative case.
+
+Active Session text tests cover exact released capability gates, explicit matching
+Profile/private owner scope, selected references, one-shot requests and unknown
+outcomes. Receipt owner/client/context/turn/entry bindings and fresh history roles
+must match; older chat and history Moments cannot confirm a new answer. Context,
+source expiry, background and Runtime replacement clear the relevant private UI.
+Tools/preview_session_composer.py uses synthetic transport with the actual
+controller/QML for both sizes, five locales, explicit send/readback and draft
+withdrawal. Copied released Core transport receipts anchor decoder syntax; these
+checks do not invoke a provider or establish live/installed Pi acceptance.

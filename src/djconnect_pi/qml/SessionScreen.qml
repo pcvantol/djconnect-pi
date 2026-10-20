@@ -11,6 +11,11 @@ Item {
     readonly property bool compact: width < 900
     property var owner: backend.djSession
     property var state: owner.state
+    property string draft: ""
+    readonly property string composerContext: state.session_id + "|" + backend.activeProfileId
+    onComposerContextChanged: clearComposer()
+    function clearComposer() { draft = ""; if (composeInput) composeInput.clear(); if (composerPanel) composerPanel.close(); if (owner) owner.clearSelection() }
+    function submitQuestion() { if (owner.sendQuestion(composeInput.text)) { draft = ""; composeInput.clear(); composerPanel.close() } }
     property string proposedMood: "groove"
     readonly property string searchTarget: historical ? ((state.timeline.session || {}).session_id || "") : state.session_id
     property real readingOffset: 0
@@ -49,6 +54,7 @@ Item {
     function refreshHistory() { if (historical && state.timeline.session) owner.refreshSaved(readingAnchor()) }
     function showSearch() { searchPanel.open(); searchInput.forceActiveFocus() }
     function closeTransient() {
+        clearComposer()
         if (searchPanel) searchPanel.close()
         if (searchInput) searchInput.clear()
         if (choices) choices.close()
@@ -72,6 +78,7 @@ Item {
     Timer { interval: 15000; running: screen.visible && screen.historical && screen.backend.paired; repeat: true; onTriggered: screen.refreshHistory() }
     Connections {
         target: screen.owner
+        function onSelectionInvalidated() { screen.clearComposer() }
         function onTimelineUpdated(anchor) { screen.restoreReading(anchor) }
         function onContextCleared() { screen.closeTransient() }
         function onEntryOpened() {
@@ -171,7 +178,7 @@ Item {
         objectName: "sessionHistoryScroll"
         anchors.top: toolbar.bottom; anchors.bottom: parent.bottom
         anchors.left: parent.left; anchors.right: parent.right
-        anchors.margins: 20; anchors.bottomMargin: 132
+        anchors.margins: 20; anchors.bottomMargin: composerDock.visible ? composerDock.height + 144 : 132
         clip: true; contentWidth: availableWidth
         ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
         ColumnLayout {
@@ -182,7 +189,7 @@ Item {
                 textFormat: Text.PlainText; Layout.fillWidth: true
             }
             VinylPlaceholder {
-                visible: !screen.historical && screen.state.loaded && screen.state.moments.length === 0 &&
+                visible: !screen.historical && screen.state.loaded && screen.state.moments.length === 0 && screen.state.conversation.length === 0 &&
                     (!screen.state.profile_confirmation_required || screen.backend.demoMode)
                 Layout.preferredWidth: Math.min(parent.width, screen.compact ? screen.height * 0.38 : 520)
                 Layout.preferredHeight: width
@@ -231,7 +238,7 @@ Item {
                 GlassButton { text: screen.tr("session_start"); primary: true; enabled: !screen.owner.busy; onClicked: screen.owner.start(screen.proposedMood) }
             }
             GlassCard {
-                visible: !screen.historical && screen.state.session_id.length > 0 && screen.state.moments.length === 0
+                visible: !screen.historical && screen.state.session_id.length > 0 && screen.state.moments.length === 0 && screen.state.conversation.length === 0
                 Layout.fillWidth: true
                 RowLayout {
                     Layout.fillWidth: true; spacing: 18
@@ -264,7 +271,24 @@ Item {
                     Layout.fillWidth: true
                     Text { visible: liveSources.ready; text: modelData.title; textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 26; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                     Text { visible: liveSources.ready; text: modelData.body; textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 23; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                    GlassButton {
+                        visible: screen.state.composer_available && liveSources.ready
+                        text: screen.tr("session_ask_about"); enabled: !screen.owner.busy
+                        onClicked: { if (screen.owner.selectMoment(screen.state.session_id, modelData.moment_id)) composerPanel.open() }
+                    }
                     SessionAttribution { id: liveSources; sources: modelData.display_sources || []; requiresSpotify: modelData.requires_spotify_attribution || false; spotifyURL: modelData.spotify_source_url || ""; Layout.fillWidth: true }
+                }
+            }
+            Repeater {
+                model: !screen.historical ? screen.state.conversation : []
+                GlassCard {
+                    objectName: "sessionConversationCard"
+                    required property var modelData
+                    Layout.fillWidth: true
+                    Text { text: screen.tr(modelData.kind === "conversation_user" ? "session_you" : "session_dj"); color: BrandTheme.colors.muted; font.pixelSize: 18; textFormat: Text.PlainText }
+                    Text { visible: conversationSources.ready; text: modelData.text || ""; color: BrandTheme.colors.text; font.pixelSize: 22; textFormat: Text.PlainText; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                    Text { text: screen.displayDate(modelData.occurred_at); color: BrandTheme.colors.muted; font.pixelSize: 16; textFormat: Text.PlainText }
+                    SessionAttribution { id: conversationSources; sources: modelData.display_sources || []; requiresSpotify: modelData.requires_spotify_attribution || false; spotifyURL: modelData.spotify_source_url || ""; Layout.fillWidth: true }
                 }
             }
             GlassButton {
@@ -308,6 +332,11 @@ Item {
                     }
                     Text { text: modelData.text || ""; visible: historySources.ready && text.length > 0; color: BrandTheme.colors.text; font.pixelSize: 22; wrapMode: Text.WordWrap; textFormat: Text.PlainText; Layout.fillWidth: true }
                     SessionAttribution { id: historySources; sources: modelData.display_sources || []; requiresSpotify: modelData.requires_spotify_attribution || false; spotifyURL: modelData.spotify_source_url || ""; Layout.fillWidth: true }
+                    GlassButton {
+                        visible: screen.state.composer_available && historySources.ready
+                        text: screen.tr("session_ask_about"); enabled: !screen.owner.busy
+                        onClicked: { if (screen.owner.selectEntry(modelData.session_id, modelData.entry_id)) { screen.navigate("session"); composerPanel.open() } }
+                    }
                     Text { objectName: "sessionHistoryEntryDate"; text: screen.displayDate(modelData.occurred_at); color: BrandTheme.colors.muted; font.pixelSize: 16; textFormat: Text.PlainText }
                 }
             }
@@ -318,6 +347,79 @@ Item {
             }
             GlassButton { visible: screen.historical && !screen.state.timeline.session && screen.state.has_more_sessions; text: screen.tr("session_more"); enabled: !screen.owner.busy; onClicked: screen.owner.moreHistory() }
             BusyIndicator { visible: screen.owner.busy; running: visible; Layout.alignment: Qt.AlignHCenter }
+        }
+    }
+    GlassSurface {
+        id: composerDock
+        objectName: "sessionComposerDock"
+        visible: screen.state.composer_available
+        anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
+        anchors.leftMargin: 20; anchors.rightMargin: 20; anchors.bottomMargin: 120
+        height: composerColumn.implicitHeight + 16; radius: 30; elevated: true
+        ColumnLayout {
+            id: composerColumn
+            anchors.fill: parent; anchors.margins: 8; spacing: 4
+            Text {
+                visible: screen.state.question_status.length > 0
+                text: screen.tr("session_question_" + (screen.state.question_status || "sending"))
+                Layout.fillWidth: true; Layout.leftMargin: 16
+                color: BrandTheme.colors.muted; font.pixelSize: 16; wrapMode: Text.WordWrap; textFormat: Text.PlainText
+            }
+            RowLayout {
+                Layout.fillWidth: true; spacing: 8
+                GlassButton {
+                    Layout.fillWidth: true; enabled: !screen.owner.busy
+                    onClicked: composerPanel.open()
+                    contentItem: Text { text: screen.draft || screen.tr("session_question_placeholder"); textFormat: Text.PlainText; elide: Text.ElideRight; color: BrandTheme.colors.muted; font.pixelSize: 21; verticalAlignment: Text.AlignVCenter }
+                }
+                GlassButton {
+                    iconName: "send"; Accessible.name: screen.tr("session_send"); primary: true
+                    enabled: !screen.owner.busy && screen.draft.trim().length > 0
+                    onClicked: { composeInput.text = screen.draft; screen.submitQuestion() }
+                }
+            }
+        }
+    }
+    Popup {
+        id: composerPanel
+        objectName: "sessionComposerPanel"
+        x: 16; y: toolbar.y + toolbar.height + 8
+        width: screen.width - 32; height: Math.min(screen.height - y - 126, 580)
+        padding: 20; modal: true; dim: false
+        onOpened: { composeInput.text = screen.draft; composeInput.forceActiveFocus() }
+        background: GlassSurface { elevated: true }
+        contentItem: ColumnLayout {
+            spacing: 12
+            Text { text: screen.tr("session_question_title"); color: BrandTheme.colors.text; font.bold: true; font.pixelSize: 25; textFormat: Text.PlainText; Layout.fillWidth: true }
+            RowLayout {
+                visible: !!screen.state.selection.kind
+                Layout.fillWidth: true
+                Text { text: screen.tr("session_question_selected"); color: BrandTheme.colors.muted; font.pixelSize: 18; wrapMode: Text.WordWrap; textFormat: Text.PlainText; Layout.fillWidth: true }
+                GlassButton { iconName: "end"; Accessible.name: screen.tr("session_clear_reference"); onClicked: screen.owner.clearSelection() }
+            }
+            TextField {
+                id: composeInput
+                objectName: "sessionComposerInput"
+                Layout.fillWidth: true; Layout.minimumHeight: 58
+                placeholderText: screen.tr("session_question_placeholder")
+                Accessible.name: screen.tr("session_question_placeholder")
+                maximumLength: 4000; selectByMouse: true; font.pixelSize: 22
+                onTextChanged: screen.draft = text
+                onAccepted: screen.submitQuestion()
+            }
+            TouchKeyboard {
+                objectName: "sessionComposerKeyboard"
+                Layout.fillWidth: true; target: composeInput; backend: screen.backend
+                submitIcon: "send"; submitLabel: screen.tr("session_send")
+                onSubmitted: screen.submitQuestion()
+                onDismissed: composerPanel.close()
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                GlassButton { text: screen.tr("close"); onClicked: composerPanel.close() }
+                Item { Layout.fillWidth: true }
+                GlassButton { text: screen.tr("session_send"); iconName: "send"; primary: true; enabled: !screen.owner.busy && composeInput.text.trim().length > 0; onClicked: screen.submitQuestion() }
+            }
         }
     }
     Popup {

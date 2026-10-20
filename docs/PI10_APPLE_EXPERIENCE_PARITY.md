@@ -373,3 +373,62 @@ question remains pending; no repeat ping or producer WIP adoption occurred.
 Continuous/backward history, composer/context, additional media/source families,
 forecast/reactions, remaining Apple destinations and backdrop effects remain open.
 No merge, release, installation, pairing or HA operation occurred.
+
+### Active Session text composer and confirmed-history checkpoint
+
+All applicable checks on48f85a07e032191d63b4d2989694476fdee55fc6 passed. The
+released producer was independently resolved in protected Core8b221d07: existing
+POST ask_dj/message, contextual dialogue capability/version1, history entries2,
+canonical raspberry_pi validation and Profile authorization. The observed,
+sanitized sixteen-case handoff fixture is copied unchanged; SHA256
+9be892d55c8aaee4871e54ac68ed04945fb0676ce5472e2091a83ee66b2151a8.
+It pins runtimec21dc337 and the protected contextual-dialogue source readback;
+it does not qualify installed Pi or authorize a new provider call. No Core WIP
+was imported, no model/provider was called and no real HA command was sent.
+
+Both sizes now share an active-Session text composer, touch keyboard and send
+icon. It requires explicit/current matching Profile, private owner privacy,
+known personal/household type, non-ephemeral mode and the exact published gates.
+A deliberate send carries one fresh client_message_id, exact Session and optional
+selected Moment or retained entry. audio_response is never; no local speech,
+image/media fetch or returned semantic/action payload is executed by the client.
+The server may interpret an explicitly submitted control request through its
+existing authority; these tests exercised only synthetic transports.
+
+Receipt validation binds resolved owner, client identity, exact context, text
+input and turn/entry IDs. Only a fresh, validated history2 read supplies visible
+conversation rows. Body/role/input/turn are checked; unrelated history Moments
+never become current chat. Exact returned entry IDs plus matching client/turn and
+both roles are required before the new answer is marked visible. An older chat
+cannot satisfy a new receipt. Accepted-but-unavailable history is distinguished
+from unconfirmed delivery. No optimistic user/assistant bubble or write replay
+exists. A possible write timeout remains uncertain. Profile/background changes
+discard late results; selected-source expiry clears the reference and draft.
+Acceptance status and draft do not migrate to a replacement Runtime. Empty vinyl
+and introductory cards also yield to confirmed conversation text.
+
+The local capability advertisement now reports text/free input; voice/audio
+remain false. The separate old Ask DJ history/actions destination still has no
+composer. The owner's full-app selection supersedes the old readonly Pi baseline
+for this draft. Core consumer documentation must be reconciled by its own writer
+before protected release; Pi does not write into Core. This is not authority to
+merge/install or to claim complete contextual client acceptance.
+
+Validation:730 full tests passed, Ruff0.16.0 passed, HTTP/WebSocket/security
+fixtures each returned0 and hostverify MATCH. The broad QML regression rendered86
+views after composer integration; the final dedicated real-controller/QML harness
+rendered24 composer views on both sizes, including all five languages, explicit
+send/readback, selected published Moment/retained entry, source withdrawal and
+private-draft clearing. Its transport is explicitly synthetic. The copied Core
+receipt is separately exercised by the decoder unit test. Local wheel
+1701c8688f9291cbb7fc7a91bbdf687d4e15414fa265536e503c5d43271c7b2f
+matches all57 packaged sources. Evidence is in pi-session-composer under the task
+visualization directory. No ARM/live/installed/physical/model qualification.
+
+Open: standalone and private-ephemeral composition, rich response choices/actions,
+full conversation paging/receipt reconciliation and reply scroll/reading polish.
+Transport is currently serialized: a pending question temporarily blocks other
+Session actions, including end; source expiry/background invalidation still run.
+That concurrency/UX gap must be fixed before claiming parity. Other media/source
+families, artwork/forecast/reactions, remaining destinations and backdrop effects
+remain open. No merge, release, install, pairing or HA operation occurred.

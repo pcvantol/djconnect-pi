@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from uuid import uuid4
 
 from PySide6.QtCore import (
     Property,
@@ -18,6 +19,8 @@ from .config import save_config
 from .expiry_clock import ExpiryClock
 from .i18n import locale_for_language, translate
 from .session_history_view import (
+    accepted_question,
+    conversation_entries,
     live_presentations,
     opened_entry,
     page_cursor,
@@ -32,6 +35,7 @@ class SessionController(QObject):
     changed = Signal()
     entryOpened = Signal()
     timelineUpdated = Signal(str)
+    selectionInvalidated = Signal()
     contextCleared = Signal()
     _ready = Signal(object)
 
@@ -43,6 +47,9 @@ class SessionController(QObject):
         self._foreground = True
         self._session = {}
         self._moments = []
+        self._conversation = []
+        self._selection = {}
+        self._question_status = ""
         self._sessions = []
         self._timeline = {}
         self._error = ""
@@ -68,6 +75,8 @@ class SessionController(QObject):
             "mood": self._session.get("selected_mood", ""),
             "presence": self._session.get("selected_presence", ""),
             "persona": self._session.get("dj_persona", ""),
+            "composer_available": self._composer_supported(), "conversation": deepcopy(self._conversation),
+            "selection": deepcopy(self._selection), "question_status": self._question_status,
             "moments": deepcopy(self._moments), "sessions": deepcopy(self._sessions),
             "timeline": deepcopy(self._timeline), "search": deepcopy(self._search), "error": self._error,
             "profile_confirmation_required": not bool(self.backend.cfg.explicit_profile_id),
@@ -96,6 +105,9 @@ class SessionController(QObject):
         self._running = 0
         self._session = {}
         self._moments = []
+        self._conversation = []
+        self._selection = {}
+        self._question_status = ""
         self._sessions = []
         self._timeline = {}
         self._caps = {}
@@ -155,8 +167,75 @@ class SessionController(QObject):
                 self._search = {}
                 self._error = "unavailable"
                 changed = True
+        retained_conversation = [row for row in self._conversation if (timestamp(row.get("retained_until")) or 0) > now]
+        if retained_conversation != self._conversation:
+            self._conversation = retained_conversation
+            changed = True
+        if not self._selection_valid():
+            self._selection = {}
+            self._question_status = "reference_unavailable"
+            self.selectionInvalidated.emit()
+            changed = True
         if changed:
             self.changed.emit()
+
+    def _composer_supported(self):
+        cfg = self.backend.cfg
+        return (self._history_supported() and self._caps.get("capabilities", {}).get("ask_dj_contextual_dialogue") is True
+                and type(self._caps.get("contract_versions", {}).get("ask_dj_contextual_dialogue")) is int
+                and self._caps["contract_versions"]["ask_dj_contextual_dialogue"] == 1
+                and self._session.get("runtime_state") == "active"
+                and cfg.explicit_profile_id == cfg.active_profile_id and bool(cfg.explicit_profile_id)
+                and not cfg.private_session and cfg.active_profile_type in {"personal", "household"}
+                and cfg.active_profile_privacy_mode == "private")
+
+    def _selection_valid(self):
+        if not self._selection:
+            return True
+        selected = self._selection
+        if selected["kind"] == "selected_moment":
+            return selected["session_id"] == self._session.get("session_id") and any(row["moment_id"] == selected["moment_id"] for row in live_presentations(self._session, now=self._clock.now()))
+        return (selected["session_id"] == self._timeline.get("session", {}).get("session_id")
+                and any(row["entry_id"] == selected["entry_id"] and (timestamp(row.get("retained_until")) or 0) > self._clock.now()
+                        for row in self._timeline.get("entries", [])))
+
+    @Slot()
+    def clearSelection(self):
+        self._selection = {}
+        self.changed.emit()
+
+    @Slot(str, str, result=bool)
+    def selectMoment(self, session_id, moment_id):
+        self._selection = {"kind": "selected_moment", "session_id": session_id, "moment_id": moment_id}
+        valid = self._selection_valid()
+        if not valid:
+            self._selection = {}
+        self.changed.emit()
+        return valid
+
+    @Slot(str, str, result=bool)
+    def selectEntry(self, session_id, entry_id):
+        self._selection = {"kind": "selected_entry", "session_id": session_id, "entry_id": entry_id}
+        valid = self._selection_valid()
+        if not valid:
+            self._selection = {}
+        self.changed.emit()
+        return valid
+
+    @Slot(str, result=bool)
+    def sendQuestion(self, body):
+        if self._running or not self._foreground or not self._composer_supported() or not isinstance(body, str) or not 1 <= len(body.strip()) <= 4000:
+            return False
+        if not self._selection_valid():
+            self._selection = {}
+            self._error = "context_changed"
+            self.selectionInvalidated.emit()
+            self.changed.emit()
+            return False
+        request = {"text": body.strip(), "client_message_id": "pi-turn-" + uuid4().hex,
+            "session_id": self._session["session_id"], "selected": deepcopy(self._selection)}
+        self._launch("question", request)
+        return bool(self._running)
 
     def _search_supported(self):
         features = self._caps.get("capabilities", {})
@@ -301,6 +380,8 @@ class SessionController(QObject):
             self._error = "unsupported"
             self.changed.emit()
             return
+        if action == "question" and not self._composer_supported():
+            return
         if action in {"search", "search_more"} and not self._search_supported():
             self._error = "unsupported"
             self.changed.emit()
@@ -310,12 +391,29 @@ class SessionController(QObject):
         serial = self._serial
         self._running = serial
         self._error = ""
+        if action == "question":
+            self._question_status = "sending"
         self.changed.emit()
 
         def worker():
             result = {"serial": serial, "binding": binding, "action": action, "view_epoch": view_epoch}
             try:
-                if action in {"history", "history_more"}:
+                if action == "question":
+                    receipt = accepted_question(self.transport.question(binding, value), binding, value)
+                    result["question_accepted"] = True
+                    result["expected_session_id"] = value["session_id"]
+                    fresh = active_session(self.transport.active(binding))
+                    if fresh.get("session_id") != value["session_id"]:
+                        raise SessionError("context_changed")
+                    result["session"] = fresh
+                    page = history_page(self.transport.timeline(binding, value["session_id"]), session_id=value["session_id"], now=self._clock.now())
+                    result["conversation"] = conversation_entries(page)
+                    accepted_ids = set(receipt["entry_ids"])
+                    accepted_rows = [row for row in result["conversation"] if row["entry_id"] in accepted_ids]
+                    result["question_visible"] = (len(accepted_ids) == 2 and len(accepted_rows) == 2
+                        and {row["role"] for row in accepted_rows} == {"user", "assistant"}
+                        and all(row.get("client_message_id") == value["client_message_id"] and row["turn_id"] == receipt["turn_id"] for row in accepted_rows))
+                elif action in {"history", "history_more"}:
                     result["history"] = history_page(self.transport.history(binding, cursor=value), now=self._clock.now())
                     page_cursor(result["history"].get("next_cursor"))
                 elif action == "timeline":
@@ -365,6 +463,14 @@ class SessionController(QObject):
                         result["capabilities"] = self.transport.capabilities(binding)
                     except SessionError:
                         result["capabilities"] = {}
+                    caps = result["capabilities"]
+                    sid = result["session"].get("session_id")
+                    if sid and caps.get("capabilities", {}).get("ask_dj_contextual_dialogue") is True and caps.get("contract_versions", {}).get("session_history_entries") == 2:
+                        try:
+                            page = history_page(self.transport.timeline(binding, sid), session_id=sid, now=self._clock.now())
+                            result["conversation"] = conversation_entries(page)
+                        except SessionError:
+                            result["conversation"] = []
             except SessionError as exc:
                 result["error"] = exc.category
             except (AttributeError, KeyError, OverflowError, TypeError, ValueError):
@@ -385,6 +491,18 @@ class SessionController(QObject):
         except SessionError:
             self.invalidate()
             return
+        if result["action"] == "question":
+            if "error" in result:
+                self._question_status = "accepted_unavailable" if result.get("question_accepted") else "uncertain" if result["error"] == "uncertain" else "failed"
+                self._conversation = []
+                self._selection = {}
+                if result["error"] not in {"denied", "context_changed", "unpaired"}:
+                    self._error = result["error"]
+                    self.changed.emit()
+                    return
+            else:
+                self._question_status = "accepted" if result.get("question_visible") else "accepted_unavailable"
+                self._selection = {}
         history_action = result["action"] in {"history", "history_more", "timeline", "timeline_refresh", "timeline_page", "search", "search_more", "open_entry"}
         if history_action and result.get("view_epoch") != self._view_epoch:
             self.changed.emit()
@@ -399,6 +517,8 @@ class SessionController(QObject):
             self._search = {}
             self._session = {}
             self._moments = []
+            self._conversation = []
+            self._selection = {}
             self._timeline = {}
             self._sessions = []
             self._loaded = False
@@ -406,12 +526,17 @@ class SessionController(QObject):
             self._error = result["error"]
         else:
             if "session" in result:
+                if self._session.get("session_id") != result["session"].get("session_id"):
+                    self._question_status = ""
+                    self._selection = {}
                 self._loaded = True
                 self._session = result["session"]
                 self._moments = live_presentations(self._session, now=self._clock.now())
-                self._caps = result.get("capabilities", {})
+                self._caps = result.get("capabilities", self._caps)
+                self._conversation = result.get("conversation", [])
                 if not self._history_supported():
                     self._timeline = {}
+                    self._conversation = []
                     self._sessions = []
                     self._history_cursor = ""
                     self._history_loaded = False

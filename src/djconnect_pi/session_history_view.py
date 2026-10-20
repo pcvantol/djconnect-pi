@@ -151,3 +151,46 @@ def spotify_source(subject):
         if value and urlsplit(value).hostname == "open.spotify.com":
             return value
     raise SessionError("invalid")
+
+
+def accepted_question(response, binding, request):
+    """Validate acceptance only; never turn transient media/actions into retained rights."""
+    conversation = response.get("conversation")
+    expected = {"session_id": request["session_id"]}
+    selected = request.get("selected") or {}
+    if selected:
+        key = "entry_id" if selected["kind"] == "selected_entry" else "moment_id"
+        expected[selected["kind"]] = {"session_id": selected["session_id"], key: selected[key]}
+    if (response.get("success") is not True or response.get("owner_profile_id") != binding.resolved_profile_id
+            or response.get("client_message_id") != request["client_message_id"]
+            or not isinstance(conversation, dict) or type(conversation.get("schema_version")) is not int
+            or conversation["schema_version"] != 1 or conversation.get("input_type") != "text"
+            or conversation.get("context") != expected):
+        raise SessionError("uncertain")
+    try:
+        identifier(conversation.get("turn_id"))
+    except SessionError:
+        raise SessionError("uncertain") from None
+    entries = conversation.get("entry_ids")
+    if not isinstance(entries, list) or len(entries) > 2 or len(set(map(str, entries))) != len(entries):
+        raise SessionError("uncertain")
+    try:
+        for entry in entries:
+            identifier(entry)
+    except SessionError:
+        raise SessionError("uncertain") from None
+    return conversation
+
+
+def conversation_entries(page):
+    rows = []
+    for row in page["entries"]:
+        if row["kind"] not in {"conversation_user", "conversation_dj"}:
+            continue
+        expected_role = "user" if row["kind"] == "conversation_user" else "assistant"
+        if (row.get("role") != expected_role or not isinstance(row.get("text"), str)
+                or len(row["text"]) > 32768 or row.get("input_type") not in {"text", "voice"}):
+            raise SessionError("invalid")
+        identifier(row.get("turn_id"))
+        rows.append(row)
+    return presented_history({"entries": rows})["entries"]

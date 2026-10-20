@@ -98,7 +98,12 @@ authorized Universal Receiver session/Broadcast smoke scenario.
 - Music backend selection is Home Assistant-side. The Pi displays the backend
   summary returned by HA and does not store Spotify credentials or assume
   Spotify Direct over Music Assistant.
-- Ask DJ is `readonly_actions`. The Pi polls server-side history, displays
+- The active DJ Session now supports explicit, Profile-bound text questions when
+  Core advertises contextual dialogue1 and history entries2. Selected Moment/entry
+  references are exact IDs; only freshly read accepted conversation entries render.
+  Sending never retries automatically or requests local speech. Standalone and
+  private-ephemeral text composition remain open in this draft.
+- The separate Ask DJ history/actions page polls server-side history, displays
   assistant/system/status/user bubbles and sends only Home Assistant-provided
   structured action payloads through `/api/djconnect/v1/command`. Chat history
   clear is server-side only: the touch UI asks for confirmation, calls

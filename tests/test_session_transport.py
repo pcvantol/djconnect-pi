@@ -74,3 +74,32 @@ def test_no_request_with_old_binding_or_invalid_mood(transport):
     with pytest.raises(SessionError, match="invalid"):
         client.start(client.binding(), "continue")
     request.assert_not_called()
+
+
+def test_question_is_single_profile_bound_text_only_request_with_exact_context(transport):
+    client, cfg, request, _ = transport
+    value = {'text': '  Tell me about this  ', 'client_message_id': 'pi-turn-fixture', 'session_id': 'active',
+        'selected': {'kind': 'selected_entry', 'session_id': 'earlier', 'entry_id': 'entry-1'}}
+    client.question(client.binding(), value)
+    body = request.call_args.kwargs['json']
+    assert body['client_type'] == 'raspberry_pi' and body['profile_id'] == cfg.explicit_profile_id
+    assert body['text'] == 'Tell me about this' and body['audio_response'] == 'never'
+    assert body['conversation_context'] == {'session_id': 'active', 'selected_entry': {'session_id': 'earlier', 'entry_id': 'entry-1'}}
+    assert request.call_args.kwargs['timeout'] == (8, 120)
+    request.assert_called_once()
+
+
+def test_question_timeout_is_uncertain_with_no_write_replay(transport):
+    client, _, request, _ = transport
+    request.side_effect = requests.Timeout()
+    with pytest.raises(SessionError, match='uncertain'):
+        client.question(client.binding(), {'text': 'A question', 'client_message_id': 'new-turn', 'session_id': 'active'})
+    request.assert_called_once()
+
+
+def test_malformed_success_body_after_question_is_an_uncertain_mutation(transport):
+    client, _, request, response = transport
+    response.json.return_value = []
+    with pytest.raises(SessionError, match='uncertain'):
+        client.question(client.binding(), {'text':'Question','client_message_id':'turn','session_id':'active'})
+    request.assert_called_once()

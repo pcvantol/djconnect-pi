@@ -75,6 +75,9 @@ Canvas {
 
             if (iconName === "search") {
                 circle(14, 14, 8, false); line(20, 20, 27, 27)
+            } else if (iconName === "send") {
+                line(5, 14, 28, 4); line(28, 4, 19, 28); line(19, 28, 14, 19)
+                line(14, 19, 5, 14); line(14, 19, 28, 4)
             } else if (iconName === "history") {
                 ctx.beginPath(); ctx.arc(px(16), py(16), 10, -Math.PI * 0.8, Math.PI * 0.8); ctx.stroke()
                 line(8, 5, 7, 12); line(7, 12, 13, 11)
