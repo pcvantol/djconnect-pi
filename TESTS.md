@@ -504,3 +504,9 @@ They check expiry before GUI admission, parent-before-entry removal, rollback,
 selected-context notification and no body/cursor resurrection. Real QML uses a
 synthetic short-lived terminal header plus longer-lived entries in all locales
 on both layouts, asserting empty rows/detail and cleared selected draft.
+
+
+Pending status polish is qualified in actual QML: Sending is hidden only in the
+dock while its pending card is visible; accepted/uncertain status returns after
+completion. All five locales on both layouts include a real controller with
+synthetic uncertain transport, preserving no-replay behavior and warning text.

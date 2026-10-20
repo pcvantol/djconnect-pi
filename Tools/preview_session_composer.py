@@ -466,10 +466,12 @@ def main():
             assert window.findChild(QObject,'sessionPendingQuestionText').property('text')==owner.state['pending_question']['text']
             assert QQmlExpression(engine.rootContext(),window.findChild(QObject,'sessionPendingQuestionText'),'textFormat === 0').evaluate()[0] is True
             assert not owner.state['current_reply']
+            assert not window.findChild(QObject,'sessionComposerStatus').property('visible')
             capture('current-question-pending-'+language)
             question_job();complete_navigation()
             assert not owner.state['pending_question']
             assert not window.findChild(QObject,'sessionPendingQuestion').property('visible')
+            assert window.findChild(QObject,'sessionComposerStatus').property('visible')
             assert owner.state['current_reply']['text']==current_response['text']
             question_text=window.findChild(QObject,'sessionCurrentQuestionText')
             assert question_text.property('text')==owner.state['current_reply']['question_text']=='Synthetic <img> 🎧\nQuestion about selected live credit'
@@ -479,6 +481,18 @@ def main():
             assert not owner._question_receipt
             capture('current-response-not-saved-'+language)
             assert window.findChild(QObject,'sessionCurrentReply').property('visible')
+            accepted_transport=owner.transport.question
+            owner.transport.question=Mock(side_effect=SessionError('uncertain'))
+            assert owner.selectMoment(native_session['session_id'],current['moment_id'])
+            field.setProperty('text','Synthetic uncertain delivery probe')
+            QMetaObject.invokeMethod(screen,'submitQuestion')
+            uncertain_job=backend._executor.submit.call_args.args[0]
+            uncertain_job();complete_navigation()
+            assert owner.state['question_status']=='uncertain' and not owner.state['pending_question']
+            assert window.findChild(QObject,'sessionComposerStatus').property('visible')
+            assert window.findChild(QObject,'sessionComposerStatus').property('text')
+            capture('current-question-uncertain-status-'+language)
+            owner.transport.question=accepted_transport
         # Current-only replies have no retained entry ID. Remember only their
         # receipt identity/position, and resolve against the still-live card.
         # Explicit synthetic long reply ensures a distinct visible reply on

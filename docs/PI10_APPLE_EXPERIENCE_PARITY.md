@@ -1242,3 +1242,27 @@ bring the full result to872 passed; updated source/package/QML receipts are kept
 with the same evidence directory. No permissions or server writes are broadened.
 
 Final fenced wheel SHA256 475ad76d09c55f1e55f0810263700f4f6460f43b9396bd97701f2737c34a4793 matches all60 packaged sources.
+
+
+### Pending status copy — final bounded night polish
+
+The Sending caption is no longer duplicated in both the pending question card
+and composer dock. Only the dock's Sending copy is hidden while the pending
+card is actually visible. When history/Forecast hides that card, dock status
+remains available; confirmed, failed and uncertain states are not suppressed.
+No transport, lifetime, server contract, string or write behavior changes.
+
+The actual QML harness holds a question, verifies the dock copy is hidden, then
+completes acceptance and checks that status returns. A separate synthetic
+uncertain response in every locale/layout must leave the dock warning visible,
+without a pending or fabricated answer. Broader parity/live/ARM/install gates
+remain open. The last full Python suite on parent e87bd08 is872 passed and its
+applicable CI passed (24successes/4conditional skips). This QML-only change uses
+actual render checks and package verification; no redundant local Python suite
+is attributed to the new head. New-head CI is independent.
+
+Final polish verification:230 dedicated actual QML views plus116 broad views,
+no errors/binding loops; Ruff0.16.0 src/tests passed and hostverify MATCH.
+Wheel dfd6b13d5085413b4b12fd74d18d233126ca39ebade2db13134b6e666c67ffc5
+matches all60 packaged sources. Pending/uncertain captures were visually checked
+on both canvases. Evidence: pi-session-sending-polish under task visualizations.

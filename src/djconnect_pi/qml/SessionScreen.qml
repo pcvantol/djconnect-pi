@@ -715,7 +715,8 @@ Item {
             id: composerColumn
             anchors.fill: parent; anchors.margins: 8; spacing: 4
             Text {
-                visible: screen.state.question_status.length > 0
+                objectName: "sessionComposerStatus"
+                visible: screen.state.question_status.length > 0 && (screen.state.question_status !== "sending" || !pendingQuestionCard.visible)
                 text: screen.tr("session_question_" + (screen.state.question_status || "sending"))
                 Layout.fillWidth: true; Layout.leftMargin: 16
                 color: BrandTheme.colors.muted; font.pixelSize: 16; wrapMode: Text.WordWrap; textFormat: Text.PlainText
