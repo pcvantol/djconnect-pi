@@ -335,3 +335,15 @@ Tools/preview_session_composer.py uses synthetic transport with the actual
 controller/QML for both sizes, five locales, explicit send/readback and draft
 withdrawal. Copied released Core transport receipts anchor decoder syntax; these
 checks do not invoke a provider or establish live/installed Pi acceptance.
+
+Session concurrency tests keep one text POST separate from bounded Session reads
+and lifecycle control. They cover both completion orders of a concurrent refresh,
+End superseding a read, duplicate-write rejection, source/capability/Runtime
+withdrawal, denial and late-result fences. A fresh-process Qt probe holds a real
+question worker at a barrier and proves End completes before releasing it; this
+avoids native timers left alive by unrelated backend tests. Transport remains
+synthetic: this is not HA/ARM/suspend/physical qualification.
+The composer preview also renders pending-question controls, a concurrent read
+with End still available, and the ended state after discarded late work on both
+sizes. Queued questions revoked before dispatch are not sent. Started requests
+are not described as cancelled and are never automatically replayed.

@@ -225,6 +225,9 @@ class DJConnectBackend(QObject):
         self._backend_available = True
         self._busy = False
         self._executor = ThreadPoolExecutor(max_workers=UI_WORKER_COUNT, thread_name_prefix="djconnect")
+        # Bounded independent lanes: slow text generation cannot occupy Session control.
+        self._session_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="djconnect-session")
+        self._question_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="djconnect-question")
         self._session_controller = SessionController(self)
         self._poll_timer = QTimer(self)
         self._poll_timer.setInterval(5000)
@@ -2444,6 +2447,9 @@ class DJConnectBackend(QObject):
         _LOGGER.info("Stopping DJConnect Pi client backend")
         self._poll_timer.stop()
         self._event_timer.stop()
+        self._session_controller.setForeground(False)
+        self._session_executor.shutdown(wait=False, cancel_futures=True)
+        self._question_executor.shutdown(wait=False, cancel_futures=True)
         self._executor.shutdown(wait=False, cancel_futures=True)
 
     @Slot()

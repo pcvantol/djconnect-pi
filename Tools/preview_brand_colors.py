@@ -46,6 +46,8 @@ def main():
         for timer in backend.findChildren(QTimer):
             timer.stop()
         backend._executor.submit = Mock()
+        backend._session_executor.submit = backend._executor.submit
+        backend._question_executor.submit = backend._executor.submit
         engine = QQmlApplicationEngine()
         engine.rootContext().setContextProperty("djconnect", backend)
         engine.rootContext().setContextProperty("startWindowed", True)

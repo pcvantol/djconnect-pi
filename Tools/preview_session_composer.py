@@ -44,6 +44,8 @@ def main():
         for timer in backend.findChildren(QTimer):
             timer.stop()
         backend._executor.submit = Mock()
+        backend._session_executor.submit = backend._executor.submit
+        backend._question_executor.submit = backend._executor.submit
         owner = backend.djSession
         caps = {'capabilities': {'session_conversation_history':True, 'ask_dj_contextual_dialogue':True},
             'contract_versions': {'session_history_entries':2,'ask_dj_contextual_dialogue':1}}
@@ -129,6 +131,30 @@ def main():
         owner.invalidate()
         assert field.property('text')=='' and not panel.property('opened')
         capture('composer-context-cleared')
+        # Keep a synthetic POST pending while real QML exposes refresh and End.
+        owner._session=session;owner._caps=caps;owner._loaded=True;owner.changed.emit()
+        if owner.busy:
+            backend._executor.submit.call_args.args[0]()
+        assert owner.sendQuestion('Pending synthetic question')
+        pending_question=backend._executor.submit.call_args.args[0]
+        end_button=window.findChild(QObject,'sessionCompactEnd' if width < 900 else 'sessionExpandedEnd')
+        refresh_button=window.findChild(QObject,'sessionRefresh')
+        assert owner.questionBusy and not owner.busy
+        assert end_button.property('enabled') and refresh_button.property('enabled')
+        capture('composer-pending-controls-available')
+        owner.refresh()
+        pending_read=backend._executor.submit.call_args.args[0]
+        assert end_button.property('enabled')
+        capture('composer-pending-read-end-available')
+        owner.transport.end=Mock()
+        owner.end(session['session_id'])
+        end_worker=backend._executor.submit.call_args.args[0]
+        owner.transport.active.return_value={'success':True,'session':None}
+        end_worker();pending_read();pending_question()
+        assert not owner.state['session_id'] and not owner.state['conversation'] and not owner.questionBusy
+        owner.transport.end.assert_called_once()
+        assert owner.transport.question.call_count==1  # second question was revoked before dispatch
+        capture('composer-ended-late-answer-withdrawn')
         # Original published native grant, same UI/caps; no metadata or deadline rewrite.
         frames=json.loads((ROOT/'tests/fixtures/session_core/native-expressive-snapshots.json').read_text())
         snapshot=frames['formation']['nl']['home_dj'][-1]

@@ -144,8 +144,9 @@ Item {
                 }
                 GlassButton {
                     visible: screen.state.session_id.length > 0 && !screen.historical
+                    objectName: "sessionCompactEnd"
                     iconName: "end"; Accessible.name: screen.tr("session_end")
-                    enabled: !screen.owner.busy && screen.state.runtime_state !== "ending"
+                    enabled: !screen.owner.lifecycleBusy && screen.state.runtime_state !== "ending"
                     implicitWidth: 52; background: Item {}
                     onClicked: { endConfirmation.expectedSessionId = screen.state.session_id; endConfirmation.open() }
                 }
@@ -164,6 +165,7 @@ Item {
                     onClicked: connectionInfo.open()
                 }
                 GlassButton {
+                    objectName: "sessionRefresh"
                     iconName: "refresh"; Accessible.name: screen.tr("refresh")
                     implicitWidth: 52; background: Item {}
                     enabled: !screen.owner.busy
@@ -256,8 +258,9 @@ Item {
                     GlassButton { text: screen.tr("session_history"); enabled: !screen.owner.busy; onClicked: { screen.owner.loadHistory(); screen.navigate("history") } }
                     Item { Layout.fillWidth: true }
                     GlassButton {
+                        objectName: "sessionExpandedEnd"
                         iconName: "trash"; Accessible.name: screen.tr("session_end")
-                        enabled: !screen.owner.busy && screen.state.runtime_state !== "ending"
+                        enabled: !screen.owner.lifecycleBusy && screen.state.runtime_state !== "ending"
                         onClicked: { endConfirmation.expectedSessionId = screen.state.session_id; endConfirmation.open() }
                     }
                 }
@@ -374,7 +377,7 @@ Item {
                 }
                 GlassButton {
                     iconName: "send"; Accessible.name: screen.tr("session_send"); primary: true
-                    enabled: !screen.owner.busy && screen.draft.trim().length > 0
+                    enabled: !screen.owner.busy && !screen.owner.questionBusy && screen.draft.trim().length > 0
                     onClicked: { composeInput.text = screen.draft; screen.submitQuestion() }
                 }
             }
@@ -418,7 +421,7 @@ Item {
                 Layout.fillWidth: true
                 GlassButton { text: screen.tr("close"); onClicked: composerPanel.close() }
                 Item { Layout.fillWidth: true }
-                GlassButton { text: screen.tr("session_send"); iconName: "send"; primary: true; enabled: !screen.owner.busy && composeInput.text.trim().length > 0; onClicked: screen.submitQuestion() }
+                GlassButton { text: screen.tr("session_send"); iconName: "send"; primary: true; enabled: !screen.owner.busy && !screen.owner.questionBusy && composeInput.text.trim().length > 0; onClicked: screen.submitQuestion() }
             }
         }
     }

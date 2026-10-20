@@ -55,6 +55,11 @@ class SessionController(QObject):
         self._error = ""
         self._serial = 0
         self._running = 0
+        self._running_action = ""
+        self._question_running = 0
+        self._question_epoch = 0
+        self._last_current_read = 0
+        self._reconcile_question = False
         self._caps = {}
         self._loaded = False
         self._history_loaded = False
@@ -100,9 +105,27 @@ class SessionController(QObject):
     def busy(self):
         return bool(self._running)
 
+    @Property(bool, notify=changed)
+    def lifecycleBusy(self):
+        return bool(self._running and self._running_action in {"start", "end"})
+
+    @Property(bool, notify=changed)
+    def questionBusy(self):
+        return bool(self._question_running)
+
+    def _withdraw_question(self):
+        # Revoke display authority without pretending that an in-flight POST was cancelled.
+        self._question_epoch += 1
+        self._question_status = ""
+        self._selection = {}
+        self._reconcile_question = False
+
     def invalidate(self):
         self._serial += 1
         self._running = 0
+        self._running_action = ""
+        self._question_running = 0
+        self._withdraw_question()
         self._session = {}
         self._moments = []
         self._conversation = []
@@ -172,7 +195,7 @@ class SessionController(QObject):
             self._conversation = retained_conversation
             changed = True
         if not self._selection_valid():
-            self._selection = {}
+            self._withdraw_question()
             self._question_status = "reference_unavailable"
             self.selectionInvalidated.emit()
             changed = True
@@ -224,7 +247,7 @@ class SessionController(QObject):
 
     @Slot(str, result=bool)
     def sendQuestion(self, body):
-        if self._running or not self._foreground or not self._composer_supported() or not isinstance(body, str) or not 1 <= len(body.strip()) <= 4000:
+        if self._running or self._question_running or not self._foreground or not self._composer_supported() or not isinstance(body, str) or not 1 <= len(body.strip()) <= 4000:
             return False
         if not self._selection_valid():
             self._selection = {}
@@ -235,7 +258,7 @@ class SessionController(QObject):
         request = {"text": body.strip(), "client_message_id": "pi-turn-" + uuid4().hex,
             "session_id": self._session["session_id"], "selected": deepcopy(self._selection)}
         self._launch("question", request)
-        return bool(self._running)
+        return bool(self._question_running)
 
     def _search_supported(self):
         features = self._caps.get("capabilities", {})
@@ -360,7 +383,12 @@ class SessionController(QObject):
         self._launch("open_entry", {"session_id": session_id, "entry_id": entry_id})
 
     def _launch(self, action, value=""):
-        if not self._foreground or self._running:
+        if not self._foreground:
+            return
+        # End supersedes reads, but never another lifecycle write. Late read results lose their ticket.
+        if self._running and (action != "end" or self._running_action in {"start", "end"}):
+            return
+        if action == "question" and self._question_running:
             return
         if self.backend.demoMode:
             self._demo_action(action, value)
@@ -389,19 +417,33 @@ class SessionController(QObject):
         view_epoch = self._view_epoch
         self._serial += 1
         serial = self._serial
-        self._running = serial
+        if action == "question":
+            self._question_running = serial
+        else:
+            self._running = serial
+            self._running_action = action
+        if action in {"refresh", "start", "end"}:
+            self._last_current_read = serial
+        if action == "end":
+            self._withdraw_question()
+            self.contextCleared.emit()
+        question_epoch = self._question_epoch
         self._error = ""
         if action == "question":
             self._question_status = "sending"
         self.changed.emit()
 
         def worker():
-            result = {"serial": serial, "binding": binding, "action": action, "view_epoch": view_epoch}
+            result = {"serial": serial, "binding": binding, "action": action, "view_epoch": view_epoch, "question_epoch": question_epoch}
             try:
                 if action == "question":
+                    if question_epoch != self._question_epoch or not self._foreground:
+                        raise SessionError("context_changed")
                     receipt = accepted_question(self.transport.question(binding, value), binding, value)
                     result["question_accepted"] = True
                     result["expected_session_id"] = value["session_id"]
+                    if question_epoch != self._question_epoch or not self._foreground:
+                        raise SessionError("context_changed")
                     fresh = active_session(self.transport.active(binding))
                     if fresh.get("session_id") != value["session_id"]:
                         raise SessionError("context_changed")
@@ -477,13 +519,22 @@ class SessionController(QObject):
                 result["error"] = "invalid"
             self._ready.emit(result)
 
-        self.backend._executor.submit(worker)
+        executor = self.backend._question_executor if action == "question" else self.backend._session_executor
+        executor.submit(worker)
 
     @Slot(object)
     def _apply(self, result):
-        if result["serial"] != self._running:
+        question = result["action"] == "question"
+        if result["serial"] != (self._question_running if question else self._running):
             return
-        self._running = 0
+        if question:
+            self._question_running = 0
+            if result["question_epoch"] != self._question_epoch:
+                self.changed.emit()
+                return
+        else:
+            self._running = 0
+            self._running_action = ""
         try:
             if result["binding"] != self.transport.binding():
                 self.invalidate()
@@ -491,7 +542,21 @@ class SessionController(QObject):
         except SessionError:
             self.invalidate()
             return
-        if result["action"] == "question":
+        if question:
+            # A concurrent current read owns Runtime/capability authority. Reconcile with a new
+            # read after it, never overwrite it with the question worker's older snapshot.
+            if result.get("error") in {"denied", "unpaired"}:
+                self.invalidate()
+                self._error = result["error"]
+                self.changed.emit()
+                return
+            if self._last_current_read > result["serial"]:
+                self._question_status = "accepted_unavailable" if result.get("question_accepted") else "uncertain" if result.get("error") == "uncertain" else "failed"
+                self._selection = {}
+                self._reconcile_question = True
+                self.changed.emit()
+                self._reconcile_if_idle()
+                return
             if "error" in result:
                 self._question_status = "accepted_unavailable" if result.get("question_accepted") else "uncertain" if result["error"] == "uncertain" else "failed"
                 self._conversation = []
@@ -503,6 +568,11 @@ class SessionController(QObject):
             else:
                 self._question_status = "accepted" if result.get("question_visible") else "accepted_unavailable"
                 self._selection = {}
+                # The question's GET is a receipt check, not a replacement Runtime snapshot.
+                self._conversation = result.get("conversation", [])
+                self._expire()
+                self.changed.emit()
+                return
         history_action = result["action"] in {"history", "history_more", "timeline", "timeline_refresh", "timeline_page", "search", "search_more", "open_entry"}
         if history_action and result.get("view_epoch") != self._view_epoch:
             self.changed.emit()
@@ -514,6 +584,10 @@ class SessionController(QObject):
             self.changed.emit()
             return
         if "error" in result:
+            question_status = self._question_status
+            self._withdraw_question()
+            if question:
+                self._question_status = question_status
             self._search = {}
             self._session = {}
             self._moments = []
@@ -527,12 +601,13 @@ class SessionController(QObject):
         else:
             if "session" in result:
                 if self._session.get("session_id") != result["session"].get("session_id"):
-                    self._question_status = ""
-                    self._selection = {}
+                    self._withdraw_question()
                 self._loaded = True
                 self._session = result["session"]
                 self._moments = live_presentations(self._session, now=self._clock.now())
                 self._caps = result.get("capabilities", self._caps)
+                if not self._composer_supported():
+                    self._withdraw_question()
                 self._conversation = result.get("conversation", [])
                 if not self._history_supported():
                     self._timeline = {}
@@ -570,3 +645,9 @@ class SessionController(QObject):
             self.timelineUpdated.emit(result.get("reading_anchor", self._timeline.get("selected_entry_id", "")))
         if result["action"] == "open_entry" and "error" not in result:
             self.entryOpened.emit()
+        self._reconcile_if_idle()
+
+    def _reconcile_if_idle(self):
+        if self._reconcile_question and not self._running and self._composer_supported():
+            self._reconcile_question = False
+            self.refresh()

@@ -236,3 +236,152 @@ def test_acceptance_status_from_an_earlier_session_does_not_follow_replacement(c
     backend.jobs.pop()()
     assert owner.state['session_id'] == 'replacement' and owner.state['question_status'] == ''
     assert owner.state['conversation'] == []
+
+
+def test_refresh_and_end_remain_available_during_a_question_and_late_reply_cannot_revive_session(controller):
+    owner, backend = controller
+    setup_composer(owner)
+    owner.transport.capabilities.return_value = deepcopy(owner._caps)
+    owner.transport.end = Mock()
+    assert owner.sendQuestion('A deliberate question')
+    question = backend.jobs.pop()
+    assert owner.questionBusy and not owner.busy
+    owner.refresh()
+    read = backend.jobs.pop()
+    assert owner.busy and not owner.lifecycleBusy
+    owner.end('s1')
+    end = backend.jobs.pop()
+    assert owner.lifecycleBusy
+    owner.end('s1')
+    assert not backend.jobs  # no repeated lifecycle write
+    owner.transport.active.return_value = {'success': True, 'session': None}
+    end()
+    read()
+    question()
+    assert not owner.state['session_id'] and owner.state['conversation'] == []
+    assert owner.state['question_status'] == '' and not owner.questionBusy
+    owner.transport.end.assert_called_once()
+    owner.transport.question.assert_not_called()  # revoked before dispatch
+
+
+@pytest.mark.parametrize('question_first', [True, False])
+def test_concurrent_refresh_is_reconciled_by_a_read_without_reposting(controller, question_first):
+    owner, backend = controller
+    setup_composer(owner)
+    owner.transport.capabilities.return_value = deepcopy(owner._caps)
+    assert owner.sendQuestion('One question')
+    question = backend.jobs.pop()
+    owner.refresh()
+    read = backend.jobs.pop()
+    for job in [question, read] if question_first else [read, question]:
+        job()
+    assert len(backend.jobs) == 1  # one new read after both snapshots, no write replay
+    backend.jobs.pop()()
+    assert not backend.jobs and owner.state['session_id'] == 's1'
+    assert len(owner.state['conversation']) == 2
+    owner.transport.question.assert_called_once()
+    assert not owner.questionBusy and not owner.busy
+
+
+@pytest.mark.parametrize('withdrawal', ['replacement', 'capability', 'expiry', 'end_failure'])
+def test_late_question_cannot_restore_withdrawn_authority(controller, withdrawal):
+    owner, backend = controller
+    setup_composer(owner)
+    owner.transport.capabilities.return_value = deepcopy(owner._caps)
+    if withdrawal == 'expiry':
+        host = clock_fixture(owner)
+        grant = owner._session['broadcast']['native_delivery']['admissions'][0]
+        grant['source_expires_at'] = '2026-10-20T00:00:05Z'
+        owner.selectMoment('s1', 'm1')
+    owner.sendQuestion('One question')
+    question = backend.jobs.pop()
+    if withdrawal == 'expiry':
+        host.tick = 6
+        owner._expire()
+    elif withdrawal == 'end_failure':
+        owner.transport.end = Mock(side_effect=SessionError('uncertain'))
+        owner.end('s1')
+        backend.jobs.pop()()
+    else:
+        if withdrawal == 'replacement':
+            replacement = deepcopy(owner._session)
+            replacement['session_id'] = 'replacement'
+            replacement['broadcast']['session']['session_id'] = 'replacement'
+            owner.transport.active.return_value = {'success': True, 'session': replacement}
+        else:
+            owner.transport.capabilities.return_value = {'capabilities': {}, 'contract_versions': {}}
+        owner.refresh()
+        backend.jobs.pop()()
+    before = deepcopy(owner.state)
+    question()
+    assert owner.state == before
+    assert not owner.questionBusy and not backend.jobs
+    owner.transport.question.assert_not_called()
+
+
+def test_real_worker_pools_allow_end_to_complete_before_blocked_question_returns(controller):
+    # Run in a fresh Qt process: unrelated backend tests leave native timers alive.
+    import os
+    import subprocess
+    import sys
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event
+
+    from PySide6.QtCore import QCoreApplication
+    from PySide6.QtTest import QTest
+
+    if not os.environ.get("PI_SESSION_WORKER_PROBE"):
+        env = {**os.environ, "PI_SESSION_WORKER_PROBE": "1"}
+        completed = subprocess.run([sys.executable, "-m", "pytest", __file__ + "::test_real_worker_pools_allow_end_to_complete_before_blocked_question_returns", "-q"], env=env, capture_output=True, text=True, timeout=20, check=False)
+        assert completed.returncode == 0, completed.stdout + completed.stderr
+        return
+    owner, backend = controller
+    setup_composer(owner)
+    entered, release, ended = Event(), Event(), Event()
+    original = owner.transport.question.side_effect
+    def blocking_question(binding, value):
+        entered.set()
+        assert release.wait(3)
+        return original(binding, value)
+    def end(binding, value):
+        ended.set()
+    owner.transport.question.side_effect = blocking_question
+    owner.transport.end = Mock(side_effect=end)
+    owner.transport.active.return_value = {'success': True, 'session': None}
+    with ThreadPoolExecutor(max_workers=1) as questions, ThreadPoolExecutor(max_workers=2) as controls:
+        backend._question_executor = questions
+        backend._session_executor = controls
+        try:
+            assert owner.sendQuestion('Question')
+            assert entered.wait(1)
+            owner.end('s1')
+            assert ended.wait(1), 'End must run before releasing the question'
+            for _ in range(100):
+                QCoreApplication.processEvents()
+                if not owner.busy:
+                    break
+                QTest.qWait(5)
+            assert not owner.busy and not owner.state['session_id']
+            assert owner.questionBusy
+        finally:
+            release.set()
+    QCoreApplication.processEvents()
+    assert not owner.questionBusy and owner.state['conversation'] == []
+    owner.transport.question.assert_called_once()
+    owner.transport.end.assert_called_once()
+
+
+def test_question_denial_revokes_a_concurrent_read_instead_of_reconciling_private_content(controller):
+    owner, backend = controller
+    setup_composer(owner)
+    owner.transport.capabilities.return_value = deepcopy(owner._caps)
+    owner.transport.question.side_effect = SessionError('denied')
+    owner.sendQuestion('One question')
+    question = backend.jobs.pop()
+    owner.refresh()
+    read = backend.jobs.pop()
+    question()
+    read()
+    assert not owner.state['session_id'] and not owner.state['conversation']
+    assert owner.state['error'] == 'denied' and not backend.jobs
+    owner.transport.question.assert_called_once()

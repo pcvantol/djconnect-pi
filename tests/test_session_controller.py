@@ -21,6 +21,8 @@ class Backend(QObject):
             active_profile_type="personal", active_profile_privacy_mode="private", private_session=False, language="nl")
         self.jobs = []
         self._executor = SimpleNamespace(submit=self.jobs.append)
+        self._session_executor = self._executor
+        self._question_executor = self._executor
 
 
 @pytest.fixture

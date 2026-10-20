@@ -2879,6 +2879,8 @@ def test_shared_settings_quick_controls_do_not_persist_or_optimistically_confirm
     backend._shared_settings_state = {"values": {"mood": "chill"}, "available": True}
     before = backend.config_path.read_bytes()
     backend._executor.submit = Mock()
+    backend._session_executor.submit = backend._executor.submit
+    backend._question_executor.submit = backend._executor.submit
     backend.setMoodValue(95)
     assert backend.moodValue == 0
     assert backend.config_path.read_bytes() == before

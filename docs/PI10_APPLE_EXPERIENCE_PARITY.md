@@ -432,3 +432,47 @@ Session actions, including end; source expiry/background invalidation still run.
 That concurrency/UX gap must be fixed before claiming parity. Other media/source
 families, artwork/forecast/reactions, remaining destinations and backdrop effects
 remain open. No merge, release, install, pairing or HA operation occurred.
+
+### 2026-10-20 — Session control during text generation
+
+The serialized-question gap above is now closed in source. One bounded question
+worker is separate from two bounded Session-control workers and the existing UI
+worker. Refresh remains available during a question. End can supersede a pending
+read, without allowing a duplicate lifecycle write. Explicit question-in-flight
+state separately disables duplicate sends. Shutdown withdraws foreground authority
+and cancels queued work without claiming that an already started POST was cancelled.
+
+Question, current-read and display-context tickets prevent an old reply/read from
+replacing newer Runtime/capability state. A question worker never replaces Runtime
+from its receipt-check snapshot. Concurrent current reads lead to a fresh read,
+never a POST replay. Source expiry, capability withdrawal, replacement Runtime,
+background/Profile invalidation, End and denial revoke old private results. A
+question still queued when its authority is revoked is not sent. A started POST
+may complete on the server; its late result cannot revive the ended Session.
+
+The existing native Apple simulator captures were compared again with the actual
+shared QML at720x720 and1200x1920: floating composer above the five tabs, top End
+and refresh remain reachable. This comparison covers control placement and the
+pending/ended states, not pixel/design or complete functional parity. Remaining
+visual gaps include the native toolbar glyph/order details, playback metadata
+composition, richer glass/backdrop effects and other Apple destinations.
+
+Receipt reconciliation after concurrent refresh remains conservative: content is
+read again, while the delivery status may remain accepted_unavailable until a
+future exact-receipt reconciliation implementation. Reply scrolling, continuous
+Flow, standalone/private-ephemeral composition and rich choices/actions remain
+open. Apple explicitly acknowledged the review request but has not started the
+Pi review; it retained its own Golden/VibeCast work. Core registered the canonical
+Pi capability-document discrepancy as a separate owner dependency. No repeat
+pings or producer-source changes were made.
+
+Validation at this checkpoint:739 full tests passed; Ruff0.16.0 on src/tests
+passed; hostverify MATCH. The real QML regression rendered86 views and the final
+controller/composer harness rendered30 views, including the three concurrency
+states on both sizes, without QML errors. Local wheel SHA256
+b8a40aa6533f2089f1d808d632f5e90bee4f6278bb4f98fec5de40e937e91488
+matches all57 packaged sources. Evidence is in pi-session-concurrency under the
+task visualization directory. These are local synthetic transport/source/package
+results, not live HA/Profile, ARM, installed, physical or complete Apple parity.
+The prior ddc4650 head's applicable CI passed; the next head needs independent
+remote-check readback. PR111 remains draft; no merge/install/pairing/HA/model work.
