@@ -8,6 +8,7 @@ Item {
     objectName: "djSessionScreen"
     property var backend
     property bool historical: false
+    property bool currentHistory: false
     readonly property bool compact: width < 900
     readonly property bool sessionControlsVisible: !historical && state.session_id.length > 0
     property var owner: backend.djSession
@@ -18,7 +19,7 @@ Item {
     readonly property string composerContext: state.session_id + "|" + backend.activeProfileId
     property bool forecastMode: false
     readonly property bool showForecast: !historical && state.forecast_supported && forecastMode
-    onComposerContextChanged: { forecastMode = false; closeTransient() }
+    onComposerContextChanged: { forecastMode = false; closeTransient(); if (historyReadPending && historyReadKind === "current") { historyRead.stop(); historyReadPending = false; navigate("session") } }
     function clearComposer() { followQuestionReply = false; pendingReplyId = ""; draft = ""; if (composeInput) composeInput.clear(); if (composerPanel) composerPanel.close(); if (owner) owner.clearSelection() }
     function submitQuestion() { if (owner.sendQuestion(composeInput.text)) { forecastMode = false; followQuestionReply = true; draft = ""; composeInput.clear(); composerPanel.close() } }
     property string proposedMood: "groove"
@@ -57,7 +58,47 @@ Item {
             flick.contentY = 0
         }
     }
-    function refreshHistory() { if (historical && state.timeline.session) owner.refreshSaved(readingAnchor()) }
+    property string historyReadProfile: ""
+    property bool historyReadPending: false
+    property string historyReadKind: "archive"
+    property string historyReadSession: ""
+    function openCurrentHistory() {
+        if (!state.session_id) return
+        historyReadPending = true
+        historyReadKind = "current"
+        historyReadSession = state.session_id
+        historyReadProfile = backend.activeProfileId
+        navigate("session-history")
+        owner.closeSaved()
+        historyRead.restart()
+    }
+    function openArchive() {
+        historyReadPending = true
+        historyReadKind = "archive"
+        historyReadProfile = backend.activeProfileId
+        navigate("history")
+        owner.closeSaved()
+        historyRead.restart()
+    }
+    Timer {
+        id: historyRead
+        interval: 0
+        onTriggered: {
+            if (screen.historyReadPending && screen.visible && screen.historical && screen.historyReadProfile === screen.backend.activeProfileId && !screen.owner.busy) {
+                if (screen.historyReadKind === "archive" && !screen.currentHistory) screen.owner.loadHistory()
+                else if (screen.historyReadKind === "current" && screen.currentHistory && screen.historyReadSession === screen.state.session_id) screen.owner.readCurrentHistory()
+                screen.historyReadPending = false
+                screen.historyReadSession = ""
+                screen.historyReadProfile = ""
+            }
+        }
+    }
+    function refreshHistory() {
+        if (!historical) return
+        if (state.timeline.session) owner.refreshSaved(readingAnchor())
+        else if (currentHistory) openCurrentHistory()
+        else openArchive()
+    }
     function showSearch() { searchPanel.open(); searchInput.forceActiveFocus() }
     function closeTransient() {
         clearComposer()
@@ -69,7 +110,7 @@ Item {
         if (endConfirmation) endConfirmation.close()
         if (owner) owner.clearSearch()
     }
-    onVisibleChanged: if (!visible) { readingRestore.stop(); pendingReadingAnchor = ""; closeTransient() }
+    onVisibleChanged: if (!visible) { historyRead.stop(); historyReadProfile = ""; historyReadSession = ""; historyReadPending = false; readingRestore.stop(); pendingReadingAnchor = ""; closeTransient() }
     onHistoricalChanged: { readingRestore.stop(); pendingReadingAnchor = ""; readingOffset = 0 }
     onSearchTargetChanged: { if (searchPanel) searchPanel.close(); if (searchInput) searchInput.clear(); if (owner) owner.clearSearch() }
     signal navigate(string destination)
@@ -98,7 +139,7 @@ Item {
         choices.x = Math.max(12, Math.min(button.mapToItem(screen, 0, 0).x, width - choices.width - 12))
         choices.open()
     }
-    Timer { interval: 3000; running: screen.visible && screen.backend.paired; repeat: true; triggeredOnStart: true; onTriggered: { if (!screen.historical) screen.owner.refresh(); else if (!screen.state.history_loaded) screen.owner.loadHistory() } }
+    Timer { interval: 3000; running: screen.visible && screen.backend.paired && !screen.historyReadPending; repeat: true; triggeredOnStart: true; onTriggered: { if (!screen.historical) screen.owner.refresh(); else if (!screen.currentHistory && !screen.state.history_loaded) screen.owner.loadHistory() } }
     Timer { interval: 15000; running: screen.visible && screen.historical && screen.backend.paired; repeat: true; onTriggered: screen.refreshHistory() }
     Timer {
         id: replyRestore
@@ -127,17 +168,18 @@ Item {
         function onSelectionInvalidated() { screen.clearComposer() }
         function onTimelineUpdated(anchor) { screen.restoreReading(anchor) }
         function onTimelinePositioned(anchor, offset) { screen.readingOffset = offset; screen.restoreReading(anchor) }
-        function onContextCleared() { readingRestore.stop(); screen.pendingReadingAnchor = ""; screen.readingOffset = 0; screen.closeTransient() }
+        function onChanged() { if (screen.historyReadPending && !screen.owner.busy) historyRead.restart() }
+        function onContextCleared() { historyRead.stop(); screen.historyReadProfile = ""; screen.historyReadSession = ""; readingRestore.stop(); screen.pendingReadingAnchor = ""; screen.readingOffset = 0; screen.closeTransient(); if (screen.historical) screen.navigate(screen.currentHistory ? "session" : "more"); screen.historyReadPending = false }
         function onEntryOpened() {
             searchPanel.close()
             screen.readingOffset = 0
-            screen.navigate("history")
+            screen.navigate(screen.currentHistory || !screen.historical ? "session-history" : "history")
         }
     }
 
     Connections {
         target: screen.backend
-        function onProfileChanged() { screen.closeTransient(); screen.proposedMood = "groove" }
+        function onProfileChanged() { if (screen.historyReadPending) screen.navigate(screen.historyReadKind === "current" ? "session" : "more"); historyRead.stop(); screen.historyReadProfile = ""; screen.historyReadSession = ""; screen.historyReadPending = false; screen.closeTransient(); screen.proposedMood = "groove" }
         function onSharedSettingsChanged() {
             if (choices.opened && choices.editToken !== (screen.backend.sharedSettings.edit_token || "")) choices.close()
         }
@@ -351,7 +393,7 @@ Item {
                 }
                 RowLayout {
                     Layout.fillWidth: true
-                    GlassButton { text: screen.tr("session_history"); enabled: !screen.owner.busy; onClicked: { screen.owner.loadHistory(); screen.navigate("history") } }
+                    GlassButton { text: screen.tr("session_history"); enabled: !screen.owner.busy; onClicked: screen.openArchive() }
                     Item { Layout.fillWidth: true }
                     GlassButton {
                         objectName: "sessionExpandedEnd"
@@ -423,18 +465,20 @@ Item {
                 objectName: "sessionReadCurrentHistory"
                 visible: !screen.historical && screen.state.history_available && screen.state.session_id.length > 0
                 text: screen.tr("session_history_first"); enabled: !screen.owner.busy
-                onClicked: { screen.navigate("history"); screen.owner.readCurrentHistory() }
+                onClicked: screen.openCurrentHistory()
             }
             GlassButton {
                 visible: screen.historical
-                text: screen.tr(screen.state.timeline.session ? "session_history" : "session_back")
-                onClicked: { var detail = !!screen.state.timeline.session; screen.owner.closeSaved(); if (!detail) screen.navigate("session") }
+                objectName: "sessionHistoryBack"
+                text: screen.tr(screen.currentHistory ? "session_back" : screen.state.timeline.session ? "session_history" : "more")
+                onClicked: { var detail = !!screen.state.timeline.session; var current = screen.currentHistory; screen.owner.closeSaved(); if (current) screen.navigate("session"); else if (!detail) screen.navigate("more") }
             }
             Repeater {
                 model: screen.historical && !screen.state.timeline.session ? screen.state.sessions : []
                 GlassButton {
                     required property var modelData
                     Layout.fillWidth: true; implicitHeight: 78
+                    objectName: "sessionArchiveRow"
                     text: screen.tr("session_title") + " · " + screen.displayDate(modelData.started_at || modelData.created_at)
                     onClicked: screen.owner.openSaved(modelData.session_id)
                 }
@@ -679,7 +723,7 @@ Item {
             }
             GlassButton {
                 text: screen.tr("session_history"); Layout.fillWidth: true
-                onClicked: { moreChoices.close(); screen.owner.loadHistory(); screen.navigate("history") }
+                onClicked: { moreChoices.close(); screen.openArchive() }
             }
         }
     }

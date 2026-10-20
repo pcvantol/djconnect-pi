@@ -254,8 +254,9 @@ class SessionController(QObject):
 
     @Slot()
     def clearSelection(self):
-        self._selection = {}
-        self.changed.emit()
+        if self._selection:
+            self._selection = {}
+            self.changed.emit()
 
     @Slot(str, str, result=bool)
     def selectMoment(self, session_id, moment_id):
@@ -418,8 +419,10 @@ class SessionController(QObject):
     @Slot()
     def clearSearch(self):
         self._view_epoch += 1
+        had_search = bool(self._search)
         self._search = {}
-        self.changed.emit()
+        if had_search:
+            self.changed.emit()
 
     @Slot(str, str)
     def search(self, session_id, query):

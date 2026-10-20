@@ -2299,7 +2299,8 @@ BrandWindow {
                     }
                     MoreMenuButton {
                         text: root.tr("session_history"); iconName: "history"
-                        onClicked: { djconnect.djSession.loadHistory(); root.activeScreen = "history" }
+                        objectName: "openSessionArchive"
+                        onClicked: sharedSessionScreen.openArchive()
                     }
                     MoreMenuButton {
                         text: root.tr("music_dna"); iconName: "heart"
@@ -3997,13 +3998,15 @@ BrandWindow {
 
     Item {
         anchors.fill: parent
-        visible: root.activeScreen === "session" || root.activeScreen === "history"
+        visible: root.activeScreen === "session" || root.activeScreen === "history" || root.activeScreen === "session-history"
         z: 17
         AppBackground {}
         SessionScreen {
+            id: sharedSessionScreen
             anchors.fill: parent
             backend: djconnect
-            historical: root.activeScreen === "history"
+            historical: root.activeScreen === "history" || root.activeScreen === "session-history"
+            currentHistory: root.activeScreen === "session-history"
             onNavigate: function(destination) { root.activeScreen = destination }
         }
     }
@@ -4044,9 +4047,10 @@ BrandWindow {
                 NavButton {
                     required property var modelData
                     text: root.tr(modelData.key)
+                    objectName: "appTab-" + modelData.screen
                     iconName: modelData.icon
                     checkable: true
-                    checked: root.activeScreen === modelData.screen || (modelData.screen === "more" && ["askdj", "history", "queue", "playlists", "games", "settings", "control", "musicdna"].indexOf(root.activeScreen) >= 0)
+                    checked: root.activeScreen === modelData.screen || (modelData.screen === "session" && root.activeScreen === "session-history") || (modelData.screen === "more" && ["askdj", "history", "queue", "playlists", "games", "settings", "control", "musicdna"].indexOf(root.activeScreen) >= 0)
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     onClicked: root.activeScreen = modelData.screen

@@ -396,7 +396,7 @@ def test_qml_has_bottom_navigation_bar() -> None:
     assert 'root.activeScreen = "control"' in more
     assert "djconnect.showLogs()" in more
     assert "djconnect.loadQueue()" in more and "djconnect.loadPlaylists()" in more
-    assert "djconnect.loadAskDjHistory()" in more and "djconnect.djSession.loadHistory()" in more
+    assert "djconnect.loadAskDjHistory()" in more and "sharedSessionScreen.openArchive()" in more
 
 
 def test_qml_ask_dj_screen_is_readonly_actions_without_free_input() -> None:

@@ -820,3 +820,52 @@ and remaining Apple destinations stay open. Screen review also identifies a
 navigation gap: current-Session history still selects More, and detail Back goes
 through the archive list. Preserve current versus archive origin in the next
 bounded navigation fix; no historical row should become current authority.
+
+### 2026-10-20 — Current-history origin and scoped navigation reads
+
+History entered from the active Session now uses a local session-history route,
+keeps the Session tab selected and returns directly to Flow with its unsent text.
+Archive history remains under More: detail Back returns to the archive list and
+list Back returns to More. Search/open keeps the navigation origin independently
+of the original entry Session. A foreign retained Session opened from Flow does
+not replace Runtime Session identity or acquire current/media/write authority.
+Profile/background/context withdrawal leaves the appropriate empty root view.
+
+Actual UI testing found an ordering problem beyond tab selection: a visibility-
+triggered poll or an already pending read could capture the old view epoch before
+navigation completed and prevent the chosen history page from loading. Both
+entrypoints now use one bounded local read intent with exact Profile, kind and
+current-Session guard. They navigate/clear old detail, wait for prior control work,
+then launch the existing owner read on the next UI turn. Polling yields until that
+read starts. View/Profile/context loss cancels the intent, including before any
+worker submission. Empty-page Refresh chooses the same origin; it cannot silently
+open the archive from current history. No new route is sent to Core and no write
+is retried. Existing transport binding, view/generation and revision fences stay.
+
+Clearing already-empty search/selection state no longer emits recursive GUI
+changes; clearing search still advances the view ticket fence. This removes
+binding loops without letting late results through. Both preview tools now also
+fail on Binding loop detected, in addition to their existing QML-error checks.
+The native fixture injector clears old selection before changing a synthetic
+Session, matching the actual controller rather than creating a spurious loop.
+
+Validation:817 full tests passed; Ruff0.16.0 src/tests passed; hostverify MATCH.
+The existing menu source check was updated to the common archive handler; the new
+controller test proves empty clears retain the fence without redundant changes.
+Actual QML:152 dedicated views plus86 broad regression views, no errors or binding
+loops. Both sizes exercise current/detail/back/tab/draft, real archive menu/list/
+detail/back, navigation-only owner open+anchor reads for current and foreign
+entries, unchanged active Runtime identity, queued-read cancellation and foreground
+withdrawal. Transports are synthetic; the pending executor is deliberately held
+and drained to expose stale-read races. Local wheel SHA256
+b43ad7e7e4e5bc2bbc732ee432eeb00f54241bb5735235ef70c18a7312d69068
+matches all58 sources. Evidence: pi-session-history-navigation under task
+visualizations; intermediate failing probes and previous evidence are retained.
+
+Parent3fa6b38 passed all applicable CI (24 successes/4 conditional skips). Core
+protected main8b221d07 remains unchanged and no new concrete Pi review/handoff
+arrived. No other-lane writes, repeat pings, model/provider/HA effects, merge,
+release, install or pairing occurred. PR111 remains draft. This is local source/
+fixture/package/Qt qualification, not live Profile/HA, ARM, installed or physical
+acceptance. Continuous Flow, Flow-position restoration across history navigation,
+media/actions, remaining Apple destinations and native backdrop design stay open.

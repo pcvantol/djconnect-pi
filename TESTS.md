@@ -431,3 +431,15 @@ five languages/both sizes, including literal markup/emoji, packaged Spotify
 attribution, full-card scrolling and expiry removal. Final checkpoint:816 tests,
 86 broad/128 dedicated QML views. No current promotion, artwork fetch, seek,
 favorite, full-listen claim or provider/model call is included.
+
+Current-Session history and archive navigation are checked through actual QML
+buttons and the real controller on both sizes. Cases cover origin-specific tab/
+Back, unsent input, archive menu/list/detail, current and foreign retained entry
+open/anchor reads without replacing Runtime, cancellation before submission and
+foreground withdrawal. Synthetic pending executor work is held across navigation
+then drained, exercising a stale view epoch before the chosen fresh read. Both
+entrypoints share one guarded read intent; polling cannot steal its dispatch.
+Empty search clears still revoke tickets while avoiding redundant GUI change
+signals. Both preview harnesses now fail on QML binding-loop warnings as well.
+Final navigation checkpoint:817 tests,86 broad/152 dedicated views. No server
+contract, lifecycle write, media grant or installed/live/physical proof is added.

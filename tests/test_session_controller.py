@@ -602,3 +602,16 @@ def test_forecast_uses_captured_active_read_and_expires_before_gui_state(control
     notified.assert_called_once()  # A GUI getter must not swallow the timer notification.
     owner.setForeground(False)
     assert not owner.state['forecast_supported'] and not owner.state['forecast']['sections']
+
+
+def test_empty_view_clears_keep_ticket_fence_without_recursive_gui_notification(controller):
+    owner, _backend = controller
+    notified = Mock(); owner.changed.connect(notified)
+    before = owner._view_epoch
+    owner.clearSelection(); owner.clearSearch()
+    assert owner._view_epoch == before + 1
+    notified.assert_not_called()
+    owner._search = {'matches': []}
+    owner.clearSearch()
+    assert owner._search == {} and owner._view_epoch == before + 2
+    notified.assert_called_once()

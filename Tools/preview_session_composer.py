@@ -105,6 +105,17 @@ def main():
         field=window.findChild(QObject,'sessionComposerInput')
         keyboard=window.findChild(QObject,'sessionComposerKeyboard')
         screen=window.findChild(QObject,'djSessionScreen')
+        def complete_navigation():
+            executed=set()
+            for _ in range(3):
+                QTest.qWait(80)
+                if owner.busy:
+                    job=backend._executor.submit.call_args.args[0]
+                    assert job not in executed
+                    executed.add(job);job()
+                QTest.qWait(50)
+                if not owner.busy and not screen.property('historyReadPending'): return
+            raise AssertionError('bounded synthetic navigation did not settle')
         assert panel and field and keyboard and screen
         mood_button=window.findChild(QObject,'sessionToolbarMood')
         presence_button=window.findChild(QObject,'sessionToolbarPresence')
@@ -262,8 +273,8 @@ def main():
         history_button=window.findChild(QObject,'sessionReadCurrentHistory')
         assert history_button.property('enabled')
         QMetaObject.invokeMethod(history_button,'clicked')
-        backend._executor.submit.call_args.args[0]()
-        assert window.property('activeScreen')=='history'
+        complete_navigation()
+        assert window.property('activeScreen')=='session-history'
         assert owner.state['timeline']['session']['session_id']==session['session_id']
         capture('active-session-history-from-beginning')
         # Real shared QML previous-page control, re-reading canonical rows rather than cached prose.
@@ -407,6 +418,7 @@ def main():
             p=frame['projection'];stamp=frame['now']
             owner._clock=ExpiryClock(lambda:stamp,lambda:0)
             backend.setLanguage(language);backend._toast_visible=False;backend.toastChanged.emit()
+            owner._selection={}  # Match real controller withdrawal before fixture Session replacement.
             owner._session={'session_id':p['session_id'],'runtime_state':'active','broadcast':{
                 'session':{'session_id':p['session_id']},'session_forecast':p,'playback':{
                     'state':'playing','item_id':p['current_anchor']['item_id'],'title':'Observed track',
@@ -463,9 +475,91 @@ def main():
         owner._clock=ExpiryClock(lambda:timestamp(seed['retained_until']),lambda:0);owner._expire()
         assert not owner.state['timeline']['entries']
         capture('history-observed-playback-expired')
+        # Current-history and archive routing share source code, not authority.
+        owner.invalidate();window.setProperty('activeScreen','session')
+        owner._session=session;owner._caps=caps;owner._loaded=True;owner.changed.emit()
+        nav_page={**page,'entries':[],'next_cursor':None}
+        archive_sid='synthetic-archive-session'
+        archive_page={**nav_page,'session':{**page['session'],'session_id':archive_sid}}
+        owner.transport.timeline=Mock(side_effect=lambda binding,sid,**kwargs: archive_page if sid==archive_sid else nav_page)
+        owner.transport.active=Mock(return_value={'success':True,'session':session})
+        owner._clock=ExpiryClock()
+        field.setProperty('text','Synthetic navigation draft')
+        QMetaObject.invokeMethod(history_button,'clicked');complete_navigation()
+        def visual_named(item,name):
+            if item.objectName()==name: return item
+            for child in item.childItems():
+                found=visual_named(child,name)
+                if found is not None: return found
+            return None
+        session_tab=visual_named(window.contentItem(),'appTab-session');more_tab=visual_named(window.contentItem(),'appTab-more')
+        back_button=window.findChild(QObject,'sessionHistoryBack')
+        assert window.property('activeScreen')=='session-history' and session_tab.property('checked') and not more_tab.property('checked')
+        capture('navigation-current-history-session-tab')
+        QMetaObject.invokeMethod(back_button,'clicked')
+        assert window.property('activeScreen')=='session' and not owner.state['timeline']
+        assert field.property('text')=='Synthetic navigation draft'
+        capture('navigation-current-history-back-flow')
+        QMetaObject.invokeMethod(more_tab,'clicked')
+        QTest.qWait(80)  # The archive control must actually be visible before a user can click it.
+        owner.transport.history=Mock(return_value={'success':True,'schema_version':2,'history_contract_version':2,
+            'sessions':[{'session_id':archive_sid,'revision':'archive-revision','started_at':'2026-10-19T12:00:00Z'}],'next_cursor':None})
+        QMetaObject.invokeMethod(window.findChild(QObject,'openSessionArchive'),'clicked')
+        QTest.qWait(80)
+        complete_navigation()
+        assert owner.state['history_loaded'] and len(owner.state['sessions'])==1
+        assert window.property('activeScreen')=='history' and more_tab.property('checked') and not session_tab.property('checked')
+        capture('navigation-more-archive-list')
+        archive_row=visual_named(window.contentItem(),'sessionArchiveRow')
+        assert archive_row is not None
+        QMetaObject.invokeMethod(archive_row,'clicked');backend._executor.submit.call_args.args[0]()
+        assert owner.state['timeline']['session']['session_id']==archive_sid
+        assert owner.state['session_id']==session['session_id'] and more_tab.property('checked')
+        capture('navigation-archive-detail-original-session')
+        QMetaObject.invokeMethod(back_button,'clicked')
+        assert window.property('activeScreen')=='history' and not owner.state['timeline']
+        capture('navigation-archive-back-list')
+        QMetaObject.invokeMethod(back_button,'clicked')
+        assert window.property('activeScreen')=='more'
+        capture('navigation-archive-back-more')
+        # Real owner open/anchor read -> QML entryOpened, from both navigation origins.
+        def opened_page(sid):
+            row={'entry_id':'synthetic-navigation-entry','session_id':sid,'kind':'conversation_user','order':1,
+                'occurred_at':'2026-10-20T01:00:00Z','retained_until':'9999-01-01T00:00:00Z',
+                'historical_view_only':True,'current_display_allowed':False,'text':'Synthetic retained text',
+                'role':'user','input_type':'text','turn_id':'synthetic-navigation-turn'}
+            return {**nav_page,'session':{'session_id':sid,'revision':'navigation-revision'},'revision':'navigation-revision','entries':[row]}
+        for origin,sid,label in [('session',session['session_id'],'current'),('session',archive_sid,'foreign-from-flow'),('history',archive_sid,'archive')]:
+            window.setProperty('activeScreen',origin)
+            target=opened_page(sid)
+            owner.transport.timeline=Mock(return_value=target)
+            owner.transport.open_entry=Mock(return_value={**target,'navigation_only':True,'read_only':True,'entry':target['entries'][0]})
+            owner.openEntry(sid,'synthetic-navigation-entry');backend._executor.submit.call_args.args[0]()
+            expected='session-history' if origin=='session' else 'history'
+            assert window.property('activeScreen')==expected
+            assert session_tab.property('checked')==(origin=='session')
+            assert owner.state['session_id']==session['session_id']
+            capture('navigation-search-open-'+label)
+        owner.invalidate()
+        assert window.property('activeScreen')=='more' and not owner.state['timeline']
+        capture('navigation-archive-context-withdrawn')
+        owner._session=session;owner._caps=caps;owner._loaded=True;owner.changed.emit()
+        before_submit=backend._executor.submit.call_count
+        QMetaObject.invokeMethod(window.findChild(QObject,'openSessionArchive'),'clicked')
+        owner.invalidate();QTest.qWait(80)
+        assert backend._executor.submit.call_count==before_submit
+        assert window.property('activeScreen')=='more' and not screen.property('historyReadPending')
+        capture('navigation-queued-archive-withdrawn')
+        window.setProperty('activeScreen','session')
+        owner._session=session;owner._caps=caps;owner._loaded=True;owner.changed.emit()
+        owner.transport.timeline=Mock(return_value=nav_page)
+        QMetaObject.invokeMethod(history_button,'clicked');complete_navigation()
+        owner.setForeground(False)
+        assert window.property('activeScreen')=='session' and not owner.state['timeline'] and not owner.state['session_id']
+        capture('navigation-current-foreground-withdrawn')
         backend.shutdown()
         delete(window);delete(engine)
-    errors=[value for value in warnings if any(word in value for word in ('ReferenceError','TypeError','Error:','Cannot assign','is not a type','failed to load'))]
+    errors=[value for value in warnings if any(word in value for word in ('ReferenceError','TypeError','Error:','Cannot assign','is not a type','failed to load','Binding loop detected'))]
     (output/'readback.json').write_text(json.dumps({'captures':captures,'qml_errors':errors,
         'proof':'Synthetic transport -> real controller -> actual QML; automatic fixture polling paused, reads explicit; not HA/model/ARM/installed/physical acceptance'},indent=2))
     assert not errors,errors

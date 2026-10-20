@@ -275,7 +275,7 @@ def main():
         capture("updater")
         delete(window)
         delete(engine)
-    errors = [message for message in warnings if any(word in message for word in ("ReferenceError", "TypeError", "Error:", "Cannot assign", "is not a type", "failed to load"))]
+    errors = [message for message in warnings if any(word in message for word in ("ReferenceError", "TypeError", "Error:", "Cannot assign", "is not a type", "failed to load", "Binding loop detected"))]
     (args.output / "readback.json").write_text(json.dumps({"checks": checks, "qml_errors": errors, "proof": "offline fixture rendering, not installed or physical acceptance"}, indent=2))
     assert not errors, errors
     print(f"{len(checks)} actual QML page views; no QML errors")
