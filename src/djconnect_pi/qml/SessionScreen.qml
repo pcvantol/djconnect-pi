@@ -42,6 +42,7 @@ Item {
             var anchor = screen.pendingReadingAnchor
             if (!screen.historical) return
             var flick = historyScroll.contentItem
+            if (flick.dragging) return
             if (!anchor) { flick.contentY = 0; return }
             for (var i = 0; i < historyRows.count; i++) {
                 var card = historyRows.itemAt(i)
@@ -66,7 +67,8 @@ Item {
         if (endConfirmation) endConfirmation.close()
         if (owner) owner.clearSearch()
     }
-    onVisibleChanged: if (!visible) closeTransient()
+    onVisibleChanged: if (!visible) { readingRestore.stop(); pendingReadingAnchor = ""; closeTransient() }
+    onHistoricalChanged: { readingRestore.stop(); pendingReadingAnchor = ""; readingOffset = 0 }
     onSearchTargetChanged: { if (searchPanel) searchPanel.close(); if (searchInput) searchInput.clear(); if (owner) owner.clearSearch() }
     signal navigate(string destination)
     function tr(key) { backend.translationVersion; return backend.t(key) }
@@ -115,14 +117,15 @@ Item {
     }
     Connections {
         target: historyScroll.contentItem
-        function onDraggingChanged() { if (historyScroll.contentItem.dragging) screen.followQuestionReply = false }
+        function onDraggingChanged() { if (historyScroll.contentItem.dragging) { screen.followQuestionReply = false; readingRestore.stop() } }
     }
     Connections {
         target: screen.owner
         function onQuestionConfirmed(entryId) { if (screen.followQuestionReply) { screen.pendingReplyId = entryId; replyRestore.restart() } }
         function onSelectionInvalidated() { screen.clearComposer() }
         function onTimelineUpdated(anchor) { screen.restoreReading(anchor) }
-        function onContextCleared() { screen.closeTransient() }
+        function onTimelinePositioned(anchor, offset) { screen.readingOffset = offset; screen.restoreReading(anchor) }
+        function onContextCleared() { readingRestore.stop(); screen.pendingReadingAnchor = ""; screen.readingOffset = 0; screen.closeTransient() }
         function onEntryOpened() {
             searchPanel.close()
             screen.readingOffset = 0
@@ -437,7 +440,7 @@ Item {
                 visible: screen.historical && !!screen.state.timeline.session
                 Layout.fillWidth: true; spacing: 10
                 GlassButton { objectName: "sessionHistoryPrevious"; text: screen.tr("session_history_previous"); visible: screen.state.has_previous_entries; enabled: !screen.owner.busy; onClicked: screen.owner.previousEntries(screen.readingAnchor()) }
-                GlassButton { objectName: "sessionHistoryNext"; text: screen.tr("session_history_next"); visible: !!screen.state.timeline.next_cursor; enabled: !screen.owner.busy; onClicked: screen.owner.nextEntries() }
+                GlassButton { objectName: "sessionHistoryNext"; text: screen.tr("session_history_next"); visible: !!screen.state.timeline.next_cursor; enabled: !screen.owner.busy; onClicked: screen.owner.nextEntries(screen.readingAnchor(), screen.readingOffset) }
             }
             GlassButton { visible: screen.historical && !screen.state.timeline.session && screen.state.has_more_sessions; text: screen.tr("session_more"); enabled: !screen.owner.busy; onClicked: screen.owner.moreHistory() }
             BusyIndicator { visible: screen.owner.busy; running: visible; Layout.alignment: Qt.AlignHCenter }

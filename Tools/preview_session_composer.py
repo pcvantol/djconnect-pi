@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from PySide6.QtCore import Q_ARG, QMetaObject, QObject, QPoint, QTimer, qInstallMessageHandler
+from PySide6.QtCore import Q_ARG, Q_RETURN_ARG, QMetaObject, QObject, QPoint, QTimer, qInstallMessageHandler
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
@@ -294,6 +294,25 @@ def main():
         assert not owner.state['has_previous_entries']
         assert owner.state['timeline']['entries'][0]['entry_id']==first_page['entries'][0]['entry_id']
         capture('history-previous-page-freshly-restored')
+        # Keep only request/entry/offset metadata; the previous page is freshly read.
+        first_page['entries']=list(prior_entries[:12])
+        second_page['entries']=list(prior_entries[12:14])
+        owner.firstEntries();backend._executor.submit.call_args.args[0]()
+        QTest.qWait(100)
+        flick.setProperty('contentY',min(180,max(0,flick.property('contentHeight')-flick.property('height'))))
+        expected_anchor=QMetaObject.invokeMethod(screen,'readingAnchor',Q_RETURN_ARG('QVariant'))
+        expected_offset=screen.property('readingOffset')
+        assert expected_anchor and flick.property('contentY') > 100
+        next_button=window.findChild(QObject,'sessionHistoryNext')
+        QMetaObject.invokeMethod(next_button,'clicked');backend._executor.submit.call_args.args[0]()
+        QTest.qWait(100)
+        capture('history-reading-position-next-page')
+        QMetaObject.invokeMethod(previous_button,'clicked');backend._executor.submit.call_args.args[0]()
+        QTest.qWait(100)
+        restored_anchor=QMetaObject.invokeMethod(screen,'readingAnchor',Q_RETURN_ARG('QVariant'))
+        assert restored_anchor==expected_anchor,(width,restored_anchor,expected_anchor)
+        assert abs(screen.property('readingOffset')-expected_offset)<1,(width,screen.property('readingOffset'),expected_offset)
+        capture('history-previous-entry-pixel-restored')
         owner.transport.timeline.side_effect=None
 
         # Read-only anchor recovery for a receipt outside the fresh tail.

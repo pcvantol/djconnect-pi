@@ -399,3 +399,14 @@ packaged Spotify renderer readiness are preserved. Observed progress is clamped,
 not locally extrapolated. Final playback checkpoint:771 tests;86 broad and98
 dedicated QML views. No artwork fetch, global/status fallback, historical-current
 promotion, playback command, provider call or installed/physical claim.
+
+Previous-page reading restoration keeps only a valid retained entry ID and finite
+bounded offset in the existing32-descriptor RAM trail. Tests prove the metadata
+never reaches transport, the target page is freshly read, and only a same-revision
+still-retained identity restores position. Missing entries, invalid offsets and
+cursor/revision fallback cannot replay a stale position. Real QML Next/Previous
+on long pages preserves entry+pixel offset after layout on both target sizes.
+Context/view withdrawal cancels pending restoration; active dragging suppresses
+it. Final page-position checkpoint:778 tests,86 broad/102 dedicated actual QML
+views; local synthetic/source/package/Qt proof only. Continuous Flow and broader
+forward revisit history remain open.

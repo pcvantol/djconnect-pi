@@ -684,3 +684,42 @@ These are local decoder/fixture/render/package/design results, not live Profile,
 HA, ARM, installed or physical acceptance. Full Apple parity, continuous Flow,
 rich interactions/media and real backdrop glass remain open. No merge, release,
 installation, pairing, HA effect, producer write or model request occurred.
+
+### 2026-10-20 — Previous-page entry and pixel-position restoration
+
+Forward navigation may now add the currently visible retained entry ID and its
+finite bounded pixel offset to the existing maximum32 RAM-only page descriptors.
+No body, title, credentials or media is cached. Previous still reissues the same
+owner server read; the private reading metadata is stripped before transport.
+Only a same-revision fresh page that still contains the retained entry can emit
+its restore instruction. Revision/cursor fallback uses the fresh visible anchor
+and drops the old position. Missing/expired entries never restore old text or
+force a stale position. Existing context/Profile/foreground/view-ticket fences
+and navigation-trail withdrawal remain unchanged.
+
+Shared QML restores after layout and clamps against the new content height.
+Context/view withdrawal cancels pending position timers; active touch dragging
+also stops or suppresses a queued restore. First/next without a remembered
+position still starts at the page beginning. This improves explicit Previous
+navigation, not continuous/backward Flow stitching, arbitrary forward revisit
+history or full Apple reading parity. No producer contract or write changed.
+
+Validation:778 full tests passed, Ruff0.16.0 src/tests passed, hostverify MATCH.
+New controller cases cover fresh exact-entry restoration, metadata exclusion
+from requests, NaN/infinite/boolean/excessive offsets, missing entries and revision
+fallback. Actual QML presses Next/Previous on long fresh pages and proves equal
+entry+pixel offset after replacement on720x720 and1200x1920. Dedicated harness:
+102 views; broad regression:86 views, no QML errors. Local wheel SHA256
+859cca49a35fd5813c7ac38d2f564dc3047d51fb5e0cd03965f3ee670f208dc1
+matches all57 packaged sources. Evidence: pi-session-page-position under task
+visualizations. Earlier evidence is preserved. These are local synthetic read/
+source/package/Qt results, not live HA/Profile, ARM, installed or physical touch.
+
+Parent645f62a passed all applicable CI (24 successes/4 conditional skips). The
+only PR inline comment is the earlier synthetic URL-test CodeQL finding, already
+fixed on the earlier committed head. Core protected main remains8b221d07; its
+own source-selection WIP continues and is not a release. Apple reports separate
+current/source Session identities in its own work; no Pi review/handoff arrived.
+No repeat pings, other-lane writes, model/HA work, merge, release, install or
+pairing occurred. PR111 remains draft. Full Flow, rich interactions/media,
+remaining pages, native backdrop effects and hardware/live acceptance stay open.

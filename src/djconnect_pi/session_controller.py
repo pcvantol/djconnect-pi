@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from math import isfinite
 from uuid import uuid4
 
 from PySide6.QtCore import (
@@ -42,6 +43,7 @@ class SessionController(QObject):
     entryOpened = Signal()
     questionConfirmed = Signal(str)
     timelineUpdated = Signal(str)
+    timelinePositioned = Signal(str, float)
     selectionInvalidated = Signal()
     contextCleared = Signal()
     _ready = Signal(object)
@@ -363,20 +365,26 @@ class SessionController(QObject):
             self._launch("timeline_page", {"session_id": sid, "cursor": ""})
 
     @Slot()
-    def nextEntries(self):
+    @Slot(str, float)
+    def nextEntries(self, anchor_entry_id="", offset=0):
         sid = self._timeline.get("session", {}).get("session_id")
         cursor = self._timeline.get("next_cursor")
         if sid and cursor:
             self._launch("timeline_page", {"session_id": sid, "cursor": cursor,
                 "revision": self._timeline["revision"],
-                "trail": (self._timeline_trail + [self._timeline_descriptor()])[-32:]})
+                "trail": (self._timeline_trail + [self._timeline_descriptor(anchor_entry_id, offset)])[-32:]})
 
-    def _timeline_descriptor(self):
+    def _timeline_descriptor(self, anchor_entry_id="", offset=0):
         if "_page_cursor" in self._timeline:
-            return {"window": None, "cursor": self._timeline["_page_cursor"]}
-        if self._timeline.get("window") == "anchor":
-            return {"window": "anchor", "anchor_entry_id": self._timeline["anchor_entry_id"]}
-        return {"window": "tail"}
+            target = {"window": None, "cursor": self._timeline["_page_cursor"]}
+        elif self._timeline.get("window") == "anchor":
+            target = {"window": "anchor", "anchor_entry_id": self._timeline["anchor_entry_id"]}
+        else:
+            target = {"window": "tail"}
+        if (any(row["entry_id"] == anchor_entry_id for row in self._timeline.get("entries", []))
+                and type(offset) in (int, float) and isfinite(offset) and abs(offset) <= 1_000_000):
+            target["reading"] = {"entry_id": anchor_entry_id, "offset": float(offset)}
+        return target
 
     @Slot()
     @Slot(str)
@@ -507,7 +515,8 @@ class SessionController(QObject):
                 elif action == "timeline_previous":
                     sid, target = value["session_id"], value["target"]
                     try:
-                        response = self.transport.timeline(binding, sid, **target)
+                        request = {key: value for key, value in target.items() if key != "reading"}
+                        response = self.transport.timeline(binding, sid, **request)
                         decoded = history_page(response, session_id=sid, now=self._clock.now())
                         if target.get("window") == "anchor" and not any(row["entry_id"] == target["anchor_entry_id"] for row in decoded["entries"]):
                             raise SessionError("unavailable")
@@ -517,6 +526,8 @@ class SessionController(QObject):
                         if target.get("window") is None:
                             result["timeline"]["_page_cursor"] = target["cursor"]
                         result["timeline_trail"] = value["trail"]
+                        if target.get("reading"):
+                            result["reading_restore"] = target["reading"]
                     except SessionError as exc:
                         if exc.category != "conflict":
                             raise
@@ -733,7 +744,11 @@ class SessionController(QObject):
         if confirmed:
             self.questionConfirmed.emit(confirmed)
         if "timeline" in result and "error" not in result:
-            self.timelineUpdated.emit(result.get("reading_anchor", self._timeline.get("selected_entry_id", "")))
+            reading = result.get("reading_restore", {})
+            if reading and any(row["entry_id"] == reading["entry_id"] for row in self._timeline.get("entries", [])):
+                self.timelinePositioned.emit(reading["entry_id"], reading["offset"])
+            else:
+                self.timelineUpdated.emit(result.get("reading_anchor", self._timeline.get("selected_entry_id", "")))
         if result["action"] == "open_entry" and "error" not in result:
             self.entryOpened.emit()
         self._reconcile_if_idle()

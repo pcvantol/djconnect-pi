@@ -536,3 +536,50 @@ def test_previous_cursor_fallback_refuses_a_missing_visible_anchor(controller):
     owner.previousEntries(); backend.jobs.pop()()
     assert owner.state['timeline'] == {} and not owner.state['has_previous_entries']
     assert owner.state['error'] == 'unavailable'
+
+
+def test_previous_page_restores_only_a_fresh_retained_reading_identity(controller):
+    owner, backend = controller
+    pages = paged_timeline(owner); backend.jobs.pop()()
+    entry_id = pages[0]['entries'][0]['entry_id']
+    positioned = Mock(); owner.timelinePositioned.connect(positioned)
+    owner.nextEntries(entry_id, -73.5); backend.jobs.pop()()
+    assert owner._timeline_trail[0]['reading'] == {'entry_id': entry_id, 'offset': -73.5}
+    owner.previousEntries(); backend.jobs.pop()()
+    assert owner.transport.timeline.call_args.kwargs == {'window': None, 'cursor': ''}
+    positioned.assert_called_once_with(entry_id, -73.5)
+    assert not owner._timeline_trail
+
+
+@pytest.mark.parametrize('offset', [float('nan'), float('inf'), True, 1_000_001])
+def test_invalid_reading_offsets_are_not_retained(controller, offset):
+    owner, backend = controller
+    pages = paged_timeline(owner); backend.jobs.pop()()
+    owner.nextEntries(pages[0]['entries'][0]['entry_id'], offset); backend.jobs.pop()()
+    assert 'reading' not in owner._timeline_trail[0]
+
+
+def test_missing_previous_reading_entry_is_not_repositioned(controller):
+    owner, backend = controller
+    pages = paged_timeline(owner); backend.jobs.pop()()
+    entry_id = pages[0]['entries'][0]['entry_id']
+    owner.nextEntries(entry_id, -50); backend.jobs.pop()()
+    pages[0]['entries'] = pages[0]['entries'][1:]
+    positioned = Mock(); owner.timelinePositioned.connect(positioned)
+    owner.previousEntries(); backend.jobs.pop()()
+    positioned.assert_not_called()
+    assert all(row['entry_id'] != entry_id for row in owner.state['timeline']['entries'])
+
+
+def test_previous_revision_fallback_discards_old_pixel_position(controller):
+    from copy import deepcopy
+    owner, backend = controller
+    pages = paged_timeline(owner); backend.jobs.pop()()
+    owner.nextEntries(pages[0]['entries'][0]['entry_id'], -50); backend.jobs.pop()()
+    anchor = pages[1]['entries'][0]['entry_id']
+    fresh = deepcopy(pages[1]); fresh.update(revision='fresh-revision', window='anchor', anchor_entry_id=anchor)
+    owner.transport.timeline.side_effect = [SessionError('conflict'), fresh]
+    positioned = Mock(); owner.timelinePositioned.connect(positioned)
+    owner.previousEntries(anchor); backend.jobs.pop()()
+    positioned.assert_not_called()
+    assert not owner._timeline_trail
