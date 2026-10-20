@@ -1234,3 +1234,11 @@ Local final result:870 full tests, Ruff0.16.0 src/tests and hostverify MATCH.
 Wheel398b3131bac21e2bdb33fe82e55c0b6536f15a80f09be276ed3623927c71e81f
 matches all60 packaged sources. List/detail withdrawal was visually inspected
 on the actual fixture canvases; no new native simulator or live provider claim.
+
+A final context-fence regression clears the deferred historical-selection notice
+when context is invalidated or a new Moment/entry is explicitly selected. An old
+header-expiry notification cannot wipe a newer context's draft. Two causal tests
+bring the full result to872 passed; updated source/package/QML receipts are kept
+with the same evidence directory. No permissions or server writes are broadened.
+
+Final fenced wheel SHA256 475ad76d09c55f1e55f0810263700f4f6460f43b9396bd97701f2737c34a4793 matches all60 packaged sources.

@@ -100,3 +100,18 @@ def test_header_getter_withdrawal_does_not_swallow_selected_context_notification
     notified.assert_not_called()
     owner._expire()
     notified.assert_called_once()
+
+
+
+@pytest.mark.parametrize("new_context", ["invalidate", "select_moment"])
+def test_old_header_notification_cannot_clear_a_new_context(controller, new_context):
+    from test_session_composer import setup_composer
+    owner, _ = controller
+    setup_composer(owner)
+    owner._history_selection_dirty = True
+    notified = Mock();owner.selectionInvalidated.connect(notified)
+    if new_context == "invalidate": owner.invalidate()
+    else: assert owner.selectMoment("s1", "m1")
+    assert not owner._history_selection_dirty
+    owner._expire()
+    notified.assert_not_called()

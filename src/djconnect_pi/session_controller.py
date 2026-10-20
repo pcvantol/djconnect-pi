@@ -158,6 +158,7 @@ class SessionController(QObject):
         return bool(self._question_running)
 
     def _withdraw_question(self):
+        self._history_selection_dirty = False
         self._pending_question = {}
         self._pending_question_binding = None
         self._question_reference = {}
@@ -345,6 +346,7 @@ class SessionController(QObject):
 
     @Slot(str, str, result=bool)
     def selectMoment(self, session_id, moment_id):
+        self._history_selection_dirty = False
         self._selection = {"kind": "selected_moment", "session_id": session_id, "moment_id": moment_id}
         valid = self._selection_valid()
         if not valid:
@@ -354,6 +356,7 @@ class SessionController(QObject):
 
     @Slot(str, str, result=bool)
     def selectEntry(self, session_id, entry_id):
+        self._history_selection_dirty = False
         self._selection = {"kind": "selected_entry", "session_id": session_id, "entry_id": entry_id}
         valid = self._selection_valid()
         if not valid:
