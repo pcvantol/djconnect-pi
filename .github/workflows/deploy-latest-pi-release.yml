@@ -73,9 +73,12 @@ jobs:
         with:
           fetch-depth: 0
       - name: Set up isolated deployment tooling
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
-        with:
-          python-version: "3.14"
+        run: |
+          /opt/homebrew/bin/python3.14 -I -c 'import sys; assert sys.version_info[:2] == (3, 14)'
+          pi_tools_venv="$(mktemp -d "$RUNNER_TEMP/pi-instance-tools.XXXXXXXX")"
+          /opt/homebrew/bin/python3.14 -I -m venv "$pi_tools_venv"
+          "$pi_tools_venv/bin/python" -I -c 'import sys; assert sys.prefix != sys.base_prefix'
+          printf '%s\n' "$pi_tools_venv/bin" >> "$GITHUB_PATH"
       - name: Install exact deployment-tool dependencies
         run: |
           python -m pip install --only-binary=:all: --requirement Tools/pi_deployment_requirements.lock

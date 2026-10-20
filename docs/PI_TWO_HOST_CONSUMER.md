@@ -147,3 +147,29 @@ bindings against qualified Core bf30bebc and published EADB artifacts. This loca
 corrected-reader result is diagnostic, not protected consumer authority or an
 installation. Fresh full-access host verification is MATCH; the preceding
 restricted-reader DRIFT result is retained as an access diagnostic.
+
+
+## Qualified relay tooling preparation correction
+
+The first two actual qualified deployment workflows failed before authority,
+readiness, SSH or installation: actions/setup-python attempted to create
+/Users/runner/hostedtoolcache/Python on the existing non-hosted macOS relay and
+received permission denied. Both original attempts and logs are retained; no
+rerun or global tool-cache permission repair is used.
+
+All three instance workflows instead create a fresh run-temp virtual environment
+using the relay's already installed /opt/homebrew/bin/python3.14, asserting3.14
+and an isolated prefix. GITHUB_PATH exposes that environment only to later steps
+in that job. The dependency lock, runtime/installer packages, authority/preflight/
+identity/one-intent rules remain unchanged. No global Python, runner service,
+credentials or Pi configuration is modified. A new reviewed protected consumer
+and exact Core consumer-only rebind are required before a fresh manually
+controlled deployment attempt following actual device-state review.
+
+Actual qualified-host execution of all three extracted production shell blocks
+passes: fresh3.14.8 virtual environments, isolated prefixes and job-local path
+selection. The deployment-created environment installs the exact unchanged lock
+and runs304consumer/installer/publication cases successfully. YAML parsing,
+Bash syntax and diff checks pass. Fresh strict-key actual read-only state after
+both failed preparations confirms wall-4inch stillrc.3 and wall-10inch stillrc.4,
+bothTARGET_READY. Those are original-state observations, not installedrc.5.
