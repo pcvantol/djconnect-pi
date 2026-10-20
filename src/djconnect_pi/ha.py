@@ -9,8 +9,8 @@ from urllib.parse import urlparse
 import requests
 
 from .config import CLIENT_TYPE, Config, normalize_dj_announcement_output
-from .ha_websocket import WebSocketFastPath
-from .i18n import locale_for_language
+from .ha_websocket import WebSocketFastPath, WebSocketWriteUnconfirmed
+from .i18n import locale_for_language, translate
 from .shared_settings import SharedSettingsClient
 
 _LOGGER = logging.getLogger(__name__)
@@ -779,7 +779,11 @@ class HAClient:
 
     def _try_websocket(self, message_type: str, body: dict[str, Any], *, command: str, timeout: float) -> dict[str, Any] | None:
         self.fast_path.update_config(self.cfg)
-        return self.fast_path.try_request(message_type, body, command=command, timeout=timeout)
+        try:
+            return self.fast_path.try_request(message_type, body, command=command, timeout=timeout)
+        except WebSocketWriteUnconfirmed:
+            # Never turn a lost/rejected write acknowledgement into another HTTP write.
+            raise DJConnectError(translate(self.cfg.language, "session_uncertain")) from None
 
     def _json(self, response: requests.Response) -> dict[str, Any]:
         if response.status_code == 426:

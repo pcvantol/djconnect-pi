@@ -22,6 +22,19 @@ class WebSocketFastPathAuthError(WebSocketFastPathError):
     pass
 
 
+class WebSocketWriteUnconfirmed(WebSocketFastPathError):
+    """A write may have reached its owner; transport fallback must not replay it."""
+
+
+def _replay_safe(message_type: str, body: dict[str, Any]) -> bool:
+    if message_type == "djconnect/command":
+        return isinstance(body.get("command"), str) and body["command"] in {"status", "devices", "queue", "playlists"}
+    return message_type in {
+        "djconnect/capabilities", "djconnect/ask_dj/history",
+        "djconnect/music_dna/profile", "djconnect/music_discovery/feed",
+    }
+
+
 REQUESTED_COMMANDS: tuple[str, ...] = (
     "djconnect/command",
     "djconnect/ask_dj/message",
@@ -90,7 +103,10 @@ class WebSocketFastPath:
             return None
         try:
             data = self._request(message_type, body, timeout=timeout)
-        except Exception as exc:  # noqa: BLE001 - the fast path must fall back to canonical HTTP for every websocket transport failure
+        except WebSocketWriteUnconfirmed as exc:
+            self._mark_unhealthy(exc)
+            raise
+        except Exception as exc:  # noqa: BLE001 - no application write was dispatched, or this is a replay-safe read
             self._mark_unhealthy(exc)
             return None
         self.transport = "websocket"
@@ -146,6 +162,8 @@ class WebSocketFastPath:
 
     def _request(self, message_type: str, body: dict[str, Any], *, timeout: float) -> dict[str, Any]:
         response = self._exchange(message_type, body, timeout=timeout, requires_djconnect_auth=True)
+        if not _replay_safe(message_type, body) and response.get("success") is not True:
+            raise WebSocketWriteUnconfirmed()
         if response.get("success") is False:
             error = str(response.get("error") or "websocket_error")
             if error in {"unauthorized", "forbidden", "not_configured", "stale_pairing", "stale_token", "invalid_token"}:
@@ -156,6 +174,7 @@ class WebSocketFastPath:
     def _exchange(self, message_type: str, body: dict[str, Any], *, timeout: float, requires_djconnect_auth: bool) -> dict[str, Any]:
         self._ensure_session(timeout=timeout)
         ws = _websocket_create_connection(self._url(), timeout=timeout)
+        dispatched = False
         try:
             auth_required = _websocket_recv_json(ws)
             if auth_required.get("type") != "auth_required":
@@ -181,7 +200,10 @@ class WebSocketFastPath:
                     message["profile_id"] = self.cfg.explicit_profile_id
                 if self.cfg.private_session:
                     message["private_session"] = True
-            ws.send(json.dumps(message))
+            encoded = json.dumps(message)
+            # send() may partially transmit before raising; latch before entering it.
+            dispatched = True
+            ws.send(encoded)
             response = _websocket_recv_json(ws)
             if response.get("type") == "result":
                 if response.get("success") is False:
@@ -192,10 +214,16 @@ class WebSocketFastPath:
                 result = response.get("result")
                 if isinstance(result, dict):
                     return result
+                if not _replay_safe(message_type, body):
+                    raise WebSocketWriteUnconfirmed()
                 return {"success": True}
             if response.get("type") == message_type:
                 return response
             raise WebSocketFastPathError("Unexpected Home Assistant WebSocket response")
+        except Exception:  # preserve uncertain dispatch even for partial send/decode failures
+            if dispatched and not _replay_safe(message_type, body):
+                raise WebSocketWriteUnconfirmed() from None
+            raise
         finally:
             try:
                 ws.close()
@@ -264,7 +292,7 @@ class WebSocketFastPath:
             self._access_token = ""
             self._access_token_expires_at = 0.0
             self._websocket_url = ""
-        _LOGGER.debug("WebSocket fast path unavailable; falling back to HTTP: %s", exc.__class__.__name__)
+        _LOGGER.debug("WebSocket fast path unavailable: %s", exc.__class__.__name__)
 
 
 def _websocket_create_connection(url: str, *, timeout: float) -> Any:

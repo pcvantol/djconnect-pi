@@ -948,3 +948,35 @@ edge). Compact metadata combines artist/album and progress/time, with
 Spotify attribution beside the title. Tablet details stay separate. All fields
 remain; original first-fold tests were not changed or weakened. No liveHA/Profile, ARM,
 installed, provider/licence or physical acceptance follows. Exact-head CI separate.
+
+
+### Playback dispatch prerequisite — 2026-10-20
+
+A reproduced consumer defect could dispatch a command once over WebSocket and
+then again over HTTP after losing its acknowledgement. A before/after actual
+HAClient test with a synthetic socket proves parent8b683 sends next once plus
+one HTTP command; the new source sends next once, no HTTP command, and reports
+unconfirmed in the selected locale. The send latch is set before send(), since
+partial transmission may precede an exception. Writes also do not fall back after
+an explicit rejection, malformed/empty acknowledgement or decode failure. Missing
+capability, connection/auth failure before application dispatch and explicitly
+allowlisted reads retain their established HTTP fallback. Unknown/malformed
+command types are conservatively non-replayable. Confirmed writes keep the fast
+path. No raw server error or prompt is included in the new localized status, and
+this error does not clear pairing. Read-only source provenance is pinned in
+PLAYBACK_COMMAND_DISPATCH_REFERENCE.json. No new producer field or grant.
+
+This is a necessary transport fix before adding Session playback controls, not a
+new controls/favorites/volume UI or a general server exactly-once guarantee.
+HTTP redirect/context behavior, queued Session-control cancellation and current
+Profile/capability gating still need the next dedicated consumer slice. No live
+playback, HA, provider, model, ARM, installed or physical test was performed.
+
+Local final qualification:1258 full tests passed, including70 new boundary cases;
+Ruff0.16.0 src/tests passed and fresh read-only qualifiedhostverify MATCH. The
+previous1188 tests were ancestor evidence; this full suite is on the new source.
+UI/QML files are unchanged, so the prior956 actual views on8b683 remain separate
+historical UI evidence; no new screenshots or visual parity claim. Wheelb957231aaef9f25dbfc7df55018a4f29a824502b26487eeb8dbdb5c31c5707a9
+matches all64 packaged sources. Evidence:taskvisualizations/pi-playback-dispatch-no-replay,
+including actual before/after readbacks and reproducible socket probe. Initial
+lint findings and prior1255-test intermediate run are retained separately.
