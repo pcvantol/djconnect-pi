@@ -5,8 +5,9 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
+import requests
 
-from djconnect_pi.session_transport import SessionError
+from djconnect_pi.session_transport import SessionError, SessionTransport
 
 pytest_plugins = ["test_session_controller"]
 URI = "spotify:track:0000000000000000000001"
@@ -240,3 +241,34 @@ def test_owner_session_withdrawn_at_preflight_cannot_dispatch_or_keep_old_contex
     backend.jobs.pop()()
     owner.transport.playback_command.assert_not_called()
     assert not owner.state["session_id"]
+
+
+@pytest.mark.parametrize("boundary", ["owner", "status", "command"])
+@pytest.mark.parametrize("status", [401, 403])
+@pytest.mark.parametrize("body", ["malformed", "non_object"])
+def test_real_transport_denial_withdraws_current_session_and_draft_without_unpairing(controller, monkeypatch, boundary, status, body):
+    owner, backend = setup(controller)
+    token = backend.cfg.device_token
+    draft = {"text": "Synthetic private draft"}
+    owner.contextCleared.connect(lambda: draft.update(text=""))
+    response = Mock(status_code=status)
+    if body == "non_object": response.json.return_value = []
+    else: response.json.side_effect = ValueError("not JSON")
+    request = Mock(return_value=response)
+    class IsolatedSession:
+        def __enter__(self): return self
+        def __exit__(self, *args): pass
+        def request(self, *args, **kwargs):
+            assert self.trust_env is False
+            return request(*args, **kwargs)
+    monkeypatch.setattr(requests, "Session", IsolatedSession)
+    name = {"owner": "active", "status": "playback_status", "command": "playback_command"}[boundary]
+    setattr(owner.transport, name, getattr(SessionTransport, name).__get__(owner.transport, SessionTransport))
+    assert owner.playbackCommand("synthetic-session", ITEM_ID, "next")
+    backend.jobs.pop()()
+    assert not owner.state["session_id"] and not owner._session
+    assert owner.state["error"] == "denied" and not draft["text"]
+    assert backend.cfg.paired and backend.cfg.device_token == token
+    assert not backend.jobs  # No refresh or replay after an authoritative denial.
+    request.assert_called_once()
+    response.json.assert_not_called()

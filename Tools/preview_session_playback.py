@@ -20,7 +20,7 @@ from djconnect_pi.brand_theme import apply_palette
 from djconnect_pi.config import Config, save_config
 from djconnect_pi.expiry_clock import ExpiryClock
 from djconnect_pi.session_projection import timestamp
-from djconnect_pi.session_transport import SessionError
+from djconnect_pi.session_transport import SessionError, SessionTransport
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -172,6 +172,29 @@ def main():
                 backend.cfg.music_backend_capabilities = {'supports_favorites': False}; owner.changed.emit(); QTest.qWait(60)
                 assert not window.findChild(QObject, 'sessionPlaybackFavorite').property('visible')
                 capture('favorite-unsupported')
+                screen.setProperty('draft', 'Synthetic private draft before denial')
+                response = Mock(status_code=401 if width == 720 else 403)
+                response.json.side_effect = ValueError('Synthetic malformed denial body')
+                denial_calls = []
+                class DenialSession:
+                    def __enter__(self): return self
+                    def __exit__(self, *args): pass
+                    def request(self, *args, **kwargs):
+                        assert self.trust_env is False
+                        denial_calls.append((args, kwargs))
+                        return response
+                owner.transport.playback_command = SessionTransport.playback_command.__get__(owner.transport, SessionTransport)
+                token = backend.cfg.device_token
+                with patch('requests.Session', DenialSession):
+                    click('sessionPlaybackNext'); assert len(intents) == 1
+                    intents.pop()()
+                QTest.qWait(60)
+                assert not owner.state['session_id'] and owner.state['error'] == 'denied'
+                assert not screen.property('draft') and not popup.property('visible')
+                assert backend.cfg.paired and backend.cfg.device_token == token
+                assert len(denial_calls) == 1 and not reads
+                response.json.assert_not_called()
+                capture('malformed-http-denial-withdrawn')
                 owner.setForeground(False); QTest.qWait(60)
                 assert not popup.property('visible') and not owner.state['playback_control']['available']
                 capture('foreground-withdrawn')

@@ -164,3 +164,47 @@ def test_playback_preserves_valid_configured_reverse_proxy_base_path(transport):
     client.playback_status(client.binding())
     request.assert_called_once()
     assert request.call_args.args == ("POST", "https://fixture.invalid/ha/api/djconnect/v1/command")
+
+
+@pytest.mark.parametrize("method", ["GET", "POST"])
+@pytest.mark.parametrize("isolated", [False, True])
+@pytest.mark.parametrize("status", [401, 403])
+@pytest.mark.parametrize("body", ["empty", "malformed", "non_object"])
+def test_http_denial_precedes_any_body_decode_and_keeps_pairing(transport, method, isolated, status, body):
+    client, cfg, request, response = transport
+    response.status_code = status
+    if body == "non_object": response.json.return_value = []
+    else: response.json.side_effect = ValueError(body)
+    with pytest.raises(SessionError, match="^denied$"):
+        client._request(client.binding(), method, "session/active", isolated=isolated)
+    response.json.assert_not_called()
+    request.assert_called_once()
+    assert cfg.paired and cfg.device_token == "synthetic-token"
+
+
+@pytest.mark.parametrize("method", ["GET", "POST"])
+@pytest.mark.parametrize("status", [401, 403])
+def test_superseded_binding_precedes_denial_without_decoding_old_body(transport, method, status):
+    client, cfg, request, response = transport
+    response.status_code = status
+    def delayed(*args, **kwargs):
+        cfg.active_profile_id = "successor-profile"
+        return response
+    request.side_effect = delayed
+    with pytest.raises(SessionError, match="^context_changed$"):
+        client._request(client.binding(), method, "session/active", isolated=True)
+    response.json.assert_not_called()
+    request.assert_called_once()
+    assert cfg.paired and cfg.device_token == "synthetic-token"
+
+
+@pytest.mark.parametrize("method,expected", [("GET", "unavailable"), ("POST", "uncertain")])
+def test_server_failure_remains_unavailable_or_uncertain_without_replay(transport, method, expected):
+    client, cfg, request, response = transport
+    response.status_code = 503
+    response.json.side_effect = ValueError("malformed failure")
+    with pytest.raises(SessionError, match="^" + expected + "$"):
+        client._request(client.binding(), method, "session/active", isolated=True)
+    response.json.assert_not_called()
+    request.assert_called_once()
+    assert cfg.paired and cfg.device_token == "synthetic-token"

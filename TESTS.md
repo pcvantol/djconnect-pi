@@ -1093,3 +1093,9 @@ The distinct rc.5 version preparation passes the full local Python suite:1334tes
 Predecessor6078e706 has25successful applicable CI checks/4conditional skips and passed in-memory compilation of all29 Python source modules on each actual ARM target using its existing Python3.13.5/Qt6.11.2 runtime. This is not rc.5 ARM package import, QML rendering, installation, server execution or hardware acceptance. The existing playback UI qualification remains separately bound to its earlier exact source.
 
 Current device/service/resource/paired-flag observations and the planned immutable package/source/target/capture receipts are documented in `docs/PI_4_0_RC5_PREPARATION.md`. External evidence: `pi-deployment-screenshot-preflight`. No candidate publication, device activation, reset, pairing or Profile substitution has occurred.
+
+## rc.5 malformed-denial review correction
+
+An independent bounded Apple-chat review of exact9f555826 found that non-JSON HTTP401/403 could be misclassified as uncertain/invalid. The shared transport now classifies denial after the original binding fence and before any JSON decode. Full production-byte suite1376PASS;128targetedtransport/playbacktestsPASS;Ruff0.16.0src/testsPASS.42newcases includeGET/POST,isolated/ordinarytransport,401/403,empty/malformed/non-object bodies,bindingreplacementprecedence,503/noReplay,and realtransport→controllerwithdrawal at owner/status/effect boundaries while pairing/token remain.
+
+The actual QML playback harness passes100views with zeroerrors/bindingloops across5locales/bothformats, including realQtbutton→synthetic malformedHTTP denial→clearedSession/draft/closedpop-out. The existing150broad rc.5-preparation views remain a separate predecessor checkpoint. No new installed/live/physical claim or producerfixture is created. Four separate extracted-installer-function fixturechecks are external deployment research, not additional product-suite tests or fullinstaller/rollback proof.

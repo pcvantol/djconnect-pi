@@ -110,6 +110,9 @@ class SessionTransport:
             raise SessionError("offline" if method == "GET" else "uncertain") from None
         if binding != self.binding():
             raise SessionError("context_changed")
+        # Access withdrawal is authoritative even when a proxy/server returns no JSON.
+        if response.status_code in (401, 403):
+            raise SessionError("denied")
         if 300 <= response.status_code < 400:
             raise SessionError("unavailable" if method == "GET" else "uncertain")
         if response.status_code >= 500:
@@ -121,8 +124,6 @@ class SessionTransport:
         if not isinstance(data, dict):
             raise SessionError("invalid" if method == "GET" else "uncertain")
         code = data.get("error") if isinstance(data.get("error"), str) else ""
-        if response.status_code in (401, 403):
-            raise SessionError("denied")
         if response.status_code in (404, 405, 426) or code == "history_contract_upgrade_required":
             raise SessionError("unavailable", code if code in {"history_unavailable", "active_session_not_found", "history_contract_upgrade_required"} else "")
         if response.status_code == 409:
