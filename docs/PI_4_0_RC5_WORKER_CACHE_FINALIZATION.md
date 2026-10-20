@@ -8,8 +8,9 @@ records the source correction without changing application or delivery behavior.
 A real worker read-only open of an ambient shared pip-cache metadata file blocked
 the preceding preparation. Cache contents/permissions/data were untouched; its
 underlying OS/storage cause remains unproven. Both attempts39490525756/39490532326
-completed cancelled before authority/install; those steps were observed skipped.
-The old local pip process exited; actual strict-key readback retainedrc.3/rc.4.
+completed cancelled before authority/install. The4-inch authority/install steps
+were skipped; the queued10-inch instance never started. The old local pip process
+exited; actual strict-key readback retainedrc.3/rc.4.
 
 Only the three identical tooling-install lines change: isolated/no-cache/
 noninteractive pip with self-version-check disabled, same binary-only exact lock.
