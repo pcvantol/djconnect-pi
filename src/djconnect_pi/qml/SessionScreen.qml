@@ -257,12 +257,22 @@ Item {
             }
         }
     }
+    Timer {
+        id: currentReplyPosition; interval: 32
+        onTriggered: {
+            if (!screen.visible || screen.historical || !screen.followQuestionReply || !screen.state.current_reply.text || historyScroll.contentItem.dragging) return
+            var flick = historyScroll.contentItem
+            flick.contentY = Math.max(0, Math.min(flick.contentY + currentReplyCard.mapToItem(flick, 0, 0).y - 12, Math.max(0, flick.contentHeight - flick.height)))
+            screen.followQuestionReply = false
+        }
+    }
     Connections {
         target: historyScroll.contentItem
         function onDraggingChanged() { if (historyScroll.contentItem.dragging) { screen.followQuestionReply = false; readingRestore.stop(); if (!screen.historical) screen.clearFlowReturn() } }
     }
     Connections {
         target: screen.owner
+        function onCurrentReplyReady() { currentReplyPosition.restart() }
         function onQuestionConfirmed(entryId) { if (screen.followQuestionReply) { screen.pendingReplyId = entryId; replyRestore.restart() } }
         function onSelectionInvalidated() { screen.clearComposer() }
         function onTimelineUpdated(anchor) { screen.restoreReading(anchor) }
@@ -562,6 +572,15 @@ Item {
                     Text { text: screen.displayDate(modelData.occurred_at); color: BrandTheme.colors.muted; font.pixelSize: 16; textFormat: Text.PlainText }
                     SessionAttribution { id: conversationSources; sources: modelData.display_sources || []; requiresSpotify: modelData.requires_spotify_attribution || false; spotifyURL: modelData.spotify_source_url || ""; Layout.fillWidth: true }
                 }
+            }
+            GlassCard {
+                id: currentReplyCard
+                objectName: "sessionCurrentReply"
+                visible: !screen.historical && !!screen.state.current_reply.text
+                Layout.fillWidth: true
+                Text { text: screen.tr("session_current_response"); textFormat: Text.PlainText; color: BrandTheme.colors.muted; font.pixelSize: 18; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                Text { visible: currentReplySources.ready; text: screen.state.current_reply.text || ""; textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 22; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                SessionAttribution { id: currentReplySources; sources: screen.state.current_reply.display_sources || []; requiresSpotify: screen.state.current_reply.requires_spotify_attribution || false; spotifyURL: screen.state.current_reply.spotify_source_url || ""; Layout.fillWidth: true }
             }
             GlassButton {
                 objectName: "sessionReadCurrentHistory"

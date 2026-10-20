@@ -1297,3 +1297,11 @@ _INFORMATION_TRANSLATIONS = {'legal': ('Legal', 'Juridisch', 'Rechtliches', 'Men
 for _key, _values in _INFORMATION_TRANSLATIONS.items():
     for _language, _value in zip(SUPPORTED_LANGUAGES, _values):
         TRANSLATIONS[_language][_key] = _value
+
+_CURRENT_RESPONSE_TRANSLATIONS = {
+    "session_current_response": ("Current answer · not saved", "Huidig antwoord · niet opgeslagen", "Aktuelle Antwort · nicht gespeichert", "Réponse actuelle · non enregistrée", "Respuesta actual · no guardada"),
+    "session_question_current_answer": ("Answer received · not saved", "Antwoord ontvangen · niet opgeslagen", "Antwort erhalten · nicht gespeichert", "Réponse reçue · non enregistrée", "Respuesta recibida · no guardada"),
+}
+for _key, _values in _CURRENT_RESPONSE_TRANSLATIONS.items():
+    for _language, _value in zip(SUPPORTED_LANGUAGES, _values):
+        TRANSLATIONS[_language][_key] = _value

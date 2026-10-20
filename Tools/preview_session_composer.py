@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+from copy import deepcopy
 import json
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -435,6 +436,33 @@ def main():
         assert native_reading['id'] in {row['moment_id'] for row in owner.state['moments']}
         capture('flow-reading-native-moment-identity')
         QMetaObject.invokeMethod(screen,'clearFlowReturn')
+        # Selected live questions intentionally return no canonical history entries.
+        # Reuse released response prose; only synthetic receipt/context identities adapt.
+        original_question=owner.transport.question
+        current_response=next(row['body'] for row in json.loads((ROOT/'tests/fixtures/session_core/contextual-dialogue-v1.json').read_text())['fixtures'] if row['case']=='active-credit')
+        native_session=owner._session
+        owner.transport.active=Mock(return_value={'success':True,'session':native_session})
+        def current_answer(binding,request):
+            reply=deepcopy(current_response)
+            reply.update(owner_profile_id=binding.resolved_profile_id,client_message_id=request['client_message_id'])
+            reply['conversation']['context']={'session_id':request['session_id'],'selected_moment':{key:value for key,value in request['selected'].items() if key!='kind'}}
+            return reply
+        owner.transport.question=Mock(side_effect=current_answer)
+        for language in ['en','nl','de','fr','es']:
+            complete_navigation()
+            backend.setLanguage(language);backend._toast_visible=False;backend.toastChanged.emit()
+            complete_navigation()
+            assert owner.selectMoment(native_session['session_id'],current['moment_id'])
+            field.setProperty('text','Synthetic question about selected live credit')
+            QMetaObject.invokeMethod(screen,'submitQuestion')
+            assert owner.questionBusy
+            backend._executor.submit.call_args.args[0]();complete_navigation()
+            assert owner.state['current_reply']['text']==current_response['text']
+            assert not owner._question_receipt
+            capture('current-response-not-saved-'+language)
+            assert window.findChild(QObject,'sessionCurrentReply').property('visible')
+        owner.transport.question=original_question
+        backend.setLanguage('nl');backend._toast_visible=False;backend.toastChanged.emit()
         playback_card=window.findChild(QObject,'sessionPlaybackMetadata')
         assert owner.state['playback']['title']==snapshot['playback']['title']
         assert owner.state['playback']['source_url']==snapshot['playback']['source_url']
@@ -494,7 +522,6 @@ def main():
         owner.invalidate()
         assert not owner.state['forecast']['sections']
         # Explicit synthetic history2 playback row; no artwork/current grant is invented.
-        from copy import deepcopy
         history_fixture=json.loads((ROOT/'tests/fixtures/session_core/retention-v2-touch.json').read_text())['tail_window']
         playback_page=deepcopy(history_fixture)
         seed=history_fixture['entries'][0]

@@ -466,3 +466,12 @@ The broad page preview now renders Privacy/Legal via actual More-menu clicks in
 all five locales on both canvases. It verifies selected More tab, Back navigation,
 page-end scrolling and adaptive one-/three-column menu presentation. No external
 licence link is opened, and no server request is required for either static page.
+
+
+Current-only selected-Moment replies have a separate qualification suite. It
+combines a synthetic admitted native reference with unchanged pinned credit prose
+and adapted receipt identities, checks original deadline/revision/owner fences,
+refuses malformed/error/unqualified responses and proves no retained-history or
+executable/media fields appear. QML uses explicit synthetic question workers on
+both canvases/five languages. These tests do not qualify broad private/standalone
+chat or a live model/provider/HA response.

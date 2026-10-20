@@ -1002,3 +1002,61 @@ producer contract, model/provider/HA effect, merge, release, installation or pai
 is included. PR111 stays draft. Continuous Flow, standalone/private-ephemeral
 composition, rich actions/media, feedback, remaining Apple pages and actual
 backdrop/SF fidelity remain open.
+
+
+### 2026-10-20 — Current-only live-Moment credit replies
+
+Protected Core8b221d07 ask_dj/service.py explicitly disables archive persistence
+for selected_moment. The pinned active-credit response therefore has
+history_scope private_ephemeral, history_persisted false and zero entry IDs.
+The former Pi receipt/history2-only path could not show this successful answer.
+The existing contextual dialogue contract permits accepted current responses;
+its source/owner/clear/lifecycle rules remain authoritative.
+
+The shared client now renders a narrow current-only text subset: an exact accepted
+owner/client/turn/context receipt, private_ephemeral/zero entries, matching bounded
+root/assistant generated text, qualified_dialogue_v1, cc0_normalized_fields_v1 and
+explicit MusicBrainz CC0 source links. It requires an originally selected admitted
+Moment with a finite original source/display deadline and identical fresh/current
+reference. Body, source links and declared attribution are preserved; all returned
+media, actions and unrelated fields are excluded. Unsupported private responses
+remain accepted_unavailable. This is not general private-mode or standalone chat.
+
+One RAM-only answer is marked Current answer · not saved. It is separate from
+retained conversation and is never appended to history or treated as a new native
+Moment. New question, End, Profile/binding/background/context withdrawal remove it.
+An observed native revision/style/reference change invalidates pending questions,
+even if the revision later changes back. Current reference identity/signature and
+the original earliest finite deadline must still match at receipt/GUI admission
+and expiry. Getter withdrawal preserves a dirty notification for the next tick;
+clock rollback cannot revive it. A concurrent refresh owns Runtime and may not be
+overwritten by the question worker. Spotify dependency keeps the packaged logo/
+renderer-ready fence. The new card receives focus only for the explicit own send;
+existing touch cancellation remains active.
+
+Validation:845 full tests passed, Ruff0.16.0 src/tests passed, hostverify MATCH.
+Eighteen new tests cover exact original prose/CC0 attribution, no history/media
+promotion, source/revision/style/expiry/scope withdrawal, GUI getter/tick/rollback,
+observed revision-change-back and malformed/error/foreign receipts. Actual QML:
+186 dedicated views plus116 broad regression views without errors/binding loops.
+Five labels on both formats use the unchanged released response prose, with only
+explicitly synthetic transport/context identities adapted; no new producer Runtime
+or content-quality claim. Initial fixture failures (unrun question worker, late
+local deepcopy import, language change during a held old-language poll) remain in
+diagnostics. Final harness drains prior reads before each locale change and runs
+the explicit question worker. Local wheel SHA256
+ca34bb0d84b9937bdd6530479389bcbac820625b6f4e17abbbfce01198a67497
+matches all60 packaged sources. Evidence: pi-session-current-reply under task
+visualizations. Fresh read-only screenshots from the already booted iPhone-mini
+and iPad reference simulators preserve native Session design comparison; no Apple
+build/install, live model, provider or HA action was performed.
+
+Parent72e54df passed all applicable CI (24 successes/4 conditional skips). Core
+was asked once for protected-source clarification of broader private/standalone
+lifetime/readback; that answer/review remains pending. The implemented subset uses
+the existing finite selected-Moment grant and does not infer broader rights.
+Core remains in its own Wikidata/website WIP, not adopted here. General ephemeral
+mode, standalone, dependent follow-up responses without an explicit live selection,
+other source bases, current-reply reading descriptors, complete Flow/media and
+remaining Apple/native design parity remain open. PR111 remains draft; no merge,
+release, Pi install, pairing or live/ARM/physical acceptance is included.
