@@ -28,7 +28,9 @@ class AggregateClient(Client):
                     changed = {**row, "id": run_id+100, "updated_at": "2026-10-20T17:01:00Z"}
                     mode = self.later_mode
                     if mode == "queued-earlier-update":changed.update(status="queued", conclusion=None, updated_at="2026-10-20T15:59:00Z")
-                    elif mode == "same-id-rerun":changed.update(id=run_id, run_attempt=2)
+                    elif mode in {"same-id-rerun", "missing-attempt", "boolean-attempt", "string-attempt"}:
+                        changed.update(id=run_id, run_attempt={"same-id-rerun": 2, "missing-attempt": None, "boolean-attempt": True, "string-attempt": "1"}[mode])
+                        runs.remove(row)  # GitHub replaces this run row on a rerun.
                     if mode in {"queued", "in_progress"}:changed.update(status=mode, conclusion=None)
                     elif mode in {"failure", "cancelled", "timed_out"}:changed["conclusion"] = mode
                     elif mode == "manifest":changed["display_title"] += "-new"
@@ -79,7 +81,7 @@ def test_no_old_or_partial_success_can_complete_the_release(case):
 
 
 @pytest.mark.parametrize("instance", ["wall-4inch", "wall-10inch"])
-@pytest.mark.parametrize("mode", ["queued", "in_progress", "failure", "cancelled", "timed_out", "manifest", "consumer", "success-unmatched", "queued-earlier-update", "same-id-rerun"])
+@pytest.mark.parametrize("mode", ["queued", "in_progress", "failure", "cancelled", "timed_out", "manifest", "consumer", "success-unmatched", "queued-earlier-update", "same-id-rerun", "missing-attempt", "boolean-attempt", "string-attempt"])
 def test_later_deployment_on_either_instance_invalidates_older_smoke(instance, mode):
     client = AggregateClient();client.later_instance = instance;client.later_mode = mode
     authority = resolve(client, client.request, CONSUMER, client.configuration)

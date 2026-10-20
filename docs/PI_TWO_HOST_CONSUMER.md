@@ -105,3 +105,12 @@ rerun restriction. Four added two-instance cases cover queued higher-ID/earlier
 update and same-ID attempt2 with an old smoke. A successful real attempt2 is not
 claimed reachable under the current controller; this is an explicit evidence
 consistency rejection. Dedicated total258cases; no hardware action.
+
+The rerun fixture now replaces the GitHub run row instead of duplicating its ID.
+The independent review correctly identified that the earlier duplicate-row test
+could fail through the timestamp guard rather than the attempt guard. Both
+same-ID attempt2 tests now demonstrably fail when only the new attempt guard is
+removed from an isolated in-memory function copy. Production bytes are unchanged
+from93ebce32. Six additional cases reject missing, boolean and string attempts
+on both instances.37aggregator/264dedicated cases pass. The exact93eb production
+suite passed1670without skips; no newer full-suite count is inferred here.
