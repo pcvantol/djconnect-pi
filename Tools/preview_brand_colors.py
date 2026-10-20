@@ -11,7 +11,7 @@ from unittest.mock import Mock, patch
 
 from PySide6.QtCore import Q_ARG, Q_RETURN_ARG, QMetaObject, QObject, QPointF, QTimer, qInstallMessageHandler
 from PySide6.QtGui import QGuiApplication
-from PySide6.QtQml import QQmlApplicationEngine
+from PySide6.QtQml import QQmlApplicationEngine, QQmlExpression
 from PySide6.QtQuickControls2 import QQuickStyle
 from PySide6.QtTest import QTest
 from shiboken6 import delete
@@ -60,7 +60,9 @@ def main():
         # Keep fixture reads explicit; wall-clock polling would race language/scope probes.
         for obj in window.findChildren(QObject):
             if 'Timer' in obj.metaObject().className() and obj.property('interval') in (3000,15000):
-                QMetaObject.invokeMethod(obj,'stop')
+                pause = QQmlExpression(engine.rootContext(), obj, 'running = false')
+                pause.evaluate()
+                assert not pause.hasError(), pause.error().toString()
 
         def visual_item(item, name):
             if item.objectName() == name:

@@ -1399,3 +1399,96 @@ RAM-idle timer is used as a display grant. No audio activation, producer write,
 model call, merge, installation or live/physical acceptance follows from this slice.
 
 Final retained Flow qualification:922 full tests passed, including13 new typed-Flow cases and6 historical Spotify attribution cases. Ruff0.16.0 src/tests passed; hostverify MATCH.292 dedicated actual QML views plus116 broad views on both formats/all locales completed without errors/binding loops. Both format captures were visually inspected; the repaired Spotify logo is visible on the mixed retained surface. Local wheelbc6ecf1509307c2c472404e97d157ad602c80d76d151b55dea88e155d9def6e7 matches all61 packaged source files including SessionRetainedEntry.qml. Evidence: taskvisualizations/pi-session-retained-flow. Source/synthetic transport/Qt/package proof only; no live Profile/HA/ARM/installed/physical acceptance. Earlier intermediate test/package/render results and diagnostics are kept separately, not promoted to final source proof.
+
+### Older/newer archive windows beyond100
+
+The former absolute100-header access limit is replaced with bounded read windows.
+More still expands the current window through at most5pages of20headers. Older
+opens the existing owner next_cursor as the start of another window; Newer reads
+the earlier window again. No earlier header bodies are kept. At most32 RAM-only
+request descriptors hold start cursor, page budget, original revision/policy
+scope, prior keyset boundary and optional visible Session ID/finite pixel offset.
+Most recent sessions remains reachable directly even after the return trail's
+oldest descriptors are dropped. There is no absolute count of older windows.
+
+Each window refresh re-reads all its displayed pages starting at that window's
+server cursor, using fresh subsequent cursors. Same owner/revision/retention
+policy, strict keyset order/unique IDs and existing expiry checks still apply.
+Local reading metadata never enters the transport. A conflict on a non-first
+window causes one fresh first-page GET and clears the old trail/reading target;
+five-language copy explains the reset to newest. Denial/malformed data is never
+treated as permission to fall back. Empty scan windows have honest local copy.
+No session-list anchor endpoint, backward cursor or new producer grant is added.
+
+The actual older/newer/newest buttons share both formats. New windows start at
+top; Newer restores only a still-present ID/pixel after fresh layout. Opening a
+detail remembers a metadata-only list position; Back queues a scoped fresh read
+of that exact archive window before restoring it. Pending reads are cancelled
+when the view/Profile/context is left. clearArchive clears list bodies, cursors
+and navigation metadata without ending the current Session or replacing its
+Runtime. Existing retained detail/source lifetime remains independent.
+
+Thirteen controller cases cover beyond100 access,5-page fresh return, revision/
+policy/cursor reset, denial/no fallback, repeated boundary validation, invalid
+reading coordinates, missing-ID top, late read after close and bounded32-trail
+traversal with direct newest recovery. The real QML probe drives the buttons,
+15s polling, detail Back/read position, reset copy and stale click after close.
+
+### Cross-client Forecast revision/scope review
+
+Apple's concrete PR162 review identified a matching Pi defect: same-revision
+Forecast text could be re-projected under new Runtime Mood/Presence/Persona/
+playback context. Pi now binds accepted content to the existing public fields
+selected_mood/mood_revision, selected_presence/presence_revision, dj_persona/
+persona_revision, locale, session_direction and exact playback item/source.
+No new wire field or producer contract was introduced. The original validity
+ceiling/expiry, text-only subset and capability/version gates remain unchanged.
+
+Equivalent repeated reads keep their original deadline. A changed body/title/
+summary/order/state or Runtime scope under the same Forecast revision withdraws
+it; an older frame cannot seed a new scope. Known Runtime style values cannot
+change under the same counter, and independently observed style revision floors
+block rollback even if another field is unknown. A Forecast revision observed
+with unknown/invalid scope becomes a non-renderable floor, not a grant. Only a
+fresh higher admitted revision can recover in the confirmed scope. Ordinary
+playback progress/updated_at/paused observations do not fabricate a new scope.
+
+Pure released20-projection fixture bytes remain unchanged. Tests/Qt previews add
+explicit synthetic public Runtime-style envelopes, not a new producer Runtime
+claim. This correction was communicated to Apple with exact protected Core8b
+source references and no contract-change proposal, model call, budget transfer
+or install/deploy implication. The native imagery catalogue at3cfa5512 reported
+by Apple is not adopted as Pi media permission. Provenance and owning consumer
+review: docs/branding/ARCHIVE_WINDOWS_FORECAST_SCOPE_REFERENCE.json and Pi PR111.
+
+Current Core capability-doc checkpoints802c1cce/833c76b2/45d3eead/512a8c3c remain
+local review material. Their broader full-app/hardware-capability product
+reconciliation is not a protected consumer release or audio activation here.
+Standalone private answer lifetime remains an independent Core contract gap.
+
+Actual tablet review caught early list-position restoration after a short detail
+layout changed to a longer archive list. Restoration now waits for stable layout
+and content extent, verifies the applied position, and stops after at most8
+32ms timer attempts. A missing entry falls back to top; touch/view/Profile changes
+cancel immediately. Reset-to-newest copy was moved above the rows after actual
+phone review found it below the fold. No body is stored in these descriptors.
+
+The immutable Forecast comparison keeps a digest rather than a second prose copy,
+and clears it/scope metadata on expiry/withdrawal. Explicit expired/withdrawn/empty
+reads can keep their original revision and terminal state; this is invalidation,
+not permission for changed ready content or same-revision renewal. Unknown scope
+can retain only a non-renderable revision floor. Original pure producer bytes
+remain unchanged; no image/audio grant is added.
+
+Diagnostics are preserved separately: partial edit-template mismatch, archive
+detail Back introducing a queued read before an old navigation fixture, QObject
+versus visual delegate traversal, an absent search fixture model during mixed
+locale/polling (not claimed as a confirmed live bug), actual tablet ID/pixel race,
+and the old harness waiting for only its control reads rather than the new bounded
+position phase. Fixtures now explicitly disable only automatic3s/15s running
+bindings and invoke their actual callbacks; production polling behavior is
+unchanged. The harness still permits at most3 control jobs and separately waits
+for the bounded layout phase. Search/navigational assertions were not weakened.
+
+Final combined qualification:962 full tests passed, including13 archive-window cases and54 pure Forecast receiver cases plus3 current-controller scope cases. Ruff0.16.0 src/tests passed; hostverify MATCH.386 dedicated actual QML views plus116 broad views completed without errors/binding loops on both formats/all five locales. Real QML buttons/timer callbacks prove beyond100 access, fresh window revalidation, ID/pixel restoration after detail, top-visible reset copy, context close, Forecast scope withdrawal/fresh recovery and Persona uncertainty. Local wheel9a8a7bd4ca0f7fe692ce18935d2285379a709336e7d4b86d4aeed3aa237eb45d matches all61 packaged sources. Source/synthetic transport/package/Qt proof only; no ARM/installed/live Profile/HA/physical acceptance.
+Evidence: taskvisualizations/pi-session-archive-windows-forecast-scope.

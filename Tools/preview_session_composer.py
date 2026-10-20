@@ -95,7 +95,9 @@ def main():
         # Keep fixture reads explicit; wall-clock polling would race language/scope probes.
         for obj in window.findChildren(QObject):
             if 'Timer' in obj.metaObject().className() and obj.property('interval') in (3000,15000):
-                QMetaObject.invokeMethod(obj,'stop')
+                pause = QQmlExpression(engine.rootContext(), obj, 'running = false')
+                pause.evaluate()
+                assert not pause.hasError(), pause.error().toString()
         window.setProperty('activeScreen','session')
         owner.changed.emit()
         def capture(name):
@@ -104,21 +106,29 @@ def main():
             assert window.grabWindow().save(str(target))
             captures.append(target.name)
         capture('composer-dock')
+        if owner.busy: backend._executor.submit.call_args.args[0]()
+        QMetaObject.invokeMethod(window.findChild(QObject,'sessionRuntimePollTimer'),'triggered')
+        assert owner.busy
+        backend._executor.submit.call_args.args[0]()
+        capture('runtime-poll-explicit-owner-read')
         panel=window.findChild(QObject,'sessionComposerPanel')
         field=window.findChild(QObject,'sessionComposerInput')
         keyboard=window.findChild(QObject,'sessionComposerKeyboard')
         screen=window.findChild(QObject,'djSessionScreen')
         def complete_navigation():
             executed=set()
-            for _ in range(3):
-                QTest.qWait(80)
+            # At most3 control reads; layout restoration has its own bounded8-frame budget.
+            for _ in range(20):
+                QTest.qWait(50)
                 if owner.busy:
                     job=backend._executor.submit.call_args.args[0]
-                    assert job not in executed
+                    assert job not in executed and len(executed)<3
                     executed.add(job);job()
-                QTest.qWait(50)
-                if not owner.busy and not screen.property('historyReadPending') and not screen.property('archiveIntent'): return
-            raise AssertionError('bounded synthetic navigation did not settle')
+                QTest.qWait(20)
+                if not owner.busy and not screen.property('historyReadPending') and not screen.property('archiveIntent') and not screen.property('searchRefreshPending') and not screen.property('archivePositionPending'): return
+            raise AssertionError(('bounded synthetic navigation did not settle',owner.busy,
+                screen.property('historyReadPending'),screen.property('archiveIntent'),screen.property('searchRefreshPending'),
+                screen.property('archivePositionPending'),screen.property('archivePositionTries')))
         assert panel and field and keyboard and screen
         mood_button=window.findChild(QObject,'sessionToolbarMood')
         presence_button=window.findChild(QObject,'sessionToolbarPresence')
@@ -562,7 +572,9 @@ def main():
             owner._clock=ExpiryClock(lambda:stamp,lambda:0)
             backend.setLanguage(language);backend._toast_visible=False;backend.toastChanged.emit()
             owner._selection={}  # Match real controller withdrawal before fixture Session replacement.
-            owner._session={'session_id':p['session_id'],'runtime_state':'active','broadcast':{
+            owner._session={'session_id':p['session_id'],'runtime_state':'active',
+                'selected_mood':'groove','mood_revision':0,'selected_presence':'balanced','presence_revision':0,
+                'dj_persona':frame['persona'],'persona_revision':0,'locale':language,'broadcast':{
                 'session':{'session_id':p['session_id']},'session_forecast':p,'playback':{
                     'state':'playing','item_id':p['current_anchor']['item_id'],'title':'Observed track',
                     'source_url':p['current_anchor']['source_url'],'updated_at':p['issued_at']}}}
@@ -579,6 +591,25 @@ def main():
             if width < 900: assert flow_position > 50
             QMetaObject.invokeMethod(forecast_button,'clicked')
             capture('session-forecast-'+language)
+            changed_scope=deepcopy(owner._session);changed_scope.update(selected_mood='party',mood_revision=1)
+            owner._session=changed_scope;owner._forecast.receive(changed_scope,owner._caps,stamp);owner.changed.emit()
+            assert not owner.state['forecast']['sections'] and field.property('text')=='Synthetic unsent draft'
+            capture('session-forecast-equal-revision-scope-withdrawal-'+language)
+            changed_scope['broadcast']['session_forecast']['revision']+=1  # Explicit synthetic revision overlay, not a producer publication proof.
+            owner._forecast.receive(changed_scope,owner._caps,stamp);owner.changed.emit()
+            assert owner.state['forecast']['sections']
+            capture('session-forecast-new-revision-scope-restored-'+language)
+            uncertain_scope=deepcopy(changed_scope);uncertain_scope.update(dj_persona=None,persona_revision=5)
+            uncertain_scope['broadcast']['session_forecast']['revision']+=3
+            owner._forecast.receive(uncertain_scope,owner._caps,stamp);owner.changed.emit()
+            owner._forecast.receive(changed_scope,owner._caps,stamp);owner.changed.emit()
+            assert not owner.state['forecast']['sections']
+            capture('session-forecast-unknown-persona-floor-'+language)
+            changed_scope.update(dj_persona=frame['persona'],persona_revision=5)
+            changed_scope['broadcast']['session_forecast']['revision']=uncertain_scope['broadcast']['session_forecast']['revision']+1
+            owner._forecast.receive(changed_scope,owner._caps,stamp);owner.changed.emit()
+            assert owner.state['forecast']['sections']
+            capture('session-forecast-confirmed-persona-fresh-revision-'+language)
             assert screen.property('showForecast') and screen.property('draft')=='Synthetic unsent draft'
             QMetaObject.invokeMethod(window.findChild(QObject,'sessionFlowMode'),'clicked')
             assert not screen.property('showForecast') and screen.property('draft')=='Synthetic unsent draft'
@@ -650,8 +681,10 @@ def main():
             complete_navigation();owner.moreSearch();complete_navigation()
         assert owner.state['search_limit_reached'] and len(owner.state['search']['matches'])==10,(owner.state['error'],owner.state['search'],search_panel.property('opened'))
         for language in ['en','nl','de','fr','es']:
+            complete_navigation()
             backend.setLanguage(language);backend._toast_visible=False;backend.toastChanged.emit()
             capture('search-bounded-scan-limit-'+language)
+            complete_navigation()
         # Revalidation replaces all displayed bodies atomically; surviving visible identity stays put.
         # Obtain the actual Flickable through its ScrollView rather than assuming visual parents.
         search_flick=window.findChild(QObject,'sessionSearchScroll').property('contentItem')
@@ -744,7 +777,8 @@ def main():
                 'role':'user','input_type':'text','turn_id':'synthetic-navigation-turn'}
             return {**nav_page,'session':{'session_id':sid,'revision':'navigation-revision'},'revision':'navigation-revision','entries':[row]}
         for origin,sid,label in [('session',session['session_id'],'current'),('session',archive_sid,'foreign-from-flow'),('history',archive_sid,'archive')]:
-            window.setProperty('activeScreen',origin)
+            window.setProperty('activeScreen',origin);complete_navigation()
+            assert not owner.busy
             target=opened_page(sid)
             owner.transport.timeline=Mock(return_value=target)
             owner.transport.open_entry=Mock(return_value={**target,'navigation_only':True,'read_only':True,'entry':target['entries'][0]})
@@ -756,9 +790,9 @@ def main():
             capture('navigation-search-open-'+label)
         # Fresh multi-page archive reads, scoped real QML polling and ID/pixel restore.
         archive_now=owner._clock.now()
-        def fresh_pages():
+        def fresh_pages(count=6):
             pages=[]
-            for number in range(6):
+            for number in range(count):
                 rows=[]
                 for index in range(20):
                     row_id=number*20+index
@@ -768,7 +802,7 @@ def main():
                         'lifecycle_status':'ENDED','created_at':stamp,'started_at':stamp,'ended_at':ended,'interrupted_at':''})
                 pages.append({'success':True,'schema_version':2,'history_contract_version':2,
                     'revision':'synthetic-owner-r1','retention_days':90,'retention_revision':1,'sessions':rows,
-                    'next_cursor':f'p-{number+1}' if number<5 else None})
+                    'next_cursor':f'p-{number+1}' if number+1<count else None})
             return pages
         for language in ['en','nl','de','fr','es']:
             complete_navigation();backend.setLanguage(language);backend._toast_visible=False;backend.toastChanged.emit();complete_navigation()
@@ -918,11 +952,96 @@ def main():
             assert not owner.state['retained_flow'] and cards.property('count')==0
             assert not window.findChild(QObject,'sessionRetainedFlowLabel').property('visible')
             capture('retained-flow-expired-'+language)
+        # Actual older/newer windows past100, fresh current-window polling, cursor reset and view withdrawal.
+        for language in ['en','nl','de','fr','es']:
+            complete_navigation();backend.setLanguage(language);backend._toast_visible=False;backend.toastChanged.emit();complete_navigation()
+            owner.invalidate()
+            pages=fresh_pages(12)
+            def window_response(binding,*,cursor=''):
+                return deepcopy(pages[int(cursor.split('-')[-1]) if cursor else 0])
+            owner.transport.history=Mock(side_effect=window_response)
+            owner._caps=readonly_caps;owner._loaded=True
+            window.setProperty('activeScreen','history');owner.closeSaved();complete_navigation()
+            QMetaObject.invokeMethod(window.findChild(QObject,'sessionHistoryRevalidationTimer'),'stop')
+            owner.loadHistory();backend._executor.submit.call_args.args[0]();QTest.qWait(80)
+            for _ in range(4):
+                QMetaObject.invokeMethod(window.findChild(QObject,'sessionArchiveMore'),'clicked');complete_navigation()
+            flick.setProperty('contentY',320);QTest.qWait(60)
+            QMetaObject.invokeMethod(screen,'rememberArchive');saved=screen.property('archiveReturn').toVariant()
+            older_button=window.findChild(QObject,'sessionArchiveOlder');newer_button=window.findChild(QObject,'sessionArchiveNewer')
+            assert older_button.property('visible')
+            QMetaObject.invokeMethod(older_button,'clicked');complete_navigation()
+            assert len(owner.state['sessions'])==20 and owner.state['sessions'][0]['session_id']=='synthetic-archive-100'
+            assert newer_button.property('visible') and flick.property('contentY')<1
+            capture('archive-older-window-'+language)
+            # Detail Back keeps its window, but re-reads every displayed page before ID/pixel restore.
+            flick.setProperty('contentY',320);QTest.qWait(60)
+            QMetaObject.invokeMethod(screen,'rememberArchive');detail_saved=screen.property('archiveReturn').toVariant()
+            detail_page=deepcopy(json.loads((ROOT/'tests/fixtures/session_core/retention-v2-touch.json').read_text())['tail_window'])
+            def archive_detail(binding,sid,**kwargs):
+                result=deepcopy(detail_page);result['session']['session_id']=sid
+                for row in result['entries']: row['session_id']=sid
+                return result
+            owner.transport.timeline=Mock(side_effect=archive_detail)
+            def archive_target(item):
+                if item.objectName()=='sessionArchiveRow' and item.property('modelData')['session_id']==detail_saved['id']:
+                    return item
+                for child in item.childItems():
+                    found=archive_target(child)
+                    if found is not None: return found
+                return None
+            target=archive_target(screen)
+            assert target is not None
+            QMetaObject.invokeMethod(target,'clicked');complete_navigation()
+            assert owner.state['timeline']['session']['session_id']==detail_saved['id']
+            before=owner.transport.history.call_count
+            QMetaObject.invokeMethod(window.findChild(QObject,'sessionHistoryBack'),'clicked');complete_navigation()
+            assert [c.kwargs['cursor'] for c in owner.transport.history.call_args_list[before:]]==['p-5']
+            QMetaObject.invokeMethod(screen,'rememberArchive');detail_restored=screen.property('archiveReturn').toVariant()
+            assert detail_restored['id']==detail_saved['id'] and abs(detail_restored['offset']-detail_saved['offset'])<2,(width,detail_saved,detail_restored)
+            capture('archive-detail-back-fresh-window-position-'+language)
+            for _ in range(4):
+                QMetaObject.invokeMethod(window.findChild(QObject,'sessionArchiveMore'),'clicked');complete_navigation()
+            before=owner.transport.history.call_count
+            QMetaObject.invokeMethod(window.findChild(QObject,'sessionHistoryRevalidationTimer'),'triggered');complete_navigation()
+            assert [c.kwargs['cursor'] for c in owner.transport.history.call_args_list[before:]]==['p-5','p-6','p-7','p-8','p-9']
+            assert len(owner.state['sessions'])==100
+            capture('archive-older-window-fresh-revalidation-'+language)
+            QMetaObject.invokeMethod(newer_button,'clicked');complete_navigation()
+            QMetaObject.invokeMethod(screen,'rememberArchive');restored=screen.property('archiveReturn').toVariant()
+            assert restored['id']==saved['id'] and abs(restored['offset']-saved['offset'])<2,(width,saved,restored)
+            assert not owner.state['archive_older_window']
+            capture('archive-newer-window-restored-'+language)
+            QMetaObject.invokeMethod(older_button,'clicked');complete_navigation()
+            def revoked_window(binding,*,cursor=''):
+                if cursor=='p-5': raise SessionError('conflict')
+                return window_response(binding,cursor=cursor)
+            owner.transport.history.side_effect=revoked_window
+            before=owner.transport.history.call_count
+            QMetaObject.invokeMethod(window.findChild(QObject,'sessionHistoryRevalidationTimer'),'triggered');complete_navigation()
+            assert [c.kwargs['cursor'] for c in owner.transport.history.call_args_list[before:]]==['p-5','']
+            assert owner.state['archive_window_reset'] and not owner.state['archive_older_window'] and not owner.state['has_newer_sessions']
+            reset_notice=window.findChild(QObject,'sessionArchiveWindowReset')
+            assert reset_notice.property('visible')
+            assert 0<=reset_notice.property('y')<flick.property('height')
+            assert flick.property('contentY')<1
+            capture('archive-withdrawn-window-newest-reset-'+language)
+            owner.transport.history.side_effect=window_response
+        for _ in range(4):
+            QMetaObject.invokeMethod(window.findChild(QObject,'sessionArchiveMore'),'clicked');complete_navigation()
+        QMetaObject.invokeMethod(older_button,'clicked');complete_navigation()
+        assert owner._history_trail
+        count=owner.transport.history.call_count
+        window.setProperty('activeScreen','more');QTest.qWait(60)
+        QMetaObject.invokeMethod(newer_button,'clicked');QTest.qWait(40)
+        assert not owner._history_trail and not owner.state['sessions'] and not owner.state['archive_older_window']
+        assert owner.transport.history.call_count==count
+        capture('archive-window-close-clears-private-list')
         backend.shutdown()
         delete(window);delete(engine)
     errors=[value for value in warnings if any(word in value for word in ('ReferenceError','TypeError','Error:','Cannot assign','is not a type','failed to load','Binding loop detected'))]
     (output/'readback.json').write_text(json.dumps({'captures':captures,'qml_errors':errors,
-        'proof':'Synthetic transport -> real controller -> actual QML; automatic fixture polling paused, reads explicit; not HA/model/ARM/installed/physical acceptance'},indent=2))
+        'proof':'Synthetic transport -> real controller -> actual QML; automatic fixture 3s/15s running bindings disabled, actual callbacks and reads explicit; not HA/model/ARM/installed/physical acceptance'},indent=2))
     assert not errors,errors
     print(f'{len(captures)} composer views, explicit QML send and context clearing; no QML errors')
 

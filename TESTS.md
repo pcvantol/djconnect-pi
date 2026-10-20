@@ -541,3 +541,18 @@ markup/emoji/newline as PlainText, disabled composer/actions, logo readiness and
 expiry. These are fixture/controller/Qt proofs, not ARM, installed or live evidence.
 
 Final retained Flow qualification:922 full tests passed, including13 new typed-Flow cases and6 historical Spotify attribution cases. Ruff0.16.0 src/tests passed; hostverify MATCH.292 dedicated actual QML views plus116 broad views on both formats/all locales completed without errors/binding loops. Both format captures were visually inspected; the repaired Spotify logo is visible on the mixed retained surface. Local wheelbc6ecf1509307c2c472404e97d157ad602c80d76d151b55dea88e155d9def6e7 matches all61 packaged source files including SessionRetainedEntry.qml. Evidence: taskvisualizations/pi-session-retained-flow. Source/synthetic transport/Qt/package proof only; no live Profile/HA/ARM/installed/physical acceptance. Earlier intermediate test/package/render results and diagnostics are kept separately, not promoted to final source proof.
+
+Archive windows:13 bounded owner-query cases cover older/newer access beyond100,
+32-descriptor memory bound, fresh return and ID/pixel metadata only, invalid
+coordinates, keyset/scope drift and one bounded newest reset, denial without
+fallback, late-read cancellation and unchanged current Session. Actual QML checks
+older/newer/newest routing, current-window15s revalidation and detail Back freshness.
+Forecast scope cases cover equal/lower revision with changed style/playback,
+immutable content, independently observed Persona/Mood/Presence counters, unknown
+Persona floor and fresh higher recovery, and harmless playback observation ticks.
+Real controller and five-language/two-layout QML probes preserve draft/toggle/
+expiry behavior. Synthetic Runtime overlays are labelled separately from original
+pure producer fixtures and any native/installed/live qualification.
+
+Final combined qualification:962 full tests passed, including13 archive-window cases and54 pure Forecast receiver cases plus3 current-controller scope cases. Ruff0.16.0 src/tests passed; hostverify MATCH.386 dedicated actual QML views plus116 broad views completed without errors/binding loops on both formats/all five locales. Real QML buttons/timer callbacks prove beyond100 access, fresh window revalidation, ID/pixel restoration after detail, top-visible reset copy, context close, Forecast scope withdrawal/fresh recovery and Persona uncertainty. Local wheel9a8a7bd4ca0f7fe692ce18935d2285379a709336e7d4b86d4aeed3aa237eb45d matches all61 packaged sources. Source/synthetic transport/package/Qt proof only; no ARM/installed/live Profile/HA/physical acceptance.
+No duplicate Forecast prose remains after withdrawal; terminal reads preserve state without text renewal. Actual tablet geometry must settle and applied position must verify within8 attempts. Automatic fixture polling bindings alone are disabled, explicit real callbacks remain tested, and production polling is unchanged. Failed/intermediate diagnostics are retained.
