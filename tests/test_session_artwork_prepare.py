@@ -1,3 +1,5 @@
+import json
+
 """Explicit preparation keeps provider work separate from pure image reads."""
 from copy import deepcopy
 from types import SimpleNamespace
@@ -136,7 +138,8 @@ def test_paired_wire_contains_only_version_original_session_and_single_moment_ta
     owner, _backend = controller;_host, _jobs, _fresh, sid, mid = setup(owner)
     transport = owner.transport
     del transport.prepare_artwork
-    response = Mock(status_code=200);response.json.return_value = {'success': True, 'contract_version': 1, 'session_media': []}
+    response = Mock(status_code=200, headers={})
+    response.iter_content.return_value = [json.dumps({'success': True, 'contract_version': 1, 'session_media': []}).encode()]
     binding = transport.binding()
     with patch('djconnect_pi.session_transport.requests.request', return_value=response) as request:
         transport.prepare_artwork(binding, sid, mid)

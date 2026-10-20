@@ -2069,3 +2069,15 @@ Fresh read-only preflight confirms 4-inch `rbpi-djconnect` on rc.3 with paired f
 The existing Apple chat found a concrete P2 on9f555826: HTTP401/403 with a malformed/empty/non-object body was decoded before denial classification and could leave old Session content visible. The corrected common transport first checks the original current binding, then denies401/403 without parsing the body. Device pairing persists; a changed binding still wins over stale denial;503/timeouts remain uncertain/unavailable without replay.1376fulltests/128targetedcases and100actualplaybackQMLviews pass, with Session/draft/pop-out withdrawal proved on both formats. Source QML and all prior feature rights remain unchanged.
 
 Peter directly authorized deployment with “ja akkoord om die te deployen” after the outstanding review/final-package/two-host requirements were explained. This supports the final qualified rc.5 deployment objective, not invented exact unpublished hashes or bypassing protected review/publication/operational gates. Core confirmed neither historical RC1 nor RC2 binding admits rc.5 or both actual hosts; current deploy/smoke consumers also need a matching qualified two-host/profile route. No alias/secret/enum workaround, manifest write, publication, actual install, reset or pairing occurred. The current delivery blocker is route/operational authority, not a permanent Pi app feature restriction.
+
+
+### Session JSON response allocation review correction
+
+The shared Session transport now streams and bounds decoded bytes before JSON
+allocation, plus64levels/100000structural tokens; it closes responses and removes
+the redundant deep copy. Budgets are explicit Pi resource choices:2MiB control,
+8MiB current Session/question and32MiB history/search, not producer wire grants.
+Binding/401/403/5xx/uncertain-write/no-replay fences remain.1439tests and130actual
+Qt playback views qualify the local source; large-body and real-Qt fixtures are
+synthetic, not installed/live proof. Exact independent review and delivery remain
+required. See SESSION_JSON_BOUNDS_REFERENCE.json and the rc.5 preparation document.

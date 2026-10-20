@@ -20,7 +20,7 @@ from djconnect_pi.brand_theme import apply_palette
 from djconnect_pi.config import Config, save_config
 from djconnect_pi.expiry_clock import ExpiryClock
 from djconnect_pi.session_projection import timestamp
-from djconnect_pi.session_transport import SessionError, SessionTransport
+from djconnect_pi.session_transport import JSON_CONTROL_BYTES, SessionError, SessionTransport
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -172,6 +172,43 @@ def main():
                 backend.cfg.music_backend_capabilities = {'supports_favorites': False}; owner.changed.emit(); QTest.qWait(60)
                 assert not window.findChild(QObject, 'sessionPlaybackFavorite').property('visible')
                 capture('favorite-unsupported')
+                # Exercise real streamed command transport under existing real Qt controls.
+                owner.transport.playback_command = SessionTransport.playback_command.__get__(owner.transport, SessionTransport)
+                for mode in ('declared-oversize', 'streamed-oversize', 'exact-boundary'):
+                    size = JSON_CONTROL_BYTES + (0 if mode == 'exact-boundary' else 1)
+                    base = b'{"success":true,"padding":""}'
+                    raw = base[:-2] + b'x' * (size - len(base)) + base[-2:]
+                    bounded_response = Mock(status_code=200, headers={})
+                    if mode == 'declared-oversize':
+                        bounded_response.headers = {'Content-Length': str(size)}
+                    bounded_response.iter_content.side_effect = lambda *, chunk_size: (
+                        raw[i:i + chunk_size] for i in range(0, len(raw), chunk_size))
+                    bounded_calls = []
+                    class BoundedSession:
+                        def __enter__(self): return self
+                        def __exit__(self, *args): bounded_response.close.assert_called_once()
+                        def request(self, *args, **kwargs):
+                            assert self.trust_env is False and kwargs['stream'] is True
+                            bounded_calls.append((args, kwargs))
+                            return bounded_response
+                    with patch('requests.Session', BoundedSession):
+                        click('sessionPlaybackNext'); assert len(intents) == 1
+                        intents.pop()()
+                    QTest.qWait(60)
+                    assert len(bounded_calls) == 1, (mode, len(bounded_calls))
+                    assert len(reads) == (1 if mode == 'exact-boundary' else 0), (mode, len(reads))
+                    bounded_response.json.assert_not_called()
+                    assert owner.state['session_id'] and popup.property('visible')
+                    if mode == 'exact-boundary':
+                        assert owner.state['playback_control']['status'] != 'uncertain'
+                    else:
+                        assert owner.state['playback_control']['status'] == 'uncertain'
+                        assert not owner.playbackCommand(owner.state['session_id'], owner.state['playback']['item_id'], 'next')
+                    if mode == 'declared-oversize': bounded_response.iter_content.assert_not_called()
+                    capture(mode)
+                    if mode == 'exact-boundary': drain()  # Existing successful-command owner read, no write replay.
+                    click('sessionPlaybackRefresh'); assert len(reads) == 1
+                    drain(); assert len(bounded_calls) == 1
                 screen.setProperty('draft', 'Synthetic private draft before denial')
                 response = Mock(status_code=401 if width == 720 else 403)
                 response.json.side_effect = ValueError('Synthetic malformed denial body')

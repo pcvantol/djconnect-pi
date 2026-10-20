@@ -1118,3 +1118,19 @@ missing-changelog and lint diagnostics are retained. Runtime/QML sources are
 unchanged; older QML and ARM proofs retain their original source qualification.
 
 The final complete local suite passes1397tests; Ruff0.16.0 for the publication helper, tests and src passes. Six extracted Bash blocks and git diff checks pass. These results qualify this local source correction, not live deployment.
+
+
+### Streamed Session JSON review correction
+
+`tests/test_session_json_bounds.py` adds42cases; combined transport/preparation/
+playback cases total201PASS and the complete suite1439PASS. It proves streamed
+and declared oversize rejection before decode, exact-boundary acceptance,
+response/session lifetime, gzip expanded-byte rejection, nesting/token guards,
+context-before-denial/stream/decode fences, no replay, and50unclipped escaped
+Unicode history text shapes. These are explicit local resource budgets, not new
+producer wire limits. `Tools/preview_session_playback.py` now produces130actual
+Qt views,5locales/twoformats, including real buttons at oversize/exact boundaries
+plus the existing denial/reading/End coverage. Zero errors/binding loops; both
+oversize layouts visually checked. No physical, installed or live HA claim.
+Provenance: `docs/branding/SESSION_JSON_BOUNDS_REFERENCE.json`; external evidence
+`pi-session-json-response-bounds`, with superseded diagnostics retained.

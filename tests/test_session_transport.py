@@ -1,3 +1,4 @@
+import json
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -12,8 +13,12 @@ def transport(monkeypatch):
     cfg = SimpleNamespace(paired=True, device_token="synthetic-token", ha_url="http://fixture.invalid",
         device_id="djconnect-raspberry-pi-fixture", explicit_profile_id="explicit-profile",
         active_profile_id="resolved-profile", active_profile_type="personal", active_profile_privacy_mode="private", private_session=False, language="nl")
-    response = Mock(status_code=200)
+    response = Mock(status_code=200, headers={})
     response.json.return_value = {"success": True, "session": None}
+    def chunks(*, chunk_size):
+        value = b"not JSON" if response.json.side_effect else json.dumps(response.json.return_value).encode()
+        return iter(value[i:i + chunk_size] for i in range(0, len(value), chunk_size))
+    response.iter_content.side_effect = chunks
     request = Mock(return_value=response)
     monkeypatch.setattr(requests, "request", request)
     class IsolatedSession:

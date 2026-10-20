@@ -66,3 +66,40 @@ The current actual-root host verification is MATCH after Core's separately
 human-approved retention work. Pi made no changes to other-lane evidence. This
 host readiness is separate from source review, protected publication and the
 still-required two-host operational binding.
+
+
+## Streaming JSON review correction
+
+A second independent runtime P2 found that Session HTTP responses were buffered
+and decoded before any body-size check. Ordinary and isolated routes now request
+streamed responses, reject excessive/invalid declared lengths, and count actual
+decoded bytes, including gzip expansion, before JSON parsing. A streaming lexical
+shape guard limits nesting64 and structural tokens100000 before allocation by the
+JSON parser. Responses always close; isolated sessions remain open until body
+consumption/closure. A fresh JSON tree replaces the redundant deep copy.
+
+The resource ceilings are Pi-local:2MiB control,8MiB active/start/broadcast/question,
+32MiB history/search. No applicable general producer HTTP-byte cap was found;
+DialogueFrame/socket/display limits are different scopes and are not reused.
+Fifty32768-character bodies with worst-case ASCII-escaped Unicode fit the history
+budget; the synthetic transport-shape test preserves every character. This does
+not prove arbitrary producer metadata fits, nor grant display rights. Unsupported
+large/deep responses fail explicitly without fact/attribution truncation.
+
+Current-binding checks precede denial and are repeated during streaming and after
+decode.401/403 never reads bodies; redirects/5xx retain existing classification.
+GET malformed/oversize is invalid, POST is uncertain; neither automatically
+replays. Valid previous scope and original source expiry remain under controller
+policy, never renewed by a rejected body.42new regressions cover exact/over/declared
+boundaries, malformed lengths, gzip expansion, Session changes, timeout/closure,
+escaped punctuation, structural bombs and maximum history text shape.
+
+Local final results:1439fulltests,201targeted and130actualQMLviews on both formats
+in five locales, zero errors/binding loops. Actual Next buttons exercise declared
+and streamed oversize, blocked repeat clicks/explicit refresh, valid exact-boundary
+acknowledgement with the existing independent owner read, and malformed denial.
+Both oversize layouts are visually checked. No production QML or strings change;
+ARM/package/exact independent closure and all delivery gates remain separate.
+Initial diagnostics retain the fixture's incorrect19MiB lower-bound arithmetic
+(the exact text bytes are19660800) and its mistaken expectation of no owner read
+on success; no production threshold, pixel tolerance or workflow guard was relaxed.
