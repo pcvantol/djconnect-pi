@@ -9,13 +9,14 @@ Item {
     property var backend
     property bool historical: false
     readonly property bool compact: width < 900
+    readonly property bool sessionControlsVisible: !historical && state.session_id.length > 0
     property var owner: backend.djSession
     property var state: owner.state
     property string draft: ""
     property bool followQuestionReply: false
     property string pendingReplyId: ""
     readonly property string composerContext: state.session_id + "|" + backend.activeProfileId
-    onComposerContextChanged: clearComposer()
+    onComposerContextChanged: closeTransient()
     function clearComposer() { followQuestionReply = false; pendingReplyId = ""; draft = ""; if (composeInput) composeInput.clear(); if (composerPanel) composerPanel.close(); if (owner) owner.clearSelection() }
     function submitQuestion() { if (owner.sendQuestion(composeInput.text)) { followQuestionReply = true; draft = ""; composeInput.clear(); composerPanel.close() } }
     property string proposedMood: "groove"
@@ -70,7 +71,24 @@ Item {
     signal navigate(string destination)
     function tr(key) { backend.translationVersion; return backend.t(key) }
     function displayDate(value) { backend.translationVersion; return owner.formatTimestamp(value || "") }
+    function toolbarValue(field) {
+        var shared = backend.sharedSettings
+        var value = (shared.values || {})[field]
+        if (shared.available && !shared.selection_required && typeof value === "string") return value
+        if (field === "mood") return typeof state.mood === "string" ? state.mood : ""
+        if (field === "presence") return typeof state.presence === "string" ? state.presence : ""
+        return ""
+    }
+    function toolbarIcon(field) {
+        var value = toolbarValue(field)
+        if (field === "mood") return ["chill", "groove", "energy", "party"].indexOf(value) >= 0 ? "mood_" + value : "waveform"
+        if (field === "presence") return ["music_only", "occasional", "balanced", "talkative", "presenter"].indexOf(value) >= 0 ? "presence_" + value : "chat"
+        return ["home_dj", "radio_dj", "club_dj", "festival_dj"].indexOf(value) >= 0 ? "persona_" + value : "session_persona"
+    }
     function openChoice(field, button) {
+        if (!sessionControlsVisible) return
+        choices.sessionId = state.session_id
+        choices.profileId = backend.activeProfileId
         choices.field = field
         choices.editToken = backend.sharedSettings.edit_token || ""
         choices.x = Math.max(12, Math.min(button.mapToItem(screen, 0, 0).x, width - choices.width - 12))
@@ -115,12 +133,16 @@ Item {
     Connections {
         target: screen.backend
         function onProfileChanged() { screen.closeTransient(); screen.proposedMood = "groove" }
+        function onSharedSettingsChanged() {
+            if (choices.opened && choices.editToken !== (screen.backend.sharedSettings.edit_token || "")) choices.close()
+        }
     }
     RowLayout {
         id: toolbar
         anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top
         anchors.margins: 20; height: 58; spacing: 10
         GlassSurface {
+            visible: screen.sessionControlsVisible || (screen.state.search_available && screen.searchTarget.length > 0)
             Layout.preferredWidth: toolbarButtons.implicitWidth + 18
             Layout.fillHeight: true
             radius: height / 2
@@ -129,45 +151,52 @@ Item {
                 anchors.centerIn: parent; spacing: 2
                 GlassButton {
                     id: moreButton
-                    visible: screen.compact
+                    objectName: "sessionToolbarMore"
+                    visible: screen.compact && screen.sessionControlsVisible
                     iconName: "more"; Accessible.name: screen.tr("more")
                     implicitWidth: 52; background: Item {}
                     onClicked: moreChoices.open()
                 }
                 GlassButton {
-                    visible: !screen.compact && screen.state.search_available && screen.searchTarget.length > 0
+                    visible: (!screen.compact || !screen.sessionControlsVisible) && screen.state.search_available && screen.searchTarget.length > 0
                     iconName: "search"; Accessible.name: screen.tr("session_search")
                     implicitWidth: 52; background: Item {}
                     onClicked: screen.showSearch()
                 }
                 GlassButton {
                     id: moodButton
-                    iconName: "mood"; Accessible.name: screen.tr("mood_select")
+                    objectName: "sessionToolbarMood"
+                    visible: screen.sessionControlsVisible
+                    iconName: screen.toolbarIcon("mood"); Accessible.name: screen.tr("mood_select")
                     implicitWidth: 52; background: Item {}
                     onClicked: screen.openChoice("mood", moodButton)
                 }
                 GlassButton {
                     id: presenceButton
-                    visible: !screen.compact
-                    iconName: "chat"; Accessible.name: screen.tr("shared_field_presence")
+                    objectName: "sessionToolbarPresence"
+                    visible: screen.sessionControlsVisible
+                    iconName: screen.toolbarIcon("presence"); Accessible.name: screen.tr("shared_field_presence")
                     implicitWidth: 52; background: Item {}
                     onClicked: screen.openChoice("presence", presenceButton)
                 }
                 GlassButton {
                     id: personaButton
-                    visible: !screen.compact
-                    iconName: "persona"; Accessible.name: screen.tr("shared_field_persona")
+                    objectName: "sessionToolbarPersona"
+                    visible: screen.sessionControlsVisible
+                    iconName: screen.toolbarIcon("persona"); Accessible.name: screen.tr("shared_field_persona")
                     implicitWidth: 52; background: Item {}
                     onClicked: screen.openChoice("persona", personaButton)
                 }
                 GlassButton {
                     id: voiceButton
+                    objectName: "sessionToolbarVoice"
+                    visible: !screen.compact && screen.sessionControlsVisible
                     iconName: "voice"; Accessible.name: screen.tr("shared_field_voice")
                     implicitWidth: 52; background: Item {}
                     onClicked: screen.openChoice("voice", voiceButton)
                 }
                 GlassButton {
-                    visible: screen.state.session_id.length > 0 && !screen.historical
+                    visible: screen.sessionControlsVisible
                     objectName: "sessionCompactEnd"
                     iconName: "end"; Accessible.name: screen.tr("session_end")
                     enabled: !screen.owner.lifecycleBusy && screen.state.runtime_state !== "ending"
@@ -184,6 +213,8 @@ Item {
                 id: connectionButtons
                 anchors.centerIn: parent; spacing: 2
                 GlassButton {
+                    objectName: "sessionToolbarConnection"
+                    visible: screen.sessionControlsVisible
                     iconName: "globe"; Accessible.name: screen.tr("connection_type")
                     implicitWidth: 52; background: Item {}
                     onClicked: connectionInfo.open()
@@ -565,7 +596,7 @@ Item {
                 onClicked: { moreChoices.close(); screen.showSearch() }
             }
             Repeater {
-                model: ["presence", "persona", "voice"]
+                model: ["voice"]
                 GlassButton {
                     required property string modelData
                     text: screen.tr("shared_field_" + modelData)
@@ -592,9 +623,13 @@ Item {
     }
     Popup {
         id: choices
+        objectName: "sessionToolbarChoice"
+        property string sessionId: ""
+        property string profileId: ""
         property string field: "mood"
         property string editToken: ""
-        y: 90; width: Math.min(screen.width - 24, 560); padding: 22
+        readonly property bool canSubmit: choices.visible && screen.state.runtime_state === "active" && screen.sessionControlsVisible && choices.sessionId === screen.state.session_id && choices.profileId === screen.backend.activeProfileId && choices.editToken === (screen.backend.sharedSettings.edit_token || "") && !!screen.backend.sharedSettings.available && !screen.backend.sharedSettingsBusy && !screen.backend.sharedSettings.selection_required && choices.editToken.length > 0 && !screen.backend.sharedSettings.operation_pending
+        y: toolbar.y + toolbar.height + 8; width: Math.min(screen.width - 24, 560); padding: 22
         modal: true; dim: false
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
         background: GlassSurface { radius: 28; elevated: true }
@@ -608,8 +643,11 @@ Item {
                     GlassButton {
                         required property var modelData
                         text: choices.field === "voice" ? (modelData.label || "") : screen.tr("shared_" + choices.field + "_" + modelData)
-                        enabled: !!screen.backend.sharedSettings.available && !screen.backend.sharedSettingsBusy && !screen.backend.sharedSettings.selection_required
+                        primary: screen.toolbarValue(choices.field) === (choices.field === "voice" ? modelData.value : modelData)
+                        enabled: choices.canSubmit
+                        objectName: "sessionToolbarOption"
                         onClicked: {
+                            if (!choices.canSubmit) return
                             var patch = {_edit_token: choices.editToken}
                             patch[choices.field] = choices.field === "voice" ? modelData.value : modelData
                             screen.backend.saveSharedSettings(patch)

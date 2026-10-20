@@ -1,0 +1,33 @@
+{
+  "apple_repository": "pcvantol/djconnect-app",
+  "apple_protected_main": "e106a467011b9ea84d301a81c4e07251314cc6dd",
+  "sources": [
+    "Sources/DJConnectUI/SessionTimelineScreen.swift",
+    "Sources/DJConnectUI/ActiveSessionPersonaToolbar.swift",
+    "Sources/DJConnectUI/DJConnectRootView.swift"
+  ],
+  "compact_order": [
+    "more",
+    "mood",
+    "presence",
+    "persona",
+    "end"
+  ],
+  "expanded_order": [
+    "search",
+    "mood",
+    "presence",
+    "persona",
+    "voice",
+    "optional_vibecast",
+    "end"
+  ],
+  "pi_limitations": [
+    "Pi toolbar glyphs use owned Canvas equivalents, not exported SF Symbols or exact SF geometry.",
+    "Optional VibeCast handoff is omitted without qualified Pi authority.",
+    "Existing white DJPersonaMark Session tab geometry is unchanged.",
+    "Native simulator review_demo captures are offline design evidence only."
+  ],
+  "evidence_directory": "pi-session-toolbar",
+  "apple_source_access": "read-only protected git show; no Apple source writes"
+}

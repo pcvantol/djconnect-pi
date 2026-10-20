@@ -601,3 +601,43 @@ matches all57 packaged sources. Evidence: pi-session-history-previous under the
 task visualization directory. This is local synthetic transport/source/package/
 Qt proof, not ARM, installed, live HA/Profile, physical or complete Apple
 acceptance. Earlier evidence remains preserved. PR111 remains draft.
+
+### 2026-10-20 — Native Session toolbar composition and scoped pop-outs
+
+Read-only Apple protected main e106a467 and actual iPhone mini/iPad portrait
+review_demo simulator captures establish the active toolbar order. Compact Pi
+now shows More, Mood, Presence, Persona and End; Voice moves into More. Expanded
+Pi shows Search, Mood, Presence, Persona, Voice and End. The optional Apple
+VibeCast handoff is not added without qualified Pi authority. Active-only settings
+and connection controls disappear in historical/empty contexts; refresh remains
+in the trailing capsule. See branding/SESSION_TOOLBAR_REFERENCE.json.
+
+Mood, Presence and Persona symbols follow confirmed settings3 values, with
+server Runtime fallback only for Mood/Presence and neutral unknown symbols.
+These are Pi-owned Canvas equivalents, not exported or pixel-identical SF assets.
+The exact white Session tab mark stays unchanged. Presenter/festival microphone
+shapes denote DJ style; no capture or audio capability is introduced.
+
+Open choices capture Session/Profile/edit_token. Context replacement closes
+transients. A queued option click also checks active lifecycle, exact scope/token,
+settings availability and no pending operation before dispatch. Thus a stale menu
+cannot write into a replacement/ending Session or across a token change.
+
+Validation:770 full tests passed; Ruff0.16.0 src/tests passed; hostverify MATCH.
+Final actual QML:86 broad regression views plus84 dedicated controller views,
+including thirteen glyph variants, three pop-outs and stale queued-click no-write
+checks on both sizes. Preview tools pause only automatic fixture polling timers;
+explicit controller reads and layout timers remain exercised. Production polling
+is unchanged. Local wheel SHA256
+7f666f39e2de0790d994401f7606c246048021936a187a2fe62b2e88da70cece
+matches all57 packaged sources. Evidence: pi-session-toolbar under the task
+visualization directory, including native offline simulator references.
+
+Parent a084845 passed all applicable CI (24 successes/4 conditional skips).
+Core protected main8b221d07 remains unchanged; its idle ea91fad7 WIP is not a
+released handoff. No new Apple Pi review was received. No repeat pings, producer
+writes, model/HA operations, merge, release, installation or pairing occurred.
+This is local fixture/source/package/design proof, not ARM/live/installed or
+physical acceptance. Playback metadata composition, exact native glyph fidelity,
+complete Flow, rich interactions/media, remaining destinations and real backdrop
+glass remain open. PR111 remains draft; full Apple parity is not claimed.

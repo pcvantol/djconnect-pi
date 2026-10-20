@@ -57,6 +57,10 @@ def main():
         window.setWidth(width)
         window.setHeight(height)
         window.setProperty("splashVisible", False)
+        # Keep fixture reads explicit; wall-clock polling would race language/scope probes.
+        for obj in window.findChildren(QObject):
+            if 'Timer' in obj.metaObject().className() and obj.property('interval') in (3000,15000):
+                QMetaObject.invokeMethod(obj,'stop')
 
         def visual_item(item, name):
             if item.objectName() == name:

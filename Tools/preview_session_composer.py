@@ -89,6 +89,10 @@ def main():
         window=engine.rootObjects()[0]
         window.setWidth(width); window.setHeight(height)
         window.setProperty('splashVisible',False)
+        # Keep fixture reads explicit; wall-clock polling would race language/scope probes.
+        for obj in window.findChildren(QObject):
+            if 'Timer' in obj.metaObject().className() and obj.property('interval') in (3000,15000):
+                QMetaObject.invokeMethod(obj,'stop')
         window.setProperty('activeScreen','session')
         owner.changed.emit()
         def capture(name):
@@ -102,6 +106,73 @@ def main():
         keyboard=window.findChild(QObject,'sessionComposerKeyboard')
         screen=window.findChild(QObject,'djSessionScreen')
         assert panel and field and keyboard and screen
+        mood_button=window.findChild(QObject,'sessionToolbarMood')
+        presence_button=window.findChild(QObject,'sessionToolbarPresence')
+        persona_button=window.findChild(QObject,'sessionToolbarPersona')
+        voice_button=window.findChild(QObject,'sessionToolbarVoice')
+        more_button=window.findChild(QObject,'sessionToolbarMore')
+        assert presence_button.property('visible') and persona_button.property('visible')
+        assert voice_button.property('visible') == (width>=900)
+        assert more_button.property('visible') == (width<900)
+        shared={'available':True,'selection_required':False,'operation_pending':False,
+            'edit_token':'synthetic-ui-token','values':{'mood':'groove','presence':'balanced','persona':'home_dj'},
+            'options':{'mood':['chill','groove','energy','party'],
+                'presence':['music_only','occasional','balanced','talkative','presenter'],
+                'persona':['home_dj','radio_dj','club_dj','festival_dj'],'voice':[]}}
+        backend._shared_settings_state=shared
+        backend.sharedSettingsChanged.emit()
+        choice=window.findChild(QObject,'sessionToolbarChoice')
+        for setting,button in [('mood',mood_button),('presence',presence_button),('persona',persona_button)]:
+            for value in shared['options'][setting]:
+                shared['values'][setting]=value
+                shared['edit_token']='synthetic-'+setting+'-'+value
+                backend.sharedSettingsChanged.emit()
+                capture('toolbar-'+setting+'-'+value)
+            QMetaObject.invokeMethod(button,'clicked')
+            capture('toolbar-'+setting+'-popover')
+            assert choice.property('opened') and choice.property('canSubmit')
+            QMetaObject.invokeMethod(choice,'close')
+        QTest.qWait(200)
+        # A queued old click cannot write after Session/context or server edit-token replacement.
+        QMetaObject.invokeMethod(mood_button,'clicked');QTest.qWait(180)
+        def find_option(item):
+            if item.objectName()=='sessionToolbarOption':
+                return item
+            for child in item.childItems():
+                found=find_option(child)
+                if found is not None:
+                    return found
+            return None
+        option=find_option(choice.property('contentItem'))
+        assert option and choice.property('canSubmit')
+        before=backend._executor.submit.call_count
+        owner._session={**session,'session_id':'replacement-ui-session'};owner.changed.emit();QTest.qWait(120)
+        assert not choice.property('opened')
+        QMetaObject.invokeMethod(option,'clicked')
+        assert backend._executor.submit.call_count==before
+        owner._session=session;owner.changed.emit()
+        QMetaObject.invokeMethod(mood_button,'clicked');QTest.qWait(180)
+        shared['edit_token']='new-synthetic-revision';backend.sharedSettingsChanged.emit();QTest.qWait(120)
+        assert not choice.property('opened')
+        before=backend._executor.submit.call_count
+        QMetaObject.invokeMethod(option,'clicked')
+        assert backend._executor.submit.call_count==before
+        QMetaObject.invokeMethod(mood_button,'clicked');QTest.qWait(180)
+        shared['operation_pending']=True;backend.sharedSettingsChanged.emit()
+        assert not choice.property('canSubmit')
+        before=backend._executor.submit.call_count
+        QMetaObject.invokeMethod(option,'clicked')
+        assert backend._executor.submit.call_count==before
+        shared['operation_pending']=False;backend.sharedSettingsChanged.emit()
+        owner._session={**session,'runtime_state':'ending'};owner.changed.emit()
+        assert not choice.property('canSubmit')
+        before=backend._executor.submit.call_count
+        QMetaObject.invokeMethod(option,'clicked')
+        assert backend._executor.submit.call_count==before
+        QMetaObject.invokeMethod(choice,'close')
+        owner._session=session;owner.changed.emit()
+        backend._shared_settings_state={};backend.sharedSettingsChanged.emit()
+
         for locale in ('en','nl','de','fr','es'):
             backend.setLanguage(locale); backend._toast_visible=False;backend.toastChanged.emit()
             QMetaObject.invokeMethod(panel,'open')
@@ -292,7 +363,7 @@ def main():
         delete(window);delete(engine)
     errors=[value for value in warnings if any(word in value for word in ('ReferenceError','TypeError','Error:','Cannot assign','is not a type','failed to load'))]
     (output/'readback.json').write_text(json.dumps({'captures':captures,'qml_errors':errors,
-        'proof':'Synthetic transport -> real controller -> actual QML; not HA/model/ARM/installed/physical acceptance'},indent=2))
+        'proof':'Synthetic transport -> real controller -> actual QML; automatic fixture polling paused, reads explicit; not HA/model/ARM/installed/physical acceptance'},indent=2))
     assert not errors,errors
     print(f'{len(captures)} composer views, explicit QML send and context clearing; no QML errors')
 

@@ -73,7 +73,48 @@ Canvas {
             ctx.lineCap = "round"
             ctx.lineJoin = "round"
 
-            if (iconName === "search") {
+            function waveform() {
+                var heights = [8, 16, 24, 12, 20, 8]
+                for (var b = 0; b < heights.length; b++) line(6 + b * 4, 16 - heights[b] / 2, 6 + b * 4, 16 + heights[b] / 2)
+            }
+            function microphone() {
+                roundRect(12, 5, 8, 14, 4)
+                ctx.beginPath(); ctx.arc(px(16), py(16), 8 * s / 32, 0, Math.PI); ctx.stroke()
+                line(16, 24, 16, 28); line(12, 28, 20, 28)
+            }
+            if (iconName === "waveform" || iconName === "mood_groove" || iconName === "presence_talkative") {
+                waveform()
+            } else if (iconName === "mood_chill") {
+                ctx.beginPath(); ctx.moveTo(px(19), py(5))
+                ctx.bezierCurveTo(px(5), py(3), px(3), py(25), px(18), py(27))
+                ctx.bezierCurveTo(px(23), py(27), px(27), py(23), px(27), py(20))
+                ctx.bezierCurveTo(px(13), py(25), px(9), py(11), px(19), py(5)); ctx.fill()
+            } else if (iconName === "mood_energy") {
+                ctx.beginPath(); ctx.moveTo(px(19),py(3));ctx.lineTo(px(7),py(18));ctx.lineTo(px(15),py(18))
+                ctx.lineTo(px(12),py(29));ctx.lineTo(px(26),py(13));ctx.lineTo(px(18),py(13));ctx.closePath();ctx.fill()
+            } else if (iconName === "mood_party") {
+                ctx.beginPath();ctx.moveTo(px(5),py(27));ctx.lineTo(px(11),py(12));ctx.lineTo(px(22),py(23));ctx.closePath();ctx.stroke()
+                line(14, 9, 17, 5);line(20, 13, 26, 10);line(23, 19, 28, 19)
+                circle(24, 5, 1.4, true);circle(9, 6, 1.4, true);circle(27, 26, 1.4, true)
+            } else if (iconName === "presence_music_only") {
+                line(17, 5, 17, 24);line(17,5,25,8);circle(13,24,4,true)
+            } else if (iconName === "presence_occasional") {
+                roundRect(5,7,22,16,4);line(11,23,9,27)
+            } else if (iconName === "presence_balanced") {
+                roundRect(4,6,16,13,3);line(9,19,7,23);roundRect(13,13,15,12,3);line(22,25,25,28)
+            } else if (iconName === "presence_presenter" || iconName === "persona_festival_dj") {
+                microphone()
+            } else if (iconName === "persona_home_dj") {
+                line(4,15,16,5);line(16,5,28,15);line(8,13,8,27);line(8,27,24,27);line(24,27,24,13)
+                line(13,27,13,19);line(13,19,19,19);line(19,19,19,27)
+            } else if (iconName === "persona_radio_dj") {
+                roundRect(4,10,24,17,3);line(7,10,23,4);circle(21,19,4,false);line(8,16,13,16);line(8,21,13,21)
+            } else if (iconName === "persona_club_dj") {
+                circle(16,16,11,false);circle(16,16,3,false);line(19,8,24,13);line(8,19,13,24)
+            } else if (iconName === "session_persona") {
+                circle(16,16,11,false);circle(16,12,3.5,false)
+                ctx.beginPath();ctx.arc(px(16),py(24),7*s/32,Math.PI,Math.PI*2);ctx.stroke()
+            } else if (iconName === "search") {
                 circle(14, 14, 8, false); line(20, 20, 27, 27)
             } else if (iconName === "send") {
                 line(5, 14, 28, 4); line(28, 4, 19, 28); line(19, 28, 14, 19)

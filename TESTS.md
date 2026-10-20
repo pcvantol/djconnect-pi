@@ -378,3 +378,13 @@ withdrawal, close and background invalidation clear the trail. Real QML exercise
 the previous button and fresh restored first page on both sizes, including all
 five locale labels. Explicit page navigation starts at that page's beginning;
 continuous Flow and per-page prior pixel-position restoration remain separate.
+
+The Session composer preview additionally verifies compact/expanded Apple toolbar
+order, thirteen confirmed-value glyph variants and three scoped choice pop-outs
+on both sizes. It checks that queued option clicks submit no work after Session,
+Profile/edit-token, operation-pending or ending-lifecycle withdrawal. Its settings
+state is synthetic presentation data, not producer authorization evidence. Preview
+tools stop automatic QML fixture polling timers (3s/15s) while preserving explicit
+reads and layout timers; production polling remains enabled. Final toolbar
+checkpoint:770 full tests,86 broad QML views and84 dedicated views, all passing;
+source/package/design only, no installed/physical or live-provider qualification.
