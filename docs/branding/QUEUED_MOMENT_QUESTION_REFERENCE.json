@@ -1,0 +1,12 @@
+{
+  "scope": "Original queued question authority revalidated immediately before transport.question, independently of GUI ticks",
+  "producer_pin": "8b221d07fe2215d9516d18fe92c832332c7a16ab",
+  "preserved": "No new endpoint, field, permission, question replay or source substitution. Existing selected_entry source check remains.",
+  "guard": "Original worker serial/binding/foreground/question_epoch; current pending Session/composer/selection/reference/expiry/revision/style; exact original pending text/session/client_message_id and captured live_reference.",
+  "new_cases": 12,
+  "app_tests": 1451,
+  "targeted": 139,
+  "actual_composer_qml": 436,
+  "qualification": "App-component test selection excludes separately uncommitted deployment tools/installer tests; exact candidate CI separately required. Existing QML harness, no new visual-parity claim.",
+  "limitations": "Synthetic source/style/clock changes, real controller/Qt; no server acceptance/model/provider/live/physical proof."
+}

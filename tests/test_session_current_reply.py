@@ -205,3 +205,42 @@ def test_uncertain_delivery_clears_pending_input_without_replay(controller):
     assert owner.state["question_status"] == "uncertain"
     owner.refresh();backend.jobs.pop()()
     owner.transport.question.assert_called_once()
+
+
+@pytest.mark.parametrize("mutation", ["expiry", "revision", "withdrawal", "style"])
+@pytest.mark.parametrize("observe", [False, True])
+def test_question_worker_rechecks_original_source_without_gui_tick(controller, mutation, observe):
+    owner, backend = controller
+    host, _, _ = setup_reply(owner)
+    assert owner.sendQuestion("Original queued source question")
+    worker = backend.jobs.pop()
+    if mutation == "expiry": host.tick = 3600
+    if mutation == "revision": owner._session["broadcast"]["native_delivery"]["revision"] = "r2"
+    if mutation == "withdrawal": owner._session["broadcast"]["native_delivery"]["admissions"] = []
+    if mutation == "style": owner._session["selected_mood"] = "party"
+    if observe: owner._expire()
+    # No state getter, Qt event processing or expiry call in the unobserved cases.
+    worker()
+    owner.transport.question.assert_not_called()
+    assert not owner._pending_question and not owner._current_reply
+
+
+def test_question_worker_keeps_valid_original_intent_and_receipt(controller):
+    owner, backend = controller
+    setup_reply(owner)
+    assert owner.sendQuestion("Original queued source question")
+    expected = dict(owner._pending_question)
+    backend.jobs.pop()()
+    owner.transport.question.assert_called_once()
+    sent = owner.transport.question.call_args.args[1]
+    assert all(sent[key] == value for key, value in expected.items())
+    assert owner._current_reply["question_text"] == expected["text"]
+
+
+@pytest.mark.parametrize("field", ["text", "session_id", "client_message_id"])
+def test_worker_cannot_substitute_replaced_pending_metadata(controller, field):
+    owner, backend = controller;setup_reply(owner)
+    assert owner.sendQuestion("Original queued source question")
+    owner._pending_question[field] = "replacement"
+    backend.jobs.pop()()
+    owner.transport.question.assert_not_called()

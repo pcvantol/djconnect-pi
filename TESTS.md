@@ -1134,3 +1134,16 @@ plus the existing denial/reading/End coverage. Zero errors/binding loops; both
 oversize layouts visually checked. No physical, installed or live HA claim.
 Provenance: `docs/branding/SESSION_JSON_BOUNDS_REFERENCE.json`; external evidence
 `pi-session-json-response-bounds`, with superseded diagnostics retained.
+
+
+### Queued Moment question source revalidation
+
+Twelve added current-reply cases cover expiry/revision/admission-withdrawal/style
+before worker execution, both with and without a GUI expiry observation, a valid
+original-intent/receipt control and changed pending metadata. The unobserved cases
+call no state getter, Qt event processing or _expire before the worker and prove
+zero question dispatch.139targeted and1451app-selection tests pass; the separate
+uncommitted two-host consumer/installer tests are excluded from this app count.
+436actual composer-QML views pass on both formats/five locales with zero errors.
+Original fixtures remain unchanged; expiry/style overlays are synthetic. No new
+server field, right, replay or automatic replacement question is introduced.

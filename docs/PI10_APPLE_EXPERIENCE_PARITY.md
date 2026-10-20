@@ -2081,3 +2081,15 @@ Binding/401/403/5xx/uncertain-write/no-replay fences remain.1439tests and130actu
 Qt playback views qualify the local source; large-body and real-Qt fixtures are
 synthetic, not installed/live proof. Exact independent review and delivery remain
 required. See SESSION_JSON_BOUNDS_REFERENCE.json and the rc.5 preparation document.
+
+
+### Queued selected-Moment question review correction
+
+Before question I/O the worker now validates its original serial/binding and
+pending Session/composer/selection/reference/expiry/revision/style, plus exact
+pending text/session/client-message identity. It does not rely on a GUI getter or
+expiry tick. The existing selected-entry origin check remains; no new source is
+substituted after withdrawal. Twelve new cases,139targeted/1451app-selection tests
+and436actual composer-QML views pass. Independent source closure and exact CI stay
+separate; this does not establish server/model or installed acceptance. See
+QUEUED_MOMENT_QUESTION_REFERENCE.json. Two-host deployment WIP is retained separately.

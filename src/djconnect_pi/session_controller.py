@@ -906,7 +906,11 @@ class SessionController(QObject):
             result = {"serial": serial, "binding": binding, "action": action, "view_epoch": view_epoch, "question_epoch": question_epoch}
             try:
                 if action == "question":
-                    if question_epoch != self._question_epoch or not self._foreground:
+                    # Queued work must validate the original intent without a GUI getter/tick.
+                    check_conversation_read()
+                    expected_pending = {key: value[key] for key in ("text", "session_id", "client_message_id")}
+                    if (not self._pending_question_valid() or self._pending_question != expected_pending
+                            or self._question_reference != value.get("live_reference", {})):
                         raise SessionError("context_changed")
                     if (value.get("selected", {}).get("kind") == "selected_entry"
                             and not self._entry_selection_valid(value["selected"], selection_source)):
