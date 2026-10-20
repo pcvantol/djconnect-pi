@@ -1,5 +1,5 @@
 {
-  "scope": "Shared current Session play/pause/previous/next and advertised current-track save, explicit user input only.",
+  "scope": "Shared current-Session play/pause/previous/next and advertised current-track save, explicit user input under an explicit private personal/household Profile; legacy private_session excluded. Other authorized Profile modes remain an independent consumer audit, not a permanent Pi product ban.",
   "sources": [
     {
       "repository": "djconnect",

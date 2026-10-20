@@ -2045,3 +2045,11 @@ where1315 full tests and1046 actual QML views were completed. No extra QML views
 are claimed after this transport-only guard. Both proof layers and intermediate
 packages are separate under pi-session-playback-controls/final-scope and auth-final.
 There is no live HA/Profile/provider/model, ARM, installed or physical claim.
+
+
+Scope note for the new controls: this initial consumer slice currently requires
+an explicit personal/household Profile with privacy_mode private, excluding legacy
+private_session. Other authorized owner Profile modes still need comparison with
+the released command permissions; this is local Pi follow-up, not a new permanent
+Pi restriction or a claimed Core dependency. Media/native display grants and
+private question lifetime remain separate from music-command authority.
