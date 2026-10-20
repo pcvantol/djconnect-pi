@@ -71,3 +71,9 @@ names correct the harness, with the original failure retained. The restricted
 combined run passed1635 with13 socket-permission skips; those skips are not a
 product pass. A read-only host check using the actual Shared Data root is MATCH;
 the preceding default-old-root DRIFT diagnostic is retained separately.
+
+The loopback-enabled final integrated run passes1648tests with no skips. The
+new dedicated workflow initially selected an invalid governance profile `ci`;
+the actual canonical check rejected it. It now uses the existing repository
+`balanced` CI profile. Release/deployment workflows retain `release`. No policy
+is bypassed. The original failure log is retained.
