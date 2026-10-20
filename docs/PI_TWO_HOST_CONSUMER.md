@@ -173,3 +173,34 @@ and runs304consumer/installer/publication cases successfully. YAML parsing,
 Bash syntax and diff checks pass. Fresh strict-key actual read-only state after
 both failed preparations confirms wall-4inch stillrc.3 and wall-10inch stillrc.4,
 bothTARGET_READY. Those are original-state observations, not installedrc.5.
+
+
+## Actual worker cache-read isolation
+
+Fresh runs39490525756/39490532326 used the corrected venv setup. The4-inch job
+then blocked before output in pip. Read-only sampling and a bounded filename
+inspection identified a read-only open of an existing1800byte regular HTTP-cache
+metadata file under the shared Core-owned pip cache. No cache contents were read,
+no cache permissions/data were changed, and the underlying OS/storage cause is
+unproven. The preceding Codex-context lock installation did not qualify this
+worker's access context.
+
+The queued10-inch run was cancelled first. Fresh job-stage observations then
+confirmed the4-inch authority/install steps were pending with zero start times;
+its cancellation completed with both steps skipped. Both actual targets remain
+on their originalrc.3/rc.4 releases. No remote installation intent was sent.
+
+All three tooling installs now use pip isolated/no-cache/noninteractive mode and
+disable the unrelated version self-check, retaining the exact same lock and binary
+only packages. Runtime/app artifacts, authority, identity, readiness, installer,
+intent and deployment rules are unchanged. A real worker-context preparation
+qualification, separate from installed acceptance, is required before another
+protected qualified consumer and exact operational rebind. No old run is rerun.
+
+Preliminary execution of the exact three identical corrected install blocks in a
+fresh isolated Codex-context environment installs the same lock and passes304
+bounded cases. Bash/YAML/diff checks pass. This is explicitly not worker-context
+proof and does not authorize device effects. Both workflows completed cancelled,
+both authority/install steps were skipped, the old pip process exited, and the
+registered relay returned idle. Those cancellation and process outcomes were
+observed independently rather than inferred from the cancellation requests.

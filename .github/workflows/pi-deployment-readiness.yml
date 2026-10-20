@@ -81,7 +81,7 @@ jobs:
           printf '%s\n' "$pi_tools_venv/bin" >> "$GITHUB_PATH"
       - name: Install exact deployment-tool dependencies
         run: |
-          python -m pip install --only-binary=:all: --requirement Tools/pi_deployment_requirements.lock
+          python -m pip --isolated install --no-cache-dir --disable-pip-version-check --no-input --only-binary=:all: --requirement Tools/pi_deployment_requirements.lock
       - name: Require approved operational manifest source
         run: |
           python -m Tools.pi_instance_release --operation readiness --prepare
