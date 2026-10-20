@@ -517,3 +517,47 @@ matches all57 packaged sources. Evidence: pi-session-receipt-reading under the
 task visualization directory. These are synthetic transport/source/package/local
 Qt results, not ARM, installed, live HA/Profile, physical touch or full Apple
 parity. No merge, release, install, pairing, HA operation or model call occurred.
+
+### 2026-10-20 — Exact answer anchors and active chronological history
+
+A validated receipt whose complete pair is absent from a fresh tail can now
+probe the existing owner anchor endpoint. Receipt ID order is not assumed to be
+timeline order: discovery is bounded to at most both exact IDs once per receipt.
+Only a complete typed text pair confirms. The anchor must echo the exact ID and
+bounded window/scan envelope. Tail and anchor revision must agree; canonical
+ID/order conflicts are refused. Qualified same-revision rows merge in order,
+retaining unrelated fresh tail rows and without changing the separate loaded
+history detail. No history row is promoted into a current native Moment.
+
+Once displayed outside the tail, the answer anchor is revalidated with current
+reads so its body does not silently fall out on the next refresh. A withdrawn or
+denied read does not preserve old prose. Discovery failure is not endlessly
+reprobed; a future valid tail may still confirm the exact pair. Revision drift
+stays unconfirmed instead of guessing, merging grants or retrying a POST. There
+is no new endpoint, producer WIP, local source admission or write replay.
+
+The active Session now exposes “Read from the beginning” through the shared
+history destination and its existing first/next server pages. Actual QML testing
+found and repaired a navigation/view-epoch race by entering history before
+launching its scoped read. Generic read-only history wording is present in all
+five locales and does not mislabel an active Session as saved. This provides
+access to older active text and contributions; it is not continuous/backward
+Flow paging or a claim of complete Apple navigation/design parity.
+
+The preceding9eea469 head passed all applicable CI checks (24 successes and4
+conditional skips). Core protected main8b221d07 is unchanged. No new Pi review
+or released producer handoff was received; the canonical capability-document
+dependency remains with Core. No repeat lane pings, model calls, HA operations,
+merge, release, installation or pairing occurred.
+
+The final screen review also corrected the detail title to “Session history” and
+uses the actual user/DJ role on conversation cards, with stable locale keys.
+Validation:761 full tests passed, Ruff0.16.0 src/tests passed and hostverify MATCH.
+The final broad QML regression rendered86 views and the dedicated controller/QML
+harness rendered40 views without QML errors, including actual history navigation
+and exact anchored answer recovery on both sizes. Local wheel SHA256
+56bea5e567fe338b61e77231bf96b19d3eb6c0140af13ca25100768838847df1
+matches all57 packaged sources. Evidence: pi-session-answer-anchors-final under
+the task visualization directory; earlier attempts/checkpoints are preserved.
+This is local synthetic transport/source/package/Qt proof, not ARM, installed,
+live HA/Profile, physical touch or complete Apple acceptance. PR111 stays draft.

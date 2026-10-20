@@ -358,3 +358,13 @@ The real QML composer harness adds a long retained conversation on both sizes:
 newly confirmed own reply focus, unchanged pixel reading position on refresh and
 injected Qt touch dragging that cancels reply following. This is local Qt touch
 injection, not installed Pi touch or physical acceptance.
+
+A validated question receipt outside the tail may use bounded exact owner anchor
+reads. The array order of receipt IDs is not timeline order. New discovery probes
+at most both IDs once; a displayed anchored answer is subsequently revalidated.
+Anchor identity, window/scan envelope, source representation and revision must
+match; same-revision rows merge only by canonical ID/order without conflicting
+copies. Revision drift, malformed/withdrawn anchors and order collisions cannot
+confirm a reply. Denied private history clears old Session content. The current
+Session can also open the existing chronological history pager from its first
+page through the real QML navigation path, with five-locale read-only wording.

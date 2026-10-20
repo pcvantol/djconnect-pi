@@ -323,6 +323,15 @@ class SessionController(QObject):
         if self._history_cursor:
             self._launch("history_more", self._history_cursor)
 
+    @Slot()
+    def readCurrentHistory(self):
+        sid = self._session.get("session_id")
+        if not sid or self._running:
+            return
+        self._view_epoch += 1
+        self._search = {}
+        self._launch("timeline_page", {"session_id": sid, "cursor": ""})
+
     @Slot(str)
     def openSaved(self, session_id):
         if self._running:
@@ -423,6 +432,7 @@ class SessionController(QObject):
             self.changed.emit()
             return
         view_epoch = self._view_epoch
+        receipt_snapshot = deepcopy(self._question_receipt)
         self._serial += 1
         serial = self._serial
         if action == "question":
@@ -460,8 +470,7 @@ class SessionController(QObject):
                     if fresh.get("session_id") != value["session_id"]:
                         raise SessionError("context_changed")
                     result["session"] = fresh
-                    page = history_page(self.transport.timeline(binding, value["session_id"]), session_id=value["session_id"], now=self._clock.now())
-                    result["conversation"] = conversation_entries(page)
+                    result["conversation"] = self._read_conversation(binding, value["session_id"], result["question_receipt"])
                 elif action in {"history", "history_more"}:
                     result["history"] = history_page(self.transport.history(binding, cursor=value), now=self._clock.now())
                     page_cursor(result["history"].get("next_cursor"))
@@ -515,10 +524,12 @@ class SessionController(QObject):
                     caps = result["capabilities"]
                     sid = result["session"].get("session_id")
                     if sid and caps.get("capabilities", {}).get("ask_dj_contextual_dialogue") is True and caps.get("contract_versions", {}).get("session_history_entries") == 2:
+                        result["receipt_update"] = receipt_snapshot
                         try:
-                            page = history_page(self.transport.timeline(binding, sid), session_id=sid, now=self._clock.now())
-                            result["conversation"] = conversation_entries(page)
-                        except SessionError:
+                            result["conversation"] = self._read_conversation(binding, sid, receipt_snapshot)
+                        except SessionError as exc:
+                            if exc.category in {"denied", "unpaired", "context_changed"}:
+                                raise
                             result["conversation"] = []
             except SessionError as exc:
                 result["error"] = exc.category
@@ -549,6 +560,9 @@ class SessionController(QObject):
         except SessionError:
             self.invalidate()
             return
+        if (result.get("receipt_update") and result["question_epoch"] == self._question_epoch
+                and result["receipt_update"].get("client_message_id") == self._question_receipt.get("client_message_id")):
+            self._question_receipt = result["receipt_update"]
         if question:
             self._question_receipt = result.get("question_receipt", {})
             # A concurrent current read owns Runtime/capability authority. Reconcile with a new
@@ -679,3 +693,43 @@ class SessionController(QObject):
             min(timestamp(row["retained_until"]) for row in self._conversation if row["entry_id"] in receipt["entry_ids"]))
         self._question_status = "accepted"
         return entry_id if first_confirmation else ""
+
+    def _read_conversation(self, binding, session_id, receipt):
+        page = history_page(self.transport.timeline(binding, session_id), session_id=session_id, now=self._clock.now())
+        rows = conversation_entries(page)
+        if (receipt.get("session_id") != session_id or len(receipt.get("entry_ids", [])) != 2
+                or confirmed_question_entry(rows, receipt)):
+            return rows
+        if receipt.get("confirmed") and receipt.get("anchor_entry_id"):
+            anchors = [receipt["anchor_entry_id"]]  # Revalidate the displayed answer window.
+        elif receipt.get("anchor_attempted"):
+            return rows
+        else:
+            anchors = receipt["entry_ids"]  # Receipt order conveys no canonical timeline order.
+        receipt["anchor_attempted"] = True
+        for entry_id in anchors:
+            anchor = history_page(self.transport.timeline(binding, session_id, window="anchor",
+                anchor_entry_id=entry_id), session_id=session_id, now=self._clock.now())
+            lower, upper = anchor.get("scanned_order_min"), anchor.get("scanned_order_max")
+            if (anchor.get("window") != "anchor" or anchor.get("anchor_entry_id") != entry_id
+                    or anchor.get("coverage") != "bounded_saved_entry_window" or anchor.get("next_cursor") is not None
+                    or type(anchor.get("window_limit")) is not int or anchor["window_limit"] != 20
+                    or type(anchor.get("scan_complete")) is not bool or len(anchor["entries"]) > 20
+                    or type(lower) is not int or type(upper) is not int or not 0 <= lower <= upper
+                    or any(not lower <= row["order"] <= upper for row in anchor["entries"])):
+                raise SessionError("invalid")
+            # Never combine grants from different revision windows or clear unrelated loaded pages.
+            if anchor["revision"] != page["revision"]:
+                return rows
+            anchored_rows = conversation_entries(anchor)
+            if confirmed_question_entry(anchored_rows, receipt):
+                receipt["anchor_entry_id"] = entry_id
+                merged = {row["entry_id"]: row for row in rows}
+                if any(row["entry_id"] in merged and merged[row["entry_id"]] != row for row in anchored_rows):
+                    raise SessionError("invalid")
+                merged.update({row["entry_id"]: row for row in anchored_rows})
+                combined = sorted(merged.values(), key=lambda row: row["order"])
+                if len({row["order"] for row in combined}) != len(combined):
+                    raise SessionError("invalid")
+                return combined
+        return rows

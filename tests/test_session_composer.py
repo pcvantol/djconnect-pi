@@ -498,3 +498,127 @@ def test_unknown_delivery_cannot_be_confirmed_by_later_history_without_a_receipt
     assert not owner._question_receipt
     confirmed.assert_not_called()
     owner.transport.question.assert_called_once()
+
+
+def anchor_transport(owner, page, *, revision=None, reverse_receipt=False):
+    tail = deepcopy(page)
+    tail['entries'] = []
+    anchor_calls = []
+    def read(binding, sid, **kwargs):
+        if kwargs.get('window') != 'anchor':
+            return deepcopy(tail)
+        anchor_calls.append(kwargs['anchor_entry_id'])
+        response = deepcopy(page)
+        if reverse_receipt and kwargs['anchor_entry_id'] == page['entries'][1]['entry_id']:
+            response['entries'] = response['entries'][1:]
+        response.update(window='anchor', anchor_entry_id=kwargs['anchor_entry_id'], window_limit=20,
+            scanned_order_min=1, scanned_order_max=6, scan_complete=True,
+            coverage='bounded_saved_entry_window', next_cursor=None)
+        if revision:
+            response['revision'] = revision
+        return response
+    owner.transport.timeline = Mock(side_effect=read)
+    owner.transport.capabilities.return_value = deepcopy(owner._caps)
+    return tail, anchor_calls
+
+
+def test_receipt_outside_tail_is_found_by_exact_anchor_and_revalidated_without_reposting(controller):
+    owner, backend = controller
+    page = setup_composer(owner)
+    _, calls = anchor_transport(owner, page)
+    owner.sendQuestion('Question')
+    backend.jobs.pop()()
+    assert owner.state['question_status'] == 'accepted'
+    assert len(owner.state['conversation']) == 2 and len(calls) == 1
+    owner.refresh()
+    backend.jobs.pop()()
+    assert len(owner.state['conversation']) == 2 and len(calls) == 2
+    owner.transport.question.assert_called_once()
+    # Withdrawal is authoritative; old anchored prose cannot survive revalidation.
+    owner.transport.timeline.side_effect = SessionError('denied')
+    owner.refresh()
+    backend.jobs.pop()()
+    assert not owner.state['session_id'] and not owner.state['conversation']
+
+
+def test_receipt_array_order_is_not_assumed_to_be_timeline_order(controller):
+    owner, backend = controller
+    page = setup_composer(owner)
+    original = owner.transport.question.side_effect
+    def answer(binding, request):
+        result = original(binding, request)
+        result['conversation']['entry_ids'].reverse()
+        return result
+    owner.transport.question.side_effect = answer
+    _, calls = anchor_transport(owner, page, reverse_receipt=True)
+    owner.sendQuestion('Question')
+    backend.jobs.pop()()
+    assert calls == [page['entries'][1]['entry_id'], page['entries'][0]['entry_id']]
+    assert owner.state['question_status'] == 'accepted'
+
+
+def test_anchor_and_tail_with_different_revision_are_never_combined_or_confirmed(controller):
+    owner, backend = controller
+    page = setup_composer(owner)
+    _, calls = anchor_transport(owner, page, revision='a-new-revision')
+    owner.sendQuestion('Question')
+    backend.jobs.pop()()
+    assert owner.state['conversation'] == [] and owner.state['question_status'] == 'accepted_unavailable'
+    owner.refresh()
+    backend.jobs.pop()()
+    assert len(calls) == 1  # failed discovery is bounded; tail revalidation remains available
+
+
+@pytest.mark.parametrize('fault', ['withdrawn', 'missing_limit', 'wrong_anchor', 'bad_scan'])
+def test_bad_or_withdrawn_anchor_never_becomes_a_receipt_or_repeating_probe(controller, fault):
+    owner, backend = controller
+    page = setup_composer(owner)
+    _, calls = anchor_transport(owner, page)
+    read = owner.transport.timeline.side_effect
+    def broken(binding, sid, **kwargs):
+        response = read(binding, sid, **kwargs)
+        if kwargs.get('window') == 'anchor':
+            if fault == 'withdrawn':
+                raise SessionError('unavailable')
+            if fault == 'missing_limit':
+                response.pop('window_limit')
+            elif fault == 'wrong_anchor':
+                response['anchor_entry_id'] = 'other-id'
+            else:
+                response['scanned_order_max'] = False
+        return response
+    owner.transport.timeline.side_effect = broken
+    owner.sendQuestion('Question')
+    backend.jobs.pop()()
+    owner.refresh()
+    backend.jobs.pop()()
+    assert owner.state['conversation'] == [] and owner.state['question_status'] == 'accepted_unavailable'
+    assert len(calls) == 1
+    owner.transport.question.assert_called_once()
+
+
+def test_active_session_can_open_full_history_from_beginning_without_a_write(controller):
+    owner, backend = controller
+    setup_composer(owner)
+    owner.readCurrentHistory()
+    backend.jobs.pop()()
+    owner.transport.timeline.assert_called_once_with(owner.transport.binding(), 's1', window=None, cursor='')
+    assert owner.state['timeline']['entries'] and owner.state['timeline']['session']['session_id'] == 's1'
+    owner.transport.question.assert_not_called()
+
+
+@pytest.mark.parametrize('collision', [False, True])
+def test_only_same_revision_canonical_ordered_rows_are_merged_from_tail_and_anchor(controller, collision):
+    owner, backend = controller
+    page = setup_composer(owner)
+    tail, _ = anchor_transport(owner, page)
+    unrelated = deepcopy(page['entries'][0])
+    unrelated.update(entry_id='unrelated-newer-entry', order=1 if collision else 10, turn_id='unrelated-turn')
+    tail['entries'] = [unrelated]
+    owner.sendQuestion('Question')
+    backend.jobs.pop()()
+    if collision:
+        assert not owner.state['conversation'] and owner.state['question_status'] == 'accepted_unavailable'
+    else:
+        assert [row['order'] for row in owner.state['conversation']] == [1, 2, 10]
+        assert owner.state['question_status'] == 'accepted'

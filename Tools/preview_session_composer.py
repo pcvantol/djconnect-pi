@@ -76,6 +76,7 @@ def main():
         owner.transport.active = Mock(return_value={'success':True,'session':session})
         owner.transport.capabilities = Mock(return_value=caps)
         owner.transport.timeline = Mock(return_value=page)
+        owner.transport.history = Mock(return_value={'success':True,'schema_version':2,'history_contract_version':2,'sessions':[],'next_cursor':None})
         owner.transport.question = Mock(side_effect=answer)
         owner._session = session
         owner._caps = caps
@@ -184,7 +185,41 @@ def main():
         held_reply()
         capture('composer-user-drag-preserves-older-reading')
         assert flick.property('contentY') < 200
+        for _ in range(3):
+            if owner.busy:
+                backend._executor.submit.call_args.args[0]()
+        history_button=window.findChild(QObject,'sessionReadCurrentHistory')
+        assert history_button.property('enabled')
+        QMetaObject.invokeMethod(history_button,'clicked')
+        backend._executor.submit.call_args.args[0]()
+        assert window.property('activeScreen')=='history'
+        assert owner.state['timeline']['session']['session_id']==session['session_id']
+        capture('active-session-history-from-beginning')
+        # Read-only anchor recovery for a receipt outside the fresh tail.
+        owner.closeSaved();window.setProperty('activeScreen','session')
         prior_entries.clear();page['entries']=[];owner.invalidate()
+        owner._session=session;owner._caps=caps;owner._loaded=True;owner.changed.emit()
+        def anchor_history(binding,sid,**kwargs):
+            result={**page,'session':dict(page['session']),'entries':list(page['entries'])}
+            if kwargs.get('window')=='anchor':
+                result.update(window='anchor',anchor_entry_id=kwargs['anchor_entry_id'],window_limit=20,
+                    scanned_order_min=1,scanned_order_max=2,scan_complete=True,
+                    coverage='bounded_saved_entry_window',next_cursor=None)
+            else:
+                result['entries']=[]
+            return result
+        owner.transport.timeline.side_effect=anchor_history
+        if owner.busy:
+            backend._executor.submit.call_args.args[0]()
+        field.setProperty('text','Een antwoord buiten de nieuwste pagina')
+        QMetaObject.invokeMethod(screen,'submitQuestion')
+        backend._executor.submit.call_args.args[0]()
+        assert owner.state['question_status']=='accepted' and len(owner.state['conversation'])==2
+        assert owner._question_receipt.get('anchor_entry_id')
+        capture('composer-exact-anchor-recovered-answer')
+        owner.transport.timeline.side_effect=None
+        page['entries']=[];owner.invalidate()
+
         # Keep a synthetic POST pending while real QML exposes refresh and End.
         owner._session=session;owner._caps=caps;owner._loaded=True;owner.changed.emit()
         if owner.busy:

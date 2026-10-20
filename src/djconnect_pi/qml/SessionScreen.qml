@@ -210,7 +210,7 @@ Item {
         ColumnLayout {
             width: parent.width; spacing: 22
             Text {
-                text: screen.tr(screen.historical ? "session_history" : "session_title") + (screen.backend.demoMode ? " · " + screen.tr("demo_mode") : "")
+                text: screen.tr(screen.historical ? (screen.state.timeline.session ? "session_history_title" : "session_history") : "session_title") + (screen.backend.demoMode ? " · " + screen.tr("demo_mode") : "")
                 color: BrandTheme.colors.text; font.pixelSize: screen.width > 800 ? 40 : 30; font.bold: true
                 textFormat: Text.PlainText; Layout.fillWidth: true
             }
@@ -321,6 +321,12 @@ Item {
                 }
             }
             GlassButton {
+                objectName: "sessionReadCurrentHistory"
+                visible: !screen.historical && screen.state.history_available && screen.state.session_id.length > 0
+                text: screen.tr("session_history_first"); enabled: !screen.owner.busy
+                onClicked: { screen.navigate("history"); screen.owner.readCurrentHistory() }
+            }
+            GlassButton {
                 visible: screen.historical
                 text: screen.tr(screen.state.timeline.session ? "session_history" : "session_back")
                 onClicked: { var detail = !!screen.state.timeline.session; screen.owner.closeSaved(); if (!detail) screen.navigate("session") }
@@ -340,7 +346,7 @@ Item {
             }
             Text {
                 visible: screen.historical && !!screen.state.timeline.session
-                text: screen.tr("session_history_readonly"); color: BrandTheme.colors.muted; font.pixelSize: 20
+                text: screen.tr("session_history_view_readonly"); color: BrandTheme.colors.muted; font.pixelSize: 20
             }
             GlassButton {
                 visible: screen.historical && !!screen.state.timeline.session
@@ -356,7 +362,7 @@ Item {
                     Layout.fillWidth: true
                     Text {
                         visible: historySources.ready
-                        text: modelData.kind === "dj_silence" ? screen.tr("session_silence") : modelData.kind === "dj_publication" ? screen.tr("session_unavailable_contribution") : (modelData.summary || screen.tr("session_title"))
+                        text: modelData.kind === "conversation_user" ? screen.tr("session_you") : modelData.kind === "conversation_dj" ? screen.tr("session_dj") : modelData.kind === "dj_silence" ? screen.tr("session_silence") : modelData.kind === "dj_publication" ? screen.tr("session_unavailable_contribution") : (modelData.summary || screen.tr("session_title"))
                         color: BrandTheme.colors.text; font.pixelSize: 24; font.bold: true; wrapMode: Text.WordWrap; textFormat: Text.PlainText; Layout.fillWidth: true
                     }
                     Text { text: modelData.text || ""; visible: historySources.ready && text.length > 0; color: BrandTheme.colors.text; font.pixelSize: 22; wrapMode: Text.WordWrap; textFormat: Text.PlainText; Layout.fillWidth: true }
