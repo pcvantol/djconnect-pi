@@ -29,11 +29,13 @@ nightly work. Full functional/visual parity remains open.
 Current code checkpoint23712dc54bc575a2e2ddacfe377a2b2615dd36f3 has25successful
 applicable CI checks and4conditional skips. Its transport suite passes1334tests;
 controls/UI proof is the separate1046-view checkpointa54aee5. The latest qualified
-host read now has1required DRIFT: verification artifact retention. Older MATCH
-records are historical. A read-only manifest found five Core Pi-live proof files
-newly crossing14days; their owner was informed once. Pi has not removed/moved or
-changed mtime on any evidence. Delivery qualification remains open independently
-of the passing product/source checks; no merge/install/release is authorized.
+host snapshot initially had1required retention DRIFT. Its owner subsequently
+preserved all nine newly expired Core Pi-live originals as byte-identical durable
+references under Peters explicit approval. A new independent Pi host verify on
+20October around14:31UTC returned MATCH. The earlier DRIFT logs/manifests remain
+separate historical evidence. Pi performed no cleanup, relocation or mtime change.
+This host readiness is not source/install/physical acceptance or merge/release
+approval; delivery qualification remains separate.
 
 ## Source baseline and scope
 

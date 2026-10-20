@@ -1075,3 +1075,13 @@ in pi-session-playback-controls/auth-final. No cleanup, relocation, mtime change
 or other-lane source write was performed; the Core owner received one concrete
 receipt.1334tests/Ruff and code23712dc CI25success/4conditional skips remain
 separate from this current unresolved host/delivery gate.
+
+
+Host follow-up after concrete owner authorization: Core reports all nine original
+Pi-live paths durably preserved with identical bytes; the five+four replacements
+were separately approved by Peter. A fresh independent Pi actual-root verify
+returned MATCH around20October14:31UTC. Earlier retention DRIFT manifests/logs
+remain historical and are not deleted. Pi performed no cleanup/mtime/other-lane
+source writes. This resolves that host gate only, not installed/live/physical
+acceptance or source/release approval. Product proof remains1334tests on code237,
+1046QMLviews on controls a54, with unchanged UI/controller bytes in later code.
