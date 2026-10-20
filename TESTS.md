@@ -388,3 +388,14 @@ tools stop automatic QML fixture polling timers (3s/15s) while preserving explic
 reads and layout timers; production polling remains enabled. Final toolbar
 checkpoint:770 full tests,86 broad QML views and84 dedicated views, all passing;
 source/package/design only, no installed/physical or live-provider qualification.
+
+Session playback metadata uses only its current active broadcast projection.
+Tests compare title/artist/album/item/source across all200 pinned Core frames and
+reject malformed states, mismatched/ending contexts, unsafe Spotify sources and
+naive timestamps. Boolean timing values are not numeric progress. Real QML
+captures the metadata after scrolling on both sizes/all five locales, plus a
+labelled synthetic paused/output case and ending withdrawal. Plain text and
+packaged Spotify renderer readiness are preserved. Observed progress is clamped,
+not locally extrapolated. Final playback checkpoint:771 tests;86 broad and98
+dedicated QML views. No artwork fetch, global/status fallback, historical-current
+promotion, playback command, provider call or installed/physical claim.

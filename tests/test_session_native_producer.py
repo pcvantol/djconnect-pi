@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from djconnect_pi.session_history_view import live_presentations
-from djconnect_pi.session_projection import timestamp
+from djconnect_pi.session_projection import session_playback, timestamp
 
 ROOT = Path(__file__).parent / 'fixtures/session_core'
 RAW = (ROOT / 'native-expressive-snapshots.json').read_bytes()
@@ -41,6 +41,8 @@ def test_published_source_frames_preserve_allowed_prose_and_original_links(famil
     session, now = producer_frame(family, lang, persona, index)
     snapshot = session['broadcast']
     authority = snapshot['native_delivery']
+    playback = session_playback(session)
+    assert all(playback[key] == snapshot['playback'][key] for key in ('title', 'artist', 'album', 'item_id', 'source_url'))
     rendered = live_presentations(session, now=now)
     expected = set(authority['active_flow_moment_ids'])
     if authority['current_moment_id']:

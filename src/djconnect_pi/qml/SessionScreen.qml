@@ -337,6 +337,33 @@ Item {
                     SessionAttribution { id: liveSources; sources: modelData.display_sources || []; requiresSpotify: modelData.requires_spotify_attribution || false; spotifyURL: modelData.spotify_source_url || ""; Layout.fillWidth: true }
                 }
             }
+            GlassCard {
+                objectName: "sessionPlaybackMetadata"
+                visible: !screen.historical && !!screen.state.playback.item_id
+                Layout.fillWidth: true
+                Text { visible: playbackSources.ready && text.length > 0; text: screen.state.playback.title || ""; textFormat: Text.PlainText; font.pixelSize: screen.compact ? 26 : 30; font.bold: true; color: BrandTheme.colors.text; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                Text { visible: playbackSources.ready && text.length > 0; text: screen.state.playback.artist || ""; textFormat: Text.PlainText; font.pixelSize: 23; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                Text { visible: playbackSources.ready && text.length > 0; text: screen.state.playback.album || ""; textFormat: Text.PlainText; font.pixelSize: 19; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                ProgressBar {
+                    id: playbackProgress
+                    visible: playbackSources.ready && screen.state.playback.time_label !== undefined
+                    value: screen.state.playback.progress || 0; Layout.fillWidth: true
+                    Accessible.name: screen.tr("now_playing")
+                    background: Rectangle { implicitHeight: 6; radius: 3; color: BrandTheme.colors.text; opacity: 0.18 }
+                    contentItem: Item {
+                        implicitHeight: 6
+                        Rectangle { width: playbackProgress.visualPosition * parent.width; height: parent.height; radius: 3; color: BrandTheme.colors.text }
+                    }
+                }
+                Text { visible: playbackSources.ready && text.length > 0; text: screen.state.playback.time_label || ""; textFormat: Text.PlainText; font.pixelSize: 18; color: BrandTheme.colors.muted; Layout.alignment: Qt.AlignRight }
+                RowLayout {
+                    visible: playbackSources.ready && !!screen.state.playback.target_name
+                    Layout.fillWidth: true
+                    FeatureIcon { iconName: "music"; Layout.preferredWidth: 22; Layout.preferredHeight: 22 }
+                    Text { text: screen.state.playback.target_name || ""; textFormat: Text.PlainText; font.pixelSize: 19; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true; Accessible.name: screen.tr("output_device") + ": " + text }
+                }
+                SessionAttribution { id: playbackSources; requiresSpotify: !!screen.state.playback.requires_spotify_attribution; spotifyURL: screen.state.playback.source_url || ""; Layout.fillWidth: true }
+            }
             Repeater {
                 id: conversationRows
                 objectName: "sessionConversationRows"

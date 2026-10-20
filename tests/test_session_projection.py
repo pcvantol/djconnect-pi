@@ -78,3 +78,24 @@ def test_timeline_rejects_missing_revision_or_malformed_cursor(field, value):
     payload[field] = value
     with pytest.raises(SessionError):
         history_page(payload, session_id=payload['session']['session_id'])
+
+
+def test_session_playback_uses_only_current_renderer_observation():
+    from copy import deepcopy
+
+    from djconnect_pi.session_projection import session_playback
+    observation = {"state": "paused", "item_id": "observed-id", "title": "<img> 🎧", "artist": "Artist", "album": "Album", "target_name": "Room", "updated_at": "2026-10-20T02:00:00Z", "duration_ms": 180000, "position_ms": 210000, "source_url": "https://open.spotify.com/track/0000000000000000000001"}
+    current = {"session_id": "s", "runtime_state": "active", "broadcast": {"session": {"session_id": "s"}, "playback": observation}}
+    shown = session_playback(current)
+    assert shown["title"] == "<img> 🎧"
+    assert shown["time_label"] == "3:00 / 3:00" and shown["progress"] == 1
+    assert shown["requires_spotify_attribution"] is True
+    assert "artwork_url" not in shown and "up_next" not in shown
+    for field, invalid in [("state", []), ("state", "idle"), ("updated_at", "2026-10-20"), ("item_id", ""), ("source_url", "https://open.spotify.com.evil.invalid/track/0000000000000000000001"), ("source_url", "https://open.spotify.com/track/0000000000000000000001?x=1"), ("source_url", 9)]:
+        changed = deepcopy(current); changed["broadcast"]["playback"][field] = invalid
+        assert session_playback(changed) == {}
+    for changed in [{}, {**current, "runtime_state": "ending"}, {**current, "broadcast": {"session": None}}, {**current, "broadcast": {"session": {"session_id": "other"}, "playback": observation}}]:
+        assert session_playback(changed) == {}
+    for field in ["duration_ms", "position_ms"]:
+        changed = deepcopy(current); changed["broadcast"]["playback"][field] = True
+        assert "time_label" not in session_playback(changed)

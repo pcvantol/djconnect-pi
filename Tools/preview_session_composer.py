@@ -359,6 +359,26 @@ def main():
         capture('composer-native-moment-reference')
         QMetaObject.invokeMethod(panel,'open')
         capture('composer-selected-moment')
+        QMetaObject.invokeMethod(panel,'close')
+        window.setProperty('activeScreen','session')
+        flick.setProperty('contentY',0)
+        playback_card=window.findChild(QObject,'sessionPlaybackMetadata')
+        assert owner.state['playback']['title']==snapshot['playback']['title']
+        assert owner.state['playback']['source_url']==snapshot['playback']['source_url']
+        for language in ['en','nl','de','fr','es']:
+            backend.setLanguage(language);backend._toast_visible=False;backend.toastChanged.emit()
+            QTest.qWait(80)
+            flick.setProperty('contentY',max(0,flick.property('contentHeight')-flick.property('height')))
+            capture('session-playback-metadata-'+language)
+            assert playback_card.property('visible')
+        # Explicit synthetic output variant; the pinned producer bytes stay unchanged.
+        owner._session={**owner._session,'broadcast':{**snapshot,'playback':{**snapshot['playback'],'target_name':'Synthetic output device','state':'paused','position_ms':150000}}}
+        owner.changed.emit()
+        capture('session-playback-synthetic-output-paused')
+        owner._session={**owner._session,'runtime_state':'ending'};owner.changed.emit()
+        QTest.qWait(80)
+        assert not owner.state['playback'] and not playback_card.property('visible')
+        capture('session-playback-ending-withdrawn')
         backend.shutdown()
         delete(window);delete(engine)
     errors=[value for value in warnings if any(word in value for word in ('ReferenceError','TypeError','Error:','Cannot assign','is not a type','failed to load'))]

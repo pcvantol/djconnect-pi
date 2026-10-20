@@ -29,5 +29,11 @@
     "Native simulator review_demo captures are offline design evidence only."
   ],
   "evidence_directory": "pi-session-toolbar",
-  "apple_source_access": "read-only protected git show; no Apple source writes"
+  "apple_source_access": "read-only protected git show; no Apple source writes",
+  "playback_reference": {
+    "apple_source": "Sources/DJConnectUI/NativeSessionMomentsView.swift:musicDetails",
+    "core_protected_main": "8b221d07fe2215d9516d18fe92c832332c7a16ab",
+    "core_source": "custom_components/djconnect/session_runtime.py:RendererSafePlaybackProjection",
+    "pi_scope": "Read-only current Runtime metadata/progress/source; no artwork fetching, playback commands, global playback mixing or historical promotion."
+  }
 }

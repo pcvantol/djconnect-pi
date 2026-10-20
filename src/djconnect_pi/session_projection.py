@@ -54,6 +54,44 @@ def active_session(response):
     return session
 
 
+def session_playback(session):
+    """Only the current Runtime's renderer-safe observation, never global/history data."""
+    if not session or session.get("runtime_state") != "active":
+        return {}
+    snapshot = session.get("broadcast")
+    if (not isinstance(snapshot, dict) or not isinstance(snapshot.get("session"), dict)
+            or snapshot["session"].get("session_id") != session.get("session_id")):
+        return {}
+    playback = snapshot.get("playback")
+    if not isinstance(playback, dict) or playback.get("state") not in ("playing", "paused"):
+        return {}
+    if not text(playback.get("item_id"), 256) or timestamp(playback.get("updated_at")) is None:
+        return {}
+    source = playback.get("source_url")
+    # Released Core emits either no source or one canonical Spotify track URL.
+    if source is not None and not isinstance(source, str):
+        return {}
+    source = source or ""
+    if source:
+        parts = urlsplit(safe_link(source))
+        track = parts.path.removeprefix("/track/")
+        if (parts.hostname != "open.spotify.com" or parts.netloc != "open.spotify.com"
+                or parts.query or parts.fragment or not parts.path.startswith("/track/")
+                or len(track) != 22 or not track.isascii() or not track.isalnum()):
+            return {}
+    result = {key: text(playback.get(key), 256) for key in ("title", "artist", "album", "target_name")}
+    if not any(result[key].strip() for key in ("title", "artist", "album")):
+        return {}
+    result.update(state=playback["state"], item_id=playback["item_id"], source_url=source,
+                  requires_spotify_attribution=bool(source))
+    duration, position = playback.get("duration_ms"), playback.get("position_ms")
+    if type(duration) is int and duration > 0 and type(position) is int and position >= 0:
+        current = min(position, duration)
+        result.update(progress=current / duration,
+                      time_label=f"{current // 60000}:{current // 1000 % 60:02d} / {duration // 60000}:{duration // 1000 % 60:02d}")
+    return result
+
+
 def live_moments(session, now=None, *, spotify_attribution_available=False):
     now = datetime.now(UTC).timestamp() if now is None else now
     if not session or session.get("runtime_state") != "active":

@@ -28,7 +28,12 @@ from .session_history_view import (
     presented_history,
     search_page,
 )
-from .session_projection import active_session, history_page, timestamp
+from .session_projection import (
+    active_session,
+    history_page,
+    session_playback,
+    timestamp,
+)
 from .session_transport import SessionError, SessionTransport
 
 
@@ -81,6 +86,7 @@ class SessionController(QObject):
     def state(self):
         return {"session_id": self._session.get("session_id", ""),
             "runtime_state": self._session.get("runtime_state", ""),
+            "playback": session_playback(self._session),
             "mood": self._session.get("selected_mood", ""),
             "presence": self._session.get("selected_presence", ""),
             "persona": self._session.get("dj_persona", ""),

@@ -641,3 +641,46 @@ This is local fixture/source/package/design proof, not ARM/live/installed or
 physical acceptance. Playback metadata composition, exact native glyph fidelity,
 complete Flow, rich interactions/media, remaining destinations and real backdrop
 glass remain open. PR111 remains draft; full Apple parity is not claimed.
+
+### 2026-10-20 — Current Runtime playback metadata
+
+The shared Session now renders title, artist, album, observed progress/time and
+optional output name from its own broadcast.playback. Protected Core8b221d07
+RendererSafePlaybackProjection defines these renderer-safe observations; Apple
+protected e106a467 NativeSessionMomentsView.musicDetails supplies the visual
+hierarchy. No global playback/status or historical entry is substituted. Only
+active, exactly matching Session snapshots, playing/paused state, nonempty item
+identity and a zoned updated_at enter this closed projection. Ending/idle/invalid
+snapshots and context/background invalidation remove it. This observation is
+separate from Moment native_delivery source/display grants, not a new grant.
+
+The optional released source_url is validated as an exact canonical HTTPS Spotify
+track link. Invalid source identity withdraws the projection. Spotify metadata
+waits for the existing packaged attribution logo's renderer-ready fence and opens
+its original validated source. All metadata is bounded plain text. Progress is
+clamped observed server position, never a locally advancing clock or full-listen
+claim. Optional output name comes from this same snapshot; global volume/output
+is not mixed in. No artwork URL, up-next data, provider fetch or playback write is
+exposed. Native artwork/gestures/favorites, volume and complete header composition
+remain open. Admitted Moments retain priority above this card so their previously
+verified first contribution stays above the fold on the compact screen.
+
+Validation:771 full tests passed, including all200 unchanged protected producer
+frames and malformed state/source/timing checks. Ruff0.16.0 src/tests passed;
+hostverify MATCH. Broad QML regression86 views passed; the final dedicated
+controller harness adds actual scrolled metadata in all five languages, both
+sizes, a separately labelled synthetic paused/output variant and ending withdrawal
+(98 views total, no QML errors). Original producer fixture bytes are unchanged.
+Local wheel SHA256
+517f48914d50a9a44e304a8628ec7f61f2bd1561d26134f6b091b2bd51dc79bb
+matches all57 sources. Evidence: pi-session-playback-final under task visualizations.
+Visual review corrected the progress fill to white; earlier captures are retained.
+Native offline simulator references remain preserved in pi-session-toolbar.
+
+All applicable checks on parent638f335 passed (24 successes/4 conditional skips).
+No new concrete review/handoff was received. Core main remains8b221d07, its
+separate WIP is not adopted; Apple keeps its own lane. PR111 remains draft.
+These are local decoder/fixture/render/package/design results, not live Profile,
+HA, ARM, installed or physical acceptance. Full Apple parity, continuous Flow,
+rich interactions/media and real backdrop glass remain open. No merge, release,
+installation, pairing, HA effect, producer write or model request occurred.
