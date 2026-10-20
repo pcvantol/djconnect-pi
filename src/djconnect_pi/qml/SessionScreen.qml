@@ -19,6 +19,7 @@ Item {
     readonly property string composerContext: state.session_id + "|" + backend.activeProfileId
     property bool forecastMode: false
     readonly property bool showForecast: !historical && state.forecast_supported && forecastMode
+    onShowForecastChanged: if (owner) owner.setForecastImagesVisible(showForecast && visible)
     onComposerContextChanged: { clearFlowReturn(); forecastMode = false; closeTransient(); if (historyReadPending && historyReadKind === "current") { historyRead.stop(); historyReadPending = false; navigate("session") } }
     function clearComposer() { followQuestionReply = false; pendingReplyId = ""; draft = ""; if (composeInput) composeInput.clear(); if (composerPanel) composerPanel.close(); if (owner) owner.clearSelection() }
     function submitQuestion() { if (owner.sendQuestion(composeInput.text)) { forecastMode = false; followQuestionReply = true; draft = ""; composeInput.clear(); composerPanel.close() } }
@@ -325,7 +326,7 @@ Item {
         if (endConfirmation) endConfirmation.close()
         if (owner) owner.clearSearch()
     }
-    onVisibleChanged: if (!visible) { cancelArchiveRead(); if (owner) owner.clearArchive(); clearFlowReturn(); historyRead.stop(); historyReadProfile = ""; historyReadSession = ""; historyReadPending = false; readingRestore.stop(); pendingReadingAnchor = ""; closeTransient() }
+    onVisibleChanged: { if (owner) owner.setForecastImagesVisible(showForecast && visible); if (!visible) { cancelArchiveRead(); if (owner) owner.clearArchive(); clearFlowReturn(); historyRead.stop(); historyReadProfile = ""; historyReadSession = ""; historyReadPending = false; readingRestore.stop(); pendingReadingAnchor = ""; closeTransient() } }
     onHistoricalChanged: { if (!historical) { archiveDetailReturn = null; cancelArchiveRead(); if (owner) owner.clearArchive() } readingRestore.stop(); pendingReadingAnchor = ""; readingOffset = 0; if (!historical && flowReturn) flowReturnRestore.restart() }
     onSearchTargetChanged: { if (searchPanel) searchPanel.close(); if (searchInput) searchInput.clear(); if (owner) owner.clearSearch() }
     signal navigate(string destination)
@@ -541,6 +542,21 @@ Item {
             Text { text: screen.tr("session_forecast"); textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: screen.compact ? 30 : 40; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
             Text { visible: !!screen.state.forecast.source_url; text: screen.tr("session_forecast_source"); textFormat: Text.PlainText; color: BrandTheme.colors.muted; font.pixelSize: 18 }
             SessionAttribution { id: forecastSource; requiresSpotify: !!screen.state.forecast.source_url; spotifyURL: screen.state.forecast.source_url || ""; Layout.fillWidth: true }
+            GlassCard {
+                objectName: "sessionForecastArtistCard"
+                visible: !!screen.owner.forecastImage.source && imageAttribution.ready
+                Layout.fillWidth: true
+                Image {
+                    objectName: "sessionForecastArtistImage"
+                    Layout.fillWidth: true; Layout.preferredHeight: screen.compact ? 300 : 440
+                    source: imageAttribution.ready ? (screen.owner.forecastImage.source || "") : ""
+                    cache: false; asynchronous: true; retainWhileLoading: false
+                    fillMode: Image.PreserveAspectFit
+                    Accessible.name: screen.tr("session_forecast_artist_image") + ": " + (screen.owner.forecastImage.artist || "")
+                }
+                Text { text: screen.owner.forecastImage.artist || ""; textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 23; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                SessionAttribution { id: imageAttribution; requiresSpotify: true; spotifyURL: screen.owner.forecastImage.source_url || ""; Layout.fillWidth: true }
+            }
             Repeater {
                 model: forecastSource.ready ? screen.state.forecast.sections : []
                 GlassCard {

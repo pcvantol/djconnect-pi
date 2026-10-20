@@ -1562,3 +1562,52 @@ one concrete report. This is kept separate from passing local product/Qt checks;
 current host MATCH is not claimed, nor any release/install/live acceptance.
 
 Final product/source check:1000 full tests PASS, including20 new history-prefix cases. Ruff0.16.0 src/tests PASS.100 focused actual current/archive history-window QML views plus426 Session/composer regression and116 broad views completed without errors/binding loops on both formats/all five locales. Both format reading/limit captures were visually inspected. Wheel a443092a4155b4e07aa41d75253c37a1ba9e03e087c0d54e6830c42fc60263f8 matches all61 packaged sources. Evidence: taskvisualizations/pi-session-history-reading-windows. Current host qualification is separately DRIFT for seven expired ignored Core/receiver verification files; no host MATCH, cleanup or qualified delivery is claimed. No ARM/installed/live HA/Profile/physical acceptance. Diagnostic fixture edit-template and QML return-type failures are preserved separately; final focused harnas uses QVariant correctly and hides only its fixture language toast.
+
+
+### Current-artist Forecast pixels (bounded consumer subset)
+
+The shared Forecast view can display one producer-granted current Spotify artist
+image while the exact active Session is playing. Existing Forecast text admission,
+explicit private personal/household Profile, owner binding and current item/source
+are required. This does not enable the legacy private-session setting. The image
+lives only in RAM and disappears on hide, source/scope/lifecycle/foreground loss
+or the earlier original Forecast/asset deadline. Equal/lower changed revision
+cannot rebind withdrawn pixels; reused asset expiry never extends. No new image
+preparation POST, model/provider lookup or producer right is introduced.
+
+The Forecast managed-art route is specifically headerless; a fresh transport sends
+no bearer/device/Profile/cookie/netrc/proxy credentials. It uses only the configured
+HA origin, refuses redirects and external/raw CDN URLs, and accepts bounded static
+PNG/JPEG after MIME/magic/size/real Qt decode checks. Ordinary Session media/image
+has a different paired-Profile authorization contract and is not loaded here.
+One worker retains at most one latest desired request, with 32 attempts per Session
+and no automatic poll retry. Already-started HTTP can finish after End; its pixels
+cannot publish. QML receives a RAM data URI, disables caching, preserves aspect
+ratio and displays the canonical Spotify source/packaged mark without crop/overlay.
+Failure keeps Forecast text. New accessibility copy uses i18n in all five locales.
+
+The 20 original protected Core8b Forecast frames are unchanged (SHA909c9bc4...),
+replayed at their original expired fixture clock. Test bytes are the original
+owned synthetic artist PNG from protected Core, not a licensed artist photograph.
+The actual QML harness labels Runtime/revision/short-expiry overlays as synthetic;
+it exercises real transport validation, image decoding, visibility and withdrawal
+without network/HA/provider/model calls. Source hashes, route policy and limits
+are in docs/branding/FORECAST_IMAGE_REFERENCE.json. Broader Session artwork,
+contextual/upcoming/two-image Forecasts, media/actions and exact native layout are
+still open. No ARM/install/live Profile/HA/physical acceptance is claimed.
+
+
+Final current-artist image qualification:1072 full tests PASS (72 new image cases),
+Ruff0.16.0 src/tests PASS.50 new image views +426 Session/composer +100 history-window
++116 broad actual QML views (692 total) passed without errors/binding loops on
+720x720 and1200x1920/all five locales. Ready and expired captures were visually
+inspected on both formats; original synthetic pixels are an opaque color block,
+not a real artist photo/native visual fidelity claim. Wheel
+fd6b8f76eb4124cb06d9cea8d269f1027bc6b0ccc0274b1abf602df9be447960
+matches all62 packaged sources. Evidence: taskvisualizations/pi-session-forecast-images.
+After a concrete Core-owner restoration receipt, independent qualified read-only
+hostverify returned MATCH. The first restricted verification could not inspect
+host configuration and reported11 differences/1unverified; both logs are retained.
+Pi did no cleanup or changes to other-lane evidence. This supersedes the prior
+retention DRIFT observation only for this fresh host readback. Draft source/package/
+synthetic transport/Qt proof remains separate from ARM/install/live/physical proof.

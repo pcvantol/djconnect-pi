@@ -1315,3 +1315,6 @@ for _key, _values in _CURRENT_RESPONSE_TRANSLATIONS.items():
 
 for _language, _value in zip(SUPPORTED_LANGUAGES, ("More contributions remain available through Next contributions.", "Meer bijdragen blijven beschikbaar via Volgende bijdragen.", "Weitere Beiträge sind über Nächste Beiträge verfügbar.", "Les autres contributions restent accessibles via Contributions suivantes.", "Las demás contribuciones siguen disponibles en Contribuciones siguientes.")):
     TRANSLATIONS[_language]["session_history_window_limit"] = _value
+
+for _language, _value in zip(SUPPORTED_LANGUAGES, ("Artist image", "Artiestafbeelding", "Künstlerbild", "Image de l’artiste", "Imagen del artista")):
+    TRANSLATIONS[_language]["session_forecast_artist_image"] = _value

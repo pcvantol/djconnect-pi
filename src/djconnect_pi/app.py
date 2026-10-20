@@ -2448,6 +2448,7 @@ class DJConnectBackend(QObject):
         self._poll_timer.stop()
         self._event_timer.stop()
         self._session_controller.setForeground(False)
+        self._session_controller.shutdownImages()
         self._session_executor.shutdown(wait=False, cancel_futures=True)
         self._question_executor.shutdown(wait=False, cancel_futures=True)
         self._executor.shutdown(wait=False, cancel_futures=True)

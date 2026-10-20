@@ -21,6 +21,7 @@ from .expiry_clock import ExpiryClock
 from .i18n import locale_for_language, translate
 from .session_current_reply import current_reply, moment_reference, reply_valid
 from .session_forecast import ForecastReceiver, forecast_supported
+from .session_forecast_image import ForecastImages
 from .session_history_view import (
     accepted_question,
     confirmed_question_entry,
@@ -42,6 +43,7 @@ from .session_transport import SessionError, SessionTransport
 
 class SessionController(QObject):
     changed = Signal()
+    forecastImageChanged = Signal()
     entryOpened = Signal()
     questionConfirmed = Signal(str)
     currentReplyReady = Signal()
@@ -102,6 +104,9 @@ class SessionController(QObject):
         self._history_reset = False
         self._search = {}
         self._view_epoch = getattr(self, "_view_epoch", 0) + 1
+        self._forecast_images = ForecastImages(self)
+        self._forecast_images.changed.connect(self.forecastImageChanged.emit)
+        self.changed.connect(self._forecast_images.sync)
         self._ready.connect(self._apply)
         backend.demoModeChanged.connect(self._demo_changed)
         self._deadline_timer = QTimer(self)
@@ -158,6 +163,18 @@ class SessionController(QObject):
             return ""
         language = self.backend.cfg.language
         return QLocale(locale_for_language(language)).toString(parsed.toLocalTime(), translate(language, "session_datetime_format"))
+
+    @Property("QVariantMap", notify=forecastImageChanged)
+    def forecastImage(self):
+        return self._forecast_images.snapshot()
+
+    @Slot(bool)
+    def setForecastImagesVisible(self, visible):
+        self._forecast_images.set_visible(visible)
+
+    @Slot()
+    def shutdownImages(self):
+        self._forecast_images.shutdown()
 
     @Property(bool, notify=changed)
     def busy(self):
