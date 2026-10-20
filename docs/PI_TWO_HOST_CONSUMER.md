@@ -121,3 +121,29 @@ Older runs updated after the newer intent fail closed. One additional negative
 case preserves the previous failed/pending protections;38aggregator cases pass.
 This is a bounded follow-through of the reviewed ordering defect, without a new
 endpoint, mutation, permission or installer change.
+
+
+## Live authority preflight correction, 20 October 2026
+
+After Core supplied actual qualified operational source bf30bebc, the first
+real production resolver rejected its own three-dot ancestor comparison as
+traversal. Earlier fake-client tests bypassed GitHubRead.get and missed this
+boundary. The corrected reader admits only the exact generated comparison route
+for the two fixed repositories and a lowercase forty-character commit. All
+other traversal paths remain rejected before HTTP. The comparison requests page
+two with one commit, retaining status/merge-base metadata without first-page file
+patches, which can exceed the existing bounded metadata reader. Neither metadata
+limits nor protected-ancestor, exact qualification or approval checks change.
+Actual-opener offline tests cover both repositories, ahead/identical ancestry
+and altered comparison/traversal paths. Runtime application bytes, the EADB
+candidate and published profile assets are unchanged. The corrected consumer
+requires its own protected review/qualification and an exact Core consumer
+rebinding before any installation; no direct installer bypass is used.
+
+The final bounded consumer/installer/publication suite passes304 cases, including
+18 new reader-boundary regressions; Ruff0.16.0 and diff checks pass. With the
+correction, the actual read-only full resolver passes for both existing instance
+bindings against qualified Core bf30bebc and published EADB artifacts. This local
+corrected-reader result is diagnostic, not protected consumer authority or an
+installation. Fresh full-access host verification is MATCH; the preceding
+restricted-reader DRIFT result is retained as an access diagnostic.
