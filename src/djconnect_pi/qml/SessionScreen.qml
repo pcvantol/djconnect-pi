@@ -843,25 +843,6 @@ Item {
                 }
                 SessionAttribution { id: playbackSources; requiresSpotify: !!screen.state.playback.requires_spotify_attribution; spotifyURL: screen.state.playback.source_url || ""; Layout.fillWidth: true }
             }
-            Text {
-                objectName: "sessionRetainedFlowLabel"
-                visible: !screen.historical && screen.state.retained_flow.length > 0
-                text: screen.tr("session_retained_flow"); textFormat: Text.PlainText
-                color: BrandTheme.colors.muted; font.pixelSize: 18; wrapMode: Text.WordWrap; Layout.fillWidth: true
-            }
-            Repeater {
-                id: conversationRows
-                objectName: "sessionConversationRows"
-                model: !screen.historical ? screen.state.retained_flow : []
-                SessionRetainedEntry {
-                    objectName: "sessionConversationCard"
-                    required property var modelData
-                    entry: modelData; translate: screen.tr; dateText: screen.displayDate(modelData.occurred_at)
-                    selectionAvailable: screen.state.composer_available
-                    selectionBusy: screen.owner.busy || screen.owner.questionBusy
-                    onAskAbout: (sessionId, entryId) => { if (screen.owner.selectFlowEntry(sessionId, entryId)) composerPanel.open() }
-                }
-            }
             GlassCard {
                 id: pendingQuestionCard
                 objectName: "sessionPendingQuestion"
@@ -893,6 +874,26 @@ Item {
                     Text { text: screen.tr("session_current_response"); textFormat: Text.PlainText; color: BrandTheme.colors.muted; font.pixelSize: 18; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                     Text { visible: currentReplySources.ready; text: screen.state.current_reply.text || ""; textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 22; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                     SessionAttribution { id: currentReplySources; sources: screen.state.current_reply.display_sources || []; requiresSpotify: screen.state.current_reply.requires_spotify_attribution || false; spotifyURL: screen.state.current_reply.spotify_source_url || ""; Layout.fillWidth: true }
+                }
+            }
+            Text {
+                objectName: "sessionRetainedFlowLabel"
+                visible: !screen.historical && screen.state.retained_flow.length > 0
+                text: screen.tr("session_retained_flow"); textFormat: Text.PlainText
+                color: BrandTheme.colors.muted; font.pixelSize: 18; wrapMode: Text.WordWrap; Layout.fillWidth: true
+            }
+            Repeater {
+                id: conversationRows
+                objectName: "sessionConversationRows"
+                // Presentation only: canonical owner/model order remains ascending.
+                model: !screen.historical ? screen.state.retained_flow.slice().reverse() : []
+                SessionRetainedEntry {
+                    objectName: "sessionConversationCard"
+                    required property var modelData
+                    entry: modelData; translate: screen.tr; dateText: screen.displayDate(modelData.occurred_at)
+                    selectionAvailable: screen.state.composer_available
+                    selectionBusy: screen.owner.busy || screen.owner.questionBusy
+                    onAskAbout: (sessionId, entryId) => { if (screen.owner.selectFlowEntry(sessionId, entryId)) composerPanel.open() }
                 }
             }
             GlassButton {

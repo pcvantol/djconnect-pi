@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from PySide6.QtCore import Q_ARG, Q_RETURN_ARG, QMetaObject, QObject, QPoint, QTimer, qInstallMessageHandler
+from PySide6.QtCore import Q_ARG, Q_RETURN_ARG, QMetaObject, QObject, QPoint, QPointF, QTimer, qInstallMessageHandler
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine, QQmlExpression
 from PySide6.QtQuickControls2 import QQuickStyle
@@ -255,7 +255,18 @@ def main():
         backend._executor.submit.call_args.args[0]()
         assert owner.state['question_status']=='accepted'
         capture('composer-reconciled-reply-focused')
-        assert flick.property('contentY') > 100
+        # Newest-first places the exact confirmed assistant near the top already.
+        # Assert the intended focus, not an obsolete minimum scrolling distance.
+        confirmed_id=next(row['entry_id'] for row in owner.state['conversation'] if row['entry_id'] in owner._question_receipt['entry_ids'] and row['role']=='assistant')
+        def find_confirmed(item):
+            if item.objectName()=='sessionConversationCard' and item.property('entry')['entry_id']==confirmed_id: return item
+            for child in item.childItems():
+                found=find_confirmed(child)
+                if found is not None: return found
+            return None
+        confirmed_card=find_confirmed(screen)
+        assert confirmed_card is not None
+        assert abs(confirmed_card.mapToItem(flick,QPointF(0,0)).y()-12)<1
         assert not screen.property('followQuestionReply')
         flick.setProperty('contentY',100)
         owner.refresh();backend._executor.submit.call_args.args[0]()
@@ -492,6 +503,22 @@ def main():
             assert question_card.property('width')<=window.findChild(QObject,'sessionCurrentReply').property('width')*0.85+1
             assert not owner._question_receipt
             capture('current-response-not-saved-'+language)
+            # Explicit synthetic geometry-only join; no additional source grant or transport proof.
+            saved_rows=owner._retained_flow
+            from djconnect_pi.session_history_view import presented_history
+            joined=deepcopy(json.loads((ROOT/'tests/fixtures/session_core/retention-v2-touch.json').read_text())['tail_window'])
+            joined['session']['session_id']=native_session['session_id']
+            for row in joined['entries']:
+                row['session_id']=native_session['session_id']
+                row['retained_until']=datetime.fromtimestamp(stamp+5,UTC).isoformat()
+            owner._retained_flow=presented_history(joined)['entries'];owner.changed.emit();QTest.qWait(80)
+            reply_card=window.findChild(QObject,'sessionCurrentReply')
+            saved_label=window.findChild(QObject,'sessionRetainedFlowLabel')
+            assert reply_card.property('visible') and saved_label.property('visible'),(width,language,len(owner.state['retained_flow']),bool(owner.state['current_reply']))
+            assert reply_card.mapToItem(screen,QPointF(0,0)).y()+reply_card.property('height')<=saved_label.mapToItem(screen,QPointF(0,0)).y()
+            flick.setProperty('contentY',reply_card.mapToItem(flick,QPointF(0,0)).y()+flick.property('contentY'))
+            capture('current-response-before-saved-'+language)
+            owner._retained_flow=saved_rows;owner.changed.emit();QTest.qWait(80)
             assert window.findChild(QObject,'sessionCurrentReply').property('visible')
             complete_navigation()
             accepted_transport=owner.transport.question
@@ -933,6 +960,15 @@ def main():
             assert window.findChild(QObject,'sessionRetainedFlowLabel').property('visible')
             flick.setProperty('contentY',0)
             capture('retained-flow-mixed-'+language)
+            # Actual card Y-order, not just the JavaScript list: current Flow is newest first.
+            displayed=[]
+            def displayed_cards(item):
+                if item.objectName()=='sessionConversationCard': displayed.append(item)
+                for child in item.childItems(): displayed_cards(child)
+            displayed_cards(screen)
+            displayed.sort(key=lambda card:card.mapToItem(screen,QPointF(0,0)).y())
+            assert [card.property('entry')['entry_id'] for card in displayed]==[row['entry_id'] for row in reversed(owner.state['retained_flow'])]
+            assert [row['order'] for row in owner.state['retained_flow']]==sorted(row['order'] for row in owner.state['retained_flow'])
             playback_cards=[];literal_text=[]
             def check_readonly(item):
                 if item.objectName()=='sessionConversationCard':
@@ -984,6 +1020,10 @@ def main():
             QMetaObject.invokeMethod(screen,'submitQuestion');held=backend._question_executor.submit.call_args.args[0]
             assert owner.questionBusy and not ask.property('enabled')
             capture('retained-flow-question-pending-'+language)
+            pending_card=window.findChild(QObject,'sessionPendingQuestion')
+            label=window.findChild(QObject,'sessionRetainedFlowLabel')
+            assert pending_card.property('visible') and label.property('visible')
+            assert pending_card.mapToItem(screen,QPointF(0,0)).y()+pending_card.property('height')<=label.mapToItem(screen,QPointF(0,0)).y()
             held();QTest.qWait(80)
             assert owner.state['question_status']=='accepted' and not owner.state['selection']
             assert owner.transport.question.call_count==1 and owner.state['session_id']==flow_session['session_id']

@@ -1816,3 +1816,47 @@ flow-only art, reactions, broad media or full Apple parity. General Flow/order,
 private/standalone lifetime, full playback header, exact native glass and physical
 performance remain open. No merge, release, install, pairing, live HA/Profile,
 provider/model, ARM or physical acceptance follows from these local results.
+
+
+### Current Flow: newest saved contribution and own turn first
+
+The actual shared Flow now places the pending local question and the admitted
+current-only question/answer before saved contributions. Only this Flow's retained
+presentation is reversed, matching pinned Apple e106 Timeline lines510–525.
+The owner/controller list stays in canonical increasing order; chronological
+history first/next/prefix windows keep their existing order. ID/references,
+receipt confirmation, readonly versus native rights, RAM-only lifetime,
+foreground/context/expiry and media admission are unchanged. No transport,
+write/replay, producer field or new strings are introduced.
+
+The real QML harness checks displayed card Y-order, unchanged canonical model
+order, pending/current response above visible saved cards, and the exact confirmed
+assistant ID at the12px reading edge on both formats/five locales. An obsolete
+fixture assertion required scrolling more than100px to a newest answer; it now
+checks that exact ID/pixel target instead. Existing history return same-ID/pixel,
+missing-entry withdrawal and actual touch cancellation assertions stay intact.
+The new current-only/saved geometry join is explicitly synthetic and grants no
+additional current/private/history authority. Its first attempt reused a fixture
+that had already been emptied; a fresh original tail fixture is now copied.
+Both diagnostic runs remain in the evidence folder.
+
+This closes the audited own-turn placement and retained Flow presentation-order
+gaps. Playback/header grouping and complete backward/continuous current Flow
+remain open local work. Core8b still exposes tail/anchor plus chronological
+first/next, with no beforecursor. Broad private/standalone lifetime, richer media/
+actions, exact native glass/SF glyphs, ARM/installed/live/physical acceptance remain
+open. FLOW_PRESENTATION_ORDER_REFERENCE.json pins the exact source basis.
+
+
+Final local QML qualification:946 actual views (436composer,170Moment/artwork,
+90Forecast,100historywindows,150broad), five locales/two sizes, no QML errors or
+binding loops. Newest-first card Y-order, exact12px confirmed-answer focus,
+pending/current before saved, and existing history same-ID/pixel, withdrawal,
+touch and image-reading cases pass. Both formats were visually inspected.
+Ruff0.16.0 src/tests passes. Product Python code is unchanged: the last full
+local Python suite remains1188 on parent660cc151 and is not claimed rerun on this
+QML-only candidate. The prior qualified-host MATCH is likewise a parent
+measurement, not a new host check. Wheel900b213e70eb46a95a39c70d2c5bff3285978af4c120e41963cbdda593869f0b
+matches all64 packaged sources. Evidence:taskvisualizations/pi-flow-presentation-order.
+All results are local synthetic-transport/Qt/package, not live HA/Profile, ARM,
+installed or physical acceptance. Exact new-head CI is recorded separately.
