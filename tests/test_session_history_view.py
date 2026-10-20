@@ -136,3 +136,32 @@ def test_emphasis_follows_server_range_without_local_query_matching():
     data['matches'][0]['highlights'] = [{'start_utf16': 7, 'length_utf16': 2}]
     parsed = search_page(data, data['session_id'], data['query'])
     assert parsed['matches'][0]['highlighted_text'] == 'before <b><u>😀</u></b> after'
+
+
+def test_historical_playback_fields_preserve_observation_without_promoting_it():
+    row = {'kind': 'playback_observed', 'historical_view_only': True, 'current_display_allowed': False,
+           'text': 'Original joined observation', 'requires_spotify_attribution': True,
+           'playback': {'coverage': 'observed_playing_not_full_listen', 'title': '<img> 🎧',
+                        'artist': 'Observed artist', 'album': 'Observed album',
+                        'source_url': 'https://open.spotify.com/track/0000000000000000000001',
+                        'artwork_url': 'https://unqualified.invalid/image', 'position_ms': 9000}}
+    shown = presented_history({'entries': [row]})['entries'][0]
+    assert shown['historical_playback'] == {'title': '<img> 🎧', 'artist': 'Observed artist', 'album': 'Observed album'}
+    assert shown['text'] == row['text'] and shown['current_display_allowed'] is False
+    assert shown['spotify_source_url'] == row['playback']['source_url']
+    assert 'artwork_url' not in shown['historical_playback'] and 'position_ms' not in shown['historical_playback']
+    assert 'historical_playback' not in row
+
+
+@pytest.mark.parametrize('playback', [None, {}, {'coverage': 'full_listen'},
+    {'coverage': 'observed_playing_not_full_listen', 'title': []},
+    {'coverage': 'observed_playing_not_full_listen', 'title': 'x' * 513}])
+def test_malformed_observed_playback_does_not_gain_typed_presentation(playback):
+    with pytest.raises(SessionError):
+        presented_history({'entries': [{'kind': 'playback_observed', 'playback': playback}]})
+
+
+def test_empty_observation_keeps_original_text_fallback():
+    row = {'kind': 'playback_observed', 'playback': {'coverage': 'observed_playing_not_full_listen'}, 'text': 'Original observation'}
+    shown = presented_history({'entries': [row]})['entries'][0]
+    assert shown['historical_playback'] == {} and shown['text'] == row['text']

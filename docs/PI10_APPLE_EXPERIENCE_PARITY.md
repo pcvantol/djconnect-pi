@@ -780,3 +780,43 @@ No new concrete Pi review/released handoff arrived. PR111 remains draft. Full
 Flow/continuous history, rich actions, media/native artwork, remaining Apple pages,
 real backdrop glass and live Profile/HA/ARM/installed/physical acceptance remain
 open. No merge, release, install, pairing, HA effect or model/provider call occurred.
+
+### 2026-10-20 — Typed historical playback cards
+
+Shared chronological history now follows the protected Apple playbackDescription
+field hierarchy: observed-playback heading, title, artist, album, original source
+attribution and localized observation time. The heading translations are pinned
+to Apple e106a467 Localizable.strings for en/nl/de/fr/es. Protected Core8b221d07
+session_history_projection.project_entry supplies the typed playback contract.
+This does not assert a full listen, repeat count or current playback authority.
+
+Only playback_observed with exact observed_playing_not_full_listen coverage and
+bounded string fields receives the typed presentation. Invalid coverage/shape is
+refused; empty metadata keeps the original text fallback. Original body, canonical
+entry/order, retention and source fields are unchanged, including search text and
+UTF-16 highlights. Typed fields are plain text; literal markup/emoji stays literal.
+The existing Spotify renderer-ready fence applies before fields appear. No
+historical image/progress/queue/current grant, command or provider fetch is added.
+Expiry removes the complete retained row and its derived display fields.
+
+Validation:816 full tests passed; Ruff0.16.0 src/tests passed; hostverify MATCH.
+New tests cover exact field/source/body preservation, no current promotion,
+unsupported/malformed coverage/field bounds and empty-text fallback. Dedicated
+actual QML:128 views, including synthetic history2 observed-playback transport
+through the real controller, all five languages/both sizes, fully scrolled card
+and retention withdrawal. Broad QML:86 views, no errors. The playback row is an
+explicit synthetic consumer fixture; existing pinned producer bytes are unchanged
+and it is not represented as a new Runtime/provider export. Local wheel SHA256
+64f9ed2b903e9196c16b1c6a850fab99e8561257b1aab3df5a1227e8143a68ac
+matches all58 sources. Evidence: pi-session-history-playback-final under task
+visualizations; earlier first-fold captures are preserved.
+
+Parent654eea8 passed all applicable CI (24 successes/4 conditional skips). Core
+main8b221d07 remains unchanged; no new concrete Pi review/handoff arrived. No
+producer writes, repeat lane pings, model/HA effects, merge, release, install or
+pairing occurred. PR111 stays draft. Source/fixture/package/Qt proof is not ARM,
+installed/live Profile/HA or physical acceptance. Complete Flow/media/backdrop
+and remaining Apple destinations stay open. Screen review also identifies a
+navigation gap: current-Session history still selects More, and detail Back goes
+through the archive list. Preserve current versus archive origin in the next
+bounded navigation fix; no historical row should become current authority.

@@ -421,3 +421,13 @@ coverage proves active-read admission and expiry before GUI state read. Real QML
 Flow/Forecast toggles preserve actual input text and Flow scroll position in five
 languages on both sizes; expiry removes sections. Final checkpoint:809 tests,
 86 broad/114 dedicated QML views. No imagery fetch, new request or generation.
+
+Historical playback cards use only history2 playback_observed and exact
+observed_playing_not_full_listen coverage. Tests preserve original body/source
+and canonical historical authority while projecting bounded title/artist/album;
+unknown coverage/shape is refused and empty fields retain text fallback. Actual
+QML renders a labelled synthetic observed entry through the real controller in
+five languages/both sizes, including literal markup/emoji, packaged Spotify
+attribution, full-card scrolling and expiry removal. Final checkpoint:816 tests,
+86 broad/128 dedicated QML views. No current promotion, artwork fetch, seek,
+favorite, full-listen claim or provider/model call is included.

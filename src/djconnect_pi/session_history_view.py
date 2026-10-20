@@ -45,9 +45,26 @@ def sources(subject):
     return result
 
 
+def historical_playback(row):
+    """Retained observation metadata, never a current playback/media permission."""
+    if row.get("kind") != "playback_observed":
+        return {}
+    playback = row.get("playback")
+    if not isinstance(playback, dict) or playback.get("coverage") != "observed_playing_not_full_listen":
+        raise SessionError("invalid")
+    result = {}
+    for key in ("title", "artist", "album"):
+        value = playback.get(key, "")
+        if not isinstance(value, str) or len(value) > 512:
+            raise SessionError("invalid")
+        result[key] = value
+    return result if any(value.strip() for value in result.values()) else {}
+
+
 def presented_history(response):
     result = deepcopy(response)
     for row in result.get("entries", []):
+        row["historical_playback"] = historical_playback(row)
         row["display_sources"] = sources(row)
         row["spotify_source_url"] = spotify_source(row)
     return result

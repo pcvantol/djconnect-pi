@@ -457,14 +457,19 @@ Item {
                 objectName: "sessionHistoryRows"
                 model: screen.historical ? (screen.state.timeline.entries || []) : []
                 GlassCard {
+                    id: historyCard
                     required property var modelData
+                    readonly property var played: modelData.historical_playback || {}
                     Layout.fillWidth: true
                     Text {
                         visible: historySources.ready
-                        text: modelData.kind === "conversation_user" ? screen.tr("session_you") : modelData.kind === "conversation_dj" ? screen.tr("session_dj") : modelData.kind === "dj_silence" ? screen.tr("session_silence") : modelData.kind === "dj_publication" ? screen.tr("session_unavailable_contribution") : (modelData.summary || screen.tr("session_title"))
+                        text: modelData.kind === "playback_observed" ? screen.tr("session_history_playback") : modelData.kind === "conversation_user" ? screen.tr("session_you") : modelData.kind === "conversation_dj" ? screen.tr("session_dj") : modelData.kind === "dj_silence" ? screen.tr("session_silence") : modelData.kind === "dj_publication" ? screen.tr("session_unavailable_contribution") : (modelData.summary || screen.tr("session_title"))
                         color: BrandTheme.colors.text; font.pixelSize: 24; font.bold: true; wrapMode: Text.WordWrap; textFormat: Text.PlainText; Layout.fillWidth: true
                     }
-                    Text { text: modelData.text || ""; visible: historySources.ready && text.length > 0; color: BrandTheme.colors.text; font.pixelSize: 22; wrapMode: Text.WordWrap; textFormat: Text.PlainText; Layout.fillWidth: true }
+                    Text { text: modelData.text || ""; visible: historySources.ready && text.length > 0 && !historyCard.played.title && !historyCard.played.artist && !historyCard.played.album; color: BrandTheme.colors.text; font.pixelSize: 22; wrapMode: Text.WordWrap; textFormat: Text.PlainText; Layout.fillWidth: true }
+                    Text { visible: historySources.ready && text.length > 0; text: historyCard.played.title || ""; textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 26; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                    Text { visible: historySources.ready && text.length > 0; text: historyCard.played.artist || ""; textFormat: Text.PlainText; color: BrandTheme.colors.muted; font.pixelSize: 23; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                    Text { visible: historySources.ready && text.length > 0; text: historyCard.played.album || ""; textFormat: Text.PlainText; color: BrandTheme.colors.muted; font.pixelSize: 19; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                     SessionAttribution { id: historySources; sources: modelData.display_sources || []; requiresSpotify: modelData.requires_spotify_attribution || false; spotifyURL: modelData.spotify_source_url || ""; Layout.fillWidth: true }
                     GlassButton {
                         visible: screen.state.composer_available && historySources.ready

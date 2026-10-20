@@ -1285,3 +1285,8 @@ _SESSION_FORECAST_TRANSLATIONS = {
 for _key, _values in _SESSION_FORECAST_TRANSLATIONS.items():
     for _language, _value in zip(("en", "nl", "de", "fr", "es"), _values):
         TRANSLATIONS[_language][_key] = _value
+
+for _language, _value in zip(("en", "nl", "de", "fr", "es"), (
+    "Observed playback", "Waargenomen playback", "Beobachtete Wiedergabe", "Lecture observée", "Reproducción observada",
+)):
+    TRANSLATIONS[_language]["session_history_playback"] = _value

@@ -438,6 +438,31 @@ def main():
         capture('session-forecast-expired')
         owner.invalidate()
         assert not owner.state['forecast']['sections']
+        # Explicit synthetic history2 playback row; no artwork/current grant is invented.
+        from copy import deepcopy
+        history_fixture=json.loads((ROOT/'tests/fixtures/session_core/retention-v2-touch.json').read_text())['tail_window']
+        playback_page=deepcopy(history_fixture)
+        seed=history_fixture['entries'][0]
+        observed={key:deepcopy(seed[key]) for key in ['session_id','order','occurred_at','retained_until','historical_view_only','current_display_allowed']}
+        observed.update(entry_id='synthetic-history-playback',kind='playback_observed',
+            text='Observed <img> 🎧 · Observed artist · Observed album',requires_spotify_attribution=True,
+            playback={'coverage':'observed_playing_not_full_listen','title':'Observed <img> 🎧','artist':'Observed artist','album':'Observed album','source_url':'https://open.spotify.com/track/0000000000000000000001'})
+        playback_page.update(entries=[observed],next_cursor=None)
+        owner._clock=ExpiryClock(lambda:timestamp(seed['occurred_at'])+1,lambda:0)
+        owner._caps=caps;owner.transport.timeline=Mock(return_value=playback_page)
+        window.setProperty('activeScreen','history')
+        owner.openSaved(playback_page['session']['session_id']);backend._executor.submit.call_args.args[0]()
+        assert owner.state['timeline']['entries'][0]['historical_playback']['title']=='Observed <img> 🎧'
+        for language in ['en','nl','de','fr','es']:
+            backend.setLanguage(language);backend._toast_visible=False;backend.toastChanged.emit()
+            flick.setProperty('contentY',0)
+            capture('history-observed-playback-'+language)
+            if language=='nl':
+                flick.setProperty('contentY',max(0,flick.property('contentHeight')-flick.property('height')))
+                capture('history-observed-playback-full-card')
+        owner._clock=ExpiryClock(lambda:timestamp(seed['retained_until']),lambda:0);owner._expire()
+        assert not owner.state['timeline']['entries']
+        capture('history-observed-playback-expired')
         backend.shutdown()
         delete(window);delete(engine)
     errors=[value for value in warnings if any(word in value for word in ('ReferenceError','TypeError','Error:','Cannot assign','is not a type','failed to load'))]
