@@ -9,7 +9,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-from PySide6.QtCore import Q_ARG, Q_RETURN_ARG, QMetaObject, QObject, QTimer, qInstallMessageHandler
+from PySide6.QtCore import Q_ARG, Q_RETURN_ARG, QMetaObject, QObject, QPointF, QTimer, qInstallMessageHandler
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
@@ -21,7 +21,7 @@ from djconnect_pi.brand_theme import apply_palette
 from djconnect_pi.config import Config, save_config
 from djconnect_pi.expiry_clock import ExpiryClock
 from djconnect_pi.session_history_view import presented_history, search_page
-from djconnect_pi.session_projection import history_page
+from djconnect_pi.session_projection import history_page, timestamp
 from djconnect_pi.update_ui import UpdateUiBackend
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -55,6 +55,15 @@ def main():
         window.setWidth(width)
         window.setHeight(height)
         window.setProperty("splashVisible", False)
+
+        def visual_item(item, name):
+            if item.objectName() == name:
+                return item
+            for child in item.childItems():
+                found = visual_item(child, name)
+                if found is not None:
+                    return found
+            return None
 
         def capture(name):
             QTest.qWait(200)
@@ -116,6 +125,32 @@ def main():
         assert not owner.state["session_id"] and not owner.state["timeline"]
         owner.setForeground(True)
         owner._clock = original_clock
+        # Unchanged published Core snapshots, frozen at their original render time.
+        native_frames = json.loads((ROOT / "tests/fixtures/session_core/native-expressive-snapshots.json").read_text())
+        for family, persona in [("birth", "home_dj"), ("formation", "home_dj"), ("description", "home_dj"),
+                                ("edition", "home_dj"), ("genre", "home_dj"), ("genre", "club_dj")]:
+            snapshot = native_frames[family]["nl"][persona][-1]
+            authority = snapshot["native_delivery"]
+            grant = next((row for row in authority["admissions"] if row["moment_id"] == authority["current_moment_id"]), None)
+            fixture_time = timestamp(grant["display_expires_at"]) - 1 if grant else max(timestamp(row["created_at"]) for row in snapshot["dj_moments"]) + 1
+            owner._clock = ExpiryClock(lambda stamp=fixture_time: stamp, lambda: 0)
+            owner._session = {**snapshot["session"], "broadcast": snapshot}
+            owner._loaded = True
+            owner._expire()
+            owner.changed.emit()
+            QTest.qWait(100)
+            scroll.setProperty("contentY", 0)
+            capture("core-native-" + family + "-" + persona)
+            assert live_rows.property("count") == len(owner.state["moments"])
+            if owner.state["moments"]:
+                current_card = visual_item(window.contentItem(), "sessionLiveMomentCard")
+                assert current_card is not None
+                top = current_card.mapToItem(scroll, QPointF(0, 0)).y()
+                assert 0 <= top < scroll.property("height") / 2, (width, family, "contribution below fold", top)
+            if family == "genre" and persona == "home_dj":
+                assert not owner.state["moments"]
+        owner._clock = original_clock
+        owner._expire()
         # Render retained source/receipt kinds and the real search popup; data remains a fixture.
         tail = json.loads((ROOT / "tests/fixtures/session_core/retention-v2-touch.json").read_text())["tail_window"]
         sid = tail["session"]["session_id"]

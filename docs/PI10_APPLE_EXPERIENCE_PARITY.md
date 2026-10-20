@@ -300,3 +300,41 @@ foreground/suspend behavior need producer/hardware qualification; continuous
 history navigation, highlighting/date presentation, text composer/context,
 remaining native pages and backdrop glass effects are unfinished. No merge,
 release, installation, pairing or HA service operation is included.
+
+### Pinned producer frames and Moment-first visibility checkpoint
+
+All applicable remote checks on b1b450a9b6f02cddf4a45d0ed269615b3a5a9a29 passed.
+Native decoding is now checked against the unchanged published Core expressive
+fixture at protected8b221d07:200 actual Runtime snapshots across five families,
+five languages and four Personas, with two frames per sequence. SHA256 matches
+Core's original pin: d6dae495c0ba1540ff4803ff33d84f789062bb2fcdc433147f245af89622dc64.
+Tests preserve complete body/title and both original source links, current/Flow
+identity, rejected admissions, source expiry and subscription withdrawal. The
+fixture is synthetic/source-shaped producer Runtime evidence, not a live provider
+or authenticated Pi capture. Per-Moment grants remain authoritative: some genre
+frames contain admitted internal Direction, while unqualified genre copy stays
+hidden. No client inference from family, title or prose grants rights.
+
+Actual shared QML views render six NL producer cases on both form factors,
+including original Spotify attribution. They revealed that the decorative vinyl
+and introductory card pushed accepted text below the compact viewport. These
+fallbacks now appear only when there are no admitted contributions. Accepted
+current/Flow content starts directly under the Session title; toolbar controls
+and More/history navigation remain available. Layout checks verify the first
+actual card begins in the upper half of the visible scroll region at both sizes.
+This is a bounded Moment-first improvement, not completion of artwork/player UX.
+
+Evidence:702 full local tests passed; the final producer subset205 passed;
+Ruff0.16.0 passed;64 actual QML views passed, including grant/expiry/background,
+source-family render/denial and history reading position. Hostverify MATCH.
+Wheelbfba463df3954ba33cc08a51e896e4b24672557149528c158ad763858b20acee
+matches all57 packaged sources. Evidence is in pi-native-producer under the task
+visualization directory. No ARM/install/live/physical claim is made.
+
+Core has a specific consumer handoff question for the released Ask DJ text
+capability/version gate, request/response fixtures and raspberry_pi authorization.
+The existing Pi advertisement remains readonly_actions until this adoption is
+implemented and verified; no source/model operation or new Core writer was
+requested. No response has yet been consumed. Other native source/media families,
+continuous history, highlights/dates, composer/context, remaining pages and real
+glass backdrop effects remain open. No merge, install, pairing or HA change.

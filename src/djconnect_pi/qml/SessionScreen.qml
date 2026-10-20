@@ -181,7 +181,7 @@ Item {
                 textFormat: Text.PlainText; Layout.fillWidth: true
             }
             VinylPlaceholder {
-                visible: !screen.historical && screen.state.loaded &&
+                visible: !screen.historical && screen.state.loaded && screen.state.moments.length === 0 &&
                     (!screen.state.profile_confirmation_required || screen.backend.demoMode)
                 Layout.preferredWidth: Math.min(parent.width, screen.compact ? screen.height * 0.38 : 520)
                 Layout.preferredHeight: width
@@ -230,7 +230,7 @@ Item {
                 GlassButton { text: screen.tr("session_start"); primary: true; enabled: !screen.owner.busy; onClicked: screen.owner.start(screen.proposedMood) }
             }
             GlassCard {
-                visible: !screen.historical && screen.state.session_id.length > 0
+                visible: !screen.historical && screen.state.session_id.length > 0 && screen.state.moments.length === 0
                 Layout.fillWidth: true
                 RowLayout {
                     Layout.fillWidth: true; spacing: 18

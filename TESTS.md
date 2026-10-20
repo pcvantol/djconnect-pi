@@ -311,3 +311,10 @@ GUI queue delay and background/resume without write replay. The real QML preview
 also exercises synthetic native grant render/expiry/background withdrawal on
 both sizes. These checks are offline fixtures and do not establish installed,
 ARM, live Profile authorization or physical foreground/suspend acceptance.
+
+Pinned native expressive fixtures retain Core's original bytes/hash. The200
+frame checks cover five families, five locales and four Personas, preserving
+prose, current/Flow identity, qualified source links and denial/expiry. The QML
+preview renders six NL producer cases per target and checks that the first
+accepted card is above the fold. These source-shaped Runtime fixtures do not
+qualify live providers or Pi hardware.
