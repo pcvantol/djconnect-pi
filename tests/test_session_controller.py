@@ -728,3 +728,29 @@ def test_withdrawn_search_between_pages_stops_additional_private_reads(controlle
     owner.transport.search = Mock(side_effect=withdraw_after_first)
     owner.moreSearch();backend.jobs.pop()()
     assert owner.transport.search.call_count==1 and not owner.state['search']
+
+
+@pytest.mark.parametrize('scope',['mood','persona','playback'])
+def test_current_reads_with_new_runtime_scope_require_a_new_forecast_revision(controller,scope):
+    from copy import deepcopy
+
+    from test_session_forecast import CAPS, FRAMES, session
+    owner,backend=controller;frame=FRAMES[0]
+    owner._clock=SimpleNamespace(now=lambda:frame['now'])
+    current=session(frame)
+    owner.transport.capabilities=Mock(return_value=CAPS)
+    owner.transport.active=Mock(return_value={'success':True,'session':current})
+    owner.refresh();backend.jobs.pop()()
+    assert owner.state['forecast']['sections']
+    changed=deepcopy(current)
+    if scope=='mood': changed.update(selected_mood='party',mood_revision=1)
+    if scope=='persona': changed.update(dj_persona='club_dj',persona_revision=1)
+    if scope=='playback':
+        changed['broadcast']['playback']['item_id']='new-current-item'
+        changed['broadcast']['session_forecast']['current_anchor']['item_id']='new-current-item'
+    owner.transport.active.return_value={'success':True,'session':changed}
+    owner.refresh();backend.jobs.pop()()
+    assert not owner.state['forecast']['sections']
+    changed['broadcast']['session_forecast']['revision']+=1
+    owner.refresh();backend.jobs.pop()()
+    assert owner.state['forecast']['sections']
