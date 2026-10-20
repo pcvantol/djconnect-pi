@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "kind": "pi_deployment_instance_inventory",
+  "inventory_id": "pi-wall-devices-20261020-v1",
+  "authority": "IDENTITY_BINDINGS_ONLY_NO_DEPLOYMENT_APPROVAL",
+  "observed_at": "2026-10-20T15:25:53.183355+00:00",
+  "observations_sha256": "c779490a9b64f5c5638980a66f800b622610918de74f67a0f55f9a258d480b98",
+  "instances": [
+    {
+      "deployment_instance": "wall-4inch",
+      "target": "rbpi-djconnect",
+      "device_profile": "pi-zero-2w-arm64",
+      "endpoint_config_ref": "djconnect-wall-4inch",
+      "hostname": "rbpi-djconnect",
+      "architecture": "aarch64",
+      "model": "Raspberry Pi Zero 2 W Rev 1.0",
+      "ssh_host_key_type": "ssh-ed25519",
+      "ssh_host_key_sha256": "SHA256:VOYjxqlMY5gGl5W9dOYlx+NX2fOZ53p4aWflc27dYpw"
+    },
+    {
+      "deployment_instance": "wall-10inch",
+      "target": "rbpi-djconnect",
+      "device_profile": "pi5-arm64",
+      "endpoint_config_ref": "djconnect-pi10",
+      "hostname": "rbpi5-djconnect",
+      "architecture": "aarch64",
+      "model": "Raspberry Pi 5 Model B Rev 1.1",
+      "ssh_host_key_type": "ssh-ed25519",
+      "ssh_host_key_sha256": "SHA256:9jInRAmWeGnwXHYNeDwAkW0zkviIzMPr+zfZKdTQ7Bo"
+    }
+  ]
+}

@@ -1,294 +1,159 @@
-name: Smoke Qualified Pi Deployment
+name: Smoke Qualified Pi Instance
+
+run-name: "Pi smoke / ${{ inputs.deployment_instance }} / ${{ inputs.manifest_id }}"
 
 on:
   workflow_dispatch:
     inputs:
       action:
-        description: "Must be deployment_smoke."
         required: true
         type: choice
-        options: [deployment_smoke]
-      candidate_sha:
-        description: "Exact qualified source main SHA."
-        required: true
-        type: string
-      artifact_id:
-        description: "Exact immutable Pi artifact identifier from the approved manifest."
-        required: true
-        type: string
-      artifact_sha256:
-        description: "SHA-256 of the exact immutable Pi artifact from the approved manifest."
-        required: true
-        type: string
-      manifest_id:
-        description: "Immutable Pi release manifest identifier."
-        required: true
-        type: string
-      platform_version:
-        description: "Platform Major.Minor version."
-        required: true
-        type: string
-      release_profile:
-        description: "Supported release profile."
+        options: ["deployment_smoke"]
+      execution_mode:
         required: true
         type: choice
-        options: [INTERNAL_RELEASE]
+        options: ["execute"]
+      candidate_sha: {required: true, type: string}
+      manifest_id: {required: true, type: string}
+      artifact_id: {required: true, type: string}
+      artifact_sha256: {required: true, type: string}
       target:
-        description: "Canonical deployment target."
         required: true
         type: choice
-        options: [rbpi-djconnect]
-      deployment_workflow_run:
-        description: "Successful deployment workflow run ID whose evidence must match."
+        options: ["rbpi-djconnect"]
+      platform_version:
         required: true
-        type: string
+        type: choice
+        options: ["4.0"]
+      release_profile:
+        required: true
+        type: choice
+        options: ["INTERNAL_RELEASE"]
+      deployment_instance:
+        required: true
+        type: choice
+        options: ["wall-4inch", "wall-10inch"]
+      device_profile:
+        required: true
+        type: choice
+        options: ["pi-zero-2w-arm64", "pi5-arm64"]
+      inventory_sha256: {required: true, type: string}
+      deployment_workflow_run: {required: true, type: string}
 
 permissions:
-  actions: read
   contents: read
+  actions: read
   statuses: write
 
 concurrency:
-  group: pi-qualified-release-smoke-${{ inputs.manifest_id }}
+  group: pi-rc5-smoke-${{ inputs.deployment_instance }}
   cancel-in-progress: false
 
 jobs:
-  authorize:
-    name: Authorize exact Pi post-deployment smoke
-    runs-on: ubuntu-latest
-    steps:
-      - name: Validate canonical smoke identity
-        shell: bash
-        env:
-          ACTION: ${{ inputs.action }}
-          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
-          ARTIFACT_ID: ${{ inputs.artifact_id }}
-          ARTIFACT_SHA256: ${{ inputs.artifact_sha256 }}
-          MANIFEST_ID: ${{ inputs.manifest_id }}
-          PLATFORM_VERSION: ${{ inputs.platform_version }}
-          RELEASE_PROFILE: ${{ inputs.release_profile }}
-          TARGET: ${{ inputs.target }}
-          DEPLOYMENT_WORKFLOW_RUN: ${{ inputs.deployment_workflow_run }}
-        run: |
-          set -euo pipefail
-          test "${ACTION}" = "deployment_smoke"
-          test "${RELEASE_PROFILE}" = "INTERNAL_RELEASE"
-          test "${TARGET}" = "rbpi-djconnect"
-          [[ "${CANDIDATE_SHA}" =~ ^[0-9a-f]{40}$ ]]
-          [[ "${ARTIFACT_ID}" =~ ^release-asset:pcvantol/djconnect-pi-releases:v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?:djconnect-pi-[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?\.tar\.gz$ ]]
-          [[ "${ARTIFACT_SHA256}" =~ ^[0-9a-f]{64}$ ]]
-          [[ "${MANIFEST_ID}" =~ ^release-[A-Za-z0-9._-]+$ ]]
-          [[ "${PLATFORM_VERSION}" =~ ^[0-9]+\.[0-9]+$ ]]
-          [[ "${DEPLOYMENT_WORKFLOW_RUN}" =~ ^[1-9][0-9]*$ ]]
+  software-assurance-governance:
+    permissions:
+      contents: read
+    uses: pcvantol/djconnect/.github/workflows/software-assurance-governance.yml@dd02d6470f061e6e755e6fb47ae5331c34f89875
+    with:
+      execution_profile: release
+      owner: pcvantol/djconnect-pi
 
-      - name: Download exact deployment evidence
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+  instance:
+    needs: software-assurance-governance
+    # Qualified deployment relay, never a source-build job. Closed existing SSH configuration.
+    runs-on: [self-hosted, macOS, ARM64, internal-release, private-network-deployment]
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PI_INPUTS_JSON: ${{ toJSON(inputs) }}
+      PI_RC5_OPERATIONAL_CORE_SHA: ${{ vars.PI_RC5_OPERATIONAL_CORE_SHA }}
+      PI_RC5_OPERATIONAL_MANIFEST_SHA256: ${{ vars.PI_RC5_OPERATIONAL_MANIFEST_SHA256 }}
+    steps:
+      - name: Checkout exact consumer
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          name: pi-deployment-evidence
-          path: deployment-evidence
+          fetch-depth: 0
+      - name: Set up isolated deployment tooling
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.14"
+      - name: Install exact deployment-tool dependencies
+        run: |
+          python -m pip install --only-binary=:all: --requirement Tools/pi_deployment_requirements.lock
+      - name: Require approved operational manifest source
+        run: |
+          python -m Tools.pi_instance_release --operation smoke --prepare
+      - name: Canonical deployment readiness preflight
+        uses: pcvantol/djconnect/.github/actions/deployment-readiness-preflight@9b40f422911f08c2076b11e49eb21e98ae5eaa1a
+        with:
+          target: ${{ inputs.target }}
+          manifest_id: ${{ inputs.manifest_id }}
+          candidate_sha: ${{ inputs.candidate_sha }}
+          artifact_id: ${{ inputs.artifact_id }}
+          artifact_sha256: ${{ inputs.artifact_sha256 }}
+          expected_runner_os: macOS
+          expected_runner_arch: ARM64
+          required_configuration: PI_INSTANCE_ENDPOINT_REF,PI_INSTANCE_SSH_CONFIG,GH_TOKEN,PI_RC5_OPERATIONAL_CORE_SHA,PI_RC5_OPERATIONAL_MANIFEST_SHA256
+          smoke_contract: pi-rc5-instance-readback-v1
+      - name: Record successful canonical preflight
+        run: |
+          echo "PI_CANONICAL_PREFLIGHT_PASSED=true" >> "$GITHUB_ENV"
+      - name: Download successful deployment evidence
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: pi-deployment-evidence-${{ inputs.deployment_instance }}
+          path: ${{ runner.temp }}/pi-instance-deployment-evidence
           repository: ${{ github.repository }}
           run-id: ${{ inputs.deployment_workflow_run }}
           github-token: ${{ github.token }}
-
-      - name: Bind smoke to deployment evidence
-        shell: bash
-        env:
-          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
-          ARTIFACT_ID: ${{ inputs.artifact_id }}
-          ARTIFACT_SHA256: ${{ inputs.artifact_sha256 }}
-          MANIFEST_ID: ${{ inputs.manifest_id }}
-          PLATFORM_VERSION: ${{ inputs.platform_version }}
-          RELEASE_PROFILE: ${{ inputs.release_profile }}
-          TARGET: ${{ inputs.target }}
-          DEPLOYMENT_WORKFLOW_RUN: ${{ inputs.deployment_workflow_run }}
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          import json
-          import os
-          from pathlib import Path
-
-          evidence = json.loads(Path("deployment-evidence/pi-deployment-evidence.json").read_text(encoding="utf-8"))
-          expected = {
-              "candidate_sha": os.environ["CANDIDATE_SHA"],
-              "artifact_id": os.environ["ARTIFACT_ID"],
-              "artifact_sha256": os.environ["ARTIFACT_SHA256"],
-              "manifest_id": os.environ["MANIFEST_ID"],
-              "platform_version": os.environ["PLATFORM_VERSION"],
-              "release_profile": os.environ["RELEASE_PROFILE"],
-              "target": os.environ["TARGET"],
-              "deployment_workflow_run": os.environ["DEPLOYMENT_WORKFLOW_RUN"],
-              "result": "DEPLOYED_PENDING_SMOKE",
-          }
-          for key, value in expected.items():
-              if str(evidence.get(key, "")) != value:
-                  raise SystemExit(f"Deployment evidence {key} does not match this smoke request")
-          PY
-
-      - name: Require approved operational manifest source
-        shell: bash
-        env:
-          MANIFEST_ID: ${{ inputs.manifest_id }}
-          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
-          ARTIFACT_ID: ${{ inputs.artifact_id }}
-          ARTIFACT_SHA256: ${{ inputs.artifact_sha256 }}
-          TARGET: ${{ inputs.target }}
-          RELEASE_PROFILE: ${{ inputs.release_profile }}
-        run: |
-          set -euo pipefail
-          manifest="$(mktemp)"
-          trap 'rm -f "$manifest"' EXIT
-          curl --fail --silent --show-error --location \
-            https://raw.githubusercontent.com/pcvantol/djconnect/main/docs/release/PLATFORM_4_0_RC1_PI_OPERATIONAL_MANIFEST.json \
-            --output "$manifest"
-          test "$(jq -r '.status' "$manifest")" = APPROVED_DEPLOYMENT_DISPATCH_PENDING
-          test "$(jq -r '.approval.state' "$manifest")" = APPROVED
-          test "$(jq -r '.manifest_id' "$manifest")" = "$MANIFEST_ID"
-          test "$(jq -r '.release_profile' "$manifest")" = "$RELEASE_PROFILE"
-          jq -e --arg sha "$CANDIDATE_SHA" \
-            '.repositories[] | select(.repository == "pcvantol/djconnect-pi" and .source_sha == $sha)' \
-            "$manifest" >/dev/null
-          jq -e --arg target "$TARGET" --arg artifact "$ARTIFACT_ID" --arg sha "$ARTIFACT_SHA256" \
-            '.artifact_bindings[] | select(.target == $target and .artifact_id == $artifact and .artifact_sha256 == $sha)' \
-            "$manifest" >/dev/null
-
-  smoke:
-    name: Validate bounded Pi post-deployment smoke health
-    needs: authorize
-    runs-on: [self-hosted, macOS]
-    permissions:
-      contents: read
-    env:
-      PI_HOST: ${{ secrets.DJCONNECT_PI_SSH_HOST }}
-      PI_USER: ${{ vars.DJCONNECT_PI_SSH_USER || 'pi' }}
-      PI_PORT: ${{ vars.DJCONNECT_PI_SSH_PORT || '22' }}
-      SSH_PRIVATE_KEY: ${{ secrets.DJCONNECT_PI_SSH_PRIVATE_KEY }}
-      SSH_KNOWN_HOSTS: ${{ secrets.DJCONNECT_PI_SSH_KNOWN_HOSTS }}
-      EXPECTED_VERSION: "4.0.0-rc.1"
-    steps:
-      - name: Materialize target-scoped SSH credentials
-        id: ssh
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -n "${PI_HOST}"
-          [[ "${PI_PORT}" =~ ^[0-9]{1,5}$ ]]
-          test -n "${SSH_PRIVATE_KEY}"
-          test -n "${SSH_KNOWN_HOSTS}"
-          key_file="${RUNNER_TEMP}/djconnect-pi-smoke-key"
-          known_hosts_file="${RUNNER_TEMP}/djconnect-pi-smoke-known-hosts"
-          printf '%s\n' "${SSH_PRIVATE_KEY}" > "${key_file}"
-          printf '%s\n' "${SSH_KNOWN_HOSTS}" > "${known_hosts_file}"
-          chmod 600 "${key_file}" "${known_hosts_file}"
-          echo "key_file=${key_file}" >> "${GITHUB_OUTPUT}"
-          echo "known_hosts_file=${known_hosts_file}" >> "${GITHUB_OUTPUT}"
-
       - name: Validate bounded Pi post-deployment smoke health
-        shell: bash
-        env:
-          SSH_KEY_FILE: ${{ steps.ssh.outputs.key_file }}
-          SSH_KNOWN_HOSTS_FILE: ${{ steps.ssh.outputs.known_hosts_file }}
+        id: smoke
         run: |
-          set -euo pipefail
-          ssh_opts=(-i "${SSH_KEY_FILE}" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=${SSH_KNOWN_HOSTS_FILE}" -p "${PI_PORT}")
-          snapshot="$(
-            ssh "${ssh_opts[@]}" "${PI_USER}@${PI_HOST}" \
-              'EXPECTED_VERSION="'"${EXPECTED_VERSION}"'" python3 - <<'"'"'PY'"'"'
-          import json
-          import os
-          import subprocess
-          import urllib.request
-          from pathlib import Path
-
-          expected = os.environ["EXPECTED_VERSION"]
-          version = Path("/opt/djconnect/current/VERSION").read_text(encoding="utf-8").strip()
-          if version != expected:
-              raise SystemExit(f"expected {expected}, found {version}")
-          services = {}
-          for name in ("djconnect-api.service", "djconnect-client.service"):
-              services[name] = subprocess.run(["systemctl", "is-active", name], check=False, capture_output=True, text=True).stdout.strip()
-          if any(state != "active" for state in services.values()):
-              raise SystemExit(f"unhealthy services: {services}")
-          with urllib.request.urlopen("http://127.0.0.1:18080/api/device/info", timeout=10) as response:
-              payload = json.load(response)
-          if not payload.get("success") or payload.get("client_type") != "raspberry_pi" or payload.get("transport") != "local_only":
-              raise SystemExit("local device-info health contract failed")
-          print(json.dumps({"version": version, "services": services, "client_type": payload["client_type"], "transport": payload["transport"]}, sort_keys=True))
-          PY'
-          )"
-          printf '%s\n' "${snapshot}" > pi-smoke-snapshot.json
-
-      - name: Produce Pi smoke evidence
-        shell: bash
-        env:
-          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
-          ARTIFACT_ID: ${{ inputs.artifact_id }}
-          ARTIFACT_SHA256: ${{ inputs.artifact_sha256 }}
-          MANIFEST_ID: ${{ inputs.manifest_id }}
-          PLATFORM_VERSION: ${{ inputs.platform_version }}
-          RELEASE_PROFILE: ${{ inputs.release_profile }}
-          TARGET: ${{ inputs.target }}
-          DEPLOYMENT_WORKFLOW_RUN: ${{ inputs.deployment_workflow_run }}
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          import json
-          import os
-          from datetime import UTC, datetime
-          from pathlib import Path
-
-          evidence = {
-              "schema_version": 1,
-              "kind": "djconnect_pi_deployment_smoke_evidence",
-              "candidate_sha": os.environ["CANDIDATE_SHA"],
-              "artifact_id": os.environ["ARTIFACT_ID"],
-              "artifact_sha256": os.environ["ARTIFACT_SHA256"],
-              "manifest_id": os.environ["MANIFEST_ID"],
-              "platform_version": os.environ["PLATFORM_VERSION"],
-              "release_profile": os.environ["RELEASE_PROFILE"],
-              "target": os.environ["TARGET"],
-              "deployment_workflow_run": os.environ["DEPLOYMENT_WORKFLOW_RUN"],
-              "runtime": json.loads(Path("pi-smoke-snapshot.json").read_text(encoding="utf-8")),
-              "result": "DEPLOYMENT_OPERATIONAL",
-              "timestamp": datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
-          }
-          Path("pi-deployment-smoke-evidence.json").write_text(json.dumps(evidence, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-          PY
-
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: pi-deployment-smoke-evidence
-          path: pi-deployment-smoke-evidence.json
-          if-no-files-found: error
-
-      - name: Remove target-scoped SSH credentials
+          python -m Tools.pi_instance_release --operation smoke --deployment-evidence "$RUNNER_TEMP/pi-instance-deployment-evidence/pi-deploy-evidence.json"
+      - name: Preserve redacted instance evidence
         if: always()
-        shell: bash
-        env:
-          SSH_KEY_FILE: ${{ steps.ssh.outputs.key_file }}
-          SSH_KNOWN_HOSTS_FILE: ${{ steps.ssh.outputs.known_hosts_file }}
-        run: rm -f "${SSH_KEY_FILE}" "${SSH_KNOWN_HOSTS_FILE}"
-
-  publish-smoke-decision:
-    name: Publish Pi deployment smoke decision
-    needs: smoke
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
-      - name: Publish non-operational smoke decision
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: pi-deployment-smoke-evidence-${{ inputs.deployment_instance }}
+          path: ${{ runner.temp }}/pi-qualified-instance-${{ github.run_id }}-${{ github.run_attempt }}/pi-smoke-evidence.json
+          if-no-files-found: warn
+      - name: Publish scoped instance decision
+        if: always()
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
         env:
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
-          SMOKE_RESULT: ${{ needs.smoke.result }}
+          INSTANCE: ${{ inputs.deployment_instance }}
+          PHASE_RESULT: ${{ job.status }}
         with:
           script: |
-            const operational = process.env.SMOKE_RESULT === "success";
-            await github.rest.repos.createCommitStatus({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              sha: process.env.CANDIDATE_SHA,
-              context: "Deployment / Post-deployment smoke",
-              state: operational ? "success" : "failure",
+            const sha = process.env.CANDIDATE_SHA; const instance = process.env.INSTANCE;
+            if (!/^[0-9a-f]{40}$/.test(sha) || !["wall-4inch", "wall-10inch"].includes(instance)) return;
+            const success = process.env.PHASE_RESULT === "success";
+            await github.rest.repos.createCommitStatus({owner: context.repo.owner, repo: context.repo.repo, sha,
+              context: "Deployment / Post-deployment smoke / " + instance,
+              state: success ? "success" : "failure",
+              description: success ? "SMOKE_PASS" : "SMOKE_INCONCLUSIVE",
+              target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`});
+      - name: Preserve required-instance aggregation
+        if: success()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: pi-smoke-aggregation-${{ inputs.deployment_instance }}
+          path: ${{ runner.temp }}/pi-qualified-instance-${{ github.run_id }}-${{ github.run_attempt }}/overall-smoke.json
+          if-no-files-found: error
+      - name: Publish overall smoke only after both required instances
+        if: always()
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          OVERALL_OPERATIONAL: ${{ steps.smoke.outputs.overall_operational }}
+          PHASE_RESULT: ${{ job.status }}
+        with:
+          script: |
+            const sha = process.env.CANDIDATE_SHA;
+            if (!/^[0-9a-f]{40}$/.test(sha)) return;
+            const operational = process.env.OVERALL_OPERATIONAL === "true" && process.env.PHASE_RESULT === "success";
+            await github.rest.repos.createCommitStatus({owner: context.repo.owner, repo: context.repo.repo, sha,
+              context: "Deployment / Post-deployment smoke", state: operational ? "success" : "failure",
               description: operational ? "DEPLOYMENT_OPERATIONAL" : "DEPLOYMENT_SMOKE_FAILED",
-              target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
-            });
+              target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`});

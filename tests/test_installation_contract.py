@@ -154,52 +154,38 @@ def test_release_workflow_publishes_to_public_distribution_repo() -> None:
     assert '"v*.*.*"' in workflow
 
 
-def test_qualified_pi_deployment_workflow_requires_exact_evidence_and_artifact() -> None:
-    workflow = ROOT.joinpath(".github/workflows/deploy-latest-pi-release.yml").read_text(encoding="utf-8")
-    smoke_workflow = ROOT.joinpath(".github/workflows/smoke-rbpi-djconnect.yml").read_text(encoding="utf-8")
-
-    assert "workflow_dispatch:" in workflow
-    assert "runs-on: [self-hosted, macOS]" in workflow
-    assert "deployment relay, never a source-build job" in workflow
-    assert "action:" in workflow
-    assert "candidate_sha:" in workflow
-    assert "artifact_id:" in workflow
-    assert "artifact_sha256:" in workflow
-    assert "execution_mode:" in workflow
-    assert "manifest_id:" in workflow
-    assert "platform_version:" in workflow
-    assert "release_profile:" in workflow
-    assert "target:" in workflow
-    assert "Post-Merge Release Evidence / Reconcile release evidence" in workflow
-    assert "DJCONNECT_PI_SSH_HOST" in workflow
-    assert "DJCONNECT_PI_SSH_PRIVATE_KEY" in workflow
-    assert "DJCONNECT_PI_SSH_KNOWN_HOSTS" in workflow
-    assert "pcvantol/djconnect-pi-releases" in workflow
-    assert "djconnect-pi-${release_version}-release-manifest.json" in workflow
-    assert "StrictHostKeyChecking=yes" in workflow
-    assert "--release-version" in workflow
-    assert "Stage the exact approved RC bootstrap bundle" in workflow
-    assert "Bootstrapping the legacy updater with the exact approved RC installer." in workflow
-    assert "djconnect-install/djconnect-pi-${RELEASE_VERSION}.tar.gz" in workflow
-    assert "ARTIFACT_SHA256" in workflow
-    assert "/opt/djconnect/config/updater-status.json" in workflow
-    assert "/opt/djconnect/current/VERSION" in workflow
-    assert "status_state" in workflow
-    assert "failed" in workflow
-    assert "Deployment / Execute approved release" in workflow
-    assert "rbpi-djconnect" in workflow
-    assert "DEPLOYED_PENDING_SMOKE" in workflow
-    assert "Require approved operational manifest source" in workflow
-    assert "Validate bounded Pi post-deployment smoke health" in smoke_workflow
-    assert "deployment_workflow_run:" in smoke_workflow
-    assert "pi-deployment-evidence" in smoke_workflow
-    assert "DEPLOYED_PENDING_SMOKE" in smoke_workflow
-    assert "rbpi-djconnect" in smoke_workflow
-    assert "Deployment / Post-deployment smoke" in smoke_workflow
-    assert "Require approved operational manifest source" in smoke_workflow
-    assert "pi-deployment-smoke-evidence" in smoke_workflow
-    assert "DJCONNECT_PI_SSH_PRIVATE_KEY" in smoke_workflow
-    assert "mutates pairing" not in workflow
+def test_qualified_pi_deployment_workflows_use_closed_v2_bindings() -> None:
+    # Historical v1/RC1 host-secret/updater text assertions are superseded by the
+    # protected two-instance contract. Semantic negative cases live in the locked
+    # deployment-tool suite; this test keeps all three workflow entrypoints aligned.
+    for operation, name in (("readiness", "pi-deployment-readiness.yml"),
+                            ("deploy", "deploy-latest-pi-release.yml"),
+                            ("smoke", "smoke-rbpi-djconnect.yml")):
+        workflow = ROOT.joinpath(".github/workflows", name).read_text(encoding="utf-8")
+        assert "workflow_dispatch:" in workflow
+        assert "runs-on: [self-hosted, macOS, ARM64, internal-release, private-network-deployment]" in workflow
+        assert "cancel-in-progress: false" in workflow
+        for field in ("action", "execution_mode", "candidate_sha", "artifact_id", "artifact_sha256", "manifest_id",
+                      "platform_version", "release_profile", "target", "deployment_instance", "device_profile", "inventory_sha256"):
+            assert "      "+field+":" in workflow
+        assert "PI_RC5_OPERATIONAL_CORE_SHA: ${{ vars.PI_RC5_OPERATIONAL_CORE_SHA }}" in workflow
+        assert "PI_RC5_OPERATIONAL_MANIFEST_SHA256: ${{ vars.PI_RC5_OPERATIONAL_MANIFEST_SHA256 }}" in workflow
+        canonical = "pcvantol/djconnect/.github/actions/deployment-readiness-preflight@9b40f422911f08c2076b11e49eb21e98ae5eaa1a"
+        assert canonical in workflow and "smoke_contract: pi-rc5-instance-readback-v1" in workflow
+        prepare = "python -m Tools.pi_instance_release --operation "+operation+" --prepare"
+        execute = "python -m Tools.pi_instance_release --operation "+operation
+        assert workflow.index(prepare) < workflow.index(canonical) < workflow.rindex(execute)
+        assert "PI_CANONICAL_PREFLIGHT_PASSED=true" in workflow
+        assert "PLATFORM_4_0_RC1" not in workflow and "PLATFORM_3_3" not in workflow
+        assert "DJCONNECT_PI_SSH_HOST" not in workflow  # No arbitrary single-host secret substitution.
+        assert "--release-version" not in workflow  # No old updater fallback/replay path.
+    smoke = ROOT.joinpath(".github/workflows/smoke-rbpi-djconnect.yml").read_text(encoding="utf-8")
+    assert "deployment_workflow_run:" in smoke
+    assert "pi-deployment-evidence-${{ inputs.deployment_instance }}" in smoke
+    assert "EXPECTED_VERSION:" not in smoke
+    transport = ROOT.joinpath("Tools/pi_instance_ssh.py").read_text(encoding="utf-8")
+    assert "StrictHostKeyChecking=yes" in transport and "HostKeyAlgorithms=ssh-ed25519" in transport
+    assert "INTENT_ALREADY_SENT" in transport and "validate_identity(binding, observed, self.challenge)" in transport
 
 
 def test_pi_release_manifest_binds_the_artifact_and_target() -> None:

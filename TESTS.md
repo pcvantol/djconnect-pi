@@ -1147,3 +1147,11 @@ uncommitted two-host consumer/installer tests are excluded from this app count.
 436actual composer-QML views pass on both formats/five locales with zero errors.
 Original fixtures remain unchanged; expiry/style overlays are synthetic. No new
 server field, right, replay or automatic replacement question is introduced.
+
+
+### Protected two-instance deployment consumer
+
+See docs/PI_TWO_HOST_CONSUMER.md for the closed Core contract/inventory pins,
+236 dedicated offline cases, actual read-only identity observations and
+remaining exact review/publication/operational gates. Neither rc.5 installation
+nor installed screenshots are claimed. Runtime app bytes remain at42dac367.

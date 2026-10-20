@@ -1,0 +1,188 @@
+"""Read-only immutable authority resolver. No SSH, installer or service effects."""
+from __future__ import annotations
+
+import base64
+import hashlib
+from dataclasses import dataclass
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlsplit
+from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
+
+from Tools.pi_instance_contract import (
+    CORE_FINALIZATION,
+    CORE_SOURCE,
+    OPERATIONAL_PATH,
+    VERSION,
+    Binding,
+    BindingError,
+    exact_hex,
+    operational_pair,
+    pinned_contracts,
+    require,
+    strict_json,
+    validate_bindings,
+    validate_schema,
+)
+from Tools.validate_pi_release_candidate import validate_source_status
+
+CORE = "pcvantol/djconnect"
+PI = "pcvantol/djconnect-pi"
+PUBLICATION = "pcvantol/djconnect-pi-releases"
+
+
+class NoRedirect(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+class GitHubRead:
+    """Only explicit GitHub token; no proxy/netrc/cookies or credential forwarding."""
+    def __init__(self, token: str):
+        require(bool(token), "GITHUB_READ_CONFIGURATION_MISSING")
+        self.token = token
+        self.opener = build_opener(ProxyHandler({}), NoRedirect())
+
+    @staticmethod
+    def bounded(response, maximum: int) -> bytes:
+        length = response.headers.get("Content-Length")
+        require(length is None or (length.isascii() and length.isdecimal() and len(length) <= 20
+                and int(length) <= maximum), "GITHUB_RESPONSE_TOO_LARGE")
+        result = bytearray()
+        while True:
+            chunk = response.read(min(16384, maximum+1-len(result)))
+            if not chunk:
+                return bytes(result)
+            result.extend(chunk)
+            require(len(result) <= maximum, "GITHUB_RESPONSE_TOO_LARGE")
+
+    def get(self, path: str, maximum: int = 1048576, *, binary: bool = False) -> bytes:
+        require(path.startswith("repos/") and ".." not in path and "\n" not in path, "GITHUB_PATH_INVALID")
+        headers = {"Authorization": "Bearer "+self.token, "Accept": "application/octet-stream" if binary else "application/vnd.github+json", "User-Agent": "DJConnect-Pi-Qualified-Consumer"}
+        request = Request("https://api.github.com/"+path, headers=headers)
+        try:
+            try:
+                response = self.opener.open(request, timeout=20)
+            except HTTPError as error:
+                if not binary or error.code != 302:
+                    error.close()
+                    raise BindingError("GITHUB_READ_NOT_READY") from None
+                location = error.headers.get("Location", "");error.close();url = urlsplit(location)
+                release_host = url.hostname in {"release-assets.githubusercontent.com", "objects.githubusercontent.com"}
+                workflow_archive = (path.startswith("repos/"+PI+"/actions/artifacts/") and path.endswith("/zip")
+                                    and isinstance(url.hostname, str) and url.hostname.endswith(".blob.core.windows.net"))
+                require(url.scheme == "https" and (release_host or workflow_archive) and not url.fragment
+                        and url.username is None and url.password is None and url.port in {None, 443}, "ARTIFACT_REDIRECT_INVALID")
+                # Fresh request deliberately carries no GitHub identity to the signed asset URL.
+                response = self.opener.open(Request(location, headers={"User-Agent": "DJConnect-Pi-Qualified-Consumer"}), timeout=20)
+            with response:
+                return self.bounded(response, maximum)
+        except (HTTPError, URLError, TimeoutError, OSError, ValueError):
+            raise BindingError("GITHUB_READ_NOT_READY") from None
+
+    def json(self, path: str) -> dict:
+        return strict_json(self.get(path), 1048576)
+
+    def asset(self, asset_id: int, maximum: int) -> bytes:
+        require(type(asset_id) is int and asset_id > 0, "ASSET_ID_INVALID")
+        return self.get("repos/"+PUBLICATION+"/releases/assets/"+str(asset_id), maximum, binary=True)
+
+
+    def archive(self, artifact_id: int) -> bytes:
+        require(type(artifact_id) is int and artifact_id > 0, "EVIDENCE_ARTIFACT_INVALID")
+        return self.get("repos/"+PI+"/actions/artifacts/"+str(artifact_id)+"/zip", 262144, binary=True)
+
+
+def github_file(client, repository: str, path: str, revision: str) -> tuple[bytes, str]:
+    require(repository == CORE and path == OPERATIONAL_PATH and (exact_hex(revision, 40) or revision == "main"), "PRODUCER_REFERENCE_INVALID")
+    data = client.json("repos/"+repository+"/contents/"+path+"?ref="+revision)
+    require(data.get("type") == "file" and data.get("path") == path and data.get("encoding") == "base64"
+            and isinstance(data.get("content"), str) and len(data["content"]) <= 360000, "PRODUCER_FILE_INVALID")
+    try:
+        raw = base64.b64decode("".join(data["content"].splitlines()), validate=True)
+    except ValueError:
+        raise BindingError("PRODUCER_FILE_INVALID") from None
+    require(len(raw) <= 262144, "PRODUCER_FILE_INVALID")
+    blob = hashlib.sha1(b"blob "+str(len(raw)).encode()+b"\0"+raw, usedforsecurity=False).hexdigest()
+    require(data.get("sha") == blob, "PRODUCER_BLOB_MISMATCH")
+    return raw, blob
+
+
+def protected_ancestor(client, repository: str, sha: str) -> None:
+    require(repository in {CORE, PI} and exact_hex(sha, 40), "SOURCE_REFERENCE_INVALID")
+    branch = client.json("repos/"+repository+"/branches/main")
+    require(branch.get("protected") is True, "MAIN_NOT_PROTECTED")
+    comparison = client.json("repos/"+repository+"/compare/"+sha+"...main?per_page=1")
+    require(comparison.get("status") in {"ahead", "identical"}
+            and comparison.get("merge_base_commit", {}).get("sha") == sha, "SOURCE_NOT_ON_MAIN")
+
+
+def qualified(client, repository: str, sha: str) -> None:
+    protected_ancestor(client, repository, sha)
+    try:
+        validate_source_status(client.json("repos/"+repository+"/commits/"+sha+"/status"), sha)
+    except ValueError:
+        raise BindingError("EXACT_MAIN_RELEASE_EVIDENCE_MISSING") from None
+
+
+@dataclass(frozen=True)
+class Authority:
+    binding: Binding
+    operational_core_sha: str
+    operational_manifest_sha256: str
+    asset_id: int
+    asset_size: int
+
+    def receipt(self) -> dict:
+        return {**self.binding.public_join(), "operational_core_sha": self.operational_core_sha,
+            "operational_manifest_sha256": self.operational_manifest_sha256,
+            "contract_source": CORE_SOURCE, "contract_finalization": CORE_FINALIZATION,
+            "publication_run": self.binding.publication_run,
+            "classification": "AUTHORITY_CHECKED_READINESS_AND_FRESH_IDENTITY_STILL_REQUIRED"}
+
+
+def release_asset(release: dict, filename: str, maximum: int) -> dict:
+    require(release.get("tag_name") == "v"+VERSION and release.get("draft") is False
+            and release.get("prerelease") is True and isinstance(release.get("assets"), list), "RELEASE_NOT_PUBLISHED")
+    matches = [asset for asset in release["assets"] if isinstance(asset, dict) and asset.get("name") == filename]
+    require(len(matches) == 1, "RELEASE_ASSET_AMBIGUOUS")
+    asset = matches[0]
+    require(type(asset.get("id")) is int and asset["id"] > 0 and asset.get("state") == "uploaded"
+            and type(asset.get("size")) is int and 0 < asset["size"] <= maximum, "RELEASE_ASSET_INVALID")
+    return asset
+
+
+def resolve(client, request: dict, consumer_sha: str, configuration: dict) -> Authority:
+    # Snapshot both protected configuration values once. Callers cannot supply a path.
+    pair = operational_pair(configuration.get("PI_RC5_OPERATIONAL_CORE_SHA", ""),
+                            configuration.get("PI_RC5_OPERATIONAL_MANIFEST_SHA256", ""))
+    contracts = pinned_contracts()
+    validate_schema(request, contracts["PI_TWO_HOST_DEPLOYMENT_REQUEST_V2.schema.json"], "REQUEST_SCHEMA_INVALID")
+    request = dict(request)
+    protected_ancestor(client, CORE, CORE_SOURCE)
+    protected_ancestor(client, CORE, CORE_FINALIZATION)
+    qualified(client, CORE, pair[0])
+    raw, blob = github_file(client, CORE, OPERATIONAL_PATH, pair[0])
+    require(hashlib.sha256(raw).hexdigest() == pair[1], "OPERATIONAL_BYTES_MISMATCH")
+    _current, current_blob = github_file(client, CORE, OPERATIONAL_PATH, "main")
+    require(blob == current_blob, "OPERATIONAL_MANIFEST_SUPERSEDED")
+    manifest = strict_json(raw)
+    require(isinstance(request, dict) and exact_hex(request.get("candidate_sha"), 40), "REQUEST_SOURCE_INVALID")
+    qualified(client, PI, request["candidate_sha"])
+    qualified(client, PI, consumer_sha)
+    release = client.json("repos/"+PUBLICATION+"/releases/tags/v"+VERSION)
+    metadata_asset = release_asset(release, "djconnect-pi-"+VERSION+"-release-manifest.json", 262144)
+    published = strict_json(client.asset(metadata_asset["id"], 262144))
+    binding = validate_bindings(request, manifest, consumer_sha, published)
+    run = client.json("repos/"+PI+"/actions/runs/"+binding.publication_run)
+    require(run.get("head_sha") == request["candidate_sha"] and run.get("status") == "completed"
+            and run.get("conclusion") == "success" and run.get("path") in {".github/workflows/publish-release.yml", ".github/workflows/publish-release.yml@main", ".github/workflows/publish-release.yml@v"+VERSION}
+            and run.get("repository", {}).get("full_name") == PI, "PUBLICATION_RUN_MISMATCH")
+    asset = release_asset(release, request["artifact_id"].rsplit(":", 1)[-1], 33554432)
+    return Authority(binding, pair[0], pair[1], asset["id"], asset["size"])
+
+
+def verified_artifact(client, authority: Authority) -> bytes:
+    raw = client.asset(authority.asset_id, 33554432)
+    require(len(raw) == authority.asset_size and hashlib.sha256(raw).hexdigest()
+            == authority.binding.request["artifact_sha256"], "ARTIFACT_BYTES_MISMATCH")
+    return raw

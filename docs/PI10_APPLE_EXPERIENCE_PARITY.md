@@ -1272,7 +1272,7 @@ applicable CI passed (24successes/4conditional skips). This QML-only change uses
 actual render checks and package verification; no redundant local Python suite
 is attributed to the new head. New-head CI is independent.
 
-Final polish verification:230 dedicated actual QML views plus116 broad views,
+Final polish verification:236 dedicated actual QML views plus116 broad views,
 no errors/binding loops; Ruff0.16.0 src/tests passed and hostverify MATCH.
 Wheel dfd6b13d5085413b4b12fd74d18d233126ca39ebade2db13134b6e666c67ffc5
 matches all60 packaged sources. Pending/uncertain captures were visually checked
@@ -2093,3 +2093,11 @@ substituted after withdrawal. Twelve new cases,139targeted/1451app-selection tes
 and436actual composer-QML views pass. Independent source closure and exact CI stay
 separate; this does not establish server/model or installed acceptance. See
 QUEUED_MOMENT_QUESTION_REFERENCE.json. Two-host deployment WIP is retained separately.
+
+
+### Protected two-instance deployment consumer
+
+See docs/PI_TWO_HOST_CONSUMER.md for the closed Core contract/inventory pins,
+236 dedicated offline cases, actual read-only identity observations and
+remaining exact review/publication/operational gates. Neither rc.5 installation
+nor installed screenshots are claimed. Runtime app bytes remain at42dac367.

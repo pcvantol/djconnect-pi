@@ -1,0 +1,11 @@
+{
+  "core_source": "9b40f422911f08c2076b11e49eb21e98ae5eaa1a",
+  "core_finalization": "1328c73e5d35fe13a63910a7bb41e1d0bbdd2d18",
+  "files_sha256": {
+    "PI_TWO_HOST_DEPLOYMENT_CONTRACT_V1.md": "5724f2e056f65a69286d0340096b64532bd784b4f0eec58a61232eb2d377f70c",
+    "PI_TWO_HOST_DEPLOYMENT_REQUEST_V2.schema.json": "eba4b87e450ba79002052a5d0c0f154388f0e70bba022a9829624cbf75b98e75",
+    "PI_TWO_HOST_OPERATIONAL_MANIFEST_V2.schema.json": "ca70174cb92e0575d979d3b79bcbea038f339ac365790007d98c3ff2ef43fa16",
+    "PI_WALL_DEVICE_INVENTORY_V1.json": "530220ee38f6ccbcc824a78331b9dd89f236a5fa6ede12ebf7899dac83ff50c0"
+  },
+  "scope": "Protected Core contract/inventory provenance only. Matching consumer local qualification is documented in docs/PI_TWO_HOST_CONSUMER.md; no operational manifest or deployment approval is created."
+}
