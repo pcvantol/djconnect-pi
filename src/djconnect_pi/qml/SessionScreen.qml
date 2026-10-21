@@ -1091,7 +1091,9 @@ Item {
             }
         }
     }
-    Popup {
+    GlassPopup {
+        // Private/context-bound panels always withdraw without an exit delay.
+        animateExit: false
         id: playbackPanel
         objectName: "sessionPlaybackPanel"
         onAboutToHide: { outputsPanel.close(); if (screen.owner) screen.owner.cancelPlaybackIntent() }
@@ -1216,7 +1218,9 @@ Item {
             }
         }
     }
-    Popup {
+    GlassPopup {
+        // Private/context-bound panels always withdraw without an exit delay.
+        animateExit: false
         id: outputsPanel
         objectName: "sessionOutputPanel"
         x: (screen.width - width) / 2; y: toolbar.y + toolbar.height + 8
@@ -1272,7 +1276,9 @@ Item {
             }
         }
     }
-    Popup {
+    GlassPopup {
+        // Private/context-bound panels always withdraw without an exit delay.
+        animateExit: false
         id: composerPanel
         objectName: "sessionComposerPanel"
         x: 16; y: toolbar.y + toolbar.height + 8
@@ -1317,7 +1323,9 @@ Item {
             }
         }
     }
-    Popup {
+    GlassPopup {
+        // Private/context-bound panels always withdraw without an exit delay.
+        animateExit: false
         id: searchPanel
         objectName: "sessionSearchPanel"
         property bool keyboardVisible: true
@@ -1413,7 +1421,9 @@ Item {
             }
         }
     }
-    Popup {
+    GlassPopup {
+        // Private/context-bound panels always withdraw without an exit delay.
+        animateExit: false
         id: moreChoices
         x: 20; y: toolbar.y + toolbar.height + 8
         width: Math.min(screen.width - 40, 420); padding: 16
@@ -1442,7 +1452,9 @@ Item {
             }
         }
     }
-    Popup {
+    GlassPopup {
+        // Private/context-bound panels always withdraw without an exit delay.
+        animateExit: false
         id: connectionInfo
         x: screen.width - width - 20; y: toolbar.y + toolbar.height + 8
         width: Math.min(screen.width - 40, 420); padding: 22
@@ -1453,7 +1465,9 @@ Item {
             Text { text: screen.backend.connectionType; textFormat: Text.PlainText; font.pixelSize: 22; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true }
         }
     }
-    Popup {
+    GlassPopup {
+        // Private/context-bound panels always withdraw without an exit delay.
+        animateExit: false
         id: choices
         objectName: "sessionToolbarChoice"
         property string sessionId: ""
@@ -1491,7 +1505,9 @@ Item {
             GlassButton { text: screen.tr("shared_title"); onClicked: { choices.close(); screen.navigate("settings") } }
         }
     }
-    Popup {
+    GlassPopup {
+        // Private/context-bound panels always withdraw without an exit delay.
+        animateExit: false
         id: archiveDeletePanel
         objectName: "sessionDeletePanel"
         readonly property bool bulk: screen.state.archive_delete.kind === "bulk"
@@ -1537,7 +1553,9 @@ Item {
             GlassButton { objectName: "sessionDeleteCancel"; text: screen.tr((screen.state.archive_delete.status === "reading" && !screen.state.archive_delete.attempted) || screen.state.archive_delete.status === "confirm" ? "cancel" : "close"); Layout.fillWidth: true; onClicked: archiveDeletePanel.close() }
         }
     }
-    Popup {
+    GlassPopup {
+        // Private/context-bound panels always withdraw without an exit delay.
+        animateExit: false
         id: endConfirmation
         property string expectedSessionId: ""
         anchors.centerIn: parent

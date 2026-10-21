@@ -14,6 +14,8 @@
 - Enlarge the Pi10 Ask DJ touch keyboard and align button roles, brand text,
   About, Privacy and Legal presentation with the shared app design.
 - Bundle Inter 4.1 with its OFL license for both screen sizes.
+- Add shared Glass press feedback, animated switch thumbs and short Session
+  pop-out entry; private panels still close and revoke actions immediately.
 - Add a persisted Glass preference, default off on the 4-inch profile and on
   on Pi5. Qualified Pi5 OpenGL rendering uses one bounded decorative backdrop
   with shared blur, edge refraction and central appearance parameters; other

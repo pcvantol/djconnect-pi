@@ -2064,3 +2064,44 @@ Evidence: `pi-rc6-version-preparation`. See `docs/PI_4_0_RC6_PREPARATION.md` for
 reviewable sequence. Core acknowledged the human's new bounded rc.6-contract
 selection, serial after its current work. No protected rc.6 handoff, publication,
 installation or Spotify acceptance is inferred. Automation remains PAUSED.
+
+
+## Glass interaction presentation (21 October, manual continuation)
+
+Compared with pinned Apple UI e106a467: explicit button scale0.98/easeOut120ms
+and interactive material are source-visible; native switch/popover internals
+are not reproduced exactly. Shared Pi buttons now scale label and surface
+jointly, with a bounded animated press highlight and refraction/edge response.
+The native Qt Switch keeps its own input semantics and visualPosition, with
+an animated thumb/press stretch. Central GlassStyle motion budgets follow the
+Glass toggle/awake flag and expose a reduced-motion hook, not a new OS-level
+accessibility integration claim. No new pointer handler, write or i18n string.
+
+All nine Session pop-outs use shared short enter scale/opacity. Private Session
+exits deliberately stay immediate. Initial animated exits FAILED the original
+unmodified playback denial assertion: a denied popup remained visible during
+exit. An attempted dynamic disabling was insufficient in that run. Final code
+retains ALL original Session close/context/aboutToHide/onClosed handlers and
+sets animateExit:false on every Session panel; original assertions now PASS.
+The generic shared component supports exit animation for non-private menus,
+but no broader Main overlay/popover or exact Apple fluid-morph claim is made.
+
+FINAL frozen: FULL2501 integrated PASS/no skips41.79s; Ruff0.16.0 src/tests and
+diff PASS. Forty external actual Qt interaction cases/240 captured states,
+two formats/five locales, Glass off/on/reduced/private-exit, real press/release,
+strict one click/toggle, disabled input, thumb position, mid-animation opacity,
+rapid reopen and synchronous revocation PASS. No new product-test count.
+UNMODIFIED playback130 and history100 views PASS: total470 current views,
+zero QML errors/binding loops. Final runs only *-frozen; targeted-v1/initial/
+playback-v1/v2/final/diagnostic/history-final are intermediate, never added.
+Startup font aliases retained. Initial external harness import/non-native-style/
+QQuickWindow registration/formatting diagnostics preserved; no assertions relaxed.
+
+Frozen local rc6 wheel461167a4726e538dab9720b7e4141d353802d343f96c808b63648be559bb53ed
+matches76 runtime files including GlassPopup.qml. Source/package evidence only;
+no new GPU/ARM/installed/liveHA/provider/Spotify/touch acceptance. Prior GPU
+component evidence remains on its predecessor. Existing installed EADBrc5 is
+unchanged. Evidence pi-glass-interactions contains frozen readbacks/images,
+external reproducer, package proof, original Apple reference and all diagnostics.
+Exact updated independent review/protected source/Finalization/immutable rc6
+publication/new operative binding remain required. Automation remains PAUSED.

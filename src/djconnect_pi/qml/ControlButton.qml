@@ -8,6 +8,10 @@ Button {
     property string label: ""
     property bool primary: false
 
+    scale: down && enabled && GlassStyle.motionEnabled ? GlassStyle.pressedScale : 1
+    Behavior on scale {
+        NumberAnimation { duration: GlassStyle.motionEnabled ? GlassStyle.pressDuration : 0; easing.type: Easing.OutCubic }
+    }
     opacity: enabled ? 1 : 0.4
     text: label
     Layout.fillWidth: true
@@ -21,8 +25,6 @@ Button {
         primary: control.primary
         pressed: control.down
         focused: control.activeFocus
-        scale: control.down ? 0.98 : 1
-        Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutCubic } }
     }
 
     contentItem: Text {

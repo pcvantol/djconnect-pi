@@ -10,6 +10,10 @@ Button {
     property color tint: BrandTheme.colors.actionAccent
     property bool destructive: tint === BrandTheme.colors.danger || tint === BrandTheme.colors.actionDanger
     property bool tertiary: false
+    scale: down && enabled && GlassStyle.motionEnabled ? GlassStyle.pressedScale : 1
+    Behavior on scale {
+        NumberAnimation { duration: GlassStyle.motionEnabled ? GlassStyle.pressDuration : 0; easing.type: Easing.OutCubic }
+    }
     opacity: enabled ? 1 : 0.4
     implicitHeight: 56
     implicitWidth: Math.max(56, contentItem.implicitWidth + 36)
@@ -27,8 +31,6 @@ Button {
         pressed: control.down
         focused: control.activeFocus
         tint: control.tint
-        scale: control.down ? 0.98 : 1
-        Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
     }
     contentItem: RowLayout {
         spacing: control.text.length > 0 && control.iconName.length > 0 ? 10 : 0

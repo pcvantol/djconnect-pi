@@ -16,6 +16,10 @@ Rectangle {
     property bool tertiary: false
     readonly property color surfaceFill: destructive ? Qt.rgba(1, 0.27, 0.23, 0.12) : selected ? Qt.rgba(tint.r, tint.g, tint.b, 0.22) : elevated ? "#F5171C30" : interactive ? "#1AFFFFFF" : "#80171C30"
     readonly property bool glassEnabled: GlassStyle.enabled
+    property real interactionProgress: interactive && pressed && GlassStyle.motionEnabled ? 1 : 0
+    Behavior on interactionProgress {
+        NumberAnimation { duration: GlassStyle.motionEnabled ? GlassStyle.pressDuration : 0; easing.type: Easing.OutCubic }
+    }
     readonly property point backdropPosition: {
         GlassStyle.geometryFrame
         return GlassStyle.backdrop ? glass.mapToItem(GlassStyle.backdrop,0,0) : Qt.point(0,0)
@@ -46,15 +50,25 @@ Rectangle {
             property var source: GlassStyle.texture
             property vector2d dimensions: Qt.vector2d(width,height)
             property real radius: glass.radius
-            property real strength: GlassStyle.refractionPixels
+            property real strength: GlassStyle.refractionPixels * (1 + glass.interactionProgress * 0.2)
             property vector4d backdropRect: Qt.vector4d(
                 glass.backdropPosition.x/GlassStyle.backdrop.width,
                 glass.backdropPosition.y/GlassStyle.backdrop.height,
                 width/GlassStyle.backdrop.width,height/GlassStyle.backdrop.height)
             property color materialTint: GlassStyle.surfaceTint
             property real tintAmount: GlassStyle.tintAmount
-            property real edgeLight: GlassStyle.edgeLight
+            property real edgeLight: GlassStyle.edgeLight + glass.interactionProgress * 0.18
             fragmentShader: "glass.frag.qsb"
+        }
+    }
+    Rectangle {
+        objectName: "glassPressHighlight"
+        anchors.fill: parent; radius: glass.radius
+        visible: glass.glassEnabled && glass.interactive && !glass.tertiary
+        opacity: glass.interactionProgress * 0.14
+        gradient: Gradient {
+            GradientStop { position: 0; color: "white" }
+            GradientStop { position: 1; color: "transparent" }
         }
     }
     Rectangle {
