@@ -9,6 +9,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 from PySide6.QtCore import QCoreApplication
+from shiboken6 import delete, isValid
 
 from djconnect_pi.app import (
     DJConnectBackend,
@@ -39,6 +40,26 @@ from djconnect_pi.ha import (
     StaleBackendAction,
     UnsupportedBackendCapability,
 )
+
+
+@pytest.fixture(autouse=True)
+def close_backend_fixtures(monkeypatch):
+    """Each test owns and closes its native timers and actual worker pools."""
+    created = []
+    original = DJConnectBackend.__init__
+    def tracked(backend, *args, **kwargs):
+        original(backend, *args, **kwargs)
+        created.append((backend, backend._executor, backend._session_executor, backend._question_executor))
+    monkeypatch.setattr(DJConnectBackend, "__init__", tracked)
+    yield
+    for backend, general, session, question in reversed(created):
+        if isValid(backend):
+            # Tests may replace submit-only executors; close their actual pools.
+            backend._executor, backend._session_executor, backend._question_executor = general, session, question
+            backend.shutdown()
+            for pool in (general, session, question):
+                pool.shutdown(wait=True, cancel_futures=True)
+            delete(backend)
 
 
 def ensure_app() -> QCoreApplication:
@@ -2896,11 +2917,11 @@ def test_shared_settings_delayed_old_profile_result_is_discarded(tmp_path: Path)
     old_epoch = backend._shared_settings_epoch
     backend.cfg.active_profile_id = "replacement"
     backend._invalidate_shared_settings_if_context_changed()
-    with patch("djconnect_pi.app.QTimer.singleShot") as refresh:
-        backend._apply_shared_settings({"epoch": old_epoch, "context": old_context,
-                                        "projection": {"values": {"mood": "party"}}})
+    backend._apply_shared_settings({"epoch": old_epoch, "context": old_context,
+                                    "projection": {"values": {"mood": "party"}}})
     assert backend.sharedSettings == {}
-    refresh.assert_called_once()
+    assert backend._settings_reconcile_timer.isActive()
+    assert backend._settings_reconcile_timer.interval() == 0
     backend.shutdown()
 
 
@@ -2915,3 +2936,42 @@ def test_shared_settings_denied_clears_visible_choices_but_preserves_pairing(tmp
     assert "values" not in backend.sharedSettings
     assert backend.cfg.paired and backend.cfg.device_token == "fixture-token"
     backend.shutdown()
+
+
+def test_rejected_discovery_feed_does_not_adopt_profile_or_display_machine_errors(tmp_path):
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.active_profile_id = "original-profile"
+    backend._music_discovery_items = [{"id": "old-result"}]
+    backend._apply_music_discovery_data({
+        "success": False, "error": "music_dna_context_changed", "message": "music_dna_context_changed",
+        "profile_id": "foreign-profile", "sections": [{"items": [{"title": "rejected content"}]}],
+    })
+    assert backend.cfg.active_profile_id == "original-profile"
+    assert backend.musicDiscoveryItems == []
+    assert backend.musicDiscoveryEmptyText == ""
+    assert backend.musicDiscoveryError == backend.tr_key("session_profile_missing")
+    assert "music_dna_context_changed" not in backend.musicDiscoveryError
+    backend.shutdown()
+
+
+def test_shutdown_late_settings_result_cannot_rearm_network_poll(tmp_path):
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    old_epoch, old_context = backend._shared_settings_epoch, backend._shared_settings.context()
+    backend.shutdown()
+    backend._apply_shared_settings({"epoch": old_epoch - 1, "context": old_context, "projection": {}})
+    assert not backend._settings_reconcile_timer.isActive()
+    assert not backend._shared_settings_timer.isActive()
+    backend._start_shared_settings = Mock()
+    backend.pollSharedSettings()
+    backend.saveSharedSettings({"mood": "party"})
+    backend._start_shared_settings.assert_not_called()
+
+
+@pytest.mark.parametrize("stage", ["mkdir", "exists", "stat"])
+def test_optional_album_cache_permission_failure_does_not_break_refresh(stage, tmp_path, monkeypatch):
+    monkeypatch.setattr("djconnect_pi.app.DEFAULT_LOG_PATH", tmp_path / "state" / "log" / "client.log")
+    with patch.object(Path, "exists", return_value=stage == "stat"), patch.object(Path, stage, side_effect=PermissionError("synthetic cache denied")), patch("djconnect_pi.app.requests.get") as get:
+        assert cached_image_url("https://fixture.invalid/art.jpg") == "https://fixture.invalid/art.jpg"
+    get.assert_not_called()

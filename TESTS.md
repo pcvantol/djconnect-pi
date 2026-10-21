@@ -150,7 +150,7 @@ HTTP-only unless HA advertises a websocket command for it.
   text
 - backend availability property coverage for red/green kiosk connection status
 - local Client API debug screenshot route, API-daemon screenshot event file and
-  QML `grabToImage` capture contract
+  QML-to-window screenshot capture contract
 - loopback-only local Client API debug screen switching and screenshot
   response coverage
 - backend notification toast state
@@ -1155,3 +1155,1109 @@ See docs/PI_TWO_HOST_CONSUMER.md for the closed Core contract/inventory pins,
 236 dedicated offline cases, actual read-only identity observations and
 remaining exact review/publication/operational gates. Neither rc.5 installation
 nor installed screenshots are claimed. Runtime app bytes remain at42dac367.
+
+
+## Actions archive media type, 21 October 2026
+
+The locked deployment-tool suite passes316cases, including12 new Actions ZIP
+HTTP-boundary cases. Three exact negotiation regressions fail on the old reader;
+the corrected reader retains release-asset octet-stream, anonymous signed-byte
+download, bounded content, unsafe redirect rejection and no automatic retries.
+Actual GitHub read-only verification recognizes both existing successful rc.5
+install/smoke receipts; that local WIP check is not qualified workflow evidence.
+Both device installations and individual smoke checks are separate actual proof.
+The new live Pi10/HA-dev active-Session click test is not yet performed: normal
+HA-dev two-factor login and existing native VNC authentication are pending.
+
+
+## Native screenshot capture on Qt 6.11 — 21 October 2026
+
+The unchanged `ApplicationWindow.contentItem.grabToImage` path reproduces the
+installed Qt 6.11.2 `item has no QML engine` failure on both local canvas sizes.
+The screenshot signal now performs the existing transient X11 wake and defers a
+backend capture of the actual `QQuickWindow`. PNG storage uses `QSaveFile` so a
+failed encode cannot expose a partial image. No API, pairing, Profile, display
+configuration, Session or playback command changes are introduced.
+
+Eight new storage/error-path cases plus existing QML/API-daemon checks pass
+(41 focused tests). The complete local suite, using both existing locked test
+environments and permitted loopback sockets, passes 1715 tests with no skips.
+The earlier restricted run is retained separately: 1472 passed, 20 skipped and
+one pytest cache-permission warning. Ruff 0.16.0 and diff checks pass.
+
+Twenty actual isolated Qt daemon-event-to-QML-to-PNG requests cover both
+720x720 and1200x1920, all five languages, pairing/About overlays, and logical
+idle blanking. Each decoded image has the expected dimensions and visible
+pixels, the daemon returns identical PNG bytes, and capture finishes within
+0.519 seconds. X11 wake commands are mocked; no network or real OS commands
+run. No QML errors or binding loops occur. One macOS font-alias startup warning
+is preserved. The initial fixture's missing QML-ID context and ambiguous timer
+selection diagnostics are also retained; the final harness resolves the real
+component context without changing production idle behavior. An initial
+encoder-failure test exposed a temporary file retained by the mock; cancelling
+and finishing the QSaveFile transaction removes it explicitly.
+
+Evidence: `taskvisualizations/pi-native-screenshot-audit`. Both format images
+were inspected. These are local synthetic captures, not new installed captures,
+ARM or physical wake/touch acceptance. Both existing rc.5 installs and immutable
+release assets remain unchanged. New runtime bytes need the normal independent
+review, protected source, separate Finalization and distinct release delivery.
+
+
+## Saved Session list SQL revisions — 21 October2026
+
+Core public_session copies each saved Session's SQL revision as an integer.
+Pi previously required a string and rejected an otherwise valid nonempty list.
+The exact public_session AST is identical at the existing Core8b221d07 pin and
+new sourcebbb7a23d: this is existing read compatibility, not adoption of the new
+deletion endpoints. Pi now preserves nonnegative integer header revisions as
+list metadata, and keeps previously admitted nonempty string metadata compatible.
+Boolean, negative, float, absent and container revisions remain invalid. Detail
+and cursor revisions retain their separate nonempty opaque-string checks; list
+metadata cannot become a deletion CAS token. Retention, Profile/epoch fences,
+source rights and all mutation paths are unchanged.
+
+Twenty-two new cases include zero/large SQL values, malformed types, unchanged
+opaque detail admission, original retention expiry, fresh multi-page refresh,
+late Profile withdrawal and stale-list removal after a malformed page. The four
+numeric regression cases fail on the original Pi code. After repair81 focused
+checks and the complete1737-test local suite pass with no skips. Ruff0.16.0 and
+diff checks pass. Twenty actual isolated Qt list/detail views cover both sizes
+and all five locales, including10 genuine Qt mouse clicks from the numeric-header
+list to an independently read opaque-revision detail. Active Session state is
+preserved; no network, OS commands or deletion routes run. Both formats were
+visually checked. The initial fixture looked for a Repeater delegate in QObject
+ownership rather than the visual tree, then exposed a queued signal during
+fixture teardown; the final fixture traverses real visual items and drains
+callbacks before destroying their source. Diagnostics are retained.
+
+Evidence:taskvisualizations/pi-history-delete-handoff-review. Fixture body bytes
+are unchanged on disk; copied owner IDs/deadlines/envelopes are synthetic. No
+new installed, HA-dev, hardware touch, media-license or erasure acceptance is
+claimed. New deletion capability/UI stays absent, and EADBrc.5 installations and
+immutable release assets remain unchanged.
+
+
+## Shared Session volume source qualification — 21 October 2026
+
+The playback pop-out now offers an explicit current-volume read and a 0–60%
+slider on both formats. Opening, notifications, programmatic slider values and
+drag movement submit no volume write. A real release or keyboard movement makes
+one typed intent. Zero is preserved; unknown data never defaults to 50%. An
+observed volume above 60% is shown honestly with a separate explicit set-to-60%
+button. The 60% ceiling follows pinned Core8b221d07's existing Pi contract.
+
+A RAM-only observation lease binds the original Profile/Session/item/state/source,
+backend/revision and output ID. Each write independently reads the owner active
+Session and raw backend status, requires strict current volume capability and an
+unchanged output/observed volume, then makes one existing paired isolated HTTP
+set_volume request. Spotify receives integer percent; the released MA adapter
+receives target/100 because its integer1 means100%. No new wire fields, output
+selector, CAS guarantee, response import, optimistic volume, fallback or write
+replay is introduced. Original private personal/household admission stays narrow;
+other authorized Profile modes remain an independent consumer audit, not a Core
+block. A backend change after the final read remains possible under the existing
+global command semantics. Close/hide/foreground/Profile/item/backend/End withdraw
+queued intents; a started HTTP request may finish. One dedicated worker keeps End
+available. Local read failure preserves the Session and shows unavailable.
+
+Validation:105 new volume cases, including two real held-worker/End subprocesses,
+and the full1842-test integrated local suite pass with no skips. Ruff0.16.0 and
+diff checks pass. Final180 actual isolated QML views cover both formats, all five
+locales and both backend shapes, including real press/drag/release, keyboard,
+close-before-release, unknown/zero/above-limit and unsupported states. Both layouts
+were visually inspected and compact pop-out bounds checked. There are zero QML
+errors/binding loops; one macOS font-alias startup warning is retained. The first
+80-view Spotify-only run is intermediate and is not added to180. The added worker
+test initially passed an observation dictionary instead of its lease; the six
+fixture failures and corrected105-pass log are retained. All transport/owner and
+OS wake effects are synthetic/mocked; no network, HA/provider, device playback,
+installed ARM or physical touch acceptance is claimed.
+
+Evidence: taskvisualizations/pi-session-volume-consumer and the earlier143-case
+pinned contract audit. The local review wheel SHA256
+074f3fe68281b94e7cf6e7dcdc87b244500600d1f6587525f5e6a22776840b42
+matches all65 runtime files. The initial host check observed the announced Core
+maintenance URL outage; after the owner completed installation a fresh actual-root
+verification returned MATCH. No Pi repair was performed. Both installed EADBrc.5
+apps, immutable release assets and operative bindings remain unchanged. Exact
+independent review/protected delivery and a distinct release are still required.
+Output selection, favorite-state/removal and gestures remain open. HA-dev login
+and the active Pi10 Session click test remain explicitly human-deferred.
+
+
+## Current-track favorite state and removal — 21 October 2026
+
+The Session playback favorite button first explicitly reads the current Spotify
+track's favorite status. Only a strict boolean favorite_status, consistent with
+is_liked when present, makes the next click an explicit Add or Remove action.
+Unknown, absent, malformed or contradictory data is never treated as unliked.
+A confirmed liked state highlights the existing heart button and labels removal.
+An unavailable read preserves the Session and offers another deliberate read.
+This replaces the previous UI's unconditional save-only click; it does not use a
+server-side toggle. MA does not advertise favorites in the pinned contract and
+gets no invented favorite support.
+
+An in-memory serial lease binds the original Profile/Session/item/state/source
+and backend/revision. A write independently reads the current owner Session and
+raw status, requires the same observed liked state and strict capability, then
+sends one existing set_current_track_favorite command with a strict boolean value.
+The original isolated HTTP authorization, no-retry and denial guards apply.
+Close/hide/context/End withdraw queued work; a started request may finish without
+publishing into a withdrawn context. The dedicated worker leaves End available.
+Command responses never set a local liked state; the next explicit status read
+owns it. Other playback intents clear observation leases, so an old observation
+cannot silently authorize a later action. The existing global current-track
+command still has a server-change race after the last read; no atomic CAS or
+exactly-once guarantee is claimed. Private personal/household admission remains
+the current narrow consumer slice, not a permanent ban on other authorized modes.
+
+Sixty-seven new favorite tests pass, including strict status/boolean payloads,
+changed owner/status/capability fences, late result withdrawal, no write replay,
+denial preserving pairing and two real held-worker/End subprocesses. The full
+integrated local suite passes1909 tests without skips; Ruff0.16.0 src/tests and
+diff checks pass. Final160 actual isolated QML views cover both formats, five
+locales and initially-liked/unliked states with real read/Add/Remove/cancel clicks,
+unknown-versus-false, no optimistic response import and compact popup bounds.
+The existing playback preview now follows read-then-set and separately passes
+130 actual QML regression views, including normal transport, streamed response
+bounds, denial, close-before-dispatch and no replay. Both formats were visually
+inspected. There are zero QML errors/binding loops; startup font warnings remain
+recorded. Four new stable copy keys exist in all five locales.
+
+Two external unmodified pinned-Core8b AST method cases prove boolean true/false
+map to the existing provider PUT/DELETE paths. These are offline contract checks,
+not extra product tests or provider acceptance. The first new HTTP test fixture
+reversed request/response tuple positions; three failures and the corrected log
+are retained. A later helper copy accidentally included unrelated volume cases;
+that intermediate24-failure diagnostic is retained, and only the intended67
+favorite cases are counted. No production condition or assertion was weakened.
+
+Evidence: taskvisualizations/pi-session-favorite-consumer. Local review wheel
+497e262b590453ed35d71c1a5982ff99798df58d6ac1270d839e36abc951d31a
+matches65 runtime files. Host actual-root verification returned MATCH; no host
+repair was made. No network, HA/provider commands, installed ARM, physical touch
+or live Profile acceptance is claimed. Both EADBrc.5 devices and immutable assets
+remain unchanged. Independent exact-source review, protected source/separate
+Finalization and a distinct release/operative binding remain required before
+runtime deployment. Output selection and artwork gestures are still open.
+HA-dev authentication and the active Pi10 Session test remain human-deferred.
+
+
+## Explicit Session playback output selection — 21 October 2026
+
+The shared playback pop-out now opens a separate output picker through an
+explicit server-inventory read. Only Spotify with strict supports_outputs and
+supports_transfer_or_output_selection is admitted. Pinned MA exposes a no-op
+set_output and advertises no transfer support; it receives no invented selector.
+The current output is labeled and disabled, and only server-returned, non-cached,
+unrestricted choices can be selected. Names render as wrapped PlainText. No
+arbitrary ID entry, first-device fallback, cached-device fallback or automatic
+transfer occurs. Four stable copy keys cover all five locales.
+
+A RAM-only lease binds original Profile/Session/item/state/source/backend/revision
+and current output ID. One deliberate selection rereads owner Session, raw status
+and server inventory, requires the original output plus the exact still-eligible
+choice, then sends one existing isolated paired set_output command with that ID
+and an explicit play boolean matching the observed playing/paused state. The
+server's existing set_output independently calls devices(fresh=True) before the
+transfer. The devices read command itself may use the producer's inventory cache;
+Pi does not invent a freshness parameter or claim a fresh provider request from
+the initial list read. Duplicate IDs, inconsistent active-output identity and
+malformed metadata fail closed. A local resource bound rejects over100 raw rows
+or over32 admitted choices without truncating; these are Pi budgets, not new Core
+wire maxima or permissions. Original Session/expiry/media grants are unchanged.
+
+Close/main-popup-close/foreground/Profile/item/backend/capability/End revoke
+queued intents before the exit animation. A started HTTP request may finish;
+withdrawn results cannot publish. The same dedicated worker leaves End available.
+No command response or optimistic device selection changes Runtime/configuration.
+An uncertain selection blocks new effects; the picker Refresh explicitly reads
+the owner before a subsequent separate inventory read. It never retries the
+transfer. The existing global command still has a race after the last client
+read; no Session/item/output CAS or exactly-once guarantee is invented. Admission
+remains the existing narrow private personal/household slice; broader authorized
+Profile modes are still a local consumer audit, not a permanent producer block.
+
+Validation:85 new cases, including strict choices/caps, current-output and stale
+membership fences, playing/paused payloads, denial/no-replay,10 late-result cases,
+two real held-worker/End subprocesses and absent-backend metadata. Full integrated
+local suite1994 PASS/no skips; Ruff0.16.0 src/tests and diff checks pass. Final200
+actual isolated QML views cover both formats, all five locales and playing/paused
+states, with real picker clicks, pending/no-optimism, close-before-dispatch without
+a GUI wait, cached-choice withdrawal, explicit recovery, no alternatives,
+unavailability and capability withdrawal. Popup bounds are checked, both formats
+visually inspected, with zero QML errors/binding loops and the retained macOS
+font-alias startup warning. The two earlier200-view runs are intermediate and
+are not added to the final200 count.
+
+Seven external unmodified Core8b set_output AST cases separately prove fresh=True,
+playing/paused flags and rejection of missing/cached/restricted/duplicate/empty
+IDs. These are offline contract checks, not extra product tests/provider evidence.
+The initial added read-worker harness used a singular slot name and failed six
+cases before correction. The initial full run then exposed unsafe direct access
+to absent backend metadata (218 failed/1774 passed, including those harness cases).
+A second full run retained1993 passes and exposed the same absent-backend issue
+in the favorite support check; both checks now fail closed, without altering the
+regression assertions. All failures/logs and intermediate packages/views remain.
+
+Evidence: taskvisualizations/pi-session-output-consumer. Final local review wheel
+100b662c9c15082632d4c146df92108c8a256e62e0485f6e4af5a69b51123627
+matches all65 runtime files. Actual-root host verification returned MATCH; no
+repair, cleanup or service change occurred. No network/provider/player effects,
+new ARM/installed/hardware touch or HA-dev acceptance is claimed. Both installed
+EADBrc.5 apps and immutable release assets remain unchanged. Independent exact
+review/protected source/separate Finalization and a distinct release/approved
+operative binding remain necessary before runtime deployment. Artwork gestures,
+full header cover, Flow continuity and other parity work remain open. HA-dev
+login/Pi10 pairing/active Session click testing remain explicitly human-deferred.
+
+
+## Flow return and pending-question layout continuity — 21 October 2026
+
+Flow now remembers a visible current playback card when there is no intersecting
+admitted native/retained/current-reply prose card. Existing prose and native-body
+priority is unchanged. The descriptor still contains only Session/Profile/kind/ID
+and a finite bounded pixel offset; it holds no body, media, deadline or display
+grant. Returning from current history freshly resolves each supported identity
+against the current admitted models, then re-resolves the visual item after
+layout. Missing/revoked IDs and scope changes reset safely; they never borrow an
+old visual delegate as admission. User dragging/movement, Forecast and explicit
+reply-follow take precedence. Old history momentum is cancelled on explicit
+return. All supported Flow targets now get at most eight32ms settling attempts,
+extending the existing native-body behavior without caching content.
+
+The explicit own-question follow timer now binds the pending client-message ID
+and also settles for at most eight attempts. It rereads the owner's current
+pending view each time. A late header reflow therefore does not push the just-sent
+question out of view. Touch cancels following and a late callback cannot override
+the user's reading position. This adds no pending-question history grant or
+pending-card back-navigation right; original owner validation and question POST
+behavior are unchanged. No new UI copy, protocol or i18n key is needed.
+
+Two original-source failures are preserved: playback-only rememberFlow returned
+no descriptor, and the own pending question moved to2250px rather than12px after
+a late metadata reflow. The latter loads the exact3288209 QML from its verified
+review wheel with unchanged Python/controller bytes; it is a package fixture,
+not an installed downgrade. After repair150 targeted actual Qt views cover both
+formats/all five locales, real current-history/back clicks, exact pixel/ID return,
+changed/withdrawn playback, eight malformed/scope descriptor variants, pending
+reflow/withdrawal and genuine Qt touch cancellation. The unmodified existing
+composer and artwork tools independently pass436 and180 current-source QML views,
+respectively, including native/current-only/retained anchors, original first-fold
+thresholds, source expiry, late artwork, user touch, and bounded history windows.
+Thus current evidence is766 actual views, not the extra60-view intermediate run.
+All three final runs have zero QML errors/binding loops; the targeted run retains
+one macOS font-alias startup warning. Both formats were visually inspected.
+
+Forty focused QML/projection tests, Ruff0.16.0 src/tests and diff checks pass.
+Only SessionScreen.qml runtime bytes change in this slice. The latest complete
+local1994-test suite and27-success/4-conditional-skip CI are explicitly on the
+immediate3288209 base, not a newly rerun full suite on this QML head. The local
+review wheel23c8d0940d4bab8fb099e2c3752348194e3b13be02ba6f20c97828638bc3a7e9
+matches all65 current runtime files. Evidence lives in
+taskvisualizations/pi-flow-reading-continuity, with before failures, original-QML
+package pin, reproduced harnesses, final images/readbacks and intermediate runs.
+
+Synthetic multiline metadata, own pending text and history envelopes only test
+layout. Original producer fixture files, live-source/expiry admission and all
+request/response bodies are unchanged. No question transport, model/provider,
+HA, OS command, new ARM/installed or physical touch acceptance is claimed.
+Actual-root host verification returned MATCH, with no repair or cleanup. Both
+installed EADBrc.5 apps and immutable assets remain unchanged. Broader Flow
+backward continuity and other parity work remain open; this source slice requires
+normal exact review/protected source/separate Finalization and a distinct release
+before runtime deployment. HA-dev authentication and the active Pi10 Session test
+remain explicitly human-deferred.
+
+## Single saved-Session deletion consumer foundation — 21 October 2026
+
+The received Core archive producer is now independently pinned for this bounded
+consumer work: protected source bbb7a23da015de5887eff4103efed9981f12b0bd and separate
+Finalization 2a1197c441079896bdfdfdc5a2c732146f54ccd3. Both actual post-merge status
+readbacks say POST_MERGE_RELEASE_EVIDENCE_QUALIFIED, runs39572775746/39575446305.
+The exact Final handler fetched through GitHub matches the exported source bytes.
+Contract and synthetic fixture retain SHA256 b5ffa5ae79e7e0d2f900600bd3873fefe44807de966cc39779ce72d0639fc52b
+and79fac1e077a157df0851797c84de2f1f61bc14be08f3048c703ba9acec9f2a67.
+The handed-off private owner installation receipt was read and matches those pins,
+228 files and payload f2be1e18b19b48be7a34e027cecc36e221e04336bfe833e68046206faf70e569.
+That is owner-receipt readback, not a Pi-authenticated HA or personal-erasure test.
+Other unchanged product consumers keep their previously documented producer pins.
+
+Implemented source is deliberately the typed transport/consent foundation;
+**there is no deletion button, controller scheduling or archive invalidation yet**.
+No destructive UI capability is exposed. Single deletion uses only the existing
+paired POST session/history/delete. Its closed body omits generic profile_id and
+private_session hints; the original Profile header and current binding remain.
+The route uses a fresh isolated HTTP session, no ambient credentials/redirects,
+streamed2MiB control budget and the existing shape limits. Binding/401/403 checks
+still precede body reads. Only this closed route reads bounded5xx bodies to retain
+the producer's history_delete_outcome_unknown distinction; arbitrary errors are
+never retained. Other requests keep their prior error behavior. Success requires
+strict schema1, deleted:true and exact operation/owner/target receipt. No response
+imports Runtime, history or configuration, and no request is automatically retried.
+
+The RAM-only SingleDeleteIntent accepts an explicit bool confirmation, strict
+single capability/version1, original explicit/resolved Profile, original epoch,
+terminal fresh-detail header with opaque revision, original selected Session ID
+and known parent retention deadline. It stores no page body or grant. It mints
+one UUIDv7 at confirmation and keeps the earlier of that original operation's
+five-minute deadline and the original retention deadline. Clock rollback cannot
+renew it; the30-second UUID future-skew check remains separate from expiry.
+Atomic claim consumes one send ticket, including a timeout, and cannot be rearmed.
+Recording/display privacy modes are not used as a new erasure prohibition.
+The forthcoming UI owner must freshly read before confirmation, gate queued work
+and late receipts on its live epoch/context, keep End available and invalidate the
+whole archive only after the exact receipt. Those integrations remain OPEN.
+Bulk snapshots/delete-all and individual Moment/bubble/uncertain deletion are not
+implemented by this slice; the latter remain a separate Core dependency.
+
+Validation:109 new synthetic tests;175 focused deletion/existing-transport checks;
+full integrated2103 tests PASS, no skips,39.22s; Ruff0.16.0 src/tests and diff checks
+PASS. Cases cover exact closed payload, denial-before-body, no redirect/replay,
+malformed/oversized/deep JSON including503, exact receipt fields, integer-list
+revision rejection, terminal/selection/owner/epoch/capability fences, concurrent
+single claim, original retention and conservative-clock expiry. The earlier106-
+case/2100-test run precedes the three final selected-target cases and is retained
+separately. Initial import/dict lint diagnostics are retained. A source inspection
+caught and removed an unimplemented owner field assumption before qualification;
+the actual detail header has no owner_profile_id, so authority stays in its paired
+binding rather than an invented wire field. No test or producer fixture was weakened.
+
+Local review wheel f0d124d9d857f94cbdac37e20c35d23a7b9f482bcd32ba4673d593e0082d5a27
+matches all66 runtime files (one new Python module). No QML/controller/i18n bytes
+changed and no new Qt-view, ARM, installed, provider, HA, model or physical result
+is claimed. Evidence:taskvisualizations/pi-history-delete-consumer-transport with
+exact producer exports/status/receipt readbacks, logs, package and diagnostics.
+Fresh actual-root hostverify MATCH; no repair/cleanup/other-lane write occurred.
+Both installed EADBrc.5 apps and immutable publication remain unchanged. Independent
+PR119 review, protected delivery, separate Finalization and a distinct approved
+release remain required before any runtime deployment. HA-dev authentication and
+the Pi10 active-Session click test remain explicitly human-deferred.
+
+## Confirmed single saved-Session deletion UI — 21 October 2026
+
+This supersedes the preceding foundation-only UI status for SINGLE Session
+removal. The shared historical detail now exposes a red-tinted trash action only
+with strict session_history_delete:true/version1, a terminal archived target,
+original known parent retention and the current explicit/resolved paired Profile.
+The active Runtime cannot be selected for erasure. No active Runtime is required
+in order to erase an earlier Session. Individual contributions remain view-only;
+bulk and individual-content erasure are distinct OPEN functions, not rights
+inferred from this button. Five new i18n keys are present in all five locales.
+
+The first deliberate click performs isolated fresh owner-active, capability and
+authorized detail reads. The opaque detail Session revision must still equal the
+original displayed target's revision; numeric list metadata never becomes CAS.
+The confirmation identifies the selected Session by its existing localized date.
+Only its explicit destructive button mints the original UUIDv7 intent. A separate
+max1 worker repeats those owner/capability/detail/target/context checks and claims
+one send ticket before the existing typed POST. Original binding, archive view
+epoch, current Runtime identity (including none), target, opaque revision and
+parent deadline fence queued work and delivery. No command response is imported
+as Runtime, no setting/pairing/playback/lifecycle effect is attached to erasure,
+and no automatic POST retry, new operation ID, fallback or replay exists.
+
+About-to-hide immediately withdraws the queued ticket before an exit animation.
+Navigation, visibility, foreground, Profile/token, archive epoch, selected target,
+revision, capability, retention and End changes likewise withdraw it. Started HTTP
+may finish; closing the dialog never promises server cancellation. The button
+says Close after confirmation rather than implying that it can undo a started
+request. Other control/input work is gated while the dedicated worker runs, but
+End keeps its independent executor. Two real held-worker tests prove that End
+remains immediately available during both checking and confirmed-send preflight.
+
+Only the typed exact owner/operation/target/schema/deleted:true receipt causes
+whole-archive invalidation: list/windows/cursors, detail trail, search, historical
+selection/navigation descriptors and queued reads lose their archive epoch.
+This is not a client loop or optimistic removal of one row. Current Session,
+active Flow, settings and pairing are preserved, with a separate ordinary owner
+refresh resolving any server-withdrawn dependent Flow contributions. The receipt
+itself is not a projection. Current media remains a separate owner; the Pi has no
+historical-media loader to claim qualified here. A late worker/GUI callback cannot
+replace a successor view. An uncertain result never claims erasure and blocks a
+new delete intent until explicit recovery. Recovery withdraws stale archive views
+and independently reads the archive; it does not repeat the POST. Its one bounded
+QObject-owned zero-delay timer runs after QML's existing search-target/view-epoch
+transition, and rechecks owner, visibility, foreground, idle state and absence of
+a newly selected detail before starting that read. No history TTL or native grant
+is manufactured from this operation's five-minute journal lifetime.
+
+Final validation:84 new controller/worker cases,259 focused new/existing deletion
+and transport checks PASS; full integrated2187 PASS/no skips39.45s. The final
+current-source Qt evidence is150 actual single-delete views plus100 unmodified
+history-window views, both formats/all five locales, with real mouse checking,
+confirmation/cancel/close, no optimism, success, unknown version, active-target
+refusal, changed revision, original expiry, uncertain read-only recovery and the
+no-active-Runtime case. Zero QML errors/binding loops; one font-alias startup
+warning per process is retained. Both final formats were visually inspected.
+Earlier140/150-view runs are intermediate and are not added to this250-view gate.
+Ruff0.16.0 src/tests and diff checks PASS. Local review wheel
+8c5203c5f6c0a25528665b97929eecf6e27050f224e560540f66f02d20072ff8
+matches all67 runtime files, including the new controller module. No new ARM,
+installed, actual HA/provider/model, physical-touch or personal-erasure result.
+
+Diagnostics are preserved, not promoted to passes. One initial fixture's bogus
+current reply was correctly withdrawn; a proper admitted-reply fixture now proves
+preservation. Its original historical display clock initially rejected a real-wall
+UUID; only that synthetic operation clock was aligned, never the original grant.
+A real QML race initially invalidated the recovery read when clearing the derived
+search target; the bounded deferred-read implementation fixes it without changing
+existing search/epoch fences. One integrated Python process then segfaulted in Qt
+timer dispatch during processEvents: that run is FAILED, not a full-suite PASS.
+New notification/recovery callbacks now use QObject-owned single-shot timers,
+stop on shutdown and do not emit a result after their owner closes. The full
+collection subsequently passed2186, followed by final2187 after the added
+no-active-Runtime regression. The underlying general PySide cause is not claimed
+proven, nor is a hardware bug or ARM fix inferred. All original failed logs,
+intermediate runs, reproducing harnesses, final pixels and package receipts remain
+under taskvisualizations/pi-history-delete-single-consumer.
+
+The qualified producer pins remain source bbb7a23 / separate Final2a1197c for
+this archive operation, verified in the preceding checkpoint. Other unchanged
+product consumers keep their existing pins. Fresh actual-root hostverify MATCH;
+no repair, cleanup, other-lane source write, HA login, personal erasure, publication,
+installation or operative rebind occurred. Both actual EADBrc.5 apps remain
+unchanged. Independent exact PR119 review and normal protected source, separate
+Finalization, distinct immutable release and new approved operative binding remain
+required before runtime deployment. HA-dev authentication and the active Pi10
+Session click test remain explicitly human-deferred. Next functional follow-through
+is separately confirmed bulk archive deletion or another larger open parity gap.
+
+
+## Confirmed whole-archive deletion — 21 October 2026
+
+Bulk saved-Session deletion is now SOURCE delivered, independently capability-gated
+by strict session_history_bulk_delete:true/version1. The shared archive list has
+an explicit action that first reads fresh owner-active/capabilities and the released
+GET session/history/delete_snapshot. It validates schema1, exact resolved owner,
+opaque token, strict nonnegative exact-display count and original created/expires
+metadata. The server selects the complete terminal retained set, independently of
+client pages/search/filter. No detail parent display deadline is invented. Empty
+count is informational: no destructive confirmation, operation ID or POST. Five
+new localized keys cover action, count/scope confirmation, empty, conflict and
+completion in en/nl/de/fr/es.
+
+Confirmation binds original Profile/device/token, archive view epoch, current
+Runtime identity (including none), immutable snapshot/count and original expiry.
+One new UUIDv7 is minted only on deliberate confirmation. The same max1 archive
+worker repeats fresh owner-active/capabilities, claims one atomic send ticket and
+sends exactly one typed delete_all POST. It never replaces the snapshot at send,
+loops over singles, sends client target lists or adds profile_id/private_session
+body hints. Original snapshot expiry and UUID five-minute/30-second bounds remain;
+these are operation authority, not private/native display grants. Close, navigation,
+foreground, Profile/token, capability, active Session or archive epoch changes
+withdraw queued work immediately; started HTTP may finish. End remains independent.
+No privacy-mode erasure type ban, automatic replay/renewal/fallback, response import
+or optimistic erasure exists. Snapshot conflict requires new explicit checking and
+consent. Pending503 remains uncertain and offers explicit readonly recovery.
+
+Only the exact typed schema/owner/op/snapshot/deleted:true receipt with the captured
+count invalidates the WHOLE archive via the existing list/window/cursor/detail/
+search/selection/navigation/late-read fences. Active Session/Flow/settings/pairing
+remain separate; a normal independent owner read resolves dependent server Flow
+withdrawals. Sessions ending after snapshot preparation are outside its server set.
+Bulk is not Profile, MusicDNA or preferences erasure. Individual content deletion
+remains outside this slice. No historical-media loader or physical acceptance is
+claimed. Released producer pins remain bbb7a23 / separate Final2a1197c.
+
+Final qualification:136 new cases;395 focused deletion/transport PASS; full2323
+integrated PASS/no skips40.31s. Final actual Qt gate530 views =150 bulk +150 single
++100 unmodified history-window +130 unmodified playback regressions, both formats
+and five locales. Real mouse clicks check count/scope, cancellation, no optimism,
+zero, unsupported version, conflict, close before worker, original expiry, no-active
+Runtime and readonly recovery. Zero errors/binding loops; startup font-alias
+warnings retained. Both final layouts visually inspected. Ruff0.16.0 src/tests and
+diff PASS. Local review wheel dc179d565a908d5ca0bfaa4647f25941876435deecea68de7576579c549c2572
+matches67 runtime files. Evidence:taskvisualizations/pi-history-delete-bulk-consumer,
+qml-final/single-final/history-final/playback-final, package and retained diagnostics.
+Intermediate views/runs are not added to530. No new ARM/installed/liveHA/provider/
+model/physical-touch/personal-deletion result; both installed EADBrc.5 apps unchanged.
+
+Diagnostics: the first Qt run caught an unfilled Python-format count placeholder;
+percent-one substitution and five regressions fix it without changing existing keys.
+A subsequent full process FAILED exit139 during Qt timer dispatch. An isolated
+30-owner repro proved60 pre-existing playback visibility/cancel notifications
+attempting deleted signals, but did not itself segfault: the general segfault root
+cause is NOT claimed proven. Both callbacks now use one QObject-owned/coalesced
+zero timer, stopped on shutdown/destruction, preserving immediate revocation and
+deferred QML notification. The repro then had no stderr; two subprocess and one
+deferred/coalescing tests pass. An initial test counted its separate fixture archive
+notice; it is drained before the coalescing measurement, not asserted away. Full2323
+and the final Qt gate passed afterward. Failed/intermediate logs remain preserved.
+Fresh actual-root hostverify MATCH; no repair/cleanup/other-lane write. Independent
+exact PR119 review, protected source/separate Finalization/distinct immutable release
+and new operative binding are still required for deployment. HA-dev login and Pi10
+active-Session click test remain explicitly human-deferred.
+
+
+## Original archive deletion status recovery — 21 October 2026
+
+This SOURCE slice adds explicit readonly status recovery for the ORIGINAL single
+or bulk archive operation. Pi independently verified protected Core source1253
+58561f97a04c36fce21ba5e6886eb6c3640a4ec3 and separate Final1254
+b4bf47018d165e4f9e171291425a7a134ca9e0d2, actual canonical qualified statuses
+39591327915/39593182742, and exact contract API/git bytes: blob26299c6f881ac30863cac073d1bf55948cd32a79,
+SHA2563a868d32af4c9c68fb157c5795d6446a25210d5bb4a6963de48ca5c8cbbc0723.
+The private owner-installed receipt was read independently:232 source/Final files
+match, payload90766c59519934c4c960ca7599fce24bc2491714f0aaf2b409591066e8c32805,
+schema12/integrityOK/0pending, single/bulk/content/status capabilities1. This is
+OWNER RECEIPT readback, not Pi HA authentication, personal erasure, new operative
+pair or installed client acceptance. Individual-content prepare/delete UI remains
+client-owned work; no Core producer gap is inferred from its absence in Pi.
+
+The separate strict session_history_delete_status:true/version1 action appears
+only for a possibly posted original RAM intent in the same explicit/resolved
+Profile/device binding. It reuses the existing max1 archive worker; fresh owner-
+active/capability reads and a new visibility/view/current-Runtime read ticket
+fence GET session/history/delete/status. Query contains only paired identity,
+contract_version1, original operation ID/mode and exact original single target/
+opaque revision or bulk snapshot token. No confirmed, confirmation_id, Profile/
+private-session body hint or new operation is created. Isolated HTTP, original
+Bearer/Profile authority, URL/credential/redirect/no-retry guards and streamed
+2MiB/shape budgets remain. Four new keys in all five locales explain checking,
+pending, unknown and expired_unknown. Once the original POST may have started,
+the dialog says Close even while checking; no fictitious server cancellation.
+
+Typed admission verifies outer schema/owner/op/mode/body/digest, strict definitive
+boolean and one of four released states. Completed additionally requires the
+original exact nested receipt and captured bulk count; the client rejects a
+completed result beyond its ORIGINAL UUID journal lifetime. The status query can
+report expiry but cannot renew snapshot/operation consent or any display grant.
+Unknown/pending/expired and status-request validation/availability errors never
+settle an earlier ambiguous POST. They retain uncertainty and block a new delete
+intent. An explicit ordinary archive reload may withdraw stale views but likewise
+retains the original identifier-only RAM intent; another status click reads that
+same ID/body. No polling, new-ID retry, mutation replay or persistence of content.
+Owner/auth context withdrawal clears RAM state. Only a bound completed original
+receipt invokes whole-archive invalidation plus normal independent owner refresh;
+active Flow/settings/pairing/playback remain separate. End is independently free.
+
+A real QML regression found that clearArchive announced a changed list while the
+old detail was still present, letting the later derived searchTarget change
+invalidate the new recovery read. invalidateArchive now clears archive/list/detail/
+search/trails/selection first and then announces the complete withdrawal. Public
+clearArchive keeps its existing behavior. The observer regression sees no stale
+intermediate detail; all epoch/search/late-read fences remain unchanged. The failed
+Qt run and instrumented diagnostics are preserved, not counted as passes.
+
+Final qualification:126 new cases;521 focused status/deletion/transport PASS;
+full2449 integrated PASS/no skips40.77s. Final actual Qt gate540 views =240 status
+(single/bulk, unknown/pending/expired/completed, bad result, cancel/withdrawal,
+readonly refresh retaining uncertainty, same-ID recheck) +150 unmodified single
++150 unmodified bulk regressions, both formats/all five locales. Zero QML errors/
+binding loops; one font-alias startup warning per process retained. Both formats
+were visually inspected. Ruff0.16.0 src/tests and diff PASS. Local review wheel
+f4b09061ee9aecf25fe5ada5e343c2800c81452ef4100a94ab23913064ecd901
+matches67 runtime files. Evidence:taskvisualizations/pi-history-delete-status-consumer,
+qml-v2 (FINAL), single-regression, bulk-regression, package and exact producer
+exports/readbacks. Earlier qml-v1/diagnostic dirs are INTERMEDIATE, not added.
+No ARM, new installed/live HA/provider/model/physical touch or personal-delete PASS.
+Both installed immutable official EADBrc.5 apps and operative binding are unchanged.
+Fresh actual-root hostverify MATCH; no repair/cleanup/other-lane write. Independent
+exact PR119 review, protected source/separate Finalization/distinct release/new
+approved operative binding remain required for deployment. HA-dev authentication
+and active Pi10 Session click test remain explicitly human-deferred.
+
+
+### User-reported installed Pi issues — 21 October 2026
+
+Read-only actual 4-inch logs show Track Insight rejected with device_not_mapped
+and Music DNA with music_dna_context_changed. CORRECTION: the normal HA-dev UI saved a Store row labelled DJConnect Pi to
+the requested iPhone17Pro Profile, but that friendly-name selection did not
+identify the physical Pi. Owner metadata later proves physical D83ADD41F167
+is absent from that Store; its separate configentry was the diagnostic that
+matched the real Pi. No physical mapping or live-function PASS is claimed.
+Writes are stopped pending exact affected-row and prior-binding proof. Pi10 normal pairing with verified Raspberry Pi selection
+fails invalid_client_type before POST pair. Peter authorized a concrete handoff
+to the current Core owner, who accepted the manual-URL discovery-ID defect.
+No invented IDs/client types, replay, root configuration edits or pairing bypass.
+
+Source corrections remove the legacy local mood control from Now Playing; the
+server-owned DJ Session mood toolbar remains. About's existing three sections
+now use shared GlassCard. Privacy uses applicable exact protected Apple e106a467
+prose (data, token storage and AI caveat), replacing extra invented Pi headings.
+Apple push/voice/platform framework claims are not copied into unsupported Pi
+features. Legal keeps the two Apple legal paragraphs together and Pi-specific
+OSS/license information; repeated notices are removed. Rejected discovery feeds
+cannot adopt a Profile, import result rows or display raw machine error/message
+as content. Closed Profile-related Session 409 errors show Profile guidance
+instead of falsely implying a network outage; pairing and write guards remain.
+
+Own-source qualification:244 focused PASS, full2454 integrated PASS/no skips
+42.90s, Ruff0.16.0 src/tests and diff PASS. Final150 actual offline QML views
+cover both formats/five languages; no QML errors/binding loops. Earlier150 are
+intermediate, not added. About and Privacy inspected visually. Local review wheel
+f6f5b102da04d640136a7e23d00b99d5dd916e969269681a84403f1a2d0e7d97 matches67 runtime files. No new ARM, installed, live
+Session/provider/model/physical-touch acceptance. Original492 Linux CI Qt timer
+segfault remains FAILED evidence; local PASS does not close that CI diagnostic.
+Evidence:taskvisualizations/pi-user-reported-ui-fixes; original logs preserved.
+
+
+### Backend timer lifetime and actual CI diagnostic
+
+Exact5f2e619 CI independently read:26 SUCCESS/4 conditional SKIPPED/1 FAILURE.
+Failure is TDE observe coverage, not a fully green head: real Linux Qt6.11.2
+exit139 at bulk readonly recovery processEvents again; normal Python job passed.
+No rerun/status override or general native/ARM root-cause claim.
+
+A separate actual Qt probe proves a concrete backend lifetime defect: after
+shutdown the shared-settings periodic timer remained active and both delayed
+startup readers still fired. Startup250/350ms and deferred settings reconciliation
+now use QObject-owned single-shot timers; shutdown stops these plus the periodic
+settings timer. Shutdown guards reject new refresh/settings work and late settings
+results cannot rearm polling. Normal initial timing is preserved. Three isolated
+actual Qt dispatcher probes prove running delivers each startup read once, while
+shutdown/destroy deliver none. No network or OS effect.
+
+App-backend tests now retain, shut down and delete each test's native backend and
+actual worker pools; submit-only fake executors do not hide the original pools.
+The Session controller fixture closes owned resources before native deletion.
+No processEvents call, functional assertion or coverage threshold was skipped.
+The old static-singleShot spy now checks the actual deferred owned timer.
+
+Four new regression cases,495 focused PASS; full2458 integrated PASS/no skips
+44.51s and independent coverage7.16.2 full2458 PASS/no skips45.53s. Final150 actual
+offline QML views on this timer source/both formats/five locales, zero errors;
+earlier150 runs remain component/intermediate proof and are not added. Ruff and
+diff PASS. Local review wheel 9fe1ca7f4046fe3fcc518bf94cf5ea60eb107ae0dd2ed490d19c638e88b7ed3d matches67 runtime files.
+New exact-head CI remains required; these local results do not by themselves
+prove the Linux crash's full root cause. Evidence/coverage XML/original failures
+retained in taskvisualizations/pi-user-reported-ui-fixes. No new runtime install.
+
+Profile diagnostic correction: owner read-only metadata now proves the requested
+iPhone17Pro Profile ID is profile-fd38fad08e19, distinct from physical Pi4
+configentry/explicit profile-b5189fb44f4f. However, the actual physical Pi4 has
+no row in the ProfilePlatform Store. The earlier UI save selected another row
+with the friendly label DJConnect Pi; separate configentry identity proof did
+not identify that dropdown row. This mistake was disclosed to Peter and Core.
+All further mapping writes are stopped. The owning Core lane was asked for
+exact affected-row and proven prior-binding metadata for ordinary UI restoration;
+no guessed rollback, forced mapping or client-context clearing is allowed.
+Both HA-dev pairing approvals stand; Pi10 remains unpaired awaiting normal Core
+manual-URL fix and protected/Final/installed readback. Authentication is resumed.
+
+
+### Direct Session entry, welcome card, banner alignment and optional cache (21 October)
+
+Peter explicitly requested direct active-Session presentation, otherwise the
+Session creation screen, and both brand text lines beside the mark. This local
+candidate supersedes the extra Pi-only Use this Profile step. A valid current
+server-resolved device mapping may now scope Session requests without a second
+local confirmation or config write. Existing explicit choices must still agree
+in controllers; missing/malformed/mismatched mappings remain unavailable. The
+original raw explicit choice remains part of the request/result binding fence.
+Core still authenticates every device request and rejects mismatched mapped
+owners. Private-mode, native/media admission, original deadlines, revocation,
+context epochs and no-replay rules remain; no new mapping/grant/audio permission.
+
+The shared welcome card has localized hero copy, local decorative record art,
+Mood/Presence/Persona choices and a gradient Start button. Choices come only
+from current server settings options/writable fields; each explicit click sends
+one existing typed settings patch with its edit token. Loading, programmatic
+updates and selection rendering never write. Selection shows confirmed server
+values, with no optimistic change. Start is disabled during unavailable,
+selection-required, pending/unknown or busy settings. The existing Start request
+is unchanged; released Core8b Runtime inherits activated Profile defaults,
+including Persona/Presence. Active Runtime hides the welcome card. No local
+speaker/microphone activation and no invented presence option or wire field.
+
+The AppBanner now places the original mark next to a single text column. The
+outlined name uses the original compact asset's alpha bounds(525,142,1092,162)
+through QML sourceClipRect, without editing the asset or redrawing its type.
+Localized detail text shares the same left edge below the name, beside the mark.
+Both sizes/five languages have actual geometry and pixel checks.
+
+Actual Pi10 normal HA-dev pairing succeeded after qualified Corebf6b/Final0090
+and the owner-installed receipt. Public info says paired:true; physical Start
+was performed by Peter. An actual VNC capture shows DJ Session/Profile guidance,
+not an active Flow acceptance. Recent logs then stopped reporting503 and instead
+showed PermissionError in optional album-art cache mkdir. This candidate moves
+mkdir/existence/stat into the existing optional-cache fallback, preserving the
+original image URL and playback refresh when local cache access fails. No live
+chmod/chown/config patch or reinstallation was done. Legacy030549 restoration
+still awaits the separate user's choice; it was not automatically changed.
+
+Final local qualification:19 new meaningful cases,292 focused PASS; full2477
+integrated PASS/no skips47.92s; Ruff0.16.0 src/tests/diff PASS. Final70 actual QML
+views(both formats/five locales) cover explicit settings clicks/no optimism,
+pending/unavailable Start, one explicit Start, active Session without onboarding,
+and brand geometry. Zero QML errors/binding loops; one startup font-alias warning.
+Earlier60/70 views are intermediate, not added. The unmodified broader composer
+first found an implicitWidth binding loop in the hidden new card; that436-view
+run is FAILED. A fixed natural card width breaks the dependency without changing
+fill-width layout or tests. Final-v2 has70 targeted/brand+436 unmodified composer
++180 unmodified artwork views=686 current views, zero errors/binding loops.
+Review wheel
+ccdcf4ab70673f35911afe2b40ac8c1c97fd7cb70b2dd8caefcb6295748e2592
+matches68 runtime files. Original producer fixture bytes are unchanged; owner,
+settings and Session joins in these previews are synthetic, network/OS calls
+blocked. The original first-fold, native/source expiry, touch, context/queued-question
+and no-replay assertions remain unchanged. Evidence:taskvisualizations/pi-session-start-direct-entry.
+
+This is source/review evidence, not installed/live Profile/Flow/physical-touch
+acceptance. Both installed binaries remain immutable official EADBrc5. Current
+source candidate remains local while the actual host retention
+gate reports a newly expired Core-output pair after the previous owner archive.
+No protected push/merge/publication/deployment or other-lane cleanup. Independent
+PR119 review, separate Finalization, distinct release and fresh operative binding
+remain required before new runtime installation.
+
+
+### Apple action roles and honest material boundary (21 October)
+
+Direct request: review all Pi button colours against Apple and use real Liquid
+Glass where Apple does. Protected AppleUIe106a467 DJConnectRootView.swift and
+DJConnectGlassAppearance.swift were independently read/exported. Primary uses
+RGB(.16,.56,1)→(.84,.18,1), selected uses accent(.84,.22,.96) at22% fill/55% border,
+secondary is neutral10% white/12% border, disabled40%, press scale.98. Existing
+primary-vs-selection conflation is removed for favorite, Flow/Forecast and
+settings choices. Main playback, media, general actions, destructive dialogs,
+shared controls and navigation use the corresponding roles. Small actions keep
+neutral high-contrast surfaces; existing4.5:1 small-text tests are unchanged,
+new large/bold bright-primary tests require3:1. Existing portal/background tokens
+remain intact. Pi dark semantic red is an adaptation, not an exact dynamic
+platform-red pixel claim. No control action, capability, wire field, Profile,
+expiry, replay, audio or lifecycle behavior changed.
+
+This production material remains a portable translucent non-blur fallback.
+Apple's glassEffect is a SwiftUI material, not a Qt/Linux API. Qt's documented
+Software adaptation cannot render ShaderEffect. Two isolated offscreen Qt6.11.2
+probes both selected Software and left the MultiEffect area at the original
+background colour, despite the sharp source pattern. The first harness lacked
+the QQuickWindow import and failed before capture; corrected probes are separate.
+A third explicit Metal offscreen probe timed out20s and was killed/reaped; FAILED,
+not GPU PASS or proof of Pi hardware incompatibility. No live renderer/service
+setting was changed. A real Qt backdrop/refraction implementation plus actual
+GPU/ARM performance qualification is STILL OPEN; do not label this fallback
+native Liquid Glass or claim full Apple parity. The installed Pi10 service did
+not explicitly set the whitelisted Qt-renderer variables; that absence does not
+identify the actual GPU or render backend.
+
+Qualification on this source:2 new regression cases; full2479 integrated PASS/no
+skips44.93s, Ruff0.16.0 src/tests/diff PASS. Actual CURRENT390 QML views:40 role
+views with real press/release/focus/disabled-no-action and pixel checks,150
+unmodified broad pages,130 unmodified playback,70 start/direct-entry/brand
+regression views. Both sizes/five languages, zero QML errors/binding loops;
+startup font-alias warnings retained. Both layouts inspected visually. Prior
+bd14's686 views are separate, not added. Local review wheel
+78afb954899c7165ab2b30702d5710e6ace9c1844682e765ed557cf11bef88bc matches68 runtime
+files; no official rc5 overwrite/publication/install. Evidence:
+taskvisualizations/pi-apple-button-material-review includes pinned Apple source
+hashes/role reference, actual images/readbacks, shader feasibility failures,
+package verification and logs. Host retention gate remains CLOSED from the
+fresh failed Pi verification after the prior owner archive; no protected push,
+merge or delivery. Both actual installed apps stay official EADBrc5. Source,
+local software rendering, actual GPU and installed/physical proof remain split.
+
+
+## Pi10 large Ask DJ keyboard — 21 October 2026
+
+The shared Session composer now uses 88px-high keys with 30px letters and
+8px gaps on the large layout (width >=900px). Function keys also have an
+88px minimum width; the input is at least96px high with30px text. The
+composer can grow to760px while retaining its viewport bound. Compact
+clients retain44px keys and their existing580px panel limit. Letters,
+locale-specific rows, accents, symbols, selection replacement, UTF-16-aware
+backspace and existing explicit send/context-withdrawal behavior are shared.
+No new input service, microphone, automatic send or server contract is added.
+
+Current-source qualification:29 focused QML/i18n tests PASS;54 actual
+synthetic-controller Qt views across720x720/1200x1920 and all five locales,
+zero QML errors/binding loops. Additional actual mouse clicks type and erase
+in each locale/format; key/input geometry and whole-keyboard viewport bounds
+are asserted. The existing synthetic send, selected-source withdrawal and
+context-clearing cases pass. Both layouts were visually inspected. These
+are offline views, not installed Pi10/live HA/touch acceptance. Evidence:
+`pi10-large-ask-keyboard/qml-final`, external harness and logs under the task
+visualizations root. The earlier full composer run is intermediate and is
+not added to these54 views. No Python production bytes changed; the earlier
+2479 full-suite result belongs to parent9e45766, not a new full-suite run.
+
+
+## Shared Glass preference and bundled Inter — 21 October 2026
+
+Direct owner requests add one local shared appearance switch: defaultOFF on
+pi-zero-2w-arm64 and defaultON on pi5-arm64. Missing/malformed values retain
+the profile default; explicit strict bool survives reload/restart/profile
+default changes. Only user toggling saves it; load, bindings and visibility
+do not write. Save failure restores the previous value; normal config
+reconciliation announces a changed appearance. Pairing/Profile and server
+permissions are unchanged; the toggle sends no server command.
+
+Inter4.1 variable is bundled with its full OFL1.1/copyright, loaded once per
+QGuiApplication and selected as the application font on both profiles, including
+the updater. Explicit monospace and image-based brand artwork remain.
+`fonts/README.md` records upstream/hashes; no Apple font is redistributed.
+
+The Pi5 startup requests RHI/OpenGL only where no operator override exists.
+An actual OpenGL renderer, pi5 profile, enabled preference and awake/visible
+window admit the GPU material. One shared half-resolution decorative
+underlay capture/blur pipeline is capped960px per texture side; visible
+intersecting surfaces sample it through a qsb shader with rounded edge
+refraction/light. It captures no Session text/private media and never captures
+itself. Off and idle destroy the shared capture and per-surface loaders.
+Other renderers/profiles get a simpler non-shader material when enabled;
+OFF uses opaque surfaces. Primary/selected/destructive roles remain distinct.
+Opacity, tint colour/amount, blur, refraction and edge light are central
+`GlassStyle.qml` properties. This approximates glass; native Apple LiquidGlass
+and content-behind-toolbar refraction are not claimed.
+
+Frozen qualification:22 new meaningful config/font cases; FULL2501 integrated
+PASS/no skips41.73s; Ruff0.16.0 src/tests and diff PASS. Restricted frozen
+2488PASS/13 socketSKIP and earlier runs remain separate diagnostics, not the
+full final result. FINAL796 real Qt views:150 broad,436 original unmodified
+composer,180 original unmodified artwork and30 actual user-toggle views,
+both formats/all five locales, zero QML errors/binding loops. Startup font
+alias warnings remain recorded. Original composer/artwork admission, expiry,
+selection, first-fold and touch assertions were not relaxed.
+
+Exact frozen75-file review wheel is verified against source and includes
+Inter/license/qmldir/shader. On actual Pi5/Python3.13.5/Qt6.11.2 the same
+packaged production components render through BroadcomV3D7.1.10.2/OpenGL
+ES3.1:8 separate state captures and180 varying completed GPU frames; on/off
+restoration, idle resource withdrawal, unsupported-profile fallback and Inter
+PASS, zero QML/shader errors, clean Qt-owned teardown. Final synthetic
+median7.214ms/p957.293ms; earlier varying p95 measurements remain preserved.
+No whole-app physical FPS/installed/touch/liveHA/provider/audio claim.
+Installed officialEADBrc5/clientPID4264/API4255 remain unchanged/active.
+
+Evidence `pi-shared-glass-and-inter`: only `*-frozen` Qt directories,
+`full-frozen-authorized.log`, `actual-gpu-frozen` and package-frozen are final.
+All other local/GPU runs are intermediate and not added to the final counts.
+First QML static test correctly rejected the old always-on literal, updated
+to require the actual backend binding. Initial lint formatting/check=False
+and sandbox egg-info build errors are retained. Many early toggle harness
+runs clicked during the existing360ms tablet splash exit and failed; event
+tracing proved no click reached the switch. The final harness waits for the
+actual splash layer to become invisible before clicking, without removing
+production input guards or weakening assertions. Backend storage and
+keyboard paths had already passed; no general Qt input bug is claimed.
+
+Source only until exact updated independent review, protected main/separate
+Finalization, distinct rc6 publication and a new canonical rc6 operative
+binding. Protected rc5-only schemas and old deployment approval are not
+changed/reused to authorize rc6. Automation remains PAUSED; these later
+direct user requests do not start a new timer window.
+
+
+## rc.6 version preparation (21 October, manual continuation)
+
+All current Pi changes, including Inter and shared Glass, are assigned distinct
+4.0.0-rc.6 metadata. Five release version boundaries, initial installer version,
+README/bootstrap examples and unique changelog heading agree. Historical rc.5
+changelog, normative contracts, deployment pins and installed release are retained.
+The read-only host gate is MATCH (`/private/tmp/pi-rc6-metadata-hostverify.log`).
+
+80 targeted release/installer cases PASS; final FULL2501 integrated PASS/no skips
+43.04s; Ruff0.16.0 src/tests, shell syntax and diff PASS. Initial full run was
+FAILED:2496PASS/5FAIL because explicit command app_version expectations still said
+rc.5; those exact assertions now require rc.6. Failure diagnostics are preserved.
+No assertions on command fields, binding or replay were removed. No new product
+cases, Qt views or ARM runs are claimed for this version-only change.
+
+Local review wheel f62a03b62c82ff6b793cbcc1e9e2b5adbaa1a80c7fbe1720491c9cf073f795a8
+matches75 runtime files. Only __init__/config version bytes differ from the
+previous frozen cf260fb review package; other73 including QML/font/shader remain
+identical. Prior796 Qt/GPU evidence remains predecessor component evidence.
+Evidence: `pi-rc6-version-preparation`. See `docs/PI_4_0_RC6_PREPARATION.md` for the
+reviewable sequence. Core acknowledged the human's new bounded rc.6-contract
+selection, serial after its current work. No protected rc.6 handoff, publication,
+installation or Spotify acceptance is inferred. Automation remains PAUSED.
+
+
+## Glass interaction presentation (21 October, manual continuation)
+
+Compared with pinned Apple UI e106a467: explicit button scale0.98/easeOut120ms
+and interactive material are source-visible; native switch/popover internals
+are not reproduced exactly. Shared Pi buttons now scale label and surface
+jointly, with a bounded animated press highlight and refraction/edge response.
+The native Qt Switch keeps its own input semantics and visualPosition, with
+an animated thumb/press stretch. Central GlassStyle motion budgets follow the
+Glass toggle/awake flag and expose a reduced-motion hook, not a new OS-level
+accessibility integration claim. No new pointer handler, write or i18n string.
+
+All nine Session pop-outs use shared short enter scale/opacity. Private Session
+exits deliberately stay immediate. Initial animated exits FAILED the original
+unmodified playback denial assertion: a denied popup remained visible during
+exit. An attempted dynamic disabling was insufficient in that run. Final code
+retains ALL original Session close/context/aboutToHide/onClosed handlers and
+sets animateExit:false on every Session panel; original assertions now PASS.
+The generic shared component supports exit animation for non-private menus,
+but no broader Main overlay/popover or exact Apple fluid-morph claim is made.
+
+FINAL frozen: FULL2501 integrated PASS/no skips41.79s; Ruff0.16.0 src/tests and
+diff PASS. Forty external actual Qt interaction cases/240 captured states,
+two formats/five locales, Glass off/on/reduced/private-exit, real press/release,
+strict one click/toggle, disabled input, thumb position, mid-animation opacity,
+rapid reopen and synchronous revocation PASS. No new product-test count.
+UNMODIFIED playback130 and history100 views PASS: total470 current views,
+zero QML errors/binding loops. Final runs only *-frozen; targeted-v1/initial/
+playback-v1/v2/final/diagnostic/history-final are intermediate, never added.
+Startup font aliases retained. Initial external harness import/non-native-style/
+QQuickWindow registration/formatting diagnostics preserved; no assertions relaxed.
+
+Frozen local rc6 wheel461167a4726e538dab9720b7e4141d353802d343f96c808b63648be559bb53ed
+matches76 runtime files including GlassPopup.qml. Source/package evidence only;
+no new GPU/ARM/installed/liveHA/provider/Spotify/touch acceptance. Prior GPU
+component evidence remains on its predecessor. Existing installed EADBrc5 is
+unchanged. Evidence pi-glass-interactions contains frozen readbacks/images,
+external reproducer, package proof, original Apple reference and all diagnostics.
+Exact updated independent review/protected source/Finalization/immutable rc6
+publication/new operative binding remain required. Automation remains PAUSED.
+
+
+## Apple card-material coverage (21 October, manual continuation)
+
+Pinned AppleUI e106a467 distinguishes Session/artwork glass from its dedicated
+three-stop hero gradient. `docs/PI_APPLE_CARD_MATERIAL_MAP.md` maps the actual
+roles and retained gaps. Existing artwork now has shared bounded eight-pixel
+frames in native Moment, Forecast, Track Insight and Discover. Callers keep
+original sources/loaders/cache/attribution/expiry; protected images retain fit
+and their original outer footprint. Inset is capped by a quarter of each side.
+
+Track Insight hero/empty/visualizer/metric/section cards, Discover cards/consent,
+Music DNA active/opt-in heroes/sections and Ask DJ contributions/analysis/media
+cards use the shared roles. Original Mood borders and user-bubble distinction
+remain. About/Privacy/Legal/Feedback were already GlassCard. Hero gradients are
+central; current-art palette extraction/full Mood tinting and full Session
+cover/animated hero composition/native Apple identity remain open.
+
+A broader UNMODIFIED composer run found previous Popup enter transitions delayed
+`opened`, suppressing a synthetic explicit search revalidation before entry
+completed. Initial composer FAILED at its original denied-search assertion.
+Final GlassPopup animates only background/content pixels through one owned finite
+animation, leaving Popup lifecycle immediate; ALL original Session source/cache/
+click/aboutToHide/onClosed statements are mechanically verified unchanged.
+No opened/owner/expiry/revalidation guard was weakened. Original composer436 PASS.
+
+Final FULL2501 integrated PASS/no skips45.42s; focused QML22PASS; Ruff0.16.0
+src/tests/diff PASS. Initial full2499PASS/2FAIL retained: legacy border-count and
+transparent-box style assertions. Original Mood borders restored; only the
+obsolete transparent-box expectation changed to require shared cards/hero/frame.
+Initial code-inspection removal of one text colour was corrected before final
+qualification. Broad visual inspection found vertically spread Music DNA opt-in;
+bounded intrinsic hero height and the existing inactive-page spacer pattern fix it.
+External enum-converter fixture failure corrected with a QML int projection,
+without weakening source withdrawal/pixel assertions.
+
+FINAL1286 actual Qt views, both formats/five locales, zero QML errors/bindingloops:
+150 broad-final +250 populated-qualified (including new cards in all five locales,
+Glass on/off) +180 components-final (30 cases: full-fit two-colour pixels,
+source withdrawal, narrow-frame bounds, button/switch/instant Popup lifecycle)
++436 UNMODIFIED composer-final +180 UNMODIFIED artwork-final +90 UNMODIFIED
+forecast-final. Original expiry/touch/body/firstfold/source assertions preserved.
+All *v1/*v2/*frozen and populated-final/composer-frozen runs are INTERMEDIATE,
+not added. Startup font-alias warnings retained. Both final formats visually read.
+
+Local rc6 review wheel744444df6a0658c0335cf94eb1edd0ebfe9af7e98b6d97d67e6dac819ea55210
+matches77 runtime files including GlassArtworkFrame. No new GPU/ARM/installed/
+liveHA/Spotify/physical acceptance; prior GPU proof remains predecessor evidence.
+Evidence pi-glass-card-coverage includes all readbacks/diagnostics/reproducers,
+source-statement equality proof, original pinned Apple exports and package proof.
+Actual-root precommit hostverify MATCH; installed EADBrc5 unchanged. Source still
+requires new exact independent review/protected main/Finalization/publication and
+qualified rc6 operative bindings. No new Core WIP/contract adoption or timer.
+
+### Confirmed Mood and displayed-artwork material colours (rc.6 source)
+
+Confirmed Session/settings3 Mood now drives decorative backgrounds and shared
+Glass/hero tint using pinned Apple e106a467 hues. Existing displayed artwork
+supplies an optional alpha-weighted 32x32 colour, one live readback per engine.
+Source/lease/visibility/idle/admission withdrawal clears it synchronously; late
+callbacks cannot restore it. Existing image/grant/deadline/attribution/loading
+rules, semantic action/status roles and shared Glass defaults remain unchanged.
+See docs/PI_MOOD_ARTWORK_COLOURS.md for scope and central strength parameters.
+
+27 new cases; full integrated collection 2528 PASS, no skips. Current Qt source:
+470 matrix views (including 320 explicit Mood/art views), 436 unmodified composer,
+180 unmodified artwork, 90 unmodified Forecast =1176 actual views across both
+formats/five locales, zero QML errors/binding loops. An additional 180 colour
+assertions rerun the same artwork scenarios (70 admitted/110 withdrawn); these
+are not added to the view count. Both final sizes were visually inspected.
+
+Exact reviewwheel SHA256
+2106e3a641b30d342bf2334757b4dc8bb12897b591332ef1438b1ea7328fb63a
+matches all 79 runtime files. Both physical ARM hosts executed this exact wheel
+only in fresh own /tmp directories: real 32px readback, sibling isolation,
+shared readback broker, pending withdrawal, new lease, source clear, active/idle
+withdrawal and close fences PASS; installed release and API/client identity
+before/after remain identical. These are offscreen synthetic-pixel probes,
+not installed app, physical touch, GPU performance or live Spotify acceptance.
+
+Diagnostics are retained: an initial fixed-200ms ARM probe had no sample; two
+8s import-comparison probes timed out. A status-instrumented probe passed;
+the final harness uses the production QQuickWindow type and bounded asynchronous
+completion. General Qt/CPU/import root cause is not established. Earlier mock
+Loader probes timed out in loadData and were replaced with actual Qt readbacks.
+No production assertion, source expiry or permission fence was weakened.
+Evidence: taskvisualizations/pi-mood-artwork-colours, including matrix-frozen,
+composer-frozen/artwork-frozen/forecast-frozen, private-tint-audit, package-frozen
+and arm-final. No official rc.5 asset overwrite, installation or server effect.
+
+### Shared iPad page toolbar structure (rc.6 source)
+
+PageToolbar separates leading/trailing Glass action capsules from the large
+tablet title; compact retains one row. Existing Now/Track Insight/Discover/
+Music DNA/Ask DJ/Queue/Playlist/Control actions keep their exact callbacks and
+busy/disabled predicates. Ask DJ clear is leading, connection/refresh trailing.
+Read-only connection pop-out shows the existing connectionType text, makes no
+request and closes immediately when hidden. More/Settings/Games/About and
+Legal/Privacy/Feedback use the same title chrome; Settings/About headers remain
+above scrolling content. Specialized Session/history toolbar remains unchanged.
+Coverage and missing Apple feature actions: docs/PI_PAGE_TOOLBARS.md.
+
+FULL2530 integrated PASS/no skips45.19s; two new actual Qt subprocess cases
+prove bounded hit geometry/order, exactly one explicit action per real click,
+local connection popup and immediate hide/no-reopen/no-implicit-action on both
+formats. Focused24PASS4.50s. Existing74 Main onClicked lines mechanically
+preserved; one additional About close invokes the same existing local closure.
+Original fixed48px header style assertion is replaced with the new shared header
+expectation; real target geometry remains >=44px. Ruff0.16 src/tests/diff PASS.
+
+FINAL matrix-pinned-final has398 actual views (including280 explicit14pages x
+five locales x Glass off/on x two formats), zero QML errors/binding loops.
+Older first/second/third/control-final/visible-final/final/matrix-final directories
+are diagnostics/intermediate, not added. Both final sizes visually inspected.
+Exact reviewwheel7517f4708c2476258526906afe17619ccde564d4807d1313beae8746b9ca6287
+matches80 runtime files. Both real ARM targets execute this exact wheel only in
+fresh own /tmp offscreen probes: real action/connection clicks, group geometry,
+immediate popup withdrawal PASS; installed release/API/client identity unchanged.
+This is not an installed/touch/live Spotify/GPU performance result.
+
+Initial mechanical title selector stopped before Main mutation on a different
+Music DNA label; corrected to the intended panel. Initial stale RowLayout spacing
+caused a QML load error. A visibleChildren-based group visibility circle hid
+buttons; fixed and real click/geometry tests prove the final groups. Probe first
+used an unsupported typed-popup Python converter and native Qt style; it now
+uses QML expression inspection and production Basic/Inter initialization, with
+all action/visibility assertions retained. Initial full2527PASS/1FAIL was the
+obsolete48px source-style assertion, not a waived functional test. All logs and
+intermediate images retained under taskvisualizations/pi-page-toolbars.
+
+### Explicit rc.6 matching deployment consumer
+
+Explicit protected Core802619ac1ab3ec11eace7a8609167018193bb98e plus separate
+Final5c34c37bab2b73744f9dbe8832449ef4ab211a02, requestV3/manifest3, rc.6 profile
+assets/wheel and pi-rc6-instance-readback-v1. Four historical rc.5 producer files
+remain byte-identical; no autodetection/old or mixed config-pair fallback or free
+endpoint/target/Profile. All three workflow paths/direct canonical preflight stay
+aligned. The existing physical mutation concurrency key is retained across
+versions. Strict source/consumer/publication/actual bytes/authority/identity/smoke
+joins and no-replay remain. See PI_RC6_MATCHING_CONSUMER.md and distinct
+PI_RC6_TWO_HOST_CONSUMER_PINS.json. No operative config or deployment is created.
+
+31 new cases;326 directed locked-tool PASS4.39s;FULL2561 integrated PASS/no skips
+50.29s. Earlier FULL2559PASS50.95s is intermediate, not added. Ruff0.16 src/tests/
+consumer tools and diff PASS. Three YAML parsed;15 actual Bash blocks syntax PASS.
+Eight external pinned canonical non-Windows Bash shape audits use synthetic
+values/zero effects, not extra product tests or operational authority. Initial
+stale V2 authority-reader key caused63FAIL/236PASS; corrected to V3 with unchanged
+assertions. First audit selected PowerShell under Bash; final selects shell=bash.
+Original independent inner-version/root installer assertions retained and extended
+to rc.6. Initial SystemPython docs command lacked jsonschema, failed before write;
+exact locked path rerun. Runtime80files/wheel remain byte-identical toolbar7d606335;
+no new QML/ARM/installed/live/GPU/touch result for this tooling-only delta. No
+publication/config-write/dispatch/install; exact review/protected Pi source/Final,
+actual publication and new qualified Core operative binding remain required.
+Evidence: taskvisualizations/pi-rc6-matching-consumer.

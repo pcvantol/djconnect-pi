@@ -55,7 +55,7 @@ def aggregate(client, authority, current: dict) -> dict:
         require(len(matches) == 1, "OTHER_INSTANCE_BINDING_MISSING")
         request = dict(authority.binding.request)
         request.update({key: matches[0][key] for key in ("deployment_instance", "device_profile", "artifact_id", "artifact_sha256")})
-        configuration = {"PI_RC5_OPERATIONAL_CORE_SHA": authority.operational_core_sha, "PI_RC5_OPERATIONAL_MANIFEST_SHA256": authority.operational_manifest_sha256}
+        configuration = {"PI_RC6_OPERATIONAL_CORE_SHA": authority.operational_core_sha, "PI_RC6_OPERATIONAL_MANIFEST_SHA256": authority.operational_manifest_sha256}
         other_authority = resolve(client, request, authority.binding.consumer_sha, configuration)
         listing = client.json("repos/"+PI+"/actions/workflows/smoke-rbpi-djconnect.yml/runs?event=workflow_dispatch&head_sha="+authority.binding.consumer_sha+"&per_page=20")
         runs = listing.get("workflow_runs");require(isinstance(runs, list) and len(runs) <= 20

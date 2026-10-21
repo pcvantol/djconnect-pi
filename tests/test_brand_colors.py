@@ -29,7 +29,7 @@ def test_brand_text_and_actions_meet_readability_contrast():
     assert contrast(theme["focus"], theme["surface"]) >= 3
 
 
-def test_mood_only_colours_explicit_choice_not_app_navigation():
+def test_confirmed_mood_colours_decoration_but_not_action_roles():
     source = files("djconnect_pi.qml").joinpath("MoodTheme.js").read_text()
     brand = files("djconnect_pi.qml").joinpath("BrandTheme.js").read_text()
     program = "\n".join(line for line in brand.splitlines() if not line.startswith("."))
@@ -38,7 +38,7 @@ def test_mood_only_colours_explicit_choice_not_app_navigation():
     program += "\nconsole.log(JSON.stringify([0,35,70,100].map(v => [color(v,'backgroundStart'),color(v,'gradientStart'),moodColor(v,'gradientStart')])));"
     result = subprocess.run(["node", "-e", program], check=True, capture_output=True, text=True)
     rows = json.loads(result.stdout)
-    assert len({row[0] for row in rows}) == 1
+    assert len({row[0] for row in rows}) == 4
     assert len({row[1] for row in rows}) == 1
     assert len({row[2] for row in rows}) == 4
     html = index_html("fixture").decode()
@@ -51,3 +51,25 @@ def test_translucent_qml_colors_are_converted_for_css():
     assert css_color("#00000000") == "#00000000"
     assert css_color("#080B1A") == "#080B1A"
     assert f"--brand-glass:{css_color(colors()['glass'])}" in index_html("fixture").decode()
+
+
+
+def test_apple_action_tokens_preserve_pinned_primary_and_selection_roles():
+    # Protected AppleUI e106a467 DJConnectRootView.swift, not an inferred mood palette.
+    theme = colors()
+    assert theme["actionBlue"] == "#298FFF"
+    assert theme["actionPurple"] == "#D62EFF"
+    assert theme["actionAccent"] == "#D638F5"
+    assert theme["opaqueGlass"] == "#171C30"
+    # Apple's bright primary gradient is reserved for large/bold action labels.
+    for stop in ("actionBlue", "actionPurple"):
+        assert contrast(theme["text"], theme[stop]) >= 3
+
+
+def test_presentation_selection_does_not_use_primary_action_gradient():
+    qml = files("djconnect_pi.qml").joinpath("SessionScreen.qml").read_text()
+    assert 'checked: known && observation.liked' in qml
+    assert 'checked: !screen.forecastMode' in qml
+    assert 'checked: screen.forecastMode' in qml
+    assert 'checked: screen.toolbarValue(choices.field)' in qml
+    assert 'primary: known && observation.liked' not in qml

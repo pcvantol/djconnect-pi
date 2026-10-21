@@ -33,8 +33,8 @@ class Client:
     def raw(self):return json.dumps(self.manifest).encode()
     @property
     def configuration(self):
-        return {"PI_RC5_OPERATIONAL_CORE_SHA": OPERATIONAL,
-                "PI_RC5_OPERATIONAL_MANIFEST_SHA256": hashlib.sha256(self.raw).hexdigest()}
+        return {"PI_RC6_OPERATIONAL_CORE_SHA": OPERATIONAL,
+                "PI_RC6_OPERATIONAL_MANIFEST_SHA256": hashlib.sha256(self.raw).hexdigest()}
 
     def json(self, path):
         self.calls.append(path)
@@ -88,7 +88,7 @@ def test_protected_run_bound_pair_and_artifact(instance):
     client = Client(instance)
     authority = wire.resolve(client, client.request, CONSUMER, client.configuration)
     assert authority.receipt()["operational_core_sha"] == OPERATIONAL
-    assert authority.receipt()["operational_manifest_sha256"] == client.configuration["PI_RC5_OPERATIONAL_MANIFEST_SHA256"]
+    assert authority.receipt()["operational_manifest_sha256"] == client.configuration["PI_RC6_OPERATIONAL_MANIFEST_SHA256"]
     assert "endpoint" not in json.dumps(authority.receipt())
     assert wire.verified_artifact(client, authority) == client.bodies[authority.asset_id]
     assert client.effects == 0
@@ -101,9 +101,9 @@ def test_incomplete_stale_or_untrusted_provenance_fails_before_effects(case):
     assert client.effects == 0
 
 
-@pytest.mark.parametrize("configuration", [{}, {"PI_RC5_OPERATIONAL_CORE_SHA": OPERATIONAL},
-    {"PI_RC5_OPERATIONAL_MANIFEST_SHA256": "a"*64},
-    {"PI_RC5_OPERATIONAL_CORE_SHA": OPERATIONAL, "PI_RC5_OPERATIONAL_MANIFEST_SHA256": "A"*64}])
+@pytest.mark.parametrize("configuration", [{}, {"PI_RC6_OPERATIONAL_CORE_SHA": OPERATIONAL},
+    {"PI_RC6_OPERATIONAL_MANIFEST_SHA256": "a"*64},
+    {"PI_RC6_OPERATIONAL_CORE_SHA": OPERATIONAL, "PI_RC6_OPERATIONAL_MANIFEST_SHA256": "A"*64}])
 def test_missing_partial_or_malformed_pair_makes_no_api_call(configuration):
     client = Client()
     with pytest.raises(wire.BindingError):wire.resolve(client, client.request, CONSUMER, configuration)
@@ -111,7 +111,7 @@ def test_missing_partial_or_malformed_pair_makes_no_api_call(configuration):
 
 
 def test_mixed_configuration_pair_does_not_select_another_manifest():
-    client = Client();configuration = client.configuration;configuration["PI_RC5_OPERATIONAL_MANIFEST_SHA256"] = "a"*64
+    client = Client();configuration = client.configuration;configuration["PI_RC6_OPERATIONAL_MANIFEST_SHA256"] = "a"*64
     with pytest.raises(wire.BindingError, match="OPERATIONAL_BYTES_MISMATCH"):
         wire.resolve(client, client.request, CONSUMER, configuration)
     assert client.effects == 0
@@ -225,3 +225,15 @@ def test_compare_exception_rejects_altered_or_traversal_routes_before_http(path)
     with pytest.raises(wire.BindingError, match="GITHUB_PATH_INVALID"):
         client.get(path)
     assert calls == []
+
+
+@pytest.mark.parametrize("configuration", [
+    {"PI_RC5_OPERATIONAL_CORE_SHA": OPERATIONAL, "PI_RC5_OPERATIONAL_MANIFEST_SHA256": "a"*64},
+    {"PI_RC6_OPERATIONAL_CORE_SHA": OPERATIONAL, "PI_RC5_OPERATIONAL_MANIFEST_SHA256": "a"*64},
+    {"PI_RC5_OPERATIONAL_CORE_SHA": OPERATIONAL, "PI_RC6_OPERATIONAL_MANIFEST_SHA256": "a"*64},
+])
+def test_rc5_or_mixed_pair_never_falls_back_or_calls_api(configuration):
+    client = Client()
+    with pytest.raises(wire.BindingError, match="OPERATIONAL_PAIR_NOT_READY"):
+        wire.resolve(client, client.request, CONSUMER, configuration)
+    assert client.calls == [] and client.effects == 0

@@ -17,7 +17,7 @@ from contextlib import contextmanager
 from pathlib import Path, PurePosixPath
 from urllib.request import ProxyHandler, build_opener
 
-VERSION = "4.0.0-rc.5"
+VERSION = "4.0.0-rc.6"
 
 
 class RemoteError(ValueError):
@@ -84,7 +84,7 @@ def deploy(payload):
     need(not release.exists() and not release.is_symlink(), "RELEASE_ALREADY_PRESENT_REQUIRES_REVIEW")
     raw = base64.b64decode(payload["artifact"], validate=True)
     with package_members(raw, payload) as (archive, prefix):
-        stage = Path.home()/"djconnect-install"/("djconnect-pi-rc5-"+payload["run_id"]+"-"+payload["device_profile"])
+        stage = Path.home()/"djconnect-install"/("djconnect-pi-rc6-"+payload["run_id"]+"-"+payload["device_profile"])
         # A repeated/rerun controller cannot overwrite earlier staging or replay its installer.
         need(not stage.exists() and not stage.is_symlink(), "STAGING_ALREADY_PRESENT_REQUIRES_REVIEW")
         need(not stage.parent.is_symlink() and (not stage.parent.exists() or stage.parent.is_dir()), "STAGING_PARENT_INVALID")
@@ -167,7 +167,7 @@ def main():
             and re.fullmatch("[0-9a-f]{40}", payload.get("source", "")) is not None
             and re.fullmatch("[0-9a-f]{64}", payload.get("artifact_sha256", "")) is not None
             and re.fullmatch("[0-9a-f]{64}", payload.get("wheel_sha256", "")) is not None
-            and payload.get("wheel_name") == "djconnect_pi-4.0.0rc5-py3-none-any.whl"
+            and payload.get("wheel_name") == "djconnect_pi-4.0.0rc6-py3-none-any.whl"
             and re.fullmatch("[1-9][0-9]*", payload.get("run_id", "")) is not None)
         result = deploy(payload) if payload["phase"] == "deploy" else smoke(payload)
     print(json.dumps(result), flush=True)

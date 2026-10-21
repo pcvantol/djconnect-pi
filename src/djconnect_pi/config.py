@@ -13,7 +13,7 @@ from typing import Any
 from .i18n import normalize_language
 
 CLIENT_TYPE = "raspberry_pi"
-PROTOCOL_VERSION = "4.0.0-rc.5"
+PROTOCOL_VERSION = "4.0.0-rc.6"
 DEFAULT_CONFIG_PATH = Path.home() / ".config" / "djconnect-pi" / "config.json"
 DEFAULT_LOG_PATH = Path.home() / ".local" / "state" / "djconnect-pi" / "client.log"
 
@@ -30,6 +30,8 @@ class Config:
     update_repo: str = "pcvantol/djconnect-pi-releases"
     update_channel: str = "stable"
     release_profile: str = ""
+    # None keeps the hardware-profile default until an explicit local choice.
+    glass_enabled: bool | None = None
     local_url: str = ""
     # The Pi local API intentionally listens on the LAN by default.
     local_api_host: str = "0.0.0.0"  # nosec B104
@@ -127,6 +129,8 @@ def load_config(path: Path) -> Config:
     if cfg.update_channel not in {"stable", "beta"}:
         cfg.update_channel = "stable"
     cfg.release_profile = str(cfg.release_profile or "").strip()
+    if type(cfg.glass_enabled) is not bool:
+        cfg.glass_enabled = None
     cfg.dj_announcement_output_user_set = bool(cfg.dj_announcement_output_user_set)
     return cfg
 
@@ -191,3 +195,10 @@ def save_config(path: Path, cfg: Config) -> None:
     tmp_path.chmod(0o600)
     tmp_path.replace(path)
     path.chmod(0o600)
+
+
+def effective_glass_enabled(cfg: Config) -> bool:
+    """Local appearance preference, never a Profile or server permission."""
+    if type(cfg.glass_enabled) is bool:
+        return cfg.glass_enabled
+    return cfg.release_profile == "pi5-arm64"

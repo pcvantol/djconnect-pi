@@ -18,14 +18,14 @@ from typing import Any
 from jsonschema import Draft202012Validator
 from jsonschema.exceptions import ValidationError
 
-CORE_SOURCE = "9b40f422911f08c2076b11e49eb21e98ae5eaa1a"
-CORE_FINALIZATION = "1328c73e5d35fe13a63910a7bb41e1d0bbdd2d18"
+CORE_SOURCE = "802619ac1ab3ec11eace7a8609167018193bb98e"
+CORE_FINALIZATION = "5c34c37bab2b73744f9dbe8832449ef4ab211a02"
 INVENTORY_SHA256 = "530220ee38f6ccbcc824a78331b9dd89f236a5fa6ede12ebf7899dac83ff50c0"
-SMOKE_CONTRACT = "pi-rc5-instance-readback-v1"
-VERSION = "4.0.0-rc.5"
+SMOKE_CONTRACT = "pi-rc6-instance-readback-v1"
+VERSION = "4.0.0-rc.6"
 TARGET = "rbpi-djconnect"
-OPERATIONAL_PATH = "docs/release/PLATFORM_4_0_RC5_PI_OPERATIONAL_MANIFEST.json"
-PINNED_FILES = {'PI_TWO_HOST_DEPLOYMENT_CONTRACT_V1.md': '5724f2e056f65a69286d0340096b64532bd784b4f0eec58a61232eb2d377f70c', 'PI_TWO_HOST_DEPLOYMENT_REQUEST_V2.schema.json': 'eba4b87e450ba79002052a5d0c0f154388f0e70bba022a9829624cbf75b98e75', 'PI_TWO_HOST_OPERATIONAL_MANIFEST_V2.schema.json': 'ca70174cb92e0575d979d3b79bcbea038f339ac365790007d98c3ff2ef43fa16', 'PI_WALL_DEVICE_INVENTORY_V1.json': '530220ee38f6ccbcc824a78331b9dd89f236a5fa6ede12ebf7899dac83ff50c0'}
+OPERATIONAL_PATH = "docs/release/PLATFORM_4_0_RC6_PI_OPERATIONAL_MANIFEST.json"
+PINNED_FILES = {'PI_TWO_HOST_DEPLOYMENT_CONTRACT_V2.md': '22a13aecd6f0bc5a19f368fe1b7d74d8419825df4f155b5c52c1f152106485b8', 'PI_TWO_HOST_DEPLOYMENT_REQUEST_V3.schema.json': '2f143afade9cb61c9b45e3ba58ebd90bdbfc3a2a3bbf7ca39d34353df97b9301', 'PI_TWO_HOST_OPERATIONAL_MANIFEST_V3.schema.json': '5739253ea065dae216edbb21023516309d2377f14e8bf803964b1dde41383412', 'PI_WALL_DEVICE_INVENTORY_V1.json': '530220ee38f6ccbcc824a78331b9dd89f236a5fa6ede12ebf7899dac83ff50c0'}
 CONFIGURATION_REFS = {"wall-4inch": "djconnect-wall-4inch", "wall-10inch": "djconnect-pi10"}
 
 
@@ -112,8 +112,8 @@ class Binding:
 def validate_bindings(request: dict, manifest: dict, consumer_sha: str, published: dict) -> Binding:
     """Schema+semantic validation only; APPROVED text is never proof of authority."""
     contracts = pinned_contracts()
-    validate_schema(request, contracts["PI_TWO_HOST_DEPLOYMENT_REQUEST_V2.schema.json"], "REQUEST_SCHEMA_INVALID")
-    validate_schema(manifest, contracts["PI_TWO_HOST_OPERATIONAL_MANIFEST_V2.schema.json"], "MANIFEST_SCHEMA_INVALID")
+    validate_schema(request, contracts["PI_TWO_HOST_DEPLOYMENT_REQUEST_V3.schema.json"], "REQUEST_SCHEMA_INVALID")
+    validate_schema(manifest, contracts["PI_TWO_HOST_OPERATIONAL_MANIFEST_V3.schema.json"], "MANIFEST_SCHEMA_INVALID")
     require(exact_hex(consumer_sha, 40) and manifest["consumer"]["source_sha"] == consumer_sha, "CONSUMER_MISMATCH")
     for field in ("manifest_id", "candidate_sha", "platform_version", "release_profile", "inventory_sha256"):
         require(request[field] == manifest[field], "REQUEST_MANIFEST_MISMATCH")

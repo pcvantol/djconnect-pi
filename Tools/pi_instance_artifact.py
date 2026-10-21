@@ -41,7 +41,7 @@ def inspect_artifact(raw: bytes, profile: str, source: str) -> Package:
             installer = read("scripts/install.sh", 131072)
             require(all(flag in installer for flag in (b"--approved-artifact", b"--artifact-sha256", b"--source-sha")), "QUALIFIED_INSTALLER_REQUIRED")
             require(bool(read("requirements.lock", 131072)), "DEPENDENCY_LOCK_REQUIRED")
-            wheel_name = "djconnect_pi-4.0.0rc5-py3-none-any.whl"
+            wheel_name = "djconnect_pi-4.0.0rc6-py3-none-any.whl"
             wheels = [name for name in seen if name.startswith(prefix+"/wheels/") and name.endswith(".whl")]
             require(wheels == [prefix+"/wheels/"+wheel_name], "WHEEL_SET_INVALID")
             wheel = read("wheels/"+wheel_name, 8388608)

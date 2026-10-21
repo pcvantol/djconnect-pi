@@ -204,3 +204,37 @@ proof and does not authorize device effects. Both workflows completed cancelled,
 both authority/install steps were skipped, the old pip process exited, and the
 registered relay returned idle. Those cancellation and process outcomes were
 observed independently rather than inferred from the cancellation requests.
+
+
+## Installed rc.5 and Actions evidence negotiation, 21 October 2026
+
+The qualified consumer31 installed the immutable published rc.5/sourceEADB on
+both physical targets. Deployments39561706081 and39561711048 succeeded, followed
+by their separate matching smoke runs39562466113 and39562634199. Each observed
+65 packaged files, installed source/version/profile, running API/native services
+and a reachable local API. The installer reported existing configuration
+preserved. The compact client remains paired; Pi10 remains unpaired. These are
+installed/readback results, not active Profile/Session, physical touch or complete
+Apple-parity acceptance. Real X11 captures were inspected privately; no fixture
+was placed in the live app and no Profile was selected to manufacture a result.
+
+The joint workflow report failed closed despite both individual smoke passes.
+The real GitHub Actions artifact ZIP endpoint returned HTTP415 when the reader
+sent the release-asset media type. Actions archive negotiation now uses the REST
+media type for the exact fixed Pi artifact ZIP route; release assets retain
+octet-stream. The existing separate anonymous signed download, HTTPS/host/URL
+fences and byte bounds remain. There is no retry, new endpoint, device intent or
+operational approval change. GitHub's documented download-artifact contract
+recommends application/vnd.github+json before its HTTP302 signed redirect:
+https://docs.github.com/en/rest/actions/artifacts#download-an-artifact
+
+Twelve new offline HTTP-boundary cases reproduce the observed415, exercise all
+existing admitted artifact hosts, reject unsafe redirects, retain release-asset
+negotiation and prove single-attempt failures. Before the fix three cases failed
+and nine passed; the complete relevant locked delivery suite now passes316cases.
+Ruff and diff checks pass. The corrected local reader also resolved the actual
+two completed deployment/smoke joins through the unchanged aggregator with zero
+binding errors. This is explicitly a read-only local WIP result, not a new
+qualified workflow or a rewritten historical status. Existing source/Finalization
+and operational bindings remain required before using any new consumer for an
+effect; neither device was reinstalled to change reporting.

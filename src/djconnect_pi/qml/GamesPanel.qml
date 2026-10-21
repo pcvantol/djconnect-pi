@@ -492,19 +492,7 @@ Rectangle {
         anchors.bottomMargin: 130
         spacing: 12
 
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: 10
-
-            Text {
-                text: root.tr("games")
-                color: BrandTheme.colors.text
-                font.pixelSize: 30
-                font.bold: true
-                Layout.fillWidth: true
-            }
-
-        }
+        PageToolbar { title: root.tr("games") }
 
         Rectangle {
             id: gameSelector

@@ -128,7 +128,7 @@ def test_playback_command_is_one_paired_profile_http_attempt_without_invented_wi
     assert kwargs["allow_redirects"] is False
     assert kwargs["headers"]["Authorization"] == "Bearer synthetic-token"
     assert kwargs["json"] == {"device_id": cfg.device_id, "client_type": "raspberry_pi", "profile_id": cfg.explicit_profile_id,
-        "command": command, "request_source": "device_command", "app_version": "4.0.0-rc.5"}
+        "command": command, "request_source": "device_command", "app_version": "4.0.0-rc.6"}
 
 
 def test_playback_timeout_is_uncertain_and_never_replayed(transport):
@@ -213,3 +213,15 @@ def test_server_failure_remains_unavailable_or_uncertain_without_replay(transpor
     response.json.assert_not_called()
     request.assert_called_once()
     assert cfg.paired and cfg.device_token == "synthetic-token"
+
+
+@pytest.mark.parametrize("code", ["device_not_mapped", "profile_required", "invalid_profile", "profile_access_denied"])
+def test_profile_rejection_is_distinct_from_transport_outage_and_never_replayed(transport, code):
+    client, cfg, request, response = transport
+    response.status_code = 409
+    response.json.return_value = {"success": False, "error": code, "message": "private server context"}
+    with pytest.raises(SessionError, match="profile_unavailable"):
+        client.active(client.binding())
+    assert request.call_count == 1
+    assert cfg.paired is True
+    assert cfg.explicit_profile_id == "explicit-profile"

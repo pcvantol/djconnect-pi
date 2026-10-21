@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import logging
+import os
 import re
 import subprocess
 import sys
@@ -23,27 +24,32 @@ from PySide6.QtCore import (
     QCoreApplication,
     QIODevice,
     QObject,
+    QSaveFile,
     Qt,
     QTimer,
     QUrl,
     Signal,
     Slot,
 )
-from PySide6.QtGui import QDesktopServices, QGuiApplication, QIcon, QPixmapCache
+from PySide6.QtGui import QDesktopServices, QGuiApplication, QIcon, QImage, QPixmapCache
 from PySide6.QtQml import QQmlApplicationEngine
+from PySide6.QtQuick import QQuickWindow
 from PySide6.QtQuickControls2 import QQuickStyle
 
+from .artwork_palette import displayed_artwork_tint
 from .brand_theme import apply_palette
 from .config import (
     CLIENT_TYPE,
     DEFAULT_CONFIG_PATH,
     DEFAULT_LOG_PATH,
     Config,
+    effective_glass_enabled,
     load_config,
     normalize_dj_announcement_output,
     save_config,
 )
 from .ha import (
+    PROFILE_ERROR_CODES,
     AuthenticationError,
     BackendUnavailable,
     DJConnectError,
@@ -124,6 +130,7 @@ class DJConnectBackend(QObject):
     musicDiscoveryChanged = Signal()
     trackInsightChanged = Signal()
     demoModeChanged = Signal()
+    glassChanged = Signal()
     screenTimeoutChanged = Signal()
     returnToNowChanged = Signal()
     screenBrightnessChanged = Signal()
@@ -159,6 +166,7 @@ class DJConnectBackend(QObject):
     def __init__(self, config_path: Path) -> None:
         super().__init__()
         self.config_path = config_path
+        self._shutting_down = False
         self.cfg: Config = load_config(config_path)
         self.client = HAClient(self.cfg)
         self._shared_settings_state = {}
@@ -257,8 +265,21 @@ class DJConnectBackend(QObject):
         self._shared_settings_timer.timeout.connect(self.pollSharedSettings)
         self._shared_settings_timer.timeout.connect(self._session_controller.refresh)
         self._shared_settings_timer.start()
-        QTimer.singleShot(350, self.pollSharedSettings)
-        QTimer.singleShot(250, self.refresh)
+        # Owned timers cannot outlive this backend or continue after shutdown.
+        self._startup_settings_timer = QTimer(self)
+        self._startup_settings_timer.setSingleShot(True)
+        self._startup_settings_timer.setInterval(350)
+        self._startup_settings_timer.timeout.connect(self.pollSharedSettings)
+        self._startup_settings_timer.start()
+        self._startup_refresh_timer = QTimer(self)
+        self._startup_refresh_timer.setSingleShot(True)
+        self._startup_refresh_timer.setInterval(250)
+        self._startup_refresh_timer.timeout.connect(self.refresh)
+        self._startup_refresh_timer.start()
+        self._settings_reconcile_timer = QTimer(self)
+        self._settings_reconcile_timer.setSingleShot(True)
+        self._settings_reconcile_timer.setInterval(0)
+        self._settings_reconcile_timer.timeout.connect(self.pollSharedSettings)
         _LOGGER.info("DJConnect Pi client backend started for %s", self.cfg.device_id)
 
     @Property("QVariantMap", notify=sharedSettingsChanged)
@@ -287,6 +308,8 @@ class DJConnectBackend(QObject):
 
     @Slot()
     def pollSharedSettings(self) -> None:
+        if self._shutting_down:
+            return
         self._invalidate_shared_settings_if_context_changed()
         if self._demo_mode or not self.paired or self._shared_settings_inflight:
             return
@@ -294,6 +317,8 @@ class DJConnectBackend(QObject):
 
     @Slot("QVariantMap")
     def saveSharedSettings(self, patch: dict) -> None:
+        if self._shutting_down:
+            return
         if self._demo_mode or not self.paired or self._shared_settings_inflight:
             return
         self._start_shared_settings(deepcopy(patch))
@@ -323,10 +348,12 @@ class DJConnectBackend(QObject):
 
     @Slot(object)
     def _apply_shared_settings(self, result: dict) -> None:
+        if self._shutting_down:
+            return
         self._shared_settings_inflight = False
         if result["epoch"] != self._shared_settings_epoch or tuple(result["context"]) != self._shared_settings.context():
             self.sharedSettingsChanged.emit()
-            QTimer.singleShot(0, self.pollSharedSettings)
+            self._settings_reconcile_timer.start()
             return
         if "projection" in result:
             self._shared_settings_state = {**result["projection"], "available": True, "error": ""}
@@ -635,6 +662,10 @@ class DJConnectBackend(QObject):
         target = announcement.get("target") if isinstance(announcement.get("target"), dict) else {}
         return str(announcement.get("speaker_name") or target.get("name") or announcement.get("speaker_entity_id") or target.get("entity_id") or "")
 
+    @Slot(QImage, result=str)
+    def sampleArtworkTint(self, pixels: QImage) -> str:
+        return "" if self._shutting_down else displayed_artwork_tint(pixels)
+
     @Property(int, notify=moodChanged)
     def moodValue(self) -> int:
         if self.sharedSettingsManaged:
@@ -665,6 +696,28 @@ class DJConnectBackend(QObject):
     @Property(str, notify=settingsChanged)
     def releaseProfile(self) -> str:
         return self.cfg.release_profile
+
+    @Property(bool, notify=glassChanged)
+    def glassEnabled(self) -> bool:
+        return effective_glass_enabled(self.cfg)
+
+    @Slot(bool, result=bool)
+    def setGlassEnabled(self, enabled: bool) -> bool:
+        if type(enabled) is not bool:
+            return False
+        if self.cfg.glass_enabled is enabled:
+            return True
+        previous = self.cfg.glass_enabled
+        self.cfg.glass_enabled = enabled
+        try:
+            save_config(self.config_path, self.cfg)
+        except OSError:
+            self.cfg.glass_enabled = previous
+            self.glassChanged.emit()
+            self.showToastForContext(self.tr_key("save_failed"), "settings")
+            return False
+        self.glassChanged.emit()
+        return True
 
     @Property(str, notify=updateChannelChanged)
     def updateChannel(self) -> str:
@@ -905,6 +958,8 @@ class DJConnectBackend(QObject):
 
     @Slot()
     def refresh(self) -> None:
+        if self._shutting_down:
+            return
         if self._demo_mode:
             return
         if self._busy:
@@ -939,6 +994,7 @@ class DJConnectBackend(QObject):
             and latest.screen_timeout_seconds == self.cfg.screen_timeout_seconds
             and latest.return_to_now_seconds == self.cfg.return_to_now_seconds
             and latest.update_channel == self.cfg.update_channel
+            and latest.glass_enabled is self.cfg.glass_enabled
             and latest.active_profile_id == self.cfg.active_profile_id
             and latest.active_profile_type == self.cfg.active_profile_type
             and latest.active_profile_privacy_mode == self.cfg.active_profile_privacy_mode
@@ -948,6 +1004,7 @@ class DJConnectBackend(QObject):
         ):
             return
         language_changed = latest.language != self.cfg.language
+        glass_changed = effective_glass_enabled(latest) != self.glassEnabled
         self.cfg = latest
         self.client.cfg = self.cfg
         self._invalidate_shared_settings_if_context_changed()
@@ -960,6 +1017,8 @@ class DJConnectBackend(QObject):
         self.updateChannelChanged.emit()
         self.profileChanged.emit()
         self.djAnnouncementChanged.emit()
+        if glass_changed:
+            self.glassChanged.emit()
         if language_changed:
             self._translation_version += 1
             self.languageChanged.emit()
@@ -997,6 +1056,28 @@ class DJConnectBackend(QObject):
                 subprocess.run(command, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             except OSError as exc:
                 _LOGGER.debug("Could not run display wake command %s: %s", command, exc)
+
+    @Slot(QObject, result=bool)
+    def saveWindowScreenshot(self, window: QObject) -> bool:
+        # ApplicationWindow.contentItem is a native Qt item without a QML
+        # engine in Qt 6.11. Capture the actual window, including its overlays.
+        if not isinstance(window, QQuickWindow):
+            return False
+        try:
+            if not window.isVisible():
+                return False
+            image = window.grabWindow()
+            if image.isNull():
+                return False
+            target = QSaveFile(self.cfg.screenshot_file)
+            if not target.open(QIODevice.OpenModeFlag.WriteOnly):
+                return False
+            if not image.save(target, "PNG"):
+                target.cancelWriting()
+            return target.commit()
+        except RuntimeError as exc:
+            _LOGGER.warning("Could not capture debug screenshot: %s", exc)
+            return False
 
     @Slot()
     def previous(self) -> None:
@@ -2272,6 +2353,17 @@ class DJConnectBackend(QObject):
     def _apply_music_discovery_data(self, data: object) -> None:
         if not isinstance(data, dict):
             return
+        error = str(data.get("error") or "")
+        if data.get("success") is False and error != "music_dna_disabled":
+            # Rejected feeds are not content or Profile authority. Never render
+            # their machine error/message as user-facing recommendation text.
+            self._music_discovery_items = []
+            self._music_discovery_feedback_supported = False
+            self._music_discovery_empty_text = ""
+            key = "session_profile_missing" if error in PROFILE_ERROR_CODES | {"music_dna_context_changed"} else "backend_unavailable"
+            self._music_discovery_error = self.tr_key(key)
+            self.musicDiscoveryChanged.emit()
+            return
         self._apply_profile_context(data)
         self._music_discovery_consent_rejected = False
         if data.get("enabled") is False or str(data.get("error") or "") == "music_dna_disabled":
@@ -2452,9 +2544,14 @@ class DJConnectBackend(QObject):
 
     @Slot()
     def shutdown(self) -> None:
+        self._shutting_down = True
         _LOGGER.info("Stopping DJConnect Pi client backend")
         self._poll_timer.stop()
         self._event_timer.stop()
+        self._shared_settings_timer.stop()
+        self._startup_settings_timer.stop()
+        self._startup_refresh_timer.stop()
+        self._settings_reconcile_timer.stop()
         self._session_controller.setForeground(False)
         self._session_controller.shutdownImages()
         self._session_executor.shutdown(wait=False, cancel_futures=True)
@@ -2567,6 +2664,14 @@ class DJConnectBackend(QObject):
         self.screenshotRequested.emit()
 
 
+
+def configure_graphics(cfg: Config, environment: dict[str, str]) -> None:
+    """Request RHI/OpenGL on Pi5 only; never rewrite an explicit override."""
+    if cfg.release_profile == "pi5-arm64":
+        environment.setdefault("QT_QUICK_BACKEND", "rhi")
+        environment.setdefault("QSG_RHI_BACKEND", "opengl")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG_PATH)
@@ -2592,6 +2697,9 @@ def main() -> None:
     _LOGGER.info("Starting DJConnect Pi client")
     log_raspberry_pi_system_info()
 
+    # Select the Pi5 GPU path once at startup so its local toggle can switch
+    # material without restarting. Explicit operator backend settings win.
+    configure_graphics(cfg, os.environ)
     QQuickStyle.setStyle("Basic")
     app = QGuiApplication(sys.argv)
     apply_palette(app)
@@ -2671,16 +2779,15 @@ def cached_image_url(url: str, ttl_seconds: int = 24 * 60 * 60, timeout_seconds:
     if parsed.scheme not in {"http", "https"}:
         return url
 
-    cache_dir = DEFAULT_LOG_PATH.parent.parent / "cache" / "album-art"
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    suffix = Path(parsed.path).suffix.lower()
-    if suffix not in {".jpg", ".jpeg", ".png", ".webp"}:
-        suffix = ".img"
-    target = cache_dir / f"{hashlib.sha256(url.encode('utf-8')).hexdigest()}{suffix}"
-    if target.exists() and time.time() - target.stat().st_mtime < ttl_seconds:
-        return target.as_uri()
-
     try:
+        cache_dir = DEFAULT_LOG_PATH.parent.parent / "cache" / "album-art"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        suffix = Path(parsed.path).suffix.lower()
+        if suffix not in {".jpg", ".jpeg", ".png", ".webp"}:
+            suffix = ".img"
+        target = cache_dir / f"{hashlib.sha256(url.encode('utf-8')).hexdigest()}{suffix}"
+        if target.exists() and time.time() - target.stat().st_mtime < ttl_seconds:
+            return target.as_uri()
         response = requests.get(url, timeout=timeout_seconds)
         response.raise_for_status()
         target.write_bytes(response.content)

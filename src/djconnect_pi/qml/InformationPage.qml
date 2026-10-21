@@ -15,10 +15,9 @@ Item {
         anchors.fill: parent
         anchors.margins: 24
         spacing: 20
-        RowLayout {
-            Layout.fillWidth: true
-            GlassButton { objectName: "informationBack"; text: page.tr("more"); iconName: "back"; onClicked: page.back() }
-            Text { text: page.tr(page.feedback ? "feedback" : page.privacy ? "privacy" : "legal"); color: BrandTheme.colors.text; font.pixelSize: 32; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+        PageToolbar {
+            title: page.tr(page.feedback ? "feedback" : page.privacy ? "privacy" : "legal")
+            leading: [ GlassButton { objectName: "informationBack"; text: page.tr("more"); iconName: "back"; tertiary: true; onClicked: page.back() } ]
         }
         ScrollView {
             id: scroll
@@ -38,29 +37,28 @@ Item {
                     GlassButton { objectName: "feedbackOpenIssue"; text: page.tr("feedback_open"); iconName: "chat"; Layout.fillWidth: true; onClicked: page.feedbackOpenFailed = !page.backend.openFeedbackIssue() }
                     Text { objectName: "feedbackOpenError"; visible: page.feedbackOpenFailed; text: page.tr("feedback_unavailable"); textFormat: Text.PlainText; color: BrandTheme.colors.muted; font.pixelSize: 22; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                 }
-                Repeater {
-                    model: page.feedback ? [] : page.privacy ? [
-                        {heading: "privacy_profile_heading", body: "privacy_profile_body"},
-                        {heading: "privacy_storage_heading", body: "privacy_storage_body"},
-                        {heading: "privacy_audio_heading", body: "privacy_audio_body"}
-                    ] : [
-                        {heading: "legal", body: "legal_independence"},
-                        {heading: "spotify_notice", body: "legal_trademarks"},
-                        {heading: "legal_oss", body: "legal_oss_body"}
-                    ]
-                    GlassCard {
-                        required property var modelData
-                        Layout.fillWidth: true
-                        Text { text: page.tr(modelData.heading); textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 26; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                        Text { text: page.tr(modelData.body); textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 22; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                GlassCard {
+                    visible: page.privacy && !page.feedback
+                    Layout.fillWidth: true
+                    Text { text: page.tr("privacy"); textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 26; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                    Repeater {
+                        model: ["privacy_data_body", "privacy_tokens_body", "privacy_ai_body"]
+                        Text { required property string modelData; text: page.tr(modelData); textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 22; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                     }
                 }
                 GlassCard {
-                    visible: !page.feedback
+                    visible: !page.privacy && !page.feedback
                     Layout.fillWidth: true
-                    Text { text: page.tr(page.privacy ? "pi_no_spotify_credentials" : "spotify_trademark"); color: BrandTheme.colors.muted; font.pixelSize: 22; textFormat: Text.PlainText; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                    Text { visible: page.privacy; text: page.tr("privacy_ai_body"); color: BrandTheme.colors.muted; font.pixelSize: 22; textFormat: Text.PlainText; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                    GlassButton { visible: !page.privacy; text: page.tr("legal_license"); onClicked: Qt.openUrlExternally("https://github.com/pcvantol/djconnect-pi/blob/main/LICENSE") }
+                    Text { text: page.tr("legal"); textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 26; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                    Text { text: page.tr("legal_independence"); textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 22; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                    Text { text: page.tr("legal_trademarks"); textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 22; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                }
+                GlassCard {
+                    visible: !page.privacy && !page.feedback
+                    Layout.fillWidth: true
+                    Text { text: page.tr("legal_oss"); textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 26; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                    Text { text: page.tr("legal_oss_body"); textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 22; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                    GlassButton { text: page.tr("legal_license"); onClicked: Qt.openUrlExternally("https://github.com/pcvantol/djconnect-pi/blob/main/LICENSE") }
                 }
             }
         }

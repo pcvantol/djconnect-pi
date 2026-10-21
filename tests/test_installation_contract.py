@@ -154,7 +154,7 @@ def test_release_workflow_publishes_to_public_distribution_repo() -> None:
     assert '"v*.*.*"' in workflow
 
 
-def test_qualified_pi_deployment_workflows_use_closed_v2_bindings() -> None:
+def test_qualified_pi_deployment_workflows_use_closed_rc6_v3_bindings() -> None:
     # Historical v1/RC1 host-secret/updater text assertions are superseded by the
     # protected two-instance contract. Semantic negative cases live in the locked
     # deployment-tool suite; this test keeps all three workflow entrypoints aligned.
@@ -168,10 +168,10 @@ def test_qualified_pi_deployment_workflows_use_closed_v2_bindings() -> None:
         for field in ("action", "execution_mode", "candidate_sha", "artifact_id", "artifact_sha256", "manifest_id",
                       "platform_version", "release_profile", "target", "deployment_instance", "device_profile", "inventory_sha256"):
             assert "      "+field+":" in workflow
-        assert "PI_RC5_OPERATIONAL_CORE_SHA: ${{ vars.PI_RC5_OPERATIONAL_CORE_SHA }}" in workflow
-        assert "PI_RC5_OPERATIONAL_MANIFEST_SHA256: ${{ vars.PI_RC5_OPERATIONAL_MANIFEST_SHA256 }}" in workflow
-        canonical = "pcvantol/djconnect/.github/actions/deployment-readiness-preflight@9b40f422911f08c2076b11e49eb21e98ae5eaa1a"
-        assert canonical in workflow and "smoke_contract: pi-rc5-instance-readback-v1" in workflow
+        assert "PI_RC6_OPERATIONAL_CORE_SHA: ${{ vars.PI_RC6_OPERATIONAL_CORE_SHA }}" in workflow
+        assert "PI_RC6_OPERATIONAL_MANIFEST_SHA256: ${{ vars.PI_RC6_OPERATIONAL_MANIFEST_SHA256 }}" in workflow
+        canonical = "pcvantol/djconnect/.github/actions/deployment-readiness-preflight@802619ac1ab3ec11eace7a8609167018193bb98e"
+        assert canonical in workflow and "smoke_contract: pi-rc6-instance-readback-v1" in workflow
         prepare = "python -m Tools.pi_instance_release --operation "+operation+" --prepare"
         execute = "python -m Tools.pi_instance_release --operation "+operation
         assert workflow.index(prepare) < workflow.index(canonical) < workflow.rindex(execute)

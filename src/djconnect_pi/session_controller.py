@@ -24,6 +24,7 @@ from .session_artwork_prepare import ArtworkPreparation
 from .session_current_reply import current_reply, moment_reference, reply_valid
 from .session_forecast import ForecastReceiver, forecast_supported
 from .session_forecast_image import ForecastImages
+from .session_history_delete_control import HistoryDeleteControl
 from .session_history_view import (
     accepted_question,
     confirmed_question_entry,
@@ -41,7 +42,7 @@ from .session_projection import (
     session_playback,
     timestamp,
 )
-from .session_transport import SessionError, SessionTransport
+from .session_transport import SessionError, SessionTransport, session_profile_id
 
 
 class SessionController(QObject):
@@ -56,6 +57,7 @@ class SessionController(QObject):
     pendingQuestionReady = Signal()
     searchUpdated = Signal()
     historyUpdated = Signal()
+    archiveInvalidated = Signal()
     archivePositioned = Signal(str, float)
     timelineUpdated = Signal(str)
     timelinePositioned = Signal(str, float)
@@ -122,8 +124,16 @@ class SessionController(QObject):
         self.changed.connect(self._artwork_prepare.sync)
         self._playback_control = PlaybackControl(self)
         self.changed.connect(self._playback_control.sync)
+        self._archive_delete = HistoryDeleteControl(self)
+        self.changed.connect(self._archive_delete.sync)
+        self.contextCleared.connect(self._archive_delete.hide)
         self._ready.connect(self._apply)
         backend.demoModeChanged.connect(self._demo_changed)
+        # Deferred visibility notifications must die with their QObject owner.
+        self._visibility_notify = QTimer(self)
+        self._visibility_notify.setSingleShot(True)
+        self._visibility_notify.setInterval(0)
+        self._visibility_notify.timeout.connect(self.changed.emit)
         self._deadline_timer = QTimer(self)
         self._deadline_timer.setInterval(1000)
         self._deadline_timer.timeout.connect(self._expire)
@@ -149,6 +159,7 @@ class SessionController(QObject):
             "playback": session_playback(self._session),
             "artwork_prepare": self._artwork_prepare.snapshot(),
             "playback_control": self._playback_control.snapshot(),
+            "archive_delete": self._archive_delete.snapshot(),
             "forecast_supported": forecast_supported(self._session, self._caps),
             "forecast": self._forecast.snapshot(),
             "mood": self._session.get("selected_mood", ""),
@@ -158,7 +169,7 @@ class SessionController(QObject):
             "selection": deepcopy(self._selection), "question_status": self._question_status,
             "moments": deepcopy(self._moments), "sessions": deepcopy(self._sessions),
             "timeline": deepcopy(self._timeline), "search": deepcopy(self._search), "error": self._error,
-            "profile_confirmation_required": not bool(self.backend.cfg.explicit_profile_id),
+            "profile_confirmation_required": not bool(session_profile_id(self.backend.cfg)),
             "history_available": self._history_supported(), "search_available": self._search_supported(),
             "loaded": self._loaded, "history_loaded": self._history_loaded,
             "has_previous_entries": bool(self._timeline_trail),
@@ -204,36 +215,108 @@ class SessionController(QObject):
         changed = self._playback_control.visible != bool(visible)
         self._playback_control.set_visible(visible)
         if changed:
-            QTimer.singleShot(0, self.changed.emit)
+            self._visibility_notify.start()
 
     @Slot(str, str, str, result=bool)
     def playbackCommand(self, session_id, item_id, command):
         return self._playback_control.start(session_id, item_id, command)
 
+    @Slot(str, str, result=bool)
+    def readPlaybackVolume(self, session_id, item_id):
+        return self._playback_control.read_volume(session_id, item_id)
+
+    @Slot(str, str, int, int, result=bool)
+    def setPlaybackVolume(self, session_id, item_id, lease, value):
+        return self._playback_control.set_volume(session_id, item_id, lease, value)
+
+    @Slot(str, str, result=bool)
+    def readPlaybackFavorite(self, session_id, item_id):
+        return self._playback_control.read_favorite(session_id, item_id)
+
+    @Slot(str, str, int, bool, result=bool)
+    def setPlaybackFavorite(self, session_id, item_id, lease, value):
+        return self._playback_control.set_favorite(session_id, item_id, lease, value)
+
+    @Slot(str, str, result=bool)
+    def readPlaybackOutputs(self, session_id, item_id):
+        return self._playback_control.read_outputs(session_id, item_id)
+
+    @Slot(str, str, int, str, result=bool)
+    def setPlaybackOutput(self, session_id, item_id, lease, target):
+        return self._playback_control.set_output(session_id, item_id, lease, target)
+
     @Slot()
     def cancelPlaybackIntent(self):
         # Revocation is immediate; notification must not re-enter a QML state binding.
         self._playback_control.hide()
-        QTimer.singleShot(0, self.changed.emit)
+        self._visibility_notify.start()
 
     @Slot()
     def refreshPlayback(self):
         self._playback_control.refresh()
 
+    @Slot(bool)
+    def setArchiveDeleteVisible(self, visible):
+        changed = self._archive_delete.visible != bool(visible)
+        self._archive_delete.set_visible(visible)
+        if changed:
+            self._archive_delete.notify()
+
+    @Slot(str, result=bool)
+    def beginHistoryDelete(self, session_id):
+        return self._archive_delete.read(session_id)
+
+    @Slot(result=bool)
+    def checkHistoryDeleteStatus(self):
+        return self._archive_delete.read_status()
+
+    @Slot(result=bool)
+    def beginBulkHistoryDelete(self):
+        return self._archive_delete.read_bulk()
+
+    @Slot(int, result=bool)
+    def confirmHistoryDelete(self, lease):
+        return self._archive_delete.confirm(lease)
+
+    @Slot()
+    def cancelHistoryDelete(self):
+        self._archive_delete.hide()
+        self._archive_delete.notify()
+
+    @Slot(result=bool)
+    def recoverHistoryDelete(self):
+        return self._archive_delete.recover()
+
+    def invalidateArchive(self):
+        # Whole archive authority changes on erasure: no old cursor, selection,
+        # dependent search/detail or queued archive read may survive the receipt.
+        # Active Flow, Session, settings and playback are separate owners.
+        self._clear_archive(notify=False)
+        self._timeline = {}
+        self._timeline_trail = []
+        self._search = {}
+        if self._selection.get("kind") == "selected_entry" and self._selection_source == "timeline":
+            self._selection = {}
+            self.selectionInvalidated.emit()
+        self.archiveInvalidated.emit()
+        self.changed.emit()  # Announce the complete archive withdrawal, never an intermediate detail.
+
     @Slot(str, str, result=bool)
     def prepareArtwork(self, session_id, moment_id):
-        return self._artwork_prepare.start(session_id, moment_id)
+        return not self._archive_delete.running and self._artwork_prepare.start(session_id, moment_id)
 
     @Slot()
     def shutdownImages(self):
+        self._visibility_notify.stop()
         self._forecast_images.shutdown()
         self._moment_images.shutdown()
         self._artwork_prepare.shutdown()
         self._playback_control.shutdown()
+        self._archive_delete.shutdown()
 
     @Property(bool, notify=changed)
     def busy(self):
-        return bool(self._running or self._artwork_prepare.running or self._playback_control.running)
+        return bool(self._running or self._artwork_prepare.running or self._playback_control.running or self._archive_delete.running)
 
     @Property(bool, notify=changed)
     def lifecycleBusy(self):
@@ -258,6 +341,7 @@ class SessionController(QObject):
         self._reconcile_question = False
 
     def invalidate(self):
+        self._archive_delete.hide(reset=True)
         self._playback_control.hide(reset=True)
         self._forecast.reset()
         self._forecast_dirty = False
@@ -426,7 +510,7 @@ class SessionController(QObject):
                 and type(self._caps.get("contract_versions", {}).get("ask_dj_contextual_dialogue")) is int
                 and self._caps["contract_versions"]["ask_dj_contextual_dialogue"] == 1
                 and self._session.get("runtime_state") == "active"
-                and cfg.explicit_profile_id == cfg.active_profile_id and bool(cfg.explicit_profile_id)
+                and bool(session_profile_id(cfg))
                 and not cfg.private_session and cfg.active_profile_type in {"personal", "household"}
                 and cfg.active_profile_privacy_mode == "private")
 
@@ -552,6 +636,9 @@ class SessionController(QObject):
 
     @Slot()
     def clearArchive(self):
+        self._clear_archive()
+
+    def _clear_archive(self, *, notify=True):
         had = bool(self._sessions or self._history_loaded or self._history_cursor or self._history_trail)
         self._view_epoch += 1
         self._sessions = []
@@ -563,7 +650,7 @@ class SessionController(QObject):
         self._history_before = None
         self._history_trail = []
         self._history_reset = False
-        if had:
+        if had and notify:
             self.changed.emit()
 
     def _archive_request(self, pages=None):
@@ -836,7 +923,7 @@ class SessionController(QObject):
     def _launch(self, action, value=""):
         if not self._foreground:
             return
-        if (self._artwork_prepare.running or self._playback_control.running) and action != "end":
+        if (self._artwork_prepare.running or self._playback_control.running or self._archive_delete.running) and action != "end":
             return
         # End supersedes reads, but never another lifecycle write. Late read results lose their ticket.
         if self._running and (action != "end" or self._running_action in {"start", "end"}):
@@ -846,7 +933,7 @@ class SessionController(QObject):
         if self.backend.demoMode:
             self._demo_action(action, value)
             return
-        if not self.backend.cfg.explicit_profile_id:
+        if not session_profile_id(self.backend.cfg):
             self._error = "profile_required"
             self.changed.emit()
             return
