@@ -153,7 +153,8 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "anchors.leftMargin: 16" in now_block
     assert "anchors.topMargin: 16" in now_block
     assert "anchors.rightMargin: 16" in now_block
-    assert "Layout.preferredHeight: 48" in now_block
+    assert "PageToolbar {" in now_block
+    assert 'title: root.tr("now_playing")' in now_block
     assert 'anchors.bottomMargin: root.edge + 96' in now_block
     assert "width: Math.min(parent.width, parent.height)" in now_block
     assert "cache: true" in now_block

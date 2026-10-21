@@ -3112,3 +3112,43 @@ No production assertion, source expiry or permission fence was weakened.
 Evidence: taskvisualizations/pi-mood-artwork-colours, including matrix-frozen,
 composer-frozen/artwork-frozen/forecast-frozen, private-tint-audit, package-frozen
 and arm-final. No official rc.5 asset overwrite, installation or server effect.
+
+### Shared iPad page toolbar structure (rc.6 source)
+
+PageToolbar separates leading/trailing Glass action capsules from the large
+tablet title; compact retains one row. Existing Now/Track Insight/Discover/
+Music DNA/Ask DJ/Queue/Playlist/Control actions keep their exact callbacks and
+busy/disabled predicates. Ask DJ clear is leading, connection/refresh trailing.
+Read-only connection pop-out shows the existing connectionType text, makes no
+request and closes immediately when hidden. More/Settings/Games/About and
+Legal/Privacy/Feedback use the same title chrome; Settings/About headers remain
+above scrolling content. Specialized Session/history toolbar remains unchanged.
+Coverage and missing Apple feature actions: docs/PI_PAGE_TOOLBARS.md.
+
+FULL2530 integrated PASS/no skips45.19s; two new actual Qt subprocess cases
+prove bounded hit geometry/order, exactly one explicit action per real click,
+local connection popup and immediate hide/no-reopen/no-implicit-action on both
+formats. Focused24PASS4.50s. Existing74 Main onClicked lines mechanically
+preserved; one additional About close invokes the same existing local closure.
+Original fixed48px header style assertion is replaced with the new shared header
+expectation; real target geometry remains >=44px. Ruff0.16 src/tests/diff PASS.
+
+FINAL matrix-pinned-final has398 actual views (including280 explicit14pages x
+five locales x Glass off/on x two formats), zero QML errors/binding loops.
+Older first/second/third/control-final/visible-final/final/matrix-final directories
+are diagnostics/intermediate, not added. Both final sizes visually inspected.
+Exact reviewwheel7517f4708c2476258526906afe17619ccde564d4807d1313beae8746b9ca6287
+matches80 runtime files. Both real ARM targets execute this exact wheel only in
+fresh own /tmp offscreen probes: real action/connection clicks, group geometry,
+immediate popup withdrawal PASS; installed release/API/client identity unchanged.
+This is not an installed/touch/live Spotify/GPU performance result.
+
+Initial mechanical title selector stopped before Main mutation on a different
+Music DNA label; corrected to the intended panel. Initial stale RowLayout spacing
+caused a QML load error. A visibleChildren-based group visibility circle hid
+buttons; fixed and real click/geometry tests prove the final groups. Probe first
+used an unsupported typed-popup Python converter and native Qt style; it now
+uses QML expression inspection and production Basic/Inter initialization, with
+all action/visibility assertions retained. Initial full2527PASS/1FAIL was the
+obsolete48px source-style assertion, not a waived functional test. All logs and
+intermediate images retained under taskvisualizations/pi-page-toolbars.

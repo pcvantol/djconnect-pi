@@ -15,10 +15,9 @@ Item {
         anchors.fill: parent
         anchors.margins: 24
         spacing: 20
-        RowLayout {
-            Layout.fillWidth: true
-            GlassButton { objectName: "informationBack"; text: page.tr("more"); iconName: "back"; onClicked: page.back() }
-            Text { text: page.tr(page.feedback ? "feedback" : page.privacy ? "privacy" : "legal"); color: BrandTheme.colors.text; font.pixelSize: 32; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+        PageToolbar {
+            title: page.tr(page.feedback ? "feedback" : page.privacy ? "privacy" : "legal")
+            leading: [ GlassButton { objectName: "informationBack"; text: page.tr("more"); iconName: "back"; tertiary: true; onClicked: page.back() } ]
         }
         ScrollView {
             id: scroll

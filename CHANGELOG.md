@@ -4,6 +4,9 @@
 
 ## 4.0.0-rc.6
 
+- Use shared iPad-style page action capsules and large titles; keep compact
+  headers on one row, local connection readouts and pinned Settings/About headers.
+
 - Couple decorative backgrounds and shared Glass/hero materials to confirmed
   Mood and already displayed artwork, with centrally bounded tint strength.
   Withdraw image-derived colour with its original source; retain semantic

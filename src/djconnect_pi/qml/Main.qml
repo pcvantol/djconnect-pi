@@ -354,6 +354,7 @@ BrandWindow {
         Accessible.description: text
         Layout.preferredWidth: 48
         Layout.preferredHeight: 48
+        background: GlassSurface { tertiary: true; interactive: true; pressed: refreshControl.down; focused: refreshControl.activeFocus }
         contentItem: MenuIcon {
             iconName: "refresh"
             iconColor: refreshControl.enabled ? BrandTheme.colors.text : BrandTheme.colors.disabledText
@@ -926,16 +927,12 @@ BrandWindow {
             anchors.bottomMargin: 130
             spacing: 12
 
-            RowLayout {
+            PageToolbar {
+                title: panel.heading
+                showConnection: true
+                connectionLabel: root.tr("connection_type")
+                connectionText: djconnect.connectionType
                 Layout.fillWidth: true
-
-                Text {
-                    text: panel.heading
-                    color: BrandTheme.colors.text
-                    font.pixelSize: 34
-                    font.bold: true
-                    Layout.fillWidth: true
-                }
 
                 RefreshIconButton {
                     onClicked: panel.refreshRequested()
@@ -1231,19 +1228,12 @@ BrandWindow {
             anchors.bottomMargin: root.edge + 96
             spacing: 10
 
-            RowLayout {
+            PageToolbar {
+                title: root.tr("now_playing")
+                showConnection: true
+                connectionLabel: root.tr("connection_type")
+                connectionText: djconnect.connectionType
                 Layout.fillWidth: true
-                Layout.preferredHeight: 48
-                spacing: 10
-
-                Text {
-                    text: root.tr("now_playing")
-                    color: BrandTheme.colors.text
-                    font.pixelSize: 34
-                    font.bold: true
-                    elide: Text.ElideRight
-                    Layout.fillWidth: true
-                }
 
                 BusyIndicator {
                     running: djconnect.busy
@@ -1251,8 +1241,6 @@ BrandWindow {
                     implicitWidth: 28
                     implicitHeight: 28
                 }
-
-
 
                 RefreshIconButton {
                     id: nowRefreshButton
@@ -1379,8 +1367,6 @@ BrandWindow {
 
         }
 
-
-
     }
 
     Rectangle {
@@ -1401,19 +1387,12 @@ BrandWindow {
             anchors.bottomMargin: root.edge + 112
             spacing: 10
 
-            RowLayout {
+            PageToolbar {
+                title: root.tr("control")
+                showConnection: true
+                connectionLabel: root.tr("connection_type")
+                connectionText: djconnect.connectionType
                 Layout.fillWidth: true
-                Layout.preferredHeight: 48
-                spacing: 10
-
-                Text {
-                    text: root.tr("control")
-                    color: BrandTheme.colors.text
-                    font.pixelSize: 34
-                    font.bold: true
-                    elide: Text.ElideRight
-                    Layout.fillWidth: true
-                }
 
                 BusyIndicator {
                     running: djconnect.busy
@@ -1710,9 +1689,17 @@ BrandWindow {
 
         AppBackground {}
 
+        PageToolbar {
+            id: settingsToolbar
+            anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top
+            anchors.margins: 22
+            title: root.tr("setup_title")
+        }
+
         ScrollView {
             id: settingsScroll
-            anchors.fill: parent
+            anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
+            anchors.top: settingsToolbar.bottom
             anchors.margins: 22
             anchors.bottomMargin: 130
             clip: true
@@ -1723,13 +1710,6 @@ BrandWindow {
                 width: Math.max(0, settingsScroll.availableWidth)
                 spacing: 20
 
-                Text {
-                    text: root.tr("setup_title")
-                    color: BrandTheme.colors.text
-                    font.pixelSize: 38
-                    font.bold: true
-                    Layout.fillWidth: true
-                }
 
                 ColumnLayout {
                     Layout.fillWidth: true
@@ -2219,14 +2199,7 @@ BrandWindow {
             anchors.bottomMargin: root.edge + 126
             spacing: 16
 
-            Text {
-                text: root.tr("more")
-                color: BrandTheme.colors.text
-                font.pixelSize: 48
-                font.bold: true
-                elide: Text.ElideRight
-                Layout.fillWidth: true
-            }
+            PageToolbar { title: root.tr("more") }
 
             ScrollView {
                 Layout.fillWidth: true
@@ -2345,18 +2318,12 @@ BrandWindow {
             anchors.bottomMargin: root.edge + 126
             spacing: 12
 
-            RowLayout {
+            PageToolbar {
+                title: root.tr("track_insight")
+                showConnection: true
+                connectionLabel: root.tr("connection_type")
+                connectionText: djconnect.connectionType
                 Layout.fillWidth: true
-                spacing: 10
-
-                Text {
-                    text: root.tr("track_insight")
-                    color: BrandTheme.colors.text
-                    font.pixelSize: 40
-                    font.bold: true
-                    elide: Text.ElideRight
-                    Layout.fillWidth: true
-                }
 
                 LoadingSpinner {
                     visible: djconnect.askDjBusy
@@ -2701,19 +2668,12 @@ BrandWindow {
             anchors.bottomMargin: root.edge + 126
             spacing: 10
 
-            RowLayout {
+            PageToolbar {
+                title: root.tr("music_discovery")
+                showConnection: true
+                connectionLabel: root.tr("connection_type")
+                connectionText: djconnect.connectionType
                 Layout.fillWidth: true
-                Layout.preferredHeight: 48
-                spacing: 10
-
-                Text {
-                    text: root.tr("music_discovery")
-                    color: BrandTheme.colors.text
-                    font.pixelSize: 34
-                    font.bold: true
-                    elide: Text.ElideRight
-                    Layout.fillWidth: true
-                }
 
                 LoadingSpinner {
                     visible: djconnect.musicDiscoveryBusy
@@ -2888,7 +2848,6 @@ BrandWindow {
                                         smooth: true
                                     }
                                 }
-
 
                                 ColumnLayout {
                                     Layout.fillWidth: true
@@ -3100,18 +3059,12 @@ BrandWindow {
             anchors.bottomMargin: root.edge + 126
             spacing: 14
 
-            RowLayout {
+            PageToolbar {
+                title: root.tr("music_dna")
+                showConnection: true
+                connectionLabel: root.tr("connection_type")
+                connectionText: djconnect.connectionType
                 Layout.fillWidth: true
-                spacing: 12
-
-                Text {
-                    text: root.tr("music_dna")
-                    color: BrandTheme.colors.text
-                    font.pixelSize: 42
-                    font.bold: true
-                    elide: Text.ElideRight
-                    Layout.fillWidth: true
-                }
 
                 LoadingSpinner {
                     visible: djconnect.musicDnaBusy
@@ -3259,18 +3212,12 @@ BrandWindow {
             anchors.bottomMargin: 130
             spacing: 10
 
-            RowLayout {
+            PageToolbar {
+                title: root.tr("ask_dj")
+                showConnection: true
+                connectionLabel: root.tr("connection_type")
+                connectionText: djconnect.connectionType
                 Layout.fillWidth: true
-                Layout.preferredHeight: 48
-                spacing: 10
-
-                Text {
-                    text: root.tr("ask_dj")
-                    color: BrandTheme.colors.text
-                    font.pixelSize: 34
-                    font.bold: true
-                    Layout.fillWidth: true
-                }
 
                 BusyIndicator {
                     running: djconnect.askDjBusy
@@ -3285,6 +3232,7 @@ BrandWindow {
                     onClicked: djconnect.refreshAskDjHistory()
                 }
 
+                leading: [
                 Button {
                     id: askDjClearButton
                     enabled: !djconnect.askDjBusy && djconnect.askDjMessages.length > 0
@@ -3310,6 +3258,7 @@ BrandWindow {
                         opacity: askDjClearButton.enabled ? 1.0 : 0.62
                     }
                 }
+                ]
 
             }
 
@@ -5162,9 +5111,18 @@ BrandWindow {
         AppBackground {}
         ModalBlocker {}
 
+        PageToolbar {
+            id: aboutToolbar
+            anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top
+            anchors.margins: 22
+            title: root.tr("about")
+            GlassButton { text: root.tr("close"); tertiary: true; onClicked: root.aboutOpen = false }
+        }
+
         ScrollView {
             id: aboutScroll
-            anchors.fill: parent
+            anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
+            anchors.top: aboutToolbar.bottom
             anchors.margins: 22
             clip: true
             ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
@@ -5173,6 +5131,7 @@ BrandWindow {
             ColumnLayout {
                 width: Math.max(0, aboutScroll.availableWidth)
                 spacing: 18
+
 
                 AppBanner {
                     logoSize: 82
@@ -5209,7 +5168,6 @@ BrandWindow {
                 }
                 }
 
-
                 GlassCard {
                     Layout.fillWidth: true
                 Text {
@@ -5244,7 +5202,6 @@ BrandWindow {
                     Text { text: djconnect.haUrl; color: BrandTheme.colors.text; font.pixelSize: 18; Layout.fillWidth: true; elide: Text.ElideMiddle }
                 }
                 }
-
 
                 GlassCard {
                     Layout.fillWidth: true
