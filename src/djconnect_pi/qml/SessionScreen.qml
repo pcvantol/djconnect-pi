@@ -1069,10 +1069,77 @@ Item {
                 GlassButton { objectName: "sessionPlaybackNext"; iconName: "next"; Accessible.name: screen.tr("next"); Layout.fillWidth: true; enabled: !!screen.state.playback_control.enabled; onClicked: screen.owner.playbackCommand(screen.state.session_id, screen.state.playback.item_id, "next") }
             }
             GlassButton { objectName: "sessionPlaybackFavorite"; visible: !!screen.state.playback_control.favorite; text: screen.tr("add_to_favorites"); iconName: "heart"; Layout.fillWidth: true; enabled: !!screen.state.playback_control.enabled; onClicked: screen.owner.playbackCommand(screen.state.session_id, screen.state.playback.item_id, "save_current_track") }
+            ColumnLayout {
+                objectName: "sessionVolumeControls"
+                visible: !!screen.state.playback_control.volume_supported
+                Layout.fillWidth: true; spacing: 8
+                readonly property var observation: screen.state.playback_control.volume || ({})
+                readonly property bool known: typeof observation.percent === "number"
+                Text {
+                    objectName: "sessionVolumeObserved"
+                    text: parent.known ? screen.tr("volume") + ": " + parent.observation.percent + "%" : screen.tr(screen.state.playback_control.volume_status === "unavailable" ? "session_volume_unavailable" : "session_volume_unknown")
+                    textFormat: Text.PlainText; color: BrandTheme.colors.text
+                    font.pixelSize: 19; Layout.fillWidth: true; wrapMode: Text.WordWrap
+                }
+                Text {
+                    text: parent.observation.output_name || ""
+                    visible: text.length > 0; textFormat: Text.PlainText
+                    color: BrandTheme.colors.muted; font.pixelSize: 16; Layout.fillWidth: true; wrapMode: Text.WordWrap
+                }
+                Text {
+                    text: screen.tr("session_volume_limit"); textFormat: Text.PlainText
+                    color: BrandTheme.colors.muted; font.pixelSize: 16; Layout.fillWidth: true; wrapMode: Text.WordWrap
+                }
+                Slider {
+                    id: sessionVolumeSlider
+                    objectName: "sessionVolumeSlider"
+                    from: 0; to: 60; stepSize: 1; Layout.fillWidth: true
+                    implicitHeight: 44
+                    visible: parent.known && parent.observation.percent <= 60
+                    enabled: !!screen.state.playback_control.enabled && parent.known
+                    Accessible.name: screen.tr("volume")
+                    property int intentLease: -1
+                    property int selectedValue: 0
+                    property bool userMoved: false
+                    onPressedChanged: {
+                        if (pressed) {
+                            intentLease = screen.state.playback_control.volume.lease
+                            userMoved = false
+                        } else if (userMoved) {
+                            userMoved = false
+                            screen.owner.setPlaybackVolume(screen.state.session_id, screen.state.playback.item_id, intentLease, selectedValue)
+                        }
+                    }
+                    onMoved: {
+                        selectedValue = Math.round(value)
+                        if (pressed) userMoved = true
+                        else screen.owner.setPlaybackVolume(screen.state.session_id, screen.state.playback.item_id, screen.state.playback_control.volume.lease, selectedValue)
+                    }
+                    Binding {
+                        target: sessionVolumeSlider; property: "value"
+                        value: screen.state.playback_control.volume.percent === undefined ? 0 : screen.state.playback_control.volume.percent
+                        when: !sessionVolumeSlider.pressed
+                        restoreMode: Binding.RestoreNone
+                    }
+                }
+                GlassButton {
+                    objectName: "sessionVolumeReduce"
+                    visible: parent.known && parent.observation.percent > 60
+                    text: screen.tr("session_volume_reduce"); Layout.fillWidth: true
+                    enabled: !!screen.state.playback_control.enabled
+                    onClicked: screen.owner.setPlaybackVolume(screen.state.session_id, screen.state.playback.item_id, screen.state.playback_control.volume.lease, 60)
+                }
+                GlassButton {
+                    objectName: "sessionVolumeRead"
+                    text: screen.tr("session_volume_read"); Layout.fillWidth: true
+                    enabled: !!screen.state.playback_control.enabled
+                    onClicked: screen.owner.readPlaybackVolume(screen.state.session_id, screen.state.playback.item_id)
+                }
+            }
             Text {
                 objectName: "sessionPlaybackStatus"
                 visible: !!screen.state.playback_control.status
-                text: screen.tr(screen.state.playback_control.status === "sending" ? "session_question_sending" : screen.state.playback_control.status === "accepted" ? "session_playback_sent" : "session_uncertain")
+                text: screen.tr(screen.state.playback_control.reading_volume ? "loading" : screen.state.playback_control.status === "sending" ? "session_question_sending" : screen.state.playback_control.status === "accepted" ? "session_playback_sent" : "session_uncertain")
                 textFormat: Text.PlainText; font.pixelSize: 18; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true
             }
             RowLayout {

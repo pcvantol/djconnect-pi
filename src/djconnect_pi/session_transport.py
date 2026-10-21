@@ -232,6 +232,17 @@ class SessionTransport:
         return self._request(binding, "POST", "command", {
             "command": command, "request_source": "device_command", "app_version": PROTOCOL_VERSION}, isolated=True)
 
+    def playback_volume(self, binding, value: int, backend: str):
+        if (type(value) is not int or not 0 <= value <= 60
+                or not isinstance(backend, str) or backend not in {"spotify_direct", "music_assistant"}):
+            raise SessionError("invalid")
+        # The released MA adapter accepts a fraction; integer1 means100% there.
+        # Spotify accepts integer percentages. Keep this consumer's0..60 limit.
+        wire_value = value / 100 if backend == "music_assistant" else value
+        return self._request(binding, "POST", "command", {
+            "command": "set_volume", "value": wire_value,
+            "request_source": "device_command", "app_version": PROTOCOL_VERSION}, isolated=True)
+
     def end(self, binding, session_id: str):
         return self._request(binding, "POST", "session/end", {"session_id": identifier(session_id)})
 

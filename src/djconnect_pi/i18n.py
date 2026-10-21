@@ -1410,6 +1410,11 @@ for _key, _values in _ARTWORK_PREPARE_TRANSLATIONS.items():
 
 
 _PLAYBACK_CONTROL_TRANSLATIONS = {
+    "session_volume_read": ("Read current volume", "Huidig volume lezen", "Aktuelle Lautstärke lesen", "Lire le volume actuel", "Leer volumen actual"),
+    "session_volume_unknown": ("Read the volume before adjusting it.", "Lees het volume voordat je het aanpast.", "Lies die Lautstärke, bevor du sie änderst.", "Lisez le volume avant de le modifier.", "Lee el volumen antes de ajustarlo."),
+    "session_volume_unavailable": ("Current output volume is unavailable.", "Het volume van de huidige uitvoer is niet beschikbaar.", "Die Lautstärke der aktuellen Ausgabe ist nicht verfügbar.", "Le volume de la sortie actuelle est indisponible.", "El volumen de la salida actual no está disponible."),
+    "session_volume_limit": ("This control is limited to 60%.", "Deze bediening is begrensd op 60%.", "Diese Steuerung ist auf 60% begrenzt.", "Cette commande est limitée à 60%.", "Este control está limitado al 60%."),
+    "session_volume_reduce": ("Set to 60%", "Instellen op 60%", "Auf 60% einstellen", "Régler à 60%", "Ajustar al 60%"),
     "session_playback_controls": ("Playback controls", "Afspeelbediening", "Wiedergabesteuerung", "Commandes de lecture", "Controles de reproducción"),
     "session_playback_sent": (
         "Command sent. Playback updates from the server.",

@@ -2154,3 +2154,51 @@ are unchanged on disk; copied owner IDs/deadlines/envelopes are synthetic. No
 new installed, HA-dev, hardware touch, media-license or erasure acceptance is
 claimed. New deletion capability/UI stays absent, and EADBrc.5 installations and
 immutable release assets remain unchanged.
+
+
+## Shared Session volume source qualification — 21 October 2026
+
+The playback pop-out now offers an explicit current-volume read and a 0–60%
+slider on both formats. Opening, notifications, programmatic slider values and
+drag movement submit no volume write. A real release or keyboard movement makes
+one typed intent. Zero is preserved; unknown data never defaults to 50%. An
+observed volume above 60% is shown honestly with a separate explicit set-to-60%
+button. The 60% ceiling follows pinned Core8b221d07's existing Pi contract.
+
+A RAM-only observation lease binds the original Profile/Session/item/state/source,
+backend/revision and output ID. Each write independently reads the owner active
+Session and raw backend status, requires strict current volume capability and an
+unchanged output/observed volume, then makes one existing paired isolated HTTP
+set_volume request. Spotify receives integer percent; the released MA adapter
+receives target/100 because its integer1 means100%. No new wire fields, output
+selector, CAS guarantee, response import, optimistic volume, fallback or write
+replay is introduced. Original private personal/household admission stays narrow;
+other authorized Profile modes remain an independent consumer audit, not a Core
+block. A backend change after the final read remains possible under the existing
+global command semantics. Close/hide/foreground/Profile/item/backend/End withdraw
+queued intents; a started HTTP request may finish. One dedicated worker keeps End
+available. Local read failure preserves the Session and shows unavailable.
+
+Validation:105 new volume cases, including two real held-worker/End subprocesses,
+and the full1842-test integrated local suite pass with no skips. Ruff0.16.0 and
+diff checks pass. Final180 actual isolated QML views cover both formats, all five
+locales and both backend shapes, including real press/drag/release, keyboard,
+close-before-release, unknown/zero/above-limit and unsupported states. Both layouts
+were visually inspected and compact pop-out bounds checked. There are zero QML
+errors/binding loops; one macOS font-alias startup warning is retained. The first
+80-view Spotify-only run is intermediate and is not added to180. The added worker
+test initially passed an observation dictionary instead of its lease; the six
+fixture failures and corrected105-pass log are retained. All transport/owner and
+OS wake effects are synthetic/mocked; no network, HA/provider, device playback,
+installed ARM or physical touch acceptance is claimed.
+
+Evidence: taskvisualizations/pi-session-volume-consumer and the earlier143-case
+pinned contract audit. The local review wheel SHA256
+074f3fe68281b94e7cf6e7dcdc87b244500600d1f6587525f5e6a22776840b42
+matches all65 runtime files. The initial host check observed the announced Core
+maintenance URL outage; after the owner completed installation a fresh actual-root
+verification returned MATCH. No Pi repair was performed. Both installed EADBrc.5
+apps, immutable release assets and operative bindings remain unchanged. Exact
+independent review/protected delivery and a distinct release are still required.
+Output selection, favorite-state/removal and gestures remain open. HA-dev login
+and the active Pi10 Session click test remain explicitly human-deferred.
