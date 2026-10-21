@@ -2120,3 +2120,37 @@ replace real hardware wake/capture verification after an approved distinct
 release. The installed EADB rc.5 files, services, configuration and pairing are
 unchanged. Peter deferred HA-dev authentication, so Pi10 pairing and the active
 Session click test remain parked until human resumption.
+
+
+## Saved Session list SQL revisions — 21 October2026
+
+Core public_session copies each saved Session's SQL revision as an integer.
+Pi previously required a string and rejected an otherwise valid nonempty list.
+The exact public_session AST is identical at the existing Core8b221d07 pin and
+new sourcebbb7a23d: this is existing read compatibility, not adoption of the new
+deletion endpoints. Pi now preserves nonnegative integer header revisions as
+list metadata, and keeps previously admitted nonempty string metadata compatible.
+Boolean, negative, float, absent and container revisions remain invalid. Detail
+and cursor revisions retain their separate nonempty opaque-string checks; list
+metadata cannot become a deletion CAS token. Retention, Profile/epoch fences,
+source rights and all mutation paths are unchanged.
+
+Twenty-two new cases include zero/large SQL values, malformed types, unchanged
+opaque detail admission, original retention expiry, fresh multi-page refresh,
+late Profile withdrawal and stale-list removal after a malformed page. The four
+numeric regression cases fail on the original Pi code. After repair81 focused
+checks and the complete1737-test local suite pass with no skips. Ruff0.16.0 and
+diff checks pass. Twenty actual isolated Qt list/detail views cover both sizes
+and all five locales, including10 genuine Qt mouse clicks from the numeric-header
+list to an independently read opaque-revision detail. Active Session state is
+preserved; no network, OS commands or deletion routes run. Both formats were
+visually checked. The initial fixture looked for a Repeater delegate in QObject
+ownership rather than the visual tree, then exposed a queued signal during
+fixture teardown; the final fixture traverses real visual items and drains
+callbacks before destroying their source. Diagnostics are retained.
+
+Evidence:taskvisualizations/pi-history-delete-handoff-review. Fixture body bytes
+are unchanged on disk; copied owner IDs/deadlines/envelopes are synthetic. No
+new installed, HA-dev, hardware touch, media-license or erasure acceptance is
+claimed. New deletion capability/UI stays absent, and EADBrc.5 installations and
+immutable release assets remain unchanged.

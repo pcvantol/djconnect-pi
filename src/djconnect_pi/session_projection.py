@@ -177,7 +177,13 @@ def history_page(response, *, session_id=None, now=None):
         ids = set()
         projected = []
         for header in sessions:
-            if not isinstance(header, dict) or not isinstance(header.get("revision"), str) or not header["revision"]:
+            if not isinstance(header, dict):
+                raise SessionError("invalid")
+            revision = header.get("revision")
+            # List headers carry SQL metadata, not the opaque detail/CAS token.
+            # Preserve its original type; never manufacture a detail revision.
+            if not ((type(revision) is int and revision >= 0)
+                    or (isinstance(revision, str) and revision)):
                 raise SessionError("invalid")
             value = identifier(header.get("session_id"))
             if value in ids:
