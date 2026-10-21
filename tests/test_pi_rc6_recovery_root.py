@@ -506,3 +506,54 @@ def test_boot_change_after_install_keeps_guard_and_claim(tmp_path):
     system=FakeSystem(tmp_path);system.boots=[BOOT,BOOT,BOOT,"changed"]
     with pytest.raises(recovery.RecoveryError):recovery.execute(system,RUN,BOOT)
     assert system.held and system.claimed and "restore" not in system.calls
+
+
+@pytest.mark.parametrize("parent_exists", [False, True])
+@pytest.mark.parametrize("fail_at", [None, 1, 2, 3, 4])
+def test_real_claim_syncs_all_data_and_directory_entries_before_effects(tmp_path, monkeypatch, parent_exists, fail_at):
+    system = FakeSystem(tmp_path)
+    system.ledger = tmp_path / "private" / "ledger"
+    parent = system.ledger.parent
+    if parent_exists:
+        parent.mkdir(mode=0o700)
+    real_stat = Path.stat
+    def metadata(path, *args, **kwargs):
+        actual = real_stat(path, *args, **kwargs)
+        if path == parent:
+            return SimpleNamespace(st_uid=0, st_mode=actual.st_mode)
+        return actual
+    monkeypatch.setattr(Path, "stat", metadata)
+    original_open = os.open
+    opened = {}
+    syncs = []
+    def open_file(path, flags, *args, **kwargs):
+        fd = original_open(path, flags, *args, **kwargs)
+        opened[fd] = Path(path)
+        return fd
+    monkeypatch.setattr(recovery.os, "open", open_file)
+    def sync(fd):
+        path = opened[fd]
+        syncs.append(path)
+        assert "hold" not in system.calls and "install" not in system.calls
+        if path.name == "claim.json":
+            assert json.loads(path.read_bytes()) == {"original_run": recovery.ORIGINAL_RUN, "recovery_run": RUN, "source": recovery.SOURCE}
+            assert os.fstat(fd).st_mode & 0o777 == 0o600
+        if len(syncs) == fail_at:
+            raise OSError("synthetic fsync failure")
+    monkeypatch.setattr(recovery.os, "fsync", sync)
+    def durable_claim(run):
+        recovery.System.claim(system, run)
+        system.claimed = True
+    system.claim = durable_claim
+    expected = [parent.parent, system.ledger / "claim.json", system.ledger, parent]
+    if fail_at:
+        with pytest.raises(OSError, match="fsync failure"):
+            recovery.execute(system, RUN, BOOT)
+        assert syncs == expected[:fail_at]
+        assert not system.claimed and not system.held and "hold" not in system.calls and "install" not in system.calls
+        # A partly written claim is retained, never removed or automatically rearmed.
+        assert system.ledger.exists() is (fail_at > 1)
+    else:
+        assert recovery.execute(system, RUN, BOOT)["result"] == "RECOVERED_PENDING_SMOKE"
+        assert syncs == expected and system.claimed and "install" in system.calls
+        assert (system.ledger / "claim.json").exists()

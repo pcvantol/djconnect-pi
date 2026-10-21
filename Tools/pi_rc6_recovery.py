@@ -17,7 +17,7 @@ ORIGINAL_MANIFEST = "release-4.0.0-rc.6-pi-two-instance-20261021"
 ORIGINAL_CORE = "0b9b4b9845ac7764c9380e0ca88cafd05e10b1fe"
 ORIGINAL_MANIFEST_SHA256 = "8740b4c3d751354061b9aeaf45689a4dbe525240f7047a2b923008d7e6495393"
 # Set from the exact reviewed helper bytes; a local edited helper is never staged.
-HELPER_SHA256 = "0b3176bb5e5f7f06c74eeab06303184c06a66dde66c3b6eae6dbb6e5e8fe01fa"
+HELPER_SHA256 = "11ce41115c7aa5ac34e568f3ea9008915f342bc3272850b56c61eed19a760ab9"
 
 
 def selected(authority):

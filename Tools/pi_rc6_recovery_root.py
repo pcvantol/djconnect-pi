@@ -221,10 +221,25 @@ class System:
             parent.mkdir(mode=0o700)
         need(not parent.is_symlink() and parent.stat().st_uid == 0
              and stat.S_IMODE(parent.stat().st_mode) == 0o700, "RECOVERY_LEDGER_INVALID")
-        # Never remove or renew this claim, including after timeout or interrupted helper.
+        def sync_directory(path):
+            fd = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+            try:
+                os.fsync(fd)
+            finally:
+                os.close(fd)
+        # A file fsync does not persist its directory entry. Persist the possibly
+        # new private parent, claim data/metadata, claim entry, then ledger entry.
+        # Every failure propagates before hold/install; no cleanup or rearm.
+        sync_directory(parent.parent)
         self.ledger.mkdir(mode=0o700)
-        (self.ledger/"claim.json").write_text(json.dumps({"original_run": ORIGINAL_RUN, "recovery_run": run, "source": SOURCE})+"\n")
-        (self.ledger/"claim.json").chmod(0o600)
+        fd = os.open(self.ledger/"claim.json", os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+        with os.fdopen(fd, "wb") as stream:
+            stream.write((json.dumps({"original_run": ORIGINAL_RUN, "recovery_run": run, "source": SOURCE})+"\n").encode())
+            stream.flush()
+            os.fchmod(stream.fileno(), 0o600)
+            os.fsync(stream.fileno())
+        sync_directory(self.ledger)
+        sync_directory(parent)
 
     def maintenance_available(self):
         need(not self.guard_dir.exists() and not self.guard_dir.is_symlink(), "RECOVERY_EXISTING_MAINTENANCE")

@@ -172,7 +172,7 @@ def recovered_deployment(binding: Binding, record: dict, run_id: str) -> bool:
         and run_id != "39669504016" and record.get("watchdog_restored") is True
         and record.get("configuration_preserved_by_installer") is True
         and type(record.get("verified_packaged_files")) is int and record["verified_packaged_files"] == 80
-        and record.get("recovery_helper_sha256") == "0b3176bb5e5f7f06c74eeab06303184c06a66dde66c3b6eae6dbb6e5e8fe01fa")
+        and record.get("recovery_helper_sha256") == "11ce41115c7aa5ac34e568f3ea9008915f342bc3272850b56c61eed19a760ab9")
 
 
 def validate_smoke_join(binding: Binding, deployment: dict, smoke: dict, run_id: str) -> None:

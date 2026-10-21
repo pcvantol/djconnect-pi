@@ -44,7 +44,10 @@ services. Fresh boot is joined across the checked SSH channel and privileged
 preflight. No endpoint, path or command is supplied by a caller.
 
 A persistent root-private exclusive claim under /var/lib burns this one recovery
-before any watchdog or installer mutation, even on timeout/failure. The helper
+before any watchdog or installer mutation. It synchronizes the potentially new
+parent directory entry, claim file data/metadata, claim entry and ledger entry
+with four checked fsync calls before hold/install. Every synchronization failure
+propagates before effects; no retry, claim deletion or rearm occurs. The helper
 stops the existing watchdog service/timer and adds only its own runtime service
 drop-in with ExecCondition=/usr/bin/false. It verifies PID1 actually loaded this
 condition and that no success/failure/shutdown hooks apply. A runtime unit mask
@@ -70,8 +73,8 @@ consumer/manifest joins; no cross-consumer carry-forward or overall PASS.
 
 ## Qualification
 
-192 added cases;518 directed locked-tool PASS4.28s. FULL2753 integrated PASS/no
-skips47.08s; Ruff0.16 src/tests and changed deployment tools PASS; diff PASS.
+202 added cases;528 directed locked-tool PASS3.75s. FULL2763 integrated PASS/no
+skips45.53s; Ruff0.16 src/tests and changed deployment tools PASS; diff PASS.
 Two changed YAML files parsed and their actual Bash run blocks pass bash -n.
 Tests include real local SSH pipes with intercepted effects, actual shell syntax
 of the staged wrapper, one-claim race, boot/context/identity/authority withdrawal,
@@ -90,3 +93,19 @@ were never device executions. Python lacks PyYAML; existing Ruby Psych parsed
 YAML without installing dependencies. Earlier test runs are intermediate, not
 added to these final totals. Deployment is still pending exact independent review,
 protected source/Finalization and new protected Core operative binding.
+
+## Independent review P1: crash-durable claim
+
+Exact6d7233d review found missing durable claim writes. That candidate is blocked,
+not given GO and never executed on a device. Exclusive mkdir alone did not ensure
+the claim or containing directory entries survived a crash. The corrected claim
+fsyncs parent.parent, flushed/fchmod0600 claim file, ledger and parent, in that
+order before returning to hold/install. Linux requires explicit directory fsync
+in addition to the file: https://man7.org/linux/man-pages/man2/fsync.2.html.
+Ten new cases cover existing/new parent and success/all four sync failures. All
+ten fail against the original unmodified claim AST; the corrected cases PASS.
+No functional/security assertions were relaxed. Helper bytes are re-pinned at
+all three joins. Earlier192/518/2753 results remain historical component proof;
+final202/528/2763 totals above replace rather than add them. This is source/test
+evidence, not a simulated crash/powerloss/hardware durability acceptance result.
+Exact new independent review is required; the old OwnerAuth/CI is not reused.
