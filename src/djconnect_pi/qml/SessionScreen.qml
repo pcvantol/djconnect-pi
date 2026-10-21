@@ -1032,6 +1032,12 @@ Item {
                 color: BrandTheme.colors.muted; font.pixelSize: 20; wrapMode: Text.WordWrap; Layout.fillWidth: true
             }
             GlassButton {
+                objectName: "sessionDeleteStatus"
+                visible: screen.historical && !!screen.state.archive_delete && screen.state.archive_delete.status_available
+                text: screen.tr("session_delete_status_action"); enabled: !screen.owner.busy; Layout.fillWidth: true
+                onClicked: { if (screen.owner.checkHistoryDeleteStatus()) archiveDeletePanel.open() }
+            }
+            GlassButton {
                 objectName: "sessionDeleteRecovery"
                 visible: screen.historical && !!screen.state.archive_delete && (screen.state.archive_delete.blocked || screen.state.archive_delete.status === "deleted")
                 text: screen.tr("refresh"); enabled: !screen.owner.busy
@@ -1521,7 +1527,7 @@ Item {
             spacing: screen.compact ? 14 : 18
             Text {
                 objectName: "sessionDeleteMessage"
-                text: screen.tr(screen.state.archive_delete.status === "confirm" ? (archiveDeletePanel.bulk ? "session_delete_all_confirm" : "session_delete_confirm") : screen.state.archive_delete.status === "deleted" ? (archiveDeletePanel.bulk ? "session_delete_all_complete" : "session_delete_complete") : screen.state.archive_delete.status === "uncertain" ? "session_delete_uncertain" : screen.state.archive_delete.status === "empty" ? "session_delete_all_empty" : screen.state.archive_delete.status === "snapshot_conflict" ? "session_delete_all_conflict" : screen.state.archive_delete.status === "failed" ? "session_error" : "loading").replace("%1", String(screen.state.archive_delete.count))
+                text: screen.tr(screen.state.archive_delete.status === "confirm" ? (archiveDeletePanel.bulk ? "session_delete_all_confirm" : "session_delete_confirm") : screen.state.archive_delete.status === "deleted" ? (archiveDeletePanel.bulk ? "session_delete_all_complete" : "session_delete_complete") : screen.state.archive_delete.status === "uncertain" ? "session_delete_uncertain" : screen.state.archive_delete.status === "pending" ? "session_delete_status_pending" : screen.state.archive_delete.status === "unknown" ? "session_delete_status_unknown" : screen.state.archive_delete.status === "expired_unknown" ? "session_delete_status_expired" : screen.state.archive_delete.status === "empty" ? "session_delete_all_empty" : screen.state.archive_delete.status === "snapshot_conflict" ? "session_delete_all_conflict" : screen.state.archive_delete.status === "failed" ? "session_error" : "loading").replace("%1", String(screen.state.archive_delete.count))
                 textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: screen.compact ? 22 : 28
                 wrapMode: Text.WordWrap; Layout.fillWidth: true
             }
@@ -1540,12 +1546,18 @@ Item {
                 onClicked: screen.owner.confirmHistoryDelete(screen.state.archive_delete.lease)
             }
             GlassButton {
+                objectName: "sessionDeletePanelStatus"
+                visible: screen.state.archive_delete.status_available
+                text: screen.tr("session_delete_status_action"); Layout.fillWidth: true; enabled: !screen.owner.busy
+                onClicked: screen.owner.checkHistoryDeleteStatus()
+            }
+            GlassButton {
                 objectName: "sessionDeletePanelRefresh"
-                visible: screen.state.archive_delete.status === "snapshot_conflict" || screen.state.archive_delete.status === "empty" || screen.state.archive_delete.status === "failed" || screen.state.archive_delete.status === "uncertain" || screen.state.archive_delete.status === "deleted"
+                visible: screen.state.archive_delete.status === "pending" || screen.state.archive_delete.status === "unknown" || screen.state.archive_delete.status === "expired_unknown" || screen.state.archive_delete.status === "snapshot_conflict" || screen.state.archive_delete.status === "empty" || screen.state.archive_delete.status === "failed" || screen.state.archive_delete.status === "uncertain" || screen.state.archive_delete.status === "deleted"
                 text: screen.tr("refresh"); Layout.fillWidth: true; enabled: !screen.owner.busy
                 onClicked: { if (screen.owner.recoverHistoryDelete()) archiveDeletePanel.close() }
             }
-            GlassButton { objectName: "sessionDeleteCancel"; text: screen.tr(screen.state.archive_delete.status === "reading" || screen.state.archive_delete.status === "confirm" ? "cancel" : "close"); Layout.fillWidth: true; onClicked: archiveDeletePanel.close() }
+            GlassButton { objectName: "sessionDeleteCancel"; text: screen.tr((screen.state.archive_delete.status === "reading" && !screen.state.archive_delete.attempted) || screen.state.archive_delete.status === "confirm" ? "cancel" : "close"); Layout.fillWidth: true; onClicked: archiveDeletePanel.close() }
         }
     }
     Popup {

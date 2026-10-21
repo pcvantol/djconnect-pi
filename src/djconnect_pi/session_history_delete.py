@@ -163,3 +163,24 @@ class BulkDeleteIntent:
             self._claimed.append(True)
             return {"snapshot_id": self.snapshot.token, "operation_id": self.operation,
                     "target_count": self.snapshot.count, "confirmed": True}
+
+
+def archive_status_supported(payload):
+    if not isinstance(payload, dict):
+        return False
+    caps, versions = payload.get("capabilities"), payload.get("contract_versions")
+    return (isinstance(caps, dict) and isinstance(versions, dict)
+            and caps.get("session_history_delete_status") is True
+            and type(versions.get("session_history_delete_status")) is int
+            and versions["session_history_delete_status"] == 1)
+
+
+def original_archive_status(intent):
+    # Identifier-only RAM state, never reconstruct an opaque revision or mint ID.
+    if isinstance(intent, SingleDeleteIntent):
+        return {"operation": "single", "operation_id": intent.operation,
+                "body": {"session_id": intent.session_id, "expected_revision": intent.revision}}
+    if isinstance(intent, BulkDeleteIntent):
+        return {"operation": "all", "operation_id": intent.operation,
+                "body": {"snapshot_id": intent.snapshot.token}, "target_count": intent.snapshot.count}
+    raise SessionError("invalid")

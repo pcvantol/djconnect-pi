@@ -2607,3 +2607,72 @@ Fresh actual-root hostverify MATCH; no repair/cleanup/other-lane write. Independ
 exact PR119 review, protected source/separate Finalization/distinct immutable release
 and new operative binding are still required for deployment. HA-dev login and Pi10
 active-Session click test remain explicitly human-deferred.
+
+
+## Original archive deletion status recovery — 21 October 2026
+
+This SOURCE slice adds explicit readonly status recovery for the ORIGINAL single
+or bulk archive operation. Pi independently verified protected Core source1253
+58561f97a04c36fce21ba5e6886eb6c3640a4ec3 and separate Final1254
+b4bf47018d165e4f9e171291425a7a134ca9e0d2, actual canonical qualified statuses
+39591327915/39593182742, and exact contract API/git bytes: blob26299c6f881ac30863cac073d1bf55948cd32a79,
+SHA2563a868d32af4c9c68fb157c5795d6446a25210d5bb4a6963de48ca5c8cbbc0723.
+The private owner-installed receipt was read independently:232 source/Final files
+match, payload90766c59519934c4c960ca7599fce24bc2491714f0aaf2b409591066e8c32805,
+schema12/integrityOK/0pending, single/bulk/content/status capabilities1. This is
+OWNER RECEIPT readback, not Pi HA authentication, personal erasure, new operative
+pair or installed client acceptance. Individual-content prepare/delete UI remains
+client-owned work; no Core producer gap is inferred from its absence in Pi.
+
+The separate strict session_history_delete_status:true/version1 action appears
+only for a possibly posted original RAM intent in the same explicit/resolved
+Profile/device binding. It reuses the existing max1 archive worker; fresh owner-
+active/capability reads and a new visibility/view/current-Runtime read ticket
+fence GET session/history/delete/status. Query contains only paired identity,
+contract_version1, original operation ID/mode and exact original single target/
+opaque revision or bulk snapshot token. No confirmed, confirmation_id, Profile/
+private-session body hint or new operation is created. Isolated HTTP, original
+Bearer/Profile authority, URL/credential/redirect/no-retry guards and streamed
+2MiB/shape budgets remain. Four new keys in all five locales explain checking,
+pending, unknown and expired_unknown. Once the original POST may have started,
+the dialog says Close even while checking; no fictitious server cancellation.
+
+Typed admission verifies outer schema/owner/op/mode/body/digest, strict definitive
+boolean and one of four released states. Completed additionally requires the
+original exact nested receipt and captured bulk count; the client rejects a
+completed result beyond its ORIGINAL UUID journal lifetime. The status query can
+report expiry but cannot renew snapshot/operation consent or any display grant.
+Unknown/pending/expired and status-request validation/availability errors never
+settle an earlier ambiguous POST. They retain uncertainty and block a new delete
+intent. An explicit ordinary archive reload may withdraw stale views but likewise
+retains the original identifier-only RAM intent; another status click reads that
+same ID/body. No polling, new-ID retry, mutation replay or persistence of content.
+Owner/auth context withdrawal clears RAM state. Only a bound completed original
+receipt invokes whole-archive invalidation plus normal independent owner refresh;
+active Flow/settings/pairing/playback remain separate. End is independently free.
+
+A real QML regression found that clearArchive announced a changed list while the
+old detail was still present, letting the later derived searchTarget change
+invalidate the new recovery read. invalidateArchive now clears archive/list/detail/
+search/trails/selection first and then announces the complete withdrawal. Public
+clearArchive keeps its existing behavior. The observer regression sees no stale
+intermediate detail; all epoch/search/late-read fences remain unchanged. The failed
+Qt run and instrumented diagnostics are preserved, not counted as passes.
+
+Final qualification:126 new cases;521 focused status/deletion/transport PASS;
+full2449 integrated PASS/no skips40.77s. Final actual Qt gate540 views =240 status
+(single/bulk, unknown/pending/expired/completed, bad result, cancel/withdrawal,
+readonly refresh retaining uncertainty, same-ID recheck) +150 unmodified single
++150 unmodified bulk regressions, both formats/all five locales. Zero QML errors/
+binding loops; one font-alias startup warning per process retained. Both formats
+were visually inspected. Ruff0.16.0 src/tests and diff PASS. Local review wheel
+f4b09061ee9aecf25fe5ada5e343c2800c81452ef4100a94ab23913064ecd901
+matches67 runtime files. Evidence:taskvisualizations/pi-history-delete-status-consumer,
+qml-v2 (FINAL), single-regression, bulk-regression, package and exact producer
+exports/readbacks. Earlier qml-v1/diagnostic dirs are INTERMEDIATE, not added.
+No ARM, new installed/live HA/provider/model/physical touch or personal-delete PASS.
+Both installed immutable official EADBrc.5 apps and operative binding are unchanged.
+Fresh actual-root hostverify MATCH; no repair/cleanup/other-lane write. Independent
+exact PR119 review, protected source/separate Finalization/distinct release/new
+approved operative binding remain required for deployment. HA-dev authentication
+and active Pi10 Session click test remain explicitly human-deferred.

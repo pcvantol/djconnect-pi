@@ -1439,6 +1439,25 @@ for _key, _values in _PLAYBACK_CONTROL_TRANSLATIONS.items():
 
 # Confirmed erasure is separate from read-only archived contribution navigation.
 _SESSION_DELETE_TRANSLATIONS = {
+    "session_delete_status_action": ("Check deletion status", "Verwijderstatus controleren", "Löschstatus prüfen", "Vérifier la suppression", "Consultar estado de eliminación"),
+    "session_delete_status_pending": (
+        "The server is still processing the original deletion. Completion is not confirmed. No new deletion will be sent.",
+        "De server verwerkt de oorspronkelijke verwijdering nog. Voltooiing is niet bevestigd. Er wordt geen nieuwe verwijderopdracht verstuurd.",
+        "Der Server verarbeitet die ursprüngliche Löschung noch. Der Abschluss ist nicht bestätigt. Es wird kein neuer Löschauftrag gesendet.",
+        "Le serveur traite toujours la suppression initiale. Son achèvement n’est pas confirmé. Aucune nouvelle suppression ne sera envoyée.",
+        "El servidor sigue procesando la eliminación original. Su finalización no está confirmada. No se enviará una nueva eliminación."),
+    "session_delete_status_unknown": (
+        "The original deletion is not confirmed. This does not mean it was rejected. You can check its status again or reload the archive without resending it.",
+        "De oorspronkelijke verwijdering is niet bevestigd. Dit betekent niet dat deze is geweigerd. Je kunt de status opnieuw controleren of het archief laden zonder de opdracht opnieuw te versturen.",
+        "Die ursprüngliche Löschung ist nicht bestätigt. Dies bedeutet keine Ablehnung. Du kannst den Status erneut prüfen oder das Archiv ohne erneuten Löschauftrag laden.",
+        "La suppression initiale n’est pas confirmée. Cela ne signifie pas qu’elle a été refusée. Vous pouvez revérifier son état ou recharger l’archive sans la renvoyer.",
+        "La eliminación original no está confirmada. Esto no significa que se haya rechazado. Puedes volver a consultar su estado o recargar el archivo sin reenviarla."),
+    "session_delete_status_expired": (
+        "The original status window has expired. Deletion remains unconfirmed; this is not proof of rejection. Reloading the archive will not resend the deletion.",
+        "Het oorspronkelijke statusvenster is verlopen. De verwijdering blijft onbevestigd; dit bewijst geen weigering. Het archief opnieuw laden verstuurt de verwijderopdracht niet opnieuw.",
+        "Das ursprüngliche Statusfenster ist abgelaufen. Die Löschung bleibt unbestätigt; dies beweist keine Ablehnung. Das Neuladen des Archivs sendet den Löschauftrag nicht erneut.",
+        "La fenêtre d’état initiale a expiré. La suppression reste non confirmée ; cela ne prouve pas un refus. Recharger l’archive ne renverra pas la suppression.",
+        "La ventana de estado original ha caducado. La eliminación sigue sin confirmarse; esto no demuestra un rechazo. Recargar el archivo no reenviará la eliminación."),
     "session_delete_all_action": ("Delete saved sessions", "Opgeslagen sessies verwijderen", "Gespeicherte Sessions löschen", "Supprimer les sessions enregistrées", "Eliminar sesiones guardadas"),
     "session_delete_all_confirm": (
         "Permanently delete %1 saved sessions and their associated history from this Profile? This includes sessions outside the current page or search. Your active session, settings and sessions saved after this check stay. This cannot be undone.",

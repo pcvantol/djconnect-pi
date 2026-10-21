@@ -267,6 +267,10 @@ class SessionController(QObject):
         return self._archive_delete.read(session_id)
 
     @Slot(result=bool)
+    def checkHistoryDeleteStatus(self):
+        return self._archive_delete.read_status()
+
+    @Slot(result=bool)
     def beginBulkHistoryDelete(self):
         return self._archive_delete.read_bulk()
 
@@ -287,7 +291,7 @@ class SessionController(QObject):
         # Whole archive authority changes on erasure: no old cursor, selection,
         # dependent search/detail or queued archive read may survive the receipt.
         # Active Flow, Session, settings and playback are separate owners.
-        self.clearArchive()
+        self._clear_archive(notify=False)
         self._timeline = {}
         self._timeline_trail = []
         self._search = {}
@@ -295,6 +299,7 @@ class SessionController(QObject):
             self._selection = {}
             self.selectionInvalidated.emit()
         self.archiveInvalidated.emit()
+        self.changed.emit()  # Announce the complete archive withdrawal, never an intermediate detail.
 
     @Slot(str, str, result=bool)
     def prepareArtwork(self, session_id, moment_id):
@@ -631,6 +636,9 @@ class SessionController(QObject):
 
     @Slot()
     def clearArchive(self):
+        self._clear_archive()
+
+    def _clear_archive(self, *, notify=True):
         had = bool(self._sessions or self._history_loaded or self._history_cursor or self._history_trail)
         self._view_epoch += 1
         self._sessions = []
@@ -642,7 +650,7 @@ class SessionController(QObject):
         self._history_before = None
         self._history_trail = []
         self._history_reset = False
-        if had:
+        if had and notify:
             self.changed.emit()
 
     def _archive_request(self, pages=None):

@@ -9,6 +9,7 @@ import json
 from collections.abc import Callable
 from contextlib import ExitStack
 from dataclasses import dataclass, field
+from hashlib import sha256
 from typing import Any
 from urllib.parse import quote, urlsplit
 from uuid import UUID
@@ -155,7 +156,13 @@ class SessionTransport:
                 ("POST", "session/history/delete_all"): {"snapshot_id", "operation_id", "confirmed", "history_contract_version"},
                 ("GET", "session/history/delete_snapshot"): {"history_contract_version"},
             }
-            if not isinstance(payload, dict) or set(payload) != shapes.get((method, route)):
+            expected = shapes.get((method, route))
+            if method == "GET" and route == "session/history/delete/status" and isinstance(payload, dict):
+                mode = payload.get("operation")
+                if isinstance(mode, str) and mode in {"single", "all"}:
+                    expected = {"contract_version", "operation_id", "operation"} | (
+                        {"session_id", "expected_revision"} if mode == "single" else {"snapshot_id"})
+            if not isinstance(payload, dict) or set(payload) != expected:
                 raise SessionError("invalid")
             isolated = True
         if isolated:
@@ -357,6 +364,43 @@ class SessionTransport:
             raise SessionError("uncertain")
         return {"operation_id": op, "owner_profile_id": binding.resolved_profile_id,
                 "snapshot_id": token, "deleted": True, "deleted_session_count": target_count}
+
+    def history_delete_status(self, binding, operation, operation_id, body, *, target_count=None):
+        """Read only the ORIGINAL archive body/ID; never claim a new send ticket."""
+        op = deletion_operation(operation_id)
+        if (not binding.profile_id or binding.profile_id != binding.resolved_profile_id
+                or not isinstance(body, dict) or not isinstance(operation, str) or operation not in {"single", "all"}
+                or set(body) != ({"session_id", "expected_revision"} if operation == "single" else {"snapshot_id"})):
+            raise SessionError("invalid")
+        for key, value in body.items():
+            deletion_identifier(value, 4096 if key == "expected_revision" else 200)
+        if operation == "all" and (type(target_count) is not int or target_count <= 0):
+            raise SessionError("invalid")
+        digest = sha256(json.dumps(body, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+        data = self._request(binding, "GET", "session/history/delete/status", {
+            "contract_version": 1, "operation_id": op, "operation": operation, **body}, archive_delete=True)
+        state = data.get("state")
+        if (type(data.get("schema_version")) is not int or data["schema_version"] != 1
+                or data.get("owner_profile_id") != binding.resolved_profile_id or data.get("operation_id") != op
+                or data.get("operation") != operation or data.get("request_digest") != digest
+                or any(data.get(key) != value for key, value in body.items())
+                or not isinstance(state, str) or state not in {"unknown", "pending", "completed", "expired_unknown"}
+                or data.get("definitive") is not (state == "completed")):
+            raise SessionError("uncertain")
+        receipt = data.get("receipt")
+        if state == "completed":
+            if (not isinstance(receipt, dict) or receipt.get("success") is not True
+                    or type(receipt.get("schema_version")) is not int or receipt["schema_version"] != 1
+                    or receipt.get("owner_profile_id") != binding.resolved_profile_id
+                    or receipt.get("operation_id") != op or receipt.get("deleted") is not True
+                    or (operation == "single" and receipt.get("deleted_session_id") != body["session_id"])
+                    or (operation == "all" and (receipt.get("snapshot_id") != body["snapshot_id"]
+                        or type(receipt.get("deleted_session_count")) is not int
+                        or receipt["deleted_session_count"] != target_count))):
+                raise SessionError("uncertain")
+        elif receipt is not None:
+            raise SessionError("uncertain")
+        return {"state": state, "definitive": state == "completed"}
 
     def end(self, binding, session_id: str):
         return self._request(binding, "POST", "session/end", {"session_id": identifier(session_id)})
