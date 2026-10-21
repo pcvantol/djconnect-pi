@@ -1949,3 +1949,27 @@ package verification and logs. Host retention gate remains CLOSED from the
 fresh failed Pi verification after the prior owner archive; no protected push,
 merge or delivery. Both actual installed apps stay official EADBrc5. Source,
 local software rendering, actual GPU and installed/physical proof remain split.
+
+
+## Pi10 large Ask DJ keyboard — 21 October 2026
+
+The shared Session composer now uses 88px-high keys with 30px letters and
+8px gaps on the large layout (width >=900px). Function keys also have an
+88px minimum width; the input is at least96px high with30px text. The
+composer can grow to760px while retaining its viewport bound. Compact
+clients retain44px keys and their existing580px panel limit. Letters,
+locale-specific rows, accents, symbols, selection replacement, UTF-16-aware
+backspace and existing explicit send/context-withdrawal behavior are shared.
+No new input service, microphone, automatic send or server contract is added.
+
+Current-source qualification:29 focused QML/i18n tests PASS;54 actual
+synthetic-controller Qt views across720x720/1200x1920 and all five locales,
+zero QML errors/binding loops. Additional actual mouse clicks type and erase
+in each locale/format; key/input geometry and whole-keyboard viewport bounds
+are asserted. The existing synthetic send, selected-source withdrawal and
+context-clearing cases pass. Both layouts were visually inspected. These
+are offline views, not installed Pi10/live HA/touch acceptance. Evidence:
+`pi10-large-ask-keyboard/qml-final`, external harness and logs under the task
+visualizations root. The earlier full composer run is intermediate and is
+not added to these54 views. No Python production bytes changed; the earlier
+2479 full-suite result belongs to parent9e45766, not a new full-suite run.

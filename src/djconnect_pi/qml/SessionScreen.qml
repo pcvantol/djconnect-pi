@@ -1276,7 +1276,7 @@ Item {
         id: composerPanel
         objectName: "sessionComposerPanel"
         x: 16; y: toolbar.y + toolbar.height + 8
-        width: screen.width - 32; height: Math.min(screen.height - y - 126, 580)
+        width: screen.width - 32; height: Math.min(screen.height - y - 126, screen.compact ? 580 : 760)
         padding: 20; modal: true; dim: false
         onOpened: { composeInput.text = screen.draft; composeInput.forceActiveFocus() }
         background: GlassSurface { elevated: true }
@@ -1292,15 +1292,18 @@ Item {
             TextField {
                 id: composeInput
                 objectName: "sessionComposerInput"
-                Layout.fillWidth: true; Layout.minimumHeight: 58
+                Layout.fillWidth: true; Layout.minimumHeight: screen.compact ? 58 : 96
                 placeholderText: screen.tr("session_question_placeholder")
                 Accessible.name: screen.tr("session_question_placeholder")
-                maximumLength: 4000; selectByMouse: true; font.pixelSize: 22
+                maximumLength: 4000; selectByMouse: true; font.pixelSize: screen.compact ? 22 : 30
                 onTextChanged: screen.draft = text
                 onAccepted: screen.submitQuestion()
             }
             TouchKeyboard {
                 objectName: "sessionComposerKeyboard"
+                keyHeight: screen.compact ? 44 : 88
+                keyFontSize: screen.compact ? 19 : 30
+                keyGap: screen.compact ? 4 : 8
                 Layout.fillWidth: true; target: composeInput; backend: screen.backend
                 submitIcon: "send"; submitLabel: screen.tr("session_send")
                 onSubmitted: screen.submitQuestion()
