@@ -2260,3 +2260,72 @@ remain unchanged. Independent exact-source review, protected source/separate
 Finalization and a distinct release/operative binding remain required before
 runtime deployment. Output selection and artwork gestures are still open.
 HA-dev authentication and the active Pi10 Session test remain human-deferred.
+
+
+## Explicit Session playback output selection — 21 October 2026
+
+The shared playback pop-out now opens a separate output picker through an
+explicit server-inventory read. Only Spotify with strict supports_outputs and
+supports_transfer_or_output_selection is admitted. Pinned MA exposes a no-op
+set_output and advertises no transfer support; it receives no invented selector.
+The current output is labeled and disabled, and only server-returned, non-cached,
+unrestricted choices can be selected. Names render as wrapped PlainText. No
+arbitrary ID entry, first-device fallback, cached-device fallback or automatic
+transfer occurs. Four stable copy keys cover all five locales.
+
+A RAM-only lease binds original Profile/Session/item/state/source/backend/revision
+and current output ID. One deliberate selection rereads owner Session, raw status
+and server inventory, requires the original output plus the exact still-eligible
+choice, then sends one existing isolated paired set_output command with that ID
+and an explicit play boolean matching the observed playing/paused state. The
+server's existing set_output independently calls devices(fresh=True) before the
+transfer. The devices read command itself may use the producer's inventory cache;
+Pi does not invent a freshness parameter or claim a fresh provider request from
+the initial list read. Duplicate IDs, inconsistent active-output identity and
+malformed metadata fail closed. A local resource bound rejects over100 raw rows
+or over32 admitted choices without truncating; these are Pi budgets, not new Core
+wire maxima or permissions. Original Session/expiry/media grants are unchanged.
+
+Close/main-popup-close/foreground/Profile/item/backend/capability/End revoke
+queued intents before the exit animation. A started HTTP request may finish;
+withdrawn results cannot publish. The same dedicated worker leaves End available.
+No command response or optimistic device selection changes Runtime/configuration.
+An uncertain selection blocks new effects; the picker Refresh explicitly reads
+the owner before a subsequent separate inventory read. It never retries the
+transfer. The existing global command still has a race after the last client
+read; no Session/item/output CAS or exactly-once guarantee is invented. Admission
+remains the existing narrow private personal/household slice; broader authorized
+Profile modes are still a local consumer audit, not a permanent producer block.
+
+Validation:85 new cases, including strict choices/caps, current-output and stale
+membership fences, playing/paused payloads, denial/no-replay,10 late-result cases,
+two real held-worker/End subprocesses and absent-backend metadata. Full integrated
+local suite1994 PASS/no skips; Ruff0.16.0 src/tests and diff checks pass. Final200
+actual isolated QML views cover both formats, all five locales and playing/paused
+states, with real picker clicks, pending/no-optimism, close-before-dispatch without
+a GUI wait, cached-choice withdrawal, explicit recovery, no alternatives,
+unavailability and capability withdrawal. Popup bounds are checked, both formats
+visually inspected, with zero QML errors/binding loops and the retained macOS
+font-alias startup warning. The two earlier200-view runs are intermediate and
+are not added to the final200 count.
+
+Seven external unmodified Core8b set_output AST cases separately prove fresh=True,
+playing/paused flags and rejection of missing/cached/restricted/duplicate/empty
+IDs. These are offline contract checks, not extra product tests/provider evidence.
+The initial added read-worker harness used a singular slot name and failed six
+cases before correction. The initial full run then exposed unsafe direct access
+to absent backend metadata (218 failed/1774 passed, including those harness cases).
+A second full run retained1993 passes and exposed the same absent-backend issue
+in the favorite support check; both checks now fail closed, without altering the
+regression assertions. All failures/logs and intermediate packages/views remain.
+
+Evidence: taskvisualizations/pi-session-output-consumer. Final local review wheel
+100b662c9c15082632d4c146df92108c8a256e62e0485f6e4af5a69b51123627
+matches all65 runtime files. Actual-root host verification returned MATCH; no
+repair, cleanup or service change occurred. No network/provider/player effects,
+new ARM/installed/hardware touch or HA-dev acceptance is claimed. Both installed
+EADBrc.5 apps and immutable release assets remain unchanged. Independent exact
+review/protected source/separate Finalization and a distinct release/approved
+operative binding remain necessary before runtime deployment. Artwork gestures,
+full header cover, Flow continuity and other parity work remain open. HA-dev
+login/Pi10 pairing/active Session click testing remain explicitly human-deferred.

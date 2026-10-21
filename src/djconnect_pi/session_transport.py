@@ -250,6 +250,18 @@ class SessionTransport:
             "command": "set_current_track_favorite", "value": value,
             "request_source": "device_command", "app_version": PROTOCOL_VERSION}, isolated=True)
 
+    def playback_outputs(self, binding):
+        return self._request(binding, "POST", "command", {
+            "command": "devices", "request_source": "device_command", "app_version": PROTOCOL_VERSION}, isolated=True)
+
+    def playback_output(self, binding, target: str, play: bool):
+        if (not isinstance(target, str) or not 1 <= len(target) <= 512 or target != target.strip()
+                or any(ord(c) < 32 or ord(c) == 127 for c in target) or type(play) is not bool):
+            raise SessionError("invalid")
+        return self._request(binding, "POST", "command", {
+            "command": "set_output", "value": target, "play": play,
+            "request_source": "device_command", "app_version": PROTOCOL_VERSION}, isolated=True)
+
     def end(self, binding, session_id: str):
         return self._request(binding, "POST", "session/end", {"session_id": identifier(session_id)})
 

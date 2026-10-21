@@ -27,7 +27,7 @@ Item {
     }
     Component.onCompleted: syncMediaVisibility()
     onShowForecastChanged: { if (showForecast) playbackPanel.close(); if (!showForecast) clearForecastReading(); syncMediaVisibility() }
-    onStateChanged: { if (playbackPanel && state.playback_control && !state.playback_control.available) playbackPanel.close() }
+    onStateChanged: { if (playbackPanel && state.playback_control && !state.playback_control.available) playbackPanel.close(); if (outputsPanel && state.playback_control && !state.playback_control.outputs_supported) outputsPanel.close() }
     onComposerContextChanged: { clearForecastReading(); clearFlowReturn(); forecastMode = false; closeTransient(); if (historyReadPending && historyReadKind === "current") { historyRead.stop(); historyReadPending = false; navigate("session") } }
     function clearComposer() { followQuestionReply = false; pendingReplyId = ""; draft = ""; if (composeInput) composeInput.clear(); if (composerPanel) composerPanel.close(); if (owner) owner.clearSelection() }
     function submitQuestion() { if (owner.sendQuestion(composeInput.text)) { forecastMode = false; followQuestionReply = true; draft = ""; composeInput.clear(); composerPanel.close() } }
@@ -1054,7 +1054,7 @@ Item {
     Popup {
         id: playbackPanel
         objectName: "sessionPlaybackPanel"
-        onAboutToHide: if (screen.owner) screen.owner.cancelPlaybackIntent()
+        onAboutToHide: { outputsPanel.close(); if (screen.owner) screen.owner.cancelPlaybackIntent() }
         x: (screen.width - width) / 2; y: toolbar.y + toolbar.height + 8
         width: Math.min(screen.width - 32, 520); padding: 20; modal: true; dim: false
         background: GlassSurface { elevated: true }
@@ -1153,10 +1153,19 @@ Item {
                     onClicked: screen.owner.readPlaybackVolume(screen.state.session_id, screen.state.playback.item_id)
                 }
             }
+            GlassButton {
+                objectName: "sessionOutputOpen"
+                visible: !!screen.state.playback_control.outputs_supported
+                text: screen.tr("session_output_title"); Layout.fillWidth: true
+                enabled: !!screen.state.playback_control.enabled
+                onClicked: {
+                    if (screen.owner.readPlaybackOutputs(screen.state.session_id, screen.state.playback.item_id)) outputsPanel.open()
+                }
+            }
             Text {
                 objectName: "sessionPlaybackStatus"
                 visible: !!screen.state.playback_control.status
-                text: screen.tr((screen.state.playback_control.reading_volume || screen.state.playback_control.reading_favorite) ? "loading" : screen.state.playback_control.status === "sending" ? "session_question_sending" : screen.state.playback_control.status === "accepted" ? "session_playback_sent" : "session_uncertain")
+                text: screen.tr((screen.state.playback_control.reading_volume || screen.state.playback_control.reading_favorite || screen.state.playback_control.reading_outputs) ? "loading" : screen.state.playback_control.status === "sending" ? "session_question_sending" : screen.state.playback_control.status === "accepted" ? "session_playback_sent" : "session_uncertain")
                 textFormat: Text.PlainText; font.pixelSize: 18; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true
             }
             RowLayout {
@@ -1164,6 +1173,62 @@ Item {
                 GlassButton { objectName: "sessionPlaybackRefresh"; text: screen.tr("refresh"); enabled: !screen.owner.busy; onClicked: screen.owner.refreshPlayback() }
                 Item { Layout.fillWidth: true }
                 GlassButton { text: screen.tr("close"); onClicked: playbackPanel.close() }
+            }
+        }
+    }
+    Popup {
+        id: outputsPanel
+        objectName: "sessionOutputPanel"
+        x: (screen.width - width) / 2; y: toolbar.y + toolbar.height + 8
+        width: Math.min(screen.width - 32, 520); padding: 20; modal: true; dim: false
+        readonly property var observation: screen.state.playback_control.outputs || ({})
+        readonly property var choices: observation.choices || []
+        onAboutToHide: if (screen.owner) screen.owner.cancelPlaybackIntent()
+        background: GlassSurface { elevated: true }
+        contentItem: ColumnLayout {
+            spacing: 16
+            Text { text: screen.tr("session_output_title"); textFormat: Text.PlainText; font.pixelSize: 25; font.bold: true; color: BrandTheme.colors.text; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+            ListView {
+                id: outputChoices
+                objectName: "sessionOutputChoices"
+                Layout.fillWidth: true
+                Layout.preferredHeight: Math.min(300, contentHeight)
+                clip: true; spacing: 8; model: outputsPanel.choices
+                ScrollBar.vertical: ScrollBar { }
+                delegate: GlassButton {
+                    id: outputChoice
+                    required property var modelData
+                    objectName: "sessionOutputChoice-" + modelData.id
+                    width: outputChoices.width
+                    text: modelData.name + (modelData.active ? " · " + screen.tr("session_output_current") : "")
+                    enabled: !!screen.state.playback_control.enabled && !modelData.active
+                    implicitHeight: Math.max(56, outputChoiceText.implicitHeight + 28)
+                    contentItem: Text {
+                        id: outputChoiceText
+                        text: outputChoice.text; textFormat: Text.PlainText; wrapMode: Text.WordWrap
+                        font: outputChoice.font; color: outputChoice.enabled ? BrandTheme.colors.text : BrandTheme.colors.muted
+                        horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
+                    }
+                    onClicked: screen.owner.setPlaybackOutput(screen.state.session_id, screen.state.playback.item_id, outputsPanel.observation.lease, modelData.id)
+                }
+            }
+            Text {
+                objectName: "sessionOutputStatus"
+                Layout.fillWidth: true; wrapMode: Text.WordWrap; textFormat: Text.PlainText
+                color: BrandTheme.colors.muted; font.pixelSize: 18
+                visible: text.length > 0
+                text: screen.state.playback_control.reading_outputs ? screen.tr("loading")
+                    : screen.state.playback_control.status === "sending" ? screen.tr("session_question_sending")
+                    : screen.state.playback_control.status === "uncertain" ? screen.tr("session_uncertain")
+                    : screen.state.playback_control.outputs_status === "unavailable" ? screen.tr("session_output_unavailable")
+                    : screen.state.playback_control.status === "accepted" ? screen.tr("session_playback_sent")
+                    : outputsPanel.observation.lease !== undefined && outputsPanel.choices.length <= 1 ? screen.tr("session_output_empty") : ""
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                GlassButton { objectName: "sessionOutputRead"; text: screen.tr("refresh"); enabled: !screen.owner.busy && !!screen.state.playback_control.available && !!screen.state.playback_control.outputs_supported; onClicked: { if (screen.state.playback_control.status === "uncertain") screen.owner.refreshPlayback(); else screen.owner.readPlaybackOutputs(screen.state.session_id, screen.state.playback.item_id) } }
+                Item { Layout.fillWidth: true }
+                GlassButton { objectName: "sessionOutputClose"; text: screen.tr("close"); onClicked: outputsPanel.close() }
             }
         }
     }
