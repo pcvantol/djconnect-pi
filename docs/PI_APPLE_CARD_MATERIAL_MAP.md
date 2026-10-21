@@ -34,11 +34,12 @@ This comparison does not add the still-missing full Session current-cover loader
 or its display rights. Tiny legacy media-row thumbnails and remaining Apple-only
 page composition are not declared complete.
 
-Artwork frames never fetch/sample/capture the image. Callers retain all existing
+Artwork frames never fetch an image. A bounded 32x32 readback of the already
+displayed Image supplies an optional material tint. Callers retain all existing
 URL/source/attribution/visibility/expiry/cache bindings. The shared GPU material
 continues sampling only its decorative underlay. Protected image fit is retained;
 frame inset is bounded by a quarter of either dimension so narrow/wide admitted
 images never get negative content geometry. No implicit cache or image retention
-is introduced. Palette extraction from current artwork and complete Mood-based
-material tinting remain separate open work, as do exact native Apple rendering,
+is introduced. Confirmed Mood and current displayed-artwork material tinting are implemented
+in source; see `PI_MOOD_ARTWORK_COLOURS.md`. Remaining gaps include exact native Apple rendering,
 full hero scene animation and physical performance/acceptance.

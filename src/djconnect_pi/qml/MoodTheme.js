@@ -3,9 +3,9 @@
 
 var palettes = {
     "default": {
-        gradientStart: "#247fff",
-        gradientMid: "#7757ff",
-        gradientEnd: "#c33cff",
+        gradientStart: "#3285FF",
+        gradientMid: "#843DF5",
+        gradientEnd: "#CB27F5",
         accent: "#7B61FF",
         accentSoft: "#3324145f",
         surface: "#24105c",
@@ -49,9 +49,9 @@ var palettes = {
         sliderEnd: "#D184FF"
     },
     "groove": {
-        gradientStart: "#2EC4B6",
-        gradientMid: "#7B61FF",
-        gradientEnd: "#D184FF",
+        gradientStart: "#06C7AD",
+        gradientMid: "#169BC8",
+        gradientEnd: "#10B981",
         accent: "#2EC4B6",
         accentSoft: "#332b5f72",
         surface: "#213f64",
@@ -72,9 +72,9 @@ var palettes = {
         sliderEnd: "#D184FF"
     },
     "energy": {
-        gradientStart: "#8AC926",
-        gradientMid: "#FFD166",
-        gradientEnd: "#FF6A3D",
+        gradientStart: "#DDFF00",
+        gradientMid: "#00B8FF",
+        gradientEnd: "#39FF78",
         accent: "#FFD166",
         accentSoft: "#334c3f18",
         surface: "#59461a",
@@ -95,9 +95,9 @@ var palettes = {
         sliderEnd: "#FF6A3D"
     },
     "party": {
-        gradientStart: "#FF2E63",
-        gradientMid: "#A855F7",
-        gradientEnd: "#FFD166",
+        gradientStart: "#FF287F",
+        gradientMid: "#AA38F5",
+        gradientEnd: "#F43DCE",
         accent: "#A855F7",
         accentSoft: "#33441662",
         surface: "#4a1c5f",
@@ -120,7 +120,8 @@ var palettes = {
 }
 
 function key(value) {
-    if (value === undefined || value === null || value < 0) return "default"
+    if (typeof value === "string") return ["chill", "groove", "energy", "party"].indexOf(value) >= 0 ? value : "default"
+    if (typeof value !== "number" || !isFinite(value) || value < 0) return "default"
     var mood = Math.max(0, Math.min(100, Math.round(value)))
     if (mood <= 24) return "chill"
     if (mood <= 59) return "groove"
@@ -133,8 +134,42 @@ function moodColor(value, token) {
     return theme[token] || palettes.default[token] || "#247fff"
 }
 
-// Mood does not recolour navigation, modal surfaces, controls or status semantics.
+// Confirmed Mood colours decoration/material only. Action and status roles stay brand-owned.
+function mix(a, b, amount) {
+    var t = Math.max(0, Math.min(1, amount))
+    var output = "#"
+    for (var i = 1; i < 7; i += 2) {
+        var channel = Math.round(parseInt(a.slice(i,i+2),16)*(1-t) + parseInt(b.slice(i,i+2),16)*t)
+        output += ("0" + channel.toString(16)).slice(-2)
+    }
+    return output
+}
+function decorative(value, token) {
+    var theme = palettes[key(value)]
+    var base = BrandTheme.colors.background
+    if (token === "backgroundStart") return mix(base,theme.gradientStart,0.26)
+    if (token === "backgroundMid") return mix(base,theme.gradientMid,0.22)
+    if (token === "backgroundEnd") return base
+    if (token === "overlayStart") return theme.gradientStart
+    if (token === "overlayEnd") return theme.gradientEnd
+    if (token === "bannerStart") return mix(base,theme.gradientStart,0.16)
+    if (token === "bannerMid") return mix(base,theme.gradientMid,0.18)
+    if (token === "bannerEnd") return mix(base,theme.gradientEnd,0.14)
+    return ""
+}
+function safeColor(color) {
+    var output = "#"
+    for (var i = 1; i < 7; i += 2) output += ("0" + Math.min(61,parseInt(color.slice(i,i+2),16)).toString(16)).slice(-2)
+    return output
+}
+function material(value, artwork, moodStrength, artworkStrength) {
+    var theme = palettes[key(value)]
+    var mood = mix(BrandTheme.colors.opaqueGlass,theme.gradientMid,moodStrength === undefined ? 0.12 : moodStrength)
+    return safeColor(/^#[0-9a-f]{6}$/i.test(artwork || "") ? mix(mood,artwork,artworkStrength === undefined ? 0.16 : artworkStrength) : mood)
+}
 function color(value, token) {
+    var decoration = decorative(value,token)
+    if (decoration) return decoration
     var aliases = {
         gradientStart: "buttonStart", gradientMid: "buttonMid", gradientEnd: "buttonEnd",
         accent: "cyan", accentSoft: "surfaceRaised", surface: "surface", focus: "focus",

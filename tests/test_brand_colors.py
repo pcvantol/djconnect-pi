@@ -29,7 +29,7 @@ def test_brand_text_and_actions_meet_readability_contrast():
     assert contrast(theme["focus"], theme["surface"]) >= 3
 
 
-def test_mood_only_colours_explicit_choice_not_app_navigation():
+def test_confirmed_mood_colours_decoration_but_not_action_roles():
     source = files("djconnect_pi.qml").joinpath("MoodTheme.js").read_text()
     brand = files("djconnect_pi.qml").joinpath("BrandTheme.js").read_text()
     program = "\n".join(line for line in brand.splitlines() if not line.startswith("."))
@@ -38,7 +38,7 @@ def test_mood_only_colours_explicit_choice_not_app_navigation():
     program += "\nconsole.log(JSON.stringify([0,35,70,100].map(v => [color(v,'backgroundStart'),color(v,'gradientStart'),moodColor(v,'gradientStart')])));"
     result = subprocess.run(["node", "-e", program], check=True, capture_output=True, text=True)
     rows = json.loads(result.stdout)
-    assert len({row[0] for row in rows}) == 1
+    assert len({row[0] for row in rows}) == 4
     assert len({row[1] for row in rows}) == 1
     assert len({row[2] for row in rows}) == 4
     html = index_html("fixture").decode()

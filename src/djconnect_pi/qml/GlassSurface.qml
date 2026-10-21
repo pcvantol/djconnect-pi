@@ -12,10 +12,16 @@ Rectangle {
     property bool interactive: false
     property bool elevated: false
     property bool hero: false
+    property string artworkTint: ""
+    property bool currentMoment: false
+    readonly property bool hasArtworkTint: /^#[0-9a-f]{6}$/i.test(artworkTint)
+    function boundedColor(color) { return Qt.rgba(Math.min(GlassStyle.materialChannelCeiling,color.r),Math.min(GlassStyle.materialChannelCeiling,color.g),Math.min(GlassStyle.materialChannelCeiling,color.b),1) }
+    readonly property color rawTint: hasArtworkTint ? Qt.tint(GlassStyle.surfaceTint,Qt.rgba(Qt.color(artworkTint).r,Qt.color(artworkTint).g,Qt.color(artworkTint).b,GlassStyle.artworkTintStrength)) : GlassStyle.surfaceTint
+    readonly property color resolvedTint: boundedColor(rawTint)
     property bool primary: false
     property bool destructive: false
     property bool tertiary: false
-    readonly property color surfaceFill: destructive ? Qt.rgba(1, 0.27, 0.23, 0.12) : selected ? Qt.rgba(tint.r, tint.g, tint.b, 0.22) : elevated ? "#F5171C30" : interactive ? "#1AFFFFFF" : "#80171C30"
+    readonly property color surfaceFill: destructive ? Qt.rgba(1, 0.27, 0.23, 0.12) : selected ? Qt.rgba(tint.r, tint.g, tint.b, 0.22) : elevated ? Qt.rgba(resolvedTint.r,resolvedTint.g,resolvedTint.b,0.96) : interactive ? "#1AFFFFFF" : Qt.rgba(resolvedTint.r,resolvedTint.g,resolvedTint.b,0.5)
     readonly property bool glassEnabled: GlassStyle.enabled
     property real interactionProgress: interactive && pressed && GlassStyle.motionEnabled ? 1 : 0
     Behavior on interactionProgress {
@@ -31,11 +37,11 @@ Rectangle {
         backdropPosition.x + width > 0 && backdropPosition.y + height > 0
     radius: 28
     readonly property color effectiveFill: !glassEnabled ?
-        (selected ? Qt.tint(BrandTheme.colors.opaqueGlass, Qt.rgba(tint.r,tint.g,tint.b,0.22)) : interactive ? BrandTheme.colors.surfaceRaised : BrandTheme.colors.opaqueGlass) :
+        (selected ? Qt.tint(resolvedTint, Qt.rgba(tint.r,tint.g,tint.b,0.22)) : interactive ? BrandTheme.colors.surfaceRaised : resolvedTint) :
         hardwareGlass && !interactive && !selected && !destructive ? "transparent" : surfaceFill
     color: tertiary ? "transparent" : effectiveFill
     border.width: focused ? 3 : (tertiary ? 0 : 1)
-    border.color: focused ? "#F2FFFFFF" : selected ? Qt.rgba(tint.r, tint.g, tint.b, 0.55) : destructive ? "#1FFFFFFF" : interactive ? "#1FFFFFFF" : "#52FFFFFF"
+    border.color: focused ? "#F2FFFFFF" : currentMoment ? GlassStyle.moodAccent : hasArtworkTint && !interactive ? artworkTint : selected ? Qt.rgba(tint.r, tint.g, tint.b, 0.55) : destructive ? "#1FFFFFFF" : interactive ? "#1FFFFFFF" : "#52FFFFFF"
     gradient: hero ? heroGradient : materialGradient
     Gradient {
         id: materialGradient
@@ -46,9 +52,9 @@ Rectangle {
     Gradient {
         id: heroGradient
         orientation: Gradient.Horizontal
-        GradientStop { position: 0; color: GlassStyle.heroStart }
-        GradientStop { position: 0.5; color: GlassStyle.heroMid }
-        GradientStop { position: 1; color: GlassStyle.heroEnd }
+        GradientStop { position: 0; color: glass.boundedColor(glass.hasArtworkTint ? Qt.tint(GlassStyle.heroStart,Qt.rgba(Qt.color(glass.artworkTint).r,Qt.color(glass.artworkTint).g,Qt.color(glass.artworkTint).b,GlassStyle.artworkTintStrength)) : GlassStyle.heroStart) }
+        GradientStop { position: 0.5; color: glass.boundedColor(glass.hasArtworkTint ? Qt.tint(GlassStyle.heroMid,Qt.rgba(Qt.color(glass.artworkTint).r,Qt.color(glass.artworkTint).g,Qt.color(glass.artworkTint).b,GlassStyle.artworkTintStrength)) : GlassStyle.heroMid) }
+        GradientStop { position: 1; color: glass.boundedColor(glass.hasArtworkTint ? Qt.tint(GlassStyle.heroEnd,Qt.rgba(Qt.color(glass.artworkTint).r,Qt.color(glass.artworkTint).g,Qt.color(glass.artworkTint).b,GlassStyle.artworkTintStrength)) : GlassStyle.heroEnd) }
     }
     Loader {
         id: gpuMaterial
@@ -65,7 +71,7 @@ Rectangle {
                 glass.backdropPosition.x/GlassStyle.backdrop.width,
                 glass.backdropPosition.y/GlassStyle.backdrop.height,
                 width/GlassStyle.backdrop.width,height/GlassStyle.backdrop.height)
-            property color materialTint: GlassStyle.surfaceTint
+            property color materialTint: glass.resolvedTint
             property real tintAmount: GlassStyle.tintAmount
             property real edgeLight: GlassStyle.edgeLight + glass.interactionProgress * 0.18
             fragmentShader: "glass.frag.qsb"

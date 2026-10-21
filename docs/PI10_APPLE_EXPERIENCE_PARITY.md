@@ -3076,3 +3076,39 @@ source-statement equality proof, original pinned Apple exports and package proof
 Actual-root precommit hostverify MATCH; installed EADBrc5 unchanged. Source still
 requires new exact independent review/protected main/Finalization/publication and
 qualified rc6 operative bindings. No new Core WIP/contract adoption or timer.
+
+### Confirmed Mood and displayed-artwork material colours (rc.6 source)
+
+Confirmed Session/settings3 Mood now drives decorative backgrounds and shared
+Glass/hero tint using pinned Apple e106a467 hues. Existing displayed artwork
+supplies an optional alpha-weighted 32x32 colour, one live readback per engine.
+Source/lease/visibility/idle/admission withdrawal clears it synchronously; late
+callbacks cannot restore it. Existing image/grant/deadline/attribution/loading
+rules, semantic action/status roles and shared Glass defaults remain unchanged.
+See docs/PI_MOOD_ARTWORK_COLOURS.md for scope and central strength parameters.
+
+27 new cases; full integrated collection 2528 PASS, no skips. Current Qt source:
+470 matrix views (including 320 explicit Mood/art views), 436 unmodified composer,
+180 unmodified artwork, 90 unmodified Forecast =1176 actual views across both
+formats/five locales, zero QML errors/binding loops. An additional 180 colour
+assertions rerun the same artwork scenarios (70 admitted/110 withdrawn); these
+are not added to the view count. Both final sizes were visually inspected.
+
+Exact reviewwheel SHA256
+2106e3a641b30d342bf2334757b4dc8bb12897b591332ef1438b1ea7328fb63a
+matches all 79 runtime files. Both physical ARM hosts executed this exact wheel
+only in fresh own /tmp directories: real 32px readback, sibling isolation,
+shared readback broker, pending withdrawal, new lease, source clear, active/idle
+withdrawal and close fences PASS; installed release and API/client identity
+before/after remain identical. These are offscreen synthetic-pixel probes,
+not installed app, physical touch, GPU performance or live Spotify acceptance.
+
+Diagnostics are retained: an initial fixed-200ms ARM probe had no sample; two
+8s import-comparison probes timed out. A status-instrumented probe passed;
+the final harness uses the production QQuickWindow type and bounded asynchronous
+completion. General Qt/CPU/import root cause is not established. Earlier mock
+Loader probes timed out in loadData and were replaced with actual Qt readbacks.
+No production assertion, source expiry or permission fence was weakened.
+Evidence: taskvisualizations/pi-mood-artwork-colours, including matrix-frozen,
+composer-frozen/artwork-frozen/forecast-frozen, private-tint-audit, package-frozen
+and arm-final. No official rc.5 asset overwrite, installation or server effect.

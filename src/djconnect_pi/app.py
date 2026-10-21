@@ -31,11 +31,12 @@ from PySide6.QtCore import (
     Signal,
     Slot,
 )
-from PySide6.QtGui import QDesktopServices, QGuiApplication, QIcon, QPixmapCache
+from PySide6.QtGui import QDesktopServices, QGuiApplication, QIcon, QImage, QPixmapCache
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuick import QQuickWindow
 from PySide6.QtQuickControls2 import QQuickStyle
 
+from .artwork_palette import displayed_artwork_tint
 from .brand_theme import apply_palette
 from .config import (
     CLIENT_TYPE,
@@ -660,6 +661,10 @@ class DJConnectBackend(QObject):
             return ""
         target = announcement.get("target") if isinstance(announcement.get("target"), dict) else {}
         return str(announcement.get("speaker_name") or target.get("name") or announcement.get("speaker_entity_id") or target.get("entity_id") or "")
+
+    @Slot(QImage, result=str)
+    def sampleArtworkTint(self, pixels: QImage) -> str:
+        return "" if self._shutting_down else displayed_artwork_tint(pixels)
 
     @Property(int, notify=moodChanged)
     def moodValue(self) -> int:

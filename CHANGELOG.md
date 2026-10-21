@@ -4,6 +4,11 @@
 
 ## 4.0.0-rc.6
 
+- Couple decorative backgrounds and shared Glass/hero materials to confirmed
+  Mood and already displayed artwork, with centrally bounded tint strength.
+  Withdraw image-derived colour with its original source; retain semantic
+  action/status colours and all existing image admission rules.
+
 - Open the mapped Profile's active Session directly, or its Session creation
   screen; contain optional image-cache failures without aborting owner refresh.
 - Add shared Session volume, Spotify favorite state/removal and output selection

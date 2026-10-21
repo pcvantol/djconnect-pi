@@ -13,6 +13,16 @@ Item {
     readonly property bool sessionControlsVisible: !historical && state.session_id.length > 0
     property var owner: backend.djSession
     property var state: owner.state
+    readonly property string artworkTint: {
+        if (!visible || historical) return ""
+        if (showForecast) return forecastArtworkFrame.artworkTint
+        if (!liveMomentRows) return ""
+        for (var i = 0; i < liveMomentRows.count; i++) {
+            var card = liveMomentRows.itemAt(i)
+            if (card && card.visible && card.modelData.current) return card.artworkTint
+        }
+        return ""
+    }
     property string draft: ""
     property bool followQuestionReply: false
     property string pendingReplyId: ""
@@ -684,12 +694,22 @@ Item {
             SessionAttribution { id: forecastSource; requiresSpotify: !!screen.state.forecast.source_url; spotifyURL: screen.state.forecast.source_url || ""; Layout.fillWidth: true }
             GlassCard {
                 objectName: "sessionForecastArtistCard"
+                artworkTint: forecastArtworkFrame.artworkTint
                 visible: !!screen.owner.forecastImage.source && imageAttribution.ready
                 Layout.fillWidth: true
                 GlassArtworkFrame {
+                    Connections {
+                        target: screen.owner
+                        function onForecastImageAboutToChange() { forecastArtworkFrame.invalidatePalette() }
+                    }
+                    id: forecastArtworkFrame
                     objectName: "sessionForecastArtworkFrame"
+                    backend: screen.backend; imageItem: forecastArtworkImage
+                    leaseKey: screen.backend.activeProfileId + "|" + screen.state.session_id + "|" + (screen.owner.forecastImage.source_url || "")
+                    admissionCheck: function() { return screen.showForecast && imageAttribution.ready && !!screen.owner.forecastImage.source }
                     Layout.fillWidth: true; Layout.preferredHeight: screen.compact ? 300 : 440
                     Image {
+                        id: forecastArtworkImage
                         objectName: "sessionForecastArtistImage"
                         anchors.fill: parent
                         source: imageAttribution.ready ? (screen.owner.forecastImage.source || "") : ""
@@ -787,6 +807,7 @@ Item {
             GlassCard {
                 id: playbackMetadata
                 objectName: "sessionPlaybackMetadata"
+                artworkTint: screen.artworkTint
                 visible: !screen.historical && !!screen.state.playback.item_id
                 Layout.fillWidth: true
                 padding: screen.compact ? 16 : 22
@@ -849,6 +870,8 @@ Item {
                 model: !screen.historical ? screen.state.moments : []
                 GlassCard {
                     objectName: "sessionLiveMomentCard"
+                    artworkTint: currentMomentArtworkFrame.artworkTint
+                    currentMoment: modelData.current
                     required property var modelData
                     Layout.fillWidth: true
                     property alias bodyItem: momentBody
@@ -857,11 +880,23 @@ Item {
                         visible: liveSources.ready && !!screen.owner.momentArtwork.source && modelData.current && screen.owner.momentArtwork.moment_id === modelData.moment_id && artworkSource.ready
                         Layout.fillWidth: true
                         GlassArtworkFrame {
+                            Connections {
+                                target: screen.owner
+                                function onArtworkAboutToChange() { currentMomentArtworkFrame.invalidatePalette() }
+                            }
+                            id: currentMomentArtworkFrame
                             objectName: "sessionMomentArtworkFrame"
+                            backend: screen.backend; imageItem: currentMomentArtworkImage
+                            leaseKey: screen.backend.activeProfileId + "|" + screen.state.session_id + "|" + modelData.moment_id
+                            admissionCheck: function() {
+                                var art = screen.owner.momentArtwork
+                                return modelData.current && liveSources.ready && artworkSource.ready && !!art.source && art.moment_id === modelData.moment_id
+                            }
                             Layout.preferredWidth: 100 * (screen.owner.momentArtwork.width || 100) / Math.max(screen.owner.momentArtwork.width || 100, screen.owner.momentArtwork.height || 100)
                             Layout.preferredHeight: 100 * (screen.owner.momentArtwork.height || 100) / Math.max(screen.owner.momentArtwork.width || 100, screen.owner.momentArtwork.height || 100)
                             Layout.alignment: Qt.AlignLeft
                             Image {
+                                id: currentMomentArtworkImage
                                 objectName: "sessionMomentArtworkImage"
                                 source: parent.visible ? (screen.owner.momentArtwork.source || "") : ""
                                 cache: false; asynchronous: true; retainWhileLoading: false

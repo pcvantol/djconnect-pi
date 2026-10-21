@@ -16,6 +16,23 @@ BrandWindow {
 
     property bool wallProfile: djconnect.releaseProfile === "pi5-arm64"
     readonly property bool liquidGlassEnabled: djconnect.glassEnabled
+    readonly property string appearanceMood: {
+        var session = djconnect.djSession.state
+        if (session.session_id && ["chill", "groove", "energy", "party"].indexOf(session.mood) >= 0) return session.mood
+        var settings = djconnect.sharedSettings
+        var confirmed = settings && settings.available && !settings.selection_required ? (settings.values || {}).mood : ""
+        return ["chill", "groove", "energy", "party"].indexOf(confirmed) >= 0 ? confirmed : ""
+    }
+    readonly property string visibleArtworkTint: activeScreen === "now" ? nowArtworkPalette.tint :
+        activeScreen === "trackinsight" ? trackInsightArtworkFrame.artworkTint :
+        activeScreen === "session" ? sharedSessionScreen.artworkTint : ""
+    Binding { target: GlassStyle; property: "mood"; value: root.appearanceMood }
+    Binding { target: GlassStyle; property: "contextArtworkTint"; value: root.visibleArtworkTint }
+    Binding { target: GlassStyle; property: "moodAccent"; value: MoodTheme.moodColor(root.appearanceMood, "gradientStart") }
+    Binding { target: GlassStyle; property: "surfaceTint"; value: MoodTheme.material(root.appearanceMood,root.visibleArtworkTint,GlassStyle.moodTintStrength,GlassStyle.artworkTintStrength) }
+    Binding { target: GlassStyle; property: "heroStart"; value: MoodTheme.mix("#142652",MoodTheme.moodColor(root.appearanceMood,"gradientStart"),GlassStyle.heroMoodStrength) }
+    Binding { target: GlassStyle; property: "heroMid"; value: MoodTheme.mix("#211745",MoodTheme.moodColor(root.appearanceMood,"gradientMid"),GlassStyle.heroMoodStrength) }
+    Binding { target: GlassStyle; property: "heroEnd"; value: MoodTheme.mix("#2B1452",MoodTheme.moodColor(root.appearanceMood,"gradientEnd"),GlassStyle.heroMoodStrength) }
     Binding { target: GlassStyle; property: "enabled"; value: root.liquidGlassEnabled }
     Binding { target: GlassStyle; property: "hardware"; value: root.wallProfile && root.GraphicsInfo.api === GraphicsInfo.OpenGL }
     Binding { target: GlassStyle; property: "awake"; value: root.visible && !root.screenBlanked }
@@ -137,7 +154,7 @@ BrandWindow {
     }
 
     function moodColor(token) {
-        return MoodTheme.color(djconnect.moodValue, token)
+        return MoodTheme.color(root.appearanceMood, token)
     }
 
     function moodDisabledColor(position) {
@@ -1264,6 +1281,12 @@ BrandWindow {
 
                     Behavior on scale { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } }
 
+                    ArtworkPalette {
+                        id: nowArtworkPalette
+                        backend: djconnect; imageItem: albumArt
+                        active: !root.screenBlanked
+                        leaseKey: djconnect.activeProfileId + "|" + djconnect.title + "|" + djconnect.artist
+                    }
                     Image {
                         id: albumArt
                         anchors.fill: parent
@@ -2375,6 +2398,7 @@ BrandWindow {
             GlassSurface {
                 border.color: root.moodColor("focus")
                 hero: true
+                artworkTint: trackInsightArtworkFrame.artworkTint
                 visible: djconnect.trackInsightTitle.length > 0 || djconnect.trackInsightArtist.length > 0 || djconnect.trackInsightImageUrl.length > 0
                 Layout.fillWidth: true
                 Layout.preferredHeight: 104
@@ -2387,11 +2411,16 @@ BrandWindow {
                     spacing: 10
 
                     GlassArtworkFrame {
+                        id: trackInsightArtworkFrame
                         objectName: "trackInsightArtworkFrame"
+                        backend: djconnect; imageItem: trackInsightArtworkImage
+                        active: !root.screenBlanked
+                        leaseKey: djconnect.activeProfileId + "|" + djconnect.trackInsightTitle + "|" + djconnect.trackInsightArtist
                         visible: djconnect.trackInsightImageUrl.length > 0
                         Layout.preferredWidth: 76; Layout.preferredHeight: 76
                         radius: 16
                         Image {
+                            id: trackInsightArtworkImage
                             source: djconnect.trackInsightImageUrl
                             visible: source.toString().length > 0
                             anchors.fill: parent
@@ -2844,10 +2873,14 @@ BrandWindow {
 
                                 GlassArtworkFrame {
                                     objectName: "discoveryArtworkFrame"
+                                    backend: djconnect; imageItem: discoveryArtworkImage
+                                    active: !root.screenBlanked
+                                    leaseKey: djconnect.activeProfileId + "|" + (modelData.id || modelData.title || "")
                                     visible: !!modelData.imageUrl && modelData.imageUrl.length > 0
                                     Layout.preferredWidth: 112; Layout.preferredHeight: 112
                                     radius: 20
                                     Image {
+                                        id: discoveryArtworkImage
                                         source: modelData.imageUrl && modelData.imageUrl.length > 0 ? modelData.imageUrl : ""
                                         visible: source.toString().length > 0
                                         anchors.fill: parent
