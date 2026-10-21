@@ -35,6 +35,7 @@ def controller():
     owner.transport.capabilities = Mock(return_value={"success": True,
         "capabilities": {"session_conversation_history": True}, "contract_versions": {"session_history_entries": 2}})
     yield owner, backend
+    owner.shutdownImages()
     delete(owner)
     delete(backend)
 

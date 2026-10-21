@@ -9,6 +9,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 from PySide6.QtCore import QCoreApplication
+from shiboken6 import delete, isValid
 
 from djconnect_pi.app import (
     DJConnectBackend,
@@ -39,6 +40,26 @@ from djconnect_pi.ha import (
     StaleBackendAction,
     UnsupportedBackendCapability,
 )
+
+
+@pytest.fixture(autouse=True)
+def close_backend_fixtures(monkeypatch):
+    """Each test owns and closes its native timers and actual worker pools."""
+    created = []
+    original = DJConnectBackend.__init__
+    def tracked(backend, *args, **kwargs):
+        original(backend, *args, **kwargs)
+        created.append((backend, backend._executor, backend._session_executor, backend._question_executor))
+    monkeypatch.setattr(DJConnectBackend, "__init__", tracked)
+    yield
+    for backend, general, session, question in reversed(created):
+        if isValid(backend):
+            # Tests may replace submit-only executors; close their actual pools.
+            backend._executor, backend._session_executor, backend._question_executor = general, session, question
+            backend.shutdown()
+            for pool in (general, session, question):
+                pool.shutdown(wait=True, cancel_futures=True)
+            delete(backend)
 
 
 def ensure_app() -> QCoreApplication:
@@ -2896,11 +2917,11 @@ def test_shared_settings_delayed_old_profile_result_is_discarded(tmp_path: Path)
     old_epoch = backend._shared_settings_epoch
     backend.cfg.active_profile_id = "replacement"
     backend._invalidate_shared_settings_if_context_changed()
-    with patch("djconnect_pi.app.QTimer.singleShot") as refresh:
-        backend._apply_shared_settings({"epoch": old_epoch, "context": old_context,
-                                        "projection": {"values": {"mood": "party"}}})
+    backend._apply_shared_settings({"epoch": old_epoch, "context": old_context,
+                                    "projection": {"values": {"mood": "party"}}})
     assert backend.sharedSettings == {}
-    refresh.assert_called_once()
+    assert backend._settings_reconcile_timer.isActive()
+    assert backend._settings_reconcile_timer.interval() == 0
     backend.shutdown()
 
 
@@ -2932,3 +2953,17 @@ def test_rejected_discovery_feed_does_not_adopt_profile_or_display_machine_error
     assert backend.musicDiscoveryError == backend.tr_key("session_profile_missing")
     assert "music_dna_context_changed" not in backend.musicDiscoveryError
     backend.shutdown()
+
+
+def test_shutdown_late_settings_result_cannot_rearm_network_poll(tmp_path):
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    old_epoch, old_context = backend._shared_settings_epoch, backend._shared_settings.context()
+    backend.shutdown()
+    backend._apply_shared_settings({"epoch": old_epoch - 1, "context": old_context, "projection": {}})
+    assert not backend._settings_reconcile_timer.isActive()
+    assert not backend._shared_settings_timer.isActive()
+    backend._start_shared_settings = Mock()
+    backend.pollSharedSettings()
+    backend.saveSharedSettings({"mood": "party"})
+    backend._start_shared_settings.assert_not_called()

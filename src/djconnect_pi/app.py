@@ -162,6 +162,7 @@ class DJConnectBackend(QObject):
     def __init__(self, config_path: Path) -> None:
         super().__init__()
         self.config_path = config_path
+        self._shutting_down = False
         self.cfg: Config = load_config(config_path)
         self.client = HAClient(self.cfg)
         self._shared_settings_state = {}
@@ -260,8 +261,21 @@ class DJConnectBackend(QObject):
         self._shared_settings_timer.timeout.connect(self.pollSharedSettings)
         self._shared_settings_timer.timeout.connect(self._session_controller.refresh)
         self._shared_settings_timer.start()
-        QTimer.singleShot(350, self.pollSharedSettings)
-        QTimer.singleShot(250, self.refresh)
+        # Owned timers cannot outlive this backend or continue after shutdown.
+        self._startup_settings_timer = QTimer(self)
+        self._startup_settings_timer.setSingleShot(True)
+        self._startup_settings_timer.setInterval(350)
+        self._startup_settings_timer.timeout.connect(self.pollSharedSettings)
+        self._startup_settings_timer.start()
+        self._startup_refresh_timer = QTimer(self)
+        self._startup_refresh_timer.setSingleShot(True)
+        self._startup_refresh_timer.setInterval(250)
+        self._startup_refresh_timer.timeout.connect(self.refresh)
+        self._startup_refresh_timer.start()
+        self._settings_reconcile_timer = QTimer(self)
+        self._settings_reconcile_timer.setSingleShot(True)
+        self._settings_reconcile_timer.setInterval(0)
+        self._settings_reconcile_timer.timeout.connect(self.pollSharedSettings)
         _LOGGER.info("DJConnect Pi client backend started for %s", self.cfg.device_id)
 
     @Property("QVariantMap", notify=sharedSettingsChanged)
@@ -290,6 +304,8 @@ class DJConnectBackend(QObject):
 
     @Slot()
     def pollSharedSettings(self) -> None:
+        if self._shutting_down:
+            return
         self._invalidate_shared_settings_if_context_changed()
         if self._demo_mode or not self.paired or self._shared_settings_inflight:
             return
@@ -297,6 +313,8 @@ class DJConnectBackend(QObject):
 
     @Slot("QVariantMap")
     def saveSharedSettings(self, patch: dict) -> None:
+        if self._shutting_down:
+            return
         if self._demo_mode or not self.paired or self._shared_settings_inflight:
             return
         self._start_shared_settings(deepcopy(patch))
@@ -326,10 +344,12 @@ class DJConnectBackend(QObject):
 
     @Slot(object)
     def _apply_shared_settings(self, result: dict) -> None:
+        if self._shutting_down:
+            return
         self._shared_settings_inflight = False
         if result["epoch"] != self._shared_settings_epoch or tuple(result["context"]) != self._shared_settings.context():
             self.sharedSettingsChanged.emit()
-            QTimer.singleShot(0, self.pollSharedSettings)
+            self._settings_reconcile_timer.start()
             return
         if "projection" in result:
             self._shared_settings_state = {**result["projection"], "available": True, "error": ""}
@@ -908,6 +928,8 @@ class DJConnectBackend(QObject):
 
     @Slot()
     def refresh(self) -> None:
+        if self._shutting_down:
+            return
         if self._demo_mode:
             return
         if self._busy:
@@ -2488,9 +2510,14 @@ class DJConnectBackend(QObject):
 
     @Slot()
     def shutdown(self) -> None:
+        self._shutting_down = True
         _LOGGER.info("Stopping DJConnect Pi client backend")
         self._poll_timer.stop()
         self._event_timer.stop()
+        self._shared_settings_timer.stop()
+        self._startup_settings_timer.stop()
+        self._startup_refresh_timer.stop()
+        self._settings_reconcile_timer.stop()
         self._session_controller.setForeground(False)
         self._session_controller.shutdownImages()
         self._session_executor.shutdown(wait=False, cancel_futures=True)

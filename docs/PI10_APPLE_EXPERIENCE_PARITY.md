@@ -2709,3 +2709,42 @@ f6f5b102da04d640136a7e23d00b99d5dd916e969269681a84403f1a2d0e7d97 matches67 runti
 Session/provider/model/physical-touch acceptance. Original492 Linux CI Qt timer
 segfault remains FAILED evidence; local PASS does not close that CI diagnostic.
 Evidence:taskvisualizations/pi-user-reported-ui-fixes; original logs preserved.
+
+
+### Backend timer lifetime and actual CI diagnostic
+
+Exact5f2e619 CI independently read:26 SUCCESS/4 conditional SKIPPED/1 FAILURE.
+Failure is TDE observe coverage, not a fully green head: real Linux Qt6.11.2
+exit139 at bulk readonly recovery processEvents again; normal Python job passed.
+No rerun/status override or general native/ARM root-cause claim.
+
+A separate actual Qt probe proves a concrete backend lifetime defect: after
+shutdown the shared-settings periodic timer remained active and both delayed
+startup readers still fired. Startup250/350ms and deferred settings reconciliation
+now use QObject-owned single-shot timers; shutdown stops these plus the periodic
+settings timer. Shutdown guards reject new refresh/settings work and late settings
+results cannot rearm polling. Normal initial timing is preserved. Three isolated
+actual Qt dispatcher probes prove running delivers each startup read once, while
+shutdown/destroy deliver none. No network or OS effect.
+
+App-backend tests now retain, shut down and delete each test's native backend and
+actual worker pools; submit-only fake executors do not hide the original pools.
+The Session controller fixture closes owned resources before native deletion.
+No processEvents call, functional assertion or coverage threshold was skipped.
+The old static-singleShot spy now checks the actual deferred owned timer.
+
+Four new regression cases,495 focused PASS; full2458 integrated PASS/no skips
+44.51s and independent coverage7.16.2 full2458 PASS/no skips45.53s. Final150 actual
+offline QML views on this timer source/both formats/five locales, zero errors;
+earlier150 runs remain component/intermediate proof and are not added. Ruff and
+diff PASS. Local review wheel 9fe1ca7f4046fe3fcc518bf94cf5ea60eb107ae0dd2ed490d19c638e88b7ed3d matches67 runtime files.
+New exact-head CI remains required; these local results do not by themselves
+prove the Linux crash's full root cause. Evidence/coverage XML/original failures
+retained in taskvisualizations/pi-user-reported-ui-fixes. No new runtime install.
+
+Profile diagnostic correction: Pi4's explicit profile-b5189fb44f4f is observed,
+but its difference from the UI-selected iPhone17Pro Profile ID is not yet proven.
+Do not erase/change the client choice on that assumption. Exact owner metadata
+was requested within Peter's newly explicit current-Core-chat pairing authority.
+Both HA-dev pairing approvals stand; Pi10 remains unpaired awaiting normal Core
+manual-URL fix and protected/Final/installed readback. Authentication is resumed.
