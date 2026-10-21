@@ -2681,11 +2681,12 @@ and active Pi10 Session click test remain explicitly human-deferred.
 ### User-reported installed Pi issues — 21 October 2026
 
 Read-only actual 4-inch logs show Track Insight rejected with device_not_mapped
-and Music DNA with music_dna_context_changed. Normal HA-dev UI now saved that
-actual device mapping to Peter's explicitly selected existing iPhone 17 Pro
-Profile. The installed client still supplies its older explicit Profile; that
-requires consumer reconciliation, so Session/history/Insight/discovery are NOT
-claimed fixed live. Pi10 normal pairing with verified Raspberry Pi selection
+and Music DNA with music_dna_context_changed. CORRECTION: the normal HA-dev UI saved a Store row labelled DJConnect Pi to
+the requested iPhone17Pro Profile, but that friendly-name selection did not
+identify the physical Pi. Owner metadata later proves physical D83ADD41F167
+is absent from that Store; its separate configentry was the diagnostic that
+matched the real Pi. No physical mapping or live-function PASS is claimed.
+Writes are stopped pending exact affected-row and prior-binding proof. Pi10 normal pairing with verified Raspberry Pi selection
 fails invalid_client_type before POST pair. Peter authorized a concrete handoff
 to the current Core owner, who accepted the manual-URL discovery-ID defect.
 No invented IDs/client types, replay, root configuration edits or pairing bypass.
@@ -2742,9 +2743,14 @@ New exact-head CI remains required; these local results do not by themselves
 prove the Linux crash's full root cause. Evidence/coverage XML/original failures
 retained in taskvisualizations/pi-user-reported-ui-fixes. No new runtime install.
 
-Profile diagnostic correction: Pi4's explicit profile-b5189fb44f4f is observed,
-but its difference from the UI-selected iPhone17Pro Profile ID is not yet proven.
-Do not erase/change the client choice on that assumption. Exact owner metadata
-was requested within Peter's newly explicit current-Core-chat pairing authority.
+Profile diagnostic correction: owner read-only metadata now proves the requested
+iPhone17Pro Profile ID is profile-fd38fad08e19, distinct from physical Pi4
+configentry/explicit profile-b5189fb44f4f. However, the actual physical Pi4 has
+no row in the ProfilePlatform Store. The earlier UI save selected another row
+with the friendly label DJConnect Pi; separate configentry identity proof did
+not identify that dropdown row. This mistake was disclosed to Peter and Core.
+All further mapping writes are stopped. The owning Core lane was asked for
+exact affected-row and proven prior-binding metadata for ordinary UI restoration;
+no guessed rollback, forced mapping or client-context clearing is allowed.
 Both HA-dev pairing approvals stand; Pi10 remains unpaired awaiting normal Core
 manual-URL fix and protected/Final/installed readback. Authentication is resumed.
