@@ -64,7 +64,13 @@ class GitHubRead:
         ) is not None
         require(path.startswith("repos/") and (".." not in path or comparison)
                 and "\n" not in path, "GITHUB_PATH_INVALID")
-        headers = {"Authorization": "Bearer "+self.token, "Accept": "application/octet-stream" if binary else "application/vnd.github+json", "User-Agent": "DJConnect-Pi-Qualified-Consumer"}
+        workflow_archive = re.fullmatch(
+            r"repos/pcvantol/djconnect-pi/actions/artifacts/[1-9][0-9]*/zip", path
+        ) is not None
+        # Actions negotiates its signed archive redirect through the REST media type.
+        # Release assets keep their separate octet-stream download contract.
+        accept = "application/octet-stream" if binary and not workflow_archive else "application/vnd.github+json"
+        headers = {"Authorization": "Bearer "+self.token, "Accept": accept, "User-Agent": "DJConnect-Pi-Qualified-Consumer"}
         request = Request("https://api.github.com/"+path, headers=headers)
         try:
             try:
@@ -75,9 +81,9 @@ class GitHubRead:
                     raise BindingError("GITHUB_READ_NOT_READY") from None
                 location = error.headers.get("Location", "");error.close();url = urlsplit(location)
                 release_host = url.hostname in {"release-assets.githubusercontent.com", "objects.githubusercontent.com"}
-                workflow_archive = (path.startswith("repos/"+PI+"/actions/artifacts/") and path.endswith("/zip")
-                                    and isinstance(url.hostname, str) and url.hostname.endswith(".blob.core.windows.net"))
-                require(url.scheme == "https" and (release_host or workflow_archive) and not url.fragment
+                archive_host = (workflow_archive and isinstance(url.hostname, str)
+                                and url.hostname.endswith(".blob.core.windows.net"))
+                require(url.scheme == "https" and (release_host or archive_host) and not url.fragment
                         and url.username is None and url.password is None and url.port in {None, 443}, "ARTIFACT_REDIRECT_INVALID")
                 # Fresh request deliberately carries no GitHub identity to the signed asset URL.
                 response = self.opener.open(Request(location, headers={"User-Agent": "DJConnect-Pi-Qualified-Consumer"}), timeout=20)

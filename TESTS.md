@@ -1155,3 +1155,16 @@ See docs/PI_TWO_HOST_CONSUMER.md for the closed Core contract/inventory pins,
 236 dedicated offline cases, actual read-only identity observations and
 remaining exact review/publication/operational gates. Neither rc.5 installation
 nor installed screenshots are claimed. Runtime app bytes remain at42dac367.
+
+
+## Actions archive media type, 21 October 2026
+
+The locked deployment-tool suite passes316cases, including12 new Actions ZIP
+HTTP-boundary cases. Three exact negotiation regressions fail on the old reader;
+the corrected reader retains release-asset octet-stream, anonymous signed-byte
+download, bounded content, unsafe redirect rejection and no automatic retries.
+Actual GitHub read-only verification recognizes both existing successful rc.5
+install/smoke receipts; that local WIP check is not qualified workflow evidence.
+Both device installations and individual smoke checks are separate actual proof.
+The new live Pi10/HA-dev active-Session click test is not yet performed: normal
+HA-dev two-factor login and existing native VNC authentication are pending.
