@@ -1469,3 +1469,68 @@ backward continuity and other parity work remain open; this source slice require
 normal exact review/protected source/separate Finalization and a distinct release
 before runtime deployment. HA-dev authentication and the active Pi10 Session test
 remain explicitly human-deferred.
+
+## Single saved-Session deletion consumer foundation — 21 October 2026
+
+The received Core archive producer is now independently pinned for this bounded
+consumer work: protected source bbb7a23da015de5887eff4103efed9981f12b0bd and separate
+Finalization 2a1197c441079896bdfdfdc5a2c732146f54ccd3. Both actual post-merge status
+readbacks say POST_MERGE_RELEASE_EVIDENCE_QUALIFIED, runs39572775746/39575446305.
+The exact Final handler fetched through GitHub matches the exported source bytes.
+Contract and synthetic fixture retain SHA256 b5ffa5ae79e7e0d2f900600bd3873fefe44807de966cc39779ce72d0639fc52b
+and79fac1e077a157df0851797c84de2f1f61bc14be08f3048c703ba9acec9f2a67.
+The handed-off private owner installation receipt was read and matches those pins,
+228 files and payload f2be1e18b19b48be7a34e027cecc36e221e04336bfe833e68046206faf70e569.
+That is owner-receipt readback, not a Pi-authenticated HA or personal-erasure test.
+Other unchanged product consumers keep their previously documented producer pins.
+
+Implemented source is deliberately the typed transport/consent foundation;
+**there is no deletion button, controller scheduling or archive invalidation yet**.
+No destructive UI capability is exposed. Single deletion uses only the existing
+paired POST session/history/delete. Its closed body omits generic profile_id and
+private_session hints; the original Profile header and current binding remain.
+The route uses a fresh isolated HTTP session, no ambient credentials/redirects,
+streamed2MiB control budget and the existing shape limits. Binding/401/403 checks
+still precede body reads. Only this closed route reads bounded5xx bodies to retain
+the producer's history_delete_outcome_unknown distinction; arbitrary errors are
+never retained. Other requests keep their prior error behavior. Success requires
+strict schema1, deleted:true and exact operation/owner/target receipt. No response
+imports Runtime, history or configuration, and no request is automatically retried.
+
+The RAM-only SingleDeleteIntent accepts an explicit bool confirmation, strict
+single capability/version1, original explicit/resolved Profile, original epoch,
+terminal fresh-detail header with opaque revision, original selected Session ID
+and known parent retention deadline. It stores no page body or grant. It mints
+one UUIDv7 at confirmation and keeps the earlier of that original operation's
+five-minute deadline and the original retention deadline. Clock rollback cannot
+renew it; the30-second UUID future-skew check remains separate from expiry.
+Atomic claim consumes one send ticket, including a timeout, and cannot be rearmed.
+Recording/display privacy modes are not used as a new erasure prohibition.
+The forthcoming UI owner must freshly read before confirmation, gate queued work
+and late receipts on its live epoch/context, keep End available and invalidate the
+whole archive only after the exact receipt. Those integrations remain OPEN.
+Bulk snapshots/delete-all and individual Moment/bubble/uncertain deletion are not
+implemented by this slice; the latter remain a separate Core dependency.
+
+Validation:109 new synthetic tests;175 focused deletion/existing-transport checks;
+full integrated2103 tests PASS, no skips,39.22s; Ruff0.16.0 src/tests and diff checks
+PASS. Cases cover exact closed payload, denial-before-body, no redirect/replay,
+malformed/oversized/deep JSON including503, exact receipt fields, integer-list
+revision rejection, terminal/selection/owner/epoch/capability fences, concurrent
+single claim, original retention and conservative-clock expiry. The earlier106-
+case/2100-test run precedes the three final selected-target cases and is retained
+separately. Initial import/dict lint diagnostics are retained. A source inspection
+caught and removed an unimplemented owner field assumption before qualification;
+the actual detail header has no owner_profile_id, so authority stays in its paired
+binding rather than an invented wire field. No test or producer fixture was weakened.
+
+Local review wheel f0d124d9d857f94cbdac37e20c35d23a7b9f482bcd32ba4673d593e0082d5a27
+matches all66 runtime files (one new Python module). No QML/controller/i18n bytes
+changed and no new Qt-view, ARM, installed, provider, HA, model or physical result
+is claimed. Evidence:taskvisualizations/pi-history-delete-consumer-transport with
+exact producer exports/status/receipt readbacks, logs, package and diagnostics.
+Fresh actual-root hostverify MATCH; no repair/cleanup/other-lane write occurred.
+Both installed EADBrc.5 apps and immutable publication remain unchanged. Independent
+PR119 review, protected delivery, separate Finalization and a distinct approved
+release remain required before any runtime deployment. HA-dev authentication and
+the Pi10 active-Session click test remain explicitly human-deferred.

@@ -11,6 +11,7 @@ from contextlib import ExitStack
 from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import quote, urlsplit
+from uuid import UUID
 
 import requests
 
@@ -62,6 +63,32 @@ class _JSONShape:
                 if not 0 <= self.depth <= 64 or self.tokens > 100_000:
                     return False
         return True
+
+
+# Closed producer codes. Never retain an arbitrary personal server error string.
+HISTORY_DELETE_ERRORS = {
+    400: frozenset({"invalid_history_delete_request"}),
+    404: frozenset({"history_unavailable"}),
+    409: frozenset({"session_not_archived", "history_revision_conflict", "history_delete_operation_conflict"}),
+    503: frozenset({"history_unavailable", "history_delete_outcome_unknown", "history_delete_capacity"}),
+}
+
+
+def deletion_identifier(value, maximum):
+    if (not isinstance(value, str) or not 1 <= len(value) <= maximum or value != value.strip()
+            or any(ord(char) < 32 or ord(char) == 127 for char in value)):
+        raise SessionError("invalid")
+    return value
+
+
+def deletion_operation(value):
+    try:
+        parsed = UUID(value)
+        if parsed.version != 7 or str(parsed) != value:
+            raise ValueError
+    except (ValueError, TypeError, AttributeError):
+        raise SessionError("invalid") from None
+    return value
 
 
 MOODS = frozenset({"chill", "groove", "energy", "party"})
@@ -117,9 +144,16 @@ class SessionTransport:
     def binding(self) -> SessionBinding:
         return SessionBinding.capture(self.config())
 
-    def _request(self, binding: SessionBinding, method: str, route: str, payload=None, *, timeout=None, isolated=False) -> dict:
+    def _request(self, binding: SessionBinding, method: str, route: str, payload=None, *, timeout=None, isolated=False, archive_delete=False) -> dict:
         if binding != self.binding():
             raise SessionError("context_changed")
+        if archive_delete:
+            # This exception to generic identity/error handling is closed to the
+            # one released destructive route. No arbitrary caller-selected path.
+            if (method != "POST" or route != "session/history/delete" or not isinstance(payload, dict)
+                    or set(payload) != {"session_id", "expected_revision", "operation_id", "confirmed", "history_contract_version"}):
+                raise SessionError("invalid")
+            isolated = True
         if isolated:
             try:
                 base = urlsplit(binding.ha_url)
@@ -140,7 +174,9 @@ class SessionTransport:
         }
         if binding.profile_id:
             headers["X-DJConnect-Profile-ID"] = binding.profile_id
-        body = {**binding.identity(), **(payload or {})}
+        identity = ({"device_id": binding.device_id, "client_type": CLIENT_TYPE}
+                    if archive_delete else binding.identity())
+        body = {**identity, **(payload or {})}
         if method == "GET":
             body = {key: str(value).lower() if isinstance(value, bool) else value for key, value in body.items()}
         category = "invalid" if method == "GET" else "uncertain"
@@ -162,9 +198,9 @@ class SessionTransport:
                 # Denial is authoritative before any header/body allocation or JSON decode.
                 if response.status_code in (401, 403):
                     raise SessionError("denied")
-                if 300 <= response.status_code < 400 or response.status_code >= 500:
+                if 300 <= response.status_code < 400 or (response.status_code >= 500 and not archive_delete):
                     raise SessionError("unavailable" if method == "GET" else "uncertain")
-                maximum = response_budget(route)
+                maximum = JSON_CONTROL_BYTES if archive_delete else response_budget(route)
                 declared = response.headers.get("Content-Length")
                 if declared is not None and (not isinstance(declared, str) or not declared.isascii()
                         or not declared.isdecimal() or len(declared) > 20 or int(declared) > maximum):
@@ -190,6 +226,14 @@ class SessionTransport:
                 if not isinstance(data, dict):
                     raise SessionError(category)
                 code = data.get("error") if isinstance(data.get("error"), str) else ""
+                if archive_delete:
+                    if response.status_code == 200 and data.get("success") is True:
+                        return data  # The typed method below validates the exact receipt.
+                    admitted = code if (data.get("success") is False
+                        and code in HISTORY_DELETE_ERRORS.get(response.status_code, ())) else ""
+                    category = ("conflict" if response.status_code == 409 else "unavailable"
+                        if admitted and admitted != "history_delete_outcome_unknown" else "uncertain")
+                    raise SessionError(category, admitted)
                 if response.status_code in (404, 405, 426) or code == "history_contract_upgrade_required":
                     raise SessionError("unavailable", code if code in {"history_unavailable", "active_session_not_found", "history_contract_upgrade_required"} else "")
                 if response.status_code == 409:
@@ -261,6 +305,30 @@ class SessionTransport:
         return self._request(binding, "POST", "command", {
             "command": "set_output", "value": target, "play": play,
             "request_source": "device_command", "app_version": PROTOCOL_VERSION}, isolated=True)
+
+    def delete_history(self, binding, session_id: str, expected_revision: str,
+                       operation_id: str, *, confirmed: bool):
+        """One explicit archive mutation; no retries or optimistic projection.
+
+        The caller must bind a fresh detail read and confirmation to its original
+        epoch and UUIDv7 lifetime. This adapter cannot create/renew consent.
+        List SQL revisions are deliberately rejected, never converted to CAS.
+        """
+        sid = deletion_identifier(session_id, 200)
+        revision = deletion_identifier(expected_revision, 4096)
+        op = deletion_operation(operation_id)
+        if (confirmed is not True or not binding.resolved_profile_id
+                or binding.profile_id != binding.resolved_profile_id):
+            raise SessionError("invalid")
+        data = self._request(binding, "POST", "session/history/delete", {
+            "session_id": sid, "expected_revision": revision,
+            "operation_id": op, "confirmed": True, "history_contract_version": 2}, archive_delete=True)
+        if (type(data.get("schema_version")) is not int or data["schema_version"] != 1
+                or data.get("operation_id") != op or data.get("owner_profile_id") != binding.resolved_profile_id
+                or data.get("deleted_session_id") != sid or data.get("deleted") is not True):
+            raise SessionError("uncertain")
+        return {"operation_id": op, "owner_profile_id": binding.resolved_profile_id,
+                "deleted_session_id": sid, "deleted": True}
 
     def end(self, binding, session_id: str):
         return self._request(binding, "POST", "session/end", {"session_id": identifier(session_id)})
