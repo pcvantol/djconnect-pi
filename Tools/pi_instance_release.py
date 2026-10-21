@@ -136,7 +136,7 @@ def main():
     request, deployment_run = selected_request(inputs, args.operation)
     client = GitHubRead(environment.get("GH_TOKEN", ""))
     consumer_sha, run_id = workflow_context(client, args.operation, environment)
-    configuration = {key: environment.get(key, "") for key in ("PI_RC5_OPERATIONAL_CORE_SHA", "PI_RC5_OPERATIONAL_MANIFEST_SHA256")}
+    configuration = {key: environment.get(key, "") for key in ("PI_RC6_OPERATIONAL_CORE_SHA", "PI_RC6_OPERATIONAL_MANIFEST_SHA256")}
     authority = resolve(client, request, consumer_sha, configuration)
     root = Path(environment["RUNNER_TEMP"])/("pi-qualified-instance-"+run_id+"-"+environment.get("GITHUB_RUN_ATTEMPT", "1"));root.mkdir(mode=0o700, exist_ok=True)
     if args.prepare:

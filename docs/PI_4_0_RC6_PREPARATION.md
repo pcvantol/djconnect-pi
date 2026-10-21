@@ -30,9 +30,14 @@ rc.5 release and historical rc.5 deployment evidence remain immutable.
 
 ## Current boundary
 
-This change prepares version metadata and download examples only. The examples
-are future rc.6 URLs, usable after actual publication. No deployment, service
-restart, pairing/reset, playback command or real Spotify acceptance is implied.
-The existing closed rc.5-only consumer and producer pins remain unchanged until
-an actual protected rc.6 handoff is available. Inter and Glass component evidence
-on predecessor cf260fb remains component evidence, not rc.6 package qualification.
+The shared UI/runtime and explicit matching rc.6 consumer are implemented and
+locally qualified. See PI_RC6_MATCHING_CONSUMER.md and PI_PAGE_TOOLBARS.md.
+Protected Core802619ac plus separate Final5c34c37b are independently read back
+as canonically qualified, with exact normative files and inventory. Old vendored
+rc.5 inputs remain unchanged and unselected.
+
+Exact independent review, CI and protected Pi source/Finalization remain required,
+followed by actual immutable rc.6 publication and its new Core operative binding
+and Finalization. No configuration pair is written, no workflow dispatched and
+installed EADBrc.5 remains unchanged. Real Spotify/Schuur Denon, physical touch
+and current full-app GPU acceptance are still unexecuted.

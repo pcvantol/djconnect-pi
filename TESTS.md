@@ -2234,3 +2234,30 @@ uses QML expression inspection and production Basic/Inter initialization, with
 all action/visibility assertions retained. Initial full2527PASS/1FAIL was the
 obsolete48px source-style assertion, not a waived functional test. All logs and
 intermediate images retained under taskvisualizations/pi-page-toolbars.
+
+### Explicit rc.6 matching deployment consumer
+
+Explicit protected Core802619ac1ab3ec11eace7a8609167018193bb98e plus separate
+Final5c34c37bab2b73744f9dbe8832449ef4ab211a02, requestV3/manifest3, rc.6 profile
+assets/wheel and pi-rc6-instance-readback-v1. Four historical rc.5 producer files
+remain byte-identical; no autodetection/old or mixed config-pair fallback or free
+endpoint/target/Profile. All three workflow paths/direct canonical preflight stay
+aligned. The existing physical mutation concurrency key is retained across
+versions. Strict source/consumer/publication/actual bytes/authority/identity/smoke
+joins and no-replay remain. See PI_RC6_MATCHING_CONSUMER.md and distinct
+PI_RC6_TWO_HOST_CONSUMER_PINS.json. No operative config or deployment is created.
+
+31 new cases;326 directed locked-tool PASS4.39s;FULL2561 integrated PASS/no skips
+50.29s. Earlier FULL2559PASS50.95s is intermediate, not added. Ruff0.16 src/tests/
+consumer tools and diff PASS. Three YAML parsed;15 actual Bash blocks syntax PASS.
+Eight external pinned canonical non-Windows Bash shape audits use synthetic
+values/zero effects, not extra product tests or operational authority. Initial
+stale V2 authority-reader key caused63FAIL/236PASS; corrected to V3 with unchanged
+assertions. First audit selected PowerShell under Bash; final selects shell=bash.
+Original independent inner-version/root installer assertions retained and extended
+to rc.6. Initial SystemPython docs command lacked jsonschema, failed before write;
+exact locked path rerun. Runtime80files/wheel remain byte-identical toolbar7d606335;
+no new QML/ARM/installed/live/GPU/touch result for this tooling-only delta. No
+publication/config-write/dispatch/install; exact review/protected Pi source/Final,
+actual publication and new qualified Core operative binding remain required.
+Evidence: taskvisualizations/pi-rc6-matching-consumer.

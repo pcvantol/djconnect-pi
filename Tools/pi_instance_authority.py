@@ -167,10 +167,10 @@ def release_asset(release: dict, filename: str, maximum: int) -> dict:
 
 def resolve(client, request: dict, consumer_sha: str, configuration: dict) -> Authority:
     # Snapshot both protected configuration values once. Callers cannot supply a path.
-    pair = operational_pair(configuration.get("PI_RC5_OPERATIONAL_CORE_SHA", ""),
-                            configuration.get("PI_RC5_OPERATIONAL_MANIFEST_SHA256", ""))
+    pair = operational_pair(configuration.get("PI_RC6_OPERATIONAL_CORE_SHA", ""),
+                            configuration.get("PI_RC6_OPERATIONAL_MANIFEST_SHA256", ""))
     contracts = pinned_contracts()
-    validate_schema(request, contracts["PI_TWO_HOST_DEPLOYMENT_REQUEST_V2.schema.json"], "REQUEST_SCHEMA_INVALID")
+    validate_schema(request, contracts["PI_TWO_HOST_DEPLOYMENT_REQUEST_V3.schema.json"], "REQUEST_SCHEMA_INVALID")
     request = dict(request)
     protected_ancestor(client, CORE, CORE_SOURCE)
     protected_ancestor(client, CORE, CORE_FINALIZATION)

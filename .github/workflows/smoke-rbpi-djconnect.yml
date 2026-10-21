@@ -46,7 +46,7 @@ permissions:
   statuses: write
 
 concurrency:
-  group: pi-rc5-smoke-${{ inputs.deployment_instance }}
+  group: pi-rc6-smoke-${{ inputs.deployment_instance }}
   cancel-in-progress: false
 
 jobs:
@@ -66,8 +66,8 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       PI_INPUTS_JSON: ${{ toJSON(inputs) }}
-      PI_RC5_OPERATIONAL_CORE_SHA: ${{ vars.PI_RC5_OPERATIONAL_CORE_SHA }}
-      PI_RC5_OPERATIONAL_MANIFEST_SHA256: ${{ vars.PI_RC5_OPERATIONAL_MANIFEST_SHA256 }}
+      PI_RC6_OPERATIONAL_CORE_SHA: ${{ vars.PI_RC6_OPERATIONAL_CORE_SHA }}
+      PI_RC6_OPERATIONAL_MANIFEST_SHA256: ${{ vars.PI_RC6_OPERATIONAL_MANIFEST_SHA256 }}
     steps:
       - name: Checkout exact consumer
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -87,7 +87,7 @@ jobs:
         run: |
           python -m Tools.pi_instance_release --operation smoke --prepare
       - name: Canonical deployment readiness preflight
-        uses: pcvantol/djconnect/.github/actions/deployment-readiness-preflight@9b40f422911f08c2076b11e49eb21e98ae5eaa1a
+        uses: pcvantol/djconnect/.github/actions/deployment-readiness-preflight@802619ac1ab3ec11eace7a8609167018193bb98e
         with:
           target: ${{ inputs.target }}
           manifest_id: ${{ inputs.manifest_id }}
@@ -96,8 +96,8 @@ jobs:
           artifact_sha256: ${{ inputs.artifact_sha256 }}
           expected_runner_os: macOS
           expected_runner_arch: ARM64
-          required_configuration: PI_INSTANCE_ENDPOINT_REF,PI_INSTANCE_SSH_CONFIG,GH_TOKEN,PI_RC5_OPERATIONAL_CORE_SHA,PI_RC5_OPERATIONAL_MANIFEST_SHA256
-          smoke_contract: pi-rc5-instance-readback-v1
+          required_configuration: PI_INSTANCE_ENDPOINT_REF,PI_INSTANCE_SSH_CONFIG,GH_TOKEN,PI_RC6_OPERATIONAL_CORE_SHA,PI_RC6_OPERATIONAL_MANIFEST_SHA256
+          smoke_contract: pi-rc6-instance-readback-v1
       - name: Record successful canonical preflight
         run: |
           echo "PI_CANONICAL_PREFLIGHT_PASSED=true" >> "$GITHUB_ENV"
