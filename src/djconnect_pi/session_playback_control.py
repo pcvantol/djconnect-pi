@@ -12,6 +12,8 @@ COMMANDS = frozenset({"play", "pause", "previous", "next", "save_current_track"}
 
 
 VOLUME_COMMANDS = frozenset({"volume_read", "set_volume"})
+FAVORITE_COMMANDS = frozenset({"favorite_read", "set_favorite"})
+OBSERVATION_COMMANDS = frozenset({"volume_read", "favorite_read"})
 
 
 def volume_observation(status, backend):
@@ -40,6 +42,19 @@ def volume_observation(status, backend):
     name = device.get("name")
     return {"output_id": output, "percent": values[0],
             "output_name": name if isinstance(name, str) and len(name) <= 256 else ""}
+
+
+def favorite_observation(status, backend):
+    """Only strict, mutually consistent current-track favorite observations."""
+    caps = status.get("music_backend_capabilities")
+    playback = status.get("playback")
+    if (backend != "spotify_direct" or not isinstance(caps, dict)
+            or caps.get("supports_favorites") is not True or not isinstance(playback, dict)
+            or type(playback.get("favorite_status")) is not bool
+            or "is_liked" in playback and (type(playback["is_liked"]) is not bool
+                                          or playback["is_liked"] != playback["favorite_status"])):
+        raise SessionError("unavailable")
+    return playback["favorite_status"]
 
 
 def reference(owner):
@@ -73,6 +88,9 @@ class PlaybackControl(QObject):
         self.volume = None
         self.volume_serial = 0
         self.volume_status = ""
+        self.favorite_state = None
+        self.favorite_status = ""
+        self.favorite_serial = 0
         self.ready.connect(self.finish)
 
     def valid(self):
@@ -83,7 +101,8 @@ class PlaybackControl(QObject):
                     and request["binding"] == self.owner.transport.binding()
                     and request["reference"] == reference(self.owner)
                     and (request["command"] != "save_current_track" or self.favorite_supported())
-                    and (request["command"] not in VOLUME_COMMANDS or self.volume_supported()))
+                    and (request["command"] not in VOLUME_COMMANDS or self.volume_supported())
+                    and (request["command"] not in FAVORITE_COMMANDS or self.favorite_read_supported()))
         except (SessionError, AttributeError, KeyError, TypeError, ValueError, RuntimeError):
             return False
 
@@ -104,7 +123,22 @@ class PlaybackControl(QObject):
         except (SessionError, AttributeError, KeyError, TypeError, ValueError, RuntimeError):
             return False
 
+    def favorite_read_supported(self):
+        return self.favorite_supported() and self.owner.backend.cfg.music_backend == "spotify_direct"
+
+    def favorite_valid(self):
+        try:
+            return (self.favorite_state is not None and not self.closed and self.visible
+                    and self.favorite_read_supported() and self.owner._running_action not in {"start", "end"}
+                    and self.favorite_state["binding"] == self.owner.transport.binding()
+                    and self.favorite_state["reference"] == reference(self.owner))
+        except (SessionError, AttributeError, KeyError, TypeError, ValueError, RuntimeError):
+            return False
+
     def sync(self):
+        if self.favorite_state and not self.favorite_valid():
+            self.favorite_state = None
+            self.favorite_status = ""
         if self.volume and not self.volume_valid():
             self.volume = None
             self.volume_status = ""
@@ -113,6 +147,8 @@ class PlaybackControl(QObject):
             self.status = ""
 
     def hide(self, *, reset=False):
+        self.favorite_state = None
+        self.favorite_status = ""
         self.volume = None
         self.volume_status = ""
         self.request = None
@@ -134,7 +170,10 @@ class PlaybackControl(QObject):
             pass
         busy = bool(self.running or self.owner._running or self.owner._question_running or self.owner._artwork_prepare.running)
         return {"available": available, "enabled": available and not busy and not self.blocked,
-                "favorite": self.favorite_supported(), "running": self.running,
+                "favorite": self.favorite_read_supported(), "running": self.running,
+                "favorite_observation": {"liked": self.favorite_state["liked"], "lease": self.favorite_state["serial"]} if self.favorite_valid() else {},
+                "favorite_status": self.favorite_status,
+                "reading_favorite": bool(self.running and self.request and self.request["command"] == "favorite_read"),
                 "volume_supported": self.volume_supported(),
                 "volume": {**self.volume["observation"], "lease": self.volume["serial"]} if self.volume_valid() else {},
                 "volume_status": self.volume_status,
@@ -158,6 +197,17 @@ class PlaybackControl(QObject):
             return False
         return self._start(session_id, item_id, "set_volume", value=value)
 
+    def read_favorite(self, session_id, item_id):
+        if not self.favorite_read_supported():
+            return False
+        return self._start(session_id, item_id, "favorite_read")
+
+    def set_favorite(self, session_id, item_id, lease, value):
+        if (type(value) is not bool or type(lease) is not int or not self.favorite_valid()
+                or self.favorite_state["serial"] != lease or value == self.favorite_state["liked"]):
+            return False
+        return self._start(session_id, item_id, "set_favorite", value=value)
+
     def _start(self, session_id, item_id, command, *, value=None):
         if self.closed or not self.snapshot()["enabled"]:
             return False
@@ -174,8 +224,12 @@ class PlaybackControl(QObject):
         self.request = {"binding": binding, "reference": current, "command": command}
         if command == "set_volume":
             self.request.update(value=value, volume=deepcopy(self.volume["observation"]))
+        if command == "set_favorite":
+            self.request.update(value=value, liked=self.favorite_state["liked"])
         self.volume = None
         self.volume_status = ""
+        self.favorite_state = None
+        self.favorite_status = ""
         request = deepcopy(self.request)
         self.running = True
         self.status = ""
@@ -216,7 +270,15 @@ class PlaybackControl(QObject):
                         or command == "save_current_track" and (not isinstance(caps, dict) or caps.get("supports_favorites") is not True)):
                     raise SessionError("unavailable")
                 # Existing global command semantics: no invented Session/item/output CAS fields.
-                if command in VOLUME_COMMANDS:
+                if command in FAVORITE_COMMANDS:
+                    liked = favorite_observation(status, request["reference"][4])
+                    if command == "favorite_read":
+                        result["liked"] = liked
+                    else:
+                        if liked != request["liked"] or not self.valid() or self.request != request:
+                            raise SessionError("context_changed")
+                        self.owner.transport.playback_favorite(binding, request["value"])
+                elif command in VOLUME_COMMANDS:
                     observation = volume_observation(status, request["reference"][4])
                     if command == "volume_read":
                         result["volume"] = observation
@@ -253,6 +315,13 @@ class PlaybackControl(QObject):
         elif result.get("error") == "denied" or result.get("withdraw_session"):
             self.owner.invalidate()
             self.owner._error = "denied" if result.get("error") == "denied" else "context_changed"
+        elif command == "favorite_read":
+            self.status = ""
+            self.favorite_status = "unavailable" if result.get("error") else ""
+            if not result.get("error"):
+                self.favorite_serial += 1
+                self.favorite_state = {"binding": self.request["binding"], "reference": self.request["reference"],
+                                       "serial": self.favorite_serial, "liked": result["liked"]}
         elif command == "volume_read":
             self.status = ""
             self.volume_status = "unavailable" if result.get("error") else ""
@@ -267,7 +336,7 @@ class PlaybackControl(QObject):
             self.status = "accepted"
         self.owner.changed.emit()
         # An independent owner read owns playback; never project the command response.
-        if valid and not result.get("error") and command != "volume_read":
+        if valid and not result.get("error") and command not in OBSERVATION_COMMANDS:
             self.owner.refresh()
 
     def refresh(self):
@@ -280,6 +349,8 @@ class PlaybackControl(QObject):
             self.request = None
             self.volume = None
             self.volume_status = ""
+            self.favorite_state = None
+            self.favorite_status = ""
             self.owner.changed.emit()
 
     def shutdown(self):

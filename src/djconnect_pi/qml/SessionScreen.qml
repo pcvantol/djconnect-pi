@@ -1068,7 +1068,24 @@ Item {
                 GlassButton { objectName: "sessionPlaybackToggle"; iconName: screen.state.playback.state === "playing" ? "pause" : "play"; Accessible.name: screen.tr(screen.state.playback.state === "playing" ? "pause" : "play"); Layout.fillWidth: true; enabled: !!screen.state.playback_control.enabled; onClicked: screen.owner.playbackCommand(screen.state.session_id, screen.state.playback.item_id, screen.state.playback.state === "playing" ? "pause" : "play") }
                 GlassButton { objectName: "sessionPlaybackNext"; iconName: "next"; Accessible.name: screen.tr("next"); Layout.fillWidth: true; enabled: !!screen.state.playback_control.enabled; onClicked: screen.owner.playbackCommand(screen.state.session_id, screen.state.playback.item_id, "next") }
             }
-            GlassButton { objectName: "sessionPlaybackFavorite"; visible: !!screen.state.playback_control.favorite; text: screen.tr("add_to_favorites"); iconName: "heart"; Layout.fillWidth: true; enabled: !!screen.state.playback_control.enabled; onClicked: screen.owner.playbackCommand(screen.state.session_id, screen.state.playback.item_id, "save_current_track") }
+            GlassButton {
+                objectName: "sessionPlaybackFavorite"
+                readonly property var observation: screen.state.playback_control.favorite_observation || ({})
+                readonly property bool known: typeof observation.liked === "boolean"
+                visible: !!screen.state.playback_control.favorite
+                text: screen.tr(!known ? "session_favorite_read" : observation.liked ? "session_favorite_remove" : "session_favorite_add")
+                iconName: "heart"; primary: known && observation.liked
+                Layout.fillWidth: true; enabled: !!screen.state.playback_control.enabled
+                onClicked: {
+                    if (known) screen.owner.setPlaybackFavorite(screen.state.session_id, screen.state.playback.item_id, observation.lease, !observation.liked)
+                    else screen.owner.readPlaybackFavorite(screen.state.session_id, screen.state.playback.item_id)
+                }
+            }
+            Text {
+                visible: screen.state.playback_control.favorite_status === "unavailable"
+                text: screen.tr("session_favorite_unavailable"); textFormat: Text.PlainText
+                font.pixelSize: 18; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true
+            }
             ColumnLayout {
                 objectName: "sessionVolumeControls"
                 visible: !!screen.state.playback_control.volume_supported
@@ -1139,7 +1156,7 @@ Item {
             Text {
                 objectName: "sessionPlaybackStatus"
                 visible: !!screen.state.playback_control.status
-                text: screen.tr(screen.state.playback_control.reading_volume ? "loading" : screen.state.playback_control.status === "sending" ? "session_question_sending" : screen.state.playback_control.status === "accepted" ? "session_playback_sent" : "session_uncertain")
+                text: screen.tr((screen.state.playback_control.reading_volume || screen.state.playback_control.reading_favorite) ? "loading" : screen.state.playback_control.status === "sending" ? "session_question_sending" : screen.state.playback_control.status === "accepted" ? "session_playback_sent" : "session_uncertain")
                 textFormat: Text.PlainText; font.pixelSize: 18; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true
             }
             RowLayout {

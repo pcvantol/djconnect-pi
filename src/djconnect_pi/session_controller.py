@@ -218,6 +218,14 @@ class SessionController(QObject):
     def setPlaybackVolume(self, session_id, item_id, lease, value):
         return self._playback_control.set_volume(session_id, item_id, lease, value)
 
+    @Slot(str, str, result=bool)
+    def readPlaybackFavorite(self, session_id, item_id):
+        return self._playback_control.read_favorite(session_id, item_id)
+
+    @Slot(str, str, int, bool, result=bool)
+    def setPlaybackFavorite(self, session_id, item_id, lease, value):
+        return self._playback_control.set_favorite(session_id, item_id, lease, value)
+
     @Slot()
     def cancelPlaybackIntent(self):
         # Revocation is immediate; notification must not re-enter a QML state binding.

@@ -243,6 +243,13 @@ class SessionTransport:
             "command": "set_volume", "value": wire_value,
             "request_source": "device_command", "app_version": PROTOCOL_VERSION}, isolated=True)
 
+    def playback_favorite(self, binding, value: bool):
+        if type(value) is not bool:
+            raise SessionError("invalid")
+        return self._request(binding, "POST", "command", {
+            "command": "set_current_track_favorite", "value": value,
+            "request_source": "device_command", "app_version": PROTOCOL_VERSION}, isolated=True)
+
     def end(self, binding, session_id: str):
         return self._request(binding, "POST", "session/end", {"session_id": identifier(session_id)})
 

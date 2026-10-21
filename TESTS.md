@@ -1284,3 +1284,61 @@ apps, immutable release assets and operative bindings remain unchanged. Exact
 independent review/protected delivery and a distinct release are still required.
 Output selection, favorite-state/removal and gestures remain open. HA-dev login
 and the active Pi10 Session click test remain explicitly human-deferred.
+
+
+## Current-track favorite state and removal — 21 October 2026
+
+The Session playback favorite button first explicitly reads the current Spotify
+track's favorite status. Only a strict boolean favorite_status, consistent with
+is_liked when present, makes the next click an explicit Add or Remove action.
+Unknown, absent, malformed or contradictory data is never treated as unliked.
+A confirmed liked state highlights the existing heart button and labels removal.
+An unavailable read preserves the Session and offers another deliberate read.
+This replaces the previous UI's unconditional save-only click; it does not use a
+server-side toggle. MA does not advertise favorites in the pinned contract and
+gets no invented favorite support.
+
+An in-memory serial lease binds the original Profile/Session/item/state/source
+and backend/revision. A write independently reads the current owner Session and
+raw status, requires the same observed liked state and strict capability, then
+sends one existing set_current_track_favorite command with a strict boolean value.
+The original isolated HTTP authorization, no-retry and denial guards apply.
+Close/hide/context/End withdraw queued work; a started request may finish without
+publishing into a withdrawn context. The dedicated worker leaves End available.
+Command responses never set a local liked state; the next explicit status read
+owns it. Other playback intents clear observation leases, so an old observation
+cannot silently authorize a later action. The existing global current-track
+command still has a server-change race after the last read; no atomic CAS or
+exactly-once guarantee is claimed. Private personal/household admission remains
+the current narrow consumer slice, not a permanent ban on other authorized modes.
+
+Sixty-seven new favorite tests pass, including strict status/boolean payloads,
+changed owner/status/capability fences, late result withdrawal, no write replay,
+denial preserving pairing and two real held-worker/End subprocesses. The full
+integrated local suite passes1909 tests without skips; Ruff0.16.0 src/tests and
+diff checks pass. Final160 actual isolated QML views cover both formats, five
+locales and initially-liked/unliked states with real read/Add/Remove/cancel clicks,
+unknown-versus-false, no optimistic response import and compact popup bounds.
+The existing playback preview now follows read-then-set and separately passes
+130 actual QML regression views, including normal transport, streamed response
+bounds, denial, close-before-dispatch and no replay. Both formats were visually
+inspected. There are zero QML errors/binding loops; startup font warnings remain
+recorded. Four new stable copy keys exist in all five locales.
+
+Two external unmodified pinned-Core8b AST method cases prove boolean true/false
+map to the existing provider PUT/DELETE paths. These are offline contract checks,
+not extra product tests or provider acceptance. The first new HTTP test fixture
+reversed request/response tuple positions; three failures and the corrected log
+are retained. A later helper copy accidentally included unrelated volume cases;
+that intermediate24-failure diagnostic is retained, and only the intended67
+favorite cases are counted. No production condition or assertion was weakened.
+
+Evidence: taskvisualizations/pi-session-favorite-consumer. Local review wheel
+497e262b590453ed35d71c1a5982ff99798df58d6ac1270d839e36abc951d31a
+matches65 runtime files. Host actual-root verification returned MATCH; no host
+repair was made. No network, HA/provider commands, installed ARM, physical touch
+or live Profile acceptance is claimed. Both EADBrc.5 devices and immutable assets
+remain unchanged. Independent exact-source review, protected source/separate
+Finalization and a distinct release/operative binding remain required before
+runtime deployment. Output selection and artwork gestures are still open.
+HA-dev authentication and the active Pi10 Session test remain human-deferred.
