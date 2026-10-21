@@ -63,13 +63,13 @@ Workflow paths and the existing physical mutation lock are preserved across
 releases; remote version/wheel/staging are explicitly rc.6. No authority/identity/
 SSH/preflight/installer/recovery/smoke/no-replay guard is broadened.
 
-Peter directly requested latest-source consolidation then installation, including
-font/Glass, and selected the same Core owner for review and rc.6 producer work.
-Trusted origin references in this chat are installation message
-01a15f17-336d-7551-a3df-072838bfd7ff and rc.6 producer-selection message
-01a15f4e-77f4-70a3-931c-58579863be87. They do not substitute for later exact
-published source/profile/hash and operative authority joins. The separate real
-Pi10 Spotify test request names Schuur Denon; it remains unexecuted.
+The current human instruction requests latest-source consolidation then installation,
+including font/Glass, and explicitly selects the same Core owner for review and
+rc.6 producer work. Trusted origin-message references are retained in private
+owning evidence for the later Core operative join. Public release documentation
+does not reproduce chat identifiers or household speaker names. The separate
+requested real Pi10 Spotify test remains unexecuted. Human intent does not
+substitute for exact published source/profile/hash and operative authority joins.
 
 Fresh actual-root hostverify was MATCH before source merge, after Core's own
 individual byte/metadata-preserving retention receipts; Pi did no cleanup/repair.
