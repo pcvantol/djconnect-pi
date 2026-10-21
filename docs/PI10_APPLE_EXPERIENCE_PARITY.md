@@ -3206,3 +3206,17 @@ ten new success/error-order cases fail on the unchanged original claim and pass
 now. Helper hash re-pinned in all three joins. Earlier518/2753 is intermediate
 component proof; final528/2763 above replaces it. Old head is not independently
 approved and no device recovery ran; new exact review/CI/OwnerAuth is required.
+
+
+### Explicit rc.6 wall-4inch recovery consumer
+
+The bounded recovery now explicitly adopts Core source265f1512 / Finalc8549876
+schema4; earlier Source121/Final122 remain component evidence. Dedicated fixed
+pair/path and recovery/read-only smoke reject V3, old/mixed authority, Pi10 and
+ordinary aggregate. Fresh boot plus whole private config are joined via a fixed
+readonly observer under the exact existing sudo command policy; no new root rule.
+New187 / directed715 PASS4.47s; full2950 PASS/no skips45.68s; Ruff/YAML/Bash/diff
+PASS. Runtime80/installer/lock unchanged. Actual Zero2W Python3.13.5 only compiles
+helper/remote/observer in RAM; no root/candidate execution. No installed recovery,
+new smoke, Pi10 reinstall, overall PASS or live Spotify/touch claim. See
+[closed recovery](PI_RC6_WALL4_RECOVERY.md) for pins/sequence/diagnostics.

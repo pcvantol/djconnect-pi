@@ -12,9 +12,10 @@ and inactive. This is not a completed installation.
 Peter explicitly selected qualification and execution of this bounded recovery
 in this same chat. Source approval, separate Finalization and a new qualified Core
 operative binding remain mandatory. The original rc.6 binding is not reused.
-Existing contractV2 semanticjoin5 and manifestV3 consumer.source_sha permit the
-original publication source and new qualified consumer to differ; no new wire
-field or producer schema is introduced here.
+Source121/Final122 qualified the recovery components only. Core subsequently
+closed admission under a distinct schema4 producer contract. The explicit
+consumer described below supersedes the earlier V3 admission proposal; V3
+consumer/manifest prose is never sufficient recovery authority.
 
 Pi10 deployment39669510052 and separate smoke39670779250 already passed with the
 published rc.6 source. Its success remains separate: do not reinstall Pi10 and do
@@ -65,9 +66,9 @@ state review is required. Runtime guard is ephemeral across a reboot, so a lost
 connection must not be treated as proof that a hold remains active.
 
 A new RECOVERED_PENDING_SMOKE receipt binds original and new run, helper bytes,
-source, all80 files, restored watchdog and preserved configuration. The existing
-separate read-only smoke accepts only this exact typed recovery receipt and its
-successful first-attempt workflow. Original failed evidence is never promoted.
+source, all80 files, restored watchdog and preserved configuration. The dedicated
+separate read-only recovery smoke accepts only the exact new typed recovery
+receipt and its successful first-attempt workflow. Original failed evidence is never promoted.
 Aggregation includes recoveries in physical intent ordering but keeps exact
 consumer/manifest joins; no cross-consumer carry-forward or overall PASS.
 
@@ -109,3 +110,60 @@ all three joins. Earlier192/518/2753 results remain historical component proof;
 final202/528/2763 totals above replace rather than add them. This is source/test
 evidence, not a simulated crash/powerloss/hardware durability acceptance result.
 Exact new independent review is required; the old OwnerAuth/CI is not reused.
+
+## Explicit closed producer adoption
+
+Core source265f151293735cddcf2e496e6c822f16c7cd2064 and distinct Final
+c8549876df54e22b71ed26fcded4ec822b3d166d supply the byte-pinned
+pi-rc6-wall4-recovery-v1 contract and two schemas, vendored separately. Source and
+Final raw canonical receipts were independently checked; Final normative bytes
+match source. An initial source-run HTTP404 is retained as availability evidence;
+the actual original downloaded source raw receipt was checked from its owner's
+retained copy, not reconstructed. The old16 producer files/inventory stay intact.
+
+New authority uses only schema4 / platform_release_recovery_operational_manifest
+at fixed PLATFORM_4_0_RC6_PI_WALL4_RECOVERY_MANIFEST.json and the dedicated closed
+configuration pair PI_RC6_WALL4_RECOVERY_CORE_SHA plus
+PI_RC6_WALL4_RECOVERY_MANIFEST_SHA256. No old/partial/mixed pair or path fallback.
+Exactly one original wall-4inch artifact and target; original publication and
+later protected matching consumer are independently qualified. JSON duplicate
+keys, nonfinite values including exponent overflow, invalid timezone-aware
+timestamps and unknown fields fail closed. The helper remains exact11ce41115c7a.
+
+Recover and distinct smoke-rc6-wall4-recovery.yml use their own trusted entrypoint,
+exact main checkout/actor/workflow/attempt1 and the shared physical mutation
+serialization key. Latest physical intent includes normal deploy, normal smoke,
+recovery and recovery smoke, including newer queued attempts and later updates.
+Ordinary V3 CLI, smoke joins and aggregate reject recovery authority. Recovery
+smoke never calls aggregate or emits overall DEPLOYMENT_OPERATIONAL; Pi10's old
+success remains separate.
+
+A new fixed hash-pinned read-only observer joins the whole private configuration
+and current boot before/after recovery and again during separate recovery smoke.
+Its fixed paths are the original /opt/djconnect/config/client.json, device profile
+and kernel boot identity. The root code only reads; it never writes configuration,
+services, installer, ledger or credentials. Its wrapper is staged at a fresh fixed
+Pi-owned install-pattern location. Exact sudo -n -l -- command/boot authorization
+must succeed before a single observer execution through the pre-existing narrow
+rule; no sudoers/root-grant expansion or fallback. Only opaque digest plus boot
+enter authenticated operational artifacts, never public status/docs. Separate
+smoke also verifies the watchdog timer enabled/active and no loaded hold condition.
+
+187 added cases;715 directed PASS4.47s. FULL2950 integrated PASS/no skips45.68s,
+including existing authorized loopback fixtures. Restricted run2937PASS/13SKIP
+is separate, not the full qualification. Ruff0.16 src/tests/changed tools, three
+workflow YAML/actual Bash blocks and diff checks PASS. All80 runtime files,
+original installer and runtime lock remain byte-identical to0dde. No new Qt/GPU,
+installed/click/Spotify/audio claim. On the actual Zero2W Python3.13.5/aarch64,
+helper/remote/observer compile in RAM only; no candidate execution/file write.
+
+Diagnostics remain external: initial missing observer config path was corrected
+by inspection before qualification; obsolete V3-positive fixtures were moved to
+the explicit controller with assertions retained; one negative hash accidentally
+equaled its original fixture and was corrected; missing deepcopy import failed
+five fixture cases before correction. JSON exponent overflow was caught during
+inspection and explicitly rejected, without altering the pinned root helper.
+Earlier112/640/intermediate runs are not added to final715. Source/independent
+review/protected separate Final and a new separately protected Core operative
+binding are still required before any real recovery. The new pair is not set and
+no recovery/smoke has been dispatched as part of this source qualification.

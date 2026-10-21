@@ -1,0 +1,11 @@
+{
+  "classification": "PROTECTED_PRODUCER_CONTRACT_ONLY_NOT_OPERATIONAL_AUTHORITY",
+  "core_source": "265f151293735cddcf2e496e6c822f16c7cd2064",
+  "core_finalization": "c8549876df54e22b71ed26fcded4ec822b3d166d",
+  "source_raw_run": "39685902722",
+  "final_raw_run": "39687649798",
+  "source_raw_sha256": "47fce844b37f295c2d05e75f0d05ff7bd3d0261b4b6367bdcb3d35cc8b79676f",
+  "final_raw_sha256": "d6f84eaee5c857482e0a59f49e3bede2c48a26df26952b67e66b503b8d3ea753",
+  "root_helper_sha256": "11ce41115c7aa5ac34e568f3ea9008915f342bc3272850b56c61eed19a760ab9",
+  "observer_sha256": "4ae5b8fa3297785a362dfb2e36354cffb4168ab2d0572ef169288d559239e36c"
+}

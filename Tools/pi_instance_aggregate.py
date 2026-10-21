@@ -43,6 +43,7 @@ def latest_deployment(client, authority, instance):
 
 
 def aggregate(client, authority, current: dict) -> dict:
+    require(authority.binding.smoke_contract == "pi-rc6-instance-readback-v1", "ORDINARY_TWO_INSTANCE_AGGREGATE_REQUIRED")
     selected = authority.binding.request["deployment_instance"]
     other = next(instance for instance in CONFIGURATION_REFS if instance != selected)
     results = {selected: current["result"], other: "SMOKE_INCONCLUSIVE"}

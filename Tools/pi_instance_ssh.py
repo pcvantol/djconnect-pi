@@ -46,8 +46,9 @@ def configuration_digest(configuration: Path, alias: str) -> str:
 
 
 class Channel:
-    def __init__(self, binding, timeout=15, *, recovery=False):
-        require(type(recovery) is bool, "SSH_CONTEXT_INVALID")
+    def __init__(self, binding, timeout=15, *, recovery=False, recovery_smoke=False):
+        require(type(recovery) is bool and type(recovery_smoke) is bool and not (recovery and recovery_smoke), "SSH_CONTEXT_INVALID")
+        recovery_mode = recovery or recovery_smoke
         self.recovery_boot_id = None
         instance = binding.request["deployment_instance"]
         require(instance in CONFIGURATION_REFS and binding.inventory_row["endpoint_config_ref"] == CONFIGURATION_REFS[instance], "CLOSED_CONFIGURATION_REQUIRED")
@@ -60,7 +61,7 @@ class Channel:
         require(configuration_digest(configuration, CONFIGURATION_REFS[instance]) == CONFIGURATION_DIGESTS[instance], "SSH_CONFIGURATION_MAPPING_CHANGED")
         self.configuration = configuration
         source = Path(__file__).with_name("pi_instance_remote_payload.py").read_text(encoding="utf-8")
-        command = "python3 -u -c "+shlex.quote(source)+" "+self.challenge+(" recovery" if recovery else "")
+        command = "python3 -u -c "+shlex.quote(source)+" "+self.challenge+(" recovery" if recovery else " recovery-smoke" if recovery_smoke else "")
         args = [SSH_CLIENT, "-F", str(configuration), "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes",
             "-o", "UpdateHostKeys=no", "-o", "ControlMaster=no", "-o", "ControlPath=none",
             "-o", "ConnectionAttempts=1", "-o", "ConnectTimeout=8", "-o", "ServerAliveInterval=10",
@@ -74,7 +75,7 @@ class Channel:
         try:
             observed = self.read_line(timeout)
             require(self.keys == {binding.inventory_row["ssh_host_key_sha256"]}, "SSH_NEGOTIATED_KEY_MISMATCH")
-            if recovery:
+            if recovery_mode:
                 require(isinstance(observed, dict) and set(observed) == {"challenge", "hostname", "architecture", "model", "device_profile", "boot_id"}, "TARGET_NOT_READY")
                 self.recovery_boot_id = observed.pop("boot_id")
                 require(isinstance(self.recovery_boot_id, str) and re.fullmatch(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}", self.recovery_boot_id) is not None, "TARGET_NOT_READY")

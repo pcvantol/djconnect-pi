@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -52,8 +53,12 @@ def strict_json(raw: bytes, maximum: int = 262144) -> dict:
         return result
     def nonfinite(_):
         raise BindingError("JSON_NONFINITE")
+    def finite_float(text):
+        value = float(text)
+        require(math.isfinite(value), "JSON_NONFINITE")
+        return value
     try:
-        value = json.loads(raw, object_pairs_hook=pairs, parse_constant=nonfinite)
+        value = json.loads(raw, object_pairs_hook=pairs, parse_constant=nonfinite, parse_float=finite_float)
     except (ValueError, TypeError, RecursionError):
         raise BindingError("JSON_INVALID") from None
     require(isinstance(value, dict), "JSON_OBJECT_REQUIRED")
@@ -162,7 +167,8 @@ def validate_identity(binding: Binding, observed: dict, challenge: str) -> None:
 
 def recovered_deployment(binding: Binding, record: dict, run_id: str) -> bool:
     # A new successful recovery is distinct from the retained failed deployment.
-    return (isinstance(record, dict) and binding.request["deployment_instance"] == "wall-4inch"
+    return (binding.smoke_contract == "pi-rc6-wall4-recovery-readback-v1"
+        and isinstance(record, dict) and binding.request["deployment_instance"] == "wall-4inch"
         and binding.request["candidate_sha"] == "0dde0abe22a0859f170a7c1d3eab41f1ade44d37"
         and binding.request["artifact_sha256"] == "d67869ffca53c4936059bdbbdbdf6be63b36eafac269fa2f3f9b090922cd0d64"
         and record.get("kind") == "djconnect_pi_recovery_evidence"
@@ -178,8 +184,7 @@ def recovered_deployment(binding: Binding, record: dict, run_id: str) -> bool:
 def validate_smoke_join(binding: Binding, deployment: dict, smoke: dict, run_id: str) -> None:
     require(isinstance(run_id, str) and re.fullmatch(r"[1-9][0-9]*", run_id) is not None, "DEPLOYMENT_RUN_INVALID")
     expected = binding.public_join()
-    require(isinstance(deployment, dict) and (deployment.get("result") == "DEPLOYED_PENDING_SMOKE"
-            or recovered_deployment(binding, deployment, run_id)) and deployment.get("deployment_workflow_run") == run_id, "DEPLOYMENT_EVIDENCE_INVALID")
+    require(isinstance(deployment, dict) and deployment.get("result") == "DEPLOYED_PENDING_SMOKE" and deployment.get("deployment_workflow_run") == run_id, "DEPLOYMENT_EVIDENCE_INVALID")
     require(isinstance(smoke, dict) and smoke.get("result") == "SMOKE_PASS" and smoke.get("deployment_workflow_run") == run_id, "SMOKE_RUN_MISMATCH")
     require(all(deployment.get(key) == value and smoke.get(key) == value for key, value in expected.items()), "SMOKE_BINDING_MISMATCH")
     require(smoke.get("installed_source") == expected["candidate_sha"]
