@@ -2357,23 +2357,28 @@ BrandWindow {
                 Layout.fillWidth: true
             }
 
-            Text {
+            GlassCard {
+                objectName: "trackInsightEmptyHero"
+                hero: true; padding: 24
                 visible: djconnect.trackInsightError.length === 0 && djconnect.trackInsightText.length === 0 && djconnect.trackInsightItems.length === 0 && !djconnect.askDjBusy
-                text: root.tr("track_insight_empty")
-                color: BrandTheme.colors.muted
-                font.pixelSize: 20
-                wrapMode: Text.WordWrap
-                Layout.fillWidth: true
+                Layout.fillWidth: true; Layout.maximumHeight: implicitHeight
+                Text {
+                    visible: djconnect.trackInsightError.length === 0 && djconnect.trackInsightText.length === 0 && djconnect.trackInsightItems.length === 0 && !djconnect.askDjBusy
+                    text: root.tr("track_insight_empty")
+                    color: BrandTheme.colors.muted
+                    font.pixelSize: 20
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
             }
 
-            Rectangle {
+            GlassSurface {
+                border.color: root.moodColor("focus")
+                hero: true
                 visible: djconnect.trackInsightTitle.length > 0 || djconnect.trackInsightArtist.length > 0 || djconnect.trackInsightImageUrl.length > 0
                 Layout.fillWidth: true
                 Layout.preferredHeight: 104
                 radius: root.standardButtonRadius
-                color: "#00000000"
-                border.color: root.moodColor("focus")
-                border.width: 1
                 clip: true
 
                 RowLayout {
@@ -2381,13 +2386,19 @@ BrandWindow {
                     anchors.margins: 10
                     spacing: 10
 
-                    Image {
-                        source: djconnect.trackInsightImageUrl
-                        visible: source.toString().length > 0
-                        Layout.preferredWidth: 76
-                        Layout.preferredHeight: 76
-                        fillMode: Image.PreserveAspectCrop
-                        smooth: true
+                    GlassArtworkFrame {
+                        objectName: "trackInsightArtworkFrame"
+                        visible: djconnect.trackInsightImageUrl.length > 0
+                        Layout.preferredWidth: 76; Layout.preferredHeight: 76
+                        radius: 16
+                        Image {
+                            source: djconnect.trackInsightImageUrl
+                            visible: source.toString().length > 0
+                            anchors.fill: parent
+                            fillMode: Image.PreserveAspectCrop
+                            smooth: true
+                        }
+
                     }
 
                     ColumnLayout {
@@ -2416,15 +2427,13 @@ BrandWindow {
                 }
             }
 
-            Rectangle {
+            GlassSurface {
+                border.color: root.moodColor("focus")
                 id: trackInsightVisualizer
                 visible: djconnect.trackInsightVisualizer.available === true
                 Layout.fillWidth: true
                 Layout.preferredHeight: 164
                 radius: root.standardButtonRadius
-                color: "#00000000"
-                border.color: root.moodColor("focus")
-                border.width: 1
                 clip: true
 
                 property var visualizerData: djconnect.trackInsightVisualizer
@@ -2541,13 +2550,11 @@ BrandWindow {
                 Repeater {
                     model: djconnect.trackInsightItems
 
-                    Rectangle {
+                    GlassSurface {
+                        border.color: root.moodColor("focus")
                         width: Math.max(132, trackMetricContent.implicitWidth + 24)
                         height: 64
                         radius: root.standardButtonRadius
-                        color: "#00000000"
-                        border.color: root.moodColor("focus")
-                        border.width: 1
 
                         ColumnLayout {
                             id: trackMetricContent
@@ -2593,13 +2600,11 @@ BrandWindow {
                     Repeater {
                         model: djconnect.trackInsightSections
 
-                        Rectangle {
+                        GlassSurface {
+                            border.color: root.moodColor("focus")
                             Layout.fillWidth: true
                             Layout.preferredHeight: trackSectionContent.implicitHeight + 18
                             radius: root.standardButtonRadius
-                            color: "#00000000"
-                            border.color: root.moodColor("focus")
-                            border.width: 1
 
                             ColumnLayout {
                                 id: trackSectionContent
@@ -2695,14 +2700,11 @@ BrandWindow {
                 }
             }
 
-            Rectangle {
+            GlassSurface {
                 visible: djconnect.musicDiscoveryConsentRejected
                 Layout.fillWidth: true
                 Layout.preferredHeight: consentColumn.implicitHeight + 28
                 radius: root.standardButtonRadius
-                color: BrandTheme.colors.surface
-                border.color: BrandTheme.colors.border
-                border.width: 1
 
                 ColumnLayout {
                     id: consentColumn
@@ -2743,14 +2745,12 @@ BrandWindow {
                 }
             }
 
-            Rectangle {
+            GlassSurface {
+                hero: true
                 visible: !djconnect.musicDnaEnabled && djconnect.musicDiscoveryItems.length === 0 && !djconnect.musicDiscoveryBusy && !djconnect.musicDiscoveryConsentRejected
                 Layout.fillWidth: true
                 Layout.preferredHeight: discoveryMusicDnaDisabledColumn.implicitHeight + 28
                 radius: root.standardButtonRadius
-                color: "#00000000"
-                border.color: root.moodColor("focus")
-                border.width: 1
 
                 ColumnLayout {
                     id: discoveryMusicDnaDisabledColumn
@@ -2813,14 +2813,12 @@ BrandWindow {
                     Repeater {
                         model: djconnect.musicDiscoveryItems
 
-                        Rectangle {
+                        GlassSurface {
                             Layout.fillWidth: true
                             Layout.preferredHeight: djconnect.musicDiscoveryFeedbackSupported ? 226 : 178
                             radius: root.standardButtonRadius
-                            color: discoveryTap.activeFocus ? BrandTheme.colors.surfaceRaised : BrandTheme.colors.surface
-                            border.color: discoveryTap.activeFocus ? root.moodColor("focus") : BrandTheme.colors.border
-                            border.width: discoveryTap.activeFocus ? 2 : 1
                             clip: true
+                            focused: discoveryTap.activeFocus
 
                             MouseArea {
                                 id: discoveryTap
@@ -2844,14 +2842,20 @@ BrandWindow {
                                 anchors.margins: 14
                                 spacing: 14
 
-                                Image {
-                                    source: modelData.imageUrl && modelData.imageUrl.length > 0 ? modelData.imageUrl : ""
-                                    visible: source.toString().length > 0
-                                    Layout.preferredWidth: 112
-                                    Layout.preferredHeight: 112
-                                    fillMode: Image.PreserveAspectCrop
-                                    smooth: true
+                                GlassArtworkFrame {
+                                    objectName: "discoveryArtworkFrame"
+                                    visible: !!modelData.imageUrl && modelData.imageUrl.length > 0
+                                    Layout.preferredWidth: 112; Layout.preferredHeight: 112
+                                    radius: 20
+                                    Image {
+                                        source: modelData.imageUrl && modelData.imageUrl.length > 0 ? modelData.imageUrl : ""
+                                        visible: source.toString().length > 0
+                                        anchors.fill: parent
+                                        fillMode: Image.PreserveAspectCrop
+                                        smooth: true
+                                    }
                                 }
+
 
                                 ColumnLayout {
                                     Layout.fillWidth: true
@@ -3090,48 +3094,62 @@ BrandWindow {
                 }
             }
 
-            RowLayout {
+            GlassCard {
+                objectName: "musicDnaOptInHero"
+                hero: true; padding: 18
                 visible: !djconnect.musicDnaEnabled
                 Layout.fillWidth: true
-                spacing: 10
+                Layout.maximumHeight: implicitHeight
+                RowLayout {
+                    visible: !djconnect.musicDnaEnabled
+                    Layout.fillWidth: true
+                    spacing: 10
+
+                    Text {
+                        text: root.tr("music_dna_disabled")
+                        color: BrandTheme.colors.purple
+                        font.pixelSize: 21
+                        font.bold: true
+                        elide: Text.ElideRight
+                        Layout.fillWidth: true
+                    }
+
+                }
 
                 Text {
-                    text: root.tr("music_dna_disabled")
-                    color: BrandTheme.colors.purple
-                    font.pixelSize: 21
-                    font.bold: true
-                    elide: Text.ElideRight
+                    visible: !djconnect.musicDnaEnabled
+                    text: root.tr("music_dna_opt_in")
+                    color: BrandTheme.colors.muted
+                    font.pixelSize: 20
+                    wrapMode: Text.WordWrap
                     Layout.fillWidth: true
                 }
 
+                PurpleButton {
+                    visible: !djconnect.musicDnaEnabled
+                    text: root.tr("music_dna_enable")
+                    enabled: !djconnect.musicDnaBusy
+                    font.pixelSize: 22
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 56
+                    onClicked: djconnect.setMusicDnaEnabled(true)
+                }
             }
 
-            Text {
-                visible: !djconnect.musicDnaEnabled
-                text: root.tr("music_dna_opt_in")
-                color: BrandTheme.colors.muted
-                font.pixelSize: 20
-                wrapMode: Text.WordWrap
-                Layout.fillWidth: true
-            }
-
-            PurpleButton {
-                visible: !djconnect.musicDnaEnabled
-                text: root.tr("music_dna_enable")
-                enabled: !djconnect.musicDnaBusy
-                font.pixelSize: 22
-                Layout.fillWidth: true
-                Layout.preferredHeight: 56
-                onClicked: djconnect.setMusicDnaEnabled(true)
-            }
-
-            Text {
+            GlassCard {
+                objectName: "musicDnaSummaryHero"
+                hero: true; padding: 18
                 visible: djconnect.musicDnaEnabled && djconnect.musicDnaSummary.length > 0
-                text: djconnect.musicDnaSummary
-                color: BrandTheme.colors.text
-                font.pixelSize: 22
-                wrapMode: Text.WordWrap
                 Layout.fillWidth: true
+                Layout.maximumHeight: implicitHeight
+                Text {
+                    visible: djconnect.musicDnaEnabled && djconnect.musicDnaSummary.length > 0
+                    text: djconnect.musicDnaSummary
+                    color: BrandTheme.colors.text
+                    font.pixelSize: 22
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
             }
 
             ScrollView {
@@ -3150,13 +3168,10 @@ BrandWindow {
                     Repeater {
                         model: djconnect.musicDnaSections
 
-                        Rectangle {
+                        GlassSurface {
                             Layout.fillWidth: true
                             Layout.preferredHeight: sectionColumn.implicitHeight + 22
                             radius: root.standardButtonRadius
-                            color: BrandTheme.colors.surface
-                            border.color: BrandTheme.colors.border
-                            border.width: 1
 
                             ColumnLayout {
                                 id: sectionColumn
@@ -3187,6 +3202,10 @@ BrandWindow {
                         }
                     }
                 }
+            }
+            Item {
+                visible: !djconnect.musicDnaEnabled
+                Layout.fillWidth: true; Layout.fillHeight: true
             }
         }
     }
@@ -3288,7 +3307,8 @@ BrandWindow {
                     Repeater {
                         model: djconnect.askDjMessages
 
-                        Rectangle {
+                        GlassSurface {
+                            border.color: root.moodColor("focus")
                             property bool userBubble: modelData.role === "user"
                             property bool systemBubble: modelData.role === "system" || modelData.role === "status" || modelData.messageKind === "system" || modelData.messageKind === "status"
 
@@ -3296,9 +3316,8 @@ BrandWindow {
                             Layout.alignment: userBubble ? Qt.AlignRight : Qt.AlignLeft
                             implicitHeight: askDjBubbleContent.implicitHeight + 24
                             radius: 8
-                            color: systemBubble ? BrandTheme.alpha(BrandTheme.colors.surface, "33") : (userBubble ? BrandTheme.alpha(BrandTheme.colors.surface, "66") : BrandTheme.alpha(BrandTheme.colors.surface, "44"))
-                            border.color: root.moodColor("focus")
-                            border.width: 1
+
+                            selected: userBubble
 
                             ColumnLayout {
                                 id: askDjBubbleContent
@@ -3387,13 +3406,11 @@ BrandWindow {
                                     Repeater {
                                         model: modelData.items || []
 
-                                        Rectangle {
+                                        GlassSurface {
+                                            border.color: root.moodColor("focus")
                                             width: Math.min(askDjScroll.availableWidth, Math.max(132, trackInsightMetricContent.implicitWidth + 24))
                                             height: 58
                                             radius: 8
-                                            color: "#00000000"
-                                            border.color: root.moodColor("focus")
-                                            border.width: 1
                                             clip: true
 
                                             ColumnLayout {
@@ -3449,13 +3466,11 @@ BrandWindow {
                                     Repeater {
                                         model: modelData.analysis && modelData.analysis.sections ? modelData.analysis.sections : []
 
-                                        Rectangle {
+                                        GlassSurface {
+                                            border.color: root.moodColor("focus")
                                             Layout.fillWidth: true
                                             Layout.preferredHeight: trackInsightSectionContent.implicitHeight + 16
                                             radius: 8
-                                            color: "#00000000"
-                                            border.color: root.moodColor("focus")
-                                            border.width: 1
 
                                             ColumnLayout {
                                                 id: trackInsightSectionContent
@@ -3604,13 +3619,10 @@ BrandWindow {
                                     Repeater {
                                         model: modelData.items || []
 
-                                        Rectangle {
+                                        GlassSurface {
                                             Layout.fillWidth: true
                                             Layout.preferredHeight: 70
                                             radius: 8
-                                            color: BrandTheme.alpha(BrandTheme.colors.surface, "44")
-                                            border.color: "#44ffffff"
-                                            border.width: 1
                                             clip: true
 
                                             RowLayout {
@@ -3810,14 +3822,13 @@ BrandWindow {
                                     Repeater {
                                         model: modelData.actions || []
 
-                                        Rectangle {
+                                        GlassSurface {
                                             Layout.fillWidth: true
                                             Layout.preferredHeight: (modelData.isMedia || modelData.isOutput) ? 88 : 50
                                             radius: 8
-                                            color: (modelData.isMedia || modelData.isOutput) ? BrandTheme.alpha(BrandTheme.colors.surface, "55") : "#00000000"
-                                            border.color: (modelData.isMedia || modelData.isOutput) ? "#55ffffff" : "#00000000"
-                                            border.width: (modelData.isMedia || modelData.isOutput) ? 1 : 0
                                             clip: true
+
+                                            tertiary: !modelData.isMedia && !modelData.isOutput
 
                                             RowLayout {
                                                 anchors.fill: parent

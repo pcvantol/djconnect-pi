@@ -11,6 +11,7 @@ Rectangle {
     property bool focused: false
     property bool interactive: false
     property bool elevated: false
+    property bool hero: false
     property bool primary: false
     property bool destructive: false
     property bool tertiary: false
@@ -24,7 +25,7 @@ Rectangle {
         GlassStyle.geometryFrame
         return GlassStyle.backdrop ? glass.mapToItem(GlassStyle.backdrop,0,0) : Qt.point(0,0)
     }
-    readonly property bool hardwareGlass: GlassStyle.active && visible && !tertiary &&
+    readonly property bool hardwareGlass: GlassStyle.active && visible && !tertiary && !hero &&
         width > 0 && height > 0 && width <= 2048 && height <= 2048 &&
         backdropPosition.x < GlassStyle.backdrop.width && backdropPosition.y < GlassStyle.backdrop.height &&
         backdropPosition.x + width > 0 && backdropPosition.y + height > 0
@@ -35,10 +36,19 @@ Rectangle {
     color: tertiary ? "transparent" : effectiveFill
     border.width: focused ? 3 : (tertiary ? 0 : 1)
     border.color: focused ? "#F2FFFFFF" : selected ? Qt.rgba(tint.r, tint.g, tint.b, 0.55) : destructive ? "#1FFFFFFF" : interactive ? "#1FFFFFFF" : "#52FFFFFF"
-    gradient: Gradient {
+    gradient: hero ? heroGradient : materialGradient
+    Gradient {
+        id: materialGradient
         orientation: Gradient.Horizontal
         GradientStop { position: 0; color: glass.tertiary ? "transparent" : glass.primary && !glass.destructive ? BrandTheme.colors.actionBlue : glass.effectiveFill }
         GradientStop { position: 1; color: glass.tertiary ? "transparent" : glass.primary && !glass.destructive ? BrandTheme.colors.actionPurple : glass.effectiveFill }
+    }
+    Gradient {
+        id: heroGradient
+        orientation: Gradient.Horizontal
+        GradientStop { position: 0; color: GlassStyle.heroStart }
+        GradientStop { position: 0.5; color: GlassStyle.heroMid }
+        GradientStop { position: 1; color: GlassStyle.heroEnd }
     }
     Loader {
         id: gpuMaterial

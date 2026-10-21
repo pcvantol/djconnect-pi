@@ -509,7 +509,10 @@ def test_qml_track_insight_panel_renders_contract_fields() -> None:
     assert '"energy": "track_insight_energy"' in main_qml
     assert "root.trackInsightLabel(modelData.title || modelData.kind || \"\")" in panel
     assert "root.trackInsightLabel(modelData.title || modelData.kind || modelData.id || \"\")" in panel
-    assert panel.count('color: "#00000000"') >= 3
+    # These content cards now use the shared material instead of transparent boxes.
+    assert panel.count("GlassSurface {") >= 4
+    assert "hero: true" in panel
+    assert "GlassArtworkFrame {" in panel
     assert 'color: BrandTheme.colors.surface' not in panel
     assert "visible: !trackInsightScroll.visible" in panel
     assert "Layout.fillHeight: true" in panel

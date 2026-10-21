@@ -5,6 +5,7 @@ import "BrandTheme.js" as BrandTheme
 
 GlassCard {
     id: card
+    hero: true
     objectName: "sessionStartCard"
     // A fill-width card must not infer its width from wrapped child content.
     implicitWidth: 640

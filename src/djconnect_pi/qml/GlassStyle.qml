@@ -18,6 +18,9 @@ QtObject {
     property int geometryFrame: 0
     property real blurStrength: 0.55
     property real surfaceOpacity: 0.96
+    property color heroStart: "#142652"
+    property color heroMid: "#211745"
+    property color heroEnd: "#2B1452"
     property color surfaceTint: "#171C30"
     property real tintAmount: 0.72
     property real refractionPixels: 14

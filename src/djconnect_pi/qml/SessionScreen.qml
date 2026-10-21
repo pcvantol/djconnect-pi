@@ -686,13 +686,17 @@ Item {
                 objectName: "sessionForecastArtistCard"
                 visible: !!screen.owner.forecastImage.source && imageAttribution.ready
                 Layout.fillWidth: true
-                Image {
-                    objectName: "sessionForecastArtistImage"
+                GlassArtworkFrame {
+                    objectName: "sessionForecastArtworkFrame"
                     Layout.fillWidth: true; Layout.preferredHeight: screen.compact ? 300 : 440
-                    source: imageAttribution.ready ? (screen.owner.forecastImage.source || "") : ""
-                    cache: false; asynchronous: true; retainWhileLoading: false
-                    fillMode: Image.PreserveAspectFit
-                    Accessible.name: screen.tr("session_forecast_artist_image") + ": " + (screen.owner.forecastImage.artist || "")
+                    Image {
+                        objectName: "sessionForecastArtistImage"
+                        anchors.fill: parent
+                        source: imageAttribution.ready ? (screen.owner.forecastImage.source || "") : ""
+                        cache: false; asynchronous: true; retainWhileLoading: false
+                        fillMode: Image.PreserveAspectFit
+                        Accessible.name: screen.tr("session_forecast_artist_image") + ": " + (screen.owner.forecastImage.artist || "")
+                    }
                 }
                 Text { text: screen.owner.forecastImage.artist || ""; textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 23; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                 SessionAttribution { id: imageAttribution; requiresSpotify: true; spotifyURL: screen.owner.forecastImage.source_url || ""; Layout.fillWidth: true }
@@ -852,15 +856,19 @@ Item {
                         objectName: "sessionMomentArtworkCard"
                         visible: liveSources.ready && !!screen.owner.momentArtwork.source && modelData.current && screen.owner.momentArtwork.moment_id === modelData.moment_id && artworkSource.ready
                         Layout.fillWidth: true
-                        Image {
-                            objectName: "sessionMomentArtworkImage"
-                            source: parent.visible ? (screen.owner.momentArtwork.source || "") : ""
-                            cache: false; asynchronous: true; retainWhileLoading: false
-                            fillMode: Image.PreserveAspectFit
+                        GlassArtworkFrame {
+                            objectName: "sessionMomentArtworkFrame"
                             Layout.preferredWidth: 100 * (screen.owner.momentArtwork.width || 100) / Math.max(screen.owner.momentArtwork.width || 100, screen.owner.momentArtwork.height || 100)
                             Layout.preferredHeight: 100 * (screen.owner.momentArtwork.height || 100) / Math.max(screen.owner.momentArtwork.width || 100, screen.owner.momentArtwork.height || 100)
                             Layout.alignment: Qt.AlignLeft
-                            Accessible.name: screen.owner.momentArtwork.artist || ""
+                            Image {
+                                objectName: "sessionMomentArtworkImage"
+                                source: parent.visible ? (screen.owner.momentArtwork.source || "") : ""
+                                cache: false; asynchronous: true; retainWhileLoading: false
+                                fillMode: Image.PreserveAspectFit
+                                anchors.fill: parent
+                                Accessible.name: screen.owner.momentArtwork.artist || ""
+                            }
                         }
                         SessionAttribution { id: artworkSource; requiresSpotify: true; spotifyURL: screen.owner.momentArtwork.source_url || ""; Layout.fillWidth: true }
                     }
@@ -1092,8 +1100,6 @@ Item {
         }
     }
     GlassPopup {
-        // Private/context-bound panels always withdraw without an exit delay.
-        animateExit: false
         id: playbackPanel
         objectName: "sessionPlaybackPanel"
         onAboutToHide: { outputsPanel.close(); if (screen.owner) screen.owner.cancelPlaybackIntent() }
@@ -1219,8 +1225,6 @@ Item {
         }
     }
     GlassPopup {
-        // Private/context-bound panels always withdraw without an exit delay.
-        animateExit: false
         id: outputsPanel
         objectName: "sessionOutputPanel"
         x: (screen.width - width) / 2; y: toolbar.y + toolbar.height + 8
@@ -1277,8 +1281,6 @@ Item {
         }
     }
     GlassPopup {
-        // Private/context-bound panels always withdraw without an exit delay.
-        animateExit: false
         id: composerPanel
         objectName: "sessionComposerPanel"
         x: 16; y: toolbar.y + toolbar.height + 8
@@ -1324,8 +1326,6 @@ Item {
         }
     }
     GlassPopup {
-        // Private/context-bound panels always withdraw without an exit delay.
-        animateExit: false
         id: searchPanel
         objectName: "sessionSearchPanel"
         property bool keyboardVisible: true
@@ -1422,8 +1422,6 @@ Item {
         }
     }
     GlassPopup {
-        // Private/context-bound panels always withdraw without an exit delay.
-        animateExit: false
         id: moreChoices
         x: 20; y: toolbar.y + toolbar.height + 8
         width: Math.min(screen.width - 40, 420); padding: 16
@@ -1453,8 +1451,6 @@ Item {
         }
     }
     GlassPopup {
-        // Private/context-bound panels always withdraw without an exit delay.
-        animateExit: false
         id: connectionInfo
         x: screen.width - width - 20; y: toolbar.y + toolbar.height + 8
         width: Math.min(screen.width - 40, 420); padding: 22
@@ -1466,8 +1462,6 @@ Item {
         }
     }
     GlassPopup {
-        // Private/context-bound panels always withdraw without an exit delay.
-        animateExit: false
         id: choices
         objectName: "sessionToolbarChoice"
         property string sessionId: ""
@@ -1506,8 +1500,6 @@ Item {
         }
     }
     GlassPopup {
-        // Private/context-bound panels always withdraw without an exit delay.
-        animateExit: false
         id: archiveDeletePanel
         objectName: "sessionDeletePanel"
         readonly property bool bulk: screen.state.archive_delete.kind === "bulk"
@@ -1554,8 +1546,6 @@ Item {
         }
     }
     GlassPopup {
-        // Private/context-bound panels always withdraw without an exit delay.
-        animateExit: false
         id: endConfirmation
         property string expectedSessionId: ""
         anchors.centerIn: parent

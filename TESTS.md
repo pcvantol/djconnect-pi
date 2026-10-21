@@ -2105,3 +2105,56 @@ unchanged. Evidence pi-glass-interactions contains frozen readbacks/images,
 external reproducer, package proof, original Apple reference and all diagnostics.
 Exact updated independent review/protected source/Finalization/immutable rc6
 publication/new operative binding remain required. Automation remains PAUSED.
+
+
+## Apple card-material coverage (21 October, manual continuation)
+
+Pinned AppleUI e106a467 distinguishes Session/artwork glass from its dedicated
+three-stop hero gradient. `docs/PI_APPLE_CARD_MATERIAL_MAP.md` maps the actual
+roles and retained gaps. Existing artwork now has shared bounded eight-pixel
+frames in native Moment, Forecast, Track Insight and Discover. Callers keep
+original sources/loaders/cache/attribution/expiry; protected images retain fit
+and their original outer footprint. Inset is capped by a quarter of each side.
+
+Track Insight hero/empty/visualizer/metric/section cards, Discover cards/consent,
+Music DNA active/opt-in heroes/sections and Ask DJ contributions/analysis/media
+cards use the shared roles. Original Mood borders and user-bubble distinction
+remain. About/Privacy/Legal/Feedback were already GlassCard. Hero gradients are
+central; current-art palette extraction/full Mood tinting and full Session
+cover/animated hero composition/native Apple identity remain open.
+
+A broader UNMODIFIED composer run found previous Popup enter transitions delayed
+`opened`, suppressing a synthetic explicit search revalidation before entry
+completed. Initial composer FAILED at its original denied-search assertion.
+Final GlassPopup animates only background/content pixels through one owned finite
+animation, leaving Popup lifecycle immediate; ALL original Session source/cache/
+click/aboutToHide/onClosed statements are mechanically verified unchanged.
+No opened/owner/expiry/revalidation guard was weakened. Original composer436 PASS.
+
+Final FULL2501 integrated PASS/no skips45.42s; focused QML22PASS; Ruff0.16.0
+src/tests/diff PASS. Initial full2499PASS/2FAIL retained: legacy border-count and
+transparent-box style assertions. Original Mood borders restored; only the
+obsolete transparent-box expectation changed to require shared cards/hero/frame.
+Initial code-inspection removal of one text colour was corrected before final
+qualification. Broad visual inspection found vertically spread Music DNA opt-in;
+bounded intrinsic hero height and the existing inactive-page spacer pattern fix it.
+External enum-converter fixture failure corrected with a QML int projection,
+without weakening source withdrawal/pixel assertions.
+
+FINAL1286 actual Qt views, both formats/five locales, zero QML errors/bindingloops:
+150 broad-final +250 populated-qualified (including new cards in all five locales,
+Glass on/off) +180 components-final (30 cases: full-fit two-colour pixels,
+source withdrawal, narrow-frame bounds, button/switch/instant Popup lifecycle)
++436 UNMODIFIED composer-final +180 UNMODIFIED artwork-final +90 UNMODIFIED
+forecast-final. Original expiry/touch/body/firstfold/source assertions preserved.
+All *v1/*v2/*frozen and populated-final/composer-frozen runs are INTERMEDIATE,
+not added. Startup font-alias warnings retained. Both final formats visually read.
+
+Local rc6 review wheel744444df6a0658c0335cf94eb1edd0ebfe9af7e98b6d97d67e6dac819ea55210
+matches77 runtime files including GlassArtworkFrame. No new GPU/ARM/installed/
+liveHA/Spotify/physical acceptance; prior GPU proof remains predecessor evidence.
+Evidence pi-glass-card-coverage includes all readbacks/diagnostics/reproducers,
+source-statement equality proof, original pinned Apple exports and package proof.
+Actual-root precommit hostverify MATCH; installed EADBrc5 unchanged. Source still
+requires new exact independent review/protected main/Finalization/publication and
+qualified rc6 operative bindings. No new Core WIP/contract adoption or timer.

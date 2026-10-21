@@ -16,6 +16,10 @@
 - Bundle Inter 4.1 with its OFL license for both screen sizes.
 - Add shared Glass press feedback, animated switch thumbs and short Session
   pop-out entry; private panels still close and revoke actions immediately.
+- Extend shared content-card materials across Track Insight, Discover, Music DNA
+  and Ask DJ, with distinct hero gradients and bounded existing-artwork frames.
+- Keep pop-out entry purely visual so original open/search-revalidation lifecycle
+  remains immediate.
 - Add a persisted Glass preference, default off on the 4-inch profile and on
   on Pi5. Qualified Pi5 OpenGL rendering uses one bounded decorative backdrop
   with shared blur, edge refraction and central appearance parameters; other
