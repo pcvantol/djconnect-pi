@@ -120,6 +120,42 @@ def deploy(payload):
         time.sleep(2)
 
 
+def recover(payload):
+    need(payload["source"] == "0dde0abe22a0859f170a7c1d3eab41f1ade44d37"
+         and payload["device_profile"] == "pi-zero-2w-arm64"
+         and payload["artifact_sha256"] == "d67869ffca53c4936059bdbbdbdf6be63b36eafac269fa2f3f9b090922cd0d64", "RECOVERY_SCOPE_INVALID")
+    need(installer_permission(), "INSTALLER_NOT_AUTHORIZED")
+    code = base64.b64decode(payload["recovery_helper"], validate=True)
+    need(len(code) <= 65536 and hashlib.sha256(code).hexdigest() == "11ce41115c7aa5ac34e568f3ea9008915f342bc3272850b56c61eed19a760ab9", "RECOVERY_HELPER_BYTES_CHANGED")
+    boot = Path("/proc/sys/kernel/random/boot_id").read_text().strip()
+    need(boot == payload["recovery_boot_id"] and re.fullmatch(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}", boot), "RECOVERY_BOOT_CHANGED")
+    stage = Path.home()/"djconnect-install"/("djconnect-pi-rc6-recovery-"+payload["run_id"])
+    need(not stage.exists() and not stage.is_symlink() and not stage.parent.is_symlink(), "RECOVERY_STAGING_EXISTS")
+    stage.mkdir(mode=0o700);(stage/"scripts").mkdir(mode=0o700)
+    helper = stage/"scripts/install.sh"
+    delimiter = "DJCONNECT_QUALIFIED_RC6_ROOT_HELPER"
+    need(delimiter.encode() not in code, "RECOVERY_HELPER_INVALID")
+    helper.write_bytes(b"#!/bin/sh\nexec /usr/bin/python3 -I - \"$@\" <<'"+delimiter.encode()+b"'\n"+code+b"\n"+delimiter.encode()+b"\n")
+    helper.chmod(0o700)
+    log = stage/"recovery-root-private.log"
+    with log.open("xb") as output:
+        log.chmod(0o600)
+        result = subprocess.run(["sudo", "-n", str(helper), payload["run_id"], boot],
+            stdout=output, stderr=subprocess.STDOUT, check=False, timeout=1350)
+    need(result.returncode == 0 and log.stat().st_size <= 65536, "RECOVERY_PHASE_INCONCLUSIVE")
+    proof = json.loads(log.read_bytes())
+    need(isinstance(proof, dict) and proof.get("result") == "RECOVERED_PENDING_SMOKE"
+         and proof.get("original_deployment_workflow_run") == "39669504016"
+         and proof.get("recovery_workflow_run") == payload["run_id"] and proof.get("source") == payload["source"]
+         and proof.get("watchdog_restored") is True and proof.get("configuration_preserved") is True
+         and type(proof.get("verified_packaged_files")) is int and proof["verified_packaged_files"] == 80,
+         "RECOVERY_RESULT_INVALID")
+    need(Path("/proc/sys/kernel/random/boot_id").read_text().strip() == boot, "RECOVERY_BOOT_CHANGED")
+    return {"result": "RECOVERED_PENDING_SMOKE", "configuration_preserved_by_installer": True,
+        "watchdog_restored": True, "verified_packaged_files": 80,
+        "original_deployment_workflow_run": "39669504016", "services": services()}
+
+
 def smoke(payload):
     root = Path("/opt/djconnect/current")
     need(text(root/"VERSION") == VERSION and text(root/"SOURCE_COMMIT") == payload["source"]
@@ -152,24 +188,32 @@ def smoke(payload):
 
 def main():
     challenge = sys.argv[1];need(re.fullmatch("[0-9a-f]{64}", challenge) is not None)
-    initial = identity(challenge);print(json.dumps(initial), flush=True)
+    recovery_context = sys.argv[2:] == ["recovery"]
+    need(sys.argv[2:] in ([], ["recovery"]), "REMOTE_CONTEXT_INVALID")
+    initial = identity(challenge)
+    if recovery_context:initial["boot_id"] = Path("/proc/sys/kernel/random/boot_id").read_text().strip()
+    print(json.dumps(initial), flush=True)
     raw = sys.stdin.buffer.readline(44755609)
     need(len(raw) < 44755609, "INTENT_TOO_LARGE")
     payload = json.loads(raw)
-    need(isinstance(payload, dict) and identity(challenge) == initial, "TARGET_CHANGED")
+    observed = identity(challenge)
+    if recovery_context:observed["boot_id"] = Path("/proc/sys/kernel/random/boot_id").read_text().strip()
+    need(isinstance(payload, dict) and observed == initial, "TARGET_CHANGED")
+    need(recovery_context == (payload.get("phase") == "recover"), "REMOTE_RECOVERY_CONTEXT_MISMATCH")
     if payload == {"phase": "readiness"}:
         result = {"result": "TARGET_READY" if installer_permission() else "TARGET_NOT_READY", "current_version": text("/opt/djconnect/current/VERSION"), "services": services()}
     else:
         common = {"phase", "source", "version", "device_profile", "wheel_name", "wheel_sha256", "run_id", "artifact_sha256"}
-        need(set(payload) == common | ({"artifact"} if payload.get("phase") == "deploy" else set()))
-        need(payload.get("phase") in {"deploy", "smoke"} and payload.get("version") == VERSION
+        extra = {"artifact"} if payload.get("phase") == "deploy" else ({"recovery_helper", "recovery_boot_id"} if recovery_context else set())
+        need(set(payload) == common | extra)
+        need(payload.get("phase") in {"deploy", "smoke", "recover"} and payload.get("version") == VERSION
             and payload.get("device_profile") == initial["device_profile"]
             and re.fullmatch("[0-9a-f]{40}", payload.get("source", "")) is not None
             and re.fullmatch("[0-9a-f]{64}", payload.get("artifact_sha256", "")) is not None
             and re.fullmatch("[0-9a-f]{64}", payload.get("wheel_sha256", "")) is not None
             and payload.get("wheel_name") == "djconnect_pi-4.0.0rc6-py3-none-any.whl"
             and re.fullmatch("[1-9][0-9]*", payload.get("run_id", "")) is not None)
-        result = deploy(payload) if payload["phase"] == "deploy" else smoke(payload)
+        result = deploy(payload) if payload["phase"] == "deploy" else recover(payload) if recovery_context else smoke(payload)
     print(json.dumps(result), flush=True)
 
 

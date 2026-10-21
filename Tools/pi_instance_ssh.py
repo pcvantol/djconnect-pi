@@ -46,7 +46,9 @@ def configuration_digest(configuration: Path, alias: str) -> str:
 
 
 class Channel:
-    def __init__(self, binding, timeout=15):
+    def __init__(self, binding, timeout=15, *, recovery=False):
+        require(type(recovery) is bool, "SSH_CONTEXT_INVALID")
+        self.recovery_boot_id = None
         instance = binding.request["deployment_instance"]
         require(instance in CONFIGURATION_REFS and binding.inventory_row["endpoint_config_ref"] == CONFIGURATION_REFS[instance], "CLOSED_CONFIGURATION_REQUIRED")
         self.binding = binding;self.sent = False;self.challenge = secrets.token_hex(32)
@@ -58,7 +60,7 @@ class Channel:
         require(configuration_digest(configuration, CONFIGURATION_REFS[instance]) == CONFIGURATION_DIGESTS[instance], "SSH_CONFIGURATION_MAPPING_CHANGED")
         self.configuration = configuration
         source = Path(__file__).with_name("pi_instance_remote_payload.py").read_text(encoding="utf-8")
-        command = "python3 -u -c "+shlex.quote(source)+" "+self.challenge
+        command = "python3 -u -c "+shlex.quote(source)+" "+self.challenge+(" recovery" if recovery else "")
         args = [SSH_CLIENT, "-F", str(configuration), "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes",
             "-o", "UpdateHostKeys=no", "-o", "ControlMaster=no", "-o", "ControlPath=none",
             "-o", "ConnectionAttempts=1", "-o", "ConnectTimeout=8", "-o", "ServerAliveInterval=10",
@@ -72,6 +74,10 @@ class Channel:
         try:
             observed = self.read_line(timeout)
             require(self.keys == {binding.inventory_row["ssh_host_key_sha256"]}, "SSH_NEGOTIATED_KEY_MISMATCH")
+            if recovery:
+                require(isinstance(observed, dict) and set(observed) == {"challenge", "hostname", "architecture", "model", "device_profile", "boot_id"}, "TARGET_NOT_READY")
+                self.recovery_boot_id = observed.pop("boot_id")
+                require(isinstance(self.recovery_boot_id, str) and re.fullmatch(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}", self.recovery_boot_id) is not None, "TARGET_NOT_READY")
             require(set(observed) == {"challenge", "hostname", "architecture", "model", "device_profile"}, "TARGET_NOT_READY")
             observed.update(ssh_host_key_type="ssh-ed25519", ssh_host_key_sha256=next(iter(self.keys)))
             validate_identity(binding, observed, self.challenge)
@@ -122,7 +128,7 @@ class Channel:
         self.process.stdin.close()
         result = self.read_line(timeout)
         require(self.keys == {self.binding.inventory_row["ssh_host_key_sha256"]}, "SSH_KEY_CHANGED_CHECK_ACTUAL_STATE")
-        require(result.get("result") in {"TARGET_READY", "DEPLOYED_PENDING_SMOKE", "SMOKE_PASS"}, "REMOTE_PHASE_INCONCLUSIVE_CHECK_ACTUAL_STATE")
+        require(result.get("result") in {"TARGET_READY", "DEPLOYED_PENDING_SMOKE", "SMOKE_PASS", "RECOVERED_PENDING_SMOKE"}, "REMOTE_PHASE_INCONCLUSIVE_CHECK_ACTUAL_STATE")
         return result
 
     def close(self):
@@ -152,6 +158,13 @@ def validate_result(result: dict, phase: str, binding) -> None:
     elif phase == "deploy":
         require(set(result) == {"result", "configuration_preserved_by_installer", "services"}
                 and result["result"] == "DEPLOYED_PENDING_SMOKE" and result["configuration_preserved_by_installer"] is True, "REMOTE_RESULT_INVALID")
+    elif phase == "recover":
+        require(binding.request["deployment_instance"] == "wall-4inch"
+                and set(result) == {"result", "configuration_preserved_by_installer", "watchdog_restored", "verified_packaged_files", "original_deployment_workflow_run", "services"}
+                and result["result"] == "RECOVERED_PENDING_SMOKE" and result["configuration_preserved_by_installer"] is True
+                and result["watchdog_restored"] is True and type(result["verified_packaged_files"]) is int
+                and result["verified_packaged_files"] == 80 and result["original_deployment_workflow_run"] == "39669504016"
+                and all(row["active"] and row["pid"] > 0 for row in result["services"].values()), "RECOVERY_RESULT_INVALID")
     elif phase == "smoke":
         fields = {"result", "installed_source", "installed_version", "installed_device_profile", "api_reachable", "client_active", "api_active", "paired", "services", "verified_packaged_files"}
         require(set(result) == fields and result["result"] == "SMOKE_PASS"

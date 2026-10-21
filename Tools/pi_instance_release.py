@@ -11,6 +11,7 @@ import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
 
+from Tools import pi_rc6_recovery as recovery
 from Tools.pi_instance_aggregate import aggregate
 from Tools.pi_instance_artifact import inspect_artifact
 from Tools.pi_instance_authority import (
@@ -24,13 +25,14 @@ from Tools.pi_instance_authority import (
 )
 from Tools.pi_instance_contract import (
     BindingError,
+    recovered_deployment,
     require,
     strict_json,
     validate_smoke_join,
 )
 from Tools.pi_instance_ssh import Channel, validate_result
 
-WORKFLOWS = {"readiness": ".github/workflows/pi-deployment-readiness.yml", "deploy": ".github/workflows/deploy-latest-pi-release.yml", "smoke": ".github/workflows/smoke-rbpi-djconnect.yml"}
+WORKFLOWS = {"readiness": ".github/workflows/pi-deployment-readiness.yml", "deploy": ".github/workflows/deploy-latest-pi-release.yml", "smoke": ".github/workflows/smoke-rbpi-djconnect.yml", "recover": recovery.WORKFLOW}
 FIELDS = {"action", "execution_mode", "candidate_sha", "manifest_id", "artifact_id", "artifact_sha256", "target", "platform_version", "release_profile", "deployment_instance", "device_profile", "inventory_sha256"}
 
 
@@ -57,7 +59,7 @@ def workflow_context(client, operation: str, environment: dict) -> tuple[str, st
             and run.get("path") in {WORKFLOWS[operation], WORKFLOWS[operation]+"@main"} and run.get("event") == "workflow_dispatch"
             and run.get("status") == "in_progress" and run.get("actor", {}).get("login") == "pcvantol"
             and run.get("repository", {}).get("full_name") == PI, "QUALIFIED_WORKFLOW_REQUIRED")
-    if operation == "deploy":require(environment.get("GITHUB_RUN_ATTEMPT") == "1", "RERUN_REQUIRES_ACTUAL_STATE_REVIEW")
+    if operation in {"deploy", "recover"}:require(environment.get("GITHUB_RUN_ATTEMPT") == "1", "RERUN_REQUIRES_ACTUAL_STATE_REVIEW")
     return source, run_id
 
 
@@ -68,17 +70,26 @@ def current_authority(client, authority):
 
 def deployment_record(client, binding, authority, receipt: dict, run_id: str):
     run = client.json("repos/"+PI+"/actions/runs/"+run_id)
+    is_recovery = run.get("path") in {WORKFLOWS["recover"], WORKFLOWS["recover"]+"@main"}
     require(run.get("head_sha") == binding.consumer_sha and run.get("head_branch") == "main"
-            and run.get("path") in {WORKFLOWS["deploy"], WORKFLOWS["deploy"]+"@main"} and run.get("event") == "workflow_dispatch"
-            and run.get("status") == "completed" and run.get("conclusion") == "success"
-            and run.get("actor", {}).get("login") == "pcvantol", "SUCCESSFUL_DEPLOYMENT_REQUIRED")
+            and (is_recovery or run.get("path") in {WORKFLOWS["deploy"], WORKFLOWS["deploy"]+"@main"})
+            and run.get("event") == "workflow_dispatch" and run.get("status") == "completed"
+            and run.get("conclusion") == "success" and run.get("actor", {}).get("login") == "pcvantol",
+            "SUCCESSFUL_DEPLOYMENT_REQUIRED")
+    if is_recovery:
+        require(type(run.get("run_attempt")) is int and run["run_attempt"] == 1
+                and recovered_deployment(binding, receipt, run_id), "SUCCESSFUL_RECOVERY_REQUIRED")
+    else:
+        require(receipt.get("result") == "DEPLOYED_PENDING_SMOKE", "DEPLOYMENT_EVIDENCE_MISMATCH")
     expected = authority.receipt()
-    require(receipt.get("result") == "DEPLOYED_PENDING_SMOKE" and receipt.get("deployment_workflow_run") == run_id
+    require(receipt.get("deployment_workflow_run") == run_id
             and all(receipt.get(key) == value for key, value in expected.items() if key != "classification"), "DEPLOYMENT_EVIDENCE_MISMATCH")
 
 
 def _execute(client, authority, operation: str, run_id: str, *, deployment=None, deployment_run="", progress=None) -> dict:
     binding = authority.binding
+    if operation == "recover":
+        recovery.selected(authority);recovery.original_failure(client);recovery.current_intent(client, run_id, authority)
     if operation == "smoke":deployment_record(client, binding, authority, deployment, deployment_run)
     payload = {"phase": "readiness"}
     if operation != "readiness":
@@ -88,17 +99,23 @@ def _execute(client, authority, operation: str, run_id: str, *, deployment=None,
             "device_profile": binding.request["device_profile"], "wheel_name": package.wheel_name,
             "wheel_sha256": package.wheel_sha256, "run_id": run_id, "artifact_sha256": binding.request["artifact_sha256"]}
         if operation == "deploy":payload["artifact"] = base64.b64encode(raw).decode("ascii")
-    with Channel(binding) as channel:
+        if operation == "recover":payload["recovery_helper"] = recovery.helper_bytes()
+    channel_context = Channel(binding, recovery=True) if operation == "recover" else Channel(binding)
+    with channel_context as channel:
         current_authority(client, authority)  # Last immutable-approval currentness check on this fresh identity channel.
+        if operation == "recover":
+            recovery.current_intent(client, run_id, authority)
+            payload["recovery_boot_id"] = channel.recovery_boot_id
         try:
-            result = channel.intent(payload, timeout=1200 if operation == "deploy" else 45)
+            result = channel.intent(payload, timeout=1400 if operation == "recover" else 1200 if operation == "deploy" else 45)
         finally:
             if progress is not None:progress["intent_dispatched"] = bool(getattr(channel, "sent", True))
         validate_result(result, operation, binding)
     record = {**authority.receipt(), **result, "schema_version": 2,
-        "kind": {"deploy": "djconnect_pi_deployment_evidence", "smoke": "djconnect_pi_deployment_smoke_evidence", "readiness": "djconnect_pi_readiness_evidence"}[operation], "workflow_run_id": run_id,
+        "kind": {"deploy": "djconnect_pi_deployment_evidence", "smoke": "djconnect_pi_deployment_smoke_evidence", "readiness": "djconnect_pi_readiness_evidence", "recover": "djconnect_pi_recovery_evidence"}[operation], "workflow_run_id": run_id,
         "timestamp": datetime.now(UTC).isoformat(), "classification": "PHYSICAL_READBACK_NO_LIVE_PROFILE_OR_TOUCH_ACCEPTANCE"}
-    if operation == "deploy":record["deployment_workflow_run"] = run_id
+    if operation in {"deploy", "recover"}:record["deployment_workflow_run"] = run_id
+    if operation == "recover":record.update(recovery_workflow_run=run_id, recovery_helper_sha256=recovery.HELPER_SHA256)
     if operation == "smoke":
         record["deployment_workflow_run"] = deployment_run
         validate_smoke_join(binding, deployment, record, deployment_run)
@@ -117,10 +134,11 @@ def execute(client, authority, operation: str, run_id: str, *, deployment=None, 
         return _execute(client, authority, operation, run_id, deployment=deployment, deployment_run=deployment_run, progress=progress)
     except (BindingError, OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError):
         record = {**authority.receipt(), "schema_version": 2, "workflow_run_id": run_id,
-            "result": "SMOKE_INCONCLUSIVE" if operation == "smoke" else "DEPLOYMENT_INCONCLUSIVE" if operation == "deploy" else "TARGET_NOT_READY",
+            "result": {"smoke": "SMOKE_INCONCLUSIVE", "deploy": "DEPLOYMENT_INCONCLUSIVE", "recover": "RECOVERY_INCONCLUSIVE", "readiness": "TARGET_NOT_READY"}[operation],
             "intent_dispatched": progress["intent_dispatched"],
-            "remote_may_still_be_running": operation == "deploy" and progress["intent_dispatched"],
+            "remote_may_still_be_running": operation in {"deploy", "recover"} and progress["intent_dispatched"],
             "classification": "INCOMPLETE_REQUIRES_ACTUAL_STATE_REVIEW", "error": "NEEDS_ACTUAL_STATE_REVIEW", "timestamp": datetime.now(UTC).isoformat()}
+        if operation == "recover":record.update(original_deployment_workflow_run=recovery.ORIGINAL_RUN, recovery_helper_sha256=recovery.HELPER_SHA256)
         if operation == "smoke":record["deployment_workflow_run"] = deployment_run
         raise PhaseFailure(record) from None
 
@@ -138,6 +156,9 @@ def main():
     consumer_sha, run_id = workflow_context(client, args.operation, environment)
     configuration = {key: environment.get(key, "") for key in ("PI_RC6_OPERATIONAL_CORE_SHA", "PI_RC6_OPERATIONAL_MANIFEST_SHA256")}
     authority = resolve(client, request, consumer_sha, configuration)
+    if args.operation == "recover":
+        recovery.selected(authority);recovery.original_failure(client);recovery.current_intent(client, run_id, authority)
+        recovery.helper_bytes()
     root = Path(environment["RUNNER_TEMP"])/("pi-qualified-instance-"+run_id+"-"+environment.get("GITHUB_RUN_ATTEMPT", "1"));root.mkdir(mode=0o700, exist_ok=True)
     if args.prepare:
         (root/"prepared.json").write_text(json.dumps(authority.receipt(), sort_keys=True)+"\n")
@@ -157,9 +178,9 @@ def main():
     try:
         record = execute(client, authority, args.operation, run_id, deployment=deployment, deployment_run=deployment_run)
     except PhaseFailure as failure:
-        (root/("pi-"+args.operation+"-evidence.json")).write_text(json.dumps(failure.record, sort_keys=True, indent=2)+"\n")
+        (root/("pi-deploy-evidence.json" if args.operation == "recover" else "pi-"+args.operation+"-evidence.json")).write_text(json.dumps(failure.record, sort_keys=True, indent=2)+"\n")
         raise
-    (root/("pi-"+args.operation+"-evidence.json")).write_text(json.dumps(record, sort_keys=True, indent=2)+"\n")
+    (root/("pi-deploy-evidence.json" if args.operation == "recover" else "pi-"+args.operation+"-evidence.json")).write_text(json.dumps(record, sort_keys=True, indent=2)+"\n")
     if args.operation == "smoke":
         overall = aggregate(client, authority, record)
         (root/"overall-smoke.json").write_text(json.dumps(overall, sort_keys=True, indent=2)+"\n")

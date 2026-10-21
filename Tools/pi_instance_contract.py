@@ -160,11 +160,26 @@ def validate_identity(binding: Binding, observed: dict, challenge: str) -> None:
     require(all(observed[field] == binding.inventory_row[field] for field in fields), "TARGET_NOT_READY")
 
 
+def recovered_deployment(binding: Binding, record: dict, run_id: str) -> bool:
+    # A new successful recovery is distinct from the retained failed deployment.
+    return (isinstance(record, dict) and binding.request["deployment_instance"] == "wall-4inch"
+        and binding.request["candidate_sha"] == "0dde0abe22a0859f170a7c1d3eab41f1ade44d37"
+        and binding.request["artifact_sha256"] == "d67869ffca53c4936059bdbbdbdf6be63b36eafac269fa2f3f9b090922cd0d64"
+        and record.get("kind") == "djconnect_pi_recovery_evidence"
+        and record.get("result") == "RECOVERED_PENDING_SMOKE"
+        and record.get("original_deployment_workflow_run") == "39669504016"
+        and record.get("deployment_workflow_run") == run_id and record.get("recovery_workflow_run") == run_id
+        and run_id != "39669504016" and record.get("watchdog_restored") is True
+        and record.get("configuration_preserved_by_installer") is True
+        and type(record.get("verified_packaged_files")) is int and record["verified_packaged_files"] == 80
+        and record.get("recovery_helper_sha256") == "11ce41115c7aa5ac34e568f3ea9008915f342bc3272850b56c61eed19a760ab9")
+
+
 def validate_smoke_join(binding: Binding, deployment: dict, smoke: dict, run_id: str) -> None:
     require(isinstance(run_id, str) and re.fullmatch(r"[1-9][0-9]*", run_id) is not None, "DEPLOYMENT_RUN_INVALID")
     expected = binding.public_join()
-    require(isinstance(deployment, dict) and deployment.get("result") == "DEPLOYED_PENDING_SMOKE"
-            and deployment.get("deployment_workflow_run") == run_id, "DEPLOYMENT_EVIDENCE_INVALID")
+    require(isinstance(deployment, dict) and (deployment.get("result") == "DEPLOYED_PENDING_SMOKE"
+            or recovered_deployment(binding, deployment, run_id)) and deployment.get("deployment_workflow_run") == run_id, "DEPLOYMENT_EVIDENCE_INVALID")
     require(isinstance(smoke, dict) and smoke.get("result") == "SMOKE_PASS" and smoke.get("deployment_workflow_run") == run_id, "SMOKE_RUN_MISMATCH")
     require(all(deployment.get(key) == value and smoke.get(key) == value for key, value in expected.items()), "SMOKE_BINDING_MISMATCH")
     require(smoke.get("installed_source") == expected["candidate_sha"]

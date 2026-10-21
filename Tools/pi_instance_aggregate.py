@@ -19,18 +19,21 @@ from Tools.pi_instance_contract import (
 def latest_deployment(client, authority, instance):
     # Any later attempt for this physical instance invalidates older smoke,
     # including a different manifest/consumer and an inconclusive mutation.
-    listing = client.json("repos/"+PI+"/actions/workflows/deploy-latest-pi-release.yml/runs?event=workflow_dispatch&per_page=20")
-    runs = listing.get("workflow_runs")
-    require(isinstance(runs, list) and type(listing.get("total_count")) is int
-            and 0 <= listing["total_count"] <= 20 and len(runs) <= 20, "DEPLOYMENT_RUN_LIST_INVALID")
-    prefix = "Pi deploy / "+instance+" / "
-    matching = [run for run in runs if run.get("head_branch") == "main"
-        and isinstance(run.get("display_title"), str) and run["display_title"].startswith(prefix)
-        and run.get("path") in {".github/workflows/deploy-latest-pi-release.yml", ".github/workflows/deploy-latest-pi-release.yml@main"}
-        and run.get("event") == "workflow_dispatch"]
+    matching = []
+    for filename, kind in (("deploy-latest-pi-release.yml", "deploy"), ("recover-rc6-wall4.yml", "recovery")):
+        listing = client.json("repos/"+PI+"/actions/workflows/"+filename+"/runs?event=workflow_dispatch&per_page=20")
+        runs = listing.get("workflow_runs")
+        require(isinstance(runs, list) and type(listing.get("total_count")) is int
+                and 0 <= listing["total_count"] <= 20 and len(runs) <= 20, "DEPLOYMENT_RUN_LIST_INVALID")
+        prefix = "Pi "+kind+" / "+instance+" / "
+        matching.extend(run for run in runs if run.get("head_branch") == "main"
+            and isinstance(run.get("display_title"), str) and run["display_title"].startswith(prefix)
+            and run.get("path") in {".github/workflows/"+filename, ".github/workflows/"+filename+"@main"}
+            and run.get("event") == "workflow_dispatch")
     require(bool(matching), "LATEST_DEPLOYMENT_MISSING")
     matching.sort(key=lambda run: int(run["id"]), reverse=True)
     run = matching[0]
+    prefix = "Pi "+("recovery" if "recover-rc6-wall4.yml" in run["path"] else "deploy")+" / "+instance+" / "
     require(all(datetime.fromisoformat(old["updated_at"]) <= datetime.fromisoformat(run["updated_at"]) for old in matching), "OLDER_DEPLOYMENT_UPDATED_AFTER_NEWER_INTENT")
     require(type(run.get("run_attempt")) is int and run["run_attempt"] == 1 and run.get("status") == "completed" and run.get("conclusion") == "success"
             and run.get("head_sha") == authority.binding.consumer_sha
