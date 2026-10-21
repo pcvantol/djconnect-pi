@@ -248,6 +248,8 @@ class SessionTransport:
                 if response.status_code in (404, 405, 426) or code == "history_contract_upgrade_required":
                     raise SessionError("unavailable", code if code in {"history_unavailable", "active_session_not_found", "history_contract_upgrade_required"} else "")
                 if response.status_code == 409:
+                    if code in {"device_not_mapped", "profile_required", "invalid_profile", "profile_access_denied"}:
+                        raise SessionError("profile_unavailable")
                     raise SessionError("conflict")
                 if response.status_code >= 400 or data.get("success") is not True:
                     raise SessionError("unavailable" if method == "GET" or response.status_code >= 400 else "uncertain")

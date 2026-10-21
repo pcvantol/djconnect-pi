@@ -33,7 +33,6 @@ BrandWindow {
     property bool askDjClearConfirmOpen: false
     property bool musicDnaDisableConfirmOpen: false
     property bool musicDnaClearConfirmOpen: false
-    property bool moodPopoverOpen: false
     property bool discoveryReasonOpen: false
     property string discoveryReasonTitle: ""
     property string discoveryReasonText: ""
@@ -184,7 +183,6 @@ BrandWindow {
             djconnect.pollSharedSettings()
         }
         if (root.activeScreen !== "now") {
-            root.moodPopoverOpen = false
         }
     }
 
@@ -206,7 +204,6 @@ BrandWindow {
         root.askDjClearConfirmOpen = false
         root.musicDnaDisableConfirmOpen = false
         root.musicDnaClearConfirmOpen = false
-        root.moodPopoverOpen = false
         root.discoveryReasonOpen = false
         djconnect.hideLogs()
     }
@@ -1205,25 +1202,7 @@ BrandWindow {
                     implicitHeight: 28
                 }
 
-                PurpleButton {
-                    id: nowMoodButton
-                    text: root.tr("mood")
-                    ToolTip.visible: hovered
-                    ToolTip.text: root.tr("mood_select")
-                    Accessible.name: root.tr("mood")
-                    Accessible.description: root.tr("mood_select")
-                    Layout.preferredWidth: 48
-                    Layout.preferredHeight: 48
-                    contentItem: MenuIcon {
-                        iconName: "mood"
-                        iconColor: nowMoodButton.enabled ? BrandTheme.colors.text : BrandTheme.colors.disabledText
-                        strokeWidth: 2.6
-                        anchors.centerIn: parent
-                        width: 28
-                        height: 28
-                    }
-                    onClicked: root.moodPopoverOpen = !root.moodPopoverOpen
-                }
+
 
                 RefreshIconButton {
                     id: nowRefreshButton
@@ -1344,119 +1323,7 @@ BrandWindow {
 
         }
 
-        Rectangle {
-            id: moodPopover
-            visible: root.activeScreen === "now" && root.moodPopoverOpen
-            z: 40
-            anchors.top: parent.top
-            anchors.topMargin: 72
-            anchors.right: parent.right
-            anchors.rightMargin: 16
-            width: Math.min(292, parent.width - 32)
-            height: moodPopoverContent.implicitHeight + 24
-            radius: root.standardButtonRadius
-            border.color: root.moodColor("focus")
-            border.width: 1
 
-            gradient: Gradient {
-                orientation: Gradient.Vertical
-                GradientStop { position: 0.0; color: root.moodColor("bannerMid") }
-                GradientStop { position: 0.58; color: root.moodColor("surface") }
-                GradientStop { position: 1.0; color: root.moodColor("bannerEnd") }
-            }
-
-            ColumnLayout {
-                id: moodPopoverContent
-                anchors.fill: parent
-                anchors.margins: 12
-                spacing: 8
-
-                Text {
-                    text: root.tr("mood_select")
-                    color: BrandTheme.colors.text
-                    font.pixelSize: 18
-                    font.bold: true
-                    elide: Text.ElideRight
-                    maximumLineCount: 1
-                    Layout.fillWidth: true
-                }
-
-                GridLayout {
-                    columns: 2
-                    columnSpacing: 8
-                    rowSpacing: 8
-                    Layout.fillWidth: true
-
-                    Button {
-                        id: moodChillButton
-                        text: root.tr("mood_chill")
-                        checkable: true
-                        checked: djconnect.moodValue >= 0 && djconnect.moodValue <= 24
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 44
-                        onClicked: { djconnect.setMoodValue(0); root.moodPopoverOpen = false }
-                        background: Rectangle {
-                            radius: root.standardButtonRadius
-                            color: moodChillButton.checked ? MoodTheme.moodColor(0, "gradientStart") : root.moodColor("chip")
-                            border.color: moodChillButton.checked ? MoodTheme.moodColor(0, "focus") : root.moodColor("accent")
-                            border.width: 1
-                        }
-                        contentItem: Text { text: moodChillButton.text; color: moodChillButton.checked ? BrandTheme.colors.background : BrandTheme.colors.text; font.pixelSize: 16; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight }
-                    }
-
-                    Button {
-                        id: moodGrooveButton
-                        text: root.tr("mood_groove")
-                        checkable: true
-                        checked: djconnect.moodValue >= 25 && djconnect.moodValue <= 59
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 44
-                        onClicked: { djconnect.setMoodValue(35); root.moodPopoverOpen = false }
-                        background: Rectangle {
-                            radius: root.standardButtonRadius
-                            color: moodGrooveButton.checked ? MoodTheme.moodColor(35, "gradientStart") : root.moodColor("chip")
-                            border.color: moodGrooveButton.checked ? MoodTheme.moodColor(35, "focus") : root.moodColor("accent")
-                            border.width: 1
-                        }
-                        contentItem: Text { text: moodGrooveButton.text; color: moodGrooveButton.checked ? BrandTheme.colors.background : BrandTheme.colors.text; font.pixelSize: 16; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight }
-                    }
-
-                    Button {
-                        id: moodEnergyButton
-                        text: root.tr("mood_energy")
-                        checkable: true
-                        checked: djconnect.moodValue >= 60 && djconnect.moodValue <= 84
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 44
-                        onClicked: { djconnect.setMoodValue(70); root.moodPopoverOpen = false }
-                        background: Rectangle {
-                            radius: root.standardButtonRadius
-                            color: moodEnergyButton.checked ? MoodTheme.moodColor(70, "gradientStart") : root.moodColor("chip")
-                            border.color: moodEnergyButton.checked ? MoodTheme.moodColor(70, "focus") : root.moodColor("accent")
-                            border.width: 1
-                        }
-                        contentItem: Text { text: moodEnergyButton.text; color: moodEnergyButton.checked ? BrandTheme.colors.background : BrandTheme.colors.text; font.pixelSize: 16; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight }
-                    }
-
-                    Button {
-                        id: moodPartyButton
-                        text: root.tr("mood_party")
-                        checkable: true
-                        checked: djconnect.moodValue >= 85
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 44
-                        onClicked: { djconnect.setMoodValue(100); root.moodPopoverOpen = false }
-                        background: Rectangle {
-                            radius: root.standardButtonRadius
-                            color: moodPartyButton.checked ? MoodTheme.moodColor(100, "gradientStart") : root.moodColor("chip")
-                            border.color: moodPartyButton.checked ? MoodTheme.moodColor(100, "focus") : root.moodColor("accent")
-                            border.width: 1
-                        }
-                        contentItem: Text { text: moodPartyButton.text; color: moodPartyButton.checked ? BrandTheme.colors.background : BrandTheme.colors.text; font.pixelSize: 16; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight }
-                    }
-                }
-            }
-        }
 
     }
 
@@ -5208,6 +5075,8 @@ BrandWindow {
                     logoSize: 82
                 }
 
+                GlassCard {
+                    Layout.fillWidth: true
                 Text {
                     text: root.tr("app_section")
                     color: BrandTheme.colors.muted
@@ -5235,9 +5104,11 @@ BrandWindow {
                     Text { text: root.tr("device_id"); color: BrandTheme.colors.muted; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
                     Text { text: djconnect.deviceId; color: BrandTheme.colors.text; font.pixelSize: 18; Layout.fillWidth: true; elide: Text.ElideMiddle }
                 }
+                }
 
-                Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: BrandTheme.colors.surfaceRaised }
 
+                GlassCard {
+                    Layout.fillWidth: true
                 Text {
                     text: root.tr("connection_section")
                     color: BrandTheme.colors.muted
@@ -5269,9 +5140,11 @@ BrandWindow {
                     Text { text: root.tr("ha_local_url"); color: BrandTheme.colors.muted; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
                     Text { text: djconnect.haUrl; color: BrandTheme.colors.text; font.pixelSize: 18; Layout.fillWidth: true; elide: Text.ElideMiddle }
                 }
+                }
 
-                Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: BrandTheme.colors.surfaceRaised }
 
+                GlassCard {
+                    Layout.fillWidth: true
                 Text {
                     text: root.tr("notices_section")
                     color: BrandTheme.colors.muted
@@ -5288,6 +5161,7 @@ BrandWindow {
 
                     Text { text: root.tr("copyright"); color: BrandTheme.colors.muted; font.pixelSize: 20; font.bold: true; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 190 }
                     Text { text: "2026 Peter van Tol"; color: BrandTheme.colors.text; font.pixelSize: 20; Layout.fillWidth: true }
+                }
                 }
 
                 PurpleButton {

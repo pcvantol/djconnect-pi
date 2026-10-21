@@ -2915,3 +2915,20 @@ def test_shared_settings_denied_clears_visible_choices_but_preserves_pairing(tmp
     assert "values" not in backend.sharedSettings
     assert backend.cfg.paired and backend.cfg.device_token == "fixture-token"
     backend.shutdown()
+
+
+def test_rejected_discovery_feed_does_not_adopt_profile_or_display_machine_errors(tmp_path):
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.active_profile_id = "original-profile"
+    backend._music_discovery_items = [{"id": "old-result"}]
+    backend._apply_music_discovery_data({
+        "success": False, "error": "music_dna_context_changed", "message": "music_dna_context_changed",
+        "profile_id": "foreign-profile", "sections": [{"items": [{"title": "rejected content"}]}],
+    })
+    assert backend.cfg.active_profile_id == "original-profile"
+    assert backend.musicDiscoveryItems == []
+    assert backend.musicDiscoveryEmptyText == ""
+    assert backend.musicDiscoveryError == backend.tr_key("session_profile_missing")
+    assert "music_dna_context_changed" not in backend.musicDiscoveryError
+    backend.shutdown()

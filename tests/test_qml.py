@@ -270,27 +270,12 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert 'text: "+"' in main_qml
     assert "id: nowPanel" in main_qml
     assert 'visible: root.activeScreen === "now"' in main_qml
-    assert "property bool moodPopoverOpen: false" in main_qml
-    assert "id: nowMoodButton" in main_qml
-    assert 'iconName: "mood"' in main_qml
-    assert 'ToolTip.text: root.tr("mood_select")' in main_qml
-    assert "id: moodPopover" in main_qml
-    assert 'visible: root.activeScreen === "now" && root.moodPopoverOpen' in main_qml
-    mood_popover = main_qml[main_qml.index("id: moodPopover") : main_qml.index("id: controlPanel")]
-    assert 'border.color: root.moodColor("focus")' in mood_popover
-    assert 'root.moodColor("bannerMid")' in mood_popover
-    assert 'root.moodColor("surface")' in mood_popover
-    assert 'root.moodColor("bannerEnd")' in mood_popover
-    assert 'root.moodColor("chip")' in mood_popover
-    assert 'root.moodColor("accent")' in mood_popover
-    assert 'color: "#141326"' not in mood_popover
-    assert 'border.color: "#6a5bd8"' not in mood_popover
-    assert '"#24263f"' not in mood_popover
-    assert '"#3d4268"' not in mood_popover
-    assert "djconnect.setMoodValue(0)" in main_qml
-    assert "djconnect.setMoodValue(35)" in main_qml
-    assert "djconnect.setMoodValue(70)" in main_qml
-    assert "djconnect.setMoodValue(100)" in main_qml
+    # Mood is the server-owned DJ Session setting, not a second local Now Playing control.
+    assert "id: nowMoodButton" not in main_qml
+    assert "id: moodPopover" not in main_qml
+    session_qml = qml_root.joinpath("SessionScreen.qml").read_text(encoding="utf-8")
+    assert 'objectName: "sessionToolbarMood"' in session_qml
+    assert 'screen.openChoice("mood", moodButton)' in session_qml
     assert "id: controlPanel" in main_qml
     assert 'visible: root.activeScreen === "control"' in main_qml
     assert 'root.tr("control")' in main_qml

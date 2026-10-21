@@ -756,7 +756,7 @@ Item {
                 visible: screen.state.error.length > 0 && screen.state.error !== "profile_required"
                 Layout.fillWidth: true
                 Text {
-                    text: screen.tr(screen.state.error === "uncertain" ? "session_uncertain" : "session_error")
+                    text: screen.tr(screen.state.error === "uncertain" ? "session_uncertain" : screen.state.error === "profile_unavailable" ? "session_profile_missing" : "session_error")
                     color: BrandTheme.colors.warning; font.pixelSize: 21; wrapMode: Text.WordWrap
                     Layout.fillWidth: true; textFormat: Text.PlainText
                 }
@@ -1375,7 +1375,7 @@ Item {
             }
             Text {
                 visible: screen.state.error.length > 0
-                text: screen.tr(screen.state.error === "uncertain" ? "session_uncertain" : "session_error")
+                text: screen.tr(screen.state.error === "uncertain" ? "session_uncertain" : screen.state.error === "profile_unavailable" ? "session_profile_missing" : "session_error")
                 color: BrandTheme.colors.warning; font.pixelSize: 18
                 wrapMode: Text.WordWrap; Layout.fillWidth: true
             }

@@ -2676,3 +2676,36 @@ Fresh actual-root hostverify MATCH; no repair/cleanup/other-lane write. Independ
 exact PR119 review, protected source/separate Finalization/distinct release/new
 approved operative binding remain required for deployment. HA-dev authentication
 and active Pi10 Session click test remain explicitly human-deferred.
+
+
+### User-reported installed Pi issues — 21 October 2026
+
+Read-only actual 4-inch logs show Track Insight rejected with device_not_mapped
+and Music DNA with music_dna_context_changed. Normal HA-dev UI now saved that
+actual device mapping to Peter's explicitly selected existing iPhone 17 Pro
+Profile. The installed client still supplies its older explicit Profile; that
+requires consumer reconciliation, so Session/history/Insight/discovery are NOT
+claimed fixed live. Pi10 normal pairing with verified Raspberry Pi selection
+fails invalid_client_type before POST pair. Peter authorized a concrete handoff
+to the current Core owner, who accepted the manual-URL discovery-ID defect.
+No invented IDs/client types, replay, root configuration edits or pairing bypass.
+
+Source corrections remove the legacy local mood control from Now Playing; the
+server-owned DJ Session mood toolbar remains. About's existing three sections
+now use shared GlassCard. Privacy uses applicable exact protected Apple e106a467
+prose (data, token storage and AI caveat), replacing extra invented Pi headings.
+Apple push/voice/platform framework claims are not copied into unsupported Pi
+features. Legal keeps the two Apple legal paragraphs together and Pi-specific
+OSS/license information; repeated notices are removed. Rejected discovery feeds
+cannot adopt a Profile, import result rows or display raw machine error/message
+as content. Closed Profile-related Session 409 errors show Profile guidance
+instead of falsely implying a network outage; pairing and write guards remain.
+
+Own-source qualification:244 focused PASS, full2454 integrated PASS/no skips
+42.90s, Ruff0.16.0 src/tests and diff PASS. Final150 actual offline QML views
+cover both formats/five languages; no QML errors/binding loops. Earlier150 are
+intermediate, not added. About and Privacy inspected visually. Local review wheel
+f6f5b102da04d640136a7e23d00b99d5dd916e969269681a84403f1a2d0e7d97 matches67 runtime files. No new ARM, installed, live
+Session/provider/model/physical-touch acceptance. Original492 Linux CI Qt timer
+segfault remains FAILED evidence; local PASS does not close that CI diagnostic.
+Evidence:taskvisualizations/pi-user-reported-ui-fixes; original logs preserved.

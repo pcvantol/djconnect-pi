@@ -46,6 +46,7 @@ from .config import (
     save_config,
 )
 from .ha import (
+    PROFILE_ERROR_CODES,
     AuthenticationError,
     BackendUnavailable,
     DJConnectError,
@@ -2295,6 +2296,17 @@ class DJConnectBackend(QObject):
     @Slot(object)
     def _apply_music_discovery_data(self, data: object) -> None:
         if not isinstance(data, dict):
+            return
+        error = str(data.get("error") or "")
+        if data.get("success") is False and error != "music_dna_disabled":
+            # Rejected feeds are not content or Profile authority. Never render
+            # their machine error/message as user-facing recommendation text.
+            self._music_discovery_items = []
+            self._music_discovery_feedback_supported = False
+            self._music_discovery_empty_text = ""
+            key = "session_profile_missing" if error in PROFILE_ERROR_CODES | {"music_dna_context_changed"} else "backend_unavailable"
+            self._music_discovery_error = self.tr_key(key)
+            self.musicDiscoveryChanged.emit()
             return
         self._apply_profile_context(data)
         self._music_discovery_consent_rejected = False
