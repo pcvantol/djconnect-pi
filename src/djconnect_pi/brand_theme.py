@@ -17,8 +17,17 @@ def css_color(value: str) -> str:
 
 def apply_palette(app) -> None:
     """Give Basic controls (including native popup menus) the same dark palette."""
-    from PySide6.QtGui import QColor, QPalette
+    from PySide6.QtGui import QColor, QFontDatabase, QPalette
 
+    if not app.property("djconnectInterLoaded"):
+        font_id = QFontDatabase.addApplicationFont(str(files("djconnect_pi").joinpath("fonts/InterVariable.ttf")))
+        families = QFontDatabase.applicationFontFamilies(font_id)
+        if font_id < 0 or "Inter Variable" not in families:
+            raise RuntimeError("Bundled Inter font could not be loaded")
+        app.setProperty("djconnectInterLoaded", True)
+    font = app.font()
+    font.setFamily("Inter Variable")
+    app.setFont(font)
     theme = colors()
     palette = QPalette()
     for role, token in {

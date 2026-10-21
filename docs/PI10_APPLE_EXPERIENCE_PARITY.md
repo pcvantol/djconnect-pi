@@ -2891,3 +2891,69 @@ are offline views, not installed Pi10/live HA/touch acceptance. Evidence:
 visualizations root. The earlier full composer run is intermediate and is
 not added to these54 views. No Python production bytes changed; the earlier
 2479 full-suite result belongs to parent9e45766, not a new full-suite run.
+
+
+## Shared Glass preference and bundled Inter — 21 October 2026
+
+Direct owner requests add one local shared appearance switch: defaultOFF on
+pi-zero-2w-arm64 and defaultON on pi5-arm64. Missing/malformed values retain
+the profile default; explicit strict bool survives reload/restart/profile
+default changes. Only user toggling saves it; load, bindings and visibility
+do not write. Save failure restores the previous value; normal config
+reconciliation announces a changed appearance. Pairing/Profile and server
+permissions are unchanged; the toggle sends no server command.
+
+Inter4.1 variable is bundled with its full OFL1.1/copyright, loaded once per
+QGuiApplication and selected as the application font on both profiles, including
+the updater. Explicit monospace and image-based brand artwork remain.
+`fonts/README.md` records upstream/hashes; no Apple font is redistributed.
+
+The Pi5 startup requests RHI/OpenGL only where no operator override exists.
+An actual OpenGL renderer, pi5 profile, enabled preference and awake/visible
+window admit the GPU material. One shared half-resolution decorative
+underlay capture/blur pipeline is capped960px per texture side; visible
+intersecting surfaces sample it through a qsb shader with rounded edge
+refraction/light. It captures no Session text/private media and never captures
+itself. Off and idle destroy the shared capture and per-surface loaders.
+Other renderers/profiles get a simpler non-shader material when enabled;
+OFF uses opaque surfaces. Primary/selected/destructive roles remain distinct.
+Opacity, tint colour/amount, blur, refraction and edge light are central
+`GlassStyle.qml` properties. This approximates glass; native Apple LiquidGlass
+and content-behind-toolbar refraction are not claimed.
+
+Frozen qualification:22 new meaningful config/font cases; FULL2501 integrated
+PASS/no skips41.73s; Ruff0.16.0 src/tests and diff PASS. Restricted frozen
+2488PASS/13 socketSKIP and earlier runs remain separate diagnostics, not the
+full final result. FINAL796 real Qt views:150 broad,436 original unmodified
+composer,180 original unmodified artwork and30 actual user-toggle views,
+both formats/all five locales, zero QML errors/binding loops. Startup font
+alias warnings remain recorded. Original composer/artwork admission, expiry,
+selection, first-fold and touch assertions were not relaxed.
+
+Exact frozen75-file review wheel is verified against source and includes
+Inter/license/qmldir/shader. On actual Pi5/Python3.13.5/Qt6.11.2 the same
+packaged production components render through BroadcomV3D7.1.10.2/OpenGL
+ES3.1:8 separate state captures and180 varying completed GPU frames; on/off
+restoration, idle resource withdrawal, unsupported-profile fallback and Inter
+PASS, zero QML/shader errors, clean Qt-owned teardown. Final synthetic
+median7.214ms/p957.293ms; earlier varying p95 measurements remain preserved.
+No whole-app physical FPS/installed/touch/liveHA/provider/audio claim.
+Installed officialEADBrc5/clientPID4264/API4255 remain unchanged/active.
+
+Evidence `pi-shared-glass-and-inter`: only `*-frozen` Qt directories,
+`full-frozen-authorized.log`, `actual-gpu-frozen` and package-frozen are final.
+All other local/GPU runs are intermediate and not added to the final counts.
+First QML static test correctly rejected the old always-on literal, updated
+to require the actual backend binding. Initial lint formatting/check=False
+and sandbox egg-info build errors are retained. Many early toggle harness
+runs clicked during the existing360ms tablet splash exit and failed; event
+tracing proved no click reached the switch. The final harness waits for the
+actual splash layer to become invisible before clicking, without removing
+production input guards or weakening assertions. Backend storage and
+keyboard paths had already passed; no general Qt input bug is claimed.
+
+Source only until exact updated independent review, protected main/separate
+Finalization, distinct rc6 publication and a new canonical rc6 operative
+binding. Protected rc5-only schemas and old deployment approval are not
+changed/reused to authorize rc6. Automation remains PAUSED; these later
+direct user requests do not start a new timer window.

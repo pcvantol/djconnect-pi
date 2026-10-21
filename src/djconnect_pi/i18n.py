@@ -12,6 +12,9 @@ LANGUAGES = {
 
 TRANSLATIONS: dict[str, dict[str, str]] = {
     "nl": {
+        "glass_title": "Glas",
+        "glass_description": "Transparante oppervlakken en lichteffecten.",
+        "glass_fallback": "Op dit scherm wordt een eenvoudiger glaseffect gebruikt.",
         "app_title": "DJConnect",
         "setup": "Instellingen",
         "now_playing": "Speelt nu",
@@ -294,6 +297,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "app_update_message": "DJConnect installeert een nieuwe versie. Laat de Pi aan staan.",
     },
     "en": {
+        "glass_title": "Glass",
+        "glass_description": "Translucent surfaces and lighting effects.",
+        "glass_fallback": "A simpler glass appearance is used on this display.",
         "app_title": "DJConnect",
         "setup": "Setup",
         "now_playing": "Now Playing",
@@ -580,6 +586,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
 
 _EXTRA_TRANSLATIONS: dict[str, dict[str, str]] = {
     "de": {
+        "glass_title": "Glas",
+        "glass_description": "Transparente Flächen und Lichteffekte.",
+        "glass_fallback": "Auf diesem Bildschirm wird ein einfacherer Glaseffekt verwendet.",
         "setup": "Einstellungen", "now_playing": "Läuft gerade", "control": "Steuerung", "games": "Spiele",
         "queue": "Warteschlange", "playlists": "Playlists", "more": "Mehr", "send": "Senden", "clear": "Leeren",
         "ask_dj_clear_chat": "Chat löschen", "ask_dj_clear_confirm_title": "Ask DJ Chat löschen?",
@@ -679,6 +688,9 @@ _EXTRA_TRANSLATIONS: dict[str, dict[str, str]] = {
         "app_update_message": "DJConnect installiert eine neue Version. Lass den Pi eingeschaltet.",
     },
     "fr": {
+        "glass_title": "Verre",
+        "glass_description": "Surfaces translucides et effets lumineux.",
+        "glass_fallback": "Un effet de verre simplifié est utilisé sur cet écran.",
         "setup": "Réglages", "now_playing": "Lecture", "control": "Commandes", "games": "Jeux",
         "queue": "File d'attente", "playlists": "Playlists", "more": "Plus", "send": "Envoyer",
         "clear": "Effacer", "ask_dj_clear_chat": "Effacer le chat",
@@ -776,6 +788,9 @@ _EXTRA_TRANSLATIONS: dict[str, dict[str, str]] = {
         "app_update_message": "DJConnect installe une nouvelle version. Gardez le Pi allumé.",
     },
     "es": {
+        "glass_title": "Cristal",
+        "glass_description": "Superficies translúcidas y efectos de luz.",
+        "glass_fallback": "En esta pantalla se utiliza un efecto de cristal más sencillo.",
         "setup": "Ajustes", "now_playing": "Reproduciendo", "control": "Controles", "games": "Juegos",
         "queue": "Cola", "playlists": "Listas", "more": "Más", "send": "Enviar", "clear": "Borrar",
         "ask_dj_clear_chat": "Borrar chat", "ask_dj_clear_confirm_title": "¿Borrar chat de Ask DJ?",

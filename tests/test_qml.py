@@ -791,7 +791,7 @@ def test_qml_has_a_dedicated_pi5_wall_canvas_and_premium_banner_scale() -> None:
     assert "running: root.wallProfile && !root.screenBlanked" in main_qml
     assert "property int motionStandard: wallProfile ? 360 : 240" in main_qml
     assert "scale: djconnect.toastVisible ? 1 : 0.94" in main_qml
-    assert "property bool liquidGlassEnabled: true" in main_qml
+    assert "readonly property bool liquidGlassEnabled: djconnect.glassEnabled" in main_qml
     assert "#82ffffff" in main_qml
     assert "#c8ffffff" in main_qml
     assert "BusyIndicator" not in update_qml

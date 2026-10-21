@@ -15,7 +15,26 @@ BrandWindow {
     visibility: startWindowed ? Window.Windowed : Window.FullScreen
 
     property bool wallProfile: djconnect.releaseProfile === "pi5-arm64"
-    property bool liquidGlassEnabled: true
+    readonly property bool liquidGlassEnabled: djconnect.glassEnabled
+    Binding { target: GlassStyle; property: "enabled"; value: root.liquidGlassEnabled }
+    Binding { target: GlassStyle; property: "hardware"; value: root.wallProfile && root.GraphicsInfo.api === GraphicsInfo.OpenGL }
+    Binding { target: GlassStyle; property: "awake"; value: root.visible && !root.screenBlanked }
+    Binding { target: GlassStyle; property: "backdrop"; value: glassUnderlay }
+    Binding { target: GlassStyle; property: "texture"; value: sharedGlassCapture.item ? sharedGlassCapture.item.texture : null }
+    // Never captures private content or the material itself; no recursive feedback.
+    AppBackground { id: glassUnderlay; visible: false }
+    Loader {
+        id: sharedGlassCapture
+        objectName: "sharedGlassCapture"
+        active: GlassStyle.enabled && GlassStyle.hardware && GlassStyle.awake
+        anchors.fill: parent; visible: false
+        sourceComponent: GlassBackdrop { sourceItem: glassUnderlay }
+    }
+    FrameAnimation {
+        objectName: "glassGeometryAnimation"
+        running: GlassStyle.active
+        onTriggered: GlassStyle.geometryFrame = (GlassStyle.geometryFrame + 1) % 1000000
+    }
     property real edge: wallProfile ? Math.max(56, width * 0.07) : 28
     property real wallTypeScale: wallProfile ? Math.min(width / 900, height / 1440) : 1
     property int motionFast: wallProfile ? 180 : 140
@@ -1689,6 +1708,30 @@ BrandWindow {
                     Layout.fillWidth: true
                 }
 
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    BrandSwitch {
+                        objectName: "glassAppearanceToggle"
+                        text: root.tr("glass_title")
+                        font.pixelSize: 24
+                        checked: djconnect.glassEnabled
+                        onToggled: djconnect.setGlassEnabled(checked)
+                        Accessible.name: root.tr("glass_title")
+                    }
+                    Text {
+                        text: root.tr("glass_description")
+                        color: BrandTheme.colors.muted; font.pixelSize: 20
+                        wrapMode: Text.WordWrap; textFormat: Text.PlainText
+                        Layout.fillWidth: true
+                    }
+                    Text {
+                        visible: root.liquidGlassEnabled && !GlassStyle.hardware
+                        text: root.tr("glass_fallback")
+                        color: BrandTheme.colors.muted; font.pixelSize: 18
+                        wrapMode: Text.WordWrap; textFormat: Text.PlainText
+                        Layout.fillWidth: true
+                    }
+                }
                 PurpleButton {
                     visible: !djconnect.paired
                     text: djconnect.demoMode ? root.tr("exit_demo") : root.tr("demo_mode")

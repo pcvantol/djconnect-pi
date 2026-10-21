@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import logging
+import os
 import re
 import subprocess
 import sys
@@ -41,6 +42,7 @@ from .config import (
     DEFAULT_CONFIG_PATH,
     DEFAULT_LOG_PATH,
     Config,
+    effective_glass_enabled,
     load_config,
     normalize_dj_announcement_output,
     save_config,
@@ -127,6 +129,7 @@ class DJConnectBackend(QObject):
     musicDiscoveryChanged = Signal()
     trackInsightChanged = Signal()
     demoModeChanged = Signal()
+    glassChanged = Signal()
     screenTimeoutChanged = Signal()
     returnToNowChanged = Signal()
     screenBrightnessChanged = Signal()
@@ -689,6 +692,28 @@ class DJConnectBackend(QObject):
     def releaseProfile(self) -> str:
         return self.cfg.release_profile
 
+    @Property(bool, notify=glassChanged)
+    def glassEnabled(self) -> bool:
+        return effective_glass_enabled(self.cfg)
+
+    @Slot(bool, result=bool)
+    def setGlassEnabled(self, enabled: bool) -> bool:
+        if type(enabled) is not bool:
+            return False
+        if self.cfg.glass_enabled is enabled:
+            return True
+        previous = self.cfg.glass_enabled
+        self.cfg.glass_enabled = enabled
+        try:
+            save_config(self.config_path, self.cfg)
+        except OSError:
+            self.cfg.glass_enabled = previous
+            self.glassChanged.emit()
+            self.showToastForContext(self.tr_key("save_failed"), "settings")
+            return False
+        self.glassChanged.emit()
+        return True
+
     @Property(str, notify=updateChannelChanged)
     def updateChannel(self) -> str:
         return self.cfg.update_channel
@@ -964,6 +989,7 @@ class DJConnectBackend(QObject):
             and latest.screen_timeout_seconds == self.cfg.screen_timeout_seconds
             and latest.return_to_now_seconds == self.cfg.return_to_now_seconds
             and latest.update_channel == self.cfg.update_channel
+            and latest.glass_enabled is self.cfg.glass_enabled
             and latest.active_profile_id == self.cfg.active_profile_id
             and latest.active_profile_type == self.cfg.active_profile_type
             and latest.active_profile_privacy_mode == self.cfg.active_profile_privacy_mode
@@ -973,6 +999,7 @@ class DJConnectBackend(QObject):
         ):
             return
         language_changed = latest.language != self.cfg.language
+        glass_changed = effective_glass_enabled(latest) != self.glassEnabled
         self.cfg = latest
         self.client.cfg = self.cfg
         self._invalidate_shared_settings_if_context_changed()
@@ -985,6 +1012,8 @@ class DJConnectBackend(QObject):
         self.updateChannelChanged.emit()
         self.profileChanged.emit()
         self.djAnnouncementChanged.emit()
+        if glass_changed:
+            self.glassChanged.emit()
         if language_changed:
             self._translation_version += 1
             self.languageChanged.emit()
@@ -2630,6 +2659,14 @@ class DJConnectBackend(QObject):
         self.screenshotRequested.emit()
 
 
+
+def configure_graphics(cfg: Config, environment: dict[str, str]) -> None:
+    """Request RHI/OpenGL on Pi5 only; never rewrite an explicit override."""
+    if cfg.release_profile == "pi5-arm64":
+        environment.setdefault("QT_QUICK_BACKEND", "rhi")
+        environment.setdefault("QSG_RHI_BACKEND", "opengl")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG_PATH)
@@ -2655,6 +2692,9 @@ def main() -> None:
     _LOGGER.info("Starting DJConnect Pi client")
     log_raspberry_pi_system_info()
 
+    # Select the Pi5 GPU path once at startup so its local toggle can switch
+    # material without restarting. Explicit operator backend settings win.
+    configure_graphics(cfg, os.environ)
     QQuickStyle.setStyle("Basic")
     app = QGuiApplication(sys.argv)
     apply_palette(app)
