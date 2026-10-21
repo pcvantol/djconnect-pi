@@ -2754,3 +2754,69 @@ exact affected-row and proven prior-binding metadata for ordinary UI restoration
 no guessed rollback, forced mapping or client-context clearing is allowed.
 Both HA-dev pairing approvals stand; Pi10 remains unpaired awaiting normal Core
 manual-URL fix and protected/Final/installed readback. Authentication is resumed.
+
+
+### Direct Session entry, welcome card, banner alignment and optional cache (21 October)
+
+Peter explicitly requested direct active-Session presentation, otherwise the
+Session creation screen, and both brand text lines beside the mark. This local
+candidate supersedes the extra Pi-only Use this Profile step. A valid current
+server-resolved device mapping may now scope Session requests without a second
+local confirmation or config write. Existing explicit choices must still agree
+in controllers; missing/malformed/mismatched mappings remain unavailable. The
+original raw explicit choice remains part of the request/result binding fence.
+Core still authenticates every device request and rejects mismatched mapped
+owners. Private-mode, native/media admission, original deadlines, revocation,
+context epochs and no-replay rules remain; no new mapping/grant/audio permission.
+
+The shared welcome card has localized hero copy, local decorative record art,
+Mood/Presence/Persona choices and a gradient Start button. Choices come only
+from current server settings options/writable fields; each explicit click sends
+one existing typed settings patch with its edit token. Loading, programmatic
+updates and selection rendering never write. Selection shows confirmed server
+values, with no optimistic change. Start is disabled during unavailable,
+selection-required, pending/unknown or busy settings. The existing Start request
+is unchanged; released Core8b Runtime inherits activated Profile defaults,
+including Persona/Presence. Active Runtime hides the welcome card. No local
+speaker/microphone activation and no invented presence option or wire field.
+
+The AppBanner now places the original mark next to a single text column. The
+outlined name uses the original compact asset's alpha bounds(525,142,1092,162)
+through QML sourceClipRect, without editing the asset or redrawing its type.
+Localized detail text shares the same left edge below the name, beside the mark.
+Both sizes/five languages have actual geometry and pixel checks.
+
+Actual Pi10 normal HA-dev pairing succeeded after qualified Corebf6b/Final0090
+and the owner-installed receipt. Public info says paired:true; physical Start
+was performed by Peter. An actual VNC capture shows DJ Session/Profile guidance,
+not an active Flow acceptance. Recent logs then stopped reporting503 and instead
+showed PermissionError in optional album-art cache mkdir. This candidate moves
+mkdir/existence/stat into the existing optional-cache fallback, preserving the
+original image URL and playback refresh when local cache access fails. No live
+chmod/chown/config patch or reinstallation was done. Legacy030549 restoration
+still awaits the separate user's choice; it was not automatically changed.
+
+Final local qualification:19 new meaningful cases,292 focused PASS; full2477
+integrated PASS/no skips47.92s; Ruff0.16.0 src/tests/diff PASS. Final70 actual QML
+views(both formats/five locales) cover explicit settings clicks/no optimism,
+pending/unavailable Start, one explicit Start, active Session without onboarding,
+and brand geometry. Zero QML errors/binding loops; one startup font-alias warning.
+Earlier60/70 views are intermediate, not added. The unmodified broader composer
+first found an implicitWidth binding loop in the hidden new card; that436-view
+run is FAILED. A fixed natural card width breaks the dependency without changing
+fill-width layout or tests. Final-v2 has70 targeted/brand+436 unmodified composer
++180 unmodified artwork views=686 current views, zero errors/binding loops.
+Review wheel
+ccdcf4ab70673f35911afe2b40ac8c1c97fd7cb70b2dd8caefcb6295748e2592
+matches68 runtime files. Original producer fixture bytes are unchanged; owner,
+settings and Session joins in these previews are synthetic, network/OS calls
+blocked. The original first-fold, native/source expiry, touch, context/queued-question
+and no-replay assertions remain unchanged. Evidence:taskvisualizations/pi-session-start-direct-entry.
+
+This is source/review evidence, not installed/live Profile/Flow/physical-touch
+acceptance. Both installed binaries remain immutable official EADBrc5. Current
+source candidate remains local while the actual host retention
+gate reports a newly expired Core-output pair after the previous owner archive.
+No protected push/merge/publication/deployment or other-lane cleanup. Independent
+PR119 review, separate Finalization, distinct release and fresh operative binding
+remain required before new runtime installation.

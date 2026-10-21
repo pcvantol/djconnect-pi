@@ -40,9 +40,10 @@ def controller():
     delete(backend)
 
 
-def test_no_server_call_until_explicit_profile_confirmation(controller):
+def test_missing_server_profile_never_calls_session_transport(controller):
     owner, backend = controller
     backend.cfg.explicit_profile_id = ""
+    backend.cfg.active_profile_id = ""
     owner.refresh()
     assert owner.state["profile_confirmation_required"]
     assert owner.state["error"] == "profile_required"
@@ -755,3 +756,68 @@ def test_current_reads_with_new_runtime_scope_require_a_new_forecast_revision(co
     changed['broadcast']['session_forecast']['revision']+=1
     owner.refresh();backend.jobs.pop()()
     assert owner.state['forecast']['sections']
+
+
+def test_server_mapped_profile_opens_session_without_second_confirmation(controller):
+    owner, backend = controller
+    backend.cfg.explicit_profile_id = ""
+    owner.refresh()
+    assert not owner.state["profile_confirmation_required"]
+    assert len(backend.jobs) == 1
+    backend.jobs.pop()()
+    assert owner.state["loaded"] and not owner.state["session_id"]
+    owner.transport.active.assert_called_once()
+    assert owner.transport.active.call_args.args[0].profile_id == "profile-a"
+    assert backend.cfg.explicit_profile_id == ""  # No local mapping/selection write.
+
+
+def test_conflicting_local_selection_cannot_silently_choose_another_profile(controller):
+    owner, backend = controller
+    backend.cfg.explicit_profile_id = "different-profile"
+    owner.refresh()
+    assert owner.state["error"] == "profile_required"
+    assert not backend.jobs
+    owner.transport.active.assert_not_called()
+
+
+@pytest.mark.parametrize("active", [None, True, 3, [], {}, "", " profile-a", "profile-a ", "profile\x00a", "profile\x7fa", "x" * 513])
+def test_invalid_server_mapping_cannot_open_session(controller, active):
+    owner, backend = controller
+    backend.cfg.explicit_profile_id = ""
+    backend.cfg.active_profile_id = active
+    owner.refresh()
+    assert owner.state["error"] == "profile_required"
+    assert not backend.jobs
+    owner.transport.active.assert_not_called()
+
+
+def test_mapping_change_rejects_old_automatic_entry_read(controller):
+    owner, backend = controller
+    backend.cfg.explicit_profile_id = ""
+    owner.refresh()
+    job = backend.jobs.pop()
+    backend.cfg.active_profile_id = "successor"
+    job()
+    assert not owner.state["loaded"] and not owner.state["session_id"]
+
+
+def test_automatic_mapping_is_only_read_until_explicit_start(controller):
+    owner, backend = controller
+    backend.cfg.explicit_profile_id = ""
+    owner.transport.start = Mock()
+    owner.refresh()
+    backend.jobs.pop()()
+    owner.transport.start.assert_not_called()
+    assert backend.cfg.explicit_profile_id == ""
+
+
+def test_server_mapped_active_session_is_shown_without_onboarding(controller):
+    owner, backend = controller
+    backend.cfg.explicit_profile_id = ""
+    owner.transport.active.return_value = {"success": True, "session": {"session_id": "already-active", "runtime_state": "active", "broadcast": {"session": {"session_id": "already-active"}}}}
+    owner.transport.capabilities.return_value = {"success": True, "capabilities": {}, "contract_versions": {}}
+    owner.refresh()
+    backend.jobs.pop()()
+    assert owner.state["loaded"] and owner.state["session_id"] == "already-active"
+    assert not owner.state["profile_confirmation_required"]
+    assert not backend.cfg.explicit_profile_id

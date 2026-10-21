@@ -731,53 +731,27 @@ Item {
                 textFormat: Text.PlainText; Layout.fillWidth: true
             }
             VinylPlaceholder {
-                visible: !screen.historical && screen.state.loaded && screen.state.moments.length === 0 && screen.state.retained_flow.length === 0 &&
+                visible: !screen.historical && screen.state.session_id.length > 0 && screen.state.loaded && screen.state.moments.length === 0 && screen.state.retained_flow.length === 0 &&
                     (!screen.state.profile_confirmation_required || screen.backend.demoMode)
                 Layout.preferredWidth: Math.min(parent.width, screen.compact ? screen.height * 0.38 : 520)
                 Layout.preferredHeight: width
                 Layout.alignment: Qt.AlignHCenter
             }
             GlassCard {
-                visible: screen.state.profile_confirmation_required && !screen.backend.demoMode
-                Layout.fillWidth: true
-                Text { text: screen.tr("session_profile_choose"); color: BrandTheme.colors.text; font.pixelSize: 26; font.bold: true }
-                Text {
-                    text: screen.backend.activeProfileId.length > 0 ? screen.backend.activeProfileName : screen.tr("session_profile_missing")
-                    color: BrandTheme.colors.muted; font.pixelSize: 22; wrapMode: Text.WordWrap
-                    textFormat: Text.PlainText; Layout.fillWidth: true
-                }
-                GlassButton {
-                    text: screen.tr("session_profile_use"); primary: true
-                    enabled: screen.backend.paired && screen.backend.activeProfileId.length > 0
-                    onClicked: screen.owner.confirmProfile(screen.backend.activeProfileId)
-                }
-            }
-            GlassCard {
-                visible: screen.state.error.length > 0 && screen.state.error !== "profile_required"
+                visible: screen.state.error.length > 0
                 Layout.fillWidth: true
                 Text {
-                    text: screen.tr(screen.state.error === "uncertain" ? "session_uncertain" : screen.state.error === "profile_unavailable" ? "session_profile_missing" : "session_error")
+                    text: screen.tr(screen.state.error === "uncertain" ? "session_uncertain" : (screen.state.error === "profile_unavailable" || screen.state.error === "profile_required") ? "session_profile_missing" : "session_error")
                     color: BrandTheme.colors.warning; font.pixelSize: 21; wrapMode: Text.WordWrap
                     Layout.fillWidth: true; textFormat: Text.PlainText
                 }
             }
-            GlassCard {
-                visible: !screen.historical && screen.state.loaded && !screen.state.session_id
+            SessionStartCard {
+                visible: !screen.historical && screen.state.loaded && !screen.state.session_id && !screen.state.error
                 Layout.fillWidth: true
-                Text { text: screen.tr("session_empty"); color: BrandTheme.colors.text; font.pixelSize: 25; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                Flow {
-                    Layout.fillWidth: true; spacing: 10
-                    Repeater {
-                        model: ["chill", "groove", "energy", "party"]
-                        GlassButton {
-                            required property string modelData
-                            text: screen.tr("shared_mood_" + modelData)
-                            checkable: true; checked: screen.proposedMood === modelData
-                            onClicked: screen.proposedMood = modelData
-                        }
-                    }
-                }
-                GlassButton { text: screen.tr("session_start"); primary: true; enabled: !screen.owner.busy; onClicked: screen.owner.start(screen.proposedMood) }
+                backend: screen.backend
+                busy: screen.owner.busy
+                onStartRequested: function(mood) { screen.owner.start(mood) }
             }
             GlassCard {
                 visible: !screen.historical && screen.state.session_id.length > 0 && screen.state.moments.length === 0 && screen.state.retained_flow.length === 0
@@ -1375,7 +1349,7 @@ Item {
             }
             Text {
                 visible: screen.state.error.length > 0
-                text: screen.tr(screen.state.error === "uncertain" ? "session_uncertain" : screen.state.error === "profile_unavailable" ? "session_profile_missing" : "session_error")
+                text: screen.tr(screen.state.error === "uncertain" ? "session_uncertain" : (screen.state.error === "profile_unavailable" || screen.state.error === "profile_required") ? "session_profile_missing" : "session_error")
                 color: BrandTheme.colors.warning; font.pixelSize: 18
                 wrapMode: Text.WordWrap; Layout.fillWidth: true
             }

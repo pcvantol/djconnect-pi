@@ -15,7 +15,7 @@ from .i18n import locale_for_language
 from .session_current_reply import moment_reference
 from .session_forecast_image import MAX_BYTES, ForecastImages, decode_pixels
 from .session_projection import timestamp
-from .session_transport import SessionError
+from .session_transport import SessionError, session_profile_id
 
 PATH = r'/api/djconnect/v1/session/media/image/[A-Za-z0-9_-]{1,128}/[A-Za-z0-9_-]{1,128}'
 
@@ -146,7 +146,7 @@ class MomentImages(ForecastImages):
         if self.closed:return
         cfg = self.owner.backend.cfg
         eligible = (self.visible and self.owner._foreground and self.owner._running_action not in {'start','end'}
-            and bool(cfg.explicit_profile_id) and cfg.explicit_profile_id == cfg.active_profile_id
+            and bool(session_profile_id(cfg))
             and cfg.active_profile_type in {'personal','household'} and cfg.active_profile_privacy_mode == 'private'
             and not cfg.private_session)
         try:

@@ -2734,16 +2734,15 @@ def cached_image_url(url: str, ttl_seconds: int = 24 * 60 * 60, timeout_seconds:
     if parsed.scheme not in {"http", "https"}:
         return url
 
-    cache_dir = DEFAULT_LOG_PATH.parent.parent / "cache" / "album-art"
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    suffix = Path(parsed.path).suffix.lower()
-    if suffix not in {".jpg", ".jpeg", ".png", ".webp"}:
-        suffix = ".img"
-    target = cache_dir / f"{hashlib.sha256(url.encode('utf-8')).hexdigest()}{suffix}"
-    if target.exists() and time.time() - target.stat().st_mtime < ttl_seconds:
-        return target.as_uri()
-
     try:
+        cache_dir = DEFAULT_LOG_PATH.parent.parent / "cache" / "album-art"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        suffix = Path(parsed.path).suffix.lower()
+        if suffix not in {".jpg", ".jpeg", ".png", ".webp"}:
+            suffix = ".img"
+        target = cache_dir / f"{hashlib.sha256(url.encode('utf-8')).hexdigest()}{suffix}"
+        if target.exists() and time.time() - target.stat().st_mtime < ttl_seconds:
+            return target.as_uri()
         response = requests.get(url, timeout=timeout_seconds)
         response.raise_for_status()
         target.write_bytes(response.content)

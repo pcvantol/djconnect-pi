@@ -102,6 +102,22 @@ class SessionError(Exception):
         super().__init__(category)  # Never surface private JSON, URLs or identifiers.
 
 
+def session_profile_id(cfg) -> str:
+    """Use the server-resolved device mapping without a second client selection.
+
+    An existing explicit choice must still agree. This is only a request/context
+    fence: Core freshly authenticates the device and verifies the mapped owner.
+    No mapping, Profile permission or persistent selection is created here.
+    """
+    active = getattr(cfg, "active_profile_id", "")
+    explicit = getattr(cfg, "explicit_profile_id", "")
+    if (not isinstance(active, str) or not 1 <= len(active) <= 512
+            or active != active.strip() or any(ord(c) < 32 or ord(c) == 127 for c in active)
+            or not isinstance(explicit, str) or (explicit and explicit != active)):
+        return ""
+    return active
+
+
 @dataclass(frozen=True)
 class SessionBinding:
     ha_url: str
@@ -113,14 +129,15 @@ class SessionBinding:
     profile_type: str
     privacy_mode: str
     language: str
+    profile_selection: str = ""
 
     @classmethod
     def capture(cls, cfg):
         if not cfg.paired or not cfg.device_token or not cfg.ha_url:
             raise SessionError("unpaired")
         return cls(cfg.ha_url.rstrip("/"), cfg.device_id, cfg.device_token,
-                   cfg.explicit_profile_id, cfg.active_profile_id,
-                   cfg.private_session, cfg.active_profile_type, cfg.active_profile_privacy_mode, cfg.language)
+                   cfg.explicit_profile_id or session_profile_id(cfg), cfg.active_profile_id,
+                   cfg.private_session, cfg.active_profile_type, cfg.active_profile_privacy_mode, cfg.language, cfg.explicit_profile_id)
 
     def identity(self) -> dict[str, Any]:
         result = {"device_id": self.device_id, "client_type": CLIENT_TYPE}

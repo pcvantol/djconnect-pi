@@ -42,7 +42,7 @@ from .session_projection import (
     session_playback,
     timestamp,
 )
-from .session_transport import SessionError, SessionTransport
+from .session_transport import SessionError, SessionTransport, session_profile_id
 
 
 class SessionController(QObject):
@@ -169,7 +169,7 @@ class SessionController(QObject):
             "selection": deepcopy(self._selection), "question_status": self._question_status,
             "moments": deepcopy(self._moments), "sessions": deepcopy(self._sessions),
             "timeline": deepcopy(self._timeline), "search": deepcopy(self._search), "error": self._error,
-            "profile_confirmation_required": not bool(self.backend.cfg.explicit_profile_id),
+            "profile_confirmation_required": not bool(session_profile_id(self.backend.cfg)),
             "history_available": self._history_supported(), "search_available": self._search_supported(),
             "loaded": self._loaded, "history_loaded": self._history_loaded,
             "has_previous_entries": bool(self._timeline_trail),
@@ -510,7 +510,7 @@ class SessionController(QObject):
                 and type(self._caps.get("contract_versions", {}).get("ask_dj_contextual_dialogue")) is int
                 and self._caps["contract_versions"]["ask_dj_contextual_dialogue"] == 1
                 and self._session.get("runtime_state") == "active"
-                and cfg.explicit_profile_id == cfg.active_profile_id and bool(cfg.explicit_profile_id)
+                and bool(session_profile_id(cfg))
                 and not cfg.private_session and cfg.active_profile_type in {"personal", "household"}
                 and cfg.active_profile_privacy_mode == "private")
 
@@ -933,7 +933,7 @@ class SessionController(QObject):
         if self.backend.demoMode:
             self._demo_action(action, value)
             return
-        if not self.backend.cfg.explicit_profile_id:
+        if not session_profile_id(self.backend.cfg):
             self._error = "profile_required"
             self.changed.emit()
             return

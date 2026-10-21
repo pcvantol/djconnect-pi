@@ -1498,3 +1498,18 @@ _APPLE_INFORMATION_COPY = {'privacy_data_body': ('DJConnect does not collect, se
 for _key, _values in _APPLE_INFORMATION_COPY.items():
     for _locale, _value in zip(("en", "nl", "de", "fr", "es"), _values, strict=True):
         TRANSLATIONS[_locale][_key] = _value
+
+
+_SESSION_WELCOME_COPY = {
+    "session_welcome": ("Welcome to DJConnect", "Welkom bij DJConnect", "Willkommen bei DJConnect", "Bienvenue sur DJConnect", "Bienvenido a DJConnect"),
+    "session_welcome_title": ("Your music.\nYour DJ.", "Jouw muziek.\nJouw DJ.", "Deine Musik.\nDein DJ.", "Votre musique.\nVotre DJ.", "Tu música.\nTu DJ."),
+    "session_welcome_lead": ("Start a DJ Session and experience your music in a new way.", "Start een DJ-sessie en beleef je muziek op een nieuwe manier.", "Starte eine DJ-Session und erlebe deine Musik auf neue Weise.", "Démarrez une session DJ et découvrez votre musique autrement.", "Inicia una sesión DJ y vive tu música de una forma nueva."),
+    "session_welcome_detail": ("Discover the stories behind your music. Talk to your DJ. Be surprised.", "Ontdek de verhalen achter je muziek. Praat met je DJ. Laat je verrassen.", "Entdecke die Geschichten hinter deiner Musik. Sprich mit deinem DJ. Lass dich überraschen.", "Découvrez les histoires derrière votre musique. Parlez à votre DJ. Laissez-vous surprendre.", "Descubre las historias detrás de tu música. Habla con tu DJ. Déjate sorprender."),
+    "session_start_presence_title": ("DJ presence", "DJ aanwezigheid", "DJ-Präsenz", "Présence du DJ", "Presencia del DJ"),
+    "session_start_persona_title": ("DJ character", "DJ karakter", "DJ-Charakter", "Caractère du DJ", "Carácter del DJ"),
+    "session_listen_how": ("How do you want to listen?", "Hoe wil je luisteren?", "Wie möchtest du hören?", "Comment voulez-vous écouter ?", "¿Cómo quieres escuchar?"),
+    "session_start_preferences_unavailable": ("Loading your confirmed session preferences. Refresh if they remain unavailable.", "Je bevestigde sessievoorkeuren worden geladen. Vernieuw als ze niet beschikbaar komen.", "Deine bestätigten Session-Einstellungen werden geladen. Aktualisiere, falls sie nicht verfügbar werden.", "Chargement de vos préférences de session confirmées. Actualisez si elles restent indisponibles.", "Cargando tus preferencias de sesión confirmadas. Actualiza si siguen sin estar disponibles."),
+}
+for _key, _values in _SESSION_WELCOME_COPY.items():
+    for _locale, _value in zip(("en", "nl", "de", "fr", "es"), _values, strict=True):
+        TRANSLATIONS[_locale][_key] = _value

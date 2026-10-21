@@ -2967,3 +2967,11 @@ def test_shutdown_late_settings_result_cannot_rearm_network_poll(tmp_path):
     backend.pollSharedSettings()
     backend.saveSharedSettings({"mood": "party"})
     backend._start_shared_settings.assert_not_called()
+
+
+@pytest.mark.parametrize("stage", ["mkdir", "exists", "stat"])
+def test_optional_album_cache_permission_failure_does_not_break_refresh(stage, tmp_path, monkeypatch):
+    monkeypatch.setattr("djconnect_pi.app.DEFAULT_LOG_PATH", tmp_path / "state" / "log" / "client.log")
+    with patch.object(Path, "exists", return_value=stage == "stat"), patch.object(Path, stage, side_effect=PermissionError("synthetic cache denied")), patch("djconnect_pi.app.requests.get") as get:
+        assert cached_image_url("https://fixture.invalid/art.jpg") == "https://fixture.invalid/art.jpg"
+    get.assert_not_called()

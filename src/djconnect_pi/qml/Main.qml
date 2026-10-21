@@ -670,27 +670,45 @@ BrandWindow {
             }
         }
 
-        ColumnLayout {
+        RowLayout {
             anchors.fill: parent
             anchors.leftMargin: appBanner.horizontalPadding
             anchors.rightMargin: appBanner.horizontalPadding
             anchors.topMargin: appBanner.verticalPadding
             anchors.bottomMargin: appBanner.verticalPadding
-            spacing: 6
-
-            BrandLockup {
-                Layout.preferredWidth: Math.min(parent.width, (parent.height - bannerDetail.implicitHeight - 6) * 1728 / 448)
-                Layout.fillHeight: true
+            spacing: appBanner.contentSpacing
+            Image {
+                objectName: "appBannerMark"
+                source: "brand-mark-128.png"
+                Layout.preferredWidth: appBanner.logoSize
+                Layout.preferredHeight: appBanner.logoSize
+                Layout.alignment: Qt.AlignVCenter
+                fillMode: Image.PreserveAspectFit; smooth: true; mipmap: true
+                Accessible.ignored: true
             }
-            Text {
-                id: bannerDetail
-                text: appBanner.detailText
-                color: BrandTheme.colors.muted
-                font.pixelSize: appBanner.detailSize
-                font.bold: true
-                wrapMode: Text.WordWrap
-                maximumLineCount: 2
+            ColumnLayout {
                 Layout.fillWidth: true
+                Layout.alignment: Qt.AlignVCenter
+                spacing: 10
+                BrandLockup {
+                    objectName: "appBannerName"
+                    wordmarkOnly: true
+                    Layout.preferredWidth: Math.min(parent.width, appBanner.titleSize * 1092 / 162)
+                    Layout.preferredHeight: width * 162 / 1092
+                    Layout.alignment: Qt.AlignLeft
+                }
+                Text {
+                    objectName: "appBannerDetail"
+                    text: appBanner.detailText
+                    textFormat: Text.PlainText
+                    color: BrandTheme.colors.muted
+                    font.pixelSize: appBanner.detailSize
+                    font.bold: true
+                    wrapMode: Text.WordWrap
+                    maximumLineCount: 2
+                    Layout.fillWidth: true
+                    Layout.alignment: Qt.AlignLeft
+                }
             }
         }
     }

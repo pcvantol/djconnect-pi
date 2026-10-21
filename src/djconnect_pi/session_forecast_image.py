@@ -25,7 +25,7 @@ from PySide6.QtCore import (
 from PySide6.QtGui import QImageReader
 
 from .session_projection import timestamp
-from .session_transport import SessionError
+from .session_transport import SessionError, session_profile_id
 
 MAX_BYTES = 2 * 1024 * 1024
 
@@ -196,8 +196,7 @@ class ForecastImages(QObject):
         if self.closed: return
         cfg = self.owner.backend.cfg
         eligible = (self.visible and self.owner._foreground and self.owner._running_action not in {'start', 'end'}
-            and cfg.explicit_profile_id == cfg.active_profile_id
-            and bool(cfg.explicit_profile_id) and cfg.active_profile_type in {'personal', 'household'}
+            and bool(session_profile_id(cfg)) and cfg.active_profile_type in {'personal', 'household'}
             and cfg.active_profile_privacy_mode == 'private' and not cfg.private_session)
         try:
             binding = self.owner.transport.binding() if eligible else None
