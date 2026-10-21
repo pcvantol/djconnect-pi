@@ -1534,3 +1534,92 @@ Both installed EADBrc.5 apps and immutable publication remain unchanged. Indepen
 PR119 review, protected delivery, separate Finalization and a distinct approved
 release remain required before any runtime deployment. HA-dev authentication and
 the Pi10 active-Session click test remain explicitly human-deferred.
+
+## Confirmed single saved-Session deletion UI — 21 October 2026
+
+This supersedes the preceding foundation-only UI status for SINGLE Session
+removal. The shared historical detail now exposes a red-tinted trash action only
+with strict session_history_delete:true/version1, a terminal archived target,
+original known parent retention and the current explicit/resolved paired Profile.
+The active Runtime cannot be selected for erasure. No active Runtime is required
+in order to erase an earlier Session. Individual contributions remain view-only;
+bulk and individual-content erasure are distinct OPEN functions, not rights
+inferred from this button. Five new i18n keys are present in all five locales.
+
+The first deliberate click performs isolated fresh owner-active, capability and
+authorized detail reads. The opaque detail Session revision must still equal the
+original displayed target's revision; numeric list metadata never becomes CAS.
+The confirmation identifies the selected Session by its existing localized date.
+Only its explicit destructive button mints the original UUIDv7 intent. A separate
+max1 worker repeats those owner/capability/detail/target/context checks and claims
+one send ticket before the existing typed POST. Original binding, archive view
+epoch, current Runtime identity (including none), target, opaque revision and
+parent deadline fence queued work and delivery. No command response is imported
+as Runtime, no setting/pairing/playback/lifecycle effect is attached to erasure,
+and no automatic POST retry, new operation ID, fallback or replay exists.
+
+About-to-hide immediately withdraws the queued ticket before an exit animation.
+Navigation, visibility, foreground, Profile/token, archive epoch, selected target,
+revision, capability, retention and End changes likewise withdraw it. Started HTTP
+may finish; closing the dialog never promises server cancellation. The button
+says Close after confirmation rather than implying that it can undo a started
+request. Other control/input work is gated while the dedicated worker runs, but
+End keeps its independent executor. Two real held-worker tests prove that End
+remains immediately available during both checking and confirmed-send preflight.
+
+Only the typed exact owner/operation/target/schema/deleted:true receipt causes
+whole-archive invalidation: list/windows/cursors, detail trail, search, historical
+selection/navigation descriptors and queued reads lose their archive epoch.
+This is not a client loop or optimistic removal of one row. Current Session,
+active Flow, settings and pairing are preserved, with a separate ordinary owner
+refresh resolving any server-withdrawn dependent Flow contributions. The receipt
+itself is not a projection. Current media remains a separate owner; the Pi has no
+historical-media loader to claim qualified here. A late worker/GUI callback cannot
+replace a successor view. An uncertain result never claims erasure and blocks a
+new delete intent until explicit recovery. Recovery withdraws stale archive views
+and independently reads the archive; it does not repeat the POST. Its one bounded
+QObject-owned zero-delay timer runs after QML's existing search-target/view-epoch
+transition, and rechecks owner, visibility, foreground, idle state and absence of
+a newly selected detail before starting that read. No history TTL or native grant
+is manufactured from this operation's five-minute journal lifetime.
+
+Final validation:84 new controller/worker cases,259 focused new/existing deletion
+and transport checks PASS; full integrated2187 PASS/no skips39.45s. The final
+current-source Qt evidence is150 actual single-delete views plus100 unmodified
+history-window views, both formats/all five locales, with real mouse checking,
+confirmation/cancel/close, no optimism, success, unknown version, active-target
+refusal, changed revision, original expiry, uncertain read-only recovery and the
+no-active-Runtime case. Zero QML errors/binding loops; one font-alias startup
+warning per process is retained. Both final formats were visually inspected.
+Earlier140/150-view runs are intermediate and are not added to this250-view gate.
+Ruff0.16.0 src/tests and diff checks PASS. Local review wheel
+8c5203c5f6c0a25528665b97929eecf6e27050f224e560540f66f02d20072ff8
+matches all67 runtime files, including the new controller module. No new ARM,
+installed, actual HA/provider/model, physical-touch or personal-erasure result.
+
+Diagnostics are preserved, not promoted to passes. One initial fixture's bogus
+current reply was correctly withdrawn; a proper admitted-reply fixture now proves
+preservation. Its original historical display clock initially rejected a real-wall
+UUID; only that synthetic operation clock was aligned, never the original grant.
+A real QML race initially invalidated the recovery read when clearing the derived
+search target; the bounded deferred-read implementation fixes it without changing
+existing search/epoch fences. One integrated Python process then segfaulted in Qt
+timer dispatch during processEvents: that run is FAILED, not a full-suite PASS.
+New notification/recovery callbacks now use QObject-owned single-shot timers,
+stop on shutdown and do not emit a result after their owner closes. The full
+collection subsequently passed2186, followed by final2187 after the added
+no-active-Runtime regression. The underlying general PySide cause is not claimed
+proven, nor is a hardware bug or ARM fix inferred. All original failed logs,
+intermediate runs, reproducing harnesses, final pixels and package receipts remain
+under taskvisualizations/pi-history-delete-single-consumer.
+
+The qualified producer pins remain source bbb7a23 / separate Final2a1197c for
+this archive operation, verified in the preceding checkpoint. Other unchanged
+product consumers keep their existing pins. Fresh actual-root hostverify MATCH;
+no repair, cleanup, other-lane source write, HA login, personal erasure, publication,
+installation or operative rebind occurred. Both actual EADBrc.5 apps remain
+unchanged. Independent exact PR119 review and normal protected source, separate
+Finalization, distinct immutable release and new approved operative binding remain
+required before runtime deployment. HA-dev authentication and the active Pi10
+Session click test remain explicitly human-deferred. Next functional follow-through
+is separately confirmed bulk archive deletion or another larger open parity gap.

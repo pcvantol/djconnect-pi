@@ -247,8 +247,8 @@ class SessionTransport:
                 raise SessionError("context_changed") from None
             raise SessionError("offline" if method == "GET" else "uncertain") from None
 
-    def capabilities(self, binding):
-        return self._request(binding, "GET", "capabilities")
+    def capabilities(self, binding, *, isolated=False):
+        return self._request(binding, "GET", "capabilities", isolated=isolated)
 
     def active(self, binding, *, isolated=False):
         return self._request(binding, "GET", "session/active", isolated=isolated)
@@ -340,7 +340,7 @@ class SessionTransport:
         return self._request(binding, "GET", "session/history", self._page(cursor, limit))
 
     def timeline(self, binding, session_id: str, *, cursor: str = "", limit: int = 20,
-                 window: str | None = "tail", anchor_entry_id: str = ""):
+                 window: str | None = "tail", anchor_entry_id: str = "", isolated=False):
         if window not in {None, "tail", "anchor"} or (cursor and window is not None):
             raise SessionError("invalid")
         page = self._page(cursor, limit)
@@ -349,7 +349,7 @@ class SessionTransport:
         if window == "anchor":
             page["anchor_entry_id"] = identifier(anchor_entry_id)
         route = "session/history/" + quote(identifier(session_id), safe="")
-        return self._request(binding, "GET", route, page)
+        return self._request(binding, "GET", route, page, isolated=isolated)
 
     def search(self, binding, session_id: str, query: str, *, cursor: str = "", limit: int = 20):
         if not isinstance(query, str):

@@ -1435,3 +1435,26 @@ _PLAYBACK_CONTROL_TRANSLATIONS = {
 for _key, _values in _PLAYBACK_CONTROL_TRANSLATIONS.items():
     for _language, _value in zip(SUPPORTED_LANGUAGES, _values):
         TRANSLATIONS[_language][_key] = _value
+
+
+# Confirmed erasure is separate from read-only archived contribution navigation.
+_SESSION_DELETE_TRANSLATIONS = {
+    "session_saved_title": ("Saved session", "Opgeslagen sessie", "Gespeicherte Session", "Session enregistrée", "Sesión guardada"),
+    "session_delete_action": ("Delete saved session", "Opgeslagen sessie verwijderen", "Gespeicherte Session löschen", "Supprimer la session enregistrée", "Eliminar sesión guardada"),
+    "session_delete_confirm": (
+        "Permanently delete this saved session and its associated history? This cannot be undone.",
+        "Deze opgeslagen sessie en de bijbehorende geschiedenis definitief verwijderen? Dit kan niet ongedaan worden gemaakt.",
+        "Diese gespeicherte Session und ihren zugehörigen Verlauf endgültig löschen? Dies kann nicht rückgängig gemacht werden.",
+        "Supprimer définitivement cette session enregistrée et son historique associé ? Cette action est irréversible.",
+        "¿Eliminar permanentemente esta sesión guardada y su historial asociado? Esta acción no se puede deshacer."),
+    "session_delete_complete": ("Saved session deleted.", "Opgeslagen sessie verwijderd.", "Gespeicherte Session gelöscht.", "Session enregistrée supprimée.", "Sesión guardada eliminada."),
+    "session_delete_uncertain": (
+        "Deletion is not confirmed. Reload the saved sessions to check. This will not send the deletion again.",
+        "De verwijdering is niet bevestigd. Laad de opgeslagen sessies opnieuw om dit te controleren. De verwijderopdracht wordt niet opnieuw verstuurd.",
+        "Die Löschung ist nicht bestätigt. Lade die gespeicherten Sessions zur Prüfung neu. Der Löschauftrag wird nicht erneut gesendet.",
+        "La suppression n’est pas confirmée. Rechargez les sessions enregistrées pour vérifier. La demande de suppression ne sera pas renvoyée.",
+        "La eliminación no está confirmada. Recarga las sesiones guardadas para comprobarlo. No se volverá a enviar la solicitud de eliminación."),
+}
+for _key, _values in _SESSION_DELETE_TRANSLATIONS.items():
+    for _language, _value in zip(("en", "nl", "de", "fr", "es"), _values, strict=True):
+        TRANSLATIONS[_language][_key] = _value

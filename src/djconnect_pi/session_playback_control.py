@@ -245,7 +245,8 @@ class PlaybackControl(QObject):
             available = bool(self.visible and reference(self.owner) and self.owner.transport.binding())
         except SessionError:
             pass
-        busy = bool(self.running or self.owner._running or self.owner._question_running or self.owner._artwork_prepare.running)
+        busy = bool(self.running or self.owner._running or self.owner._question_running or self.owner._artwork_prepare.running
+                    or getattr(getattr(self.owner, "_archive_delete", None), "running", False))
         return {"available": available, "enabled": available and not busy and not self.blocked,
                 "favorite": self.favorite_read_supported(), "running": self.running,
                 "favorite_observation": {"liked": self.favorite_state["liked"], "lease": self.favorite_state["serial"]} if self.favorite_valid() else {},

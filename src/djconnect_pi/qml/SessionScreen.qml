@@ -21,13 +21,14 @@ Item {
     readonly property bool showForecast: !historical && state.forecast_supported && forecastMode
     function syncMediaVisibility() {
         if (!owner) return
+        owner.setArchiveDeleteVisible(visible && historical && !currentHistory)
         owner.setPlaybackControlsVisible(visible && !historical && !showForecast)
         owner.setForecastImagesVisible(showForecast && visible)
         owner.setMomentArtworkVisible(visible && !historical && !showForecast)
     }
     Component.onCompleted: syncMediaVisibility()
     onShowForecastChanged: { if (showForecast) playbackPanel.close(); if (!showForecast) clearForecastReading(); syncMediaVisibility() }
-    onStateChanged: { if (playbackPanel && state.playback_control && !state.playback_control.available) playbackPanel.close(); if (outputsPanel && state.playback_control && !state.playback_control.outputs_supported) outputsPanel.close() }
+    onStateChanged: { if (archiveDeletePanel && archiveDeletePanel.opened && state.archive_delete && !state.archive_delete.status && !state.archive_delete.running) archiveDeletePanel.close(); if (playbackPanel && state.playback_control && !state.playback_control.available) playbackPanel.close(); if (outputsPanel && state.playback_control && !state.playback_control.outputs_supported) outputsPanel.close() }
     onComposerContextChanged: { clearForecastReading(); clearFlowReturn(); forecastMode = false; closeTransient(); if (historyReadPending && historyReadKind === "current") { historyRead.stop(); historyReadPending = false; navigate("session") } }
     function clearComposer() { followQuestionReply = false; pendingReplyId = ""; draft = ""; if (composeInput) composeInput.clear(); if (composerPanel) composerPanel.close(); if (owner) owner.clearSelection() }
     function submitQuestion() { if (owner.sendQuestion(composeInput.text)) { forecastMode = false; followQuestionReply = true; draft = ""; composeInput.clear(); composerPanel.close() } }
@@ -441,6 +442,7 @@ Item {
         if (moreChoices) moreChoices.close()
         if (connectionInfo) connectionInfo.close()
         if (endConfirmation) endConfirmation.close()
+        if (archiveDeletePanel) archiveDeletePanel.close()
         if (owner) owner.clearSearch()
     }
     onVisibleChanged: { syncMediaVisibility(); if (!visible) { clearForecastReading(); cancelArchiveRead(); if (owner) owner.clearArchive(); clearFlowReturn(); historyRead.stop(); historyReadProfile = ""; historyReadSession = ""; historyReadPending = false; readingRestore.stop(); pendingReadingAnchor = ""; closeTransient() } }
@@ -535,6 +537,12 @@ Item {
         function onTimelineUpdated(anchor) { screen.restoreReading(anchor) }
         function onTimelinePositioned(anchor, offset) { screen.readingOffset = offset; screen.restoreReading(anchor) }
         function onHistoryUpdated() { screen.scheduleArchivePosition() }
+        function onArchiveInvalidated() {
+            screen.cancelArchiveRead(); screen.archiveReturn = null; screen.archiveDetailReturn = null
+            screen.searchReturn = null; screen.cancelSearchRead(); searchPanel.close()
+            readingRestore.stop(); screen.pendingReadingAnchor = ""; screen.readingOffset = 0
+            if (screen.historyReadKind === "archive") { historyRead.stop(); screen.historyReadPending = false }
+        }
         function onArchivePositioned(sessionId, offset) {
             if (!screen.visible || !screen.historical || screen.currentHistory || screen.state.timeline.session || historyScroll.contentItem.dragging) return
             screen.archiveReturn = {id: sessionId, profile: screen.backend.activeProfileId, offset: offset}
@@ -996,12 +1004,31 @@ Item {
             }
             Text {
                 visible: screen.historical && !!screen.state.timeline.session
-                text: screen.tr("session_history_view_readonly"); color: BrandTheme.colors.muted; font.pixelSize: 20
+                text: screen.tr(screen.state.archive_delete.available ? "session_saved_title" : "session_history_view_readonly"); color: BrandTheme.colors.muted; font.pixelSize: 20
             }
             GlassButton {
                 visible: screen.historical && !!screen.state.timeline.session
                 text: screen.tr("session_history_first"); enabled: !screen.owner.busy
                 onClicked: screen.owner.firstEntries()
+            }
+            GlassButton {
+                objectName: "sessionDeleteSaved"
+                visible: screen.historical && !screen.currentHistory && !!screen.state.archive_delete && screen.state.archive_delete.available
+                text: screen.tr("session_delete_action"); iconName: "trash"; primary: true; tint: BrandTheme.colors.danger
+                enabled: !screen.owner.busy && !screen.state.archive_delete.blocked
+                onClicked: { if (screen.owner.beginHistoryDelete((screen.state.timeline.session || {}).session_id || "")) archiveDeletePanel.open() }
+            }
+            Text {
+                objectName: "sessionDeleteUncertain"
+                visible: screen.historical && !!screen.state.archive_delete && screen.state.archive_delete.blocked
+                text: screen.tr("session_delete_uncertain"); textFormat: Text.PlainText
+                color: BrandTheme.colors.muted; font.pixelSize: 20; wrapMode: Text.WordWrap; Layout.fillWidth: true
+            }
+            GlassButton {
+                objectName: "sessionDeleteRecovery"
+                visible: screen.historical && !!screen.state.archive_delete && (screen.state.archive_delete.blocked || screen.state.archive_delete.status === "deleted")
+                text: screen.tr("refresh"); enabled: !screen.owner.busy
+                onClicked: screen.owner.recoverHistoryDelete()
             }
             Repeater {
                 id: historyRows
@@ -1472,6 +1499,45 @@ Item {
                 }
             }
             GlassButton { text: screen.tr("shared_title"); onClicked: { choices.close(); screen.navigate("settings") } }
+        }
+    }
+    Popup {
+        id: archiveDeletePanel
+        objectName: "sessionDeletePanel"
+        anchors.centerIn: parent
+        width: Math.min(screen.width - 40, 560); padding: 24; modal: true
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+        onAboutToHide: screen.owner.cancelHistoryDelete()
+        background: GlassSurface { elevated: true }
+        contentItem: ColumnLayout {
+            spacing: 18
+            Text {
+                objectName: "sessionDeleteMessage"
+                text: screen.tr(screen.state.archive_delete.status === "confirm" ? "session_delete_confirm" : screen.state.archive_delete.status === "deleted" ? "session_delete_complete" : screen.state.archive_delete.status === "uncertain" ? "session_delete_uncertain" : screen.state.archive_delete.status === "failed" ? "session_error" : "loading")
+                textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: screen.compact ? 24 : 28
+                wrapMode: Text.WordWrap; Layout.fillWidth: true
+            }
+            Text {
+                objectName: "sessionDeleteTarget"
+                visible: screen.state.archive_delete.status === "confirm"
+                text: screen.tr("session_title") + " · " + screen.displayDate((screen.state.timeline.session || {}).started_at || (screen.state.timeline.session || {}).created_at)
+                textFormat: Text.PlainText; color: BrandTheme.colors.muted; font.pixelSize: 20
+                wrapMode: Text.WordWrap; Layout.fillWidth: true
+            }
+            GlassButton {
+                objectName: "sessionDeleteConfirm"
+                visible: screen.state.archive_delete.status === "confirm"
+                text: screen.tr("session_delete_action"); iconName: "trash"; primary: true; tint: BrandTheme.colors.danger; Layout.fillWidth: true
+                enabled: !screen.owner.busy && screen.state.archive_delete.lease > 0
+                onClicked: screen.owner.confirmHistoryDelete(screen.state.archive_delete.lease)
+            }
+            GlassButton {
+                objectName: "sessionDeletePanelRefresh"
+                visible: screen.state.archive_delete.status === "failed" || screen.state.archive_delete.status === "uncertain" || screen.state.archive_delete.status === "deleted"
+                text: screen.tr("refresh"); Layout.fillWidth: true; enabled: !screen.owner.busy
+                onClicked: { if (screen.owner.recoverHistoryDelete()) archiveDeletePanel.close() }
+            }
+            GlassButton { objectName: "sessionDeleteCancel"; text: screen.tr(screen.state.archive_delete.status === "reading" || screen.state.archive_delete.status === "confirm" ? "cancel" : "close"); Layout.fillWidth: true; onClicked: archiveDeletePanel.close() }
         }
     }
     Popup {
