@@ -57,7 +57,8 @@ fixed Core operative path is
 `docs/release/PLATFORM_4_0_RC6_PI_OPERATIONAL_MANIFEST.json`;
 `PI_RC6_OPERATIONAL_CORE_SHA` plus `PI_RC6_OPERATIONAL_MANIFEST_SHA256` are one
 closed run snapshot. Source review confirmed these as future conformant references,
-not existing approval. Old/mixed pairs and schemas fail before effects/API reads.
+not existing approval. Old/mixed configuration pairs fail before API reads;
+unsupported schemas fail before effects.
 Workflow paths and the existing physical mutation lock are preserved across
 releases; remote version/wheel/staging are explicitly rc.6. No authority/identity/
 SSH/preflight/installer/recovery/smoke/no-replay guard is broadened.
