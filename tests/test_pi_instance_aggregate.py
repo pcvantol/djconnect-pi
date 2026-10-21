@@ -17,6 +17,8 @@ class AggregateClient(Client):
     def __init__(self):
         super().__init__();self.aggregate_case = "valid"
     def json(self, path):
+        if "/workflows/recover-rc6-wall4" in path:
+            return {"workflow_runs": [], "total_count": 0}
         if "/workflows/deploy-latest" in path:
             runs = []
             for instance, run_id in (("wall-4inch", 90), ("wall-10inch", 91)):
@@ -103,3 +105,26 @@ def test_deployment_changes_while_aggregating_cannot_publish_operational(instanc
     authority = resolve(client, client.request, CONSUMER, client.configuration)
     result = wire.aggregate(client, authority, {"result": "SMOKE_PASS", "workflow_run_id": "101", "deployment_workflow_run": "90"})
     assert result["result"] == "DEPLOYMENT_SMOKE_FAILED" and client.effects == 0
+
+
+@pytest.mark.parametrize("case", ["success", "failure", "pending", "rerun", "other-consumer", "other-manifest", "old-updated-after"])
+def test_later_recovery_is_a_physical_mutation_not_old_smoke_carryforward(case):
+    client = AggregateClient()
+    authority = resolve(client, client.request, CONSUMER, client.configuration)
+    original = client.json
+    row = {"id": 190, "head_sha": CONSUMER, "head_branch": "main",
+        "display_title": "Pi recovery / wall-4inch / " + client.request["manifest_id"],
+        "path": ".github/workflows/recover-rc6-wall4.yml", "event": "workflow_dispatch",
+        "actor": {"login": "pcvantol"}, "status": "completed", "conclusion": "success",
+        "run_attempt": 1, "updated_at": "2026-10-20T17:01:00Z"}
+    if case == "failure": row["conclusion"] = "failure"
+    elif case == "pending": row.update(status="in_progress", conclusion=None)
+    elif case == "rerun": row["run_attempt"] = 2
+    elif case == "other-consumer": row["head_sha"] = "f"*40
+    elif case == "other-manifest": row["display_title"] += "-other"
+    elif case == "old-updated-after": row["updated_at"] = "2026-10-20T15:00:00Z"
+    client.json = lambda path: {"workflow_runs": [row], "total_count": 1} if "/workflows/recover-rc6" in path else original(path)
+    result = wire.aggregate(client, authority, {"result": "SMOKE_PASS", "workflow_run_id": "101", "deployment_workflow_run": "90"})
+    assert result["result"] == "DEPLOYMENT_SMOKE_FAILED" and client.effects == 0
+    if case == "success":
+        assert wire.latest_deployment(client, authority, "wall-4inch")[0] == "190"

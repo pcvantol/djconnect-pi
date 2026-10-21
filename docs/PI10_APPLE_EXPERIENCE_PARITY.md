@@ -3179,3 +3179,23 @@ no new QML/ARM/installed/live/GPU/touch result for this tooling-only delta. No
 publication/config-write/dispatch/install; exact review/protected Pi source/Final,
 actual publication and new qualified Core operative binding remain required.
 Evidence: taskvisualizations/pi-rc6-matching-consumer.
+
+
+### Bounded rc.6 wall-4inch recovery consumer
+
+The actual watchdog-interrupted deployment39669504016 remains FAILED /
+DEPLOYMENT_INCONCLUSIVE; Pi10 deployment39669510052 and smoke39670779250 retain
+their separate PASS. Explicitly selected one-instance recovery now has a dedicated
+workflow, fresh boot/identity/whole-config checks, root-private one-claim ledger,
+verified temporary watchdog ExecCondition hold, original published installer bytes,
+stable service/80-file checks and exact matching separate smoke. No automatic
+retry, old failure promotion, Pi10 reinstall or cross-consumer overall PASS.
+See docs/PI_RC6_WALL4_RECOVERY.md for exact scope, safeguards and diagnostics.
+
+192 added cases;518 directed locked-tool PASS4.28s;FULL2753 integrated PASS/no
+skips47.08s. Ruff0.16 src/tests/changed tools and diff PASS; two YAML parse and
+actual Bash blocks syntax PASS. Runtime80 files/published wheel unchanged.
+All tests are isolated/synthetic effects; no device/systemd/HA/provider action,
+new Qt/ARM/installed/touch/Spotify claim. Actual recovery remains pending exact
+independent review, protected source plus separate Finalization and new qualified
+Core operative binding. Old operative pair is not reused.
