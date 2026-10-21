@@ -128,7 +128,7 @@ def test_playback_command_is_one_paired_profile_http_attempt_without_invented_wi
     assert kwargs["allow_redirects"] is False
     assert kwargs["headers"]["Authorization"] == "Bearer synthetic-token"
     assert kwargs["json"] == {"device_id": cfg.device_id, "client_type": "raspberry_pi", "profile_id": cfg.explicit_profile_id,
-        "command": command, "request_source": "device_command", "app_version": "4.0.0-rc.5"}
+        "command": command, "request_source": "device_command", "app_version": "4.0.0-rc.6"}
 
 
 def test_playback_timeout_is_uncertain_and_never_replayed(transport):

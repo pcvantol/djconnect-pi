@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+## 4.0.0-rc.6
+
+- Open the mapped Profile's active Session directly, or its Session creation
+  screen; contain optional image-cache failures without aborting owner refresh.
+- Add shared Session volume, Spotify favorite state/removal and output selection
+  with fresh owner/backend checks and single-attempt explicit commands.
+- Add confirmed saved-session and whole-archive deletion plus read-only operation
+  recovery; retain original deadlines and invalidate stale archive views.
+- Improve Flow reading continuity and saved-history revision compatibility.
+- Enlarge the Pi10 Ask DJ touch keyboard and align button roles, brand text,
+  About, Privacy and Legal presentation with the shared app design.
+- Bundle Inter 4.1 with its OFL license for both screen sizes.
+- Add a persisted Glass preference, default off on the 4-inch profile and on
+  on Pi5. Qualified Pi5 OpenGL rendering uses one bounded decorative backdrop
+  with shared blur, edge refraction and central appearance parameters; other
+  renderers retain the simpler material. This is an approximation of glass.
+- Fix native screenshot capture, Actions evidence downloads and owned Qt timer
+  shutdown. Preserve pairing, Profile settings and the immutable rc.5 release.
+- This distinct candidate requires its own protected source/Finalization,
+  immutable publication and new reviewed rc.6 deployment bindings. Source and
+  isolated rendering evidence do not establish installed or live Spotify tests.
+
 ## 4.0.0-rc.5
 
 - Apply one Brand V2 colour source to native pages, controls, dropdowns, status,

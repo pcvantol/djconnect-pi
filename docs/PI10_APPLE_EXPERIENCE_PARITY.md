@@ -2957,3 +2957,28 @@ Finalization, distinct rc6 publication and a new canonical rc6 operative
 binding. Protected rc5-only schemas and old deployment approval are not
 changed/reused to authorize rc6. Automation remains PAUSED; these later
 direct user requests do not start a new timer window.
+
+
+## rc.6 version preparation (21 October, manual continuation)
+
+All current Pi changes, including Inter and shared Glass, are assigned distinct
+4.0.0-rc.6 metadata. Five release version boundaries, initial installer version,
+README/bootstrap examples and unique changelog heading agree. Historical rc.5
+changelog, normative contracts, deployment pins and installed release are retained.
+The read-only host gate is MATCH (`/private/tmp/pi-rc6-metadata-hostverify.log`).
+
+80 targeted release/installer cases PASS; final FULL2501 integrated PASS/no skips
+43.04s; Ruff0.16.0 src/tests, shell syntax and diff PASS. Initial full run was
+FAILED:2496PASS/5FAIL because explicit command app_version expectations still said
+rc.5; those exact assertions now require rc.6. Failure diagnostics are preserved.
+No assertions on command fields, binding or replay were removed. No new product
+cases, Qt views or ARM runs are claimed for this version-only change.
+
+Local review wheel f62a03b62c82ff6b793cbcc1e9e2b5adbaa1a80c7fbe1720491c9cf073f795a8
+matches75 runtime files. Only __init__/config version bytes differ from the
+previous frozen cf260fb review package; other73 including QML/font/shader remain
+identical. Prior796 Qt/GPU evidence remains predecessor component evidence.
+Evidence: `pi-rc6-version-preparation`. See `docs/PI_4_0_RC6_PREPARATION.md` for the
+reviewable sequence. Core acknowledged the human's new bounded rc.6-contract
+selection, serial after its current work. No protected rc.6 handoff, publication,
+installation or Spotify acceptance is inferred. Automation remains PAUSED.
