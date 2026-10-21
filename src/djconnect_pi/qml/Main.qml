@@ -222,6 +222,7 @@ BrandWindow {
 
     component PurpleButton: Button {
         id: control
+        property bool primary: false
         font.pixelSize: 22
         font.bold: true
         contentItem: Text {
@@ -235,10 +236,11 @@ BrandWindow {
         background: GlassSurface {
             radius: root.standardButtonRadius
             interactive: true
+            primary: control.primary
             pressed: control.down
             focused: control.activeFocus
             opacity: control.enabled ? 1 : 0.45
-            scale: control.down ? 0.975 : 1
+            scale: control.down ? 0.98 : 1
             Behavior on scale { NumberAnimation { duration: root.motionFast; easing.type: Easing.OutCubic } }
         }
     }
@@ -259,6 +261,7 @@ BrandWindow {
         background: GlassSurface {
             radius: root.standardButtonRadius
             interactive: true
+            primary: askDjButton.font.pixelSize >= 19
             pressed: askDjButton.down
             focused: askDjButton.activeFocus
             opacity: askDjButton.enabled ? 1 : 0.45
@@ -277,7 +280,7 @@ BrandWindow {
 
             MenuIcon {
                 iconName: navControl.iconName
-                iconColor: navControl.enabled ? (navControl.checked ? BrandTheme.colors.text : BrandTheme.colors.muted) : BrandTheme.colors.disabledText
+                iconColor: navControl.enabled ? (navControl.checked ? BrandTheme.colors.actionAccent : BrandTheme.colors.muted) : BrandTheme.colors.disabledText
                 strokeWidth: navControl.checked ? 2.8 : 2.4
                 Layout.preferredWidth: navControl.checked ? 30 : 28
                 Layout.preferredHeight: navControl.checked ? 30 : 28
@@ -287,7 +290,7 @@ BrandWindow {
 
             Text {
                 text: navControl.text
-                color: navControl.enabled ? (navControl.checked ? BrandTheme.colors.text : BrandTheme.colors.muted) : BrandTheme.colors.disabledText
+                color: navControl.enabled ? (navControl.checked ? BrandTheme.colors.actionAccent : BrandTheme.colors.muted) : BrandTheme.colors.disabledText
                 font: navControl.font
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
@@ -391,18 +394,16 @@ BrandWindow {
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
         }
-        background: Rectangle {
-            radius: primary ? 42 : 8
-            border.width: 0
-            gradient: Gradient {
-                orientation: Gradient.Horizontal
-                GradientStop { position: 0.0; color: root.moodColor("gradientStart") }
-                GradientStop { position: 0.58; color: root.moodColor("gradientMid") }
-                GradientStop { position: 1.0; color: root.moodColor("gradientEnd") }
-            }
-            opacity: control.down ? 0.78 : 1.0
-            scale: control.down ? 0.96 : 1.0
-            Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutCubic } }
+        background: GlassSurface {
+            radius: root.standardButtonRadius
+            interactive: true
+            primary: control.primary
+            selected: false
+            pressed: control.down
+            focused: control.activeFocus
+            opacity: control.enabled ? 1 : 0.4
+            scale: control.down ? 0.98 : 1
+            Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
         }
     }
 
@@ -427,16 +428,16 @@ BrandWindow {
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
         }
-        background: Rectangle {
-            radius: 29
-            border.width: 0
-            gradient: Gradient {
-                orientation: Gradient.Horizontal
-                GradientStop { position: 0.0; color: root.moodColor("gradientStart") }
-                GradientStop { position: 0.58; color: root.moodColor("gradientMid") }
-                GradientStop { position: 1.0; color: root.moodColor("gradientEnd") }
-            }
-            opacity: control.down ? 0.78 : 1.0
+        background: GlassSurface {
+            radius: root.standardButtonRadius
+            interactive: true
+            primary: false
+            selected: false
+            pressed: control.down
+            focused: control.activeFocus
+            opacity: control.enabled ? 1 : 0.4
+            scale: control.down ? 0.98 : 1
+            Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
         }
     }
 
@@ -487,17 +488,15 @@ BrandWindow {
         contentItem: Text {
             text: control.text
             font: control.font
-            color: BrandTheme.colors.danger
+            color: BrandTheme.colors.actionDanger
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
             elide: Text.ElideRight
         }
-        background: Rectangle {
+        background: GlassSurface {
             radius: root.standardButtonRadius
-            color: control.down ? BrandTheme.colors.dangerSurface : BrandTheme.colors.dangerPressed
-            border.color: control.down ? BrandTheme.colors.danger : BrandTheme.colors.dangerSurface
-            border.width: 1
-            opacity: control.down ? 0.82 : 1.0
+            interactive: true; destructive: true; pressed: control.down; focused: control.activeFocus
+            opacity: control.enabled ? 1 : 0.4
         }
     }
 
@@ -516,8 +515,8 @@ BrandWindow {
         }
         background: Rectangle {
             radius: root.standardButtonRadius
-            color: control.down ? BrandTheme.colors.warningSurface : BrandTheme.colors.warningPressed
-            border.color: control.down ? BrandTheme.colors.warning : BrandTheme.colors.warningSurface
+            color: Qt.rgba(1, 0.82, 0.35, control.down ? 0.22 : 0.12)
+            border.color: "#1FFFFFFF"
             border.width: 1
             opacity: control.down ? 0.82 : 1.0
         }
@@ -832,19 +831,16 @@ BrandWindow {
                 function onDownChanged() { iconCanvas.requestPaint() }
             }
         }
-        background: Rectangle {
+        background: GlassSurface {
             radius: root.standardButtonRadius
-            border.width: control.active ? 2 : 0
-            border.color: root.moodColor("focus")
-            gradient: Gradient {
-                orientation: Gradient.Horizontal
-                GradientStop { position: 0.0; color: control.enabled ? root.moodColor("gradientStart") : root.moodDisabledColor("start") }
-                GradientStop { position: 0.58; color: control.enabled ? root.moodColor("gradientMid") : root.moodDisabledColor("mid") }
-                GradientStop { position: 1.0; color: control.enabled ? root.moodColor("gradientEnd") : root.moodDisabledColor("end") }
-            }
-            opacity: control.down ? 0.78 : (control.enabled ? 1.0 : 0.62)
-            scale: control.down ? 0.96 : 1.0
-            Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutCubic } }
+            interactive: true
+            primary: control.primary
+            selected: control.active
+            pressed: control.down
+            focused: control.activeFocus
+            opacity: control.enabled ? 1 : 0.4
+            scale: control.down ? 0.98 : 1
+            Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
         }
     }
 
@@ -2867,6 +2863,7 @@ BrandWindow {
 
                                         PurpleButton {
                                             text: root.tr("play_now")
+                    primary: true
                                             visible: modelData.playable
                                             enabled: modelData.playable && !djconnect.musicDiscoveryBusy
                                             font.pixelSize: 19
@@ -4258,6 +4255,7 @@ BrandWindow {
 
             PurpleButton {
                 text: root.tr("start")
+                    primary: true
                 font.pixelSize: 24
                 Layout.fillWidth: true
                 Layout.preferredHeight: 58

@@ -1,23 +1,32 @@
 import QtQuick
 import "BrandTheme.js" as BrandTheme
 
+// Portable translucent material. This does not claim native Apple Liquid Glass
+// or backdrop blur; Qt shader effects require a separately qualified GPU path.
 Rectangle {
     id: glass
-    property color tint: BrandTheme.colors.purple
+    property color tint: BrandTheme.colors.actionAccent
     property bool selected: false
     property bool pressed: false
     property bool focused: false
     property bool interactive: false
     property bool elevated: false
+    property bool primary: false
+    property bool destructive: false
+    property bool tertiary: false
+    readonly property color surfaceFill: destructive ? Qt.rgba(1, 0.27, 0.23, 0.12) : selected ? Qt.rgba(tint.r, tint.g, tint.b, 0.22) : elevated ? "#F5171C30" : interactive ? "#1AFFFFFF" : "#80171C30"
     radius: 28
-    color: BrandTheme.alpha(BrandTheme.colors.surface, "c8")
-    border.width: focused ? 2 : 1
-    border.color: focused ? BrandTheme.colors.focus : (selected ? tint : "#65ffffff")
+    color: tertiary ? "transparent" : surfaceFill
+    border.width: focused ? 3 : (tertiary ? 0 : 1)
+    border.color: focused ? "#F2FFFFFF" : selected ? Qt.rgba(tint.r, tint.g, tint.b, 0.55) : destructive ? "#1FFFFFFF" : interactive ? "#1FFFFFFF" : "#52FFFFFF"
     gradient: Gradient {
         orientation: Gradient.Horizontal
-        GradientStop { position: 0; color: glass.elevated ? "#fa242b49" : (glass.selected ? Qt.rgba(glass.tint.r, glass.tint.g, glass.tint.b, 0.42) : "#a836305b") }
-        GradientStop { position: 0.55; color: glass.elevated ? "#f52b3156" : (glass.pressed ? "#d047416c" : "#b02b3156") }
-        GradientStop { position: 1; color: glass.elevated ? "#fa273451" : (glass.selected ? Qt.rgba(glass.tint.r, glass.tint.g, glass.tint.b, 0.26) : "#b8273a60") }
+        GradientStop { position: 0; color: glass.tertiary ? "transparent" : glass.primary && !glass.destructive ? BrandTheme.colors.actionBlue : glass.surfaceFill }
+        GradientStop { position: 1; color: glass.tertiary ? "transparent" : glass.primary && !glass.destructive ? BrandTheme.colors.actionPurple : glass.surfaceFill }
+    }
+    Rectangle {
+        anchors.fill: parent; radius: glass.radius
+        color: glass.pressed ? (glass.primary ? "#14000000" : "#1AFFFFFF") : "transparent"
     }
     Rectangle {
         anchors.fill: parent

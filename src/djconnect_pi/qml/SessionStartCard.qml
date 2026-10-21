@@ -138,18 +138,6 @@ GlassCard {
         Layout.fillWidth: true; implicitHeight: 72
         text: card.tr("session_start"); iconName: "play"; primary: true
         enabled: card.ready && !card.busy && ["chill", "groove", "energy", "party"].indexOf(card.selected("mood")) >= 0
-        background: Rectangle {
-            radius: height / 2; opacity: parent.enabled ? 1 : 0.4
-            gradient: Gradient {
-                orientation: Gradient.Horizontal
-                GradientStop { position: 0; color: "#3297FF" }
-                GradientStop { position: 0.52; color: "#9274FF" }
-                GradientStop { position: 1; color: "#D328F5" }
-            }
-            border.color: "#55FFFFFF"
-            scale: parent.down ? 0.98 : 1
-            Behavior on scale { NumberAnimation { duration: 100 } }
-        }
         contentItem: Item {
             implicitHeight: 30
             Row {

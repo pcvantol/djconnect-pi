@@ -51,3 +51,25 @@ def test_translucent_qml_colors_are_converted_for_css():
     assert css_color("#00000000") == "#00000000"
     assert css_color("#080B1A") == "#080B1A"
     assert f"--brand-glass:{css_color(colors()['glass'])}" in index_html("fixture").decode()
+
+
+
+def test_apple_action_tokens_preserve_pinned_primary_and_selection_roles():
+    # Protected AppleUI e106a467 DJConnectRootView.swift, not an inferred mood palette.
+    theme = colors()
+    assert theme["actionBlue"] == "#298FFF"
+    assert theme["actionPurple"] == "#D62EFF"
+    assert theme["actionAccent"] == "#D638F5"
+    assert theme["opaqueGlass"] == "#171C30"
+    # Apple's bright primary gradient is reserved for large/bold action labels.
+    for stop in ("actionBlue", "actionPurple"):
+        assert contrast(theme["text"], theme[stop]) >= 3
+
+
+def test_presentation_selection_does_not_use_primary_action_gradient():
+    qml = files("djconnect_pi.qml").joinpath("SessionScreen.qml").read_text()
+    assert 'checked: known && observation.liked' in qml
+    assert 'checked: !screen.forecastMode' in qml
+    assert 'checked: screen.forecastMode' in qml
+    assert 'checked: screen.toolbarValue(choices.field)' in qml
+    assert 'primary: known && observation.liked' not in qml

@@ -2820,3 +2820,50 @@ gate reports a newly expired Core-output pair after the previous owner archive.
 No protected push/merge/publication/deployment or other-lane cleanup. Independent
 PR119 review, separate Finalization, distinct release and fresh operative binding
 remain required before new runtime installation.
+
+
+### Apple action roles and honest material boundary (21 October)
+
+Direct request: review all Pi button colours against Apple and use real Liquid
+Glass where Apple does. Protected AppleUIe106a467 DJConnectRootView.swift and
+DJConnectGlassAppearance.swift were independently read/exported. Primary uses
+RGB(.16,.56,1)→(.84,.18,1), selected uses accent(.84,.22,.96) at22% fill/55% border,
+secondary is neutral10% white/12% border, disabled40%, press scale.98. Existing
+primary-vs-selection conflation is removed for favorite, Flow/Forecast and
+settings choices. Main playback, media, general actions, destructive dialogs,
+shared controls and navigation use the corresponding roles. Small actions keep
+neutral high-contrast surfaces; existing4.5:1 small-text tests are unchanged,
+new large/bold bright-primary tests require3:1. Existing portal/background tokens
+remain intact. Pi dark semantic red is an adaptation, not an exact dynamic
+platform-red pixel claim. No control action, capability, wire field, Profile,
+expiry, replay, audio or lifecycle behavior changed.
+
+This production material remains a portable translucent non-blur fallback.
+Apple's glassEffect is a SwiftUI material, not a Qt/Linux API. Qt's documented
+Software adaptation cannot render ShaderEffect. Two isolated offscreen Qt6.11.2
+probes both selected Software and left the MultiEffect area at the original
+background colour, despite the sharp source pattern. The first harness lacked
+the QQuickWindow import and failed before capture; corrected probes are separate.
+A third explicit Metal offscreen probe timed out20s and was killed/reaped; FAILED,
+not GPU PASS or proof of Pi hardware incompatibility. No live renderer/service
+setting was changed. A real Qt backdrop/refraction implementation plus actual
+GPU/ARM performance qualification is STILL OPEN; do not label this fallback
+native Liquid Glass or claim full Apple parity. The installed Pi10 service did
+not explicitly set the whitelisted Qt-renderer variables; that absence does not
+identify the actual GPU or render backend.
+
+Qualification on this source:2 new regression cases; full2479 integrated PASS/no
+skips44.93s, Ruff0.16.0 src/tests/diff PASS. Actual CURRENT390 QML views:40 role
+views with real press/release/focus/disabled-no-action and pixel checks,150
+unmodified broad pages,130 unmodified playback,70 start/direct-entry/brand
+regression views. Both sizes/five languages, zero QML errors/binding loops;
+startup font-alias warnings retained. Both layouts inspected visually. Prior
+bd14's686 views are separate, not added. Local review wheel
+78afb954899c7165ab2b30702d5710e6ace9c1844682e765ed557cf11bef88bc matches68 runtime
+files; no official rc5 overwrite/publication/install. Evidence:
+taskvisualizations/pi-apple-button-material-review includes pinned Apple source
+hashes/role reference, actual images/readbacks, shader feasibility failures,
+package verification and logs. Host retention gate remains CLOSED from the
+fresh failed Pi verification after the prior owner archive; no protected push,
+merge or delivery. Both actual installed apps stay official EADBrc5. Source,
+local software rendering, actual GPU and installed/physical proof remain split.

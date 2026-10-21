@@ -664,8 +664,8 @@ Item {
         visible: !screen.historical && screen.state.forecast_supported
         anchors.left: parent.left; anchors.top: toolbar.bottom
         anchors.leftMargin: 20; anchors.topMargin: 10; height: 48
-        GlassButton { objectName: "sessionFlowMode"; text: screen.tr("session_flow"); primary: !screen.forecastMode; onClicked: screen.forecastMode = false }
-        GlassButton { objectName: "sessionForecastMode"; text: screen.tr("session_forecast"); primary: screen.forecastMode; onClicked: screen.forecastMode = true }
+        GlassButton { objectName: "sessionFlowMode"; text: screen.tr("session_flow"); checked: !screen.forecastMode; onClicked: screen.forecastMode = false }
+        GlassButton { objectName: "sessionForecastMode"; text: screen.tr("session_forecast"); checked: screen.forecastMode; onClicked: screen.forecastMode = true }
     }
     ScrollView {
         id: forecastScroll
@@ -1114,7 +1114,7 @@ Item {
                 readonly property bool known: typeof observation.liked === "boolean"
                 visible: !!screen.state.playback_control.favorite
                 text: screen.tr(!known ? "session_favorite_read" : observation.liked ? "session_favorite_remove" : "session_favorite_add")
-                iconName: "heart"; primary: known && observation.liked
+                iconName: "heart"; checked: known && observation.liked
                 Layout.fillWidth: true; enabled: !!screen.state.playback_control.enabled
                 onClicked: {
                     if (known) screen.owner.setPlaybackFavorite(screen.state.session_id, screen.state.playback.item_id, observation.lease, !observation.liked)
@@ -1472,7 +1472,7 @@ Item {
                     GlassButton {
                         required property var modelData
                         text: choices.field === "voice" ? (modelData.label || "") : screen.tr("shared_" + choices.field + "_" + modelData)
-                        primary: screen.toolbarValue(choices.field) === (choices.field === "voice" ? modelData.value : modelData)
+                        checked: screen.toolbarValue(choices.field) === (choices.field === "voice" ? modelData.value : modelData)
                         enabled: choices.canSubmit
                         objectName: "sessionToolbarOption"
                         onClicked: {
