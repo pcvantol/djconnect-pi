@@ -2329,3 +2329,61 @@ review/protected source/separate Finalization and a distinct release/approved
 operative binding remain necessary before runtime deployment. Artwork gestures,
 full header cover, Flow continuity and other parity work remain open. HA-dev
 login/Pi10 pairing/active Session click testing remain explicitly human-deferred.
+
+
+## Flow return and pending-question layout continuity — 21 October 2026
+
+Flow now remembers a visible current playback card when there is no intersecting
+admitted native/retained/current-reply prose card. Existing prose and native-body
+priority is unchanged. The descriptor still contains only Session/Profile/kind/ID
+and a finite bounded pixel offset; it holds no body, media, deadline or display
+grant. Returning from current history freshly resolves each supported identity
+against the current admitted models, then re-resolves the visual item after
+layout. Missing/revoked IDs and scope changes reset safely; they never borrow an
+old visual delegate as admission. User dragging/movement, Forecast and explicit
+reply-follow take precedence. Old history momentum is cancelled on explicit
+return. All supported Flow targets now get at most eight32ms settling attempts,
+extending the existing native-body behavior without caching content.
+
+The explicit own-question follow timer now binds the pending client-message ID
+and also settles for at most eight attempts. It rereads the owner's current
+pending view each time. A late header reflow therefore does not push the just-sent
+question out of view. Touch cancels following and a late callback cannot override
+the user's reading position. This adds no pending-question history grant or
+pending-card back-navigation right; original owner validation and question POST
+behavior are unchanged. No new UI copy, protocol or i18n key is needed.
+
+Two original-source failures are preserved: playback-only rememberFlow returned
+no descriptor, and the own pending question moved to2250px rather than12px after
+a late metadata reflow. The latter loads the exact3288209 QML from its verified
+review wheel with unchanged Python/controller bytes; it is a package fixture,
+not an installed downgrade. After repair150 targeted actual Qt views cover both
+formats/all five locales, real current-history/back clicks, exact pixel/ID return,
+changed/withdrawn playback, eight malformed/scope descriptor variants, pending
+reflow/withdrawal and genuine Qt touch cancellation. The unmodified existing
+composer and artwork tools independently pass436 and180 current-source QML views,
+respectively, including native/current-only/retained anchors, original first-fold
+thresholds, source expiry, late artwork, user touch, and bounded history windows.
+Thus current evidence is766 actual views, not the extra60-view intermediate run.
+All three final runs have zero QML errors/binding loops; the targeted run retains
+one macOS font-alias startup warning. Both formats were visually inspected.
+
+Forty focused QML/projection tests, Ruff0.16.0 src/tests and diff checks pass.
+Only SessionScreen.qml runtime bytes change in this slice. The latest complete
+local1994-test suite and27-success/4-conditional-skip CI are explicitly on the
+immediate3288209 base, not a newly rerun full suite on this QML head. The local
+review wheel23c8d0940d4bab8fb099e2c3752348194e3b13be02ba6f20c97828638bc3a7e9
+matches all65 current runtime files. Evidence lives in
+taskvisualizations/pi-flow-reading-continuity, with before failures, original-QML
+package pin, reproduced harnesses, final images/readbacks and intermediate runs.
+
+Synthetic multiline metadata, own pending text and history envelopes only test
+layout. Original producer fixture files, live-source/expiry admission and all
+request/response bodies are unchanged. No question transport, model/provider,
+HA, OS command, new ARM/installed or physical touch acceptance is claimed.
+Actual-root host verification returned MATCH, with no repair or cleanup. Both
+installed EADBrc.5 apps and immutable assets remain unchanged. Broader Flow
+backward continuity and other parity work remain open; this source slice requires
+normal exact review/protected source/separate Finalization and a distinct release
+before runtime deployment. HA-dev authentication and the active Pi10 Session test
+remain explicitly human-deferred.

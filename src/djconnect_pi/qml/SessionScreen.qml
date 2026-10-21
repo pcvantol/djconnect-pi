@@ -128,7 +128,7 @@ Item {
     }
     // Only identity/position survives the history view, never a cached body.
     property var flowReturn: null
-    function clearFlowReturn() { flowReturnRestore.stop(); flowReturn = null }
+    function clearFlowReturn() { flowReturnRestore.stop(); flowReturnRestore.artworkTries = 0; flowReturnRestore.artworkLayout = ""; flowReturn = null }
     function rememberFlow() {
         clearFlowReturn()
         if (historical || showForecast || !state.session_id) return
@@ -158,6 +158,14 @@ Item {
                     kind: "current_reply", id: state.current_reply.reply_id, offset: replyY}
             }
         }
+        // Playback is a navigation fallback only; existing admitted prose keeps priority.
+        if (!best && playbackMetadata.visible && playbackSources.ready && state.playback.item_id) {
+            var playbackY = playbackMetadata.mapToItem(historyScroll.contentItem, 0, 0).y
+            if (playbackY + playbackMetadata.height > 0 && playbackY < historyScroll.contentItem.height && isFinite(playbackY) && Math.abs(playbackY) <= 1000000) {
+                best = {session: state.session_id, profile: backend.activeProfileId,
+                    kind: "playback", id: state.playback.item_id, offset: playbackY}
+            }
+        }
         flowReturn = best
     }
     function rememberArtworkReading() {
@@ -175,6 +183,27 @@ Item {
         }
         rememberFlow()
     }
+    function flowIdentityPresent(saved) {
+        if (!saved || typeof saved.id !== "string" || saved.id.length === 0 ||
+                typeof saved.offset !== "number" || !isFinite(saved.offset) || Math.abs(saved.offset) > 1000000) return false
+        if (saved.kind === "playback") return state.playback.item_id === saved.id && playbackSources.ready
+        if (saved.kind === "current_reply") return state.current_reply.reply_id === saved.id
+        if (saved.kind === "moment" || saved.kind === "moment_text") return state.moments.some(function(row) { return row.moment_id === saved.id })
+        if (saved.kind === "conversation") return state.retained_flow.some(function(row) { return row.entry_id === saved.id })
+        return false
+    }
+    function flowTarget(saved) {
+        if (saved.kind === "playback") return playbackMetadata.visible ? playbackMetadata : null
+        if (saved.kind === "current_reply") return currentReplyCard.visible ? currentReplyCard : null
+        var nativeRow = saved.kind === "moment" || saved.kind === "moment_text"
+        var rows = nativeRow ? liveMomentRows : conversationRows
+        for (var i = 0; i < rows.count; i++) {
+            var card = rows.itemAt(i)
+            var id = card ? (nativeRow ? card.modelData.moment_id : card.modelData.entry_id) : ""
+            if (id === saved.id) return saved.kind === "moment_text" ? card.bodyItem : card
+        }
+        return null
+    }
     Timer {
         id: flowReturnRestore
         objectName: "sessionArtworkReadingRestore"
@@ -184,42 +213,28 @@ Item {
         onTriggered: {
             var saved = screen.flowReturn
             if (!saved) return
-            if (saved.kind !== "moment_text") screen.flowReturn = null
             var flick = historyScroll.contentItem
-            if (!screen.visible || screen.historical || flick.dragging) { screen.flowReturn = null; return }
-            if (!saved || saved.session !== screen.state.session_id || saved.profile !== screen.backend.activeProfileId) { screen.flowReturn = null; flick.contentY = 0; return }
-            if (saved.kind === "current_reply") {
-                // The getter revalidates the live source; the descriptor grants nothing.
-                if (screen.state.current_reply.reply_id === saved.id && currentReplyCard.visible) {
-                    var replyDelta = currentReplyCard.mapToItem(flick, 0, 0).y - saved.offset
-                    flick.contentY = Math.max(0, Math.min(flick.contentY + replyDelta, Math.max(0, flick.contentHeight - flick.height)))
-                } else flick.contentY = 0
+            if (!screen.visible || screen.historical || screen.showForecast || screen.followQuestionReply || flick.dragging || flick.moving) { screen.clearFlowReturn(); return }
+            // Re-resolve admission and the visual item on every bounded attempt.
+            if (saved.session !== screen.state.session_id || saved.profile !== screen.backend.activeProfileId || !screen.flowIdentityPresent(saved)) {
+                screen.clearFlowReturn(); flick.contentY = 0; return
+            }
+            historyContent.ensurePolished()
+            var target = screen.flowTarget(saved)
+            artworkTries++
+            if (!target || !target.visible || target.height <= 0 || flick.contentHeight + 1 < historyContent.implicitHeight) {
+                if (artworkTries < 8) restart()
+                else { screen.clearFlowReturn(); flick.contentY = 0 }
                 return
             }
-            var nativeRow = saved.kind === "moment" || saved.kind === "moment_text"
-            var rows = nativeRow ? liveMomentRows : conversationRows
-            for (var i = 0; i < rows.count; i++) {
-                var card = rows.itemAt(i)
-                var id = card ? (nativeRow ? card.modelData.moment_id : card.modelData.entry_id) : ""
-                if (id === saved.id) {
-                    var target = saved.kind === "moment_text" ? card.bodyItem : card
-                    if (!target || !target.visible) { screen.flowReturn = null; flick.contentY = 0; return }
-                    if (saved.kind === "moment_text") { card.ensurePolished(); target.ensurePolished(); flick.ensurePolished() }
-                    var delta = target.mapToItem(flick, 0, 0).y - saved.offset
-                    flick.contentY = Math.max(0, Math.min(flick.contentY + delta, Math.max(0, flick.contentHeight - flick.height)))
-                    if (saved.kind === "moment_text") {
-                        var mark = card.height + "|" + target.height + "|" + target.y + "|" + flick.contentHeight
-                        var settled = artworkLayout === mark && Math.abs(target.mapToItem(flick, 0, 0).y - saved.offset) <= 1
-                        artworkLayout = mark
-                        artworkTries++
-                        if (!settled && artworkTries < 8) { restart(); return }
-                        screen.flowReturn = null
-                    }
-                    return
-                }
-            }
-            screen.flowReturn = null
-            flick.contentY = 0
+            target.ensurePolished(); flick.ensurePolished()
+            var delta = target.mapToItem(flick, 0, 0).y - saved.offset
+            flick.contentY = Math.max(0, Math.min(flick.contentY + delta, Math.max(0, flick.contentHeight - flick.height)))
+            var mark = [historyContent.implicitHeight, flick.contentHeight, flick.height, target.width, target.height, target.mapToItem(historyContent, 0, 0).y].join("|")
+            var settled = artworkLayout === mark && Math.abs(target.mapToItem(flick, 0, 0).y - saved.offset) <= 1
+            artworkLayout = mark
+            if (!settled && artworkTries < 8) restart()
+            else screen.clearFlowReturn()
         }
     }
     property string historyReadProfile: ""
@@ -429,7 +444,7 @@ Item {
         if (owner) owner.clearSearch()
     }
     onVisibleChanged: { syncMediaVisibility(); if (!visible) { clearForecastReading(); cancelArchiveRead(); if (owner) owner.clearArchive(); clearFlowReturn(); historyRead.stop(); historyReadProfile = ""; historyReadSession = ""; historyReadPending = false; readingRestore.stop(); pendingReadingAnchor = ""; closeTransient() } }
-    onHistoricalChanged: { if (historical) playbackPanel.close(); syncMediaVisibility(); if (!historical) { archiveDetailReturn = null; cancelArchiveRead(); if (owner) owner.clearArchive() } readingRestore.stop(); pendingReadingAnchor = ""; readingOffset = 0; if (!historical && flowReturn) flowReturnRestore.restart() }
+    onHistoricalChanged: { if (historical) playbackPanel.close(); syncMediaVisibility(); if (!historical) { archiveDetailReturn = null; cancelArchiveRead(); if (owner) owner.clearArchive() } readingRestore.stop(); pendingReadingAnchor = ""; readingOffset = 0; if (!historical && flowReturn) { historyScroll.contentItem.cancelFlick(); flowReturnRestore.restart() } }
     onSearchTargetChanged: { if (searchPanel) searchPanel.close(); if (searchInput) searchInput.clear(); if (owner) owner.clearSearch() }
     signal navigate(string destination)
     function tr(key) { backend.translationVersion; return backend.t(key) }
@@ -477,11 +492,21 @@ Item {
         }
     }
     Timer {
-        id: pendingQuestionPosition; interval: 32
+        id: pendingQuestionPosition; objectName: "sessionPendingQuestionPosition"; interval: 32
+        property string messageId: ""
+        property int tries: 0
+        property string layoutMark: ""
         onTriggered: {
-            if (!screen.visible || screen.historical || !screen.followQuestionReply || !screen.state.pending_question.text || historyScroll.contentItem.dragging) return
             var flick = historyScroll.contentItem
+            if (!screen.visible || screen.historical || !screen.followQuestionReply || !screen.state.pending_question.text ||
+                    messageId !== screen.state.pending_question.client_message_id || flick.dragging || flick.moving) { messageId = ""; return }
+            historyContent.ensurePolished(); pendingQuestionCard.ensurePolished()
             flick.contentY = Math.max(0, Math.min(flick.contentY + pendingQuestionCard.mapToItem(flick, 0, 0).y - 12, Math.max(0, flick.contentHeight - flick.height)))
+            var mark = [historyContent.implicitHeight, flick.contentHeight, flick.height, pendingQuestionCard.height, pendingQuestionCard.y].join("|")
+            var settled = layoutMark === mark && Math.abs(pendingQuestionCard.mapToItem(flick, 0, 0).y - 12) <= 1
+            layoutMark = mark; tries++
+            if (!settled && tries < 8) restart()
+            else messageId = ""
         }
     }
     Timer {
@@ -503,7 +528,7 @@ Item {
         function onArtworkChanged() { if (screen.visible && !screen.historical && !screen.showForecast && !screen.followQuestionReply && !historyScroll.contentItem.moving && screen.flowReturn) { flowReturnRestore.artworkTries = 0; flowReturnRestore.artworkLayout = ""; flowReturnRestore.restart() } }
         function onForecastImageAboutToChange() { screen.rememberForecastReading() }
         function onForecastImageChanged() { if (screen.forecastReading) forecastReadingRestore.restart() }
-        function onPendingQuestionReady() { pendingQuestionPosition.restart() }
+        function onPendingQuestionReady() { pendingQuestionPosition.messageId = screen.state.pending_question.client_message_id || ""; pendingQuestionPosition.tries = 0; pendingQuestionPosition.layoutMark = ""; pendingQuestionPosition.restart() }
         function onCurrentReplyReady() { currentReplyPosition.restart() }
         function onQuestionConfirmed(entryId) { if (screen.followQuestionReply) { screen.pendingReplyId = entryId; replyRestore.restart() } }
         function onSelectionInvalidated() { screen.clearComposer() }
@@ -774,6 +799,7 @@ Item {
             }
             // Current music context precedes admitted native Moments, as in the Apple header.
             GlassCard {
+                id: playbackMetadata
                 objectName: "sessionPlaybackMetadata"
                 visible: !screen.historical && !!screen.state.playback.item_id
                 Layout.fillWidth: true
