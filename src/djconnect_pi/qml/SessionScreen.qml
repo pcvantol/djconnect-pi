@@ -979,6 +979,13 @@ Item {
                 text: screen.tr(screen.currentHistory ? "session_back" : screen.state.timeline.session ? "session_history" : "more")
                 onClicked: { if (screen.currentHistory) { screen.owner.closeSaved(); screen.navigate("session") } else if (screen.state.timeline.session) screen.returnArchiveDetail(); else { screen.owner.closeSaved(); screen.navigate("more") } }
             }
+            GlassButton {
+                objectName: "sessionDeleteAllSaved"
+                visible: screen.historical && !screen.currentHistory && !!screen.state.archive_delete && screen.state.archive_delete.bulk_available
+                text: screen.tr("session_delete_all_action"); iconName: "trash"; tint: BrandTheme.colors.danger; Layout.fillWidth: true
+                enabled: !screen.owner.busy && !screen.state.archive_delete.blocked
+                onClicked: { if (screen.owner.beginBulkHistoryDelete()) archiveDeletePanel.open() }
+            }
             Text {
                 objectName: "sessionArchiveWindowReset"
                 visible: screen.historical && !screen.state.timeline.session && screen.state.archive_window_reset
@@ -1504,22 +1511,23 @@ Item {
     Popup {
         id: archiveDeletePanel
         objectName: "sessionDeletePanel"
+        readonly property bool bulk: screen.state.archive_delete.kind === "bulk"
         anchors.centerIn: parent
         width: Math.min(screen.width - 40, 560); padding: 24; modal: true
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
         onAboutToHide: screen.owner.cancelHistoryDelete()
         background: GlassSurface { elevated: true }
         contentItem: ColumnLayout {
-            spacing: 18
+            spacing: screen.compact ? 14 : 18
             Text {
                 objectName: "sessionDeleteMessage"
-                text: screen.tr(screen.state.archive_delete.status === "confirm" ? "session_delete_confirm" : screen.state.archive_delete.status === "deleted" ? "session_delete_complete" : screen.state.archive_delete.status === "uncertain" ? "session_delete_uncertain" : screen.state.archive_delete.status === "failed" ? "session_error" : "loading")
-                textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: screen.compact ? 24 : 28
+                text: screen.tr(screen.state.archive_delete.status === "confirm" ? (archiveDeletePanel.bulk ? "session_delete_all_confirm" : "session_delete_confirm") : screen.state.archive_delete.status === "deleted" ? (archiveDeletePanel.bulk ? "session_delete_all_complete" : "session_delete_complete") : screen.state.archive_delete.status === "uncertain" ? "session_delete_uncertain" : screen.state.archive_delete.status === "empty" ? "session_delete_all_empty" : screen.state.archive_delete.status === "snapshot_conflict" ? "session_delete_all_conflict" : screen.state.archive_delete.status === "failed" ? "session_error" : "loading").replace("%1", String(screen.state.archive_delete.count))
+                textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: screen.compact ? 22 : 28
                 wrapMode: Text.WordWrap; Layout.fillWidth: true
             }
             Text {
                 objectName: "sessionDeleteTarget"
-                visible: screen.state.archive_delete.status === "confirm"
+                visible: screen.state.archive_delete.status === "confirm" && !archiveDeletePanel.bulk
                 text: screen.tr("session_title") + " · " + screen.displayDate((screen.state.timeline.session || {}).started_at || (screen.state.timeline.session || {}).created_at)
                 textFormat: Text.PlainText; color: BrandTheme.colors.muted; font.pixelSize: 20
                 wrapMode: Text.WordWrap; Layout.fillWidth: true
@@ -1527,13 +1535,13 @@ Item {
             GlassButton {
                 objectName: "sessionDeleteConfirm"
                 visible: screen.state.archive_delete.status === "confirm"
-                text: screen.tr("session_delete_action"); iconName: "trash"; primary: true; tint: BrandTheme.colors.danger; Layout.fillWidth: true
+                text: screen.tr(archiveDeletePanel.bulk ? "session_delete_all_action" : "session_delete_action"); iconName: "trash"; primary: true; tint: BrandTheme.colors.danger; Layout.fillWidth: true
                 enabled: !screen.owner.busy && screen.state.archive_delete.lease > 0
                 onClicked: screen.owner.confirmHistoryDelete(screen.state.archive_delete.lease)
             }
             GlassButton {
                 objectName: "sessionDeletePanelRefresh"
-                visible: screen.state.archive_delete.status === "failed" || screen.state.archive_delete.status === "uncertain" || screen.state.archive_delete.status === "deleted"
+                visible: screen.state.archive_delete.status === "snapshot_conflict" || screen.state.archive_delete.status === "empty" || screen.state.archive_delete.status === "failed" || screen.state.archive_delete.status === "uncertain" || screen.state.archive_delete.status === "deleted"
                 text: screen.tr("refresh"); Layout.fillWidth: true; enabled: !screen.owner.busy
                 onClicked: { if (screen.owner.recoverHistoryDelete()) archiveDeletePanel.close() }
             }

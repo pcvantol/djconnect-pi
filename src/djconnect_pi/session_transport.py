@@ -69,7 +69,7 @@ class _JSONShape:
 HISTORY_DELETE_ERRORS = {
     400: frozenset({"invalid_history_delete_request"}),
     404: frozenset({"history_unavailable"}),
-    409: frozenset({"session_not_archived", "history_revision_conflict", "history_delete_operation_conflict"}),
+    409: frozenset({"session_not_archived", "history_revision_conflict", "history_delete_operation_conflict", "history_delete_snapshot_conflict"}),
     503: frozenset({"history_unavailable", "history_delete_outcome_unknown", "history_delete_capacity"}),
 }
 
@@ -148,10 +148,14 @@ class SessionTransport:
         if binding != self.binding():
             raise SessionError("context_changed")
         if archive_delete:
-            # This exception to generic identity/error handling is closed to the
-            # one released destructive route. No arbitrary caller-selected path.
-            if (method != "POST" or route != "session/history/delete" or not isinstance(payload, dict)
-                    or set(payload) != {"session_id", "expected_revision", "operation_id", "confirmed", "history_contract_version"}):
+            # Only these released typed archive routes get closed identity and
+            # bounded error bodies; callers cannot select an arbitrary effect.
+            shapes = {
+                ("POST", "session/history/delete"): {"session_id", "expected_revision", "operation_id", "confirmed", "history_contract_version"},
+                ("POST", "session/history/delete_all"): {"snapshot_id", "operation_id", "confirmed", "history_contract_version"},
+                ("GET", "session/history/delete_snapshot"): {"history_contract_version"},
+            }
+            if not isinstance(payload, dict) or set(payload) != shapes.get((method, route)):
                 raise SessionError("invalid")
             isolated = True
         if isolated:
@@ -329,6 +333,30 @@ class SessionTransport:
             raise SessionError("uncertain")
         return {"operation_id": op, "owner_profile_id": binding.resolved_profile_id,
                 "deleted_session_id": sid, "deleted": True}
+
+    def history_delete_snapshot(self, binding):
+        if not binding.profile_id or binding.profile_id != binding.resolved_profile_id:
+            raise SessionError("invalid")
+        return self._request(binding, "GET", "session/history/delete_snapshot",
+                             {"history_contract_version": 2}, archive_delete=True)
+
+    def delete_all_history(self, binding, snapshot_id, operation_id, target_count, *, confirmed):
+        token = deletion_identifier(snapshot_id, 200)
+        op = deletion_operation(operation_id)
+        if (confirmed is not True or type(target_count) is not int or target_count <= 0
+                or not binding.profile_id or binding.profile_id != binding.resolved_profile_id):
+            raise SessionError("invalid")
+        data = self._request(binding, "POST", "session/history/delete_all", {
+            "snapshot_id": token, "operation_id": op, "confirmed": True,
+            "history_contract_version": 2}, archive_delete=True)
+        if (type(data.get("schema_version")) is not int or data["schema_version"] != 1
+                or data.get("operation_id") != op or data.get("owner_profile_id") != binding.resolved_profile_id
+                or data.get("snapshot_id") != token or data.get("deleted") is not True
+                or type(data.get("deleted_session_count")) is not int
+                or data["deleted_session_count"] != target_count):
+            raise SessionError("uncertain")
+        return {"operation_id": op, "owner_profile_id": binding.resolved_profile_id,
+                "snapshot_id": token, "deleted": True, "deleted_session_count": target_count}
 
     def end(self, binding, session_id: str):
         return self._request(binding, "POST", "session/end", {"session_id": identifier(session_id)})

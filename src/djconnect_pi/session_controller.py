@@ -129,6 +129,11 @@ class SessionController(QObject):
         self.contextCleared.connect(self._archive_delete.hide)
         self._ready.connect(self._apply)
         backend.demoModeChanged.connect(self._demo_changed)
+        # Deferred visibility notifications must die with their QObject owner.
+        self._visibility_notify = QTimer(self)
+        self._visibility_notify.setSingleShot(True)
+        self._visibility_notify.setInterval(0)
+        self._visibility_notify.timeout.connect(self.changed.emit)
         self._deadline_timer = QTimer(self)
         self._deadline_timer.setInterval(1000)
         self._deadline_timer.timeout.connect(self._expire)
@@ -210,7 +215,7 @@ class SessionController(QObject):
         changed = self._playback_control.visible != bool(visible)
         self._playback_control.set_visible(visible)
         if changed:
-            QTimer.singleShot(0, self.changed.emit)
+            self._visibility_notify.start()
 
     @Slot(str, str, str, result=bool)
     def playbackCommand(self, session_id, item_id, command):
@@ -244,7 +249,7 @@ class SessionController(QObject):
     def cancelPlaybackIntent(self):
         # Revocation is immediate; notification must not re-enter a QML state binding.
         self._playback_control.hide()
-        QTimer.singleShot(0, self.changed.emit)
+        self._visibility_notify.start()
 
     @Slot()
     def refreshPlayback(self):
@@ -260,6 +265,10 @@ class SessionController(QObject):
     @Slot(str, result=bool)
     def beginHistoryDelete(self, session_id):
         return self._archive_delete.read(session_id)
+
+    @Slot(result=bool)
+    def beginBulkHistoryDelete(self):
+        return self._archive_delete.read_bulk()
 
     @Slot(int, result=bool)
     def confirmHistoryDelete(self, lease):
@@ -293,6 +302,7 @@ class SessionController(QObject):
 
     @Slot()
     def shutdownImages(self):
+        self._visibility_notify.stop()
         self._forecast_images.shutdown()
         self._moment_images.shutdown()
         self._artwork_prepare.shutdown()

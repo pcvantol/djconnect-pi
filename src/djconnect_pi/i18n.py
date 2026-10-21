@@ -1439,6 +1439,21 @@ for _key, _values in _PLAYBACK_CONTROL_TRANSLATIONS.items():
 
 # Confirmed erasure is separate from read-only archived contribution navigation.
 _SESSION_DELETE_TRANSLATIONS = {
+    "session_delete_all_action": ("Delete saved sessions", "Opgeslagen sessies verwijderen", "Gespeicherte Sessions löschen", "Supprimer les sessions enregistrées", "Eliminar sesiones guardadas"),
+    "session_delete_all_confirm": (
+        "Permanently delete %1 saved sessions and their associated history from this Profile? This includes sessions outside the current page or search. Your active session, settings and sessions saved after this check stay. This cannot be undone.",
+        "%1 opgeslagen sessies en hun geschiedenis definitief uit dit Profiel verwijderen? Dit omvat ook sessies buiten deze pagina of zoekopdracht. Je actieve sessie, instellingen en sessies die na deze controle zijn opgeslagen blijven. Dit kan niet ongedaan worden gemaakt.",
+        "%1 gespeicherte Sessions und ihren Verlauf aus diesem Profil endgültig löschen? Dies umfasst Sessions außerhalb dieser Seite oder Suche. Aktive Session, Einstellungen und danach gespeicherte Sessions bleiben. Dies kann nicht rückgängig gemacht werden.",
+        "Supprimer définitivement %1 sessions enregistrées et leur historique de ce Profil, y compris hors de cette page ou recherche ? La session active, les réglages et les sessions enregistrées après cette vérification restent. Cette action est irréversible.",
+        "¿Eliminar permanentemente %1 sesiones guardadas y su historial de este Perfil, incluidas las que están fuera de esta página o búsqueda? La sesión activa, los ajustes y las sesiones guardadas después de esta comprobación se conservan. Esta acción no se puede deshacer."),
+    "session_delete_all_complete": ("Saved sessions deleted.", "Opgeslagen sessies verwijderd.", "Gespeicherte Sessions gelöscht.", "Sessions enregistrées supprimées.", "Sesiones guardadas eliminadas."),
+    "session_delete_all_empty": ("There are no saved sessions to delete.", "Er zijn geen opgeslagen sessies om te verwijderen.", "Es gibt keine gespeicherten Sessions zum Löschen.", "Aucune session enregistrée à supprimer.", "No hay sesiones guardadas que eliminar."),
+    "session_delete_all_conflict": (
+        "The saved selection changed or expired. Reload and check a new selection before confirming again.",
+        "De opgeslagen selectie is gewijzigd of verlopen. Laad opnieuw en controleer een nieuwe selectie voordat je opnieuw bevestigt.",
+        "Die gespeicherte Auswahl wurde geändert oder ist abgelaufen. Lade neu und prüfe eine neue Auswahl vor einer erneuten Bestätigung.",
+        "La sélection enregistrée a changé ou a expiré. Rechargez et vérifiez une nouvelle sélection avant de confirmer à nouveau.",
+        "La selección guardada cambió o caducó. Recarga y comprueba una nueva selección antes de volver a confirmar."),
     "session_saved_title": ("Saved session", "Opgeslagen sessie", "Gespeicherte Session", "Session enregistrée", "Sesión guardada"),
     "session_delete_action": ("Delete saved session", "Opgeslagen sessie verwijderen", "Gespeicherte Session löschen", "Supprimer la session enregistrée", "Eliminar sesión guardada"),
     "session_delete_confirm": (

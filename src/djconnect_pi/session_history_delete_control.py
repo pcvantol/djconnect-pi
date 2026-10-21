@@ -3,7 +3,13 @@ from concurrent.futures import ThreadPoolExecutor
 
 from PySide6.QtCore import QObject, QTimer, Signal, Slot
 
-from .session_history_delete import SingleDeleteIntent, single_delete_supported
+from .session_history_delete import (
+    ArchiveDeleteSnapshot,
+    BulkDeleteIntent,
+    SingleDeleteIntent,
+    bulk_delete_supported,
+    single_delete_supported,
+)
 from .session_projection import active_session, history_page
 from .session_transport import SessionError, deletion_identifier
 
@@ -14,6 +20,7 @@ class HistoryDeleteControl(QObject):
     def __init__(self, owner):
         super().__init__(owner)
         self.owner = owner
+        self.kind = "single"
         self.visible = False
         self.closed = False
         self.running = False
@@ -34,10 +41,17 @@ class HistoryDeleteControl(QObject):
         self._recovery_timer.timeout.connect(self._read_recovery)
         self.ready.connect(self.finish)
 
-    def basis(self):
+    def basis(self, kind="single"):
         owner = self.owner
         try:
             binding = owner.transport.binding()
+            if kind == "bulk":
+                if (self.closed or not self.visible or not owner._foreground or owner.backend.demoMode
+                        or not owner._history_supported() or not bulk_delete_supported(owner._caps)
+                        or not binding.profile_id or binding.profile_id != binding.resolved_profile_id
+                        or owner._timeline.get("session") or owner._running_action in {"start", "end"}):
+                    return None
+                return (binding, owner._view_epoch, owner._session.get("session_id", ""))
             page = owner._timeline
             header = page.get("session", {})
             sid = deletion_identifier(header.get("session_id"), 200)
@@ -56,7 +70,8 @@ class HistoryDeleteControl(QObject):
             return None
 
     def valid(self, request):
-        return self.request is request and request is not None and request["basis"] == self.basis()
+        return (self.request is request and request is not None and request["basis"] == self.basis(request.get("kind", "single"))
+                and (not request.get("snapshot") or self.owner._clock.now() < request["snapshot"].expires_at))
 
     def sync(self):
         if self.request is not None and not self.valid(self.request):
@@ -81,7 +96,10 @@ class HistoryDeleteControl(QObject):
 
     def snapshot(self):
         self.sync()
-        return {"available": self.basis() is not None, "running": self.running,
+        return {"available": self.basis() is not None, "bulk_available": self.basis("bulk") is not None,
+                "kind": self.kind,
+                "count": self.confirmation["snapshot"].count if self.confirmation and self.confirmation.get("snapshot") else 0,
+                "running": self.running,
                 "blocked": self.blocked, "status": self.status,
                 "lease": self.confirmation["serial"] if self.confirmation else 0}
 
@@ -100,15 +118,29 @@ class HistoryDeleteControl(QObject):
         self._launch(request)
         return True
 
+    def read_bulk(self):
+        basis = self.basis("bulk")
+        if basis is None or not self.idle() or self.blocked:
+            return False
+        self.serial += 1
+        self.confirmation = None
+        self._launch({"basis": basis, "kind": "bulk", "serial": self.serial, "send": False, "posted": False})
+        return True
+
     def confirm(self, lease):
         request = self.confirmation
         if (type(lease) is not int or request is None or lease != request["serial"]
                 or not self.idle() or self.blocked or not self.valid(request)):
             return False
-        binding, epoch, _, sid, _, deadline = request["basis"]
+        binding, epoch, *_ = request["basis"]
         try:
-            intent = SingleDeleteIntent.confirmed(binding, epoch, request["detail"], request["caps"],
-                session_id=sid, admitted_until=deadline, now=self.owner._clock.now(), confirmed=True)
+            if request.get("kind") == "bulk":
+                intent = BulkDeleteIntent.confirmed(binding, epoch, request["snapshot"], request["caps"],
+                    now=self.owner._clock.now(), confirmed=True)
+            else:
+                _, _, _, sid, _, deadline = request["basis"]
+                intent = SingleDeleteIntent.confirmed(binding, epoch, request["detail"], request["caps"],
+                    session_id=sid, admitted_until=deadline, now=self.owner._clock.now(), confirmed=True)
         except SessionError:
             self.hide()
             self.owner.changed.emit()
@@ -124,15 +156,26 @@ class HistoryDeleteControl(QObject):
             if not self.valid(request):
                 raise SessionError("context_changed")
         check()
-        binding, _, current, sid, revision, _ = request["basis"]
+        binding, _, current, *_ = request["basis"]
+        bulk = request.get("kind") == "bulk"
+        sid = None if bulk else request["basis"][3]
         fresh = active_session(self.owner.transport.active(binding, isolated=True))
         check()
-        if fresh.get("session_id", "") != current or sid == fresh.get("session_id"):
+        if fresh.get("session_id", "") != current or (not bulk and sid == fresh.get("session_id")):
             raise SessionError("context_changed")
         caps = self.owner.transport.capabilities(binding, isolated=True)
         check()
-        if not single_delete_supported(caps):
+        if not (bulk_delete_supported(caps) if bulk else single_delete_supported(caps)):
             raise SessionError("unavailable")
+        if bulk:
+            # Never prepare a replacement set under an existing confirmation.
+            if request["send"]:
+                return request["snapshot"], caps
+            snapshot = ArchiveDeleteSnapshot.parse(self.owner.transport.history_delete_snapshot(binding),
+                                                   binding, now=self.owner._clock.now())
+            check()
+            return snapshot, caps
+        revision = request["basis"][4]
         page = history_page(self.owner.transport.timeline(binding, sid, isolated=True),
                             session_id=sid, now=self.owner._clock.now())
         check()
@@ -147,6 +190,7 @@ class HistoryDeleteControl(QObject):
 
     def _launch(self, request):
         self.request = request
+        self.kind = request.get("kind", "single")
         self.running = True
         self.status = "sending" if request["send"] else "reading"
         self.owner.changed.emit()
@@ -161,14 +205,20 @@ class HistoryDeleteControl(QObject):
                     if not self.valid(request):
                         raise SessionError("context_changed")
                     request["posted"] = True  # Started HTTP may finish after withdrawal; never pretend cancellation.
-                    self.owner.transport.delete_history(binding, **values)
+                    if request.get("kind") == "bulk":
+                        self.owner.transport.delete_all_history(binding, **values)
+                    else:
+                        self.owner.transport.delete_history(binding, **values)
                     if not self.valid(request):
                         raise SessionError("context_changed")
                     result["deleted"] = True
                 else:
                     result.update(detail=detail, caps=caps)
+                    if request.get("kind") == "bulk":
+                        result["snapshot"] = detail
             except SessionError as exc:
                 result["error"] = exc.category
+                result["code"] = exc.code
             except Exception:  # noqa: BLE001 - one failed effect never causes a replay.
                 result["error"] = "uncertain" if request["posted"] else "unavailable"
             if not self.closed:
@@ -212,12 +262,14 @@ class HistoryDeleteControl(QObject):
         elif error:
             self.confirmation = None
             self.blocked = bool(request["posted"] and error in {"uncertain", "context_changed"})
-            self.status = "uncertain" if self.blocked else "failed"
+            self.status = "uncertain" if self.blocked else "snapshot_conflict" if result.get("code") == "history_delete_snapshot_conflict" else "failed"
             self.request = None
         else:
             request.update(detail=result["detail"], caps=result["caps"])
+            if request.get("kind") == "bulk":
+                request["snapshot"] = result["snapshot"]
             self.confirmation = request
-            self.status = "confirm"
+            self.status = "empty" if request.get("snapshot") and request["snapshot"].count == 0 else "confirm"
         self.owner.changed.emit()
 
     def recover(self):

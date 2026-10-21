@@ -2541,3 +2541,69 @@ Finalization, distinct immutable release and new approved operative binding rema
 required before runtime deployment. HA-dev authentication and the active Pi10
 Session click test remain explicitly human-deferred. Next functional follow-through
 is separately confirmed bulk archive deletion or another larger open parity gap.
+
+
+## Confirmed whole-archive deletion — 21 October 2026
+
+Bulk saved-Session deletion is now SOURCE delivered, independently capability-gated
+by strict session_history_bulk_delete:true/version1. The shared archive list has
+an explicit action that first reads fresh owner-active/capabilities and the released
+GET session/history/delete_snapshot. It validates schema1, exact resolved owner,
+opaque token, strict nonnegative exact-display count and original created/expires
+metadata. The server selects the complete terminal retained set, independently of
+client pages/search/filter. No detail parent display deadline is invented. Empty
+count is informational: no destructive confirmation, operation ID or POST. Five
+new localized keys cover action, count/scope confirmation, empty, conflict and
+completion in en/nl/de/fr/es.
+
+Confirmation binds original Profile/device/token, archive view epoch, current
+Runtime identity (including none), immutable snapshot/count and original expiry.
+One new UUIDv7 is minted only on deliberate confirmation. The same max1 archive
+worker repeats fresh owner-active/capabilities, claims one atomic send ticket and
+sends exactly one typed delete_all POST. It never replaces the snapshot at send,
+loops over singles, sends client target lists or adds profile_id/private_session
+body hints. Original snapshot expiry and UUID five-minute/30-second bounds remain;
+these are operation authority, not private/native display grants. Close, navigation,
+foreground, Profile/token, capability, active Session or archive epoch changes
+withdraw queued work immediately; started HTTP may finish. End remains independent.
+No privacy-mode erasure type ban, automatic replay/renewal/fallback, response import
+or optimistic erasure exists. Snapshot conflict requires new explicit checking and
+consent. Pending503 remains uncertain and offers explicit readonly recovery.
+
+Only the exact typed schema/owner/op/snapshot/deleted:true receipt with the captured
+count invalidates the WHOLE archive via the existing list/window/cursor/detail/
+search/selection/navigation/late-read fences. Active Session/Flow/settings/pairing
+remain separate; a normal independent owner read resolves dependent server Flow
+withdrawals. Sessions ending after snapshot preparation are outside its server set.
+Bulk is not Profile, MusicDNA or preferences erasure. Individual content deletion
+remains outside this slice. No historical-media loader or physical acceptance is
+claimed. Released producer pins remain bbb7a23 / separate Final2a1197c.
+
+Final qualification:136 new cases;395 focused deletion/transport PASS; full2323
+integrated PASS/no skips40.31s. Final actual Qt gate530 views =150 bulk +150 single
++100 unmodified history-window +130 unmodified playback regressions, both formats
+and five locales. Real mouse clicks check count/scope, cancellation, no optimism,
+zero, unsupported version, conflict, close before worker, original expiry, no-active
+Runtime and readonly recovery. Zero errors/binding loops; startup font-alias
+warnings retained. Both final layouts visually inspected. Ruff0.16.0 src/tests and
+diff PASS. Local review wheel dc179d565a908d5ca0bfaa4647f25941876435deecea68de7576579c549c2572
+matches67 runtime files. Evidence:taskvisualizations/pi-history-delete-bulk-consumer,
+qml-final/single-final/history-final/playback-final, package and retained diagnostics.
+Intermediate views/runs are not added to530. No new ARM/installed/liveHA/provider/
+model/physical-touch/personal-deletion result; both installed EADBrc.5 apps unchanged.
+
+Diagnostics: the first Qt run caught an unfilled Python-format count placeholder;
+percent-one substitution and five regressions fix it without changing existing keys.
+A subsequent full process FAILED exit139 during Qt timer dispatch. An isolated
+30-owner repro proved60 pre-existing playback visibility/cancel notifications
+attempting deleted signals, but did not itself segfault: the general segfault root
+cause is NOT claimed proven. Both callbacks now use one QObject-owned/coalesced
+zero timer, stopped on shutdown/destruction, preserving immediate revocation and
+deferred QML notification. The repro then had no stderr; two subprocess and one
+deferred/coalescing tests pass. An initial test counted its separate fixture archive
+notice; it is drained before the coalescing measurement, not asserted away. Full2323
+and the final Qt gate passed afterward. Failed/intermediate logs remain preserved.
+Fresh actual-root hostverify MATCH; no repair/cleanup/other-lane write. Independent
+exact PR119 review, protected source/separate Finalization/distinct immutable release
+and new operative binding are still required for deployment. HA-dev login and Pi10
+active-Session click test remain explicitly human-deferred.
