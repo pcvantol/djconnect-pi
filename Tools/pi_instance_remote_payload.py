@@ -186,10 +186,65 @@ def smoke(payload):
         "paired": info.get("paired") is True, "services": current, "verified_packaged_files": len(members)}
 
 
+# Fixed observer bytes/entrypoint only. The existing sudo policy is checked for
+# this exact staged command; no rule, credential, installer or service changes.
+OBSERVER_SHA256 = "4ae5b8fa3297785a362dfb2e36354cffb4168ab2d0572ef169288d559239e36c"
+
+
+def stage_observer(payload):
+    code = base64.b64decode(payload["recovery_observer"], validate=True)
+    need(len(code) <= 16384 and hashlib.sha256(code).hexdigest() == OBSERVER_SHA256, "RECOVERY_OBSERVER_BYTES_CHANGED")
+    stage = Path.home()/"djconnect-install"/("djconnect-pi-rc6-observe-"+payload["run_id"])
+    need(not stage.exists() and not stage.is_symlink() and not stage.parent.is_symlink(), "RECOVERY_OBSERVER_STAGING_EXISTS")
+    stage.mkdir(mode=0o700);(stage/"scripts").mkdir(mode=0o700)
+    helper = stage/"scripts/install.sh"
+    delimiter = "DJCONNECT_QUALIFIED_RC6_READONLY_OBSERVER"
+    need(delimiter.encode() not in code, "RECOVERY_OBSERVER_INVALID")
+    helper.write_bytes(b"#!/bin/sh\nexec /usr/bin/python3 -I -B - \"$@\" <<'"+delimiter.encode()+b"'\n"+code+b"\n"+delimiter.encode()+b"\n")
+    helper.chmod(0o700)
+    return helper
+
+
+def observe_recovery(helper, boot):
+    command = [str(helper), boot]
+    allowed = subprocess.run(["sudo", "-n", "-l", "--", *command], capture_output=True, timeout=8, check=False)
+    need(allowed.returncode == 0 and len(allowed.stdout) <= 65536 and len(allowed.stderr) <= 65536, "RECOVERY_OBSERVER_NOT_AUTHORIZED")
+    proc = subprocess.run(["sudo", "-n", "--", *command], capture_output=True, timeout=10, check=False)
+    need(proc.returncode == 0 and not proc.stderr and len(proc.stdout) <= 1024, "RECOVERY_OBSERVER_FAILED")
+    proof = json.loads(proc.stdout)
+    need(isinstance(proof, dict) and set(proof) == {"boot_id", "configuration_sha256"}
+         and proof["boot_id"] == boot and isinstance(proof["configuration_sha256"], str)
+         and re.fullmatch("[0-9a-f]{64}", proof["configuration_sha256"]), "RECOVERY_OBSERVER_FAILED")
+    return proof
+
+
+def closed_recovery(payload):
+    boot = payload["recovery_boot_id"]
+    need(Path("/proc/sys/kernel/random/boot_id").read_text().strip() == boot, "RECOVERY_BOOT_CHANGED")
+    helper = stage_observer(payload)
+    before = observe_recovery(helper, boot)
+    if payload["phase"] == "recover":
+        result = recover(payload)
+    else:
+        need(payload["phase"] == "recovery-smoke", "RECOVERY_CONTEXT_INVALID")
+        need(before == payload["recovery_observation"], "RECOVERY_OBSERVATION_CHANGED")
+        result = smoke(payload)
+        timer = subprocess.run(["systemctl", "show", "djconnect-watchdog.timer", "--property=ActiveState,UnitFileState", "--no-pager"], capture_output=True, text=True, timeout=8, check=False)
+        condition = subprocess.run(["systemctl", "show", "djconnect-watchdog.service", "--property=ExecCondition", "--no-pager"], capture_output=True, text=True, timeout=8, check=False)
+        fields = dict(line.split("=", 1) for line in timer.stdout.splitlines() if "=" in line)
+        need(timer.returncode == condition.returncode == 0 and fields == {"ActiveState":"active", "UnitFileState":"enabled"}
+             and condition.stdout.strip() == "ExecCondition=", "RECOVERY_WATCHDOG_NOT_RESTORED")
+        need(result["paired"] is True and result["verified_packaged_files"] == 80, "RECOVERY_SMOKE_INVALID")
+    after = observe_recovery(helper, boot)
+    need(before == after, "RECOVERY_OBSERVATION_CHANGED")
+    return {**result, "recovery_observation": after}
+
+
 def main():
     challenge = sys.argv[1];need(re.fullmatch("[0-9a-f]{64}", challenge) is not None)
-    recovery_context = sys.argv[2:] == ["recovery"]
-    need(sys.argv[2:] in ([], ["recovery"]), "REMOTE_CONTEXT_INVALID")
+    recovery_context = sys.argv[2:] in (["recovery"], ["recovery-smoke"])
+    context_phase = "recover" if sys.argv[2:] == ["recovery"] else "recovery-smoke"
+    need(sys.argv[2:] in ([], ["recovery"], ["recovery-smoke"]), "REMOTE_CONTEXT_INVALID")
     initial = identity(challenge)
     if recovery_context:initial["boot_id"] = Path("/proc/sys/kernel/random/boot_id").read_text().strip()
     print(json.dumps(initial), flush=True)
@@ -199,21 +254,25 @@ def main():
     observed = identity(challenge)
     if recovery_context:observed["boot_id"] = Path("/proc/sys/kernel/random/boot_id").read_text().strip()
     need(isinstance(payload, dict) and observed == initial, "TARGET_CHANGED")
-    need(recovery_context == (payload.get("phase") == "recover"), "REMOTE_RECOVERY_CONTEXT_MISMATCH")
+    need((recovery_context and payload.get("phase") == context_phase)
+         or (not recovery_context and payload.get("phase") not in {"recover", "recovery-smoke"}), "REMOTE_RECOVERY_CONTEXT_MISMATCH")
     if payload == {"phase": "readiness"}:
         result = {"result": "TARGET_READY" if installer_permission() else "TARGET_NOT_READY", "current_version": text("/opt/djconnect/current/VERSION"), "services": services()}
     else:
         common = {"phase", "source", "version", "device_profile", "wheel_name", "wheel_sha256", "run_id", "artifact_sha256"}
-        extra = {"artifact"} if payload.get("phase") == "deploy" else ({"recovery_helper", "recovery_boot_id"} if recovery_context else set())
+        extra = {"artifact"} if payload.get("phase") == "deploy" else set()
+        if recovery_context:
+            extra = {"recovery_observer", "recovery_boot_id"}
+            extra |= {"recovery_helper"} if context_phase == "recover" else {"recovery_observation"}
         need(set(payload) == common | extra)
-        need(payload.get("phase") in {"deploy", "smoke", "recover"} and payload.get("version") == VERSION
+        need(payload.get("phase") in {"deploy", "smoke", "recover", "recovery-smoke"} and payload.get("version") == VERSION
             and payload.get("device_profile") == initial["device_profile"]
             and re.fullmatch("[0-9a-f]{40}", payload.get("source", "")) is not None
             and re.fullmatch("[0-9a-f]{64}", payload.get("artifact_sha256", "")) is not None
             and re.fullmatch("[0-9a-f]{64}", payload.get("wheel_sha256", "")) is not None
             and payload.get("wheel_name") == "djconnect_pi-4.0.0rc6-py3-none-any.whl"
             and re.fullmatch("[1-9][0-9]*", payload.get("run_id", "")) is not None)
-        result = deploy(payload) if payload["phase"] == "deploy" else recover(payload) if recovery_context else smoke(payload)
+        result = deploy(payload) if payload["phase"] == "deploy" else closed_recovery(payload) if recovery_context else smoke(payload)
     print(json.dumps(result), flush=True)
 
 

@@ -15,6 +15,7 @@ from test_pi_instance_authority import CONSUMER, Client
 
 from Tools import pi_instance_release as release
 from Tools import pi_rc6_recovery as recovery
+from Tools import pi_wall4_recovery_release as closed
 from Tools.pi_instance_authority import resolve
 from Tools.pi_instance_contract import (
     BindingError,
@@ -31,7 +32,7 @@ def authority_fixture():
     from dataclasses import replace
     from types import MappingProxyType
     request={**dict(old.binding.request),"candidate_sha":recovery.SOURCE,"artifact_sha256":recovery.ARTIFACT_SHA256,"manifest_id":"reviewed-recovery-binding"}
-    return replace(old,binding=replace(old.binding,request=MappingProxyType(request)))
+    return replace(old,binding=replace(old.binding,request=MappingProxyType(request),smoke_contract="pi-rc6-wall4-recovery-readback-v1"))
 
 
 class RecoveryClient:
@@ -165,15 +166,16 @@ def recovery_receipt(authority):
         "recovery_helper_sha256":recovery.HELPER_SHA256}
 
 
-def test_successful_recovery_has_its_own_matching_readonly_smoke():
+def test_generic_v3_smoke_cannot_accept_recovery_receipt():
     authority=authority_fixture();receipt=recovery_receipt(authority)
     run={"head_sha":CONSUMER,"head_branch":"main","path":recovery.WORKFLOW,"event":"workflow_dispatch",
         "status":"completed","conclusion":"success","run_attempt":1,"actor":{"login":"pcvantol"}}
-    release.deployment_record(SimpleNamespace(json=lambda _:run),authority.binding,authority,receipt,RUN)
+    with pytest.raises(BindingError):
+        release.deployment_record(SimpleNamespace(json=lambda _:run),authority.binding,authority,receipt,RUN)
     smoke={**authority.binding.public_join(),"result":"SMOKE_PASS","deployment_workflow_run":RUN,
         "installed_source":recovery.SOURCE,"installed_version":"4.0.0-rc.6","installed_device_profile":recovery.PROFILE,
         "api_reachable":True,"client_active":True,"api_active":True}
-    validate_smoke_join(authority.binding,receipt,smoke,RUN)
+    with pytest.raises(BindingError):validate_smoke_join(authority.binding,receipt,smoke,RUN)
     assert receipt["result"]=="RECOVERED_PENDING_SMOKE"  # Never rewrite the original failed record.
 
 
@@ -187,26 +189,28 @@ def test_partial_or_forged_recovery_cannot_be_a_matching_success(field,value):
 
 def test_recovery_context_is_one_new_main_attempt_not_old_deployment(monkeypatch):
     environment={"GITHUB_ACTIONS":"true","GITHUB_REPOSITORY":release.PI,"GITHUB_SHA":CONSUMER,"GITHUB_RUN_ID":RUN,"GITHUB_RUN_ATTEMPT":"1"}
-    run={"head_sha":CONSUMER,"head_branch":"main","path":recovery.WORKFLOW,"event":"workflow_dispatch","status":"in_progress","actor":{"login":"pcvantol"},"repository":{"full_name":release.PI}}
+    run={"id":int(RUN),"run_attempt":1,"head_sha":CONSUMER,"head_branch":"main","path":recovery.WORKFLOW,"event":"workflow_dispatch","status":"in_progress","actor":{"login":"pcvantol"},"repository":{"full_name":release.PI}}
     monkeypatch.setattr(release.subprocess,"run",Mock(return_value=SimpleNamespace(stdout=CONSUMER+"\n")))
     client=SimpleNamespace(json=lambda _:run)
-    assert release.workflow_context(client,"recover",environment)==(CONSUMER,RUN)
+    assert closed.workflow_context(client,"recover",environment)==(CONSUMER,RUN)
     environment["GITHUB_RUN_ATTEMPT"]="2"
-    with pytest.raises(BindingError):release.workflow_context(client,"recover",environment)
+    with pytest.raises(BindingError):closed.workflow_context(client,"recover",environment)
     environment["GITHUB_RUN_ATTEMPT"]="1";run["path"]=release.WORKFLOWS["deploy"]
-    with pytest.raises(BindingError):release.workflow_context(client,"recover",environment)
+    with pytest.raises(BindingError):closed.workflow_context(client,"recover",environment)
 
 
 @pytest.mark.parametrize("lost",[False,True])
 def test_executor_sends_one_bound_recovery_intent_and_never_replays(monkeypatch,lost):
-    authority=authority_fixture();client=RecoveryClient();calls=[]
-    monkeypatch.setattr(release,"verified_artifact",lambda *_:b"synthetic previously hash-qualified artifact")
-    monkeypatch.setattr(release,"inspect_artifact",lambda *_:SimpleNamespace(wheel_name="djconnect_pi-4.0.0rc6-py3-none-any.whl",wheel_sha256="f"*64))
-    monkeypatch.setattr(release,"current_authority",lambda *_:None)
+    from test_pi_wall4_recovery_contract import authority as fixture
+    authority=fixture();client=RecoveryClient();calls=[]
+    monkeypatch.setattr(closed,"current_intent",lambda *_:None)
+    monkeypatch.setattr(closed,"verified_artifact",lambda *_:b"synthetic previously hash-qualified artifact")
+    monkeypatch.setattr(closed,"inspect_artifact",lambda *_:SimpleNamespace(wheel_name="djconnect_pi-4.0.0rc6-py3-none-any.whl",wheel_sha256="f"*64))
+    monkeypatch.setattr(closed.authority_module,"current",lambda *_:None)
     class Channel:
         sent=False
         recovery_boot_id=BOOT
-        def __init__(self,binding,*,recovery):assert recovery is True
+        def __init__(self,binding,*,recovery,recovery_smoke):assert recovery is True and recovery_smoke is False
         def __enter__(self):return self
         def __exit__(self,*_):pass
         def intent(self,payload,**kwargs):
@@ -216,14 +220,16 @@ def test_executor_sends_one_bound_recovery_intent_and_never_replays(monkeypatch,
             if lost:raise BrokenPipeError("synthetic private error")
             return {"result":"RECOVERED_PENDING_SMOKE","configuration_preserved_by_installer":True,"watchdog_restored":True,
                 "verified_packaged_files":80,"original_deployment_workflow_run":recovery.ORIGINAL_RUN,
+                "recovery_observation":{"boot_id":BOOT,"configuration_sha256":"d"*64},
                 "services":{"djconnect-api.service":{"active":True,"pid":200},"djconnect-client.service":{"active":True,"pid":201}}}
-    monkeypatch.setattr(release,"Channel",Channel)
+    monkeypatch.setattr(closed,"Channel",Channel)
     if lost:
-        with pytest.raises(release.PhaseFailure) as failed:release.execute(client,authority,"recover",RUN)
+        with pytest.raises(release.PhaseFailure) as failed:closed.execute(client,authority,"recover",RUN)
         assert failed.value.record["result"]=="RECOVERY_INCONCLUSIVE" and failed.value.record["intent_dispatched"] is True
         assert failed.value.record["remote_may_still_be_running"] is True
         assert "private error" not in str(failed.value.record)
     else:
-        receipt=release.execute(client,authority,"recover",RUN)
-        assert recovered_deployment(authority.binding,receipt,RUN)
+        receipt=closed.execute(client,authority,"recover",RUN)
+        assert receipt["result"]=="RECOVERED_PENDING_SMOKE" and receipt["recovery_workflow_run"]==RUN
+        assert receipt["original_deployment_workflow_run"]==recovery.ORIGINAL_RUN
     assert len(calls)==1

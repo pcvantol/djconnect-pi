@@ -65,8 +65,8 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       PI_INPUTS_JSON: ${{ toJSON(inputs) }}
-      PI_RC6_OPERATIONAL_CORE_SHA: ${{ vars.PI_RC6_OPERATIONAL_CORE_SHA }}
-      PI_RC6_OPERATIONAL_MANIFEST_SHA256: ${{ vars.PI_RC6_OPERATIONAL_MANIFEST_SHA256 }}
+      PI_RC6_WALL4_RECOVERY_CORE_SHA: ${{ vars.PI_RC6_WALL4_RECOVERY_CORE_SHA }}
+      PI_RC6_WALL4_RECOVERY_MANIFEST_SHA256: ${{ vars.PI_RC6_WALL4_RECOVERY_MANIFEST_SHA256 }}
     steps:
       - name: Checkout exact consumer
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -84,7 +84,7 @@ jobs:
           python -m pip --isolated install --no-cache-dir --disable-pip-version-check --no-input --only-binary=:all: --requirement Tools/pi_deployment_requirements.lock
       - name: Require approved operational manifest source
         run: |
-          python -m Tools.pi_instance_release --operation recover --prepare
+          python -m Tools.pi_wall4_recovery_release --operation recover --prepare
       - name: Canonical deployment readiness preflight
         uses: pcvantol/djconnect/.github/actions/deployment-readiness-preflight@802619ac1ab3ec11eace7a8609167018193bb98e
         with:
@@ -95,20 +95,20 @@ jobs:
           artifact_sha256: ${{ inputs.artifact_sha256 }}
           expected_runner_os: macOS
           expected_runner_arch: ARM64
-          required_configuration: PI_INSTANCE_ENDPOINT_REF,PI_INSTANCE_SSH_CONFIG,GH_TOKEN,PI_RC6_OPERATIONAL_CORE_SHA,PI_RC6_OPERATIONAL_MANIFEST_SHA256
-          smoke_contract: pi-rc6-instance-readback-v1
+          required_configuration: PI_INSTANCE_ENDPOINT_REF,PI_INSTANCE_SSH_CONFIG,GH_TOKEN,PI_RC6_WALL4_RECOVERY_CORE_SHA,PI_RC6_WALL4_RECOVERY_MANIFEST_SHA256
+          smoke_contract: pi-rc6-wall4-recovery-readback-v1
       - name: Record successful canonical preflight
         run: |
           echo "PI_CANONICAL_PREFLIGHT_PASSED=true" >> "$GITHUB_ENV"
       - name: Recover exact approved interrupted installation
         run: |
-          python -m Tools.pi_instance_release --operation recover
+          python -m Tools.pi_wall4_recovery_release --operation recover
       - name: Preserve redacted instance evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
-          name: pi-deployment-evidence-${{ inputs.deployment_instance }}
-          path: ${{ runner.temp }}/pi-qualified-instance-${{ github.run_id }}-${{ github.run_attempt }}/pi-deploy-evidence.json
+          name: pi-wall4-recovery-evidence
+          path: ${{ runner.temp }}/pi-qualified-wall4-recovery-${{ github.run_id }}-1/pi-recover-evidence.json
           if-no-files-found: warn
       - name: Publish scoped instance decision
         if: always()

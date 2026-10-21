@@ -40,7 +40,7 @@ def protocol(monkeypatch, tmp_path):
         if record.get("recovery"):
             boot = record.get("boot", "01234567-89ab-cdef-0123-456789abcdef")
             source += "\n_original_path = Path\ndef Path(value):\n    if str(value) == '/proc/sys/kernel/random/boot_id': return type('Boot', (), {'read_text': lambda self: "+repr(boot)+"})()\n    return _original_path(value)\n"
-            source += "def recover(payload):\n    with open("+repr(str(record["marker"]))+", 'a') as marker: marker.write('recovery\\n')\n    return {'result': 'RECOVERED_PENDING_SMOKE'}\n"
+            source += "def closed_recovery(payload):\n    with open("+repr(str(record["marker"]))+", 'a') as marker: marker.write('recovery\\n')\n    return {'result': 'RECOVERED_PENDING_SMOKE'}\n"
         source += "main()\n"
         return original([sys.executable, "-u", "-c", source, challenge, *remote[5:]], **kwargs)
     monkeypatch.setattr(wire.subprocess, "Popen", process)
@@ -83,7 +83,7 @@ def recovery_payload(channel):
     return {"phase": "recover", "version": "4.0.0-rc.6", "source": "a"*40,
         "device_profile": "pi-zero-2w-arm64", "artifact_sha256": "f"*64,
         "wheel_name": "djconnect_pi-4.0.0rc6-py3-none-any.whl", "wheel_sha256": "e"*64, "run_id": "50000000000",
-        "recovery_helper": "synthetic intercepted helper", "recovery_boot_id": channel.recovery_boot_id}
+        "recovery_observer": "synthetic intercepted observer", "recovery_helper": "synthetic intercepted helper", "recovery_boot_id": channel.recovery_boot_id}
 
 
 def test_real_pipe_recovery_binds_boot_and_sends_one_intent(protocol):
