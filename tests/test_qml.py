@@ -707,8 +707,11 @@ def test_qml_screen_blanking_wakes_on_tap() -> None:
     assert "root.suppressNextNowPanelTap = false" in main_qml
     assert "root.splashVisible = true" not in record_activity
     assert "splashTimer.restart()" not in record_activity
-    assert "root.contentItem.grabToImage" in main_qml
-    assert "Qt.size(root.width, root.height)" in main_qml
+    screenshot_handler = main_qml[main_qml.index("function onScreenshotRequested()") : main_qml.index("function onDebugScreenRequested(screen)")]
+    assert "root.wakeDisplay()" in screenshot_handler
+    assert "Qt.callLater(function()" in screenshot_handler
+    assert "djconnect.saveWindowScreenshot(root)" in screenshot_handler
+    assert "grabToImage" not in screenshot_handler
     assert "z: -1000" in main_qml
     activity_catcher = main_qml[main_qml.rindex("MouseArea {") : main_qml.index("Rectangle {\n        anchors.fill: parent\n        color: \"#000000\"")]
     assert "z: 199" in activity_catcher
@@ -718,7 +721,6 @@ def test_qml_screen_blanking_wakes_on_tap() -> None:
     assert "root.recordActivity()" in activity_catcher
     assert "mouse.accepted = false" in activity_catcher
     assert "color: root.color" in main_qml
-    assert "result.saveToFile(djconnect.screenshotFile)" in main_qml
     assert "function onWakeScreenRequested()" in main_qml
     assert "forcedWakeTimer.restart()" in main_qml
     assert "opacity: root.screenBlanked ? 1 : root.brightnessOverlayOpacity" in main_qml

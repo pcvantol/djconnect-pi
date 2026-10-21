@@ -2101,3 +2101,22 @@ See docs/PI_TWO_HOST_CONSUMER.md for the closed Core contract/inventory pins,
 236 dedicated offline cases, actual read-only identity observations and
 remaining exact review/publication/operational gates. Neither rc.5 installation
 nor installed screenshots are claimed. Runtime app bytes remain at42dac367.
+
+
+## Native screenshot repair source qualification — 21 October 2026
+
+The installed rc.5 capture timeout is reproduced locally with the same Qt 6.11.2:
+the native ApplicationWindow content item lacks the QML engine required by
+`grabToImage`. The repair captures the actual QQuickWindow, saves a complete PNG
+atomically, and invokes the existing temporary X11 display wake before capture.
+It includes modal overlays and preserves the configured brightness treatment.
+The existing screenshot endpoint and request-event path are unchanged.
+
+Local evidence is 1715 full tests without skips, 41 focused checks and20 actual
+isolated daemon/QML/PNG requests on both formats/all five locales, with zero QML
+errors or binding loops. Startup/font and fixture diagnostics are preserved.
+See `TESTS.md` and `taskvisualizations/pi-native-screenshot-audit`. This does not
+replace real hardware wake/capture verification after an approved distinct
+release. The installed EADB rc.5 files, services, configuration and pairing are
+unchanged. Peter deferred HA-dev authentication, so Pi10 pairing and the active
+Session click test remain parked until human resumption.

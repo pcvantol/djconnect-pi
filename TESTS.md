@@ -150,7 +150,7 @@ HTTP-only unless HA advertises a websocket command for it.
   text
 - backend availability property coverage for red/green kiosk connection status
 - local Client API debug screenshot route, API-daemon screenshot event file and
-  QML `grabToImage` capture contract
+  QML-to-window screenshot capture contract
 - loopback-only local Client API debug screen switching and screenshot
   response coverage
 - backend notification toast state
@@ -1168,3 +1168,37 @@ install/smoke receipts; that local WIP check is not qualified workflow evidence.
 Both device installations and individual smoke checks are separate actual proof.
 The new live Pi10/HA-dev active-Session click test is not yet performed: normal
 HA-dev two-factor login and existing native VNC authentication are pending.
+
+
+## Native screenshot capture on Qt 6.11 — 21 October 2026
+
+The unchanged `ApplicationWindow.contentItem.grabToImage` path reproduces the
+installed Qt 6.11.2 `item has no QML engine` failure on both local canvas sizes.
+The screenshot signal now performs the existing transient X11 wake and defers a
+backend capture of the actual `QQuickWindow`. PNG storage uses `QSaveFile` so a
+failed encode cannot expose a partial image. No API, pairing, Profile, display
+configuration, Session or playback command changes are introduced.
+
+Eight new storage/error-path cases plus existing QML/API-daemon checks pass
+(41 focused tests). The complete local suite, using both existing locked test
+environments and permitted loopback sockets, passes 1715 tests with no skips.
+The earlier restricted run is retained separately: 1472 passed, 20 skipped and
+one pytest cache-permission warning. Ruff 0.16.0 and diff checks pass.
+
+Twenty actual isolated Qt daemon-event-to-QML-to-PNG requests cover both
+720x720 and1200x1920, all five languages, pairing/About overlays, and logical
+idle blanking. Each decoded image has the expected dimensions and visible
+pixels, the daemon returns identical PNG bytes, and capture finishes within
+0.519 seconds. X11 wake commands are mocked; no network or real OS commands
+run. No QML errors or binding loops occur. One macOS font-alias startup warning
+is preserved. The initial fixture's missing QML-ID context and ambiguous timer
+selection diagnostics are also retained; the final harness resolves the real
+component context without changing production idle behavior. An initial
+encoder-failure test exposed a temporary file retained by the mock; cancelling
+and finishing the QSaveFile transaction removes it explicitly.
+
+Evidence: `taskvisualizations/pi-native-screenshot-audit`. Both format images
+were inspected. These are local synthetic captures, not new installed captures,
+ARM or physical wake/touch acceptance. Both existing rc.5 installs and immutable
+release assets remain unchanged. New runtime bytes need the normal independent
+review, protected source, separate Finalization and distinct release delivery.

@@ -1107,10 +1107,9 @@ BrandWindow {
             root.restartIdleTimer()
             forcedWakeTimer.interval = 10000
             forcedWakeTimer.restart()
+            root.wakeDisplay()
             Qt.callLater(function() {
-                root.contentItem.grabToImage(function(result) {
-                    result.saveToFile(djconnect.screenshotFile)
-                }, Qt.size(root.width, root.height))
+                djconnect.saveWindowScreenshot(root)
             })
         }
         function onDebugScreenRequested(screen) {

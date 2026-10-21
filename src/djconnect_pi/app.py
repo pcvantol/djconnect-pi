@@ -23,6 +23,7 @@ from PySide6.QtCore import (
     QCoreApplication,
     QIODevice,
     QObject,
+    QSaveFile,
     Qt,
     QTimer,
     QUrl,
@@ -31,6 +32,7 @@ from PySide6.QtCore import (
 )
 from PySide6.QtGui import QDesktopServices, QGuiApplication, QIcon, QPixmapCache
 from PySide6.QtQml import QQmlApplicationEngine
+from PySide6.QtQuick import QQuickWindow
 from PySide6.QtQuickControls2 import QQuickStyle
 
 from .brand_theme import apply_palette
@@ -997,6 +999,28 @@ class DJConnectBackend(QObject):
                 subprocess.run(command, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             except OSError as exc:
                 _LOGGER.debug("Could not run display wake command %s: %s", command, exc)
+
+    @Slot(QObject, result=bool)
+    def saveWindowScreenshot(self, window: QObject) -> bool:
+        # ApplicationWindow.contentItem is a native Qt item without a QML
+        # engine in Qt 6.11. Capture the actual window, including its overlays.
+        if not isinstance(window, QQuickWindow):
+            return False
+        try:
+            if not window.isVisible():
+                return False
+            image = window.grabWindow()
+            if image.isNull():
+                return False
+            target = QSaveFile(self.cfg.screenshot_file)
+            if not target.open(QIODevice.OpenModeFlag.WriteOnly):
+                return False
+            if not image.save(target, "PNG"):
+                target.cancelWriting()
+            return target.commit()
+        except RuntimeError as exc:
+            _LOGGER.warning("Could not capture debug screenshot: %s", exc)
+            return False
 
     @Slot()
     def previous(self) -> None:
