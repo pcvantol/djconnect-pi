@@ -2335,3 +2335,17 @@ Original raw/code fixtures unchanged; runtime80/helperc395/observer4ae5/installe
 lock/workflows unchanged. No new Qt/ARM/installed/smoke/touch/Spotify claim.
 See docs/PI_RC6_WALL4_LATEST_FAILURE_PREPARATION.md for remaining producer/
 matchingconsumer/protectedsource/Final/operative gates and retained diagnostics.
+
+### Nested latest-failure descriptor compatibility
+
+Selected Core V3 draft compatibility remains preparation-only, with no production
+producer adoption or recovery workflow integration. A strict bounded recursive
+constant-object decoder handles nested V2/V1 facts; the typed historical descriptor
+omits local evidence_bytes and includes original classification. 72 more cases;
+245 focused PASS;FULL3262 integrated PASS/no skips47.33s; Ruff0.16/diff PASS.
+The prior3190 full run remains earlier component evidence. Three actual Core
+PR1290/fe3a235 API blobs were hash/gitblob verified only for compatibility.
+External1positive49negative schema checks are separate synthetic audit evidence,
+not additional product tests or a released producer. Original runtime80/helper/
+observer/workflows/installer/lock are unchanged. No new device intent, installation,
+smoke, Qt/ARM/touch/Spotify or screen-restoration result. See the preparation doc.

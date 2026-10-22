@@ -55,3 +55,40 @@ Code inspection corrected it before final qualification; a new independent
 assertion compares the nested object with both original raw and released V1
 constants. An unused test import was removed. The earlier172 focused result is
 intermediate, replaced by173 final. No assertions or product gates were relaxed.
+
+## Nested descriptor compatibility with selected Core draft
+
+Core draft PR1290/headfe3a235b8b811d893d3362b20d33245084da245d provides a
+concrete V3/schema6 proposal. Its three normative API blobs were independently
+matched to the owner's exact SHA256 and git blob IDs for compatibility only.
+They are not installed under Tools/pi_contract and are not dispatch authority.
+The extracted historical-descriptor rule in tests is a draft compatibility
+fixture, not a released producer schema. It is semantically identical to that
+rule in the corrected selected Core draft; it is not a byte-copy of a whole
+normative file.
+
+latest_descriptor() returns only the closed historical descriptor. It excludes
+local evidence_bytes and retains the original classification and nested V1
+record. constant_descriptor() replaces a flat-only extraction assumption with a
+bounded recursive decoder: at most8 levels,256 nodes,64 required keys per object;
+only exact closed objects or primitive constants; no references or optional,
+duplicate or unknown schema controls. matches_latest_descriptor() uses recursive
+type-strict equality, preserving bool/int distinctions. These methods perform
+no network or device operation and grant no execution authority. Production V3
+workflow/authority integration remains pending a released producer and its
+actual source/Final pins; the live V2 routes are untouched.
+
+72 more cases;245 focused including both earlier failure validators PASS;
+FULL3262 integrated PASS/no skips47.33s; Ruff0.16/diff PASS. The earlier3190 full
+run remains component evidence. Separate synthetic external compatibility audit
+on the actual selected draft:1positive49negative, exact descriptor and nested
+V1 equality, explicit V3path and old V2path rejection; no operative example was
+exported. These49 checks are not49 new product tests or producer qualification.
+Initial new-test import formatting diagnostics were corrected without assertion
+changes; both focused runs passed. Runtime80/helper/observer/workflows remain
+unchanged, with no device intent, installation, smoke or screen-restoration claim.
+
+The first private draft preview contained a V2 manifest_path. Its original bytes
+and an explicit failing V3path assertion are retained as intermediate diagnostics;
+Core corrected the path before headfe3a235. That first preview was never adopted
+as a product contract, operative binding or device authority.

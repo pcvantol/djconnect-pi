@@ -13,3 +13,11 @@ they do not cancel, retry, create/clear a claim, or execute an installer.
 Keep these bytes and the nested original V1 failure unchanged. This V2 fixture
 has schema/kind/helper/observer fields; absent inputs or local diagnostic fields
 must not be manufactured. Historical uncertainty remains historical uncertainty.
+
+latest_descriptor_draft_rule.json is an extracted, normalized JSON rule from
+Core's selected V3 draft, independently compared with the corrected PR1290 head
+fe3a235b8b811d893d3362b20d33245084da245d. It is only a test fixture for the
+historical descriptor's shape. It is not a full normative file, released
+producer, adopted Tools/pi_contract pin or dispatch permission. The normative
+contract/request/manifest remain separately gated. Original V2 raw/code files
+above are unchanged.

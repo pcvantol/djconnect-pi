@@ -243,3 +243,60 @@ def latest_failure(client):
     require(exact_json(record, joined), "PREVIOUS_RECEIPT_JOIN_INVALID")
     # These are actual historical facts, never current cancellation or retry authority.
     return record
+
+
+def latest_descriptor():
+    """Exact historical public descriptor; never current execution authority."""
+    value = latest_spec()
+    value.pop("evidence_bytes")  # Local evidence metadata is not a contract field.
+    value["classification"] = "INCOMPLETE_REQUIRES_ACTUAL_STATE_REVIEW"
+    return value
+
+
+def constant_descriptor(rule):
+    """Decode only a bounded, recursively closed constant-object schema."""
+    budget = [256]
+
+    def decode(value, depth):
+        budget[0] -= 1
+        require(
+            budget[0] >= 0 and depth <= 8 and isinstance(value, dict),
+            "LATEST_FAILURE_SCHEMA_NOT_CLOSED",
+        )
+        if set(value) == {"const"}:
+            literal = value["const"]
+            require(
+                type(literal) in (str, int, bool), "LATEST_FAILURE_SCHEMA_NOT_CLOSED"
+            )
+            require(
+                not isinstance(literal, str) or len(literal) <= 4096,
+                "LATEST_FAILURE_SCHEMA_NOT_CLOSED",
+            )
+            return literal
+        require(
+            set(value) == {"type", "additionalProperties", "properties", "required"}
+            and value["type"] == "object"
+            and value["additionalProperties"] is False,
+            "LATEST_FAILURE_SCHEMA_NOT_CLOSED",
+        )
+        properties = value["properties"]
+        required = value["required"]
+        require(
+            isinstance(properties, dict)
+            and 0 < len(properties) <= 64
+            and isinstance(required, list)
+            and all(isinstance(k, str) and 0 < len(k) <= 128 for k in required)
+            and len(required) == len(set(required))
+            and set(required) == set(properties),
+            "LATEST_FAILURE_SCHEMA_NOT_CLOSED",
+        )
+        return {key: decode(properties[key], depth + 1) for key in required}
+
+    result = decode(rule, 0)
+    require(isinstance(result, dict), "LATEST_FAILURE_SCHEMA_NOT_CLOSED")
+    return result
+
+
+def matches_latest_descriptor(rule):
+    """Compatibility equality only; caller still needs released authority and fresh reads."""
+    return exact_json(constant_descriptor(rule), latest_descriptor())
