@@ -101,6 +101,7 @@ def test_one_intent_explicit_smoke_and_uncertainty_no_replay(monkeypatch,operati
     c=Client(operation);a=authority();calls=[]
     monkeypatch.setattr(release.component,"original_failure",lambda *_:None)
     monkeypatch.setattr(release,"previous_failure",lambda *_:None)
+    monkeypatch.setattr(release,"latest_failure",lambda *_:None)
     monkeypatch.setattr(release,"verified_artifact",lambda *_:b"synthetic")
     monkeypatch.setattr(release,"inspect_artifact",lambda *_:SimpleNamespace(wheel_name="djconnect_pi-4.0.0rc6-py3-none-any.whl",wheel_sha256="f"*64))
     monkeypatch.setattr(release.authority_module,"current",lambda *_:None)

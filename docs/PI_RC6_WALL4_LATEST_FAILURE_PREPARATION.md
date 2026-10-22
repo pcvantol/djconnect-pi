@@ -116,3 +116,61 @@ After the exact Core-owner retention receipt, a fresh actual-root verify returne
 MATCH in pi-parser-after-owner-retention-hostverify.log. The earlier DRIFT log
 and metadata remain preserved. Pi changed no other-lane file. This is current
 host readiness, not source, operative or device-recovery approval.
+
+## Current V3 matching-consumer preparation (22 October, successor of ecb09bb)
+
+The live recovery/smoke source now selects only V3/schema6, its separate fixed
+path/config pair and readback-v3. Actual Core protected source96de4e1f026ae60b332ed49fd0185ba16a122c5f
+and separate Final103dc6c58862b9ef277fbaa02d59039d5f13eefe are explicit pins,
+not future placeholders. The three original normative API files from the Final
+match the source and exact SHA256. Source status is qualified; the actual Final
+status still fails the unchanged canonical validator. Resolve requires both
+qualifications before reading an operative file. No V3 operative binding, pair
+update or dispatch exists; preparation is not an install/retry approval.
+
+The original deployment, V1 and latest V2 provenance are read independently before
+execution and after the single intent. The receipt carries the complete exact
+latest V2 descriptor including its unchanged V1 nested object. The historical V1
+reader now uses its own original facts, independent of the live successor version;
+these equal the original protected V2 schema. Missing/revoked evidence fails
+closed, including after an effect where the outcome stays inconclusive. No POST
+replay, ledger reset, new hold, root capability or helper changes were added.
+The new consumer must descend from2e747 and cannot be the failed2e747 consumer
+itself. The HTTP ancestor allowlist adds only that literal fixed base. Old V2
+config names and Core/manifest pins, old/mixed schemas and paths fail closed.
+Both real workflows use only the V3 config pair and smoke discriminator.
+
+Full3307 integrated PASS/no skips48.89s; Ruff0.16/diff PASS; ten actual workflow
+Bash blocks pass bash-n. Runtime80/installer/lock/helperc395/observer4ae5 remain
+unchanged. No new Qt/ARM/runtime-package/installed/smoke/display/touch/Spotify result.
+Current host verification reports thirteen newly expired Core verification files;
+only path/stat metadata were read and sent to the authorized owner. No protected
+push or device effects on this host state. Earlier MATCH evidence is historical.
+
+Diagnostics retained: first collection rejected stale V2 filenames against new
+V3 hashes; filenames corrected, not hash checks. Two historical V1 fixture
+assertions used the live descriptor and were made explicitly historical, with
+an added independent original-schema equality assertion. First full run had
+3305PASS/2FAIL because two no-replay fixtures omitted the new latest reader seam;
+only those synthetic fixture seams were added, all original effect assertions
+remain. Import/dict-literal lint and restricted cache-write diagnostics retained.
+An attempted Core-archive download through the intentionally Pi-scoped reader
+was rejected (GITHUB_READ_NOT_READY); its production scope was not broadened.
+The owner-retained original Source raw10158B/SHA7bde473ede0ecddf9b1b2ebb8a8c743fdf5fb1fae17cef02fece8a435428837c
+was independently byte/hash checked, separate from actual API status validation.
+
+Final qualification supersedes the intermediate3307 run:3311 integrated PASS/no
+skips49.78s; the final36 successor-conformance cases PASS0.39s and the preceding
+focused509 PASS2.59s remain separate evidence. Four new causal cases add a queued
+physical intent during historical proof reads. The post-effect case failed on
+the original preparation source; a final authority/current-intent recheck now
+follows those reads, preserving one effect and an inconclusive outcome on loss
+of currentness. Two first smoke fixtures had the wrong recovery title prefix;
+that fixture was corrected without weakening any filter/assertion. Failed and
+intermediate logs remain retained, not counted as final PASS.
+
+After concrete owner cleanup progress, a fresh actual-root native verify is
+MATCH (pi-v3-preparation-after-owner-progress-hostverify.log). Prior13-file DRIFT
+remains historical; Pi performed no cleanup/repair/other-lane source write.
+This allows source review preparation, not device execution. Actual CoreFinal
+canonical qualification and a later qualified V3 operative binding remain open.

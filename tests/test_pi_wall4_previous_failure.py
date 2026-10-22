@@ -22,7 +22,7 @@ RAW = (FIXTURE/"inconclusive_receipt.json").read_bytes()
 
 class Client:
     def __init__(self):
-        spec = authority.previous_spec()
+        spec = previous.previous_spec()
         self.run = {"id":int(spec["workflow_run_id"]), "head_sha":spec["consumer_sha"], "head_branch":"main",
             "path":spec["workflow_path"], "event":"workflow_dispatch", "status":"completed", "conclusion":"failure",
             "run_attempt":1, "actor":{"login":"pcvantol"}, "repository":{"full_name":previous.PI},
@@ -62,7 +62,7 @@ def qualified_without_network(monkeypatch):
 
 
 def test_actual_prior_receipt_accepts_missing_nonexistent_fields_and_keeps_uncertainty(qualified_without_network):
-    assert hashlib.sha256(RAW).hexdigest() == authority.previous_spec()["evidence_sha256"]
+    assert hashlib.sha256(RAW).hexdigest() == previous.previous_spec()["evidence_sha256"]
     c = Client();record = previous.previous_failure(c)
     assert record == json.loads(RAW)
     assert record["intent_dispatched"] is True and record["remote_may_still_be_running"] is True

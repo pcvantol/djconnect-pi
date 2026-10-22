@@ -276,7 +276,7 @@ def test_spec_returns_an_independent_nested_value():
 
 
 def test_latest_spec_preserves_exact_original_v1_nested_provenance():
-    from Tools.pi_wall4_recovery_authority import previous_spec
+    from Tools.pi_wall4_previous_failure import previous_spec
 
     record = json.loads(RAW)
     spec = previous.latest_spec()

@@ -151,14 +151,15 @@ def test_descriptor_mutation_never_changes_original_nested_values():
 
 
 def test_released_v2_flat_descriptor_is_preserved_by_recursive_decoder():
+    import json
+
     from Tools import pi_wall4_recovery_authority as authority
     from Tools.pi_json_equivalence import exact_json as neutral_equal
-
-    rule = authority.contracts()["PI_RC6_WALL4_RECOVERY_MANIFEST_V2.schema.json"][
+    rule = json.loads((Path(authority.__file__).parent / "pi_contract/PI_RC6_WALL4_RECOVERY_MANIFEST_V2.schema.json").read_text())[
         "properties"
     ]["recovery"]["properties"]["previous_recovery_attempt"]
     original = {k: rule["properties"][k]["const"] for k in rule["required"]}
-    assert neutral_equal(authority.previous_spec(), original)
+    assert neutral_equal(latest.constant_descriptor(rule), original)
     assert authority.exact_json is neutral_equal
     assert not latest.matches_latest_descriptor(rule)  # No implicit V3 adoption.
 

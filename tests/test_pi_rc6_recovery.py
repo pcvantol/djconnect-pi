@@ -205,6 +205,7 @@ def test_executor_sends_one_bound_recovery_intent_and_never_replays(monkeypatch,
     authority=fixture();client=RecoveryClient();calls=[]
     monkeypatch.setattr(closed,"current_intent",lambda *_:None)
     monkeypatch.setattr(closed,"previous_failure",lambda *_:None)
+    monkeypatch.setattr(closed,"latest_failure",lambda *_:None)
     monkeypatch.setattr(closed,"verified_artifact",lambda *_:b"synthetic previously hash-qualified artifact")
     monkeypatch.setattr(closed,"inspect_artifact",lambda *_:SimpleNamespace(wheel_name="djconnect_pi-4.0.0rc6-py3-none-any.whl",wheel_sha256="f"*64))
     monkeypatch.setattr(closed.authority_module,"current",lambda *_:None)

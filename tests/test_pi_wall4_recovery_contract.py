@@ -19,8 +19,8 @@ from Tools.pi_rc6_recovery import HELPER_SHA256, ORIGINAL_CORE, ORIGINAL_MANIFES
 
 def fixtures():
     request, manifest, published = old_fixtures()
-    manifest.update(schema_version=5, kind="platform_release_recovery_operational_manifest",
-        manifest_id="release-4.0.0-rc.6-pi-wall4-recovery-v2-SYNTHETIC", candidate_sha=wire.SOURCE)
+    manifest.update(schema_version=6, kind="platform_release_recovery_operational_manifest",
+        manifest_id="release-4.0.0-rc.6-pi-wall4-recovery-v3-SYNTHETIC", candidate_sha=wire.SOURCE)
     manifest["consumer"].update(smoke_contract_id=wire.SMOKE, recovery_contract_id=wire.CONTRACT)
     manifest["repositories"][0].update(source_sha=wire.SOURCE, artifact_run="39658681213")
     manifest["required_targets"] = manifest["required_targets"][:1]
@@ -169,7 +169,7 @@ def test_full_immutable_authority_resolution_and_currentness_without_effects(mon
                 return {"path":wire.PATH,"type":"file","encoding":"base64","content":base64.b64encode(body).decode(),"sha":hashlib.sha1(b"blob "+str(len(body)).encode()+b"\0"+body).hexdigest()}
             if "/compare/" in path:
                 assert "..."+CONSUMER+"?" in path
-                return {"status":"diverged" if case=="notdescendant" else "ahead","merge_base_commit":{"sha":"77fc4047f797066876c5345e8e43b346ab96d782"}}
+                return {"status":"diverged" if case=="notdescendant" else "ahead","merge_base_commit":{"sha":"2e7479d0d15aa11ad3bff4c8103c18dbb1f2c32a"}}
             if "/releases/tags/" in path:
                 return {"tag_name":"v"+wire.VERSION,"draft":False,"prerelease":True,"assets":[
                     {"name":"djconnect-pi-"+wire.VERSION+"-release-manifest.json","id":1,"state":"uploaded","size":1000},

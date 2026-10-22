@@ -2364,3 +2364,27 @@ retention DRIFT is recorded separately; no delivery/effect readiness claim.
 Fresh actual-root verification after the exact owner retention receipt returned
 MATCH; the earlier DRIFT remains a diagnostic. No source or device GO follows
 from host readiness alone.
+
+### V3 latest-failure matching consumer preparation
+
+The dedicated recovery and separate smoke now select only schema6/V3, exact
+CoreSource96de/Final103dc6 and three original hash-pinned normative files. Final's
+actual canonical qualification remains missing, so execution stays fail-closed.
+Original deploy+V1+V2 proof chains are checked before/after one intent; the full
+latest descriptor and original nested V1 remain exact. Fixed2e747 ancestry route,
+old/mixed pair/schema/version rejection, pending Source/Final rejection before
+network/effects, and before/after proof withdrawal are covered. Historical V1
+fixtures explicitly use original facts, checked against the original V2 schema.
+Full3307 PASS/no skips48.89s; Ruff0.16/diff and ten real Bash blocks PASS. The
+first full3305PASS/2FAIL is retained as failed fixture-integration diagnostic.
+Runtime80/root helper/observer/installer/lock unchanged; no new installed, Qt,
+ARM, smoke, screen or Spotify claim. Current host13-file retention DRIFT blocks
+protected push/effects pending owning resolution. No operative V3 authority.
+
+Final successor source:FULL3311 PASS/no skips49.78s, Ruff/diff PASS. The36 final
+conformance cases include queued physical intent arrival before/after the last
+provenance read; a final authority/currentness check rejects late supersession
+without replay. Intermediate3307 and failed causal/fixture runs are retained
+separately. Fresh native host verify after concrete owner progress returned MATCH;
+previous13-file DRIFT is historical. CoreFinal qualification and distinct V3
+operative binding remain required; no physical repair is asserted.
