@@ -126,7 +126,7 @@ def recover(payload):
          and payload["artifact_sha256"] == "d67869ffca53c4936059bdbbdbdf6be63b36eafac269fa2f3f9b090922cd0d64", "RECOVERY_SCOPE_INVALID")
     need(installer_permission(), "INSTALLER_NOT_AUTHORIZED")
     code = base64.b64decode(payload["recovery_helper"], validate=True)
-    need(len(code) <= 65536 and hashlib.sha256(code).hexdigest() == "11ce41115c7aa5ac34e568f3ea9008915f342bc3272850b56c61eed19a760ab9", "RECOVERY_HELPER_BYTES_CHANGED")
+    need(len(code) <= 65536 and hashlib.sha256(code).hexdigest() == "c395af61f47c42633c65013d61853c66c442781832ed4225d035d9209e9f0be2", "RECOVERY_HELPER_BYTES_CHANGED")
     boot = Path("/proc/sys/kernel/random/boot_id").read_text().strip()
     need(boot == payload["recovery_boot_id"] and re.fullmatch(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}", boot), "RECOVERY_BOOT_CHANGED")
     stage = Path.home()/"djconnect-install"/("djconnect-pi-rc6-recovery-"+payload["run_id"])

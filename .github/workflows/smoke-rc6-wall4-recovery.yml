@@ -66,8 +66,8 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       PI_INPUTS_JSON: ${{ toJSON(inputs) }}
-      PI_RC6_WALL4_RECOVERY_CORE_SHA: ${{ vars.PI_RC6_WALL4_RECOVERY_CORE_SHA }}
-      PI_RC6_WALL4_RECOVERY_MANIFEST_SHA256: ${{ vars.PI_RC6_WALL4_RECOVERY_MANIFEST_SHA256 }}
+      PI_RC6_WALL4_RECOVERY_V2_CORE_SHA: ${{ vars.PI_RC6_WALL4_RECOVERY_V2_CORE_SHA }}
+      PI_RC6_WALL4_RECOVERY_V2_MANIFEST_SHA256: ${{ vars.PI_RC6_WALL4_RECOVERY_V2_MANIFEST_SHA256 }}
     steps:
       - name: Checkout exact consumer
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -96,8 +96,8 @@ jobs:
           artifact_sha256: ${{ inputs.artifact_sha256 }}
           expected_runner_os: macOS
           expected_runner_arch: ARM64
-          required_configuration: PI_INSTANCE_ENDPOINT_REF,PI_INSTANCE_SSH_CONFIG,GH_TOKEN,PI_RC6_WALL4_RECOVERY_CORE_SHA,PI_RC6_WALL4_RECOVERY_MANIFEST_SHA256
-          smoke_contract: pi-rc6-wall4-recovery-readback-v1
+          required_configuration: PI_INSTANCE_ENDPOINT_REF,PI_INSTANCE_SSH_CONFIG,GH_TOKEN,PI_RC6_WALL4_RECOVERY_V2_CORE_SHA,PI_RC6_WALL4_RECOVERY_V2_MANIFEST_SHA256
+          smoke_contract: pi-rc6-wall4-recovery-readback-v2
       - name: Record successful canonical preflight
         run: |
           echo "PI_CANONICAL_PREFLIGHT_PASSED=true" >> "$GITHUB_ENV"

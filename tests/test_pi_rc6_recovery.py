@@ -125,7 +125,7 @@ def test_exact_helper_pin_matches_checked_source_and_remote_constant():
     assert base64.b64decode(recovery.helper_bytes())==raw
     remote=Path(release.__file__).with_name("pi_instance_remote_payload.py").read_text()
     assert recovery.HELPER_SHA256 in remote
-    contract=Path(release.__file__).with_name("pi_instance_contract.py").read_text()
+    contract=(Path(release.__file__).parent/"pi_contract/PI_RC6_WALL4_RECOVERY_CONTRACT_V2.md").read_text()
     assert recovery.HELPER_SHA256 in contract
 
 
@@ -163,7 +163,7 @@ def recovery_receipt(authority):
     return {**authority.receipt(),"kind":"djconnect_pi_recovery_evidence","result":"RECOVERED_PENDING_SMOKE",
         "deployment_workflow_run":RUN,"recovery_workflow_run":RUN,"original_deployment_workflow_run":recovery.ORIGINAL_RUN,
         "watchdog_restored":True,"configuration_preserved_by_installer":True,"verified_packaged_files":80,
-        "recovery_helper_sha256":recovery.HELPER_SHA256}
+        "recovery_helper_sha256":"11ce41115c7aa5ac34e568f3ea9008915f342bc3272850b56c61eed19a760ab9"}
 
 
 def test_generic_v3_smoke_cannot_accept_recovery_receipt():
@@ -204,6 +204,7 @@ def test_executor_sends_one_bound_recovery_intent_and_never_replays(monkeypatch,
     from test_pi_wall4_recovery_contract import authority as fixture
     authority=fixture();client=RecoveryClient();calls=[]
     monkeypatch.setattr(closed,"current_intent",lambda *_:None)
+    monkeypatch.setattr(closed,"previous_failure",lambda *_:None)
     monkeypatch.setattr(closed,"verified_artifact",lambda *_:b"synthetic previously hash-qualified artifact")
     monkeypatch.setattr(closed,"inspect_artifact",lambda *_:SimpleNamespace(wheel_name="djconnect_pi-4.0.0rc6-py3-none-any.whl",wheel_sha256="f"*64))
     monkeypatch.setattr(closed.authority_module,"current",lambda *_:None)

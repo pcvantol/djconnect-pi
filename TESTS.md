@@ -2302,3 +2302,22 @@ PASS. Runtime80/installer/lock unchanged. Actual Zero2W Python3.13.5 only compil
 helper/remote/observer in RAM; no root/candidate execution. No installed recovery,
 new smoke, Pi10 reinstall, overall PASS or live Spotify/touch claim. See
 [closed recovery](docs/PI_RC6_WALL4_RECOVERY.md) for pins/sequence/diagnostics.
+
+
+### V2 recovery after actual timer-property failure
+
+The closed V2 consumer uses separately qualified Core source5cf78c1c / Final659bfe75,
+schema5, new path/config pair and exact prior failed recovery39695635601 raw.
+Corrected helperc395 accepts PID-less timer metadata while preserving mandatory
+service MainPID, closed units/fields and unchanged durable claim/hold/install/
+restore. Observer4ae5 stays identical. V1 operative pairs/evidence are preserved;
+no retry, ledger cleanup, Pi10 reinstall or runtime republishing.
+165 additional cases;880 directed PASS;FULL3115 integrated PASS/no skips45.73s.
+Ruff0.16 src/tests/tools, three YAML/actual Bash blocks and diff PASS. Tests join
+actual retained raw/code/OS-shapes through synthetic HTTP and intercepted effects.
+Runtime80 files/installer/lock remain published0dde bytes. No new Qt/device/root
+execution, installed recovery, smoke, touch or Spotify claim. First full3108 is
+intermediate; two import-only lint corrections and source-inventory count
+(81 source files including nonpackaged font README versus80 runtime) retained as
+diagnostics. Source review, separate Final and distinct actual CoreV2 operative
+binding/current human-readiness-noReplay assessment precede any new owning intent.

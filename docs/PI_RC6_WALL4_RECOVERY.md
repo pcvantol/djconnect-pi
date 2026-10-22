@@ -167,3 +167,59 @@ Earlier112/640/intermediate runs are not added to final715. Source/independent
 review/protected separate Final and a new separately protected Core operative
 binding are still required before any real recovery. The new pair is not set and
 no recovery/smoke has been dispatched as part of this source qualification.
+
+
+## V2 adoption after actual first recovery failure
+
+Actual first recovery39695635601 on protected V1 consumer77fc4047 remains
+FAILED/RECOVERY_INCONCLUSIVE with intent_dispatched:true and
+remote_may_still_be_running:true. Original artifact12391115673 / raw SHA
+ce97876b008d4417ec08100066aa38abf87dd57ae8398ae5e64de97d442744ec is preserved
+byte-for-byte. No claim/ledger/guard is reset and no old run is retried.
+
+The actual watchdog timer has three systemd properties without MainPID. The old
+helper requires four for every unit; exact-method replay proves this blocking
+compatibility condition, not the earliest actual failure guard. New helper
+c395af61f47c42633c65013d61853c66c442781832ed4225d035d9209e9f0be2 accepts exactly
+three timer fields and four service fields with numeric MainPID, rejects unknown
+units/fields/duplicates/malformed lines, and limits private failure output to
+reviewed static codes. Existing claim, four fsyncs, hold, installer, config and
+restoration code is unchanged. Independent Core component review covers c395;
+new whole-consumer review is still required.
+
+Core V2 source5cf78c1c83936cc9ed2feb750f83cf743b643b90 plus separate Final
+659bfe752dff0dcdcdbfc475be52bdf69090e085 were independently qualified via actual
+canonical raw39699015746/39700346580. All three API/Git-blob exports match both
+pins and are separately vendored; V1 normative bytes remain untouched.
+V2 uses schema5, a new fixed PLATFORM_4_0_RC6_PI_WALL4_RECOVERY_V2_MANIFEST.json
+path and only PI_RC6_WALL4_RECOVERY_V2_CORE_SHA plus
+PI_RC6_WALL4_RECOVERY_V2_MANIFEST_SHA256. Old normal/V1 pairs are unchanged.
+No approved V2 operative binding is created by this consumer source.
+
+Both original deployment and actual previous recovery are independently joined
+before prepare/send/smoke: exact trusted run/actor/main/attempt1, fixed artifact
+ID/name/bounded ZIP/member/raw digest, actual public provenance and exact five
+historical code objects at77fc. No nonexistent kind/schema/helper/input fields
+are fabricated in the old raw. Helper11ce and deployment/execute transport
+literals instead join through the byte-pinned historical code/schema chain.
+Nested receipt equality distinguishes bools from integers. A missing original
+artifact fails closed. All four physical intent lists still withdraw stale work.
+
+Observer4ae5 remains byte-identical: boot plus opaque whole-private-config digest,
+no added claim/process/root-read route. Root itself must pass current readiness
+and exclusive durable claim before effects; no historical absence observation is
+a current execution grant. Exact V2 recovery smoke requires the same new run,
+consumer, operative pair, helper, observer, original/previous failure and current
+boot/config. It never upgrades Pi10's earlier smoke or yields overall PASS.
+
+Source tests are synthetic transport/effects and actual retained OS-shape bytes;
+no new root execution, device recovery, installed smoke, touch or Spotify result.
+Runtime80 files, original installer and lock remain byte-identical to published
+0dde; no runtime republishing or rc.6 asset overwrite. New source and separate
+Final qualification must precede a distinct protected Core V2 operative binding,
+then current human/readiness/no-replay assessment, one owning intent and separate
+smoke. Standing human recovery scope is22:39:09Z21Oct in this same chat; source
+or new hashes do not manufacture new device authority. Automation stays PAUSED.
+
+Final V2 source qualification:165 new cases,880 directed PASS;FULL3115 PASS/no
+skips45.73s. Ruff0.16 src/tests/tools and three YAML/actual Bash blocks PASS.

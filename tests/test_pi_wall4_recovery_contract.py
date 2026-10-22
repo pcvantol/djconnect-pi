@@ -19,8 +19,8 @@ from Tools.pi_rc6_recovery import HELPER_SHA256, ORIGINAL_CORE, ORIGINAL_MANIFES
 
 def fixtures():
     request, manifest, published = old_fixtures()
-    manifest.update(schema_version=4, kind="platform_release_recovery_operational_manifest",
-        manifest_id="release-4.0.0-rc.6-pi-wall4-recovery-SYNTHETIC", candidate_sha=wire.SOURCE)
+    manifest.update(schema_version=5, kind="platform_release_recovery_operational_manifest",
+        manifest_id="release-4.0.0-rc.6-pi-wall4-recovery-v2-SYNTHETIC", candidate_sha=wire.SOURCE)
     manifest["consumer"].update(smoke_contract_id=wire.SMOKE, recovery_contract_id=wire.CONTRACT)
     manifest["repositories"][0].update(source_sha=wire.SOURCE, artifact_run="39658681213")
     manifest["required_targets"] = manifest["required_targets"][:1]
@@ -31,7 +31,10 @@ def fixtures():
         "smoke_workflow_path":".github/workflows/smoke-rc6-wall4-recovery.yml", "manifest_path":wire.PATH,
         "original_deployment_run":"39669504016", "original_candidate_sha":wire.SOURCE,
         "original_core_sha":ORIGINAL_CORE, "original_manifest_sha256":ORIGINAL_MANIFEST_SHA256,
-        "root_helper_sha256":HELPER_SHA256, "aggregate_disposition":"SINGLE_INSTANCE_RECOVERY_ONLY"}
+        "root_helper_sha256":HELPER_SHA256, "aggregate_disposition":"SINGLE_INSTANCE_RECOVERY_ONLY",
+        "readonly_observer_sha256":wire.OBSERVER_SHA256,
+        "claim_policy":"UNCHANGED_LEDGER_EXCLUSIVE_DURABLE_CREATE_BEFORE_EFFECTS",
+        "previous_recovery_attempt":wire.previous_spec()}
     request.update(candidate_sha=wire.SOURCE, manifest_id=manifest["manifest_id"], artifact_sha256=wire.ARTIFACT_SHA256)
     published.update(candidate_sha=wire.SOURCE)
     published["artifacts"][wire.PROFILE]["artifact_sha256"] = wire.ARTIFACT_SHA256
@@ -98,7 +101,7 @@ def test_exactly_one_original_target_and_source(section, case):
 
 @pytest.mark.parametrize("field", sorted(fixtures()[1]["recovery"]))
 def test_every_recovery_provenance_discriminator_is_closed(field):
-    req, manifest, pub = fixtures();manifest["recovery"][field] += "OTHER"
+    req, manifest, pub = fixtures();manifest["recovery"][field] = "OTHER"
     with pytest.raises(BindingError):wire.validate(req, manifest, CONSUMER, pub)
 
 
@@ -166,7 +169,7 @@ def test_full_immutable_authority_resolution_and_currentness_without_effects(mon
                 return {"path":wire.PATH,"type":"file","encoding":"base64","content":base64.b64encode(body).decode(),"sha":hashlib.sha1(b"blob "+str(len(body)).encode()+b"\0"+body).hexdigest()}
             if "/compare/" in path:
                 assert "..."+CONSUMER+"?" in path
-                return {"status":"diverged" if case=="notdescendant" else "ahead","merge_base_commit":{"sha":"7d8758f87d6d56f8f414a940fc4bb23d2e6637c6"}}
+                return {"status":"diverged" if case=="notdescendant" else "ahead","merge_base_commit":{"sha":"77fc4047f797066876c5345e8e43b346ab96d782"}}
             if "/releases/tags/" in path:
                 return {"tag_name":"v"+wire.VERSION,"draft":False,"prerelease":True,"assets":[
                     {"name":"djconnect-pi-"+wire.VERSION+"-release-manifest.json","id":1,"state":"uploaded","size":1000},
