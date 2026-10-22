@@ -2321,3 +2321,17 @@ intermediate; two import-only lint corrections and source-inventory count
 (81 source files including nonpackaged font README versus80 runtime) retained as
 diagnostics. Source review, separate Final and distinct actual CoreV2 operative
 binding/current human-readiness-noReplay assessment precede any new owning intent.
+
+### Latest failed wall4 V2 attempt: read-only preparation
+
+New Tools/pi_wall4_latest_failure.py verifies original failed39775941080,
+consumer2e747, exact artifact12423814908/raw3058/SHAeb57, five historical source
+pins and typed whole receipt including unchanged nested V1 provenance. It is
+NOT wired to recovery/smoke or a new producer contract; it grants no retry/reset.
+75 additional cases;173 focused including original V1;FULL3190 PASS/no skips
+47.42s; Ruff0.16/diff PASS. Later formatting was AST-identical. Actual GitHub
+read-only originalartifact/fivecodepin exercise PASS,0 device/dispatch effects.
+Original raw/code fixtures unchanged; runtime80/helperc395/observer4ae5/installer/
+lock/workflows unchanged. No new Qt/ARM/installed/smoke/touch/Spotify claim.
+See docs/PI_RC6_WALL4_LATEST_FAILURE_PREPARATION.md for remaining producer/
+matchingconsumer/protectedsource/Final/operative gates and retained diagnostics.
