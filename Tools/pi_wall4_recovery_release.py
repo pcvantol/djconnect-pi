@@ -20,6 +20,7 @@ from Tools.pi_instance_authority import PI, GitHubRead, verified_artifact
 from Tools.pi_instance_contract import BindingError, require, strict_json, timestamp
 from Tools.pi_instance_release import FIELDS, PhaseFailure
 from Tools.pi_instance_ssh import Channel, validate_result
+from Tools.pi_wall4_previous_failure import previous_failure
 from Tools.pi_wall4_recovery_observer_pin import OBSERVER_SHA256
 
 WORKFLOWS = {"recover": component.WORKFLOW, "smoke": ".github/workflows/smoke-rc6-wall4-recovery.yml"}
@@ -103,7 +104,7 @@ def recovery_record(client, authority, run_id, record):
             and run.get("actor", {}).get("login") == "pcvantol" and run.get("repository", {}).get("full_name") == PI,
             "SUCCESSFUL_CLOSED_RECOVERY_REQUIRED")
     expected = authority.receipt()
-    require(isinstance(record, dict) and all(type(record.get(k)) is type(v) and record[k] == v for k, v in expected.items() if k != "classification")
+    require(isinstance(record, dict) and all(authority_module.exact_json(record.get(k), v) for k, v in expected.items() if k != "classification")
             and type(record.get("schema_version")) is int and record["schema_version"] == 1
             and record.get("kind") == "djconnect_pi_wall4_recovery_evidence"
             and record.get("result") == "RECOVERED_PENDING_SMOKE" and record.get("workflow_run_id") == run_id
@@ -137,7 +138,7 @@ def execute(client, authority, operation, run_id, recovery_run=""):
     try:
         require(operation in WORKFLOWS and isinstance(authority, authority_module.RecoveryAuthority)
                 and authority.binding.smoke_contract == authority_module.SMOKE, "CLOSED_RECOVERY_AUTHORITY_REQUIRED")
-        component.selected(authority);component.original_failure(client)
+        component.selected(authority);component.original_failure(client);previous_failure(client)
         current_intent(client, run_id, authority, operation)
         previous = download_recovery(client, recovery_run) if operation == "smoke" else None
         prior = recovery_record(client, authority, recovery_run, previous) if previous is not None else None
@@ -166,7 +167,11 @@ def execute(client, authority, operation, run_id, recovery_run=""):
             "observer_sha256": OBSERVER_SHA256, "timestamp": datetime.now(UTC).isoformat(),
             "classification": "SINGLE_INSTANCE_ONLY_NO_LIVE_PROFILE_TOUCH_OR_AUDIO_ACCEPTANCE"}
     except (BindingError, OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError):
-        raise PhaseFailure({**authority.receipt(), "workflow_run_id": run_id,
+        raise PhaseFailure({**authority.receipt(), "schema_version": 1,
+            "kind": "djconnect_pi_wall4_recovery_evidence" if operation == "recover" else "djconnect_pi_wall4_recovery_smoke_evidence",
+            "workflow_run_id": run_id, "recovery_workflow_run": run_id if operation == "recover" else recovery_run,
+            "original_deployment_workflow_run": component.ORIGINAL_RUN,
+            "recovery_helper_sha256": component.HELPER_SHA256, "observer_sha256": OBSERVER_SHA256,
             "result": "RECOVERY_INCONCLUSIVE" if operation == "recover" else "SMOKE_INCONCLUSIVE",
             "intent_dispatched": sent, "remote_may_still_be_running": sent and operation == "recover",
             "classification": "INCOMPLETE_REQUIRES_ACTUAL_STATE_REVIEW"}) from None
@@ -181,7 +186,7 @@ def main():
     request, recovery_run = selected_request(inputs, args.operation)
     consumer, run_id = workflow_context(client, args.operation, env)
     authority = authority_module.resolve(client, request, consumer, {k: env.get(k, "") for k in authority_module.CONFIG})
-    component.original_failure(client);current_intent(client, run_id, authority, args.operation)
+    component.original_failure(client);previous_failure(client);current_intent(client, run_id, authority, args.operation)
     component.helper_bytes();observer_bytes()
     folder = Path(env["RUNNER_TEMP"])/("pi-qualified-wall4-recovery-"+run_id+"-1")
     folder.mkdir(mode=0o700, exist_ok=True)

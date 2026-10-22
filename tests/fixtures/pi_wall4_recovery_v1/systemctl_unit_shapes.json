@@ -1,0 +1,8 @@
+{
+  "raw_unit_properties": {
+    "djconnect-api.service": "MainPID=807\nLoadState=loaded\nActiveState=active\nUnitFileState=enabled\n",
+    "djconnect-client.service": "MainPID=0\nLoadState=loaded\nActiveState=inactive\nUnitFileState=disabled\n",
+    "djconnect-watchdog.service": "MainPID=0\nLoadState=loaded\nActiveState=inactive\nUnitFileState=static\n",
+    "djconnect-watchdog.timer": "LoadState=loaded\nActiveState=active\nUnitFileState=enabled\n"
+  }
+}

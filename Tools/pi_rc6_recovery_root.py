@@ -39,6 +39,8 @@ API = "djconnect-api.service"
 CLIENT = "djconnect-client.service"
 
 
+DIAGNOSTIC_CODES = frozenset(('RECOVERY_API_IDENTITY_CHANGED', 'RECOVERY_API_UNAVAILABLE', 'RECOVERY_ARCHIVE_BOUND', 'RECOVERY_ARCHIVE_DUPLICATE', 'RECOVERY_ARTIFACT_CHANGED', 'RECOVERY_BOOT_CHANGED', 'RECOVERY_BOOT_INVALID', 'RECOVERY_COMMAND_FAILED', 'RECOVERY_CONFIG_CHANGED', 'RECOVERY_EXISTING_MAINTENANCE', 'RECOVERY_FILE_BOUND', 'RECOVERY_FILE_INVALID', 'RECOVERY_GUARD_NOT_LOADED', 'RECOVERY_HOLD_FAILED', 'RECOVERY_HOLD_OWNERSHIP_CHANGED', 'RECOVERY_INCOMPLETE', 'RECOVERY_INCOMPLETE_REQUIRES_STATE_REVIEW', 'RECOVERY_INSTALLED_BYTES_CHANGED', 'RECOVERY_INSTALLER_CHANGED', 'RECOVERY_INSTALLER_INCOMPLETE', 'RECOVERY_INSTALLER_INVALID', 'RECOVERY_INSTALLER_STILL_RUNNING', 'RECOVERY_INSTALL_LAYOUT', 'RECOVERY_JSON_BOUND', 'RECOVERY_JSON_DUPLICATE', 'RECOVERY_JSON_INVALID', 'RECOVERY_JSON_NONFINITE', 'RECOVERY_JSON_OBJECT', 'RECOVERY_LEDGER_INVALID', 'RECOVERY_MARKER_CHANGED', 'RECOVERY_ORIGINAL_STATE_CHANGED', 'RECOVERY_PACKAGED_COUNT', 'RECOVERY_PATH_CHANGED', 'RECOVERY_PID_INVALID', 'RECOVERY_PROCESS_BOUND', 'RECOVERY_RELEASE_CHANGED', 'RECOVERY_ROOT_CONTEXT_REQUIRED', 'RECOVERY_RUN_INVALID', 'RECOVERY_SERVICES_NOT_STABLE', 'RECOVERY_SHUTDOWN_PENDING', 'RECOVERY_STAGING_CHANGED', 'RECOVERY_TARGET_CHANGED', 'RECOVERY_UNIT_INVALID', 'RECOVERY_UNIT_NOT_ALLOWED', 'RECOVERY_UNIT_POLICY_CHANGED', 'RECOVERY_WATCHDOG_CUSTOMIZED', 'RECOVERY_WATCHDOG_NOT_RESTORED', 'RECOVERY_WATCHDOG_STATE_CHANGED', 'RECOVERY_WHEEL_CHANGED', 'RECOVERY_WHEEL_LAYOUT'))
+
 class RecoveryError(ValueError):
     """Static machine codes only; private process/configuration data never escape."""
 
@@ -128,10 +130,21 @@ class System:
         return result.stdout.decode("utf-8", errors="strict")
 
     def unit(self, name):
-        raw = self.command(["/usr/bin/systemctl", "show", name, "--property=LoadState,ActiveState,UnitFileState,MainPID", "--no-pager"])
-        fields = dict(line.split("=", 1) for line in raw.splitlines() if "=" in line)
-        need(set(fields) == {"LoadState", "ActiveState", "UnitFileState", "MainPID"}, "RECOVERY_UNIT_INVALID")
-        need(re.fullmatch(r"[0-9]+", fields["MainPID"]) is not None, "RECOVERY_PID_INVALID")
+        need(name in {API, CLIENT, WATCHDOG, TIMER}, "RECOVERY_UNIT_NOT_ALLOWED")
+        # MainPID belongs to service units. The fixed watchdog timer has no PID.
+        properties = "LoadState,ActiveState,UnitFileState"
+        expected = {"LoadState", "ActiveState", "UnitFileState"}
+        if name != TIMER:
+            properties += ",MainPID";expected.add("MainPID")
+        raw = self.command(["/usr/bin/systemctl", "show", name, "--property="+properties, "--no-pager"])
+        fields = {}
+        for line in raw.splitlines():
+            key, separator, value = line.partition("=")
+            need(separator and key not in fields, "RECOVERY_UNIT_INVALID")
+            fields[key] = value
+        need(set(fields) == expected, "RECOVERY_UNIT_INVALID")
+        if name != TIMER:
+            need(re.fullmatch(r"[0-9]+", fields["MainPID"]) is not None, "RECOVERY_PID_INVALID")
         return fields
 
     def no_competing_installer(self):
@@ -387,6 +400,10 @@ def main():
 if __name__ == "__main__":
     try:
         main()
+    except RecoveryError as error:
+        code = str(error) if str(error) in DIAGNOSTIC_CODES else "REQUIRES_ACTUAL_STATE_REVIEW"
+        print(json.dumps({"result": "RECOVERY_INCOMPLETE", "code": code}), flush=True)
+        raise SystemExit(1) from None
     except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError):
         print(json.dumps({"result": "RECOVERY_INCOMPLETE", "code": "REQUIRES_ACTUAL_STATE_REVIEW"}), flush=True)
         raise SystemExit(1) from None

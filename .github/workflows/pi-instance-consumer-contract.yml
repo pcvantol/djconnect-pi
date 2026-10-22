@@ -26,7 +26,7 @@ jobs:
           python -m pip install --only-binary=:all: --requirement Tools/pi_deployment_requirements.lock
       - name: Offline identity and authority counterexamples
         run: |
-          python -m pytest tests/test_pi_instance_*.py tests/test_pi_rc6_recovery*.py tests/test_pi_wall4_recovery*.py tests/test_approved_installer.py tests/test_installation_contract.py -q
+          python -m pytest tests/test_pi_instance_*.py tests/test_pi_rc6_recovery*.py tests/test_pi_wall4_recovery*.py tests/test_pi_wall4_previous_failure.py tests/test_approved_installer.py tests/test_installation_contract.py -q
       - name: Tooling lint
         run: |
-          python -m ruff check --no-cache Tools/pi_instance_contract.py Tools/pi_instance_authority.py Tools/pi_instance_ssh.py Tools/pi_instance_remote_payload.py Tools/pi_instance_artifact.py Tools/pi_instance_release.py Tools/pi_instance_aggregate.py Tools/pi_rc6_recovery.py Tools/pi_rc6_recovery_root.py Tools/pi_wall4_recovery*.py
+          python -m ruff check --no-cache Tools/pi_instance_contract.py Tools/pi_instance_authority.py Tools/pi_instance_ssh.py Tools/pi_instance_remote_payload.py Tools/pi_instance_artifact.py Tools/pi_instance_release.py Tools/pi_instance_aggregate.py Tools/pi_rc6_recovery.py Tools/pi_rc6_recovery_root.py Tools/pi_wall4_recovery*.py Tools/pi_wall4_previous_failure.py
