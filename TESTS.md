@@ -2321,3 +2321,70 @@ intermediate; two import-only lint corrections and source-inventory count
 (81 source files including nonpackaged font README versus80 runtime) retained as
 diagnostics. Source review, separate Final and distinct actual CoreV2 operative
 binding/current human-readiness-noReplay assessment precede any new owning intent.
+
+### Latest failed wall4 V2 attempt: read-only preparation
+
+New Tools/pi_wall4_latest_failure.py verifies original failed39775941080,
+consumer2e747, exact artifact12423814908/raw3058/SHAeb57, five historical source
+pins and typed whole receipt including unchanged nested V1 provenance. It is
+NOT wired to recovery/smoke or a new producer contract; it grants no retry/reset.
+75 additional cases;173 focused including original V1;FULL3190 PASS/no skips
+47.42s; Ruff0.16/diff PASS. Later formatting was AST-identical. Actual GitHub
+read-only originalartifact/fivecodepin exercise PASS,0 device/dispatch effects.
+Original raw/code fixtures unchanged; runtime80/helperc395/observer4ae5/installer/
+lock/workflows unchanged. No new Qt/ARM/installed/smoke/touch/Spotify claim.
+See docs/PI_RC6_WALL4_LATEST_FAILURE_PREPARATION.md for remaining producer/
+matchingconsumer/protectedsource/Final/operative gates and retained diagnostics.
+
+### Nested latest-failure descriptor compatibility
+
+Selected Core V3 draft compatibility remains preparation-only, with no production
+producer adoption or recovery workflow integration. A strict bounded recursive
+constant-object decoder handles nested V2/V1 facts; the typed historical descriptor
+omits local evidence_bytes and includes original classification. 72 more cases;
+245 focused PASS;FULL3262 integrated PASS/no skips47.33s; Ruff0.16/diff PASS.
+The prior3190 full run remains earlier component evidence. Three actual Core
+PR1290/fe3a235 API blobs were hash/gitblob verified only for compatibility.
+External1positive49negative schema checks are separate synthetic audit evidence,
+not additional product tests or a released producer. Original runtime80/helper/
+observer/workflows/installer/lock are unchanged. No new device intent, installation,
+smoke, Qt/ARM/touch/Spotify or screen-restoration result. See the preparation doc.
+
+### Existing recovery parser integration
+
+The current V2 parser uses the recursive constant decoder without adopting V3
+producer pins. Original flat constants and public exact_json identity remain;
+the shared function AST equals the qualified V2 original. Four new regressions
+include both fresh-process import orders. 409 focused PASS before the last
+import-only lint fix; exact final full3266 PASS/no skips47.32s, Ruff0.16/diff PASS.
+Intermediate3266/46.19s and import-lint diagnostics retained. No runtime80,
+helper, observer, installer, lock, workflow or device-state change. New host
+retention DRIFT is recorded separately; no delivery/effect readiness claim.
+
+Fresh actual-root verification after the exact owner retention receipt returned
+MATCH; the earlier DRIFT remains a diagnostic. No source or device GO follows
+from host readiness alone.
+
+### V3 latest-failure matching consumer preparation
+
+The dedicated recovery and separate smoke now select only schema6/V3, exact
+CoreSource96de/Final103dc6 and three original hash-pinned normative files. Final's
+actual canonical qualification remains missing, so execution stays fail-closed.
+Original deploy+V1+V2 proof chains are checked before/after one intent; the full
+latest descriptor and original nested V1 remain exact. Fixed2e747 ancestry route,
+old/mixed pair/schema/version rejection, pending Source/Final rejection before
+network/effects, and before/after proof withdrawal are covered. Historical V1
+fixtures explicitly use original facts, checked against the original V2 schema.
+Full3307 PASS/no skips48.89s; Ruff0.16/diff and ten real Bash blocks PASS. The
+first full3305PASS/2FAIL is retained as failed fixture-integration diagnostic.
+Runtime80/root helper/observer/installer/lock unchanged; no new installed, Qt,
+ARM, smoke, screen or Spotify claim. Current host13-file retention DRIFT blocks
+protected push/effects pending owning resolution. No operative V3 authority.
+
+Final successor source:FULL3311 PASS/no skips49.78s, Ruff/diff PASS. The36 final
+conformance cases include queued physical intent arrival before/after the last
+provenance read; a final authority/currentness check rejects late supersession
+without replay. Intermediate3307 and failed causal/fixture runs are retained
+separately. Fresh native host verify after concrete owner progress returned MATCH;
+previous13-file DRIFT is historical. CoreFinal qualification and distinct V3
+operative binding remain required; no physical repair is asserted.

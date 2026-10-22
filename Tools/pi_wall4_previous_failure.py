@@ -8,7 +8,8 @@ import zipfile
 
 from Tools.pi_instance_authority import PI, qualified
 from Tools.pi_instance_contract import BindingError, require, strict_json
-from Tools.pi_wall4_recovery_authority import exact_json, previous_spec
+from Tools.pi_json_equivalence import exact_json
+from Tools.pi_wall4_latest_failure import latest_spec
 
 PREVIOUS_CODE_PINS = {'Tools/pi_rc6_recovery_root.py': '11ce41115c7aa5ac34e568f3ea9008915f342bc3272850b56c61eed19a760ab9', '.github/workflows/recover-rc6-wall4.yml': '582e49ff37eb6241442e05eb727874a56ba060d9e82a7570dfa70411cb70b6fa', 'Tools/pi_wall4_recovery_authority.py': '0dcb0fe488e3542b15065bba2289907427a94dba8278c167c5200f252d39925f', 'Tools/pi_wall4_recovery_release.py': '2b34eb04a0fca3e199825d637f3d18cda4801669c601203a84062cc9ff279091', 'Tools/pi_contract/PI_RC6_WALL4_RECOVERY_REQUEST_V1.schema.json': 'dd5a419bb1886dd4199ae917e4b4ee121af4cfe6b076b1f3dcd3b27200352999'}
 
@@ -24,6 +25,11 @@ def previous_file(client, path, consumer):
             and hashlib.sha1(b"blob "+str(len(raw)).encode()+b"\0"+raw, usedforsecurity=False).hexdigest() == x.get("sha"),
             "PREVIOUS_CODE_BYTES_MISMATCH")
     return raw
+
+
+def previous_spec():
+    """Original V1 facts remain independent of the live successor version."""
+    return latest_spec()["previous_recovery_attempt"]
 
 
 def previous_failure(client):

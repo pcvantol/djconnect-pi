@@ -62,7 +62,7 @@ class GitHubRead:
         comparison = re.fullmatch(
             r"repos/pcvantol/(?:djconnect|djconnect-pi)/compare/[0-9a-f]{40}\.\.\.main\?per_page=1&page=2", path
         ) is not None or re.fullmatch(
-            r"repos/pcvantol/djconnect-pi/compare/(?:7d8758f87d6d56f8f414a940fc4bb23d2e6637c6|77fc4047f797066876c5345e8e43b346ab96d782)\.\.\.[0-9a-f]{40}\?per_page=1&page=2", path
+            r"repos/pcvantol/djconnect-pi/compare/(?:7d8758f87d6d56f8f414a940fc4bb23d2e6637c6|77fc4047f797066876c5345e8e43b346ab96d782|2e7479d0d15aa11ad3bff4c8103c18dbb1f2c32a)\.\.\.[0-9a-f]{40}\?per_page=1&page=2", path
         ) is not None
         require(path.startswith("repos/") and (".." not in path or comparison)
                 and "\n" not in path, "GITHUB_PATH_INVALID")
