@@ -9,7 +9,7 @@ import zipfile
 
 from Tools.pi_instance_authority import PI, qualified
 from Tools.pi_instance_contract import BindingError, require, strict_json
-from Tools.pi_wall4_recovery_authority import exact_json
+from Tools.pi_json_equivalence import exact_json
 
 PREVIOUS_CODE_PINS = {
     "Tools/pi_rc6_recovery_root.py": "c395af61f47c42633c65013d61853c66c442781832ed4225d035d9209e9f0be2",

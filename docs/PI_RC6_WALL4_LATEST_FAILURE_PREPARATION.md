@@ -92,3 +92,27 @@ The first private draft preview contained a V2 manifest_path. Its original bytes
 and an explicit failing V3path assertion are retained as intermediate diagnostics;
 Core corrected the path before headfe3a235. That first preview was never adopted
 as a product contract, operative binding or device authority.
+
+## Existing V2 parser integration
+
+The released V2 previous_spec now uses the bounded recursive decoder. Its flat
+result remains type-strictly identical to the original V2 constants; producer
+pins, path, request schemas, helper, observer and workflows remain V2. No V3
+authority is imported. The original exact_json function moved to the neutral
+pi_json_equivalence module with identical AST and is still exported by the
+authority module. This removes an import cycle found by an in-memory preview of
+the planned integration; that preview was not a released product failure.
+
+Four additional regression cases cover original descriptor equality, exact
+function identity/AST and fresh-process imports in both orders. 409 focused
+cases passed before the final import-only lint correction; the exact final
+source passed the full3266 integrated tests/no skips47.32s. Ruff0.16/diff PASS.
+The intermediate full3266/46.19s and import re-export lint diagnostics are retained.
+No assertion, schema, device or replay gate changed. Current precommit host
+verification reports retention DRIFT; this is independent of local source tests
+and blocks protected delivery/effects until the owner resolves it.
+
+After the exact Core-owner retention receipt, a fresh actual-root verify returned
+MATCH in pi-parser-after-owner-retention-hostverify.log. The earlier DRIFT log
+and metadata remain preserved. Pi changed no other-lane file. This is current
+host readiness, not source, operative or device-recovery approval.

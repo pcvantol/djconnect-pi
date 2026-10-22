@@ -6,6 +6,7 @@ import hashlib
 from pathlib import Path
 from types import MappingProxyType
 
+from Tools import pi_json_equivalence
 from Tools.pi_instance_authority import (
     CORE,
     PI,
@@ -29,7 +30,10 @@ from Tools.pi_instance_contract import (
 )
 from Tools.pi_rc6_recovery import HELPER_SHA256, ORIGINAL_CORE, ORIGINAL_MANIFEST_SHA256
 from Tools.pi_rc6_recovery_root import ARTIFACT_SHA256, PROFILE, SOURCE
+from Tools.pi_wall4_latest_failure import constant_descriptor
 from Tools.pi_wall4_recovery_observer_pin import OBSERVER_SHA256
+
+exact_json = pi_json_equivalence.exact_json
 
 CORE_SOURCE = "5cf78c1c83936cc9ed2feb750f83cf743b643b90"
 CORE_FINALIZATION = "659bfe752dff0dcdcdbfc475be52bdf69090e085"
@@ -150,11 +154,4 @@ def previous_spec():
     """Fresh public constants from exact protected V2 bytes, never caller inputs."""
     schema = contracts()["PI_RC6_WALL4_RECOVERY_MANIFEST_V2.schema.json"]
     rule = schema["properties"]["recovery"]["properties"]["previous_recovery_attempt"]
-    return {name: rule["properties"][name]["const"] for name in rule["required"]}
-
-
-def exact_json(left, right):
-    if type(left) is not type(right):return False
-    if isinstance(right, dict):return left.keys() == right.keys() and all(exact_json(left[k], v) for k, v in right.items())
-    if isinstance(right, list):return len(left) == len(right) and all(exact_json(a, b) for a, b in zip(left, right, strict=True))
-    return left == right
+    return constant_descriptor(rule)

@@ -2349,3 +2349,18 @@ External1positive49negative schema checks are separate synthetic audit evidence,
 not additional product tests or a released producer. Original runtime80/helper/
 observer/workflows/installer/lock are unchanged. No new device intent, installation,
 smoke, Qt/ARM/touch/Spotify or screen-restoration result. See the preparation doc.
+
+### Existing recovery parser integration
+
+The current V2 parser uses the recursive constant decoder without adopting V3
+producer pins. Original flat constants and public exact_json identity remain;
+the shared function AST equals the qualified V2 original. Four new regressions
+include both fresh-process import orders. 409 focused PASS before the last
+import-only lint fix; exact final full3266 PASS/no skips47.32s, Ruff0.16/diff PASS.
+Intermediate3266/46.19s and import-lint diagnostics retained. No runtime80,
+helper, observer, installer, lock, workflow or device-state change. New host
+retention DRIFT is recorded separately; no delivery/effect readiness claim.
+
+Fresh actual-root verification after the exact owner retention receipt returned
+MATCH; the earlier DRIFT remains a diagnostic. No source or device GO follows
+from host readiness alone.

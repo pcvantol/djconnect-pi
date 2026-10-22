@@ -148,3 +148,65 @@ def test_descriptor_mutation_never_changes_original_nested_values():
         type(latest.latest_descriptor()["previous_recovery_attempt"]["run_attempt"])
         is int
     )
+
+
+def test_released_v2_flat_descriptor_is_preserved_by_recursive_decoder():
+    from Tools import pi_wall4_recovery_authority as authority
+    from Tools.pi_json_equivalence import exact_json as neutral_equal
+
+    rule = authority.contracts()["PI_RC6_WALL4_RECOVERY_MANIFEST_V2.schema.json"][
+        "properties"
+    ]["recovery"]["properties"]["previous_recovery_attempt"]
+    original = {k: rule["properties"][k]["const"] for k in rule["required"]}
+    assert neutral_equal(authority.previous_spec(), original)
+    assert authority.exact_json is neutral_equal
+    assert not latest.matches_latest_descriptor(rule)  # No implicit V3 adoption.
+
+
+def test_json_equality_function_ast_matches_original_qualified_v2_bytes():
+    import ast
+    import inspect
+
+    from Tools.pi_json_equivalence import exact_json as neutral_equal
+
+    old = ast.parse((FIXTURE / "code/Tools/pi_wall4_recovery_authority.py").read_text())
+    original = next(
+        n for n in old.body if isinstance(n, ast.FunctionDef) and n.name == "exact_json"
+    )
+    current = ast.parse(inspect.getsource(neutral_equal)).body[0]
+    assert ast.dump(current, include_attributes=False) == ast.dump(
+        original, include_attributes=False
+    )
+
+
+@pytest.mark.parametrize(
+    "modules",
+    [
+        ["Tools.pi_wall4_recovery_authority", "Tools.pi_wall4_latest_failure"],
+        ["Tools.pi_wall4_latest_failure", "Tools.pi_wall4_recovery_authority"],
+    ],
+)
+def test_nested_decoder_imports_are_independent_of_import_order(modules):
+    import os
+    import subprocess
+    import sys
+
+    program = (
+        "import importlib; "
+        + "; ".join("importlib.import_module(" + repr(m) + ")" for m in modules)
+        + "; print('IMPORT_ORDER_OK')"
+    )
+    env = {
+        k: os.environ[k]
+        for k in ("PATH", "PYTHONPATH", "SYSTEMROOT")
+        if k in os.environ
+    }
+    p = subprocess.run(
+        [sys.executable, "-B", "-c", program],
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=10,
+        env=env,
+    )
+    assert p.stdout.strip() == "IMPORT_ORDER_OK" and not p.stderr
