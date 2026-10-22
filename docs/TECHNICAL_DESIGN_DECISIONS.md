@@ -153,10 +153,12 @@ same canonical lock before the application wheel.
 | Package | Constraint / observed version | Used by | License model | Source URL |
 | --- | --- | --- | --- | --- |
 | Python | `>=3.11`; observed Pi Python `3.13.5` | all Python entrypoints | Python Software Foundation License | https://www.python.org/ |
-| PySide6 | `6.11.1` | Qt Quick/QML UI bridge | LGPL-3.0-only/GPL-3.0-only/commercial Qt licensing | https://pypi.org/project/PySide6/ |
-| PySide6_Addons | `6.11.1` | PySide6 runtime | LGPL-3.0-only/GPL-3.0-only/commercial Qt licensing | https://pypi.org/project/PySide6-Addons/ |
-| PySide6_Essentials | `6.11.1` | PySide6 runtime | LGPL-3.0-only/GPL-3.0-only/commercial Qt licensing | https://pypi.org/project/PySide6-Essentials/ |
-| shiboken6 | `6.11.1` | PySide6 binding generator/runtime | LGPL-3.0-only/GPL-3.0-only/commercial Qt licensing | https://pypi.org/project/shiboken6/ |
+| PySide6 | `6.12.0` | Qt Quick/QML UI bridge | LGPL-3.0-only/GPL-3.0-only/commercial Qt licensing | https://pypi.org/project/PySide6/ |
+| PySide6_Addons | `6.12.0` | PySide6 runtime | LGPL-3.0-only/GPL-3.0-only/commercial Qt licensing | https://pypi.org/project/PySide6-Addons/ |
+| PySide6_Essentials | `6.12.0` | PySide6 runtime | LGPL-3.0-only/GPL-3.0-only/commercial Qt licensing | https://pypi.org/project/PySide6-Essentials/ |
+| PySide6_Pdf | `6.12.0.140` | PySide6 PDF runtime dependency | LGPL-3.0-only/GPL-2.0-only/GPL-3.0-only | https://pypi.org/project/PySide6-Pdf/ |
+| PySide6_WebEngine | `6.12.0.140` | PySide6 WebEngine runtime dependency | LGPL-3.0-only/GPL-2.0-only/GPL-3.0-only | https://pypi.org/project/PySide6-WebEngine/ |
+| shiboken6 | `6.12.0` | PySide6 binding generator/runtime | LGPL-3.0-only/GPL-3.0-only/commercial Qt licensing | https://pypi.org/project/shiboken6/ |
 | requests | `2.34.2` | HA HTTP, updater GitHub HTTP, album-art cache | Apache-2.0 | https://pypi.org/project/requests/ |
 | certifi | `2026.7.22` | TLS CA bundle for requests | MPL-2.0 | https://pypi.org/project/certifi/ |
 | charset-normalizer | `3.4.9` | requests text decoding | MIT | https://pypi.org/project/charset-normalizer/ |

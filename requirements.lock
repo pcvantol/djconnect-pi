@@ -1,8 +1,10 @@
 # Canonical Python 3.11 dependency set for the Pi runtime, tests, and builds.
 # Refresh deliberately and keep pyproject.toml's direct dependencies in sync.
-PySide6==6.11.2
-PySide6_Addons==6.11.2
-PySide6_Essentials==6.11.2
+PySide6==6.12.0
+PySide6_Addons==6.12.0
+PySide6_Essentials==6.12.0
+PySide6_Pdf==6.12.0.140
+PySide6_WebEngine==6.12.0.140
 Pygments==2.20.0
 certifi==2026.7.22
 charset-normalizer==3.4.9
@@ -16,7 +18,7 @@ pluggy==1.6.0
 pytest==9.1.1
 requests==2.34.2
 setuptools==83.0.0
-shiboken6==6.11.2
+shiboken6==6.12.0
 urllib3==2.7.0
 websocket-client==1.9.2
 wheel==0.46.3
