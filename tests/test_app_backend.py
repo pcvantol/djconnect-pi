@@ -2163,6 +2163,33 @@ def test_backend_auth_error_clears_pairing_and_shows_ready_to_pair(tmp_path: Pat
     assert backend.toastText == backend.t("ready_to_pair")
 
 
+def test_backend_real_profile_denial_preserves_pairing_and_local_selection(tmp_path: Path) -> None:
+    ensure_app()
+    config_path = tmp_path / "config.json"
+    cfg = Config(device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="paired-device",
+                 paired=True, ha_url="http://ha", websocket_fast_path_enabled=False,
+                 active_profile_id="profile-old", explicit_profile_id="profile-old")
+    save_config(config_path, cfg)
+    backend = DJConnectBackend(config_path)
+
+    class FakeExecutor:
+        def submit(self, worker):
+            worker()
+
+    response = Mock(status_code=403, content=b"{}", text="")
+    response.json.return_value = {"success": False, "error": "profile_device_mismatch"}
+    backend._executor = FakeExecutor()  # type: ignore[assignment]
+    with patch("djconnect_pi.ha.requests.post", return_value=response) as post:
+        backend._run("refresh", lambda: backend.client.command("status"))
+    saved = load_config(config_path)
+    assert post.call_count == 1
+    assert backend.backendAvailable is False
+    assert backend.paired is True and saved.paired is True
+    assert saved.device_token == "paired-device"
+    assert saved.active_profile_id == saved.explicit_profile_id == "profile-old"
+    assert backend.statusText != backend.t("ready_to_pair")
+
+
 def test_backend_auth_error_does_not_toast_while_waiting_for_pairing(tmp_path: Path) -> None:
     ensure_app()
     backend = DJConnectBackend(tmp_path / "config.json")

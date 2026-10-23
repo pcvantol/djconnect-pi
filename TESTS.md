@@ -2388,3 +2388,31 @@ without replay. Intermediate3307 and failed causal/fixture runs are retained
 separately. Fresh native host verify after concrete owner progress returned MATCH;
 previous13-file DRIFT is historical. CoreFinal qualification and distinct V3
 operative binding remain required; no physical repair is asserted.
+
+
+### Profile-device mismatch must not erase pairing
+
+A real wall4 failure on 2026-10-23 first returned HTTP403
+`profile_device_mismatch` at08:59:03UTC, followed by HTTP401 after local pairing
+was lost. The existing HTTP classifier treated this protected Core Profile
+error as AuthenticationError. Add only the released code to the existing
+Profile-error set: reject the request as DJConnectError, without adopting a
+Profile, changing selection, replaying the request or erasing pairing. Explicit
+unauthorized/stale-token handling remains unchanged. The code literal is
+independently verified in protected Core736378/api_handlers.py, not Core WIP.
+
+Seven new cases exercise HTTP200/403/409, one actual command-request seam for
+status/queue/playlists, and the real backend worker/error handler plus persisted
+configuration. Before fix6FAIL/1PASS; after fix244 directed PASS. Full integrated
+3318PASS/no skips56.52s; Ruff0.16 src/tests and diff PASS. All network seams in the
+new tests are synthetic; the full suite retains existing permitted loopbacks.
+No QML/i18n bytes changed; no new Qt-view/ARM/installed/live acceptance is claimed.
+The local review wheel is separate from immutable official rc6 assets.
+
+Physical status is separately preserved: recovery39925675497 succeeded,
+smoke39926183800 remains FAILED/SMOKE_INCONCLUSIVE. Peter confirmed the actual
+app visible after recovery. Subsequently the existing runtime lost pairing;
+TigerVNC's real pixels and local API both show the pairing state. No new pair,
+reset, token patch, claim reset or installation was performed for this fix.
+The HA Store mapping to the intended Profile and the old config-entry binding
+still require owning reconciliation. See PI4_PROFILE_MISMATCH_REPAIR.md.

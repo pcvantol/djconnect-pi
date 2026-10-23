@@ -78,6 +78,7 @@ class ProtocolVersionMismatch(DJConnectError):
 
 
 PROFILE_ERROR_CODES = {
+    "profile_device_mismatch",
     "profile_required",
     "invalid_profile",
     "device_not_mapped",
