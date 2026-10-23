@@ -15,7 +15,11 @@ from .i18n import locale_for_language
 from .session_current_reply import moment_reference
 from .session_forecast_image import MAX_BYTES, ForecastImages, decode_pixels
 from .session_projection import timestamp
-from .session_transport import SessionError, session_profile_id
+from .session_transport import (
+    SessionError,
+    private_binding_allowed,
+    private_scope_allowed,
+)
 
 PATH = r'/api/djconnect/v1/session/media/image/[A-Za-z0-9_-]{1,128}/[A-Za-z0-9_-]{1,128}'
 
@@ -107,7 +111,7 @@ def fetch_artwork(binding, lease, allowed):
     try:
         origin = urlsplit(binding.ha_url);port = origin.port
         if (not binding.profile_id or binding.profile_id != binding.resolved_profile_id or not binding.token
-                or binding.profile_type not in {'personal','household'} or binding.privacy_mode != 'private' or binding.private_session
+                or not private_binding_allowed(binding)
                 or origin.scheme not in ('http','https') or not origin.hostname or origin.username or origin.password
                 or origin.path not in ('','/') or origin.query or origin.fragment
                 or (port is not None and not 0 < port <= 65535)
@@ -144,11 +148,8 @@ class MomentImages(ForecastImages):
 
     def sync(self):
         if self.closed:return
-        cfg = self.owner.backend.cfg
         eligible = (self.visible and self.owner._foreground and self.owner._running_action not in {'start','end'}
-            and bool(session_profile_id(cfg))
-            and cfg.active_profile_type in {'personal','household'} and cfg.active_profile_privacy_mode == 'private'
-            and not cfg.private_session)
+            and private_scope_allowed(self.owner))
         try:
             binding = self.owner.transport.binding() if eligible else None
             lease = self.gate.admit(self.owner._session,self.owner._caps,binding,self.owner._clock.now()) if eligible else None

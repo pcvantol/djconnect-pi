@@ -3053,3 +3053,60 @@ def test_music_dna_worker_errors_show_retry_without_content_or_replay(tmp_path, 
     assert backend.cfg.paired and backend.cfg.device_token == "original-token"
     assert backend.cfg.active_profile_id == backend.cfg.explicit_profile_id == "original-profile"
     assert not backend.musicDnaSummary and not backend.musicDnaSections
+
+
+@pytest.mark.parametrize("slot,signal", [
+    ("_apply_ask_dj_data", "askDjChanged"),
+    ("_apply_music_dna_data", "musicDnaChanged"),
+    ("_apply_music_discovery_data", "musicDiscoveryChanged"),
+    ("_apply_track_insight_data", "trackInsightChanged"),
+])
+def test_private_gui_result_cannot_cross_owner_permission_epoch(tmp_path, slot, signal):
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    result = backend._profile_read_result({"success": False, "error": "transient"}, backend._private_read_context())
+    changed = Mock()
+    getattr(backend, signal).connect(changed)
+    backend._session_controller._owner_epoch += 1
+    getattr(backend, slot)(result)
+    changed.assert_not_called()
+    assert not backend._profile_result_current(result)
+
+
+@pytest.mark.parametrize("field,value", [("device_token", "changed"), ("language", "de"), ("paired", True)])
+def test_private_gui_result_is_bound_to_original_device_context(tmp_path, field, value):
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    result = backend._profile_read_result({"success": True}, backend._private_read_context())
+    assert backend._profile_result_current(result)
+    setattr(backend.cfg, field, value)
+    assert not backend._profile_result_current(result)
+
+
+def test_owner_scope_notification_clears_private_views_without_invalidating_current_session(tmp_path):
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    controller = backend._session_controller
+    controller._session = {"session_id": "current"}
+    backend._music_dna_summary = "private"
+    backend._music_discovery_items = [{"title": "private"}]
+    backend._track_insight_text = "private"
+    with patch.object(controller, "invalidate") as invalidated:
+        backend._session_owner_changed()
+    invalidated.assert_not_called()
+    assert controller._session == {"session_id": "current"}
+    assert not backend._music_dna_summary and not backend._music_discovery_items and not backend._track_insight_text
+    assert backend._settings_reconcile_timer.isActive()
+
+
+def test_worker_drops_changed_owner_before_profile_metadata_adoption(tmp_path):
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    def delayed():
+        backend._session_controller._owner_epoch += 1
+        return {"success": True, "profile_id": "stale-private"}
+    backend.client.music_dna_profile = Mock(side_effect=delayed)
+    with patch.object(backend, "_apply_profile_context") as adopt:
+        backend._music_dna_profile_worker()
+    adopt.assert_not_called()
+    assert backend.cfg.active_profile_id != "stale-private"

@@ -6,7 +6,7 @@ from hashlib import sha256
 from PySide6.QtCore import QObject, Signal, Slot
 
 from .session_projection import active_session, session_playback
-from .session_transport import SessionError, session_profile_id
+from .session_transport import SessionError, private_scope_allowed
 
 COMMANDS = frozenset({"play", "pause", "previous", "next", "save_current_track"})
 
@@ -116,9 +116,7 @@ def reference(owner):
     cfg = owner.backend.cfg
     playback = session_playback(owner._session)
     if (not owner._foreground or owner.backend.demoMode
-            or not session_profile_id(cfg)
-            or cfg.private_session or cfg.active_profile_type not in {"personal", "household"}
-            or cfg.active_profile_privacy_mode != "private"
+            or not private_scope_allowed(owner)
             or getattr(cfg, "music_backend", "") not in {"spotify_direct", "music_assistant"}
             or getattr(cfg, "music_backend_available", False) is not True
             or not playback):

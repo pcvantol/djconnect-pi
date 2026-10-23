@@ -1298,11 +1298,12 @@ for _key, _values in _SESSION_COMPOSER_TRANSLATIONS.items():
 
 _SESSION_FORECAST_TRANSLATIONS = {
     "session_flow": ("Flow", "Flow", "Flow", "Fil", "Flujo"),
-    "session_forecast": ("Outlook · about 15 min", "Vooruitblik · ±15 min", "Ausblick · ca. 15 Min.", "Perspectives · env. 15 min", "Perspectiva · unos 15 min"),
+    "session_forecast": ("Horizon · about 15 min", "Horizon · ±15 min", "Horizon · ca. 15 Min.", "Horizon · env. 15 min", "Horizon · unos 15 min"),
+    "session_owner_read_only": ("Following the active session. Personal functions require personal Profile access.", "Je volgt de actieve sessie. Privéfuncties vereisen toegang tot een persoonlijk profiel.", "Die aktive Session wird angezeigt. Private Funktionen erfordern Zugriff auf ein persönliches Profil.", "La session active est affichée. Les fonctions privées nécessitent un accès à un profil personnel.", "Se muestra la sesión activa. Las funciones privadas requieren acceso a un perfil personal."),
     "session_forecast_current": ("Current", "Huidig", "Aktuell", "Actuel", "Actual"),
     "session_forecast_intention": ("Intention", "Voornemen", "Absicht", "Intention", "Intención"),
     "session_forecast_conditional_target": ("Possible direction", "Mogelijke richting", "Mögliche Richtung", "Direction possible", "Dirección posible"),
-    "session_forecast_empty": ("No current outlook available.", "Er is nu geen vooruitblik beschikbaar.", "Derzeit ist kein Ausblick verfügbar.", "Aucune perspective actuelle disponible.", "No hay una perspectiva actual disponible."),
+    "session_forecast_empty": ("Horizon is currently unavailable.", "Horizon is nu niet beschikbaar.", "Horizon ist derzeit nicht verfügbar.", "Horizon est actuellement indisponible.", "Horizon no está disponible actualmente."),
     "session_forecast_source": ("Current music source", "Bron van de huidige muziek", "Quelle der aktuellen Musik", "Source de la musique actuelle", "Fuente de la música actual"),
 }
 for _key, _values in _SESSION_FORECAST_TRANSLATIONS.items():

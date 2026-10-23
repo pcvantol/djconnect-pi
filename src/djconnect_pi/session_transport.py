@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from contextlib import ExitStack
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from hashlib import sha256
 from typing import Any
 from urllib.parse import quote, urlsplit
@@ -29,7 +29,7 @@ JSON_CHUNK_BYTES = 16 * 1024
 
 
 def response_budget(route: str) -> int:
-    if route == "session/history" or (route.startswith("session/history/") and route != "session/history/open"):
+    if route in {"session/history", "ask_dj/history"} or (route.startswith("session/history/") and route != "session/history/open"):
         return JSON_HISTORY_BYTES
     if route in {"session/active", "session/broadcast/snapshot", "session/start", "ask_dj/message"}:
         return JSON_SESSION_BYTES
@@ -130,6 +130,8 @@ class SessionBinding:
     privacy_mode: str
     language: str
     profile_selection: str = ""
+    private_authorized: bool = False
+    owner_epoch: int = 0
 
     @classmethod
     def capture(cls, cfg):
@@ -155,16 +157,32 @@ def identifier(value: Any) -> str:
 
 
 class SessionTransport:
-    def __init__(self, config: Callable, timeout: float = 8.0):
+    def __init__(self, config: Callable, timeout: float = 8.0, *, owner_scope=None):
         self.config = config
         self.timeout = timeout
+        self.owner_scope = owner_scope
 
     def binding(self) -> SessionBinding:
-        return SessionBinding.capture(self.config())
+        binding = SessionBinding.capture(self.config())
+        if self.owner_scope is not None and not binding.profile_id and not binding.resolved_profile_id:
+            scope = self.owner_scope()
+            if scope is not None:
+                owner, private, epoch = scope
+                identifier(owner)
+                if owner != owner.strip() or any(ord(c) == 127 for c in owner) or type(private) is not bool or type(epoch) is not int or epoch < 0:
+                    raise SessionError("invalid")
+                binding = replace(binding, profile_id=owner, resolved_profile_id=owner,
+                                  profile_type="", privacy_mode="", private_authorized=private, owner_epoch=epoch)
+        return binding
 
-    def _request(self, binding: SessionBinding, method: str, route: str, payload=None, *, timeout=None, isolated=False, archive_delete=False, content_delete=False) -> dict:
+    def _request(self, binding: SessionBinding, method: str, route: str, payload=None, *, timeout=None, isolated=False, archive_delete=False, content_delete=False, private_probe=False) -> dict:
         if binding != self.binding():
             raise SessionError("context_changed")
+        if private_probe:
+            if (method != "GET" or route != "ask_dj/history"
+                    or payload != {"conversation_scope": "profile", "history_contract_version": 2}):
+                raise SessionError("invalid")
+            isolated = True
         if archive_delete:
             # Only these released typed archive routes get closed identity and
             # bounded error bodies; callers cannot select an arbitrary effect.
@@ -236,6 +254,10 @@ class SessionTransport:
                     raise SessionError("context_changed")
                 # Denial is authoritative before any header/body allocation or JSON decode.
                 if response.status_code in (401, 403):
+                    # This closed read can deny personal access while a separately
+                    # authenticated current Session remains a shared display.
+                    if private_probe and response.status_code == 403:
+                        raise SessionError("private_scope_denied")
                     raise SessionError("denied")
                 if 300 <= response.status_code < 400 or (response.status_code >= 500 and not archive_delete):
                     raise SessionError("unavailable" if method == "GET" else "uncertain")
@@ -287,6 +309,29 @@ class SessionTransport:
             if binding != self.binding():
                 raise SessionError("context_changed") from None
             raise SessionError("offline" if method == "GET" else "uncertain") from None
+
+    def private_scope_owner(self, binding):
+        """Existing Apple/Core Profile conversation read; discard all message bodies.
+
+        A successful owner-scoped read confirms personal-read permission, not a
+        Profile type, permanent grant, response lifetime or permission for media.
+        Each consuming resource retains its own fresh authority and admission.
+        """
+        try:
+            data = self._request(binding, "GET", "ask_dj/history",
+                {"conversation_scope": "profile", "history_contract_version": 2}, private_probe=True)
+        except SessionError as exc:
+            if exc.category == "private_scope_denied":
+                return None
+            raise
+        owner = identifier(data.get("owner_profile_id"))
+        if (owner != owner.strip() or any(ord(c) == 127 for c in owner)
+                or data.get("history_scope") != "profile" or data.get("user_id") is not None
+                or not isinstance(data.get("messages"), list) or len(data["messages"]) > 1000
+                or any(not isinstance(row, dict) for row in data["messages"])
+                or (binding.profile_id and owner != binding.profile_id)):
+            raise SessionError("invalid")
+        return owner
 
     def prepare_content_delete(self, binding, selected):
         from .session_content_delete import target, wire_target
@@ -522,3 +567,20 @@ class SessionTransport:
                 raise SessionError("invalid")
             page["cursor"] = cursor
         return page
+
+
+def private_binding_allowed(binding):
+    return (not binding.private_session and bool(binding.profile_id)
+        and binding.profile_id == binding.resolved_profile_id
+        and (binding.private_authorized or (binding.profile_type == "personal"
+            and binding.privacy_mode == "private")))
+
+
+def private_scope_allowed(owner):
+    cfg = owner.backend.cfg
+    if cfg.private_session:
+        return False
+    if getattr(owner, "_bootstrap_binding", None) is not None:
+        return owner._bootstrap_current() and owner._bootstrap_private
+    return (bool(session_profile_id(cfg)) and cfg.active_profile_type == "personal"
+        and cfg.active_profile_privacy_mode == "private")

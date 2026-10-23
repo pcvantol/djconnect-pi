@@ -14,18 +14,23 @@ BrandWindow {
     title: "DJConnect"
     visibility: startWindowed ? Window.Windowed : Window.FullScreen
 
+    readonly property string vibeScapeCurrentOwner: djconnect.djSession.state.owner_profile_id || djconnect.activeProfileId
+    readonly property int vibeScapeCurrentEpoch: djconnect.djSession.state.owner_epoch || 0
+    property int vibeScapeVisitEpoch: 0
+    onVibeScapeCurrentOwnerChanged: syncVibeScape()
+    onVibeScapeCurrentEpochChanged: syncVibeScape()
     property bool vibeScapeRequested: false
     property string vibeScapeOwner: ""
     property string vibeScapeSession: ""
     readonly property bool vibeScapeAllowed: wallProfile && visible && active && activeScreen === "session" &&
-        djconnect.paired && !djconnect.demoMode && djconnect.activeProfileId.length > 0 &&
-        !djconnect.djSession.state.profile_confirmation_required && djconnect.djSession.state.runtime_state === "active" &&
+        djconnect.paired && !djconnect.demoMode && vibeScapeCurrentOwner.length > 0 &&
+        !djconnect.djSession.state.profile_confirmation_required && !djconnect.djSession.state.owner_read_only && djconnect.djSession.state.runtime_state === "active" &&
         djconnect.djSession.state.session_id.length > 0
     onVibeScapeAllowedChanged: if (!vibeScapeAllowed) closeVibeScape()
     function closeVibeScape() { vibeScapeLoader.active = false }
     function syncVibeScape() {
         if (vibeScapeLoader.active && (!vibeScapeAllowed || !djconnect.paired ||
-                vibeScapeOwner !== djconnect.activeProfileId ||
+                vibeScapeOwner !== vibeScapeCurrentOwner || vibeScapeVisitEpoch !== vibeScapeCurrentEpoch ||
                 vibeScapeSession !== djconnect.djSession.state.session_id)) closeVibeScape()
     }
     Connections {
@@ -39,7 +44,8 @@ BrandWindow {
     }
     function openVibeScape() {
         if (!vibeScapeAllowed) return
-        vibeScapeOwner = djconnect.activeProfileId
+        vibeScapeOwner = vibeScapeCurrentOwner
+        vibeScapeVisitEpoch = vibeScapeCurrentEpoch
         vibeScapeSession = djconnect.djSession.state.session_id
         vibeScapeRequested = true
         vibeScapeLoader.active = true

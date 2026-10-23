@@ -2473,3 +2473,63 @@ logs/manifests and final snapshots; old packages/views are INTERMEDIATE. Final
 local reviewwheel84files SHA5f89487248f83be23ab009bc8320bcc70359e962e2770950b3e1fe479a590567
 matches current source. No officialrc6 overwrite/publication/deployment. Fresh
 actual-root host MATCH is readiness only. See docs/PI10_VIBESCAPE.md.
+
+### Server-owned Session/Profile access without a local second selection
+
+The paired client can now use the existing protected Core8b / Apple3c223b9
+Profile-conversation read (`GET ask_dj/history`, scope profile, contract2) as
+personal-read evidence. The current Session owner is independently joined to
+that exact owner; bodies from this probe are discarded. No Profile type,
+privacy mode, config selection, lifetime, media grant or new wire field is
+fabricated. A successful personal read exposes the existing private functions;
+403 from only this closed probe retains a separately admitted active Session
+without private composer/archive/media.401 and other denials remain failures.
+Without an active Runtime, admitted personal access exposes SessionStartCard;
+no Start or question is sent automatically. Household metadata alone does not
+admit private chat. Each resource retains its original admission/deadlines.
+
+RAM owner epochs prevent revoke/regrant ABA; original context, foreground,
+queued intent and late response fences remain. An owner/permission transition
+withdraws existing private models and open composer/VibeScape visits. Legacy
+Music DNA/Discover/Insight/chat results carry RAM-only original-context tickets;
+shared settings bind their pending/read context to the same owner epoch.
+No device credential or local Profile choice is replaced.
+
+External evidence: pi-unattended-vm/results/private-owner-offline-v11 and
+private-owner-qml-v11, plus evidence/private-owner-package-verification-v11.json.
+Full Debian13/aarch64/Python3.13.5/Qt6.11.2 collection:3459 PASS/no skips.
+Targeted final app/settings/controller/transport:406 PASS.40 actual targeted
+Qt views across both formats/five locales exercise personal active/create,
+real keyboard opening, unsent draft and permission withdrawal; zero QML errors
+or binding loops. Broader current-source QML regression receipts are kept in
+the same offline run. They are synthetic transport, not live HA/provider or
+physical touch/GPU proof. Original fixture bytes remain unchanged.
+
+Diagnostics retained: older local full run's mDNS5353 conflict; intermediate
+VM snapshot missing its QA-only installer git mode index; old household-private
+expectation corrected to the explicit personal-only product decision; shared
+settings test expected reload but the existing late-context classification is
+denied. Earlier read-only-only candidate results are intermediate. Reviewwheel
+84 runtime files matches source:78a7203f3dd632449d6bdc47191600d72e1e2e84135fbb6bca39efcb0724794f.
+The first package audit mistakenly included a nonpackaged fonts/README.md;
+the final audit compares all84 actual wheel runtime entries byte for byte.
+No officialrc6 overwrite, protected merge or physical installation is implied.
+
+Final broader current-source QML run:436 composer +180 artwork +150 broad =766
+views, all PASS, zero errors/bindingloops;40 targeted private-owner views are
+separate, total806 current candidate views. VM live QA activation preserved
+paired credential and blank local Profile selection. Normal existing paired
+reads confirm personal owner fd38 and active Session; actual CUA opens Flow and
+the large unsent Ask DJ keyboard. Live receipt/capture remain private under
+pi-unattended-vm/evidence/PRIVATE_OWNER_LIVE_READBACK_v11.json and
+VM-LIVE-PRIVATE-KEYBOARD-v11.png. No new Session/question/provider write/erase.
+This is QA source-private-owner-v11, not an official physical deployment.
+
+Paired iPad comparison is not yet qualified. Existing iPadVisual6970 has
+DJConnect4.0.0/build40021; Device Hub reports No Simulators despite simctl's
+booted inventory. Normal UI created the dedicated Pi Apple parity comparison
+E8414A1D-E7E3-40CC-89DA-3BF703C96A06, also booted but absent from Device Hub,
+including after reopening only that frontend. No simulator reset, source
+adoption, credential extraction or other Apple-lane takeover. New iPad not
+paired or comparison-PASS. Codex cross-lane bridge still reports Transport
+closed; no failed handoff is represented as delivered or independent review.

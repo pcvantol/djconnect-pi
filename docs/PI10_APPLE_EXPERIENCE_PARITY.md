@@ -3234,3 +3234,32 @@ and touch qualification remain open. See PI10_VIBESCAPE.md for exact scope.
 Individual-content deletion has typed consent/HTTP primitives only; its complete
 visible-target UI/worker/withdrawal remains open. No new personal erase,
 pairing, live playback, physical installation or immutable-release overwrite.
+
+### Personal Profile Session entry repair (2026-10-23 candidate)
+
+Match Apple's existing owner-scoped conversation authorization instead of
+requiring legacy local Profile type/privacy metadata. The separately read
+current Session and authorized personal owner must join exactly. Existing
+active Session opens directly; no active Runtime shows the existing creation
+card after personal access is confirmed. No client-side Profile selection or
+config rewrite is introduced. Private controls, archive, composer and narrow
+media keep their individual existing server capabilities/source admission.
+Household metadata does not grant personal private functions; scoped denial
+can retain separately admitted current display without those functions.
+
+RAM owner epoch/context fences withdraw stale private bodies, drafts, settings
+and VibeScape visits, including same-owner revoke/regrant. Horizon replaces
+Vooruitblik in visible labels across all locales; protocol keys remain stable.
+Full3459 offline VM tests and40 targeted real Qt views are source qualification,
+not actual HA Session acceptance. See TESTS.md for component receipts and
+preserved failures. Live VM candidate verification and paired iPad comparison
+remain distinct acceptance steps; immutable physicalrc6 installs are untouched.
+
+Live QA follow-up: the existing VM remains normally paired to iPhone17Pro and
+now shows the real active Session plus personal composer/large keyboard under
+normal reads, with no new Start/question/provider effect.766 broader+40 targeted
+current-source Qt views pass; see TESTS.md. Physical installs remain separate.
+The requested paired-iPad comparison is pending Device Hub's missing simulator
+inventory: both existing and dedicated newly created simulator are booted in
+CoreSimulator but not accessible in the normal frontend. No comparison parity
+or iPad pairing is claimed.
