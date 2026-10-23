@@ -2416,3 +2416,19 @@ TigerVNC's real pixels and local API both show the pairing state. No new pair,
 reset, token patch, claim reset or installation was performed for this fix.
 The HA Store mapping to the intended Profile and the old config-entry binding
 still require owning reconciliation. See PI4_PROFILE_MISMATCH_REPAIR.md.
+
+
+### Music DNA failure is separate from disabled consent
+
+21 new HTTP/WebSocket/backend-worker cases: rejected responses cannot update
+Profile/key/content, failed reads do not become opt-in, explicit successful read
+recovers, auth/protocol classifications remain intact. Initial15cases14FAIL/1PASS
+on original source. Full3339PASS/no skips48.13s; final QML50views/10real Qt
+refresh clicks/two formats/five locales, zero QMLerrors/bindingloops. Final
+first-third error geometry retained after visual spacer regression fix. Existing
+i18n keys only. Ruff0.16 no-cache/diff PASS. Local review package80runtimefiles
+matches source, no officialrc6 overwrite/install. Logs/failed intermediate runs
+retained under pi4-four-features-20261023; final view set dna-qml-final-v4 only.
+Pi10's authorized single reboot retained pairing; readonly queue19/playlists39
+is separate from native UI/Session/Music DNA acceptance, still unverified.
+Config-entry/Store mismatch alone is not proof of server cause; no blind edit.

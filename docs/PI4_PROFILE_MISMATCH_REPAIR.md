@@ -37,10 +37,40 @@ This document is not installation or pairing approval.
 
 ## Remaining actual work
 
-The Core-owned config-entry/Store mismatch needs a supported owner correction.
+Owner review clarifies that a config-entry/Store difference alone does not prove
+the failure cause: device-bound resolution uses the canonical Store. The exact
+rejected request and its explicit Profile hint still need causal verification;
+blindly changing the config entry is unsupported.
 The physical Pi currently needs normal reauthentication after the cause is
 resolved; do not patch config/token storage or replay a recovery installer.
 The prior smoke remains inconclusive due original configuration-digest drift
 and a literal empty-systemd-property check; retain both independently from this
 later authorized normal Profile-mapping write and later auth failure. No timer
 was started, no Pi10 changes, provider/model call or new media/audio rights.
+
+
+## Additional Music DNA correction
+
+An unsuccessful Music DNA response must not render as disabled/opt-in or become
+Profile/key/content authority. The shared page now has a separate localized
+error card, hides opt-in/content while the read is rejected, and keeps explicit
+refresh available. Only a subsequent independent successful read clears the
+error. No automatic request or settings/clear replay is introduced. Typed
+ProfileContextError preserves known machine-code classification; genuine auth
+and protocol errors still reach their original handlers rather than being
+wrapped as backend outages. Existing translation keys cover all five locales.
+
+21 new regression cases,3339 integrated PASS/no skips48.13s, final50 actual
+QML views and10 Qt refresh clicks across both formats/five locales, zero QML
+errors/binding loops; Ruff/diff PASS. Visual review caught and corrected a hidden
+spacer that displaced the tablet error below the first fold; final geometry
+asserts the card is in the first third. Intermediate views are retained but not
+counted. Local wheel a9516f9b140de29ce3b64308fdda6c8007e241ed5a21100a2f26bf1b52bd2534
+matches80 runtimefiles. This is source-only, not installed Music DNA acceptance.
+
+Pi10 comparison on23Oct: one directly authorized reboot; afterwards exact88A
+remains paired on officialrc6/source0dde, app/API active. A normal readonly portal
+request returns19queue items/39playlists/backendavailable:true. No song titles,
+credentials or raw Profile content exported. VNC remains black, so native clicks
+and live DJ Session/Music DNA acceptance remain unverified. No further reboot,
+reset, pairing write, new timer or operational binding was performed.

@@ -55,6 +55,7 @@ from .ha import (
     DJConnectError,
     HAClient,
     Playback,
+    ProfileContextError,
     ProtocolVersionMismatch,
     StaleBackendAction,
     UnsupportedBackendCapability,
@@ -201,6 +202,7 @@ class DJConnectBackend(QObject):
         self._ask_dj_busy = False
         self._music_dna_enabled = False
         self._music_dna_summary = ""
+        self._music_dna_error = ""
         self._music_dna_sections: list[dict[str, object]] = []
         self._music_dna_busy = False
         self._music_discovery_items: list[dict[str, object]] = []
@@ -424,6 +426,10 @@ class DJConnectBackend(QObject):
     @Property(bool, notify=musicDnaChanged)
     def musicDnaBusy(self) -> bool:
         return self._music_dna_busy
+
+    @Property(str, notify=musicDnaChanged)
+    def musicDnaError(self) -> str:
+        return self._music_dna_error
 
     @Property(str, notify=musicDnaChanged)
     def musicDnaSummary(self) -> str:
@@ -1869,8 +1875,14 @@ class DJConnectBackend(QObject):
             data = self.client.music_dna_profile()
             self._apply_profile_context(data)
             self._persist_backend_summary()
-        except (DJConnectError, requests.RequestException) as exc:
-            raise BackendUnavailable("Music DNA unavailable") from exc
+        except (AuthenticationError, ProtocolVersionMismatch):
+            raise
+        except ProfileContextError as exc:
+            self._musicDnaReady.emit({"success": False, "error": exc.code})
+            return
+        except (DJConnectError, requests.RequestException):
+            self._musicDnaReady.emit({"success": False, "error": "music_dna_unavailable"})
+            return
         self._musicDnaReady.emit(data)
 
     def _music_dna_settings_worker(self, **settings: object) -> None:
@@ -1878,8 +1890,14 @@ class DJConnectBackend(QObject):
             data = self.client.music_dna_settings(**settings)
             self._apply_profile_context(data)
             self._persist_backend_summary()
-        except (DJConnectError, requests.RequestException) as exc:
-            raise BackendUnavailable("Music DNA unavailable") from exc
+        except (AuthenticationError, ProtocolVersionMismatch):
+            raise
+        except ProfileContextError as exc:
+            self._musicDnaReady.emit({"success": False, "error": exc.code})
+            return
+        except (DJConnectError, requests.RequestException):
+            self._musicDnaReady.emit({"success": False, "error": "music_dna_unavailable"})
+            return
         self._musicDnaReady.emit(data)
 
     def _music_dna_clear_worker(self) -> None:
@@ -1887,8 +1905,14 @@ class DJConnectBackend(QObject):
             data = self.client.music_dna_clear()
             self._apply_profile_context(data)
             self._persist_backend_summary()
-        except (DJConnectError, requests.RequestException) as exc:
-            raise BackendUnavailable("Music DNA unavailable") from exc
+        except (AuthenticationError, ProtocolVersionMismatch):
+            raise
+        except ProfileContextError as exc:
+            self._musicDnaReady.emit({"success": False, "error": exc.code})
+            return
+        except (DJConnectError, requests.RequestException):
+            self._musicDnaReady.emit({"success": False, "error": "music_dna_unavailable"})
+            return
         self._musicDnaReady.emit(data)
 
     def _music_discovery_feed_worker(self) -> None:
@@ -2289,6 +2313,7 @@ class DJConnectBackend(QObject):
         self._clear_ask_dj_cache()
         self._music_dna_enabled = False
         self._music_dna_summary = ""
+        self._music_dna_error = ""
         self._music_dna_sections = []
         self._music_discovery_items = []
         self._music_discovery_empty_text = ""
@@ -2341,6 +2366,15 @@ class DJConnectBackend(QObject):
     def _apply_music_dna_data(self, data: object) -> None:
         if not isinstance(data, dict):
             return
+        if data.get("success") is False:
+            code = data.get("error")
+            key = "session_profile_missing" if isinstance(code, str) and code in PROFILE_ERROR_CODES | {"music_dna_context_changed"} else "backend_unavailable"
+            self._music_dna_error = self.tr_key(key)
+            self._music_dna_summary = ""
+            self._music_dna_sections = []
+            self.musicDnaChanged.emit()
+            return
+        self._music_dna_error = ""
         self._apply_profile_context(data)
         parsed = parse_music_dna_profile(data)
         self._music_dna_enabled = bool(parsed["enabled"])

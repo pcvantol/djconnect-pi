@@ -3075,19 +3075,34 @@ BrandWindow {
 
                 RefreshIconButton {
                     id: musicDnaRefreshButton
+                    objectName: "musicDnaRefreshButton"
                     enabled: !djconnect.musicDnaBusy
                     onClicked: djconnect.refreshMusicDna()
                 }
             }
 
             GlassCard {
+                objectName: "musicDnaErrorCard"
+                visible: djconnect.musicDnaError.length > 0
+                Layout.fillWidth: true
+                Text {
+                    text: djconnect.musicDnaError
+                    textFormat: Text.PlainText
+                    color: BrandTheme.colors.text
+                    font.pixelSize: 22
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+            }
+
+            GlassCard {
                 objectName: "musicDnaOptInHero"
                 hero: true; padding: 18
-                visible: !djconnect.musicDnaEnabled
+                visible: !djconnect.musicDnaEnabled && djconnect.musicDnaError.length === 0
                 Layout.fillWidth: true
                 Layout.maximumHeight: implicitHeight
                 RowLayout {
-                    visible: !djconnect.musicDnaEnabled
+                    visible: !djconnect.musicDnaEnabled && djconnect.musicDnaError.length === 0
                     Layout.fillWidth: true
                     spacing: 10
 
@@ -3103,7 +3118,7 @@ BrandWindow {
                 }
 
                 Text {
-                    visible: !djconnect.musicDnaEnabled
+                    visible: !djconnect.musicDnaEnabled && djconnect.musicDnaError.length === 0
                     text: root.tr("music_dna_opt_in")
                     color: BrandTheme.colors.muted
                     font.pixelSize: 20
@@ -3112,7 +3127,7 @@ BrandWindow {
                 }
 
                 PurpleButton {
-                    visible: !djconnect.musicDnaEnabled
+                    visible: !djconnect.musicDnaEnabled && djconnect.musicDnaError.length === 0
                     text: root.tr("music_dna_enable")
                     enabled: !djconnect.musicDnaBusy
                     font.pixelSize: 22
@@ -3125,11 +3140,11 @@ BrandWindow {
             GlassCard {
                 objectName: "musicDnaSummaryHero"
                 hero: true; padding: 18
-                visible: djconnect.musicDnaEnabled && djconnect.musicDnaSummary.length > 0
+                visible: djconnect.musicDnaError.length === 0 && djconnect.musicDnaEnabled && djconnect.musicDnaSummary.length > 0
                 Layout.fillWidth: true
                 Layout.maximumHeight: implicitHeight
                 Text {
-                    visible: djconnect.musicDnaEnabled && djconnect.musicDnaSummary.length > 0
+                    visible: djconnect.musicDnaError.length === 0 && djconnect.musicDnaEnabled && djconnect.musicDnaSummary.length > 0
                     text: djconnect.musicDnaSummary
                     color: BrandTheme.colors.text
                     font.pixelSize: 22
@@ -3140,7 +3155,7 @@ BrandWindow {
 
             ScrollView {
                 id: musicDnaScroll
-                visible: djconnect.musicDnaEnabled
+                visible: djconnect.musicDnaError.length === 0 && djconnect.musicDnaEnabled
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 clip: true
@@ -3190,7 +3205,7 @@ BrandWindow {
                 }
             }
             Item {
-                visible: !djconnect.musicDnaEnabled
+                visible: !djconnect.musicDnaEnabled || djconnect.musicDnaError.length > 0
                 Layout.fillWidth: true; Layout.fillHeight: true
             }
         }

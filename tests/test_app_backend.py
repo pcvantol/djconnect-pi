@@ -36,6 +36,7 @@ from djconnect_pi.ha import (
     DJConnectError,
     HAClient,
     Playback,
+    ProfileContextError,
     ProtocolVersionMismatch,
     StaleBackendAction,
     UnsupportedBackendCapability,
@@ -3002,3 +3003,53 @@ def test_optional_album_cache_permission_failure_does_not_break_refresh(stage, t
     with patch.object(Path, "exists", return_value=stage == "stat"), patch.object(Path, stage, side_effect=PermissionError("synthetic cache denied")), patch("djconnect_pi.app.requests.get") as get:
         assert cached_image_url("https://fixture.invalid/art.jpg") == "https://fixture.invalid/art.jpg"
     get.assert_not_called()
+
+
+@pytest.mark.parametrize("code", ["music_dna_context_changed", "profile_device_mismatch", "music_dna_unavailable"])
+def test_music_dna_failure_is_not_disabled_or_profile_authority(tmp_path, code):
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.active_profile_id = "original"
+    backend._music_dna_enabled = True
+    backend._music_dna_summary = "old-profile-summary"
+    backend._apply_music_dna_data({"success": False, "error": code, "profile_id": "foreign",
+                                  "enabled": True, "profile": {"summary": "rejected"}})
+    assert backend.cfg.active_profile_id == "original"
+    assert backend.musicDnaSummary == ""
+    assert backend.musicDnaSections == []
+    expected = "backend_unavailable" if code == "music_dna_unavailable" else "session_profile_missing"
+    assert backend.musicDnaError == backend.tr_key(expected)
+    assert code not in backend.musicDnaError
+    backend._apply_music_dna_data({"success": True, "enabled": False, "profile": {}})
+    assert backend.musicDnaError == "" and not backend.musicDnaEnabled
+
+
+@pytest.mark.parametrize("action", ["profile", "settings", "clear"])
+@pytest.mark.parametrize("error_type", [AuthenticationError, ProtocolVersionMismatch])
+def test_music_dna_workers_preserve_authentication_and_protocol_classification(tmp_path, action, error_type):
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    error = error_type("invalid auth") if error_type is AuthenticationError else error_type("4.0", "5.0")
+    setattr(backend.client, "music_dna_" + action, Mock(side_effect=error))
+    with pytest.raises(error_type):
+        getattr(backend, "_music_dna_" + action + "_worker")()
+
+
+@pytest.mark.parametrize("action", ["profile", "settings", "clear"])
+@pytest.mark.parametrize("profile_error", [True, False])
+def test_music_dna_worker_errors_show_retry_without_content_or_replay(tmp_path, action, profile_error):
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "original-token"
+    backend.cfg.active_profile_id = backend.cfg.explicit_profile_id = "original-profile"
+    error = ProfileContextError("music_dna_context_changed", "private detail") if profile_error else DJConnectError("private unavailable")
+    request = Mock(side_effect=error)
+    setattr(backend.client, "music_dna_" + action, request)
+    getattr(backend, "_music_dna_" + action + "_worker")()
+    assert request.call_count == 1
+    assert backend.musicDnaError == backend.tr_key("session_profile_missing" if profile_error else "backend_unavailable")
+    assert "private" not in backend.musicDnaError
+    assert backend.cfg.paired and backend.cfg.device_token == "original-token"
+    assert backend.cfg.active_profile_id == backend.cfg.explicit_profile_id == "original-profile"
+    assert not backend.musicDnaSummary and not backend.musicDnaSections

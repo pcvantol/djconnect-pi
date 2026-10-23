@@ -1875,3 +1875,20 @@ def test_websocket_failure_logging_omits_tokens_and_raw_prompt(caplog) -> None:
     assert "secret-token" not in caplog.text
     assert "ha-secret-token" not in caplog.text
     assert "raw private prompt" not in caplog.text
+
+
+@pytest.mark.parametrize("transport", ["http", "websocket"])
+@pytest.mark.parametrize("code", ["music_dna_context_changed", "profile_device_mismatch", "music_dna_unavailable"])
+def test_rejected_music_dna_response_never_adopts_context_or_key(transport, code):
+    cfg = Config(ha_url="http://ha", paired=True, device_token="device-token",
+                 active_profile_id="original", explicit_profile_id="original", music_dna_key="original-key")
+    client = HAClient(cfg)
+    rejected = {"success": False, "error": code, "profile_id": "foreign",
+                "music_dna_key": "foreign-key", "enabled": True, "profile": {"summary": "rejected"}}
+    with patch.object(client, "_try_websocket", return_value=rejected if transport == "websocket" else None), patch(
+        "djconnect_pi.ha.requests.post", return_value=FakeResponse(200, rejected)
+    ) as post, pytest.raises(DJConnectError):
+        client._music_dna_request("djconnect/music_dna/profile", "music_dna/profile", {})
+    assert post.call_count == (transport == "http")
+    assert cfg.active_profile_id == cfg.explicit_profile_id == "original"
+    assert cfg.music_dna_key == "original-key" and cfg.paired
