@@ -2432,3 +2432,44 @@ retained under pi4-four-features-20261023; final view set dna-qml-final-v4 only.
 Pi10's authorized single reboot retained pairing; readonly queue19/playlists39
 is separate from native UI/Session/Music DNA acceptance, still unverified.
 Config-entry/Store mismatch alone is not proof of server cause; no blind edit.
+
+
+### Pi10 native VibeScape and individual-content consent foundation
+
+Protected Apple3c223b9 visual source is independently pinned. Pi5-only explicit
+native RHI/OpenGL visit: four Mood palettes, bounded procedural field, local
+dynamics/touch, reduced motion, honest non-GL/shader failure and immediate
+Profile/Session/pairing/background withdrawal. Explicit latch prevents returned
+contexts from reopening. Logical idle/return-to-now are held only during the
+visit; normal brightness and timers remain. No microphone, STT, audio analysis,
+provider/model call, scene persistence or iOS visual-director wire adoption.
+
+44 new identifier-only content-consent/isolated-HTTP cases plus2 actual isolated
+Qt admission/context regressions:46 focused PASS; FINAL3385 full integrated
+PASS/no skips49.28s in Debian13/aarch64/Python3.13.5/Qt6.11.2 VM. Ruff0.16 src/tests
+and diff PASS. Final frozen runtime:150broad/436UNMODIFIEDcomposer/180UNMODIFIED
+artwork QML views;20non-GL fallback +25native GL view/interaction records, all5
+locales. Separate final40 native integration cases prove Pi4 absence, Pi10
+entry/exit, brightness pixels, original timer restoration, scope withdrawal and
+no automatic re-entry. Zero QMLerrors/bindingloops; startup font diagnostics kept.
+VM renderer is llvmpipe, NOT physical Pi5 GPU/installed/touch/performance proof.
+
+The content-consent foundation uses released58561f97+Finalb4bf4701, original
+confirmation/UUID lifetime and atomic one-claim, strict owner/unit/scope/digest,
+read-only original status, closed paired identity without Profile/private body
+hints. It is NOT connected to a delete UI/worker/invalidation: individual content
+erasure remains open; no personal erasure was performed. Existing archive single,
+bulk and status remain separate.
+
+All diagnostics retained: initial no-resize QQuickView/translation fixture;
+QML palette-name clash fixed; stale-copy readonly Git-object diagnostic;
+3374PASS5FAIL wrong-runner-cwd corrected; root bindingloop fixed by explicit
+latch; artificial interval1 and wrong paired/brightness fixture notifications
+corrected to real events without weakening assertions. Earlier aggregate runs
+remain FAILED, not relabelled. Final native integration separately replaces the
+last failed brightness-fixture phase on byte-identical frozen product source.
+Evidence: pi-unattended-vm/evidence/VIBESCAPE_QUALIFICATION_FINAL.json with per-run
+logs/manifests and final snapshots; old packages/views are INTERMEDIATE. Final
+local reviewwheel84files SHA5f89487248f83be23ab009bc8320bcc70359e962e2770950b3e1fe479a590567
+matches current source. No officialrc6 overwrite/publication/deployment. Fresh
+actual-root host MATCH is readiness only. See docs/PI10_VIBESCAPE.md.

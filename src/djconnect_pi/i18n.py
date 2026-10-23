@@ -1528,3 +1528,13 @@ _SESSION_WELCOME_COPY = {
 for _key, _values in _SESSION_WELCOME_COPY.items():
     for _locale, _value in zip(("en", "nl", "de", "fr", "es"), _values, strict=True):
         TRANSLATIONS[_locale][_key] = _value
+
+
+_VIBESCAPE_COPY = {
+    "vibescape_title": ("VibeScape", "VibeScape", "VibeScape", "VibeScape", "VibeScape"),
+    "vibescape_dynamics": ("Visual dynamics", "Visuele dynamiek", "Visuelle Dynamik", "Dynamique visuelle", "Dinámica visual"),
+    "vibescape_unavailable": ("VibeScape is unavailable on this display.", "VibeScape is niet beschikbaar op dit scherm.", "VibeScape ist auf diesem Bildschirm nicht verfügbar.", "VibeScape n’est pas disponible sur cet écran.", "VibeScape no está disponible en esta pantalla."),
+}
+for _key, _values in _VIBESCAPE_COPY.items():
+    for _locale, _value in zip(("en", "nl", "de", "fr", "es"), _values, strict=True):
+        TRANSLATIONS[_locale][_key] = _value

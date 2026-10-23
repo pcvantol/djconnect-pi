@@ -3220,3 +3220,17 @@ PASS. Runtime80/installer/lock unchanged. Actual Zero2W Python3.13.5 only compil
 helper/remote/observer in RAM; no root/candidate execution. No installed recovery,
 new smoke, Pi10 reinstall, overall PASS or live Spotify/touch claim. See
 [closed recovery](PI_RC6_WALL4_RECOVERY.md) for pins/sequence/diagnostics.
+
+
+### Pi10 local VibeScape candidate (2026-10-23)
+
+Native Qt RHI procedural renderer from pinned Apple3c223b9, only pi5-arm64;
+explicit active-Session entry, Mood palettes, local dynamics and touch, mounted
+Flow/Forecast return, brightness/idle preservation and immediate non-rearming
+context withdrawal. Pi4 has no entry/renderer. No voice/audio analysis or new
+Core visual-director rights.3385 VM tests/no skips and final native GL/context
+probes pass, but Mesa llvmpipe is software: real Pi5 GPU/thermal/memory/installed
+and touch qualification remain open. See PI10_VIBESCAPE.md for exact scope.
+Individual-content deletion has typed consent/HTTP primitives only; its complete
+visible-target UI/worker/withdrawal remains open. No new personal erase,
+pairing, live playback, physical installation or immutable-release overwrite.

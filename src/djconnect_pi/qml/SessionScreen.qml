@@ -458,6 +458,7 @@ Item {
     onVisibleChanged: { syncMediaVisibility(); if (!visible) { clearForecastReading(); cancelArchiveRead(); if (owner) owner.clearArchive(); clearFlowReturn(); historyRead.stop(); historyReadProfile = ""; historyReadSession = ""; historyReadPending = false; readingRestore.stop(); pendingReadingAnchor = ""; closeTransient() } }
     onHistoricalChanged: { if (historical) playbackPanel.close(); syncMediaVisibility(); if (!historical) { archiveDetailReturn = null; cancelArchiveRead(); if (owner) owner.clearArchive() } readingRestore.stop(); pendingReadingAnchor = ""; readingOffset = 0; if (!historical && flowReturn) { historyScroll.contentItem.cancelFlick(); flowReturnRestore.restart() } }
     onSearchTargetChanged: { if (searchPanel) searchPanel.close(); if (searchInput) searchInput.clear(); if (owner) owner.clearSearch() }
+    signal openVibeScape()
     signal navigate(string destination)
     function tr(key) { backend.translationVersion; return backend.t(key) }
     function displayDate(value) { backend.translationVersion; return owner.formatTimestamp(value || "") }
@@ -671,11 +672,12 @@ Item {
 
     RowLayout {
         id: modeSwitch
-        visible: !screen.historical && screen.state.forecast_supported
+        visible: !screen.historical && (screen.state.forecast_supported || (screen.backend.releaseProfile === "pi5-arm64" && screen.state.runtime_state === "active"))
         anchors.left: parent.left; anchors.top: toolbar.bottom
         anchors.leftMargin: 20; anchors.topMargin: 10; height: 48
         GlassButton { objectName: "sessionFlowMode"; text: screen.tr("session_flow"); checked: !screen.forecastMode; onClicked: screen.forecastMode = false }
-        GlassButton { objectName: "sessionForecastMode"; text: screen.tr("session_forecast"); checked: screen.forecastMode; onClicked: screen.forecastMode = true }
+        GlassButton { objectName: "sessionForecastMode"; visible: screen.state.forecast_supported; text: screen.tr("session_forecast"); checked: screen.forecastMode; onClicked: screen.forecastMode = true }
+        GlassButton { objectName: "sessionVibeScapeMode"; visible: screen.backend.releaseProfile === "pi5-arm64" && screen.state.runtime_state === "active" && !screen.state.profile_confirmation_required; text: screen.tr("vibescape_title"); onClicked: screen.openVibeScape() }
     }
     ScrollView {
         id: forecastScroll

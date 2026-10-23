@@ -162,7 +162,7 @@ class SessionTransport:
     def binding(self) -> SessionBinding:
         return SessionBinding.capture(self.config())
 
-    def _request(self, binding: SessionBinding, method: str, route: str, payload=None, *, timeout=None, isolated=False, archive_delete=False) -> dict:
+    def _request(self, binding: SessionBinding, method: str, route: str, payload=None, *, timeout=None, isolated=False, archive_delete=False, content_delete=False) -> dict:
         if binding != self.binding():
             raise SessionError("context_changed")
         if archive_delete:
@@ -180,6 +180,17 @@ class SessionTransport:
                     expected = {"contract_version", "operation_id", "operation"} | (
                         {"session_id", "expected_revision"} if mode == "single" else {"snapshot_id"})
             if not isinstance(payload, dict) or set(payload) != expected:
+                raise SessionError("invalid")
+            isolated = True
+        if content_delete:
+            shapes = {
+                ("POST", "session/content/delete/prepare"): {"contract_version", "target"},
+                ("POST", "session/content/delete"): {"contract_version", "confirmation_id", "operation_id", "confirmed"},
+                ("GET", "session/content/delete/status"): {"contract_version", "confirmation_id", "operation_id"},
+            }
+            if (archive_delete or not isinstance(payload, dict)
+                    or set(payload) != shapes.get((method, route))
+                    or type(payload.get("contract_version")) is not int or payload["contract_version"] != 1):
                 raise SessionError("invalid")
             isolated = True
         if isolated:
@@ -203,7 +214,7 @@ class SessionTransport:
         if binding.profile_id:
             headers["X-DJConnect-Profile-ID"] = binding.profile_id
         identity = ({"device_id": binding.device_id, "client_type": CLIENT_TYPE}
-                    if archive_delete else binding.identity())
+                    if archive_delete or content_delete else binding.identity())
         body = {**identity, **(payload or {})}
         if method == "GET":
             body = {key: str(value).lower() if isinstance(value, bool) else value for key, value in body.items()}
@@ -276,6 +287,28 @@ class SessionTransport:
             if binding != self.binding():
                 raise SessionError("context_changed") from None
             raise SessionError("offline" if method == "GET" else "uncertain") from None
+
+    def prepare_content_delete(self, binding, selected):
+        from .session_content_delete import target, wire_target
+        selected = wire_target(target(selected))
+        return self._request(binding, "POST", "session/content/delete/prepare",
+                             {"contract_version": 1, "target": selected}, content_delete=True)
+
+    def delete_content(self, binding, intent, values):
+        if (not isinstance(values, dict) or values.get("confirmed") is not True
+                or binding != intent.preview.binding or values != {"contract_version": 1,
+                "confirmation_id": intent.preview.confirmation, "operation_id": intent.operation, "confirmed": True}):
+            raise SessionError("invalid")
+        result = self._request(binding, "POST", "session/content/delete", values, content_delete=True)
+        intent.receipt(result)
+
+    def content_delete_status(self, binding, intent):
+        if binding != intent.preview.binding:
+            raise SessionError("context_changed")
+        result = self._request(binding, "GET", "session/content/delete/status", {
+            "contract_version": 1, "confirmation_id": intent.preview.confirmation,
+            "operation_id": intent.operation}, content_delete=True)
+        return intent.outcome(result)
 
     def capabilities(self, binding, *, isolated=False):
         return self._request(binding, "GET", "capabilities", isolated=isolated)
