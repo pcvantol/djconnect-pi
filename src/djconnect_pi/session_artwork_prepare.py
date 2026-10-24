@@ -7,17 +7,14 @@ from PySide6.QtCore import QObject, Signal, Slot
 from .session_artwork import artwork_lease
 from .session_current_reply import moment_reference
 from .session_projection import active_session
-from .session_transport import SessionError
+from .session_transport import SessionError, private_scope_allowed
 
 
 def prepare_reference(owner, moment_id):
-    cfg = owner.backend.cfg
     caps = owner._caps
     if (not owner._foreground or not owner._moment_images.visible
             or owner._session.get("runtime_state") != "active"
-            or not cfg.explicit_profile_id or cfg.explicit_profile_id != cfg.active_profile_id
-            or cfg.active_profile_type not in {"personal", "household"}
-            or cfg.active_profile_privacy_mode != "private" or cfg.private_session
+            or not private_scope_allowed(owner)
             or caps.get("capabilities", {}).get("session_artwork") is not True
             or type(caps.get("contract_versions", {}).get("session_artwork")) is not int
             or caps["contract_versions"]["session_artwork"] != 1

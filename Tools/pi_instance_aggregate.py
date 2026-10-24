@@ -19,18 +19,21 @@ from Tools.pi_instance_contract import (
 def latest_deployment(client, authority, instance):
     # Any later attempt for this physical instance invalidates older smoke,
     # including a different manifest/consumer and an inconclusive mutation.
-    listing = client.json("repos/"+PI+"/actions/workflows/deploy-latest-pi-release.yml/runs?event=workflow_dispatch&per_page=20")
-    runs = listing.get("workflow_runs")
-    require(isinstance(runs, list) and type(listing.get("total_count")) is int
-            and 0 <= listing["total_count"] <= 20 and len(runs) <= 20, "DEPLOYMENT_RUN_LIST_INVALID")
-    prefix = "Pi deploy / "+instance+" / "
-    matching = [run for run in runs if run.get("head_branch") == "main"
-        and isinstance(run.get("display_title"), str) and run["display_title"].startswith(prefix)
-        and run.get("path") in {".github/workflows/deploy-latest-pi-release.yml", ".github/workflows/deploy-latest-pi-release.yml@main"}
-        and run.get("event") == "workflow_dispatch"]
+    matching = []
+    for filename, kind in (("deploy-latest-pi-release.yml", "deploy"), ("recover-rc6-wall4.yml", "recovery")):
+        listing = client.json("repos/"+PI+"/actions/workflows/"+filename+"/runs?event=workflow_dispatch&per_page=20")
+        runs = listing.get("workflow_runs")
+        require(isinstance(runs, list) and type(listing.get("total_count")) is int
+                and 0 <= listing["total_count"] <= 20 and len(runs) <= 20, "DEPLOYMENT_RUN_LIST_INVALID")
+        prefix = "Pi "+kind+" / "+instance+" / "
+        matching.extend(run for run in runs if run.get("head_branch") == "main"
+            and isinstance(run.get("display_title"), str) and run["display_title"].startswith(prefix)
+            and run.get("path") in {".github/workflows/"+filename, ".github/workflows/"+filename+"@main"}
+            and run.get("event") == "workflow_dispatch")
     require(bool(matching), "LATEST_DEPLOYMENT_MISSING")
     matching.sort(key=lambda run: int(run["id"]), reverse=True)
     run = matching[0]
+    prefix = "Pi "+("recovery" if "recover-rc6-wall4.yml" in run["path"] else "deploy")+" / "+instance+" / "
     require(all(datetime.fromisoformat(old["updated_at"]) <= datetime.fromisoformat(run["updated_at"]) for old in matching), "OLDER_DEPLOYMENT_UPDATED_AFTER_NEWER_INTENT")
     require(type(run.get("run_attempt")) is int and run["run_attempt"] == 1 and run.get("status") == "completed" and run.get("conclusion") == "success"
             and run.get("head_sha") == authority.binding.consumer_sha
@@ -40,6 +43,7 @@ def latest_deployment(client, authority, instance):
 
 
 def aggregate(client, authority, current: dict) -> dict:
+    require(authority.binding.smoke_contract == "pi-rc6-instance-readback-v1", "ORDINARY_TWO_INSTANCE_AGGREGATE_REQUIRED")
     selected = authority.binding.request["deployment_instance"]
     other = next(instance for instance in CONFIGURATION_REFS if instance != selected)
     results = {selected: current["result"], other: "SMOKE_INCONCLUSIVE"}
@@ -55,7 +59,7 @@ def aggregate(client, authority, current: dict) -> dict:
         require(len(matches) == 1, "OTHER_INSTANCE_BINDING_MISSING")
         request = dict(authority.binding.request)
         request.update({key: matches[0][key] for key in ("deployment_instance", "device_profile", "artifact_id", "artifact_sha256")})
-        configuration = {"PI_RC5_OPERATIONAL_CORE_SHA": authority.operational_core_sha, "PI_RC5_OPERATIONAL_MANIFEST_SHA256": authority.operational_manifest_sha256}
+        configuration = {"PI_RC6_OPERATIONAL_CORE_SHA": authority.operational_core_sha, "PI_RC6_OPERATIONAL_MANIFEST_SHA256": authority.operational_manifest_sha256}
         other_authority = resolve(client, request, authority.binding.consumer_sha, configuration)
         listing = client.json("repos/"+PI+"/actions/workflows/smoke-rbpi-djconnect.yml/runs?event=workflow_dispatch&head_sha="+authority.binding.consumer_sha+"&per_page=20")
         runs = listing.get("workflow_runs");require(isinstance(runs, list) and len(runs) <= 20

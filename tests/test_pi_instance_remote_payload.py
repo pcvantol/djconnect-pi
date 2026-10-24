@@ -29,7 +29,7 @@ def test_rejected_intent_never_stages_or_calls_installer(sandbox, case):
     payload = {"artifact": base64.b64encode(b"bad archive").decode(), "artifact_sha256": "f"*64,
         "device_profile": "pi5-arm64", "run_id": "123", "source": "a"*40}
     if case == "existing-release":
-        preserved = root/"opt/releases/4.0.0-rc.5-pi5-arm64";preserved.mkdir(parents=True)
+        preserved = root/"opt/releases/4.0.0-rc.6-pi5-arm64";preserved.mkdir(parents=True)
         (preserved/"WIP").write_text("preserve")
     with pytest.raises(wire.RemoteError):wire.deploy(payload)
     process.assert_not_called();assert not (root/"home/djconnect-install").exists()

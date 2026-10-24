@@ -348,3 +348,20 @@ def test_malformed_patch_response_is_resolved_by_receipt_without_replaying(
     monkeypatch.setattr(requests, "post", receipt)
     assert client.update({"presence": "talkative"}, state["edit_token"])["values"]
     assert patch.call_count == receipt.call_count == 1
+
+
+
+def test_settings_read_rejects_scope_revoke_regrant_even_when_owner_is_same(owner):
+    client, cfg, get = owner
+    scope = ["profile-owner", True, 1]
+    client.owner_context = lambda: tuple(scope)
+    original = client.context()
+    def delayed(*args, **kwargs):
+        scope[2] += 2
+        return response(fixture())
+    get.side_effect = delayed
+    with pytest.raises(SettingsError, match="denied"):
+        client.read()
+    assert client.context() != original
+    assert cfg.active_profile_id == ""
+    assert "owner_context" not in get.call_args.kwargs["params"]

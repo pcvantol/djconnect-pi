@@ -191,7 +191,8 @@ def test_large_draft_and_shared_or_guest_mapping_never_send(controller):
     backend.cfg.active_profile_type = 'guest'
     assert not owner.sendQuestion('Question')
     backend.cfg.active_profile_type = 'household'
-    assert owner.state['composer_available']
+    assert not owner.state['composer_available']
+    assert not owner.sendQuestion('Question')
     owner.transport.question.assert_not_called()
 
 

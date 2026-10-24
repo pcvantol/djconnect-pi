@@ -14,8 +14,8 @@ ROOT = Path(__file__).resolve().parents[1]
 SOURCE = "a"*40
 
 
-def bundle(path, profile, *, source=SOURCE, version="4.0.0-rc.5", bad_member=None):
-    prefix = "djconnect-pi-"+profile+"-4.0.0-rc.5"
+def bundle(path, profile, *, source=SOURCE, version="4.0.0-rc.5", bad_member=None, prefix_version="4.0.0-rc.5"):
+    prefix = "djconnect-pi-"+profile+"-"+prefix_version
     with tarfile.open(path, "w:gz") as archive:
         for name, value in (("VERSION", version), ("SOURCE_COMMIT", source), ("RELEASE_PROFILE", profile)):
             data = (value+"\n").encode();member = tarfile.TarInfo(prefix+"/"+name);member.size = len(data);archive.addfile(member, io.BytesIO(data))
@@ -26,7 +26,7 @@ def bundle(path, profile, *, source=SOURCE, version="4.0.0-rc.5", bad_member=Non
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def invoke(tmp_path, artifact, digest, profile, *, source=SOURCE, extra=(), existing=False):
+def invoke(tmp_path, artifact, digest, profile, *, source=SOURCE, extra=(), existing=False, version="4.0.0-rc.5"):
     text = (ROOT/"scripts/install.sh").read_text()
     functions = []
     for name in ("parse_approved_input", "verify_approved_release", "version", "release_profile", "release_id", "release_asset", "state_dir"):
@@ -37,10 +37,10 @@ def invoke(tmp_path, artifact, digest, profile, *, source=SOURCE, extra=(), exis
     (python_bin/"python3").symlink_to(os.environ.get("PYTHON_FOR_APPROVED_INSTALLER_TESTS", __import__("sys").executable))
     install_root = tmp_path/"opt";install_root.mkdir(exist_ok=True)
     (install_root/"config").mkdir();(install_root/"config/client.json").write_text('{"synthetic":true}')
-    if existing:(install_root/"releases"/("4.0.0-rc.5-"+profile)).mkdir(parents=True)
+    if existing:(install_root/"releases"/(version+"-"+profile)).mkdir(parents=True)
     effect = tmp_path/"SERVICE_EFFECT"
     script = tmp_path/"fixture.sh"
-    script.write_text('set -euo pipefail\nDJCONNECT_VERSION=4.0.0-rc.5\nDJCONNECT_RELEASE_PROFILE="'+profile+'"\nDJCONNECT_ROOT="'+str(install_root)+'"\nDJCONNECT_INSTALL_STATE="'+str(install_root/"state")+'"\nAPPROVED_ARTIFACT=""\nAPPROVED_ARTIFACT_SHA256=""\nAPPROVED_SOURCE_SHA=""\nAPPROVED_SEAL_DIR=""\n'+"\n".join(functions)+'\nparse_approved_input "$@"\nverify_approved_release\nprintf approved > "'+str(effect)+'"\n')
+    script.write_text('set -euo pipefail\nDJCONNECT_VERSION='+version+'\nDJCONNECT_RELEASE_PROFILE="'+profile+'"\nDJCONNECT_ROOT="'+str(install_root)+'"\nDJCONNECT_INSTALL_STATE="'+str(install_root/"state")+'"\nAPPROVED_ARTIFACT=""\nAPPROVED_ARTIFACT_SHA256=""\nAPPROVED_SOURCE_SHA=""\nAPPROVED_SEAL_DIR=""\n'+"\n".join(functions)+'\nparse_approved_input "$@"\nverify_approved_release\nprintf approved > "'+str(effect)+'"\n')
     args = ["bash", str(script), "--approved-artifact", str(artifact), "--artifact-sha256", digest, "--source-sha", source, *extra]
     result = subprocess.run(args, check=False, env={**os.environ, "PATH": str(python_bin)+":"+os.environ["PATH"], "TMPDIR": str(stage)}, capture_output=True, text=True)
     assert list(stage.iterdir()) == []  # Only own root-private scratch is cleaned.
@@ -104,3 +104,27 @@ def test_config_digest_invalid_fails_without_private_output(tmp_path, value):
     result = config_digest(tmp_path, value)
     assert result.returncode != 0 and result.stdout == ""
     assert "APPROVED_CONFIG_INVALID" in result.stderr
+
+
+@pytest.mark.parametrize("profile", ["pi-zero-2w-arm64", "pi5-arm64"])
+def test_rc6_exact_staged_artifact_before_effects(tmp_path, profile):
+    path = tmp_path/"rc6.tar.gz"
+    digest = bundle(path, profile, version="4.0.0-rc.6", prefix_version="4.0.0-rc.6")
+    result, effects = invoke(tmp_path, path, digest, profile, version="4.0.0-rc.6")
+    assert result.returncode == 0 and effects, result.stderr
+
+
+@pytest.mark.parametrize("profile", ["pi-zero-2w-arm64", "pi5-arm64"])
+def test_rc6_installer_rejects_old_rc5_bytes_before_effects(tmp_path, profile):
+    path = tmp_path/"old.tar.gz"
+    digest = bundle(path, profile, version="4.0.0-rc.5")
+    result, effects = invoke(tmp_path, path, digest, profile, version="4.0.0-rc.6")
+    assert result.returncode != 0 and not effects
+
+
+@pytest.mark.parametrize("profile", ["pi-zero-2w-arm64", "pi5-arm64"])
+def test_rc6_installer_checks_inner_version_independently_of_archive_root(tmp_path, profile):
+    path = tmp_path/"wrong-inner-version.tar.gz"
+    digest = bundle(path, profile, version="4.0.0-rc.5", prefix_version="4.0.0-rc.6")
+    result, effects = invoke(tmp_path, path, digest, profile, version="4.0.0-rc.6")
+    assert result.returncode != 0 and not effects

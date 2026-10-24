@@ -31,22 +31,29 @@ def controller():
     backend = Backend()
     owner = SessionController(backend)
     owner._deadline_timer.stop()
+    owner.transport.private_scope_owner = Mock(return_value=None)
     owner.transport.active = Mock(return_value={"success": True, "session": None})
     owner.transport.capabilities = Mock(return_value={"success": True,
         "capabilities": {"session_conversation_history": True}, "contract_versions": {"session_history_entries": 2}})
     yield owner, backend
+    owner.shutdownImages()
     delete(owner)
     delete(backend)
 
 
-def test_no_server_call_until_explicit_profile_confirmation(controller):
+def test_missing_metadata_permits_only_bounded_current_owner_read(controller):
     owner, backend = controller
     backend.cfg.explicit_profile_id = ""
+    backend.cfg.active_profile_id = ""
     owner.refresh()
     assert owner.state["profile_confirmation_required"]
+    assert len(backend.jobs) == 1
+    backend.jobs.pop()()
     assert owner.state["error"] == "profile_required"
-    assert not backend.jobs
-    owner.transport.active.assert_not_called()
+    owner.transport.active.assert_called_once()
+    assert owner.transport.active.call_args.kwargs == {"isolated": True}
+    owner.transport.capabilities.assert_not_called()
+    assert backend.cfg.active_profile_id == backend.cfg.explicit_profile_id == ""
 
 
 def test_invalidating_profile_discards_already_queued_results(controller):
@@ -754,3 +761,358 @@ def test_current_reads_with_new_runtime_scope_require_a_new_forecast_revision(co
     changed['broadcast']['session_forecast']['revision']+=1
     owner.refresh();backend.jobs.pop()()
     assert owner.state['forecast']['sections']
+
+
+def test_server_mapped_profile_opens_session_without_second_confirmation(controller):
+    owner, backend = controller
+    backend.cfg.explicit_profile_id = ""
+    owner.refresh()
+    assert not owner.state["profile_confirmation_required"]
+    assert len(backend.jobs) == 1
+    backend.jobs.pop()()
+    assert owner.state["loaded"] and not owner.state["session_id"]
+    owner.transport.active.assert_called_once()
+    assert owner.transport.active.call_args.args[0].profile_id == "profile-a"
+    assert backend.cfg.explicit_profile_id == ""  # No local mapping/selection write.
+
+
+def test_conflicting_local_selection_cannot_silently_choose_another_profile(controller):
+    owner, backend = controller
+    backend.cfg.explicit_profile_id = "different-profile"
+    owner.refresh()
+    assert owner.state["error"] == "profile_required"
+    assert not backend.jobs
+    owner.transport.active.assert_not_called()
+
+
+@pytest.mark.parametrize("active", [None, True, 3, [], {}, " profile-a", "profile-a ", "profile\x00a", "profile\x7fa", "x" * 513])
+def test_invalid_server_mapping_cannot_open_session(controller, active):
+    owner, backend = controller
+    backend.cfg.explicit_profile_id = ""
+    backend.cfg.active_profile_id = active
+    owner.refresh()
+    assert owner.state["error"] == "profile_required"
+    assert not backend.jobs
+    owner.transport.active.assert_not_called()
+
+
+def test_mapping_change_rejects_old_automatic_entry_read(controller):
+    owner, backend = controller
+    backend.cfg.explicit_profile_id = ""
+    owner.refresh()
+    job = backend.jobs.pop()
+    backend.cfg.active_profile_id = "successor"
+    job()
+    assert not owner.state["loaded"] and not owner.state["session_id"]
+
+
+def test_automatic_mapping_is_only_read_until_explicit_start(controller):
+    owner, backend = controller
+    backend.cfg.explicit_profile_id = ""
+    owner.transport.start = Mock()
+    owner.refresh()
+    backend.jobs.pop()()
+    owner.transport.start.assert_not_called()
+    assert backend.cfg.explicit_profile_id == ""
+
+
+def test_server_mapped_active_session_is_shown_without_onboarding(controller):
+    owner, backend = controller
+    backend.cfg.explicit_profile_id = ""
+    owner.transport.active.return_value = {"success": True, "session": {"session_id": "already-active", "runtime_state": "active", "broadcast": {"session": {"session_id": "already-active"}}}}
+    owner.transport.capabilities.return_value = {"success": True, "capabilities": {}, "contract_versions": {}}
+    owner.refresh()
+    backend.jobs.pop()()
+    assert owner.state["loaded"] and owner.state["session_id"] == "already-active"
+    assert not owner.state["profile_confirmation_required"]
+    assert not backend.cfg.explicit_profile_id
+
+
+# Fresh paired clients receive no legacy resolved_profile in current Core status.
+# A current Session owner is a read/display witness, not a Profile/privacy grant.
+def _missing_metadata(owner, backend, profile="profile-server", sid="active-server"):
+    backend.cfg.active_profile_id = backend.cfg.explicit_profile_id = ""
+    owner.transport.active.return_value = {"success": True, "session": {
+        "session_id": sid, "owner_profile_id": profile, "runtime_state": "active",
+        "broadcast": {"session": {"session_id": sid}}}}
+
+
+def test_paired_current_owner_displays_without_guessing_profile_or_private_rights(controller):
+    owner, backend = controller
+    _missing_metadata(owner, backend)
+    cfg_before = vars(backend.cfg).copy()
+    owner.transport.timeline = Mock()
+    owner.refresh(); backend.jobs.pop()()
+    state = owner.state
+    assert state["loaded"] and state["session_id"] == "active-server"
+    assert state["owner_profile_id"] == "profile-server" and state["owner_read_only"]
+    assert not state["profile_confirmation_required"] and not state["error"]
+    assert not state["composer_available"] and not state["history_available"]
+    assert not state["playback_control"]["available"]
+    assert vars(backend.cfg) == cfg_before
+    owner.transport.timeline.assert_not_called()
+
+
+@pytest.mark.parametrize("bad", [None, True, 3, [], {}, "", " profile-a", "profile-a ", "a\x00b", "a\x7fb", "x" * 513])
+def test_bootstrap_rejects_missing_or_malformed_owner(controller, bad):
+    owner, backend = controller
+    _missing_metadata(owner, backend, bad)
+    owner.refresh(); backend.jobs.pop()()
+    assert not owner.state["session_id"] and owner.state["profile_confirmation_required"]
+    assert owner.state["error"] == "invalid"
+    owner.transport.capabilities.assert_not_called()
+
+
+@pytest.mark.parametrize("action,value", [("start", "groove"), ("end", "active-server"), ("history", ""), ("timeline", "active-server"), ("search", {})])
+def test_owner_witness_never_enables_writes_or_archive_intents(controller, action, value):
+    owner, backend = controller
+    _missing_metadata(owner, backend)
+    owner.refresh(); backend.jobs.pop()()
+    owner.transport.start = Mock(); owner.transport.end = Mock()
+    owner._launch(action, value)
+    assert not backend.jobs
+    owner.transport.start.assert_not_called(); owner.transport.end.assert_not_called()
+    assert owner.state["error"] == "profile_required"
+
+
+@pytest.mark.parametrize("field,value", [("device_token", "replacement"), ("ha_url", "http://other.invalid"), ("device_id", "other-device"), ("active_profile_id", "other-profile"), ("explicit_profile_id", "other-profile"), ("paired", False)])
+def test_bootstrap_queue_and_display_are_fenced_to_original_binding(controller, field, value):
+    owner, backend = controller
+    _missing_metadata(owner, backend)
+    owner.refresh(); job = backend.jobs.pop()
+    setattr(backend.cfg, field, value)
+    job()
+    assert not owner.state["session_id"] and not owner.state["moments"]
+    owner.transport.active.assert_not_called()
+
+
+@pytest.mark.parametrize("field,value", [("device_token", "replacement"), ("ha_url", "http://other.invalid"), ("device_id", "other-device"), ("active_profile_id", "other-profile"), ("explicit_profile_id", "other-profile"), ("paired", False)])
+def test_bootstrap_visible_data_withdraws_even_before_next_gui_notification(controller, field, value):
+    owner, backend = controller
+    _missing_metadata(owner, backend)
+    owner.refresh(); backend.jobs.pop()()
+    assert owner.state["session_id"]
+    setattr(backend.cfg, field, value)
+    assert not owner.state["session_id"] and not owner.state["moments"]
+    assert not owner.state["playback"] and not owner.state["forecast_supported"]
+
+
+@pytest.mark.parametrize("category", ["denied", "unpaired", "context_changed"])
+def test_bootstrap_capability_denial_withdraws_prior_active_read(controller, category):
+    owner, backend = controller
+    _missing_metadata(owner, backend)
+    owner.transport.capabilities.side_effect = SessionError(category)
+    owner.refresh(); backend.jobs.pop()()
+    assert not owner.state["session_id"] and not owner.state["owner_read_only"]
+
+
+def test_bootstrap_close_revokes_queued_read_without_network(controller):
+    owner, backend = controller
+    _missing_metadata(owner, backend)
+    owner.refresh(); job = backend.jobs.pop()
+    owner.setForeground(False); job()
+    owner.transport.active.assert_not_called()
+    assert not owner.state["session_id"]
+
+
+def test_bootstrap_refresh_revalidates_owner_and_empty_session_withdraws(controller):
+    owner, backend = controller
+    _missing_metadata(owner, backend)
+    owner.refresh(); backend.jobs.pop()()
+    cleared = Mock(); owner.contextCleared.connect(cleared)
+    _missing_metadata(owner, backend, "successor-profile", "successor-session")
+    owner.refresh(); backend.jobs.pop()()
+    assert owner.state["owner_profile_id"] == "successor-profile"
+    assert owner.state["session_id"] == "successor-session" and cleared.call_count == 1
+    owner.transport.active.return_value = {"success": True, "session": None}
+    owner.refresh(); backend.jobs.pop()()
+    assert not owner.state["session_id"] and not owner.state["owner_read_only"]
+    assert backend.cfg.active_profile_id == backend.cfg.explicit_profile_id == ""
+
+
+# The protected Apple/Core Profile-conversation read supplies actual personal
+# admission even when legacy status supplies no Profile type/privacy metadata.
+def _personal_owner(owner, backend):
+    _missing_metadata(owner, backend)
+    backend.cfg.active_profile_type = "household"  # Unknown Config default, not a server claim.
+    backend.cfg.active_profile_privacy_mode = "shared"
+    owner.transport.private_scope_owner.return_value = "profile-server"
+    owner.transport.capabilities.return_value = {"success": True,
+        "capabilities": {"session_conversation_history": True, "ask_dj_contextual_dialogue": True},
+        "contract_versions": {"session_history_entries": 2, "ask_dj_contextual_dialogue": 1}}
+
+
+def test_personal_scope_enables_existing_private_functions_without_fake_config(controller):
+    from djconnect_pi.session_transport import (
+        private_binding_allowed,
+        private_scope_allowed,
+    )
+    owner, backend = controller
+    _personal_owner(owner, backend)
+    before = vars(backend.cfg).copy()
+    owner.refresh(); backend.jobs.pop()()
+    state = owner.state
+    assert not state["owner_read_only"] and not state["profile_confirmation_required"]
+    assert state["owner_profile_id"] == "profile-server" and state["history_available"]
+    assert state["composer_available"] and private_scope_allowed(owner)
+    binding = owner.transport.binding()
+    assert binding.profile_id == binding.resolved_profile_id == "profile-server"
+    assert binding.private_authorized and private_binding_allowed(binding)
+    assert binding.profile_type == binding.privacy_mode == ""  # No fabricated metadata.
+    assert vars(backend.cfg) == before
+    owner.transport.private_scope_owner.assert_called_once()
+
+
+def test_personal_scope_without_runtime_shows_creation_and_binds_explicit_start(controller):
+    owner, backend = controller
+    _personal_owner(owner, backend)
+    owner.transport.active.return_value = {"success": True, "session": None}
+    owner.transport.start = Mock()
+    owner.refresh(); backend.jobs.pop()()
+    assert owner.state["loaded"] and not owner.state["session_id"]
+    assert not owner.state["profile_confirmation_required"] and owner.state["history_available"]
+    owner.transport.start.assert_not_called()
+    owner.start("groove"); backend.jobs.pop()()
+    owner.transport.start.assert_called_once()
+    assert owner.transport.start.call_args.args[0].profile_id == "profile-server"
+
+
+def test_personal_scope_second_read_imports_only_existing_typed_flow(controller):
+    owner, backend = controller
+    _personal_owner(owner, backend)
+    owner._read_conversation = Mock(return_value={"conversation": [], "retained_flow": []})
+    owner.refresh(); backend.jobs.pop()()
+    owner._read_conversation.assert_not_called()
+    owner.refresh(); backend.jobs.pop()()
+    owner._read_conversation.assert_called_once()
+    assert owner._read_conversation.call_args.args[0].private_authorized
+    assert owner.transport.private_scope_owner.call_count == 2
+    assert owner.state["composer_available"]
+
+
+def test_personal_scope_revocation_removes_private_views_and_late_binding(controller):
+    from djconnect_pi.session_transport import private_scope_allowed
+    owner, backend = controller
+    _personal_owner(owner, backend)
+    owner.refresh(); backend.jobs.pop()()
+    old = owner.transport.binding()
+    owner._sessions = [{"session_id": "old-private"}]
+    owner.transport.private_scope_owner.return_value = None
+    owner.refresh(); backend.jobs.pop()()
+    assert not private_scope_allowed(owner) and not owner.state["composer_available"]
+    assert not owner.state["history_available"] and not owner.state["sessions"]
+    assert owner.state["owner_read_only"] and owner.state["session_id"] == "active-server"
+    assert old != owner.transport.binding()
+
+
+def test_current_and_personal_owner_must_join_exactly(controller):
+    owner, backend = controller
+    _personal_owner(owner, backend)
+    owner.transport.private_scope_owner.return_value = "another-owner"
+    owner.refresh(); backend.jobs.pop()()
+    assert not owner.state["session_id"] and not owner.state["history_available"]
+    assert owner.state["error"] == "context_changed"
+
+
+@pytest.mark.parametrize("category", ["denied", "unpaired", "context_changed", "invalid", "offline"])
+def test_failed_scope_read_never_becomes_private_admission(controller, category):
+    from djconnect_pi.session_transport import private_scope_allowed
+    owner, backend = controller
+    _personal_owner(owner, backend)
+    owner.transport.private_scope_owner.side_effect = SessionError(category)
+    owner.refresh(); backend.jobs.pop()()
+    assert not private_scope_allowed(owner) and not owner.state["history_available"]
+    assert not owner.state["session_id"]
+
+
+def test_context_change_inside_scope_read_cannot_grant_successor(controller):
+    owner, backend = controller
+    _personal_owner(owner, backend)
+    def changed(binding):
+        backend.cfg.device_token = "successor"
+        return "profile-server"
+    owner.transport.private_scope_owner.side_effect = changed
+    owner.refresh(); backend.jobs.pop()()
+    assert not owner.state["session_id"] and not owner.state["history_available"]
+    assert backend.cfg.active_profile_id == backend.cfg.explicit_profile_id == ""
+
+
+@pytest.mark.parametrize("kind", ["household", "room", "guest", "kids", "party"])
+def test_nonpersonal_legacy_metadata_does_not_grant_private_functions(controller, kind):
+    from djconnect_pi.session_transport import private_scope_allowed
+    owner, backend = controller
+    backend.cfg.active_profile_type = kind
+    assert not private_scope_allowed(owner)
+    owner._session = {"session_id": "existing", "runtime_state": "active"}
+    owner._caps = {"capabilities": {"session_conversation_history": True, "ask_dj_contextual_dialogue": True},
+        "contract_versions": {"session_history_entries": 2, "ask_dj_contextual_dialogue": 1}}
+    assert not owner.state["composer_available"]
+
+
+
+def test_personal_scope_regrant_never_revives_an_older_binding(controller):
+    owner, backend = controller
+    _personal_owner(owner, backend)
+    owner.refresh(); backend.jobs.pop()()
+    original = owner.transport.binding()
+    owner.transport.private_scope_owner.return_value = None
+    owner.refresh(); backend.jobs.pop()()
+    withdrawn = owner.transport.binding()
+    owner.transport.private_scope_owner.return_value = "profile-server"
+    owner.refresh(); backend.jobs.pop()()
+    successor = owner.transport.binding()
+    assert original.profile_id == successor.profile_id and original.private_authorized and successor.private_authorized
+    assert original.owner_epoch < withdrawn.owner_epoch < successor.owner_epoch
+    assert original != successor
+
+
+def test_raw_context_revocation_hides_all_private_models_without_gui_tick(controller):
+    owner, backend = controller
+    _personal_owner(owner, backend)
+    owner.refresh(); backend.jobs.pop()()
+    owner._sessions = [{"session_id": "secret"}]
+    owner._timeline = {"session": {"session_id": "secret"}, "entries": [{"text": "private"}]}
+    owner._search = {"query": "private"}
+    owner._retained_flow = [{"entry_id": "private"}]
+    backend.cfg.device_token = "new-context"
+    state = owner.state
+    assert not state["sessions"] and not state["timeline"] and not state["search"]
+    assert not state["retained_flow"] and not state["current_reply"] and not state["pending_question"]
+    assert not state["session_id"] and not state["loaded"]
+
+
+
+def test_flow_native_join_falls_back_only_to_independently_retained_original_body(controller):
+    from copy import deepcopy
+
+    from test_session_projection import live_fixture
+    owner, _ = controller
+    host = clock_fixture(owner)
+    session = live_fixture()
+    grant = session["broadcast"]["native_delivery"]["admissions"][0]
+    grant["display_expires_at"] = "2026-10-20T00:00:03Z"
+    grant["source_expires_at"] = "2026-10-20T00:00:03Z"
+    owner._session = session
+    from djconnect_pi.session_history_view import live_presentations
+    owner._moments = live_presentations(session, now=host.wall)
+    row = {"entry_id": "retained", "session_id": "s1", "kind": "dj_moment", "moment_id": "m1", "text": "independent retained prose", "retained_until": "2026-10-20T00:00:05Z"}
+    owner._retained_flow = [row]
+    original = deepcopy(row)
+    assert owner.state["moments"] and not owner.state["flow_retained"]
+    assert owner.state["retained_flow"] == [original]
+    host.tick = 4; owner._expire()
+    assert not owner.state["moments"]
+    assert owner.state["flow_retained"] == [original]
+    assert row == original
+    host.tick = 6; owner._expire()
+    assert not owner.state["moments"] and not owner.state["retained_flow"] and not owner.state["flow_retained"]
+
+
+def test_raw_scope_withdrawal_masks_joined_presentation_as_well(controller):
+    owner, backend = controller
+    _personal_owner(owner, backend)
+    owner.refresh(); backend.jobs.pop()()
+    owner._retained_flow = [{"entry_id": "secret", "kind": "conversation_dj"}]
+    assert owner.state["flow_retained"]
+    backend.cfg.device_token = "changed"
+    assert owner.state["flow_retained"] == []

@@ -10,24 +10,37 @@ Item {
     property bool historical: false
     property bool currentHistory: false
     readonly property bool compact: width < 900
-    readonly property bool sessionControlsVisible: !historical && state.session_id.length > 0
+    readonly property bool sessionControlsVisible: !historical && state.session_id.length > 0 && !state.owner_read_only
     property var owner: backend.djSession
     property var state: owner.state
+    readonly property var displayedRetainedFlow: state.flow_retained || state.retained_flow
+    readonly property string scopeProfileId: state.owner_profile_id || backend.activeProfileId
+    readonly property string artworkTint: {
+        if (!visible || historical) return ""
+        if (showForecast) return forecastArtworkFrame.artworkTint
+        if (!liveMomentRows) return ""
+        for (var i = 0; i < liveMomentRows.count; i++) {
+            var card = liveMomentRows.itemAt(i)
+            if (card && card.visible && card.modelData.current) return card.artworkTint
+        }
+        return ""
+    }
     property string draft: ""
     property bool followQuestionReply: false
     property string pendingReplyId: ""
-    readonly property string composerContext: state.session_id + "|" + backend.activeProfileId
+    readonly property string composerContext: state.session_id + "|" + scopeProfileId + "|" + (state.owner_epoch || 0)
     property bool forecastMode: false
     readonly property bool showForecast: !historical && state.forecast_supported && forecastMode
     function syncMediaVisibility() {
         if (!owner) return
+        owner.setArchiveDeleteVisible(visible && historical && !currentHistory)
         owner.setPlaybackControlsVisible(visible && !historical && !showForecast)
         owner.setForecastImagesVisible(showForecast && visible)
         owner.setMomentArtworkVisible(visible && !historical && !showForecast)
     }
     Component.onCompleted: syncMediaVisibility()
     onShowForecastChanged: { if (showForecast) playbackPanel.close(); if (!showForecast) clearForecastReading(); syncMediaVisibility() }
-    onStateChanged: { if (playbackPanel && state.playback_control && !state.playback_control.available) playbackPanel.close() }
+    onStateChanged: { if (archiveDeletePanel && archiveDeletePanel.opened && state.archive_delete && !state.archive_delete.status && !state.archive_delete.running) archiveDeletePanel.close(); if (playbackPanel && state.playback_control && !state.playback_control.available) playbackPanel.close(); if (outputsPanel && state.playback_control && !state.playback_control.outputs_supported) outputsPanel.close() }
     onComposerContextChanged: { clearForecastReading(); clearFlowReturn(); forecastMode = false; closeTransient(); if (historyReadPending && historyReadKind === "current") { historyRead.stop(); historyReadPending = false; navigate("session") } }
     function clearComposer() { followQuestionReply = false; pendingReplyId = ""; draft = ""; if (composeInput) composeInput.clear(); if (composerPanel) composerPanel.close(); if (owner) owner.clearSelection() }
     function submitQuestion() { if (owner.sendQuestion(composeInput.text)) { forecastMode = false; followQuestionReply = true; draft = ""; composeInput.clear(); composerPanel.close() } }
@@ -46,7 +59,7 @@ Item {
             if (!card) continue
             var y = card.mapToItem(flick, 0, 0).y
             if (y <= 0 && y + card.height > 0 && isFinite(y) && Math.abs(y) <= 1000000) {
-                forecastReading = {session: state.session_id, profile: backend.activeProfileId,
+                forecastReading = {session: state.session_id, profile: scopeProfileId,
                     revision: state.forecast.revision, id: card.modelData.id, offset: y}
                 forecastReadingTries = 0; forecastReadingApplied = false; forecastLayoutMark = ""
                 return
@@ -61,7 +74,7 @@ Item {
             var saved = screen.forecastReading
             var flick = forecastScroll.contentItem
             if (!saved || !screen.visible || !screen.showForecast || flick.dragging || flick.moving ||
-                saved.session !== screen.state.session_id || saved.profile !== screen.backend.activeProfileId ||
+                saved.session !== screen.state.session_id || saved.profile !== screen.scopeProfileId ||
                 saved.revision !== screen.state.forecast.revision) { screen.clearForecastReading(); return }
             forecastContent.ensurePolished()
             var target = null
@@ -128,7 +141,7 @@ Item {
     }
     // Only identity/position survives the history view, never a cached body.
     property var flowReturn: null
-    function clearFlowReturn() { flowReturnRestore.stop(); flowReturn = null }
+    function clearFlowReturn() { flowReturnRestore.stop(); flowReturnRestore.artworkTries = 0; flowReturnRestore.artworkLayout = ""; flowReturn = null }
     function rememberFlow() {
         clearFlowReturn()
         if (historical || showForecast || !state.session_id) return
@@ -142,10 +155,10 @@ Item {
         for (var g = 0; g < groups.length; g++) {
             for (var i = 0; i < groups[g].count; i++) {
                 var card = groups[g].itemAt(i)
-                if (!card) continue
+                if (!card || !card.visible) continue
                 var y = card.mapToItem(historyScroll.contentItem, 0, 0).y
                 if (y + card.height > 0 && y < historyScroll.contentItem.height && isFinite(y) && Math.abs(y) <= 1000000 && (!best || y < best.offset)) {
-                    best = {session: state.session_id, profile: backend.activeProfileId,
+                    best = {session: state.session_id, profile: scopeProfileId,
                         kind: g === 0 ? "moment" : "conversation",
                         id: g === 0 ? card.modelData.moment_id : card.modelData.entry_id, offset: y}
                 }
@@ -154,8 +167,16 @@ Item {
         if (currentReplyCard.visible && state.current_reply.reply_id) {
             var replyY = currentReplyCard.mapToItem(historyScroll.contentItem, 0, 0).y
             if (replyY + currentReplyCard.height > 0 && replyY < historyScroll.contentItem.height && isFinite(replyY) && Math.abs(replyY) <= 1000000 && (!best || replyY < best.offset)) {
-                best = {session: state.session_id, profile: backend.activeProfileId,
+                best = {session: state.session_id, profile: scopeProfileId,
                     kind: "current_reply", id: state.current_reply.reply_id, offset: replyY}
+            }
+        }
+        // Playback is a navigation fallback only; existing admitted prose keeps priority.
+        if (!best && playbackMetadata.visible && playbackSources.ready && state.playback.item_id) {
+            var playbackY = playbackMetadata.mapToItem(historyScroll.contentItem, 0, 0).y
+            if (playbackY + playbackMetadata.height > 0 && playbackY < historyScroll.contentItem.height && isFinite(playbackY) && Math.abs(playbackY) <= 1000000) {
+                best = {session: state.session_id, profile: scopeProfileId,
+                    kind: "playback", id: state.playback.item_id, offset: playbackY}
             }
         }
         flowReturn = best
@@ -168,12 +189,49 @@ Item {
             var y = body.mapToItem(historyScroll.contentItem, 0, 0).y
             if (y <= 0 && y + body.height > 0 && isFinite(y) && Math.abs(y) <= 1000000) {
                 clearFlowReturn()
-                flowReturn = {session: state.session_id, profile: backend.activeProfileId,
+                flowReturn = {session: state.session_id, profile: scopeProfileId,
                     kind: "moment_text", id: card.modelData.moment_id, offset: y}
                 return
             }
         }
         rememberFlow()
+    }
+    function flowIdentityPresent(saved) {
+        if (!saved || typeof saved.id !== "string" || saved.id.length === 0 ||
+                typeof saved.offset !== "number" || !isFinite(saved.offset) || Math.abs(saved.offset) > 1000000) return false
+        if (saved.kind === "playback") return state.playback.item_id === saved.id && playbackSources.ready
+        if (saved.kind === "current_reply") return state.current_reply.reply_id === saved.id
+        if (saved.kind === "moment" || saved.kind === "moment_text") return state.moments.some(function(row) { return row.moment_id === saved.id }) ||
+            displayedRetainedFlow.some(function(row) { return row.kind === "dj_moment" && row.session_id === state.session_id && row.moment_id === saved.id })
+        if (saved.kind === "conversation") return state.retained_flow.some(function(row) { return row.entry_id === saved.id })
+        return false
+    }
+    function flowTarget(saved) {
+        if (saved.kind === "playback") return playbackMetadata.visible ? playbackMetadata : null
+        if (saved.kind === "current_reply") return currentReplyCard.visible ? currentReplyCard : null
+        var nativeRow = saved.kind === "moment" || saved.kind === "moment_text"
+        var rows = nativeRow ? liveMomentRows : conversationRows
+        for (var i = 0; i < rows.count; i++) {
+            var card = rows.itemAt(i)
+            var id = card ? (nativeRow ? card.modelData.moment_id : card.modelData.entry_id) : ""
+            if (id === saved.id) return saved.kind === "moment_text" ? card.bodyItem : card
+        }
+        // Resolve a fresh alternate presentation by the same original Moment ID.
+        // Never keep a body/ID mapping after either current model withdraws it.
+        var momentId = nativeRow ? saved.id : ""
+        if (!nativeRow) {
+            var entry = state.retained_flow.filter(function(row) { return row.entry_id === saved.id && row.kind === "dj_moment" && row.session_id === state.session_id })
+            if (entry.length !== 1 || typeof entry[0].moment_id !== "string") return null
+            momentId = entry[0].moment_id
+        }
+        var alternate = nativeRow ? conversationRows : liveMomentRows
+        for (var j = 0; j < alternate.count; j++) {
+            var other = alternate.itemAt(j)
+            if (other && other.visible && other.modelData.moment_id === momentId &&
+                    (!nativeRow || (other.modelData.kind === "dj_moment" && other.modelData.session_id === state.session_id)))
+                return saved.kind === "moment_text" ? other.bodyItem : other
+        }
+        return null
     }
     Timer {
         id: flowReturnRestore
@@ -184,42 +242,28 @@ Item {
         onTriggered: {
             var saved = screen.flowReturn
             if (!saved) return
-            if (saved.kind !== "moment_text") screen.flowReturn = null
             var flick = historyScroll.contentItem
-            if (!screen.visible || screen.historical || flick.dragging) { screen.flowReturn = null; return }
-            if (!saved || saved.session !== screen.state.session_id || saved.profile !== screen.backend.activeProfileId) { screen.flowReturn = null; flick.contentY = 0; return }
-            if (saved.kind === "current_reply") {
-                // The getter revalidates the live source; the descriptor grants nothing.
-                if (screen.state.current_reply.reply_id === saved.id && currentReplyCard.visible) {
-                    var replyDelta = currentReplyCard.mapToItem(flick, 0, 0).y - saved.offset
-                    flick.contentY = Math.max(0, Math.min(flick.contentY + replyDelta, Math.max(0, flick.contentHeight - flick.height)))
-                } else flick.contentY = 0
+            if (!screen.visible || screen.historical || screen.showForecast || screen.followQuestionReply || flick.dragging || flick.moving) { screen.clearFlowReturn(); return }
+            // Re-resolve admission and the visual item on every bounded attempt.
+            if (saved.session !== screen.state.session_id || saved.profile !== screen.scopeProfileId || !screen.flowIdentityPresent(saved)) {
+                screen.clearFlowReturn(); flick.contentY = 0; return
+            }
+            historyContent.ensurePolished()
+            var target = screen.flowTarget(saved)
+            artworkTries++
+            if (!target || !target.visible || target.height <= 0 || flick.contentHeight + 1 < historyContent.implicitHeight) {
+                if (artworkTries < 8) restart()
+                else { screen.clearFlowReturn(); flick.contentY = 0 }
                 return
             }
-            var nativeRow = saved.kind === "moment" || saved.kind === "moment_text"
-            var rows = nativeRow ? liveMomentRows : conversationRows
-            for (var i = 0; i < rows.count; i++) {
-                var card = rows.itemAt(i)
-                var id = card ? (nativeRow ? card.modelData.moment_id : card.modelData.entry_id) : ""
-                if (id === saved.id) {
-                    var target = saved.kind === "moment_text" ? card.bodyItem : card
-                    if (!target || !target.visible) { screen.flowReturn = null; flick.contentY = 0; return }
-                    if (saved.kind === "moment_text") { card.ensurePolished(); target.ensurePolished(); flick.ensurePolished() }
-                    var delta = target.mapToItem(flick, 0, 0).y - saved.offset
-                    flick.contentY = Math.max(0, Math.min(flick.contentY + delta, Math.max(0, flick.contentHeight - flick.height)))
-                    if (saved.kind === "moment_text") {
-                        var mark = card.height + "|" + target.height + "|" + target.y + "|" + flick.contentHeight
-                        var settled = artworkLayout === mark && Math.abs(target.mapToItem(flick, 0, 0).y - saved.offset) <= 1
-                        artworkLayout = mark
-                        artworkTries++
-                        if (!settled && artworkTries < 8) { restart(); return }
-                        screen.flowReturn = null
-                    }
-                    return
-                }
-            }
-            screen.flowReturn = null
-            flick.contentY = 0
+            target.ensurePolished(); flick.ensurePolished()
+            var delta = target.mapToItem(flick, 0, 0).y - saved.offset
+            flick.contentY = Math.max(0, Math.min(flick.contentY + delta, Math.max(0, flick.contentHeight - flick.height)))
+            var mark = [historyContent.implicitHeight, flick.contentHeight, flick.height, target.width, target.height, target.mapToItem(historyContent, 0, 0).y].join("|")
+            var settled = artworkLayout === mark && Math.abs(target.mapToItem(flick, 0, 0).y - saved.offset) <= 1
+            artworkLayout = mark
+            if (!settled && artworkTries < 8) restart()
+            else screen.clearFlowReturn()
         }
     }
     property string historyReadProfile: ""
@@ -232,7 +276,7 @@ Item {
         historyReadPending = true
         historyReadKind = "current"
         historyReadSession = state.session_id
-        historyReadProfile = backend.activeProfileId
+        historyReadProfile = scopeProfileId
         navigate("session-history")
         owner.closeSaved()
         historyRead.restart()
@@ -241,7 +285,7 @@ Item {
         clearFlowReturn()
         historyReadPending = true
         historyReadKind = "archive"
-        historyReadProfile = backend.activeProfileId
+        historyReadProfile = scopeProfileId
         navigate("history")
         owner.closeSaved()
         historyRead.restart()
@@ -250,7 +294,7 @@ Item {
         id: historyRead
         interval: 0
         onTriggered: {
-            if (screen.historyReadPending && screen.visible && screen.historical && screen.historyReadProfile === screen.backend.activeProfileId && !screen.owner.busy) {
+            if (screen.historyReadPending && screen.visible && screen.historical && screen.historyReadProfile === screen.scopeProfileId && !screen.owner.busy) {
                 if (screen.historyReadKind === "archive" && !screen.currentHistory) screen.owner.loadHistory()
                 else if (screen.historyReadKind === "current" && screen.currentHistory && screen.historyReadSession === screen.state.session_id) screen.owner.readCurrentHistory()
                 screen.historyReadPending = false
@@ -289,7 +333,7 @@ Item {
             if (!row) continue
             var y = row.mapToItem(flick, 0, 0).y
             if (y + row.height > 0 && y < flick.height && isFinite(y) && Math.abs(y) <= 1000000) {
-                archiveReturn = {id: row.modelData.session_id, profile: backend.activeProfileId, offset: y}
+                archiveReturn = {id: row.modelData.session_id, profile: scopeProfileId, offset: y}
                 return
             }
         }
@@ -304,7 +348,7 @@ Item {
         var saved = archiveDetailReturn
         owner.closeSaved()
         archiveDetailReturn = null; archiveReturn = saved
-        archiveIntent = {profile: backend.activeProfileId}
+        archiveIntent = {profile: scopeProfileId}
         archiveRead.restart()
     }
     function changeArchiveWindow(direction) {
@@ -322,7 +366,7 @@ Item {
     function refreshArchiveList() {
         if (!visible || !historical || currentHistory || state.timeline.session || archiveIntent || archiveReadActive) return
         rememberArchive()
-        archiveIntent = {profile: backend.activeProfileId}
+        archiveIntent = {profile: scopeProfileId}
         archiveRead.restart()
     }
     Timer {
@@ -330,7 +374,7 @@ Item {
         onTriggered: {
             var intent = screen.archiveIntent
             if (!intent || screen.owner.busy) return
-            if (screen.visible && screen.historical && !screen.currentHistory && !screen.state.timeline.session && intent.profile === screen.backend.activeProfileId) { screen.archiveReadActive = true; screen.owner.refreshArchive() }
+            if (screen.visible && screen.historical && !screen.currentHistory && !screen.state.timeline.session && intent.profile === screen.scopeProfileId) { screen.archiveReadActive = true; screen.owner.refreshArchive() }
             screen.archiveIntent = null
         }
     }
@@ -339,7 +383,7 @@ Item {
         onTriggered: {
             var saved = screen.archiveReturn
             var flick = historyScroll.contentItem
-            if (!screen.visible || !screen.historical || screen.currentHistory || screen.state.timeline.session || !saved || saved.profile !== screen.backend.activeProfileId || flick.dragging) { screen.archiveReturn = null; return }
+            if (!screen.visible || !screen.historical || screen.currentHistory || screen.state.timeline.session || !saved || saved.profile !== screen.scopeProfileId || flick.dragging) { screen.archiveReturn = null; return }
             if (!saved.id) { flick.contentY = 0; screen.archiveReturn = null; return }
             historyContent.ensurePolished()
             var target = null
@@ -382,7 +426,7 @@ Item {
     function refreshSearchResults() {
         if (!searchPanel.opened || !state.search.query || searchRefreshPending) return
         rememberSearch()
-        searchRefreshIntent = {session: state.search.session_id, query: state.search.query, profile: backend.activeProfileId}
+        searchRefreshIntent = {session: state.search.session_id, query: state.search.query, profile: scopeProfileId}
         searchRead.restart()
     }
     Timer {
@@ -390,7 +434,7 @@ Item {
         onTriggered: {
             var intent = screen.searchRefreshIntent
             if (!intent || screen.owner.busy) return
-            if (searchPanel.opened && intent.profile === screen.backend.activeProfileId && intent.session === screen.state.search.session_id && intent.query === screen.state.search.query) screen.owner.refreshSearch()
+            if (searchPanel.opened && intent.profile === screen.scopeProfileId && intent.session === screen.state.search.session_id && intent.query === screen.state.search.query) screen.owner.refreshSearch()
             screen.searchRefreshIntent = null
         }
     }
@@ -426,11 +470,13 @@ Item {
         if (moreChoices) moreChoices.close()
         if (connectionInfo) connectionInfo.close()
         if (endConfirmation) endConfirmation.close()
+        if (archiveDeletePanel) archiveDeletePanel.close()
         if (owner) owner.clearSearch()
     }
     onVisibleChanged: { syncMediaVisibility(); if (!visible) { clearForecastReading(); cancelArchiveRead(); if (owner) owner.clearArchive(); clearFlowReturn(); historyRead.stop(); historyReadProfile = ""; historyReadSession = ""; historyReadPending = false; readingRestore.stop(); pendingReadingAnchor = ""; closeTransient() } }
-    onHistoricalChanged: { if (historical) playbackPanel.close(); syncMediaVisibility(); if (!historical) { archiveDetailReturn = null; cancelArchiveRead(); if (owner) owner.clearArchive() } readingRestore.stop(); pendingReadingAnchor = ""; readingOffset = 0; if (!historical && flowReturn) flowReturnRestore.restart() }
+    onHistoricalChanged: { if (historical) playbackPanel.close(); syncMediaVisibility(); if (!historical) { archiveDetailReturn = null; cancelArchiveRead(); if (owner) owner.clearArchive() } readingRestore.stop(); pendingReadingAnchor = ""; readingOffset = 0; if (!historical && flowReturn) { historyScroll.contentItem.cancelFlick(); flowReturnRestore.restart() } }
     onSearchTargetChanged: { if (searchPanel) searchPanel.close(); if (searchInput) searchInput.clear(); if (owner) owner.clearSearch() }
+    signal openVibeScape()
     signal navigate(string destination)
     function tr(key) { backend.translationVersion; return backend.t(key) }
     function displayDate(value) { backend.translationVersion; return owner.formatTimestamp(value || "") }
@@ -451,7 +497,7 @@ Item {
     function openChoice(field, button) {
         if (!sessionControlsVisible) return
         choices.sessionId = state.session_id
-        choices.profileId = backend.activeProfileId
+        choices.profileId = scopeProfileId
         choices.field = field
         choices.editToken = backend.sharedSettings.edit_token || ""
         choices.x = Math.max(12, Math.min(button.mapToItem(screen, 0, 0).x, width - choices.width - 12))
@@ -477,11 +523,21 @@ Item {
         }
     }
     Timer {
-        id: pendingQuestionPosition; interval: 32
+        id: pendingQuestionPosition; objectName: "sessionPendingQuestionPosition"; interval: 32
+        property string messageId: ""
+        property int tries: 0
+        property string layoutMark: ""
         onTriggered: {
-            if (!screen.visible || screen.historical || !screen.followQuestionReply || !screen.state.pending_question.text || historyScroll.contentItem.dragging) return
             var flick = historyScroll.contentItem
+            if (!screen.visible || screen.historical || !screen.followQuestionReply || !screen.state.pending_question.text ||
+                    messageId !== screen.state.pending_question.client_message_id || flick.dragging || flick.moving) { messageId = ""; return }
+            historyContent.ensurePolished(); pendingQuestionCard.ensurePolished()
             flick.contentY = Math.max(0, Math.min(flick.contentY + pendingQuestionCard.mapToItem(flick, 0, 0).y - 12, Math.max(0, flick.contentHeight - flick.height)))
+            var mark = [historyContent.implicitHeight, flick.contentHeight, flick.height, pendingQuestionCard.height, pendingQuestionCard.y].join("|")
+            var settled = layoutMark === mark && Math.abs(pendingQuestionCard.mapToItem(flick, 0, 0).y - 12) <= 1
+            layoutMark = mark; tries++
+            if (!settled && tries < 8) restart()
+            else messageId = ""
         }
     }
     Timer {
@@ -503,16 +559,22 @@ Item {
         function onArtworkChanged() { if (screen.visible && !screen.historical && !screen.showForecast && !screen.followQuestionReply && !historyScroll.contentItem.moving && screen.flowReturn) { flowReturnRestore.artworkTries = 0; flowReturnRestore.artworkLayout = ""; flowReturnRestore.restart() } }
         function onForecastImageAboutToChange() { screen.rememberForecastReading() }
         function onForecastImageChanged() { if (screen.forecastReading) forecastReadingRestore.restart() }
-        function onPendingQuestionReady() { pendingQuestionPosition.restart() }
+        function onPendingQuestionReady() { pendingQuestionPosition.messageId = screen.state.pending_question.client_message_id || ""; pendingQuestionPosition.tries = 0; pendingQuestionPosition.layoutMark = ""; pendingQuestionPosition.restart() }
         function onCurrentReplyReady() { currentReplyPosition.restart() }
         function onQuestionConfirmed(entryId) { if (screen.followQuestionReply) { screen.pendingReplyId = entryId; replyRestore.restart() } }
         function onSelectionInvalidated() { screen.clearComposer() }
         function onTimelineUpdated(anchor) { screen.restoreReading(anchor) }
         function onTimelinePositioned(anchor, offset) { screen.readingOffset = offset; screen.restoreReading(anchor) }
         function onHistoryUpdated() { screen.scheduleArchivePosition() }
+        function onArchiveInvalidated() {
+            screen.cancelArchiveRead(); screen.archiveReturn = null; screen.archiveDetailReturn = null
+            screen.searchReturn = null; screen.cancelSearchRead(); searchPanel.close()
+            readingRestore.stop(); screen.pendingReadingAnchor = ""; screen.readingOffset = 0
+            if (screen.historyReadKind === "archive") { historyRead.stop(); screen.historyReadPending = false }
+        }
         function onArchivePositioned(sessionId, offset) {
             if (!screen.visible || !screen.historical || screen.currentHistory || screen.state.timeline.session || historyScroll.contentItem.dragging) return
-            screen.archiveReturn = {id: sessionId, profile: screen.backend.activeProfileId, offset: offset}
+            screen.archiveReturn = {id: sessionId, profile: screen.scopeProfileId, offset: offset}
             screen.scheduleArchivePosition()
         }
         function onChanged() { if (!screen.owner.busy) screen.archiveReadActive = false; if (!screen.historical || screen.currentHistory || screen.state.timeline.session) screen.cancelArchiveRead(); if (screen.archiveIntent && !screen.owner.busy) archiveRead.restart(); if (!screen.state.search.query) screen.cancelSearchRead(); if (screen.historyReadPending && !screen.owner.busy) historyRead.restart(); if (screen.searchRefreshPending && !screen.owner.busy) searchRead.restart() }
@@ -628,11 +690,12 @@ Item {
 
     RowLayout {
         id: modeSwitch
-        visible: !screen.historical && screen.state.forecast_supported
+        visible: !screen.historical && (screen.state.forecast_supported || (screen.backend.releaseProfile === "pi5-arm64" && screen.state.runtime_state === "active"))
         anchors.left: parent.left; anchors.top: toolbar.bottom
         anchors.leftMargin: 20; anchors.topMargin: 10; height: 48
-        GlassButton { objectName: "sessionFlowMode"; text: screen.tr("session_flow"); primary: !screen.forecastMode; onClicked: screen.forecastMode = false }
-        GlassButton { objectName: "sessionForecastMode"; text: screen.tr("session_forecast"); primary: screen.forecastMode; onClicked: screen.forecastMode = true }
+        GlassButton { objectName: "sessionFlowMode"; text: screen.tr("session_flow"); checked: !screen.forecastMode; onClicked: screen.forecastMode = false }
+        GlassButton { objectName: "sessionForecastMode"; visible: screen.state.forecast_supported; text: screen.tr("session_forecast"); checked: screen.forecastMode; onClicked: screen.forecastMode = true }
+        GlassButton { objectName: "sessionVibeScapeMode"; visible: screen.backend.releaseProfile === "pi5-arm64" && screen.state.runtime_state === "active" && !screen.state.profile_confirmation_required && !screen.state.owner_read_only; text: screen.tr("vibescape_title"); onClicked: screen.openVibeScape() }
     }
     ScrollView {
         id: forecastScroll
@@ -651,15 +714,29 @@ Item {
             SessionAttribution { id: forecastSource; requiresSpotify: !!screen.state.forecast.source_url; spotifyURL: screen.state.forecast.source_url || ""; Layout.fillWidth: true }
             GlassCard {
                 objectName: "sessionForecastArtistCard"
+                artworkTint: forecastArtworkFrame.artworkTint
                 visible: !!screen.owner.forecastImage.source && imageAttribution.ready
                 Layout.fillWidth: true
-                Image {
-                    objectName: "sessionForecastArtistImage"
+                GlassArtworkFrame {
+                    Connections {
+                        target: screen.owner
+                        function onForecastImageAboutToChange() { forecastArtworkFrame.invalidatePalette() }
+                    }
+                    id: forecastArtworkFrame
+                    objectName: "sessionForecastArtworkFrame"
+                    backend: screen.backend; imageItem: forecastArtworkImage
+                    leaseKey: screen.scopeProfileId + "|" + screen.state.session_id + "|" + (screen.owner.forecastImage.source_url || "")
+                    admissionCheck: function() { return screen.showForecast && imageAttribution.ready && !!screen.owner.forecastImage.source }
                     Layout.fillWidth: true; Layout.preferredHeight: screen.compact ? 300 : 440
-                    source: imageAttribution.ready ? (screen.owner.forecastImage.source || "") : ""
-                    cache: false; asynchronous: true; retainWhileLoading: false
-                    fillMode: Image.PreserveAspectFit
-                    Accessible.name: screen.tr("session_forecast_artist_image") + ": " + (screen.owner.forecastImage.artist || "")
+                    Image {
+                        id: forecastArtworkImage
+                        objectName: "sessionForecastArtistImage"
+                        anchors.fill: parent
+                        source: imageAttribution.ready ? (screen.owner.forecastImage.source || "") : ""
+                        cache: false; asynchronous: true; retainWhileLoading: false
+                        fillMode: Image.PreserveAspectFit
+                        Accessible.name: screen.tr("session_forecast_artist_image") + ": " + (screen.owner.forecastImage.artist || "")
+                    }
                 }
                 Text { text: screen.owner.forecastImage.artist || ""; textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 23; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                 SessionAttribution { id: imageAttribution; requiresSpotify: true; spotifyURL: screen.owner.forecastImage.source_url || ""; Layout.fillWidth: true }
@@ -698,53 +775,33 @@ Item {
                 textFormat: Text.PlainText; Layout.fillWidth: true
             }
             VinylPlaceholder {
-                visible: !screen.historical && screen.state.loaded && screen.state.moments.length === 0 && screen.state.retained_flow.length === 0 &&
+                visible: !screen.historical && screen.state.session_id.length > 0 && screen.state.loaded && screen.state.moments.length === 0 && screen.state.retained_flow.length === 0 &&
                     (!screen.state.profile_confirmation_required || screen.backend.demoMode)
                 Layout.preferredWidth: Math.min(parent.width, screen.compact ? screen.height * 0.38 : 520)
                 Layout.preferredHeight: width
                 Layout.alignment: Qt.AlignHCenter
             }
             GlassCard {
-                visible: screen.state.profile_confirmation_required && !screen.backend.demoMode
-                Layout.fillWidth: true
-                Text { text: screen.tr("session_profile_choose"); color: BrandTheme.colors.text; font.pixelSize: 26; font.bold: true }
-                Text {
-                    text: screen.backend.activeProfileId.length > 0 ? screen.backend.activeProfileName : screen.tr("session_profile_missing")
-                    color: BrandTheme.colors.muted; font.pixelSize: 22; wrapMode: Text.WordWrap
-                    textFormat: Text.PlainText; Layout.fillWidth: true
-                }
-                GlassButton {
-                    text: screen.tr("session_profile_use"); primary: true
-                    enabled: screen.backend.paired && screen.backend.activeProfileId.length > 0
-                    onClicked: screen.owner.confirmProfile(screen.backend.activeProfileId)
-                }
-            }
-            GlassCard {
-                visible: screen.state.error.length > 0 && screen.state.error !== "profile_required"
+                visible: screen.state.error.length > 0
                 Layout.fillWidth: true
                 Text {
-                    text: screen.tr(screen.state.error === "uncertain" ? "session_uncertain" : "session_error")
+                    text: screen.tr(screen.state.error === "uncertain" ? "session_uncertain" : (screen.state.error === "profile_unavailable" || screen.state.error === "profile_required") ? "session_profile_missing" : "session_error")
                     color: BrandTheme.colors.warning; font.pixelSize: 21; wrapMode: Text.WordWrap
                     Layout.fillWidth: true; textFormat: Text.PlainText
                 }
             }
-            GlassCard {
-                visible: !screen.historical && screen.state.loaded && !screen.state.session_id
+            Text {
+                visible: !screen.historical && !!screen.state.owner_read_only
+                text: screen.tr("session_owner_read_only"); textFormat: Text.PlainText
+                color: BrandTheme.colors.muted; font.pixelSize: 21
+                wrapMode: Text.WordWrap; Layout.fillWidth: true
+            }
+            SessionStartCard {
+                visible: !screen.historical && screen.state.loaded && !screen.state.session_id && !screen.state.error
                 Layout.fillWidth: true
-                Text { text: screen.tr("session_empty"); color: BrandTheme.colors.text; font.pixelSize: 25; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                Flow {
-                    Layout.fillWidth: true; spacing: 10
-                    Repeater {
-                        model: ["chill", "groove", "energy", "party"]
-                        GlassButton {
-                            required property string modelData
-                            text: screen.tr("shared_mood_" + modelData)
-                            checkable: true; checked: screen.proposedMood === modelData
-                            onClicked: screen.proposedMood = modelData
-                        }
-                    }
-                }
-                GlassButton { text: screen.tr("session_start"); primary: true; enabled: !screen.owner.busy; onClicked: screen.owner.start(screen.proposedMood) }
+                backend: screen.backend
+                busy: screen.owner.busy
+                onStartRequested: function(mood) { screen.owner.start(mood) }
             }
             GlassCard {
                 visible: !screen.historical && screen.state.session_id.length > 0 && screen.state.moments.length === 0 && screen.state.retained_flow.length === 0
@@ -762,6 +819,7 @@ Item {
                 }
                 RowLayout {
                     Layout.fillWidth: true
+                    visible: !screen.state.owner_read_only
                     GlassButton { text: screen.tr("session_history"); enabled: !screen.owner.busy; onClicked: screen.openArchive() }
                     Item { Layout.fillWidth: true }
                     GlassButton {
@@ -774,7 +832,9 @@ Item {
             }
             // Current music context precedes admitted native Moments, as in the Apple header.
             GlassCard {
+                id: playbackMetadata
                 objectName: "sessionPlaybackMetadata"
+                artworkTint: screen.artworkTint
                 visible: !screen.historical && !!screen.state.playback.item_id
                 Layout.fillWidth: true
                 padding: screen.compact ? 16 : 22
@@ -837,6 +897,8 @@ Item {
                 model: !screen.historical ? screen.state.moments : []
                 GlassCard {
                     objectName: "sessionLiveMomentCard"
+                    artworkTint: currentMomentArtworkFrame.artworkTint
+                    currentMoment: modelData.current
                     required property var modelData
                     Layout.fillWidth: true
                     property alias bodyItem: momentBody
@@ -844,15 +906,31 @@ Item {
                         objectName: "sessionMomentArtworkCard"
                         visible: liveSources.ready && !!screen.owner.momentArtwork.source && modelData.current && screen.owner.momentArtwork.moment_id === modelData.moment_id && artworkSource.ready
                         Layout.fillWidth: true
-                        Image {
-                            objectName: "sessionMomentArtworkImage"
-                            source: parent.visible ? (screen.owner.momentArtwork.source || "") : ""
-                            cache: false; asynchronous: true; retainWhileLoading: false
-                            fillMode: Image.PreserveAspectFit
+                        GlassArtworkFrame {
+                            Connections {
+                                target: screen.owner
+                                function onArtworkAboutToChange() { currentMomentArtworkFrame.invalidatePalette() }
+                            }
+                            id: currentMomentArtworkFrame
+                            objectName: "sessionMomentArtworkFrame"
+                            backend: screen.backend; imageItem: currentMomentArtworkImage
+                            leaseKey: screen.scopeProfileId + "|" + screen.state.session_id + "|" + modelData.moment_id
+                            admissionCheck: function() {
+                                var art = screen.owner.momentArtwork
+                                return modelData.current && liveSources.ready && artworkSource.ready && !!art.source && art.moment_id === modelData.moment_id
+                            }
                             Layout.preferredWidth: 100 * (screen.owner.momentArtwork.width || 100) / Math.max(screen.owner.momentArtwork.width || 100, screen.owner.momentArtwork.height || 100)
                             Layout.preferredHeight: 100 * (screen.owner.momentArtwork.height || 100) / Math.max(screen.owner.momentArtwork.width || 100, screen.owner.momentArtwork.height || 100)
                             Layout.alignment: Qt.AlignLeft
-                            Accessible.name: screen.owner.momentArtwork.artist || ""
+                            Image {
+                                id: currentMomentArtworkImage
+                                objectName: "sessionMomentArtworkImage"
+                                source: parent.visible ? (screen.owner.momentArtwork.source || "") : ""
+                                cache: false; asynchronous: true; retainWhileLoading: false
+                                fillMode: Image.PreserveAspectFit
+                                anchors.fill: parent
+                                Accessible.name: screen.owner.momentArtwork.artist || ""
+                            }
                         }
                         SessionAttribution { id: artworkSource; requiresSpotify: true; spotifyURL: screen.owner.momentArtwork.source_url || ""; Layout.fillWidth: true }
                     }
@@ -915,7 +993,7 @@ Item {
             }
             Text {
                 objectName: "sessionRetainedFlowLabel"
-                visible: !screen.historical && screen.state.retained_flow.length > 0
+                visible: !screen.historical && screen.displayedRetainedFlow.length > 0
                 text: screen.tr("session_retained_flow"); textFormat: Text.PlainText
                 color: BrandTheme.colors.muted; font.pixelSize: 18; wrapMode: Text.WordWrap; Layout.fillWidth: true
             }
@@ -923,7 +1001,7 @@ Item {
                 id: conversationRows
                 objectName: "sessionConversationRows"
                 // Presentation only: canonical owner/model order remains ascending.
-                model: !screen.historical ? screen.state.retained_flow.slice().reverse() : []
+                model: !screen.historical ? screen.displayedRetainedFlow.slice().reverse() : []
                 SessionRetainedEntry {
                     objectName: "sessionConversationCard"
                     required property var modelData
@@ -944,6 +1022,13 @@ Item {
                 objectName: "sessionHistoryBack"
                 text: screen.tr(screen.currentHistory ? "session_back" : screen.state.timeline.session ? "session_history" : "more")
                 onClicked: { if (screen.currentHistory) { screen.owner.closeSaved(); screen.navigate("session") } else if (screen.state.timeline.session) screen.returnArchiveDetail(); else { screen.owner.closeSaved(); screen.navigate("more") } }
+            }
+            GlassButton {
+                objectName: "sessionDeleteAllSaved"
+                visible: screen.historical && !screen.currentHistory && !!screen.state.archive_delete && screen.state.archive_delete.bulk_available
+                text: screen.tr("session_delete_all_action"); iconName: "trash"; tint: BrandTheme.colors.danger; Layout.fillWidth: true
+                enabled: !screen.owner.busy && !screen.state.archive_delete.blocked
+                onClicked: { if (screen.owner.beginBulkHistoryDelete()) archiveDeletePanel.open() }
             }
             Text {
                 objectName: "sessionArchiveWindowReset"
@@ -970,12 +1055,37 @@ Item {
             }
             Text {
                 visible: screen.historical && !!screen.state.timeline.session
-                text: screen.tr("session_history_view_readonly"); color: BrandTheme.colors.muted; font.pixelSize: 20
+                text: screen.tr(screen.state.archive_delete.available ? "session_saved_title" : "session_history_view_readonly"); color: BrandTheme.colors.muted; font.pixelSize: 20
             }
             GlassButton {
                 visible: screen.historical && !!screen.state.timeline.session
                 text: screen.tr("session_history_first"); enabled: !screen.owner.busy
                 onClicked: screen.owner.firstEntries()
+            }
+            GlassButton {
+                objectName: "sessionDeleteSaved"
+                visible: screen.historical && !screen.currentHistory && !!screen.state.archive_delete && screen.state.archive_delete.available
+                text: screen.tr("session_delete_action"); iconName: "trash"; primary: true; tint: BrandTheme.colors.danger
+                enabled: !screen.owner.busy && !screen.state.archive_delete.blocked
+                onClicked: { if (screen.owner.beginHistoryDelete((screen.state.timeline.session || {}).session_id || "")) archiveDeletePanel.open() }
+            }
+            Text {
+                objectName: "sessionDeleteUncertain"
+                visible: screen.historical && !!screen.state.archive_delete && screen.state.archive_delete.blocked
+                text: screen.tr("session_delete_uncertain"); textFormat: Text.PlainText
+                color: BrandTheme.colors.muted; font.pixelSize: 20; wrapMode: Text.WordWrap; Layout.fillWidth: true
+            }
+            GlassButton {
+                objectName: "sessionDeleteStatus"
+                visible: screen.historical && !!screen.state.archive_delete && screen.state.archive_delete.status_available
+                text: screen.tr("session_delete_status_action"); enabled: !screen.owner.busy; Layout.fillWidth: true
+                onClicked: { if (screen.owner.checkHistoryDeleteStatus()) archiveDeletePanel.open() }
+            }
+            GlassButton {
+                objectName: "sessionDeleteRecovery"
+                visible: screen.historical && !!screen.state.archive_delete && (screen.state.archive_delete.blocked || screen.state.archive_delete.status === "deleted")
+                text: screen.tr("refresh"); enabled: !screen.owner.busy
+                onClicked: screen.owner.recoverHistoryDelete()
             }
             Repeater {
                 id: historyRows
@@ -1051,10 +1161,10 @@ Item {
             }
         }
     }
-    Popup {
+    GlassPopup {
         id: playbackPanel
         objectName: "sessionPlaybackPanel"
-        onAboutToHide: if (screen.owner) screen.owner.cancelPlaybackIntent()
+        onAboutToHide: { outputsPanel.close(); if (screen.owner) screen.owner.cancelPlaybackIntent() }
         x: (screen.width - width) / 2; y: toolbar.y + toolbar.height + 8
         width: Math.min(screen.width - 32, 520); padding: 20; modal: true; dim: false
         background: GlassSurface { elevated: true }
@@ -1068,11 +1178,104 @@ Item {
                 GlassButton { objectName: "sessionPlaybackToggle"; iconName: screen.state.playback.state === "playing" ? "pause" : "play"; Accessible.name: screen.tr(screen.state.playback.state === "playing" ? "pause" : "play"); Layout.fillWidth: true; enabled: !!screen.state.playback_control.enabled; onClicked: screen.owner.playbackCommand(screen.state.session_id, screen.state.playback.item_id, screen.state.playback.state === "playing" ? "pause" : "play") }
                 GlassButton { objectName: "sessionPlaybackNext"; iconName: "next"; Accessible.name: screen.tr("next"); Layout.fillWidth: true; enabled: !!screen.state.playback_control.enabled; onClicked: screen.owner.playbackCommand(screen.state.session_id, screen.state.playback.item_id, "next") }
             }
-            GlassButton { objectName: "sessionPlaybackFavorite"; visible: !!screen.state.playback_control.favorite; text: screen.tr("add_to_favorites"); iconName: "heart"; Layout.fillWidth: true; enabled: !!screen.state.playback_control.enabled; onClicked: screen.owner.playbackCommand(screen.state.session_id, screen.state.playback.item_id, "save_current_track") }
+            GlassButton {
+                objectName: "sessionPlaybackFavorite"
+                readonly property var observation: screen.state.playback_control.favorite_observation || ({})
+                readonly property bool known: typeof observation.liked === "boolean"
+                visible: !!screen.state.playback_control.favorite
+                text: screen.tr(!known ? "session_favorite_read" : observation.liked ? "session_favorite_remove" : "session_favorite_add")
+                iconName: "heart"; checked: known && observation.liked
+                Layout.fillWidth: true; enabled: !!screen.state.playback_control.enabled
+                onClicked: {
+                    if (known) screen.owner.setPlaybackFavorite(screen.state.session_id, screen.state.playback.item_id, observation.lease, !observation.liked)
+                    else screen.owner.readPlaybackFavorite(screen.state.session_id, screen.state.playback.item_id)
+                }
+            }
+            Text {
+                visible: screen.state.playback_control.favorite_status === "unavailable"
+                text: screen.tr("session_favorite_unavailable"); textFormat: Text.PlainText
+                font.pixelSize: 18; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true
+            }
+            ColumnLayout {
+                objectName: "sessionVolumeControls"
+                visible: !!screen.state.playback_control.volume_supported
+                Layout.fillWidth: true; spacing: 8
+                readonly property var observation: screen.state.playback_control.volume || ({})
+                readonly property bool known: typeof observation.percent === "number"
+                Text {
+                    objectName: "sessionVolumeObserved"
+                    text: parent.known ? screen.tr("volume") + ": " + parent.observation.percent + "%" : screen.tr(screen.state.playback_control.volume_status === "unavailable" ? "session_volume_unavailable" : "session_volume_unknown")
+                    textFormat: Text.PlainText; color: BrandTheme.colors.text
+                    font.pixelSize: 19; Layout.fillWidth: true; wrapMode: Text.WordWrap
+                }
+                Text {
+                    text: parent.observation.output_name || ""
+                    visible: text.length > 0; textFormat: Text.PlainText
+                    color: BrandTheme.colors.muted; font.pixelSize: 16; Layout.fillWidth: true; wrapMode: Text.WordWrap
+                }
+                Text {
+                    text: screen.tr("session_volume_limit"); textFormat: Text.PlainText
+                    color: BrandTheme.colors.muted; font.pixelSize: 16; Layout.fillWidth: true; wrapMode: Text.WordWrap
+                }
+                Slider {
+                    id: sessionVolumeSlider
+                    objectName: "sessionVolumeSlider"
+                    from: 0; to: 60; stepSize: 1; Layout.fillWidth: true
+                    implicitHeight: 44
+                    visible: parent.known && parent.observation.percent <= 60
+                    enabled: !!screen.state.playback_control.enabled && parent.known
+                    Accessible.name: screen.tr("volume")
+                    property int intentLease: -1
+                    property int selectedValue: 0
+                    property bool userMoved: false
+                    onPressedChanged: {
+                        if (pressed) {
+                            intentLease = screen.state.playback_control.volume.lease
+                            userMoved = false
+                        } else if (userMoved) {
+                            userMoved = false
+                            screen.owner.setPlaybackVolume(screen.state.session_id, screen.state.playback.item_id, intentLease, selectedValue)
+                        }
+                    }
+                    onMoved: {
+                        selectedValue = Math.round(value)
+                        if (pressed) userMoved = true
+                        else screen.owner.setPlaybackVolume(screen.state.session_id, screen.state.playback.item_id, screen.state.playback_control.volume.lease, selectedValue)
+                    }
+                    Binding {
+                        target: sessionVolumeSlider; property: "value"
+                        value: screen.state.playback_control.volume.percent === undefined ? 0 : screen.state.playback_control.volume.percent
+                        when: !sessionVolumeSlider.pressed
+                        restoreMode: Binding.RestoreNone
+                    }
+                }
+                GlassButton {
+                    objectName: "sessionVolumeReduce"
+                    visible: parent.known && parent.observation.percent > 60
+                    text: screen.tr("session_volume_reduce"); Layout.fillWidth: true
+                    enabled: !!screen.state.playback_control.enabled
+                    onClicked: screen.owner.setPlaybackVolume(screen.state.session_id, screen.state.playback.item_id, screen.state.playback_control.volume.lease, 60)
+                }
+                GlassButton {
+                    objectName: "sessionVolumeRead"
+                    text: screen.tr("session_volume_read"); Layout.fillWidth: true
+                    enabled: !!screen.state.playback_control.enabled
+                    onClicked: screen.owner.readPlaybackVolume(screen.state.session_id, screen.state.playback.item_id)
+                }
+            }
+            GlassButton {
+                objectName: "sessionOutputOpen"
+                visible: !!screen.state.playback_control.outputs_supported
+                text: screen.tr("session_output_title"); Layout.fillWidth: true
+                enabled: !!screen.state.playback_control.enabled
+                onClicked: {
+                    if (screen.owner.readPlaybackOutputs(screen.state.session_id, screen.state.playback.item_id)) outputsPanel.open()
+                }
+            }
             Text {
                 objectName: "sessionPlaybackStatus"
                 visible: !!screen.state.playback_control.status
-                text: screen.tr(screen.state.playback_control.status === "sending" ? "session_question_sending" : screen.state.playback_control.status === "accepted" ? "session_playback_sent" : "session_uncertain")
+                text: screen.tr((screen.state.playback_control.reading_volume || screen.state.playback_control.reading_favorite || screen.state.playback_control.reading_outputs) ? "loading" : screen.state.playback_control.status === "sending" ? "session_question_sending" : screen.state.playback_control.status === "accepted" ? "session_playback_sent" : "session_uncertain")
                 textFormat: Text.PlainText; font.pixelSize: 18; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true
             }
             RowLayout {
@@ -1083,11 +1286,67 @@ Item {
             }
         }
     }
-    Popup {
+    GlassPopup {
+        id: outputsPanel
+        objectName: "sessionOutputPanel"
+        x: (screen.width - width) / 2; y: toolbar.y + toolbar.height + 8
+        width: Math.min(screen.width - 32, 520); padding: 20; modal: true; dim: false
+        readonly property var observation: screen.state.playback_control.outputs || ({})
+        readonly property var choices: observation.choices || []
+        onAboutToHide: if (screen.owner) screen.owner.cancelPlaybackIntent()
+        background: GlassSurface { elevated: true }
+        contentItem: ColumnLayout {
+            spacing: 16
+            Text { text: screen.tr("session_output_title"); textFormat: Text.PlainText; font.pixelSize: 25; font.bold: true; color: BrandTheme.colors.text; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+            ListView {
+                id: outputChoices
+                objectName: "sessionOutputChoices"
+                Layout.fillWidth: true
+                Layout.preferredHeight: Math.min(300, contentHeight)
+                clip: true; spacing: 8; model: outputsPanel.choices
+                ScrollBar.vertical: ScrollBar { }
+                delegate: GlassButton {
+                    id: outputChoice
+                    required property var modelData
+                    objectName: "sessionOutputChoice-" + modelData.id
+                    width: outputChoices.width
+                    text: modelData.name + (modelData.active ? " · " + screen.tr("session_output_current") : "")
+                    enabled: !!screen.state.playback_control.enabled && !modelData.active
+                    implicitHeight: Math.max(56, outputChoiceText.implicitHeight + 28)
+                    contentItem: Text {
+                        id: outputChoiceText
+                        text: outputChoice.text; textFormat: Text.PlainText; wrapMode: Text.WordWrap
+                        font: outputChoice.font; color: outputChoice.enabled ? BrandTheme.colors.text : BrandTheme.colors.muted
+                        horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
+                    }
+                    onClicked: screen.owner.setPlaybackOutput(screen.state.session_id, screen.state.playback.item_id, outputsPanel.observation.lease, modelData.id)
+                }
+            }
+            Text {
+                objectName: "sessionOutputStatus"
+                Layout.fillWidth: true; wrapMode: Text.WordWrap; textFormat: Text.PlainText
+                color: BrandTheme.colors.muted; font.pixelSize: 18
+                visible: text.length > 0
+                text: screen.state.playback_control.reading_outputs ? screen.tr("loading")
+                    : screen.state.playback_control.status === "sending" ? screen.tr("session_question_sending")
+                    : screen.state.playback_control.status === "uncertain" ? screen.tr("session_uncertain")
+                    : screen.state.playback_control.outputs_status === "unavailable" ? screen.tr("session_output_unavailable")
+                    : screen.state.playback_control.status === "accepted" ? screen.tr("session_playback_sent")
+                    : outputsPanel.observation.lease !== undefined && outputsPanel.choices.length <= 1 ? screen.tr("session_output_empty") : ""
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                GlassButton { objectName: "sessionOutputRead"; text: screen.tr("refresh"); enabled: !screen.owner.busy && !!screen.state.playback_control.available && !!screen.state.playback_control.outputs_supported; onClicked: { if (screen.state.playback_control.status === "uncertain") screen.owner.refreshPlayback(); else screen.owner.readPlaybackOutputs(screen.state.session_id, screen.state.playback.item_id) } }
+                Item { Layout.fillWidth: true }
+                GlassButton { objectName: "sessionOutputClose"; text: screen.tr("close"); onClicked: outputsPanel.close() }
+            }
+        }
+    }
+    GlassPopup {
         id: composerPanel
         objectName: "sessionComposerPanel"
         x: 16; y: toolbar.y + toolbar.height + 8
-        width: screen.width - 32; height: Math.min(screen.height - y - 126, 580)
+        width: screen.width - 32; height: Math.min(screen.height - y - 126, screen.compact ? 580 : 760)
         padding: 20; modal: true; dim: false
         onOpened: { composeInput.text = screen.draft; composeInput.forceActiveFocus() }
         background: GlassSurface { elevated: true }
@@ -1103,15 +1362,18 @@ Item {
             TextField {
                 id: composeInput
                 objectName: "sessionComposerInput"
-                Layout.fillWidth: true; Layout.minimumHeight: 58
+                Layout.fillWidth: true; Layout.minimumHeight: screen.compact ? 58 : 96
                 placeholderText: screen.tr("session_question_placeholder")
                 Accessible.name: screen.tr("session_question_placeholder")
-                maximumLength: 4000; selectByMouse: true; font.pixelSize: 22
+                maximumLength: 4000; selectByMouse: true; font.pixelSize: screen.compact ? 22 : 30
                 onTextChanged: screen.draft = text
                 onAccepted: screen.submitQuestion()
             }
             TouchKeyboard {
                 objectName: "sessionComposerKeyboard"
+                keyHeight: screen.compact ? 44 : 88
+                keyFontSize: screen.compact ? 19 : 30
+                keyGap: screen.compact ? 4 : 8
                 Layout.fillWidth: true; target: composeInput; backend: screen.backend
                 submitIcon: "send"; submitLabel: screen.tr("session_send")
                 onSubmitted: screen.submitQuestion()
@@ -1125,7 +1387,7 @@ Item {
             }
         }
     }
-    Popup {
+    GlassPopup {
         id: searchPanel
         objectName: "sessionSearchPanel"
         property bool keyboardVisible: true
@@ -1160,7 +1422,7 @@ Item {
             }
             Text {
                 visible: screen.state.error.length > 0
-                text: screen.tr(screen.state.error === "uncertain" ? "session_uncertain" : "session_error")
+                text: screen.tr(screen.state.error === "uncertain" ? "session_uncertain" : (screen.state.error === "profile_unavailable" || screen.state.error === "profile_required") ? "session_profile_missing" : "session_error")
                 color: BrandTheme.colors.warning; font.pixelSize: 18
                 wrapMode: Text.WordWrap; Layout.fillWidth: true
             }
@@ -1221,7 +1483,7 @@ Item {
             }
         }
     }
-    Popup {
+    GlassPopup {
         id: moreChoices
         x: 20; y: toolbar.y + toolbar.height + 8
         width: Math.min(screen.width - 40, 420); padding: 16
@@ -1250,7 +1512,7 @@ Item {
             }
         }
     }
-    Popup {
+    GlassPopup {
         id: connectionInfo
         x: screen.width - width - 20; y: toolbar.y + toolbar.height + 8
         width: Math.min(screen.width - 40, 420); padding: 22
@@ -1261,14 +1523,14 @@ Item {
             Text { text: screen.backend.connectionType; textFormat: Text.PlainText; font.pixelSize: 22; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true }
         }
     }
-    Popup {
+    GlassPopup {
         id: choices
         objectName: "sessionToolbarChoice"
         property string sessionId: ""
         property string profileId: ""
         property string field: "mood"
         property string editToken: ""
-        readonly property bool canSubmit: choices.visible && screen.state.runtime_state === "active" && screen.sessionControlsVisible && choices.sessionId === screen.state.session_id && choices.profileId === screen.backend.activeProfileId && choices.editToken === (screen.backend.sharedSettings.edit_token || "") && !!screen.backend.sharedSettings.available && !screen.backend.sharedSettingsBusy && !screen.backend.sharedSettings.selection_required && choices.editToken.length > 0 && !screen.backend.sharedSettings.operation_pending
+        readonly property bool canSubmit: choices.visible && screen.state.runtime_state === "active" && screen.sessionControlsVisible && choices.sessionId === screen.state.session_id && choices.profileId === screen.scopeProfileId && choices.editToken === (screen.backend.sharedSettings.edit_token || "") && !!screen.backend.sharedSettings.available && !screen.backend.sharedSettingsBusy && !screen.backend.sharedSettings.selection_required && choices.editToken.length > 0 && !screen.backend.sharedSettings.operation_pending
         y: toolbar.y + toolbar.height + 8; width: Math.min(screen.width - 24, 560); padding: 22
         modal: true; dim: false
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
@@ -1283,7 +1545,7 @@ Item {
                     GlassButton {
                         required property var modelData
                         text: choices.field === "voice" ? (modelData.label || "") : screen.tr("shared_" + choices.field + "_" + modelData)
-                        primary: screen.toolbarValue(choices.field) === (choices.field === "voice" ? modelData.value : modelData)
+                        checked: screen.toolbarValue(choices.field) === (choices.field === "voice" ? modelData.value : modelData)
                         enabled: choices.canSubmit
                         objectName: "sessionToolbarOption"
                         onClicked: {
@@ -1299,7 +1561,53 @@ Item {
             GlassButton { text: screen.tr("shared_title"); onClicked: { choices.close(); screen.navigate("settings") } }
         }
     }
-    Popup {
+    GlassPopup {
+        id: archiveDeletePanel
+        objectName: "sessionDeletePanel"
+        readonly property bool bulk: screen.state.archive_delete.kind === "bulk"
+        anchors.centerIn: parent
+        width: Math.min(screen.width - 40, 560); padding: 24; modal: true
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+        onAboutToHide: screen.owner.cancelHistoryDelete()
+        background: GlassSurface { elevated: true }
+        contentItem: ColumnLayout {
+            spacing: screen.compact ? 14 : 18
+            Text {
+                objectName: "sessionDeleteMessage"
+                text: screen.tr(screen.state.archive_delete.status === "confirm" ? (archiveDeletePanel.bulk ? "session_delete_all_confirm" : "session_delete_confirm") : screen.state.archive_delete.status === "deleted" ? (archiveDeletePanel.bulk ? "session_delete_all_complete" : "session_delete_complete") : screen.state.archive_delete.status === "uncertain" ? "session_delete_uncertain" : screen.state.archive_delete.status === "pending" ? "session_delete_status_pending" : screen.state.archive_delete.status === "unknown" ? "session_delete_status_unknown" : screen.state.archive_delete.status === "expired_unknown" ? "session_delete_status_expired" : screen.state.archive_delete.status === "empty" ? "session_delete_all_empty" : screen.state.archive_delete.status === "snapshot_conflict" ? "session_delete_all_conflict" : screen.state.archive_delete.status === "failed" ? "session_error" : "loading").replace("%1", String(screen.state.archive_delete.count))
+                textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: screen.compact ? 22 : 28
+                wrapMode: Text.WordWrap; Layout.fillWidth: true
+            }
+            Text {
+                objectName: "sessionDeleteTarget"
+                visible: screen.state.archive_delete.status === "confirm" && !archiveDeletePanel.bulk
+                text: screen.tr("session_title") + " · " + screen.displayDate((screen.state.timeline.session || {}).started_at || (screen.state.timeline.session || {}).created_at)
+                textFormat: Text.PlainText; color: BrandTheme.colors.muted; font.pixelSize: 20
+                wrapMode: Text.WordWrap; Layout.fillWidth: true
+            }
+            GlassButton {
+                objectName: "sessionDeleteConfirm"
+                visible: screen.state.archive_delete.status === "confirm"
+                text: screen.tr(archiveDeletePanel.bulk ? "session_delete_all_action" : "session_delete_action"); iconName: "trash"; primary: true; tint: BrandTheme.colors.danger; Layout.fillWidth: true
+                enabled: !screen.owner.busy && screen.state.archive_delete.lease > 0
+                onClicked: screen.owner.confirmHistoryDelete(screen.state.archive_delete.lease)
+            }
+            GlassButton {
+                objectName: "sessionDeletePanelStatus"
+                visible: screen.state.archive_delete.status_available
+                text: screen.tr("session_delete_status_action"); Layout.fillWidth: true; enabled: !screen.owner.busy
+                onClicked: screen.owner.checkHistoryDeleteStatus()
+            }
+            GlassButton {
+                objectName: "sessionDeletePanelRefresh"
+                visible: screen.state.archive_delete.status === "pending" || screen.state.archive_delete.status === "unknown" || screen.state.archive_delete.status === "expired_unknown" || screen.state.archive_delete.status === "snapshot_conflict" || screen.state.archive_delete.status === "empty" || screen.state.archive_delete.status === "failed" || screen.state.archive_delete.status === "uncertain" || screen.state.archive_delete.status === "deleted"
+                text: screen.tr("refresh"); Layout.fillWidth: true; enabled: !screen.owner.busy
+                onClicked: { if (screen.owner.recoverHistoryDelete()) archiveDeletePanel.close() }
+            }
+            GlassButton { objectName: "sessionDeleteCancel"; text: screen.tr((screen.state.archive_delete.status === "reading" && !screen.state.archive_delete.attempted) || screen.state.archive_delete.status === "confirm" ? "cancel" : "close"); Layout.fillWidth: true; onClicked: archiveDeletePanel.close() }
+        }
+    }
+    GlassPopup {
         id: endConfirmation
         property string expectedSessionId: ""
         anchors.centerIn: parent

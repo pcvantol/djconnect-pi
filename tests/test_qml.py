@@ -153,7 +153,8 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "anchors.leftMargin: 16" in now_block
     assert "anchors.topMargin: 16" in now_block
     assert "anchors.rightMargin: 16" in now_block
-    assert "Layout.preferredHeight: 48" in now_block
+    assert "PageToolbar {" in now_block
+    assert 'title: root.tr("now_playing")' in now_block
     assert 'anchors.bottomMargin: root.edge + 96' in now_block
     assert "width: Math.min(parent.width, parent.height)" in now_block
     assert "cache: true" in now_block
@@ -270,27 +271,12 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert 'text: "+"' in main_qml
     assert "id: nowPanel" in main_qml
     assert 'visible: root.activeScreen === "now"' in main_qml
-    assert "property bool moodPopoverOpen: false" in main_qml
-    assert "id: nowMoodButton" in main_qml
-    assert 'iconName: "mood"' in main_qml
-    assert 'ToolTip.text: root.tr("mood_select")' in main_qml
-    assert "id: moodPopover" in main_qml
-    assert 'visible: root.activeScreen === "now" && root.moodPopoverOpen' in main_qml
-    mood_popover = main_qml[main_qml.index("id: moodPopover") : main_qml.index("id: controlPanel")]
-    assert 'border.color: root.moodColor("focus")' in mood_popover
-    assert 'root.moodColor("bannerMid")' in mood_popover
-    assert 'root.moodColor("surface")' in mood_popover
-    assert 'root.moodColor("bannerEnd")' in mood_popover
-    assert 'root.moodColor("chip")' in mood_popover
-    assert 'root.moodColor("accent")' in mood_popover
-    assert 'color: "#141326"' not in mood_popover
-    assert 'border.color: "#6a5bd8"' not in mood_popover
-    assert '"#24263f"' not in mood_popover
-    assert '"#3d4268"' not in mood_popover
-    assert "djconnect.setMoodValue(0)" in main_qml
-    assert "djconnect.setMoodValue(35)" in main_qml
-    assert "djconnect.setMoodValue(70)" in main_qml
-    assert "djconnect.setMoodValue(100)" in main_qml
+    # Mood is the server-owned DJ Session setting, not a second local Now Playing control.
+    assert "id: nowMoodButton" not in main_qml
+    assert "id: moodPopover" not in main_qml
+    session_qml = qml_root.joinpath("SessionScreen.qml").read_text(encoding="utf-8")
+    assert 'objectName: "sessionToolbarMood"' in session_qml
+    assert 'screen.openChoice("mood", moodButton)' in session_qml
     assert "id: controlPanel" in main_qml
     assert 'visible: root.activeScreen === "control"' in main_qml
     assert 'root.tr("control")' in main_qml
@@ -524,7 +510,10 @@ def test_qml_track_insight_panel_renders_contract_fields() -> None:
     assert '"energy": "track_insight_energy"' in main_qml
     assert "root.trackInsightLabel(modelData.title || modelData.kind || \"\")" in panel
     assert "root.trackInsightLabel(modelData.title || modelData.kind || modelData.id || \"\")" in panel
-    assert panel.count('color: "#00000000"') >= 3
+    # These content cards now use the shared material instead of transparent boxes.
+    assert panel.count("GlassSurface {") >= 4
+    assert "hero: true" in panel
+    assert "GlassArtworkFrame {" in panel
     assert 'color: BrandTheme.colors.surface' not in panel
     assert "visible: !trackInsightScroll.visible" in panel
     assert "Layout.fillHeight: true" in panel
@@ -707,8 +696,11 @@ def test_qml_screen_blanking_wakes_on_tap() -> None:
     assert "root.suppressNextNowPanelTap = false" in main_qml
     assert "root.splashVisible = true" not in record_activity
     assert "splashTimer.restart()" not in record_activity
-    assert "root.contentItem.grabToImage" in main_qml
-    assert "Qt.size(root.width, root.height)" in main_qml
+    screenshot_handler = main_qml[main_qml.index("function onScreenshotRequested()") : main_qml.index("function onDebugScreenRequested(screen)")]
+    assert "root.wakeDisplay()" in screenshot_handler
+    assert "Qt.callLater(function()" in screenshot_handler
+    assert "djconnect.saveWindowScreenshot(root)" in screenshot_handler
+    assert "grabToImage" not in screenshot_handler
     assert "z: -1000" in main_qml
     activity_catcher = main_qml[main_qml.rindex("MouseArea {") : main_qml.index("Rectangle {\n        anchors.fill: parent\n        color: \"#000000\"")]
     assert "z: 199" in activity_catcher
@@ -718,7 +710,6 @@ def test_qml_screen_blanking_wakes_on_tap() -> None:
     assert "root.recordActivity()" in activity_catcher
     assert "mouse.accepted = false" in activity_catcher
     assert "color: root.color" in main_qml
-    assert "result.saveToFile(djconnect.screenshotFile)" in main_qml
     assert "function onWakeScreenRequested()" in main_qml
     assert "forcedWakeTimer.restart()" in main_qml
     assert "opacity: root.screenBlanked ? 1 : root.brightnessOverlayOpacity" in main_qml
@@ -804,7 +795,7 @@ def test_qml_has_a_dedicated_pi5_wall_canvas_and_premium_banner_scale() -> None:
     assert "running: root.wallProfile && !root.screenBlanked" in main_qml
     assert "property int motionStandard: wallProfile ? 360 : 240" in main_qml
     assert "scale: djconnect.toastVisible ? 1 : 0.94" in main_qml
-    assert "property bool liquidGlassEnabled: true" in main_qml
+    assert "readonly property bool liquidGlassEnabled: djconnect.glassEnabled" in main_qml
     assert "#82ffffff" in main_qml
     assert "#c8ffffff" in main_qml
     assert "BusyIndicator" not in update_qml

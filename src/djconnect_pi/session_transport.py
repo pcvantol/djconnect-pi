@@ -8,9 +8,11 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from contextlib import ExitStack
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
+from hashlib import sha256
 from typing import Any
 from urllib.parse import quote, urlsplit
+from uuid import UUID
 
 import requests
 
@@ -27,7 +29,7 @@ JSON_CHUNK_BYTES = 16 * 1024
 
 
 def response_budget(route: str) -> int:
-    if route == "session/history" or (route.startswith("session/history/") and route != "session/history/open"):
+    if route in {"session/history", "ask_dj/history"} or (route.startswith("session/history/") and route != "session/history/open"):
         return JSON_HISTORY_BYTES
     if route in {"session/active", "session/broadcast/snapshot", "session/start", "ask_dj/message"}:
         return JSON_SESSION_BYTES
@@ -64,6 +66,32 @@ class _JSONShape:
         return True
 
 
+# Closed producer codes. Never retain an arbitrary personal server error string.
+HISTORY_DELETE_ERRORS = {
+    400: frozenset({"invalid_history_delete_request"}),
+    404: frozenset({"history_unavailable"}),
+    409: frozenset({"session_not_archived", "history_revision_conflict", "history_delete_operation_conflict", "history_delete_snapshot_conflict"}),
+    503: frozenset({"history_unavailable", "history_delete_outcome_unknown", "history_delete_capacity"}),
+}
+
+
+def deletion_identifier(value, maximum):
+    if (not isinstance(value, str) or not 1 <= len(value) <= maximum or value != value.strip()
+            or any(ord(char) < 32 or ord(char) == 127 for char in value)):
+        raise SessionError("invalid")
+    return value
+
+
+def deletion_operation(value):
+    try:
+        parsed = UUID(value)
+        if parsed.version != 7 or str(parsed) != value:
+            raise ValueError
+    except (ValueError, TypeError, AttributeError):
+        raise SessionError("invalid") from None
+    return value
+
+
 MOODS = frozenset({"chill", "groove", "energy", "party"})
 
 
@@ -72,6 +100,22 @@ class SessionError(Exception):
         self.category = category
         self.code = code
         super().__init__(category)  # Never surface private JSON, URLs or identifiers.
+
+
+def session_profile_id(cfg) -> str:
+    """Use the server-resolved device mapping without a second client selection.
+
+    An existing explicit choice must still agree. This is only a request/context
+    fence: Core freshly authenticates the device and verifies the mapped owner.
+    No mapping, Profile permission or persistent selection is created here.
+    """
+    active = getattr(cfg, "active_profile_id", "")
+    explicit = getattr(cfg, "explicit_profile_id", "")
+    if (not isinstance(active, str) or not 1 <= len(active) <= 512
+            or active != active.strip() or any(ord(c) < 32 or ord(c) == 127 for c in active)
+            or not isinstance(explicit, str) or (explicit and explicit != active)):
+        return ""
+    return active
 
 
 @dataclass(frozen=True)
@@ -85,14 +129,17 @@ class SessionBinding:
     profile_type: str
     privacy_mode: str
     language: str
+    profile_selection: str = ""
+    private_authorized: bool = False
+    owner_epoch: int = 0
 
     @classmethod
     def capture(cls, cfg):
         if not cfg.paired or not cfg.device_token or not cfg.ha_url:
             raise SessionError("unpaired")
         return cls(cfg.ha_url.rstrip("/"), cfg.device_id, cfg.device_token,
-                   cfg.explicit_profile_id, cfg.active_profile_id,
-                   cfg.private_session, cfg.active_profile_type, cfg.active_profile_privacy_mode, cfg.language)
+                   cfg.explicit_profile_id or session_profile_id(cfg), cfg.active_profile_id,
+                   cfg.private_session, cfg.active_profile_type, cfg.active_profile_privacy_mode, cfg.language, cfg.explicit_profile_id)
 
     def identity(self) -> dict[str, Any]:
         result = {"device_id": self.device_id, "client_type": CLIENT_TYPE}
@@ -110,16 +157,60 @@ def identifier(value: Any) -> str:
 
 
 class SessionTransport:
-    def __init__(self, config: Callable, timeout: float = 8.0):
+    def __init__(self, config: Callable, timeout: float = 8.0, *, owner_scope=None):
         self.config = config
         self.timeout = timeout
+        self.owner_scope = owner_scope
 
     def binding(self) -> SessionBinding:
-        return SessionBinding.capture(self.config())
+        binding = SessionBinding.capture(self.config())
+        if self.owner_scope is not None and not binding.profile_id and not binding.resolved_profile_id:
+            scope = self.owner_scope()
+            if scope is not None:
+                owner, private, epoch = scope
+                identifier(owner)
+                if owner != owner.strip() or any(ord(c) == 127 for c in owner) or type(private) is not bool or type(epoch) is not int or epoch < 0:
+                    raise SessionError("invalid")
+                binding = replace(binding, profile_id=owner, resolved_profile_id=owner,
+                                  profile_type="", privacy_mode="", private_authorized=private, owner_epoch=epoch)
+        return binding
 
-    def _request(self, binding: SessionBinding, method: str, route: str, payload=None, *, timeout=None, isolated=False) -> dict:
+    def _request(self, binding: SessionBinding, method: str, route: str, payload=None, *, timeout=None, isolated=False, archive_delete=False, content_delete=False, private_probe=False) -> dict:
         if binding != self.binding():
             raise SessionError("context_changed")
+        if private_probe:
+            if (method != "GET" or route != "ask_dj/history"
+                    or payload != {"conversation_scope": "profile", "history_contract_version": 2}):
+                raise SessionError("invalid")
+            isolated = True
+        if archive_delete:
+            # Only these released typed archive routes get closed identity and
+            # bounded error bodies; callers cannot select an arbitrary effect.
+            shapes = {
+                ("POST", "session/history/delete"): {"session_id", "expected_revision", "operation_id", "confirmed", "history_contract_version"},
+                ("POST", "session/history/delete_all"): {"snapshot_id", "operation_id", "confirmed", "history_contract_version"},
+                ("GET", "session/history/delete_snapshot"): {"history_contract_version"},
+            }
+            expected = shapes.get((method, route))
+            if method == "GET" and route == "session/history/delete/status" and isinstance(payload, dict):
+                mode = payload.get("operation")
+                if isinstance(mode, str) and mode in {"single", "all"}:
+                    expected = {"contract_version", "operation_id", "operation"} | (
+                        {"session_id", "expected_revision"} if mode == "single" else {"snapshot_id"})
+            if not isinstance(payload, dict) or set(payload) != expected:
+                raise SessionError("invalid")
+            isolated = True
+        if content_delete:
+            shapes = {
+                ("POST", "session/content/delete/prepare"): {"contract_version", "target"},
+                ("POST", "session/content/delete"): {"contract_version", "confirmation_id", "operation_id", "confirmed"},
+                ("GET", "session/content/delete/status"): {"contract_version", "confirmation_id", "operation_id"},
+            }
+            if (archive_delete or not isinstance(payload, dict)
+                    or set(payload) != shapes.get((method, route))
+                    or type(payload.get("contract_version")) is not int or payload["contract_version"] != 1):
+                raise SessionError("invalid")
+            isolated = True
         if isolated:
             try:
                 base = urlsplit(binding.ha_url)
@@ -140,7 +231,9 @@ class SessionTransport:
         }
         if binding.profile_id:
             headers["X-DJConnect-Profile-ID"] = binding.profile_id
-        body = {**binding.identity(), **(payload or {})}
+        identity = ({"device_id": binding.device_id, "client_type": CLIENT_TYPE}
+                    if archive_delete or content_delete else binding.identity())
+        body = {**identity, **(payload or {})}
         if method == "GET":
             body = {key: str(value).lower() if isinstance(value, bool) else value for key, value in body.items()}
         category = "invalid" if method == "GET" else "uncertain"
@@ -161,10 +254,14 @@ class SessionTransport:
                     raise SessionError("context_changed")
                 # Denial is authoritative before any header/body allocation or JSON decode.
                 if response.status_code in (401, 403):
+                    # This closed read can deny personal access while a separately
+                    # authenticated current Session remains a shared display.
+                    if private_probe and response.status_code == 403:
+                        raise SessionError("private_scope_denied")
                     raise SessionError("denied")
-                if 300 <= response.status_code < 400 or response.status_code >= 500:
+                if 300 <= response.status_code < 400 or (response.status_code >= 500 and not archive_delete):
                     raise SessionError("unavailable" if method == "GET" else "uncertain")
-                maximum = response_budget(route)
+                maximum = JSON_CONTROL_BYTES if archive_delete else response_budget(route)
                 declared = response.headers.get("Content-Length")
                 if declared is not None and (not isinstance(declared, str) or not declared.isascii()
                         or not declared.isdecimal() or len(declared) > 20 or int(declared) > maximum):
@@ -190,9 +287,19 @@ class SessionTransport:
                 if not isinstance(data, dict):
                     raise SessionError(category)
                 code = data.get("error") if isinstance(data.get("error"), str) else ""
+                if archive_delete:
+                    if response.status_code == 200 and data.get("success") is True:
+                        return data  # The typed method below validates the exact receipt.
+                    admitted = code if (data.get("success") is False
+                        and code in HISTORY_DELETE_ERRORS.get(response.status_code, ())) else ""
+                    category = ("conflict" if response.status_code == 409 else "unavailable"
+                        if admitted and admitted != "history_delete_outcome_unknown" else "uncertain")
+                    raise SessionError(category, admitted)
                 if response.status_code in (404, 405, 426) or code == "history_contract_upgrade_required":
                     raise SessionError("unavailable", code if code in {"history_unavailable", "active_session_not_found", "history_contract_upgrade_required"} else "")
                 if response.status_code == 409:
+                    if code in {"device_not_mapped", "profile_required", "invalid_profile", "profile_access_denied"}:
+                        raise SessionError("profile_unavailable")
                     raise SessionError("conflict")
                 if response.status_code >= 400 or data.get("success") is not True:
                     raise SessionError("unavailable" if method == "GET" or response.status_code >= 400 else "uncertain")
@@ -203,8 +310,53 @@ class SessionTransport:
                 raise SessionError("context_changed") from None
             raise SessionError("offline" if method == "GET" else "uncertain") from None
 
-    def capabilities(self, binding):
-        return self._request(binding, "GET", "capabilities")
+    def private_scope_owner(self, binding):
+        """Existing Apple/Core Profile conversation read; discard all message bodies.
+
+        A successful owner-scoped read confirms personal-read permission, not a
+        Profile type, permanent grant, response lifetime or permission for media.
+        Each consuming resource retains its own fresh authority and admission.
+        """
+        try:
+            data = self._request(binding, "GET", "ask_dj/history",
+                {"conversation_scope": "profile", "history_contract_version": 2}, private_probe=True)
+        except SessionError as exc:
+            if exc.category == "private_scope_denied":
+                return None
+            raise
+        owner = identifier(data.get("owner_profile_id"))
+        if (owner != owner.strip() or any(ord(c) == 127 for c in owner)
+                or data.get("history_scope") != "profile" or data.get("user_id") is not None
+                or not isinstance(data.get("messages"), list) or len(data["messages"]) > 1000
+                or any(not isinstance(row, dict) for row in data["messages"])
+                or (binding.profile_id and owner != binding.profile_id)):
+            raise SessionError("invalid")
+        return owner
+
+    def prepare_content_delete(self, binding, selected):
+        from .session_content_delete import target, wire_target
+        selected = wire_target(target(selected))
+        return self._request(binding, "POST", "session/content/delete/prepare",
+                             {"contract_version": 1, "target": selected}, content_delete=True)
+
+    def delete_content(self, binding, intent, values):
+        if (not isinstance(values, dict) or values.get("confirmed") is not True
+                or binding != intent.preview.binding or values != {"contract_version": 1,
+                "confirmation_id": intent.preview.confirmation, "operation_id": intent.operation, "confirmed": True}):
+            raise SessionError("invalid")
+        result = self._request(binding, "POST", "session/content/delete", values, content_delete=True)
+        intent.receipt(result)
+
+    def content_delete_status(self, binding, intent):
+        if binding != intent.preview.binding:
+            raise SessionError("context_changed")
+        result = self._request(binding, "GET", "session/content/delete/status", {
+            "contract_version": 1, "confirmation_id": intent.preview.confirmation,
+            "operation_id": intent.operation}, content_delete=True)
+        return intent.outcome(result)
+
+    def capabilities(self, binding, *, isolated=False):
+        return self._request(binding, "GET", "capabilities", isolated=isolated)
 
     def active(self, binding, *, isolated=False):
         return self._request(binding, "GET", "session/active", isolated=isolated)
@@ -232,6 +384,121 @@ class SessionTransport:
         return self._request(binding, "POST", "command", {
             "command": command, "request_source": "device_command", "app_version": PROTOCOL_VERSION}, isolated=True)
 
+    def playback_volume(self, binding, value: int, backend: str):
+        if (type(value) is not int or not 0 <= value <= 60
+                or not isinstance(backend, str) or backend not in {"spotify_direct", "music_assistant"}):
+            raise SessionError("invalid")
+        # The released MA adapter accepts a fraction; integer1 means100% there.
+        # Spotify accepts integer percentages. Keep this consumer's0..60 limit.
+        wire_value = value / 100 if backend == "music_assistant" else value
+        return self._request(binding, "POST", "command", {
+            "command": "set_volume", "value": wire_value,
+            "request_source": "device_command", "app_version": PROTOCOL_VERSION}, isolated=True)
+
+    def playback_favorite(self, binding, value: bool):
+        if type(value) is not bool:
+            raise SessionError("invalid")
+        return self._request(binding, "POST", "command", {
+            "command": "set_current_track_favorite", "value": value,
+            "request_source": "device_command", "app_version": PROTOCOL_VERSION}, isolated=True)
+
+    def playback_outputs(self, binding):
+        return self._request(binding, "POST", "command", {
+            "command": "devices", "request_source": "device_command", "app_version": PROTOCOL_VERSION}, isolated=True)
+
+    def playback_output(self, binding, target: str, play: bool):
+        if (not isinstance(target, str) or not 1 <= len(target) <= 512 or target != target.strip()
+                or any(ord(c) < 32 or ord(c) == 127 for c in target) or type(play) is not bool):
+            raise SessionError("invalid")
+        return self._request(binding, "POST", "command", {
+            "command": "set_output", "value": target, "play": play,
+            "request_source": "device_command", "app_version": PROTOCOL_VERSION}, isolated=True)
+
+    def delete_history(self, binding, session_id: str, expected_revision: str,
+                       operation_id: str, *, confirmed: bool):
+        """One explicit archive mutation; no retries or optimistic projection.
+
+        The caller must bind a fresh detail read and confirmation to its original
+        epoch and UUIDv7 lifetime. This adapter cannot create/renew consent.
+        List SQL revisions are deliberately rejected, never converted to CAS.
+        """
+        sid = deletion_identifier(session_id, 200)
+        revision = deletion_identifier(expected_revision, 4096)
+        op = deletion_operation(operation_id)
+        if (confirmed is not True or not binding.resolved_profile_id
+                or binding.profile_id != binding.resolved_profile_id):
+            raise SessionError("invalid")
+        data = self._request(binding, "POST", "session/history/delete", {
+            "session_id": sid, "expected_revision": revision,
+            "operation_id": op, "confirmed": True, "history_contract_version": 2}, archive_delete=True)
+        if (type(data.get("schema_version")) is not int or data["schema_version"] != 1
+                or data.get("operation_id") != op or data.get("owner_profile_id") != binding.resolved_profile_id
+                or data.get("deleted_session_id") != sid or data.get("deleted") is not True):
+            raise SessionError("uncertain")
+        return {"operation_id": op, "owner_profile_id": binding.resolved_profile_id,
+                "deleted_session_id": sid, "deleted": True}
+
+    def history_delete_snapshot(self, binding):
+        if not binding.profile_id or binding.profile_id != binding.resolved_profile_id:
+            raise SessionError("invalid")
+        return self._request(binding, "GET", "session/history/delete_snapshot",
+                             {"history_contract_version": 2}, archive_delete=True)
+
+    def delete_all_history(self, binding, snapshot_id, operation_id, target_count, *, confirmed):
+        token = deletion_identifier(snapshot_id, 200)
+        op = deletion_operation(operation_id)
+        if (confirmed is not True or type(target_count) is not int or target_count <= 0
+                or not binding.profile_id or binding.profile_id != binding.resolved_profile_id):
+            raise SessionError("invalid")
+        data = self._request(binding, "POST", "session/history/delete_all", {
+            "snapshot_id": token, "operation_id": op, "confirmed": True,
+            "history_contract_version": 2}, archive_delete=True)
+        if (type(data.get("schema_version")) is not int or data["schema_version"] != 1
+                or data.get("operation_id") != op or data.get("owner_profile_id") != binding.resolved_profile_id
+                or data.get("snapshot_id") != token or data.get("deleted") is not True
+                or type(data.get("deleted_session_count")) is not int
+                or data["deleted_session_count"] != target_count):
+            raise SessionError("uncertain")
+        return {"operation_id": op, "owner_profile_id": binding.resolved_profile_id,
+                "snapshot_id": token, "deleted": True, "deleted_session_count": target_count}
+
+    def history_delete_status(self, binding, operation, operation_id, body, *, target_count=None):
+        """Read only the ORIGINAL archive body/ID; never claim a new send ticket."""
+        op = deletion_operation(operation_id)
+        if (not binding.profile_id or binding.profile_id != binding.resolved_profile_id
+                or not isinstance(body, dict) or not isinstance(operation, str) or operation not in {"single", "all"}
+                or set(body) != ({"session_id", "expected_revision"} if operation == "single" else {"snapshot_id"})):
+            raise SessionError("invalid")
+        for key, value in body.items():
+            deletion_identifier(value, 4096 if key == "expected_revision" else 200)
+        if operation == "all" and (type(target_count) is not int or target_count <= 0):
+            raise SessionError("invalid")
+        digest = sha256(json.dumps(body, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+        data = self._request(binding, "GET", "session/history/delete/status", {
+            "contract_version": 1, "operation_id": op, "operation": operation, **body}, archive_delete=True)
+        state = data.get("state")
+        if (type(data.get("schema_version")) is not int or data["schema_version"] != 1
+                or data.get("owner_profile_id") != binding.resolved_profile_id or data.get("operation_id") != op
+                or data.get("operation") != operation or data.get("request_digest") != digest
+                or any(data.get(key) != value for key, value in body.items())
+                or not isinstance(state, str) or state not in {"unknown", "pending", "completed", "expired_unknown"}
+                or data.get("definitive") is not (state == "completed")):
+            raise SessionError("uncertain")
+        receipt = data.get("receipt")
+        if state == "completed":
+            if (not isinstance(receipt, dict) or receipt.get("success") is not True
+                    or type(receipt.get("schema_version")) is not int or receipt["schema_version"] != 1
+                    or receipt.get("owner_profile_id") != binding.resolved_profile_id
+                    or receipt.get("operation_id") != op or receipt.get("deleted") is not True
+                    or (operation == "single" and receipt.get("deleted_session_id") != body["session_id"])
+                    or (operation == "all" and (receipt.get("snapshot_id") != body["snapshot_id"]
+                        or type(receipt.get("deleted_session_count")) is not int
+                        or receipt["deleted_session_count"] != target_count))):
+                raise SessionError("uncertain")
+        elif receipt is not None:
+            raise SessionError("uncertain")
+        return {"state": state, "definitive": state == "completed"}
+
     def end(self, binding, session_id: str):
         return self._request(binding, "POST", "session/end", {"session_id": identifier(session_id)})
 
@@ -242,7 +509,7 @@ class SessionTransport:
         return self._request(binding, "GET", "session/history", self._page(cursor, limit))
 
     def timeline(self, binding, session_id: str, *, cursor: str = "", limit: int = 20,
-                 window: str | None = "tail", anchor_entry_id: str = ""):
+                 window: str | None = "tail", anchor_entry_id: str = "", isolated=False):
         if window not in {None, "tail", "anchor"} or (cursor and window is not None):
             raise SessionError("invalid")
         page = self._page(cursor, limit)
@@ -251,7 +518,7 @@ class SessionTransport:
         if window == "anchor":
             page["anchor_entry_id"] = identifier(anchor_entry_id)
         route = "session/history/" + quote(identifier(session_id), safe="")
-        return self._request(binding, "GET", route, page)
+        return self._request(binding, "GET", route, page, isolated=isolated)
 
     def search(self, binding, session_id: str, query: str, *, cursor: str = "", limit: int = 20):
         if not isinstance(query, str):
@@ -300,3 +567,20 @@ class SessionTransport:
                 raise SessionError("invalid")
             page["cursor"] = cursor
         return page
+
+
+def private_binding_allowed(binding):
+    return (not binding.private_session and bool(binding.profile_id)
+        and binding.profile_id == binding.resolved_profile_id
+        and (binding.private_authorized or (binding.profile_type == "personal"
+            and binding.privacy_mode == "private")))
+
+
+def private_scope_allowed(owner):
+    cfg = owner.backend.cfg
+    if cfg.private_session:
+        return False
+    if getattr(owner, "_bootstrap_binding", None) is not None:
+        return owner._bootstrap_current() and owner._bootstrap_private
+    return (bool(session_profile_id(cfg)) and cfg.active_profile_type == "personal"
+        and cfg.active_profile_privacy_mode == "private")

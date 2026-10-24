@@ -69,8 +69,9 @@ def main():
                 owner.transport.playback_status = Mock(return_value={'success': True, 'music_backend': 'spotify_direct',
                     'music_backend_revision': 4, 'music_backend_available': True, 'backend_available': True,
                     'music_backend_capabilities': {'supports_favorites': True},
-                    'playback': {'uri': 'spotify:track:'+snapshot['playback']['source_url'].rsplit('/',1)[-1], 'has_playback': True, 'is_playing': True}})
+                    'playback': {'uri': 'spotify:track:'+snapshot['playback']['source_url'].rsplit('/',1)[-1], 'has_playback': True, 'is_playing': True, 'favorite_status': False, 'is_liked': False}})
                 owner.transport.playback_command = Mock(return_value={'success': True, 'playback': {'title': 'Never import command response'}})
+                owner.transport.playback_favorite = Mock(return_value={'success': True})
                 engine = QQmlApplicationEngine()
                 engine.rootContext().setContextProperty('djconnect', backend)
                 engine.rootContext().setContextProperty('startWindowed', True)
@@ -150,7 +151,11 @@ def main():
                 assert owner.transport.playback_command.call_args.args[1] == 'play'
                 capture('play-sent'); drain()
                 click('sessionPlaybackFavorite'); intents.pop()()
-                assert owner.transport.playback_command.call_args.args[1] == 'save_current_track'
+                owner.transport.playback_favorite.assert_not_called()  # First explicit click only observes.
+                QTest.qWait(60)
+                click('sessionPlaybackFavorite'); intents.pop()()
+                owner.transport.playback_favorite.assert_called_once()
+                assert owner.transport.playback_favorite.call_args.args[1] is True
                 capture('favorite-sent'); drain()
                 owner.transport.playback_command.side_effect = SessionError('uncertain')
                 click('sessionPlaybackNext'); intents.pop()()

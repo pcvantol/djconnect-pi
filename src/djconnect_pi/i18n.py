@@ -12,6 +12,9 @@ LANGUAGES = {
 
 TRANSLATIONS: dict[str, dict[str, str]] = {
     "nl": {
+        "glass_title": "Glas",
+        "glass_description": "Transparante oppervlakken en lichteffecten.",
+        "glass_fallback": "Op dit scherm wordt een eenvoudiger glaseffect gebruikt.",
         "app_title": "DJConnect",
         "setup": "Instellingen",
         "now_playing": "Speelt nu",
@@ -294,6 +297,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "app_update_message": "DJConnect installeert een nieuwe versie. Laat de Pi aan staan.",
     },
     "en": {
+        "glass_title": "Glass",
+        "glass_description": "Translucent surfaces and lighting effects.",
+        "glass_fallback": "A simpler glass appearance is used on this display.",
         "app_title": "DJConnect",
         "setup": "Setup",
         "now_playing": "Now Playing",
@@ -580,6 +586,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
 
 _EXTRA_TRANSLATIONS: dict[str, dict[str, str]] = {
     "de": {
+        "glass_title": "Glas",
+        "glass_description": "Transparente Flächen und Lichteffekte.",
+        "glass_fallback": "Auf diesem Bildschirm wird ein einfacherer Glaseffekt verwendet.",
         "setup": "Einstellungen", "now_playing": "Läuft gerade", "control": "Steuerung", "games": "Spiele",
         "queue": "Warteschlange", "playlists": "Playlists", "more": "Mehr", "send": "Senden", "clear": "Leeren",
         "ask_dj_clear_chat": "Chat löschen", "ask_dj_clear_confirm_title": "Ask DJ Chat löschen?",
@@ -679,6 +688,9 @@ _EXTRA_TRANSLATIONS: dict[str, dict[str, str]] = {
         "app_update_message": "DJConnect installiert eine neue Version. Lass den Pi eingeschaltet.",
     },
     "fr": {
+        "glass_title": "Verre",
+        "glass_description": "Surfaces translucides et effets lumineux.",
+        "glass_fallback": "Un effet de verre simplifié est utilisé sur cet écran.",
         "setup": "Réglages", "now_playing": "Lecture", "control": "Commandes", "games": "Jeux",
         "queue": "File d'attente", "playlists": "Playlists", "more": "Plus", "send": "Envoyer",
         "clear": "Effacer", "ask_dj_clear_chat": "Effacer le chat",
@@ -776,6 +788,9 @@ _EXTRA_TRANSLATIONS: dict[str, dict[str, str]] = {
         "app_update_message": "DJConnect installe une nouvelle version. Gardez le Pi allumé.",
     },
     "es": {
+        "glass_title": "Cristal",
+        "glass_description": "Superficies translúcidas y efectos de luz.",
+        "glass_fallback": "En esta pantalla se utiliza un efecto de cristal más sencillo.",
         "setup": "Ajustes", "now_playing": "Reproduciendo", "control": "Controles", "games": "Juegos",
         "queue": "Cola", "playlists": "Listas", "more": "Más", "send": "Enviar", "clear": "Borrar",
         "ask_dj_clear_chat": "Borrar chat", "ask_dj_clear_confirm_title": "¿Borrar chat de Ask DJ?",
@@ -1283,11 +1298,12 @@ for _key, _values in _SESSION_COMPOSER_TRANSLATIONS.items():
 
 _SESSION_FORECAST_TRANSLATIONS = {
     "session_flow": ("Flow", "Flow", "Flow", "Fil", "Flujo"),
-    "session_forecast": ("Outlook · about 15 min", "Vooruitblik · ±15 min", "Ausblick · ca. 15 Min.", "Perspectives · env. 15 min", "Perspectiva · unos 15 min"),
+    "session_forecast": ("Horizon · about 15 min", "Horizon · ±15 min", "Horizon · ca. 15 Min.", "Horizon · env. 15 min", "Horizon · unos 15 min"),
+    "session_owner_read_only": ("Following the active session. Personal functions require personal Profile access.", "Je volgt de actieve sessie. Privéfuncties vereisen toegang tot een persoonlijk profiel.", "Die aktive Session wird angezeigt. Private Funktionen erfordern Zugriff auf ein persönliches Profil.", "La session active est affichée. Les fonctions privées nécessitent un accès à un profil personnel.", "Se muestra la sesión activa. Las funciones privadas requieren acceso a un perfil personal."),
     "session_forecast_current": ("Current", "Huidig", "Aktuell", "Actuel", "Actual"),
     "session_forecast_intention": ("Intention", "Voornemen", "Absicht", "Intention", "Intención"),
     "session_forecast_conditional_target": ("Possible direction", "Mogelijke richting", "Mögliche Richtung", "Direction possible", "Dirección posible"),
-    "session_forecast_empty": ("No current outlook available.", "Er is nu geen vooruitblik beschikbaar.", "Derzeit ist kein Ausblick verfügbar.", "Aucune perspective actuelle disponible.", "No hay una perspectiva actual disponible."),
+    "session_forecast_empty": ("Horizon is currently unavailable.", "Horizon is nu niet beschikbaar.", "Horizon ist derzeit nicht verfügbar.", "Horizon est actuellement indisponible.", "Horizon no está disponible actualmente."),
     "session_forecast_source": ("Current music source", "Bron van de huidige muziek", "Quelle der aktuellen Musik", "Source de la musique actuelle", "Fuente de la música actual"),
 }
 for _key, _values in _SESSION_FORECAST_TRANSLATIONS.items():
@@ -1410,6 +1426,19 @@ for _key, _values in _ARTWORK_PREPARE_TRANSLATIONS.items():
 
 
 _PLAYBACK_CONTROL_TRANSLATIONS = {
+    "session_output_title": ("Playback output", "Afspeeluitvoer", "Wiedergabeausgabe", "Sortie de lecture", "Salida de reproducción"),
+    "session_output_current": ("Current", "Huidig", "Aktuell", "Actuelle", "Actual"),
+    "session_output_unavailable": ("Available outputs could not be confirmed.", "De beschikbare uitvoer kon niet worden bevestigd.", "Verfügbare Ausgaben konnten nicht bestätigt werden.", "Les sorties disponibles n’ont pas pu être confirmées.", "No se pudieron confirmar las salidas disponibles."),
+    "session_output_empty": ("No other outputs are available.", "Er zijn geen andere uitvoerapparaten beschikbaar.", "Keine weiteren Ausgaben verfügbar.", "Aucune autre sortie disponible.", "No hay otras salidas disponibles."),
+    "session_favorite_read": ("Check favorite status", "Favorietenstatus lezen", "Favoritenstatus prüfen", "Vérifier le favori", "Consultar favorito"),
+    "session_favorite_add": ("Add to favorites", "Toevoegen aan favorieten", "Zu Favoriten hinzufügen", "Ajouter aux favoris", "Añadir a favoritos"),
+    "session_favorite_remove": ("Remove from favorites", "Verwijderen uit favorieten", "Aus Favoriten entfernen", "Retirer des favoris", "Quitar de favoritos"),
+    "session_favorite_unavailable": ("Favorite status is unavailable.", "De favorietenstatus is niet beschikbaar.", "Der Favoritenstatus ist nicht verfügbar.", "Le statut de favori est indisponible.", "El estado de favorito no está disponible."),
+    "session_volume_read": ("Read current volume", "Huidig volume lezen", "Aktuelle Lautstärke lesen", "Lire le volume actuel", "Leer volumen actual"),
+    "session_volume_unknown": ("Read the volume before adjusting it.", "Lees het volume voordat je het aanpast.", "Lies die Lautstärke, bevor du sie änderst.", "Lisez le volume avant de le modifier.", "Lee el volumen antes de ajustarlo."),
+    "session_volume_unavailable": ("Current output volume is unavailable.", "Het volume van de huidige uitvoer is niet beschikbaar.", "Die Lautstärke der aktuellen Ausgabe ist nicht verfügbar.", "Le volume de la sortie actuelle est indisponible.", "El volumen de la salida actual no está disponible."),
+    "session_volume_limit": ("This control is limited to 60%.", "Deze bediening is begrensd op 60%.", "Diese Steuerung ist auf 60% begrenzt.", "Cette commande est limitée à 60%.", "Este control está limitado al 60%."),
+    "session_volume_reduce": ("Set to 60%", "Instellen op 60%", "Auf 60% einstellen", "Régler à 60%", "Ajustar al 60%"),
     "session_playback_controls": ("Playback controls", "Afspeelbediening", "Wiedergabesteuerung", "Commandes de lecture", "Controles de reproducción"),
     "session_playback_sent": (
         "Command sent. Playback updates from the server.",
@@ -1422,3 +1451,91 @@ _PLAYBACK_CONTROL_TRANSLATIONS = {
 for _key, _values in _PLAYBACK_CONTROL_TRANSLATIONS.items():
     for _language, _value in zip(SUPPORTED_LANGUAGES, _values):
         TRANSLATIONS[_language][_key] = _value
+
+
+# Confirmed erasure is separate from read-only archived contribution navigation.
+_SESSION_DELETE_TRANSLATIONS = {
+    "session_delete_status_action": ("Check deletion status", "Verwijderstatus controleren", "Löschstatus prüfen", "Vérifier la suppression", "Consultar estado de eliminación"),
+    "session_delete_status_pending": (
+        "The server is still processing the original deletion. Completion is not confirmed. No new deletion will be sent.",
+        "De server verwerkt de oorspronkelijke verwijdering nog. Voltooiing is niet bevestigd. Er wordt geen nieuwe verwijderopdracht verstuurd.",
+        "Der Server verarbeitet die ursprüngliche Löschung noch. Der Abschluss ist nicht bestätigt. Es wird kein neuer Löschauftrag gesendet.",
+        "Le serveur traite toujours la suppression initiale. Son achèvement n’est pas confirmé. Aucune nouvelle suppression ne sera envoyée.",
+        "El servidor sigue procesando la eliminación original. Su finalización no está confirmada. No se enviará una nueva eliminación."),
+    "session_delete_status_unknown": (
+        "The original deletion is not confirmed. This does not mean it was rejected. You can check its status again or reload the archive without resending it.",
+        "De oorspronkelijke verwijdering is niet bevestigd. Dit betekent niet dat deze is geweigerd. Je kunt de status opnieuw controleren of het archief laden zonder de opdracht opnieuw te versturen.",
+        "Die ursprüngliche Löschung ist nicht bestätigt. Dies bedeutet keine Ablehnung. Du kannst den Status erneut prüfen oder das Archiv ohne erneuten Löschauftrag laden.",
+        "La suppression initiale n’est pas confirmée. Cela ne signifie pas qu’elle a été refusée. Vous pouvez revérifier son état ou recharger l’archive sans la renvoyer.",
+        "La eliminación original no está confirmada. Esto no significa que se haya rechazado. Puedes volver a consultar su estado o recargar el archivo sin reenviarla."),
+    "session_delete_status_expired": (
+        "The original status window has expired. Deletion remains unconfirmed; this is not proof of rejection. Reloading the archive will not resend the deletion.",
+        "Het oorspronkelijke statusvenster is verlopen. De verwijdering blijft onbevestigd; dit bewijst geen weigering. Het archief opnieuw laden verstuurt de verwijderopdracht niet opnieuw.",
+        "Das ursprüngliche Statusfenster ist abgelaufen. Die Löschung bleibt unbestätigt; dies beweist keine Ablehnung. Das Neuladen des Archivs sendet den Löschauftrag nicht erneut.",
+        "La fenêtre d’état initiale a expiré. La suppression reste non confirmée ; cela ne prouve pas un refus. Recharger l’archive ne renverra pas la suppression.",
+        "La ventana de estado original ha caducado. La eliminación sigue sin confirmarse; esto no demuestra un rechazo. Recargar el archivo no reenviará la eliminación."),
+    "session_delete_all_action": ("Delete saved sessions", "Opgeslagen sessies verwijderen", "Gespeicherte Sessions löschen", "Supprimer les sessions enregistrées", "Eliminar sesiones guardadas"),
+    "session_delete_all_confirm": (
+        "Permanently delete %1 saved sessions and their associated history from this Profile? This includes sessions outside the current page or search. Your active session, settings and sessions saved after this check stay. This cannot be undone.",
+        "%1 opgeslagen sessies en hun geschiedenis definitief uit dit Profiel verwijderen? Dit omvat ook sessies buiten deze pagina of zoekopdracht. Je actieve sessie, instellingen en sessies die na deze controle zijn opgeslagen blijven. Dit kan niet ongedaan worden gemaakt.",
+        "%1 gespeicherte Sessions und ihren Verlauf aus diesem Profil endgültig löschen? Dies umfasst Sessions außerhalb dieser Seite oder Suche. Aktive Session, Einstellungen und danach gespeicherte Sessions bleiben. Dies kann nicht rückgängig gemacht werden.",
+        "Supprimer définitivement %1 sessions enregistrées et leur historique de ce Profil, y compris hors de cette page ou recherche ? La session active, les réglages et les sessions enregistrées après cette vérification restent. Cette action est irréversible.",
+        "¿Eliminar permanentemente %1 sesiones guardadas y su historial de este Perfil, incluidas las que están fuera de esta página o búsqueda? La sesión activa, los ajustes y las sesiones guardadas después de esta comprobación se conservan. Esta acción no se puede deshacer."),
+    "session_delete_all_complete": ("Saved sessions deleted.", "Opgeslagen sessies verwijderd.", "Gespeicherte Sessions gelöscht.", "Sessions enregistrées supprimées.", "Sesiones guardadas eliminadas."),
+    "session_delete_all_empty": ("There are no saved sessions to delete.", "Er zijn geen opgeslagen sessies om te verwijderen.", "Es gibt keine gespeicherten Sessions zum Löschen.", "Aucune session enregistrée à supprimer.", "No hay sesiones guardadas que eliminar."),
+    "session_delete_all_conflict": (
+        "The saved selection changed or expired. Reload and check a new selection before confirming again.",
+        "De opgeslagen selectie is gewijzigd of verlopen. Laad opnieuw en controleer een nieuwe selectie voordat je opnieuw bevestigt.",
+        "Die gespeicherte Auswahl wurde geändert oder ist abgelaufen. Lade neu und prüfe eine neue Auswahl vor einer erneuten Bestätigung.",
+        "La sélection enregistrée a changé ou a expiré. Rechargez et vérifiez une nouvelle sélection avant de confirmer à nouveau.",
+        "La selección guardada cambió o caducó. Recarga y comprueba una nueva selección antes de volver a confirmar."),
+    "session_saved_title": ("Saved session", "Opgeslagen sessie", "Gespeicherte Session", "Session enregistrée", "Sesión guardada"),
+    "session_delete_action": ("Delete saved session", "Opgeslagen sessie verwijderen", "Gespeicherte Session löschen", "Supprimer la session enregistrée", "Eliminar sesión guardada"),
+    "session_delete_confirm": (
+        "Permanently delete this saved session and its associated history? This cannot be undone.",
+        "Deze opgeslagen sessie en de bijbehorende geschiedenis definitief verwijderen? Dit kan niet ongedaan worden gemaakt.",
+        "Diese gespeicherte Session und ihren zugehörigen Verlauf endgültig löschen? Dies kann nicht rückgängig gemacht werden.",
+        "Supprimer définitivement cette session enregistrée et son historique associé ? Cette action est irréversible.",
+        "¿Eliminar permanentemente esta sesión guardada y su historial asociado? Esta acción no se puede deshacer."),
+    "session_delete_complete": ("Saved session deleted.", "Opgeslagen sessie verwijderd.", "Gespeicherte Session gelöscht.", "Session enregistrée supprimée.", "Sesión guardada eliminada."),
+    "session_delete_uncertain": (
+        "Deletion is not confirmed. Reload the saved sessions to check. This will not send the deletion again.",
+        "De verwijdering is niet bevestigd. Laad de opgeslagen sessies opnieuw om dit te controleren. De verwijderopdracht wordt niet opnieuw verstuurd.",
+        "Die Löschung ist nicht bestätigt. Lade die gespeicherten Sessions zur Prüfung neu. Der Löschauftrag wird nicht erneut gesendet.",
+        "La suppression n’est pas confirmée. Rechargez les sessions enregistrées pour vérifier. La demande de suppression ne sera pas renvoyée.",
+        "La eliminación no está confirmada. Recarga las sesiones guardadas para comprobarlo. No se volverá a enviar la solicitud de eliminación."),
+}
+for _key, _values in _SESSION_DELETE_TRANSLATIONS.items():
+    for _language, _value in zip(("en", "nl", "de", "fr", "es"), _values, strict=True):
+        TRANSLATIONS[_language][_key] = _value
+
+# Applicable Privacy/Legal prose from protected Apple UI e106a467.
+_APPLE_INFORMATION_COPY = {'privacy_data_body': ('DJConnect does not collect, sell, or process personal data in the app.', 'DJConnect verzamelt, verkoopt of verwerkt zelf geen persoonsgegevens in de app.', 'DJConnect does not collect, sell, or process personal data in the app.', 'DJConnect does not collect, sell, or process personal data in the app.', 'DJConnect does not collect, sell, or process personal data in the app.'), 'privacy_tokens_body': ("Device tokens are stored locally in the app's private storage. Diagnostics are only shared when you copy them or open a GitHub issue yourself.", 'Device-tokens worden lokaal in de private app-opslag bewaard. Diagnostiek wordt alleen gedeeld wanneer je die zelf kopieert of een GitHub issue opent.', "Device tokens are stored locally in the app's private storage. Diagnostics are only shared when you copy them or open a GitHub issue yourself.", "Device tokens are stored locally in the app's private storage. Diagnostics are only shared when you copy them or open a GitHub issue yourself.", "Device tokens are stored locally in the app's private storage. Diagnostics are only shared when you copy them or open a GitHub issue yourself."), 'privacy_ai_body': ('AI and Assist answers can be incorrect and depend on your own Home Assistant and Assist configuration.', 'AI- en Assist-antwoorden kunnen onjuist zijn en hangen af van je eigen Home Assistant- en Assist-configuratie.', 'AI and Assist answers can be incorrect and depend on your own Home Assistant and Assist configuration.', 'AI and Assist answers can be incorrect and depend on your own Home Assistant and Assist configuration.', 'AI and Assist answers can be incorrect and depend on your own Home Assistant and Assist configuration.'), 'legal_independence': ('DJConnect is not affiliated with, endorsed by, or sponsored by Apple, Home Assistant, or any supported music service.', 'DJConnect is niet gelieerd aan, goedgekeurd door of gesponsord door Apple, Home Assistant of ondersteunde muziekdiensten.', 'DJConnect is not affiliated with, endorsed by, or sponsored by Apple, Home Assistant, or any supported music service.', 'DJConnect is not affiliated with, endorsed by, or sponsored by Apple, Home Assistant, or any supported music service.', 'DJConnect is not affiliated with, endorsed by, or sponsored by Apple, Home Assistant, or any supported music service.'), 'legal_trademarks': ('Home Assistant is a trademark of the Open Home Foundation. Other service names are trademarks of their respective owners.', 'Home Assistant is een handelsmerk van de Open Home Foundation. Andere dienstnamen zijn handelsmerken van hun respectieve eigenaren.', 'Home Assistant is a trademark of the Open Home Foundation. Other service names are trademarks of their respective owners.', 'Home Assistant is a trademark of the Open Home Foundation. Other service names are trademarks of their respective owners.', 'Home Assistant is a trademark of the Open Home Foundation. Other service names are trademarks of their respective owners.')}
+for _key, _values in _APPLE_INFORMATION_COPY.items():
+    for _locale, _value in zip(("en", "nl", "de", "fr", "es"), _values, strict=True):
+        TRANSLATIONS[_locale][_key] = _value
+
+
+_SESSION_WELCOME_COPY = {
+    "session_welcome": ("Welcome to DJConnect", "Welkom bij DJConnect", "Willkommen bei DJConnect", "Bienvenue sur DJConnect", "Bienvenido a DJConnect"),
+    "session_welcome_title": ("Your music.\nYour DJ.", "Jouw muziek.\nJouw DJ.", "Deine Musik.\nDein DJ.", "Votre musique.\nVotre DJ.", "Tu música.\nTu DJ."),
+    "session_welcome_lead": ("Start a DJ Session and experience your music in a new way.", "Start een DJ-sessie en beleef je muziek op een nieuwe manier.", "Starte eine DJ-Session und erlebe deine Musik auf neue Weise.", "Démarrez une session DJ et découvrez votre musique autrement.", "Inicia una sesión DJ y vive tu música de una forma nueva."),
+    "session_welcome_detail": ("Discover the stories behind your music. Talk to your DJ. Be surprised.", "Ontdek de verhalen achter je muziek. Praat met je DJ. Laat je verrassen.", "Entdecke die Geschichten hinter deiner Musik. Sprich mit deinem DJ. Lass dich überraschen.", "Découvrez les histoires derrière votre musique. Parlez à votre DJ. Laissez-vous surprendre.", "Descubre las historias detrás de tu música. Habla con tu DJ. Déjate sorprender."),
+    "session_start_presence_title": ("DJ presence", "DJ aanwezigheid", "DJ-Präsenz", "Présence du DJ", "Presencia del DJ"),
+    "session_start_persona_title": ("DJ character", "DJ karakter", "DJ-Charakter", "Caractère du DJ", "Carácter del DJ"),
+    "session_listen_how": ("How do you want to listen?", "Hoe wil je luisteren?", "Wie möchtest du hören?", "Comment voulez-vous écouter ?", "¿Cómo quieres escuchar?"),
+    "session_start_preferences_unavailable": ("Loading your confirmed session preferences. Refresh if they remain unavailable.", "Je bevestigde sessievoorkeuren worden geladen. Vernieuw als ze niet beschikbaar komen.", "Deine bestätigten Session-Einstellungen werden geladen. Aktualisiere, falls sie nicht verfügbar werden.", "Chargement de vos préférences de session confirmées. Actualisez si elles restent indisponibles.", "Cargando tus preferencias de sesión confirmadas. Actualiza si siguen sin estar disponibles."),
+}
+for _key, _values in _SESSION_WELCOME_COPY.items():
+    for _locale, _value in zip(("en", "nl", "de", "fr", "es"), _values, strict=True):
+        TRANSLATIONS[_locale][_key] = _value
+
+
+_VIBESCAPE_COPY = {
+    "vibescape_title": ("VibeScape", "VibeScape", "VibeScape", "VibeScape", "VibeScape"),
+    "vibescape_dynamics": ("Visual dynamics", "Visuele dynamiek", "Visuelle Dynamik", "Dynamique visuelle", "Dinámica visual"),
+    "vibescape_unavailable": ("VibeScape is unavailable on this display.", "VibeScape is niet beschikbaar op dit scherm.", "VibeScape ist auf diesem Bildschirm nicht verfügbar.", "VibeScape n’est pas disponible sur cet écran.", "VibeScape no está disponible en esta pantalla."),
+}
+for _key, _values in _VIBESCAPE_COPY.items():
+    for _locale, _value in zip(("en", "nl", "de", "fr", "es"), _values, strict=True):
+        TRANSLATIONS[_locale][_key] = _value

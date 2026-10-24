@@ -173,3 +173,68 @@ and runs304consumer/installer/publication cases successfully. YAML parsing,
 Bash syntax and diff checks pass. Fresh strict-key actual read-only state after
 both failed preparations confirms wall-4inch stillrc.3 and wall-10inch stillrc.4,
 bothTARGET_READY. Those are original-state observations, not installedrc.5.
+
+
+## Actual worker cache-read isolation
+
+Fresh runs39490525756/39490532326 used the corrected venv setup. The4-inch job
+then blocked before output in pip. Read-only sampling and a bounded filename
+inspection identified a read-only open of an existing1800byte regular HTTP-cache
+metadata file under the shared Core-owned pip cache. No cache contents were read,
+no cache permissions/data were changed, and the underlying OS/storage cause is
+unproven. The preceding Codex-context lock installation did not qualify this
+worker's access context.
+
+The queued10-inch run was cancelled first. Fresh job-stage observations then
+confirmed the4-inch authority/install steps were pending with zero start times;
+its cancellation completed with both steps skipped. Both actual targets remain
+on their originalrc.3/rc.4 releases. No remote installation intent was sent.
+
+All three tooling installs now use pip isolated/no-cache/noninteractive mode and
+disable the unrelated version self-check, retaining the exact same lock and binary
+only packages. Runtime/app artifacts, authority, identity, readiness, installer,
+intent and deployment rules are unchanged. A real worker-context preparation
+qualification, separate from installed acceptance, is required before another
+protected qualified consumer and exact operational rebind. No old run is rerun.
+
+Preliminary execution of the exact three identical corrected install blocks in a
+fresh isolated Codex-context environment installs the same lock and passes304
+bounded cases. Bash/YAML/diff checks pass. This is explicitly not worker-context
+proof and does not authorize device effects. Both workflows completed cancelled,
+both authority/install steps were skipped, the old pip process exited, and the
+registered relay returned idle. Those cancellation and process outcomes were
+observed independently rather than inferred from the cancellation requests.
+
+
+## Installed rc.5 and Actions evidence negotiation, 21 October 2026
+
+The qualified consumer31 installed the immutable published rc.5/sourceEADB on
+both physical targets. Deployments39561706081 and39561711048 succeeded, followed
+by their separate matching smoke runs39562466113 and39562634199. Each observed
+65 packaged files, installed source/version/profile, running API/native services
+and a reachable local API. The installer reported existing configuration
+preserved. The compact client remains paired; Pi10 remains unpaired. These are
+installed/readback results, not active Profile/Session, physical touch or complete
+Apple-parity acceptance. Real X11 captures were inspected privately; no fixture
+was placed in the live app and no Profile was selected to manufacture a result.
+
+The joint workflow report failed closed despite both individual smoke passes.
+The real GitHub Actions artifact ZIP endpoint returned HTTP415 when the reader
+sent the release-asset media type. Actions archive negotiation now uses the REST
+media type for the exact fixed Pi artifact ZIP route; release assets retain
+octet-stream. The existing separate anonymous signed download, HTTPS/host/URL
+fences and byte bounds remain. There is no retry, new endpoint, device intent or
+operational approval change. GitHub's documented download-artifact contract
+recommends application/vnd.github+json before its HTTP302 signed redirect:
+https://docs.github.com/en/rest/actions/artifacts#download-an-artifact
+
+Twelve new offline HTTP-boundary cases reproduce the observed415, exercise all
+existing admitted artifact hosts, reject unsafe redirects, retain release-asset
+negotiation and prove single-attempt failures. Before the fix three cases failed
+and nine passed; the complete relevant locked delivery suite now passes316cases.
+Ruff and diff checks pass. The corrected local reader also resolved the actual
+two completed deployment/smoke joins through the unchanged aggregator with zero
+binding errors. This is explicitly a read-only local WIP result, not a new
+qualified workflow or a rewritten historical status. Existing source/Finalization
+and operational bindings remain required before using any new consumer for an
+effect; neither device was reinstalled to change reporting.

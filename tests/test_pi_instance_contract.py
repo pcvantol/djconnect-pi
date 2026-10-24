@@ -27,7 +27,7 @@ def fixtures(instance="wall-4inch"):
             "artifact_sha256": str(index+1)*64,
             "artifact_url": "https://github.com/pcvantol/djconnect-pi-releases/releases/download/v"+wire.VERSION+"/"+filename}
         assets.append(asset);published["artifacts"][profile] = {"artifact_id": filename, "artifact_sha256": asset["artifact_sha256"]}
-    manifest = {"schema_version": 2, "kind": "platform_release_operational_manifest", "status": "APPROVED_DEPLOYMENT_DISPATCH_PENDING",
+    manifest = {"schema_version": 3, "kind": "platform_release_operational_manifest", "status": "APPROVED_DEPLOYMENT_DISPATCH_PENDING",
         "manifest_id": "release-SYNTHETIC-NOT-AUTHORITY", "candidate_sha": SOURCE, "platform_version": "4.0", "release_version": wire.VERSION,
         "release_profile": "INTERNAL_RELEASE", "generated_at": "2026-10-20T16:00:00Z", "inventory_id": inventory["inventory_id"],
         "inventory_sha256": wire.INVENTORY_SHA256, "consumer": {"repository": "pcvantol/djconnect-pi", "source_sha": CONSUMER, "smoke_contract_id": wire.SMOKE_CONTRACT},
@@ -166,3 +166,34 @@ def test_partial_or_failed_instances_are_not_overall_operational(results):
 
 def test_both_smokes_are_required_for_operational_result():
     assert wire.overall_smoke({"wall-4inch": "SMOKE_PASS", "wall-10inch": "SMOKE_PASS"}) == "DEPLOYMENT_OPERATIONAL"
+
+
+@pytest.mark.parametrize("version", [1, 2, True, "3", 4])
+def test_rc6_rejects_every_old_or_noninteger_manifest_schema(version):
+    request, manifest, published = fixtures()
+    manifest["schema_version"] = version
+    with pytest.raises(wire.BindingError, match="MANIFEST_SCHEMA_INVALID"):
+        wire.validate_bindings(request, manifest, CONSUMER, published)
+
+
+@pytest.mark.parametrize("value", ["4.0.0-rc.1", "4.0.0-rc.2", "4.0.0-rc.5", "4.0.0-rc.7"])
+def test_rc6_does_not_autodetect_another_release(value):
+    request, manifest, published = fixtures()
+    manifest["release_version"] = value
+    with pytest.raises(wire.BindingError): wire.validate_bindings(request, manifest, CONSUMER, published)
+
+
+@pytest.mark.parametrize("field", ["generated_at", "approved_at"])
+@pytest.mark.parametrize("value", ["2026-02-30T01:00:00Z", "2026-10-21T25:00:00Z", "2026-10-21T00:00:00+25:00", "2026-10-21T00:00:00", "not-a-date", True])
+def test_rfc3339_is_really_parsed_without_optional_format_checker(field, value):
+    request, manifest, published = fixtures()
+    if field == "approved_at":manifest["approval"][field] = value
+    else:manifest[field] = value
+    with pytest.raises(wire.BindingError): wire.validate_bindings(request, manifest, CONSUMER, published)
+
+
+def test_preserved_rc5_schema_cannot_admit_rc6_manifest():
+    import json
+    _request, manifest, _published = fixtures()
+    old = json.loads((Path(wire.__file__).with_name("pi_contract")/"PI_TWO_HOST_OPERATIONAL_MANIFEST_V2.schema.json").read_bytes())
+    with pytest.raises(wire.BindingError): wire.validate_schema(manifest, old, "OLD_SCHEMA_REJECTS_RC6")

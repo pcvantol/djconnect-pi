@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -18,14 +19,14 @@ from typing import Any
 from jsonschema import Draft202012Validator
 from jsonschema.exceptions import ValidationError
 
-CORE_SOURCE = "9b40f422911f08c2076b11e49eb21e98ae5eaa1a"
-CORE_FINALIZATION = "1328c73e5d35fe13a63910a7bb41e1d0bbdd2d18"
+CORE_SOURCE = "802619ac1ab3ec11eace7a8609167018193bb98e"
+CORE_FINALIZATION = "5c34c37bab2b73744f9dbe8832449ef4ab211a02"
 INVENTORY_SHA256 = "530220ee38f6ccbcc824a78331b9dd89f236a5fa6ede12ebf7899dac83ff50c0"
-SMOKE_CONTRACT = "pi-rc5-instance-readback-v1"
-VERSION = "4.0.0-rc.5"
+SMOKE_CONTRACT = "pi-rc6-instance-readback-v1"
+VERSION = "4.0.0-rc.6"
 TARGET = "rbpi-djconnect"
-OPERATIONAL_PATH = "docs/release/PLATFORM_4_0_RC5_PI_OPERATIONAL_MANIFEST.json"
-PINNED_FILES = {'PI_TWO_HOST_DEPLOYMENT_CONTRACT_V1.md': '5724f2e056f65a69286d0340096b64532bd784b4f0eec58a61232eb2d377f70c', 'PI_TWO_HOST_DEPLOYMENT_REQUEST_V2.schema.json': 'eba4b87e450ba79002052a5d0c0f154388f0e70bba022a9829624cbf75b98e75', 'PI_TWO_HOST_OPERATIONAL_MANIFEST_V2.schema.json': 'ca70174cb92e0575d979d3b79bcbea038f339ac365790007d98c3ff2ef43fa16', 'PI_WALL_DEVICE_INVENTORY_V1.json': '530220ee38f6ccbcc824a78331b9dd89f236a5fa6ede12ebf7899dac83ff50c0'}
+OPERATIONAL_PATH = "docs/release/PLATFORM_4_0_RC6_PI_OPERATIONAL_MANIFEST.json"
+PINNED_FILES = {'PI_TWO_HOST_DEPLOYMENT_CONTRACT_V2.md': '22a13aecd6f0bc5a19f368fe1b7d74d8419825df4f155b5c52c1f152106485b8', 'PI_TWO_HOST_DEPLOYMENT_REQUEST_V3.schema.json': '2f143afade9cb61c9b45e3ba58ebd90bdbfc3a2a3bbf7ca39d34353df97b9301', 'PI_TWO_HOST_OPERATIONAL_MANIFEST_V3.schema.json': '5739253ea065dae216edbb21023516309d2377f14e8bf803964b1dde41383412', 'PI_WALL_DEVICE_INVENTORY_V1.json': '530220ee38f6ccbcc824a78331b9dd89f236a5fa6ede12ebf7899dac83ff50c0'}
 CONFIGURATION_REFS = {"wall-4inch": "djconnect-wall-4inch", "wall-10inch": "djconnect-pi10"}
 
 
@@ -52,8 +53,12 @@ def strict_json(raw: bytes, maximum: int = 262144) -> dict:
         return result
     def nonfinite(_):
         raise BindingError("JSON_NONFINITE")
+    def finite_float(text):
+        value = float(text)
+        require(math.isfinite(value), "JSON_NONFINITE")
+        return value
     try:
-        value = json.loads(raw, object_pairs_hook=pairs, parse_constant=nonfinite)
+        value = json.loads(raw, object_pairs_hook=pairs, parse_constant=nonfinite, parse_float=finite_float)
     except (ValueError, TypeError, RecursionError):
         raise BindingError("JSON_INVALID") from None
     require(isinstance(value, dict), "JSON_OBJECT_REQUIRED")
@@ -112,8 +117,8 @@ class Binding:
 def validate_bindings(request: dict, manifest: dict, consumer_sha: str, published: dict) -> Binding:
     """Schema+semantic validation only; APPROVED text is never proof of authority."""
     contracts = pinned_contracts()
-    validate_schema(request, contracts["PI_TWO_HOST_DEPLOYMENT_REQUEST_V2.schema.json"], "REQUEST_SCHEMA_INVALID")
-    validate_schema(manifest, contracts["PI_TWO_HOST_OPERATIONAL_MANIFEST_V2.schema.json"], "MANIFEST_SCHEMA_INVALID")
+    validate_schema(request, contracts["PI_TWO_HOST_DEPLOYMENT_REQUEST_V3.schema.json"], "REQUEST_SCHEMA_INVALID")
+    validate_schema(manifest, contracts["PI_TWO_HOST_OPERATIONAL_MANIFEST_V3.schema.json"], "MANIFEST_SCHEMA_INVALID")
     require(exact_hex(consumer_sha, 40) and manifest["consumer"]["source_sha"] == consumer_sha, "CONSUMER_MISMATCH")
     for field in ("manifest_id", "candidate_sha", "platform_version", "release_profile", "inventory_sha256"):
         require(request[field] == manifest[field], "REQUEST_MANIFEST_MISMATCH")
@@ -160,11 +165,26 @@ def validate_identity(binding: Binding, observed: dict, challenge: str) -> None:
     require(all(observed[field] == binding.inventory_row[field] for field in fields), "TARGET_NOT_READY")
 
 
+def recovered_deployment(binding: Binding, record: dict, run_id: str) -> bool:
+    # A new successful recovery is distinct from the retained failed deployment.
+    return (binding.smoke_contract == "pi-rc6-wall4-recovery-readback-v1"
+        and isinstance(record, dict) and binding.request["deployment_instance"] == "wall-4inch"
+        and binding.request["candidate_sha"] == "0dde0abe22a0859f170a7c1d3eab41f1ade44d37"
+        and binding.request["artifact_sha256"] == "d67869ffca53c4936059bdbbdbdf6be63b36eafac269fa2f3f9b090922cd0d64"
+        and record.get("kind") == "djconnect_pi_recovery_evidence"
+        and record.get("result") == "RECOVERED_PENDING_SMOKE"
+        and record.get("original_deployment_workflow_run") == "39669504016"
+        and record.get("deployment_workflow_run") == run_id and record.get("recovery_workflow_run") == run_id
+        and run_id != "39669504016" and record.get("watchdog_restored") is True
+        and record.get("configuration_preserved_by_installer") is True
+        and type(record.get("verified_packaged_files")) is int and record["verified_packaged_files"] == 80
+        and record.get("recovery_helper_sha256") == "11ce41115c7aa5ac34e568f3ea9008915f342bc3272850b56c61eed19a760ab9")
+
+
 def validate_smoke_join(binding: Binding, deployment: dict, smoke: dict, run_id: str) -> None:
     require(isinstance(run_id, str) and re.fullmatch(r"[1-9][0-9]*", run_id) is not None, "DEPLOYMENT_RUN_INVALID")
     expected = binding.public_join()
-    require(isinstance(deployment, dict) and deployment.get("result") == "DEPLOYED_PENDING_SMOKE"
-            and deployment.get("deployment_workflow_run") == run_id, "DEPLOYMENT_EVIDENCE_INVALID")
+    require(isinstance(deployment, dict) and deployment.get("result") == "DEPLOYED_PENDING_SMOKE" and deployment.get("deployment_workflow_run") == run_id, "DEPLOYMENT_EVIDENCE_INVALID")
     require(isinstance(smoke, dict) and smoke.get("result") == "SMOKE_PASS" and smoke.get("deployment_workflow_run") == run_id, "SMOKE_RUN_MISMATCH")
     require(all(deployment.get(key) == value and smoke.get(key) == value for key, value in expected.items()), "SMOKE_BINDING_MISMATCH")
     require(smoke.get("installed_source") == expected["candidate_sha"]

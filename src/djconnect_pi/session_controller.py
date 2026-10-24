@@ -24,6 +24,7 @@ from .session_artwork_prepare import ArtworkPreparation
 from .session_current_reply import current_reply, moment_reference, reply_valid
 from .session_forecast import ForecastReceiver, forecast_supported
 from .session_forecast_image import ForecastImages
+from .session_history_delete_control import HistoryDeleteControl
 from .session_history_view import (
     accepted_question,
     confirmed_question_entry,
@@ -32,6 +33,7 @@ from .session_history_view import (
     opened_entry,
     page_cursor,
     presented_history,
+    retained_flow_presentation,
     search_page,
 )
 from .session_playback_control import PlaybackControl
@@ -41,7 +43,14 @@ from .session_projection import (
     session_playback,
     timestamp,
 )
-from .session_transport import SessionError, SessionTransport
+from .session_transport import (
+    SessionBinding,
+    SessionError,
+    SessionTransport,
+    identifier,
+    private_scope_allowed,
+    session_profile_id,
+)
 
 
 class SessionController(QObject):
@@ -56,20 +65,26 @@ class SessionController(QObject):
     pendingQuestionReady = Signal()
     searchUpdated = Signal()
     historyUpdated = Signal()
+    archiveInvalidated = Signal()
     archivePositioned = Signal(str, float)
     timelineUpdated = Signal(str)
     timelinePositioned = Signal(str, float)
     selectionInvalidated = Signal()
     contextCleared = Signal()
+    ownerScopeChanged = Signal()
     _ready = Signal(object)
 
     def __init__(self, backend):
         super().__init__(backend)
         self.backend = backend
-        self.transport = SessionTransport(lambda: backend.cfg)
+        self.transport = SessionTransport(lambda: backend.cfg, owner_scope=self._owner_scope)
         self._clock = ExpiryClock()
         self._foreground = True
         self._session = {}
+        self._bootstrap_binding = None
+        self._bootstrap_owner = ""
+        self._bootstrap_private = False
+        self._owner_epoch = 0
         self._forecast = ForecastReceiver()
         self._forecast_dirty = False
         self._moments = []
@@ -122,12 +137,38 @@ class SessionController(QObject):
         self.changed.connect(self._artwork_prepare.sync)
         self._playback_control = PlaybackControl(self)
         self.changed.connect(self._playback_control.sync)
+        self._archive_delete = HistoryDeleteControl(self)
+        self.changed.connect(self._archive_delete.sync)
+        self.contextCleared.connect(self._archive_delete.hide)
         self._ready.connect(self._apply)
         backend.demoModeChanged.connect(self._demo_changed)
+        # Deferred visibility notifications must die with their QObject owner.
+        self._visibility_notify = QTimer(self)
+        self._visibility_notify.setSingleShot(True)
+        self._visibility_notify.setInterval(0)
+        self._visibility_notify.timeout.connect(self.changed.emit)
         self._deadline_timer = QTimer(self)
         self._deadline_timer.setInterval(1000)
         self._deadline_timer.timeout.connect(self._expire)
         self._deadline_timer.start()
+
+    def _bootstrap_current(self):
+        try:
+            return (self._foreground and self._bootstrap_binding is not None
+                and self._bootstrap_binding == SessionBinding.capture(self.backend.cfg)
+                and bool(self._bootstrap_owner))
+        except SessionError:
+            return False
+
+    def scope_context(self):
+        current = self._bootstrap_current()
+        return (self._bootstrap_owner if current else "",
+                self._bootstrap_private if current else False, self._owner_epoch)
+
+    def _owner_scope(self):
+        if self._bootstrap_current():
+            return self._bootstrap_owner, self._bootstrap_private, self._owner_epoch
+        return None
 
     @Property("QVariantMap", notify=changed)
     def state(self):
@@ -144,23 +185,31 @@ class SessionController(QObject):
             self._question_status = "reference_unavailable"
         if self._forecast.expire(self._clock.now()):
             self._forecast_dirty = True
-        return {"session_id": self._session.get("session_id", ""),
-            "runtime_state": self._session.get("runtime_state", ""),
-            "playback": session_playback(self._session),
+        bootstrap = self._bootstrap_current()
+        revoked = self._bootstrap_binding is not None and not bootstrap
+        session = {} if revoked else self._session
+        return {"session_id": session.get("session_id", ""),
+            "owner_read_only": bootstrap and not self._bootstrap_private,
+            "owner_epoch": self._owner_epoch if bootstrap else 0,
+            "owner_profile_id": (self._bootstrap_owner if bootstrap else session_profile_id(self.backend.cfg)),
+            "runtime_state": session.get("runtime_state", ""),
+            "playback": session_playback(session),
             "artwork_prepare": self._artwork_prepare.snapshot(),
             "playback_control": self._playback_control.snapshot(),
-            "forecast_supported": forecast_supported(self._session, self._caps),
-            "forecast": self._forecast.snapshot(),
-            "mood": self._session.get("selected_mood", ""),
-            "presence": self._session.get("selected_presence", ""),
-            "persona": self._session.get("dj_persona", ""),
-            "composer_available": self._composer_supported(), "pending_question": deepcopy(self._pending_question), "current_reply": deepcopy(self._current_reply), "conversation": deepcopy(self._conversation), "retained_flow": deepcopy(self._retained_flow),
-            "selection": deepcopy(self._selection), "question_status": self._question_status,
-            "moments": deepcopy(self._moments), "sessions": deepcopy(self._sessions),
-            "timeline": deepcopy(self._timeline), "search": deepcopy(self._search), "error": self._error,
-            "profile_confirmation_required": not bool(self.backend.cfg.explicit_profile_id),
+            "archive_delete": self._archive_delete.snapshot(),
+            "forecast_supported": not revoked and forecast_supported(session, self._caps),
+            "forecast": {"state": "empty", "sections": []} if revoked else self._forecast.snapshot(),
+            "mood": session.get("selected_mood", ""),
+            "presence": session.get("selected_presence", ""),
+            "persona": session.get("dj_persona", ""),
+            "composer_available": self._composer_supported(), "pending_question": {} if revoked else deepcopy(self._pending_question), "current_reply": {} if revoked else deepcopy(self._current_reply), "conversation": [] if revoked else deepcopy(self._conversation), "retained_flow": [] if revoked else deepcopy(self._retained_flow),
+            "flow_retained": [] if revoked else deepcopy(retained_flow_presentation(self._retained_flow, self._moments, session.get("session_id", ""))),
+            "selection": {} if revoked else deepcopy(self._selection), "question_status": self._question_status,
+            "moments": [] if revoked else deepcopy(self._moments), "sessions": [] if revoked else deepcopy(self._sessions),
+            "timeline": {} if revoked else deepcopy(self._timeline), "search": {} if revoked else deepcopy(self._search), "error": self._error,
+            "profile_confirmation_required": not (bool(session_profile_id(self.backend.cfg)) or bootstrap),
             "history_available": self._history_supported(), "search_available": self._search_supported(),
-            "loaded": self._loaded, "history_loaded": self._history_loaded,
+            "loaded": self._loaded and not revoked, "history_loaded": self._history_loaded and not revoked,
             "has_previous_entries": bool(self._timeline_trail),
             "search_limit_reached": bool(self._search.get("next_cursor")) and self._search.get("_pages", 1) >= 5,
             "history_limit_reached": bool(self._history_cursor) and self._history_pages >= 5,
@@ -204,36 +253,108 @@ class SessionController(QObject):
         changed = self._playback_control.visible != bool(visible)
         self._playback_control.set_visible(visible)
         if changed:
-            QTimer.singleShot(0, self.changed.emit)
+            self._visibility_notify.start()
 
     @Slot(str, str, str, result=bool)
     def playbackCommand(self, session_id, item_id, command):
         return self._playback_control.start(session_id, item_id, command)
 
+    @Slot(str, str, result=bool)
+    def readPlaybackVolume(self, session_id, item_id):
+        return self._playback_control.read_volume(session_id, item_id)
+
+    @Slot(str, str, int, int, result=bool)
+    def setPlaybackVolume(self, session_id, item_id, lease, value):
+        return self._playback_control.set_volume(session_id, item_id, lease, value)
+
+    @Slot(str, str, result=bool)
+    def readPlaybackFavorite(self, session_id, item_id):
+        return self._playback_control.read_favorite(session_id, item_id)
+
+    @Slot(str, str, int, bool, result=bool)
+    def setPlaybackFavorite(self, session_id, item_id, lease, value):
+        return self._playback_control.set_favorite(session_id, item_id, lease, value)
+
+    @Slot(str, str, result=bool)
+    def readPlaybackOutputs(self, session_id, item_id):
+        return self._playback_control.read_outputs(session_id, item_id)
+
+    @Slot(str, str, int, str, result=bool)
+    def setPlaybackOutput(self, session_id, item_id, lease, target):
+        return self._playback_control.set_output(session_id, item_id, lease, target)
+
     @Slot()
     def cancelPlaybackIntent(self):
         # Revocation is immediate; notification must not re-enter a QML state binding.
         self._playback_control.hide()
-        QTimer.singleShot(0, self.changed.emit)
+        self._visibility_notify.start()
 
     @Slot()
     def refreshPlayback(self):
         self._playback_control.refresh()
 
+    @Slot(bool)
+    def setArchiveDeleteVisible(self, visible):
+        changed = self._archive_delete.visible != bool(visible)
+        self._archive_delete.set_visible(visible)
+        if changed:
+            self._archive_delete.notify()
+
+    @Slot(str, result=bool)
+    def beginHistoryDelete(self, session_id):
+        return self._archive_delete.read(session_id)
+
+    @Slot(result=bool)
+    def checkHistoryDeleteStatus(self):
+        return self._archive_delete.read_status()
+
+    @Slot(result=bool)
+    def beginBulkHistoryDelete(self):
+        return self._archive_delete.read_bulk()
+
+    @Slot(int, result=bool)
+    def confirmHistoryDelete(self, lease):
+        return self._archive_delete.confirm(lease)
+
+    @Slot()
+    def cancelHistoryDelete(self):
+        self._archive_delete.hide()
+        self._archive_delete.notify()
+
+    @Slot(result=bool)
+    def recoverHistoryDelete(self):
+        return self._archive_delete.recover()
+
+    def invalidateArchive(self):
+        # Whole archive authority changes on erasure: no old cursor, selection,
+        # dependent search/detail or queued archive read may survive the receipt.
+        # Active Flow, Session, settings and playback are separate owners.
+        self._clear_archive(notify=False)
+        self._timeline = {}
+        self._timeline_trail = []
+        self._search = {}
+        if self._selection.get("kind") == "selected_entry" and self._selection_source == "timeline":
+            self._selection = {}
+            self.selectionInvalidated.emit()
+        self.archiveInvalidated.emit()
+        self.changed.emit()  # Announce the complete archive withdrawal, never an intermediate detail.
+
     @Slot(str, str, result=bool)
     def prepareArtwork(self, session_id, moment_id):
-        return self._artwork_prepare.start(session_id, moment_id)
+        return not self._archive_delete.running and self._artwork_prepare.start(session_id, moment_id)
 
     @Slot()
     def shutdownImages(self):
+        self._visibility_notify.stop()
         self._forecast_images.shutdown()
         self._moment_images.shutdown()
         self._artwork_prepare.shutdown()
         self._playback_control.shutdown()
+        self._archive_delete.shutdown()
 
     @Property(bool, notify=changed)
     def busy(self):
-        return bool(self._running or self._artwork_prepare.running or self._playback_control.running)
+        return bool(self._running or self._artwork_prepare.running or self._playback_control.running or self._archive_delete.running)
 
     @Property(bool, notify=changed)
     def lifecycleBusy(self):
@@ -258,6 +379,12 @@ class SessionController(QObject):
         self._reconcile_question = False
 
     def invalidate(self):
+        had_scope = self._bootstrap_binding is not None
+        self._owner_epoch += 1
+        self._bootstrap_binding = None
+        self._bootstrap_owner = ""
+        self._bootstrap_private = False
+        self._archive_delete.hide(reset=True)
         self._playback_control.hide(reset=True)
         self._forecast.reset()
         self._forecast_dirty = False
@@ -289,6 +416,8 @@ class SessionController(QObject):
         self._search = {}
         self._view_epoch = getattr(self, "_view_epoch", 0) + 1
         self._error = ""
+        if had_scope:
+            self.ownerScopeChanged.emit()
         self.changed.emit()
         self.contextCleared.emit()
 
@@ -421,14 +550,11 @@ class SessionController(QObject):
             return False
 
     def _composer_supported(self):
-        cfg = self.backend.cfg
         return (self._history_supported() and self._caps.get("capabilities", {}).get("ask_dj_contextual_dialogue") is True
                 and type(self._caps.get("contract_versions", {}).get("ask_dj_contextual_dialogue")) is int
                 and self._caps["contract_versions"]["ask_dj_contextual_dialogue"] == 1
                 and self._session.get("runtime_state") == "active"
-                and cfg.explicit_profile_id == cfg.active_profile_id and bool(cfg.explicit_profile_id)
-                and not cfg.private_session and cfg.active_profile_type in {"personal", "household"}
-                and cfg.active_profile_privacy_mode == "private")
+                and private_scope_allowed(self))
 
     def _selection_valid(self):
         if not self._selection:
@@ -513,6 +639,8 @@ class SessionController(QObject):
                 and versions["session_flow_text_search"] == 1)
 
     def _history_supported(self):
+        if self._bootstrap_binding is not None and not private_scope_allowed(self):
+            return False
         features = self._caps.get("capabilities", {})
         versions = self._caps.get("contract_versions", {})
         return (isinstance(features, dict) and isinstance(versions, dict)
@@ -552,6 +680,9 @@ class SessionController(QObject):
 
     @Slot()
     def clearArchive(self):
+        self._clear_archive()
+
+    def _clear_archive(self, *, notify=True):
         had = bool(self._sessions or self._history_loaded or self._history_cursor or self._history_trail)
         self._view_epoch += 1
         self._sessions = []
@@ -563,7 +694,7 @@ class SessionController(QObject):
         self._history_before = None
         self._history_trail = []
         self._history_reset = False
-        if had:
+        if had and notify:
             self.changed.emit()
 
     def _archive_request(self, pages=None):
@@ -836,7 +967,7 @@ class SessionController(QObject):
     def _launch(self, action, value=""):
         if not self._foreground:
             return
-        if (self._artwork_prepare.running or self._playback_control.running) and action != "end":
+        if (self._artwork_prepare.running or self._playback_control.running or self._archive_delete.running) and action != "end":
             return
         # End supersedes reads, but never another lifecycle write. Late read results lose their ticket.
         if self._running and (action != "end" or self._running_action in {"start", "end"}):
@@ -846,17 +977,23 @@ class SessionController(QObject):
         if self.backend.demoMode:
             self._demo_action(action, value)
             return
-        if not self.backend.cfg.explicit_profile_id:
+        cfg = self.backend.cfg
+        bootstrap = (action == "refresh" and cfg.active_profile_id == ""
+            and cfg.explicit_profile_id == "")
+        if not session_profile_id(cfg) and not (self._bootstrap_current() and self._bootstrap_private) and not bootstrap:
             self._error = "profile_required"
             self.changed.emit()
             return
         try:
+            raw_binding = SessionBinding.capture(cfg)
             binding = self.transport.binding()
         except SessionError as exc:
             self.invalidate()
             self._error = exc.category
             self.changed.emit()
             return
+        if bootstrap and self._bootstrap_binding != raw_binding:
+            self.invalidate()
         if action in {"history", "history_more", "history_refresh", "timeline", "timeline_refresh", "timeline_page", "timeline_previous", "timeline_extend", "open_entry", "search", "search_more", "search_refresh"} and not self._history_supported():
             self._error = "unsupported"
             self.changed.emit()
@@ -903,9 +1040,43 @@ class SessionController(QObject):
                 raise SessionError("context_changed")
 
         def worker():
-            result = {"serial": serial, "binding": binding, "action": action, "view_epoch": view_epoch, "question_epoch": question_epoch}
+            result = {"serial": serial, "binding": binding, "action": action, "view_epoch": view_epoch, "question_epoch": question_epoch, "raw_binding": raw_binding}
             try:
-                if action == "question":
+                if bootstrap:
+                    # Current owner and personal-read permission are independent.
+                    # Match the existing Apple route; do not invent Profile metadata.
+                    check_conversation_read()
+                    current = active_session(self.transport.active(binding, isolated=True))
+                    check_conversation_read()
+                    owner = identifier(current.get("owner_profile_id")) if current else ""
+                    if owner and (owner != owner.strip() or any(ord(c) == 127 for c in owner)):
+                        raise SessionError("invalid")
+                    personal = self.transport.private_scope_owner(binding)
+                    check_conversation_read()
+                    if personal and owner and personal != owner:
+                        raise SessionError("context_changed")
+                    owner = personal or owner
+                    if not owner:
+                        raise SessionError("profile_required")
+                    result["session"] = current
+                    result["bootstrap_owner"] = owner
+                    result["bootstrap_private"] = bool(personal)
+                    try:
+                        result["capabilities"] = self.transport.capabilities(binding, isolated=True)
+                    except SessionError as exc:
+                        if exc.category in {"denied", "unpaired", "context_changed"}:
+                            raise
+                        result["capabilities"] = {}
+                    check_conversation_read()
+                    caps = result["capabilities"]
+                    # The first bootstrap only establishes a binding. A subsequent
+                    # independently authorized read imports the existing typed Flow.
+                    sid = current.get("session_id")
+                    if (personal and binding.private_authorized and sid
+                            and caps.get("capabilities", {}).get("session_conversation_history") is True
+                            and caps.get("contract_versions", {}).get("session_history_entries") == 2):
+                        result.update(self._read_conversation(binding, sid, receipt_snapshot, check_conversation_read))
+                elif action == "question":
                     # Queued work must validate the original intent without a GUI getter/tick.
                     check_conversation_read()
                     expected_pending = {key: value[key] for key in ("text", "session_id", "client_message_id")}
@@ -1043,6 +1214,7 @@ class SessionController(QObject):
 
     @Slot(object)
     def _apply(self, result):
+        scope_changed = False
         question = result["action"] == "question"
         if result["serial"] != (self._question_running if question else self._running):
             return
@@ -1148,6 +1320,11 @@ class SessionController(QObject):
             self.changed.emit()
             return
         if "error" in result:
+            scope_changed = self._bootstrap_binding is not None
+            self._owner_epoch += 1
+            self._bootstrap_binding = None
+            self._bootstrap_owner = ""
+            self._bootstrap_private = False
             question_status = self._question_status
             self._withdraw_question()
             if question:
@@ -1174,6 +1351,19 @@ class SessionController(QObject):
             self._error = result["error"]
         else:
             if "session" in result:
+                new_owner = result.get("bootstrap_owner", "")
+                old_scope = (self._bootstrap_owner, self._bootstrap_private)
+                self._bootstrap_binding = result["raw_binding"] if new_owner else None
+                self._bootstrap_owner = new_owner
+                self._bootstrap_private = result.get("bootstrap_private", False)
+                if old_scope != (new_owner, self._bootstrap_private):
+                    self._owner_epoch += 1
+                    scope_changed = True
+                    self._clear_archive(notify=False)
+                    self._timeline = {}
+                    self._timeline_trail = []
+                    self._search = {}
+                    self._withdraw_question()
                 if self._session.get("session_id") != result["session"].get("session_id"):
                     self._withdraw_question()
                 self._loaded = True
@@ -1244,6 +1434,10 @@ class SessionController(QObject):
                         and incoming.get("session", {}).get("session_id") == self._search.get("session_id")
                         and incoming["revision"] == self._search.get("revision")):
                     self._search = {}
+        if scope_changed:
+            # Announce the complete new scope, never new authority with old bodies.
+            self.contextCleared.emit()
+            self.ownerScopeChanged.emit()
         # Worker results may have waited on the GUI queue beyond their original deadline.
         self._expire()
         confirmed = self._confirm_question()

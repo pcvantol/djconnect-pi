@@ -47,6 +47,7 @@ def selected_request(inputs: dict, operation: str) -> tuple[dict, str]:
 
 
 def workflow_context(client, operation: str, environment: dict) -> tuple[str, str]:
+    require(operation in WORKFLOWS, "ORDINARY_OPERATION_REQUIRED")
     require(environment.get("GITHUB_ACTIONS") == "true" and environment.get("GITHUB_REPOSITORY") == PI, "QUALIFIED_WORKFLOW_REQUIRED")
     source = environment.get("GITHUB_SHA", "");run_id = environment.get("GITHUB_RUN_ID", "")
     require(re.fullmatch("[0-9a-f]{40}", source) is not None and re.fullmatch("[1-9][0-9]*", run_id) is not None, "WORKFLOW_IDENTITY_INVALID")
@@ -57,7 +58,7 @@ def workflow_context(client, operation: str, environment: dict) -> tuple[str, st
             and run.get("path") in {WORKFLOWS[operation], WORKFLOWS[operation]+"@main"} and run.get("event") == "workflow_dispatch"
             and run.get("status") == "in_progress" and run.get("actor", {}).get("login") == "pcvantol"
             and run.get("repository", {}).get("full_name") == PI, "QUALIFIED_WORKFLOW_REQUIRED")
-    if operation == "deploy":require(environment.get("GITHUB_RUN_ATTEMPT") == "1", "RERUN_REQUIRES_ACTUAL_STATE_REVIEW")
+    if operation in {"deploy", "recover"}:require(environment.get("GITHUB_RUN_ATTEMPT") == "1", "RERUN_REQUIRES_ACTUAL_STATE_REVIEW")
     return source, run_id
 
 
@@ -69,16 +70,19 @@ def current_authority(client, authority):
 def deployment_record(client, binding, authority, receipt: dict, run_id: str):
     run = client.json("repos/"+PI+"/actions/runs/"+run_id)
     require(run.get("head_sha") == binding.consumer_sha and run.get("head_branch") == "main"
-            and run.get("path") in {WORKFLOWS["deploy"], WORKFLOWS["deploy"]+"@main"} and run.get("event") == "workflow_dispatch"
-            and run.get("status") == "completed" and run.get("conclusion") == "success"
-            and run.get("actor", {}).get("login") == "pcvantol", "SUCCESSFUL_DEPLOYMENT_REQUIRED")
+            and run.get("path") in {WORKFLOWS["deploy"], WORKFLOWS["deploy"]+"@main"}
+            and run.get("event") == "workflow_dispatch" and run.get("status") == "completed"
+            and run.get("conclusion") == "success" and run.get("actor", {}).get("login") == "pcvantol",
+            "SUCCESSFUL_DEPLOYMENT_REQUIRED")
+    require(receipt.get("result") == "DEPLOYED_PENDING_SMOKE", "DEPLOYMENT_EVIDENCE_MISMATCH")
     expected = authority.receipt()
-    require(receipt.get("result") == "DEPLOYED_PENDING_SMOKE" and receipt.get("deployment_workflow_run") == run_id
+    require(receipt.get("deployment_workflow_run") == run_id
             and all(receipt.get(key) == value for key, value in expected.items() if key != "classification"), "DEPLOYMENT_EVIDENCE_MISMATCH")
 
 
 def _execute(client, authority, operation: str, run_id: str, *, deployment=None, deployment_run="", progress=None) -> dict:
     binding = authority.binding
+    require(operation in WORKFLOWS and binding.smoke_contract == "pi-rc6-instance-readback-v1", "ORDINARY_OPERATION_REQUIRED")
     if operation == "smoke":deployment_record(client, binding, authority, deployment, deployment_run)
     payload = {"phase": "readiness"}
     if operation != "readiness":
@@ -112,12 +116,13 @@ class PhaseFailure(BindingError):
 
 
 def execute(client, authority, operation: str, run_id: str, *, deployment=None, deployment_run="") -> dict:
+    require(operation in WORKFLOWS, "ORDINARY_OPERATION_REQUIRED")
     progress = {"intent_dispatched": False}
     try:
         return _execute(client, authority, operation, run_id, deployment=deployment, deployment_run=deployment_run, progress=progress)
     except (BindingError, OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError):
         record = {**authority.receipt(), "schema_version": 2, "workflow_run_id": run_id,
-            "result": "SMOKE_INCONCLUSIVE" if operation == "smoke" else "DEPLOYMENT_INCONCLUSIVE" if operation == "deploy" else "TARGET_NOT_READY",
+            "result": {"smoke": "SMOKE_INCONCLUSIVE", "deploy": "DEPLOYMENT_INCONCLUSIVE", "readiness": "TARGET_NOT_READY"}[operation],
             "intent_dispatched": progress["intent_dispatched"],
             "remote_may_still_be_running": operation == "deploy" and progress["intent_dispatched"],
             "classification": "INCOMPLETE_REQUIRES_ACTUAL_STATE_REVIEW", "error": "NEEDS_ACTUAL_STATE_REVIEW", "timestamp": datetime.now(UTC).isoformat()}
@@ -136,7 +141,7 @@ def main():
     request, deployment_run = selected_request(inputs, args.operation)
     client = GitHubRead(environment.get("GH_TOKEN", ""))
     consumer_sha, run_id = workflow_context(client, args.operation, environment)
-    configuration = {key: environment.get(key, "") for key in ("PI_RC5_OPERATIONAL_CORE_SHA", "PI_RC5_OPERATIONAL_MANIFEST_SHA256")}
+    configuration = {key: environment.get(key, "") for key in ("PI_RC6_OPERATIONAL_CORE_SHA", "PI_RC6_OPERATIONAL_MANIFEST_SHA256")}
     authority = resolve(client, request, consumer_sha, configuration)
     root = Path(environment["RUNNER_TEMP"])/("pi-qualified-instance-"+run_id+"-"+environment.get("GITHUB_RUN_ATTEMPT", "1"));root.mkdir(mode=0o700, exist_ok=True)
     if args.prepare:

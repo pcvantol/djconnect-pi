@@ -1,0 +1,59 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "action": {
+      "const": "deployment"
+    },
+    "candidate_sha": {
+      "const": "0dde0abe22a0859f170a7c1d3eab41f1ade44d37"
+    },
+    "execution_mode": {
+      "const": "execute"
+    },
+    "manifest_id": {
+      "type": "string",
+      "pattern": "^release-4[.]0[.]0-rc[.]6-pi-wall4-recovery-v2-[A-Za-z0-9._-]+(?![\\s\\S])"
+    },
+    "artifact_id": {
+      "const": "release-asset:pcvantol/djconnect-pi-releases:v4.0.0-rc.6:djconnect-pi-pi-zero-2w-arm64-4.0.0-rc.6.tar.gz"
+    },
+    "artifact_sha256": {
+      "const": "d67869ffca53c4936059bdbbdbdf6be63b36eafac269fa2f3f9b090922cd0d64"
+    },
+    "target": {
+      "const": "rbpi-djconnect"
+    },
+    "platform_version": {
+      "const": "4.0"
+    },
+    "release_profile": {
+      "const": "INTERNAL_RELEASE"
+    },
+    "deployment_instance": {
+      "const": "wall-4inch"
+    },
+    "device_profile": {
+      "const": "pi-zero-2w-arm64"
+    },
+    "inventory_sha256": {
+      "const": "530220ee38f6ccbcc824a78331b9dd89f236a5fa6ede12ebf7899dac83ff50c0"
+    }
+  },
+  "required": [
+    "action",
+    "candidate_sha",
+    "execution_mode",
+    "manifest_id",
+    "artifact_id",
+    "artifact_sha256",
+    "target",
+    "platform_version",
+    "release_profile",
+    "deployment_instance",
+    "device_profile",
+    "inventory_sha256"
+  ],
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Closed Pi rc.6 wall4 recovery V2 request; no authority from structural validity"
+}

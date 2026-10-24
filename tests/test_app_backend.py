@@ -9,6 +9,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 from PySide6.QtCore import QCoreApplication
+from shiboken6 import delete, isValid
 
 from djconnect_pi.app import (
     DJConnectBackend,
@@ -35,10 +36,31 @@ from djconnect_pi.ha import (
     DJConnectError,
     HAClient,
     Playback,
+    ProfileContextError,
     ProtocolVersionMismatch,
     StaleBackendAction,
     UnsupportedBackendCapability,
 )
+
+
+@pytest.fixture(autouse=True)
+def close_backend_fixtures(monkeypatch):
+    """Each test owns and closes its native timers and actual worker pools."""
+    created = []
+    original = DJConnectBackend.__init__
+    def tracked(backend, *args, **kwargs):
+        original(backend, *args, **kwargs)
+        created.append((backend, backend._executor, backend._session_executor, backend._question_executor))
+    monkeypatch.setattr(DJConnectBackend, "__init__", tracked)
+    yield
+    for backend, general, session, question in reversed(created):
+        if isValid(backend):
+            # Tests may replace submit-only executors; close their actual pools.
+            backend._executor, backend._session_executor, backend._question_executor = general, session, question
+            backend.shutdown()
+            for pool in (general, session, question):
+                pool.shutdown(wait=True, cancel_futures=True)
+            delete(backend)
 
 
 def ensure_app() -> QCoreApplication:
@@ -2142,6 +2164,33 @@ def test_backend_auth_error_clears_pairing_and_shows_ready_to_pair(tmp_path: Pat
     assert backend.toastText == backend.t("ready_to_pair")
 
 
+def test_backend_real_profile_denial_preserves_pairing_and_local_selection(tmp_path: Path) -> None:
+    ensure_app()
+    config_path = tmp_path / "config.json"
+    cfg = Config(device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="paired-device",
+                 paired=True, ha_url="http://ha", websocket_fast_path_enabled=False,
+                 active_profile_id="profile-old", explicit_profile_id="profile-old")
+    save_config(config_path, cfg)
+    backend = DJConnectBackend(config_path)
+
+    class FakeExecutor:
+        def submit(self, worker):
+            worker()
+
+    response = Mock(status_code=403, content=b"{}", text="")
+    response.json.return_value = {"success": False, "error": "profile_device_mismatch"}
+    backend._executor = FakeExecutor()  # type: ignore[assignment]
+    with patch("djconnect_pi.ha.requests.post", return_value=response) as post:
+        backend._run("refresh", lambda: backend.client.command("status"))
+    saved = load_config(config_path)
+    assert post.call_count == 1
+    assert backend.backendAvailable is False
+    assert backend.paired is True and saved.paired is True
+    assert saved.device_token == "paired-device"
+    assert saved.active_profile_id == saved.explicit_profile_id == "profile-old"
+    assert backend.statusText != backend.t("ready_to_pair")
+
+
 def test_backend_auth_error_does_not_toast_while_waiting_for_pairing(tmp_path: Path) -> None:
     ensure_app()
     backend = DJConnectBackend(tmp_path / "config.json")
@@ -2896,11 +2945,11 @@ def test_shared_settings_delayed_old_profile_result_is_discarded(tmp_path: Path)
     old_epoch = backend._shared_settings_epoch
     backend.cfg.active_profile_id = "replacement"
     backend._invalidate_shared_settings_if_context_changed()
-    with patch("djconnect_pi.app.QTimer.singleShot") as refresh:
-        backend._apply_shared_settings({"epoch": old_epoch, "context": old_context,
-                                        "projection": {"values": {"mood": "party"}}})
+    backend._apply_shared_settings({"epoch": old_epoch, "context": old_context,
+                                    "projection": {"values": {"mood": "party"}}})
     assert backend.sharedSettings == {}
-    refresh.assert_called_once()
+    assert backend._settings_reconcile_timer.isActive()
+    assert backend._settings_reconcile_timer.interval() == 0
     backend.shutdown()
 
 
@@ -2915,3 +2964,149 @@ def test_shared_settings_denied_clears_visible_choices_but_preserves_pairing(tmp
     assert "values" not in backend.sharedSettings
     assert backend.cfg.paired and backend.cfg.device_token == "fixture-token"
     backend.shutdown()
+
+
+def test_rejected_discovery_feed_does_not_adopt_profile_or_display_machine_errors(tmp_path):
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.active_profile_id = "original-profile"
+    backend._music_discovery_items = [{"id": "old-result"}]
+    backend._apply_music_discovery_data({
+        "success": False, "error": "music_dna_context_changed", "message": "music_dna_context_changed",
+        "profile_id": "foreign-profile", "sections": [{"items": [{"title": "rejected content"}]}],
+    })
+    assert backend.cfg.active_profile_id == "original-profile"
+    assert backend.musicDiscoveryItems == []
+    assert backend.musicDiscoveryEmptyText == ""
+    assert backend.musicDiscoveryError == backend.tr_key("session_profile_missing")
+    assert "music_dna_context_changed" not in backend.musicDiscoveryError
+    backend.shutdown()
+
+
+def test_shutdown_late_settings_result_cannot_rearm_network_poll(tmp_path):
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    old_epoch, old_context = backend._shared_settings_epoch, backend._shared_settings.context()
+    backend.shutdown()
+    backend._apply_shared_settings({"epoch": old_epoch - 1, "context": old_context, "projection": {}})
+    assert not backend._settings_reconcile_timer.isActive()
+    assert not backend._shared_settings_timer.isActive()
+    backend._start_shared_settings = Mock()
+    backend.pollSharedSettings()
+    backend.saveSharedSettings({"mood": "party"})
+    backend._start_shared_settings.assert_not_called()
+
+
+@pytest.mark.parametrize("stage", ["mkdir", "exists", "stat"])
+def test_optional_album_cache_permission_failure_does_not_break_refresh(stage, tmp_path, monkeypatch):
+    monkeypatch.setattr("djconnect_pi.app.DEFAULT_LOG_PATH", tmp_path / "state" / "log" / "client.log")
+    with patch.object(Path, "exists", return_value=stage == "stat"), patch.object(Path, stage, side_effect=PermissionError("synthetic cache denied")), patch("djconnect_pi.app.requests.get") as get:
+        assert cached_image_url("https://fixture.invalid/art.jpg") == "https://fixture.invalid/art.jpg"
+    get.assert_not_called()
+
+
+@pytest.mark.parametrize("code", ["music_dna_context_changed", "profile_device_mismatch", "music_dna_unavailable"])
+def test_music_dna_failure_is_not_disabled_or_profile_authority(tmp_path, code):
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.active_profile_id = "original"
+    backend._music_dna_enabled = True
+    backend._music_dna_summary = "old-profile-summary"
+    backend._apply_music_dna_data({"success": False, "error": code, "profile_id": "foreign",
+                                  "enabled": True, "profile": {"summary": "rejected"}})
+    assert backend.cfg.active_profile_id == "original"
+    assert backend.musicDnaSummary == ""
+    assert backend.musicDnaSections == []
+    expected = "backend_unavailable" if code == "music_dna_unavailable" else "session_profile_missing"
+    assert backend.musicDnaError == backend.tr_key(expected)
+    assert code not in backend.musicDnaError
+    backend._apply_music_dna_data({"success": True, "enabled": False, "profile": {}})
+    assert backend.musicDnaError == "" and not backend.musicDnaEnabled
+
+
+@pytest.mark.parametrize("action", ["profile", "settings", "clear"])
+@pytest.mark.parametrize("error_type", [AuthenticationError, ProtocolVersionMismatch])
+def test_music_dna_workers_preserve_authentication_and_protocol_classification(tmp_path, action, error_type):
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    error = error_type("invalid auth") if error_type is AuthenticationError else error_type("4.0", "5.0")
+    setattr(backend.client, "music_dna_" + action, Mock(side_effect=error))
+    with pytest.raises(error_type):
+        getattr(backend, "_music_dna_" + action + "_worker")()
+
+
+@pytest.mark.parametrize("action", ["profile", "settings", "clear"])
+@pytest.mark.parametrize("profile_error", [True, False])
+def test_music_dna_worker_errors_show_retry_without_content_or_replay(tmp_path, action, profile_error):
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "original-token"
+    backend.cfg.active_profile_id = backend.cfg.explicit_profile_id = "original-profile"
+    error = ProfileContextError("music_dna_context_changed", "private detail") if profile_error else DJConnectError("private unavailable")
+    request = Mock(side_effect=error)
+    setattr(backend.client, "music_dna_" + action, request)
+    getattr(backend, "_music_dna_" + action + "_worker")()
+    assert request.call_count == 1
+    assert backend.musicDnaError == backend.tr_key("session_profile_missing" if profile_error else "backend_unavailable")
+    assert "private" not in backend.musicDnaError
+    assert backend.cfg.paired and backend.cfg.device_token == "original-token"
+    assert backend.cfg.active_profile_id == backend.cfg.explicit_profile_id == "original-profile"
+    assert not backend.musicDnaSummary and not backend.musicDnaSections
+
+
+@pytest.mark.parametrize("slot,signal", [
+    ("_apply_ask_dj_data", "askDjChanged"),
+    ("_apply_music_dna_data", "musicDnaChanged"),
+    ("_apply_music_discovery_data", "musicDiscoveryChanged"),
+    ("_apply_track_insight_data", "trackInsightChanged"),
+])
+def test_private_gui_result_cannot_cross_owner_permission_epoch(tmp_path, slot, signal):
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    result = backend._profile_read_result({"success": False, "error": "transient"}, backend._private_read_context())
+    changed = Mock()
+    getattr(backend, signal).connect(changed)
+    backend._session_controller._owner_epoch += 1
+    getattr(backend, slot)(result)
+    changed.assert_not_called()
+    assert not backend._profile_result_current(result)
+
+
+@pytest.mark.parametrize("field,value", [("device_token", "changed"), ("language", "de"), ("paired", True)])
+def test_private_gui_result_is_bound_to_original_device_context(tmp_path, field, value):
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    result = backend._profile_read_result({"success": True}, backend._private_read_context())
+    assert backend._profile_result_current(result)
+    setattr(backend.cfg, field, value)
+    assert not backend._profile_result_current(result)
+
+
+def test_owner_scope_notification_clears_private_views_without_invalidating_current_session(tmp_path):
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    controller = backend._session_controller
+    controller._session = {"session_id": "current"}
+    backend._music_dna_summary = "private"
+    backend._music_discovery_items = [{"title": "private"}]
+    backend._track_insight_text = "private"
+    with patch.object(controller, "invalidate") as invalidated:
+        backend._session_owner_changed()
+    invalidated.assert_not_called()
+    assert controller._session == {"session_id": "current"}
+    assert not backend._music_dna_summary and not backend._music_discovery_items and not backend._track_insight_text
+    assert backend._settings_reconcile_timer.isActive()
+
+
+def test_worker_drops_changed_owner_before_profile_metadata_adoption(tmp_path):
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    def delayed():
+        backend._session_controller._owner_epoch += 1
+        return {"success": True, "profile_id": "stale-private"}
+    backend.client.music_dna_profile = Mock(side_effect=delayed)
+    with patch.object(backend, "_apply_profile_context") as adopt:
+        backend._music_dna_profile_worker()
+    adopt.assert_not_called()
+    assert backend.cfg.active_profile_id != "stale-private"
