@@ -14,6 +14,66 @@ BrandWindow {
     title: "DJConnect"
     visibility: startWindowed ? Window.Windowed : Window.FullScreen
 
+    readonly property string vibeScapeCurrentOwner: djconnect.djSession.state.owner_profile_id || djconnect.activeProfileId
+    readonly property int vibeScapeCurrentEpoch: djconnect.djSession.state.owner_epoch || 0
+    property int vibeScapeVisitEpoch: 0
+    onVibeScapeCurrentOwnerChanged: syncVibeScape()
+    onVibeScapeCurrentEpochChanged: syncVibeScape()
+    property bool vibeScapeRequested: false
+    property string vibeScapeOwner: ""
+    property string vibeScapeSession: ""
+    readonly property bool vibeScapeAllowed: wallProfile && visible && active && activeScreen === "session" &&
+        djconnect.paired && !djconnect.demoMode && vibeScapeCurrentOwner.length > 0 &&
+        !djconnect.djSession.state.profile_confirmation_required && !djconnect.djSession.state.owner_read_only && djconnect.djSession.state.runtime_state === "active" &&
+        djconnect.djSession.state.session_id.length > 0
+    onVibeScapeAllowedChanged: if (!vibeScapeAllowed) closeVibeScape()
+    function closeVibeScape() { vibeScapeLoader.active = false }
+    function syncVibeScape() {
+        if (vibeScapeLoader.active && (!vibeScapeAllowed || !djconnect.paired ||
+                vibeScapeOwner !== vibeScapeCurrentOwner || vibeScapeVisitEpoch !== vibeScapeCurrentEpoch ||
+                vibeScapeSession !== djconnect.djSession.state.session_id)) closeVibeScape()
+    }
+    Connections {
+        target: djconnect.djSession
+        function onChanged() { root.syncVibeScape() }
+    }
+    Connections {
+        target: djconnect
+        function onProfileChanged() { root.syncVibeScape() }
+        function onPairedChanged() { root.syncVibeScape() }
+    }
+    function openVibeScape() {
+        if (!vibeScapeAllowed) return
+        vibeScapeOwner = vibeScapeCurrentOwner
+        vibeScapeVisitEpoch = vibeScapeCurrentEpoch
+        vibeScapeSession = djconnect.djSession.state.session_id
+        vibeScapeRequested = true
+        vibeScapeLoader.active = true
+    }
+    Loader {
+        id: vibeScapeLoader
+        objectName: "vibeScapeLoader"
+        anchors.fill: parent; z: 35
+        // Explicit visit latch: invalidation cannot re-arm a returned context.
+        active: false
+        onActiveChanged: {
+            if (active) returnToNowTimer.stop()
+            else {
+                root.vibeScapeRequested = false
+                root.vibeScapeOwner = ""
+                root.vibeScapeSession = ""
+                root.restartIdleTimer()
+                root.restartReturnToNowTimer()
+            }
+        }
+        sourceComponent: VibeScape {
+            backend: djconnect; admitted: root.vibeScapeAllowed
+            mood: root.appearanceMood
+            forecastAvailable: djconnect.djSession.state.forecast_supported
+            onCloseRequested: root.closeVibeScape()
+            onForecastRequested: { root.closeVibeScape(); sharedSessionScreen.forecastMode = true }
+        }
+    }
     property bool wallProfile: djconnect.releaseProfile === "pi5-arm64"
     readonly property bool liquidGlassEnabled: djconnect.glassEnabled
     readonly property string appearanceMood: {
@@ -79,7 +139,7 @@ BrandWindow {
     property int wakeDisplayDebounceMs: 800
     property int standardButtonRadius: 24
     property var returnToNowChoices: [30, 60, 120, 0]
-    property bool screenBlanked: djconnect.screenTimeoutSeconds > 0 && !idleTimer.running && !root.forceScreenAwake
+    property bool screenBlanked: djconnect.screenTimeoutSeconds > 0 && !idleTimer.running && !root.forceScreenAwake && !vibeScapeLoader.active
     property real brightnessOverlayOpacity: root.screenBlanked || root.forceBrightnessFull ? 0 : 1 - (djconnect.screenBrightnessPercent / 100.0)
     property int trVersion: djconnect.translationVersion
 
@@ -190,6 +250,7 @@ BrandWindow {
     }
 
     function restartReturnToNowTimer() {
+        if (vibeScapeLoader.active) { returnToNowTimer.stop(); return }
         if (djconnect.returnToNowSeconds > 0) {
             returnToNowTimer.restart()
         }
@@ -1083,10 +1144,12 @@ BrandWindow {
 
     Timer {
         id: returnToNowTimer
+        objectName: "returnToNowTimer"
         interval: Math.max(1000, djconnect.returnToNowSeconds * 1000)
         running: djconnect.returnToNowSeconds > 0
         repeat: false
         onTriggered: {
+            if (vibeScapeLoader.active) return
             root.hideTransientUi()
             root.activeScreen = "now"
         }
@@ -3075,19 +3138,34 @@ BrandWindow {
 
                 RefreshIconButton {
                     id: musicDnaRefreshButton
+                    objectName: "musicDnaRefreshButton"
                     enabled: !djconnect.musicDnaBusy
                     onClicked: djconnect.refreshMusicDna()
                 }
             }
 
             GlassCard {
+                objectName: "musicDnaErrorCard"
+                visible: djconnect.musicDnaError.length > 0
+                Layout.fillWidth: true
+                Text {
+                    text: djconnect.musicDnaError
+                    textFormat: Text.PlainText
+                    color: BrandTheme.colors.text
+                    font.pixelSize: 22
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+            }
+
+            GlassCard {
                 objectName: "musicDnaOptInHero"
                 hero: true; padding: 18
-                visible: !djconnect.musicDnaEnabled
+                visible: !djconnect.musicDnaEnabled && djconnect.musicDnaError.length === 0
                 Layout.fillWidth: true
                 Layout.maximumHeight: implicitHeight
                 RowLayout {
-                    visible: !djconnect.musicDnaEnabled
+                    visible: !djconnect.musicDnaEnabled && djconnect.musicDnaError.length === 0
                     Layout.fillWidth: true
                     spacing: 10
 
@@ -3103,7 +3181,7 @@ BrandWindow {
                 }
 
                 Text {
-                    visible: !djconnect.musicDnaEnabled
+                    visible: !djconnect.musicDnaEnabled && djconnect.musicDnaError.length === 0
                     text: root.tr("music_dna_opt_in")
                     color: BrandTheme.colors.muted
                     font.pixelSize: 20
@@ -3112,7 +3190,7 @@ BrandWindow {
                 }
 
                 PurpleButton {
-                    visible: !djconnect.musicDnaEnabled
+                    visible: !djconnect.musicDnaEnabled && djconnect.musicDnaError.length === 0
                     text: root.tr("music_dna_enable")
                     enabled: !djconnect.musicDnaBusy
                     font.pixelSize: 22
@@ -3125,11 +3203,11 @@ BrandWindow {
             GlassCard {
                 objectName: "musicDnaSummaryHero"
                 hero: true; padding: 18
-                visible: djconnect.musicDnaEnabled && djconnect.musicDnaSummary.length > 0
+                visible: djconnect.musicDnaError.length === 0 && djconnect.musicDnaEnabled && djconnect.musicDnaSummary.length > 0
                 Layout.fillWidth: true
                 Layout.maximumHeight: implicitHeight
                 Text {
-                    visible: djconnect.musicDnaEnabled && djconnect.musicDnaSummary.length > 0
+                    visible: djconnect.musicDnaError.length === 0 && djconnect.musicDnaEnabled && djconnect.musicDnaSummary.length > 0
                     text: djconnect.musicDnaSummary
                     color: BrandTheme.colors.text
                     font.pixelSize: 22
@@ -3140,7 +3218,7 @@ BrandWindow {
 
             ScrollView {
                 id: musicDnaScroll
-                visible: djconnect.musicDnaEnabled
+                visible: djconnect.musicDnaError.length === 0 && djconnect.musicDnaEnabled
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 clip: true
@@ -3190,7 +3268,7 @@ BrandWindow {
                 }
             }
             Item {
-                visible: !djconnect.musicDnaEnabled
+                visible: !djconnect.musicDnaEnabled || djconnect.musicDnaError.length > 0
                 Layout.fillWidth: true; Layout.fillHeight: true
             }
         }
@@ -3957,6 +4035,7 @@ BrandWindow {
             backend: djconnect
             historical: root.activeScreen === "history" || root.activeScreen === "session-history"
             currentHistory: root.activeScreen === "session-history"
+            onOpenVibeScape: root.openVibeScape()
             onNavigate: function(destination) { root.activeScreen = destination }
         }
     }

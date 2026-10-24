@@ -193,3 +193,42 @@ def test_spotify_history_link_alone_requires_attribution_and_invalid_provider_li
 def test_malformed_historical_spotify_flag_does_not_become_a_display_grant(flag):
     page = timeline_fixture();page['entries'][2]['requires_spotify_attribution'] = flag
     with pytest.raises(SessionError): presented_history(page)
+
+
+
+def test_flow_native_join_is_presentation_only_exact_same_session_moment_id():
+    from djconnect_pi.session_history_view import retained_flow_presentation
+    entries = [{"entry_id": "retained-m", "session_id": "s", "kind": "dj_moment", "moment_id": "m", "text": "retained body", "retained_until": "original"},
+               {"entry_id": "other", "session_id": "s", "kind": "dj_moment", "moment_id": "other", "text": "same native text"}]
+    native = [{"moment_id": "m", "body": "same native text", "display_expires_at": "independent"}]
+    original = deepcopy((entries, native))
+    assert retained_flow_presentation(entries, native, "s") == [entries[1]]
+    assert (entries, native) == original
+    assert retained_flow_presentation(entries, [], "s") == entries
+
+
+@pytest.mark.parametrize("change", [
+    {"kind": "dj_publication"}, {"kind": "dj_silence"}, {"kind": "conversation_user"},
+    {"kind": "conversation_dj"}, {"kind": "playback_observed"},
+    {"session_id": "foreign"}, {"moment_id": "different"}, {"moment_id": "M"},
+    {"moment_id": None}, {"moment_id": ""}, {"moment_id": 1}, {"moment_id": True},
+])
+def test_flow_native_join_never_hides_other_kinds_foreign_ids_or_text_twins(change):
+    from djconnect_pi.session_history_view import retained_flow_presentation
+    row = {"entry_id": "entry", "session_id": "s", "kind": "dj_moment", "moment_id": "m", "text": "identical text"}
+    row.update(change)
+    assert retained_flow_presentation([row], [{"moment_id": "m", "body": "identical text"}], "s") == [row]
+
+
+@pytest.mark.parametrize("sid", ["", None, True])
+def test_flow_native_join_requires_original_current_session(sid):
+    from djconnect_pi.session_history_view import retained_flow_presentation
+    row = {"session_id": sid, "kind": "dj_moment", "moment_id": "m"}
+    assert retained_flow_presentation([row], [{"moment_id": "m"}], sid) == [row]
+
+
+def test_flow_native_join_keeps_original_retained_order_without_promoting_grants():
+    from djconnect_pi.session_history_view import retained_flow_presentation
+    rows = [{"session_id": "s", "kind": "dj_moment", "moment_id": x, "order": i} for i,x in enumerate(["a","b","c"])]
+    assert retained_flow_presentation(rows, [{"moment_id": "b"}], "s") == [rows[0], rows[2]]
+    assert retained_flow_presentation(rows, [{"moment_id": None}, {"moment_id": True}], "s") == rows
