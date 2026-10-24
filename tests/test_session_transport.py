@@ -225,3 +225,72 @@ def test_profile_rejection_is_distinct_from_transport_outage_and_never_replayed(
     assert request.call_count == 1
     assert cfg.paired is True
     assert cfg.explicit_profile_id == "explicit-profile"
+
+
+
+def _profile_scope_response(response, owner="resolved-profile"):
+    response.json.return_value = {"success": True, "owner_profile_id": owner,
+        "history_scope": "profile", "user_id": None, "messages": []}
+
+
+def test_profile_scope_read_is_isolated_closed_and_discards_bodies(transport):
+    client, cfg, request, response = transport
+    cfg.explicit_profile_id = ""
+    _profile_scope_response(response)
+    response.json.return_value["messages"] = [{"text": "not imported"}]
+    assert client.private_scope_owner(client.binding()) == "resolved-profile"
+    args, kw = request.call_args
+    assert args == ("GET", "http://fixture.invalid/api/djconnect/v1/ask_dj/history")
+    assert kw["params"]["conversation_scope"] == "profile" and kw["params"]["history_contract_version"] == 2
+    assert kw["allow_redirects"] is False and kw["stream"] is True
+    assert request.call_count == 1
+
+
+@pytest.mark.parametrize("status,category", [(401, "denied"), (403, None)])
+def test_profile_scope_denial_precedes_body_without_replay(transport, status, category):
+    client, _, request, response = transport
+    response.status_code = status
+    response.iter_content.side_effect = AssertionError("denial must not decode body")
+    if category:
+        with pytest.raises(SessionError, match=category):
+            client.private_scope_owner(client.binding())
+    else:
+        assert client.private_scope_owner(client.binding()) is None
+    response.iter_content.assert_not_called()
+    assert request.call_count == 1
+
+
+@pytest.mark.parametrize("changes", [{"history_scope": "user"}, {"owner_profile_id": "other-owner"}, {"owner_profile_id": " owner "}, {"owner_profile_id": None}, {"user_id": "ha-user"}, {"messages": None}, {"messages": ["body"]}])
+def test_malformed_profile_scope_cannot_admit_owner(transport, changes):
+    client, cfg, _, response = transport
+    cfg.explicit_profile_id = ""
+    _profile_scope_response(response); response.json.return_value.update(changes)
+    with pytest.raises(SessionError, match="invalid"):
+        client.private_scope_owner(client.binding())
+
+
+def test_scope_denial_handling_cannot_be_selected_for_other_routes(transport):
+    client, _, request, _ = transport
+    with pytest.raises(SessionError, match="invalid"):
+        client._request(client.binding(), "POST", "command", {"command": "play"}, private_probe=True)
+    request.assert_not_called()
+
+
+def test_owner_witness_changes_binding_without_config_type_or_selection(transport):
+    client, cfg, _, _ = transport
+    cfg.explicit_profile_id = cfg.active_profile_id = ""
+    client.owner_scope = lambda: ("server-owner", True, 1)
+    before = vars(cfg).copy()
+    binding = client.binding()
+    assert binding.profile_id == binding.resolved_profile_id == "server-owner"
+    assert binding.private_authorized and binding.profile_type == binding.privacy_mode == ""
+    assert vars(cfg) == before
+    client.owner_scope = lambda: ("server-owner", False, 2)
+    assert binding != client.binding()
+
+
+def test_owner_witness_cannot_override_existing_local_choice(transport):
+    client, cfg, _, _ = transport
+    client.owner_scope = lambda: ("injected", True, 1)
+    assert client.binding().profile_id == cfg.explicit_profile_id
+    assert not client.binding().private_authorized

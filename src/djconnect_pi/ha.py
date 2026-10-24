@@ -54,6 +54,12 @@ class DJConnectError(RuntimeError):
     pass
 
 
+class ProfileContextError(DJConnectError):
+    def __init__(self, code: str, message: str):
+        self.code = code
+        super().__init__(message)
+
+
 class BackendUnavailable(DJConnectError):
     pass
 
@@ -78,6 +84,7 @@ class ProtocolVersionMismatch(DJConnectError):
 
 
 PROFILE_ERROR_CODES = {
+    "profile_device_mismatch",
     "profile_required",
     "invalid_profile",
     "device_not_mapped",
@@ -372,6 +379,7 @@ class HAClient:
             body["music_dna_key"] = self.cfg.music_dna_key
         data = self._try_websocket(message_type, body, command=message_type, timeout=max(self.timeout, 10.0))
         if data is not None:
+            _require_music_dna_success(data)
             self.update_backend_summary(data)
             self.apply_profile_context(data)
             self._apply_music_dna_key(data)
@@ -383,6 +391,7 @@ class HAClient:
         response = requests.post(url, json=body, headers=self._headers(), timeout=self.timeout)
         _LOGGER.debug("POST %s returned HTTP %s in %.0fms", url, response.status_code, _elapsed_ms(started))
         data = self._json(response)
+        _require_music_dna_success(data)
         self.apply_profile_context(data)
         self.update_backend_summary(data)
         self._apply_music_dna_key(data)
@@ -847,10 +856,10 @@ def _http_error_response(response: requests.Response, data: dict[str, Any]) -> d
     _LOGGER.warning("Home Assistant returned HTTP %s: %s", response.status_code, error)
     if (response.status_code, error) in {(404, "no_track_playing"), (429, "rate_limited")}:
         return {**data, "success": False, "error": error}
-    if error in PROFILE_ERROR_CODES:
+    if error in PROFILE_ERROR_CODES | {"music_dna_context_changed"}:
         message = str(data.get("message") or error)
         _LOGGER.warning("Home Assistant rejected profile context: error=%s message=%s", error, message)
-        raise DJConnectError(message)
+        raise ProfileContextError(error, message)
     if response.status_code in {401, 403, 404}:
         raise AuthenticationError(error)
     raise DJConnectError(f"Home Assistant returned HTTP {response.status_code}: {error}")
@@ -872,10 +881,10 @@ def _raise_response_domain_error(data: dict[str, Any]) -> None:
         message = str(data.get("message") or "Music backend changed; ask DJ again before using this action.")
         _LOGGER.warning("Home Assistant rejected stale backend action: error=%s message=%s", error, message)
         raise StaleBackendAction(message)
-    if error in PROFILE_ERROR_CODES:
+    if error in PROFILE_ERROR_CODES | {"music_dna_context_changed"}:
         message = str(data.get("message") or error or "Profile request failed")
         _LOGGER.warning("Home Assistant rejected profile context: error=%s message=%s", error, message)
-        raise DJConnectError(message)
+        raise ProfileContextError(error, message)
 
 
 def _raise_backend_unavailable(data: dict[str, Any]) -> None:
@@ -1217,3 +1226,9 @@ def _compatible_ha_version(client_version: str, ha_version: str) -> bool:
     if client_major_minor is None or ha_major_minor is None:
         return False
     return client_major_minor == ha_major_minor
+
+
+def _require_music_dna_success(data: dict[str, Any]) -> None:
+    if data.get("success") is False:
+        _raise_response_domain_error(data)
+        raise DJConnectError("Music DNA request rejected")
