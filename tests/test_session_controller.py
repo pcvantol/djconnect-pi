@@ -1079,3 +1079,40 @@ def test_raw_context_revocation_hides_all_private_models_without_gui_tick(contro
     assert not state["sessions"] and not state["timeline"] and not state["search"]
     assert not state["retained_flow"] and not state["current_reply"] and not state["pending_question"]
     assert not state["session_id"] and not state["loaded"]
+
+
+
+def test_flow_native_join_falls_back_only_to_independently_retained_original_body(controller):
+    from copy import deepcopy
+
+    from test_session_projection import live_fixture
+    owner, _ = controller
+    host = clock_fixture(owner)
+    session = live_fixture()
+    grant = session["broadcast"]["native_delivery"]["admissions"][0]
+    grant["display_expires_at"] = "2026-10-20T00:00:03Z"
+    grant["source_expires_at"] = "2026-10-20T00:00:03Z"
+    owner._session = session
+    from djconnect_pi.session_history_view import live_presentations
+    owner._moments = live_presentations(session, now=host.wall)
+    row = {"entry_id": "retained", "session_id": "s1", "kind": "dj_moment", "moment_id": "m1", "text": "independent retained prose", "retained_until": "2026-10-20T00:00:05Z"}
+    owner._retained_flow = [row]
+    original = deepcopy(row)
+    assert owner.state["moments"] and not owner.state["flow_retained"]
+    assert owner.state["retained_flow"] == [original]
+    host.tick = 4; owner._expire()
+    assert not owner.state["moments"]
+    assert owner.state["flow_retained"] == [original]
+    assert row == original
+    host.tick = 6; owner._expire()
+    assert not owner.state["moments"] and not owner.state["retained_flow"] and not owner.state["flow_retained"]
+
+
+def test_raw_scope_withdrawal_masks_joined_presentation_as_well(controller):
+    owner, backend = controller
+    _personal_owner(owner, backend)
+    owner.refresh(); backend.jobs.pop()()
+    owner._retained_flow = [{"entry_id": "secret", "kind": "conversation_dj"}]
+    assert owner.state["flow_retained"]
+    backend.cfg.device_token = "changed"
+    assert owner.state["flow_retained"] == []

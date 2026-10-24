@@ -2533,3 +2533,48 @@ including after reopening only that frontend. No simulator reset, source
 adoption, credential extraction or other Apple-lane takeover. New iPad not
 paired or comparison-PASS. Codex cross-lane bridge still reports Transport
 closed; no failed handoff is represented as delivered or independent review.
+
+### Exact native/retained Moment presentation join (2026-10-24)
+
+A current admitted Moment and retained dj_moment from the same original
+Session+moment_id render once. Only a derived flow_retained presentation changes;
+canonical retained_flow, entry IDs, kinds, original bodies/attribution/deadlines,
+archive/search/selection and wire contracts remain unchanged. Text/title equality,
+foreign Sessions, publication/silence/conversation/playback rows never join.
+Source withdrawal/expiry restores only independently still-retained prose.
+Original retained expiry cannot withdraw or extend separately admitted native
+prose. No retained body is promoted to native/artwork authority.
+
+The same existing five-key RAM reading descriptor can resolve its fresh alternate
+native/retained card (or prose body) by original Moment ID. No body, grant or
+extra entry→Moment map is cached. Missing/expired current references reset safely;
+original Profile/Session, touch, foreground and bounded8-layout fences remain.
+Original Apple3c223b9 SessionTimelineLiveRows.merge independently supplies the
+exact-ID omission pattern; this slice does not claim a full mixed chronological
+Flow or new Bulletin/native rights.
+
+19 new cases;170 focused PASS;FULL3478 integrated/no skips53.46s in isolated
+Debian13/aarch64/Python3.13.5/Qt6.11.2 VM. Ruff0.16/diff PASS.836 actual final
+current-source Qt views:120 exact-ID/fallback/independent-expiry/foreign-kind/
+reading-target cases,436 UNMODIFIED composer,180 UNMODIFIED artwork,100 UNMODIFIED
+history windows. Both formats/five locales;zero QMLerrors/bindingloops. Final
+layouts visually inspected. Local reviewwheel84runtimefiles SHA256
+dcec92424d589a7039ebf5696d8d874b92f8602aa51f7a4c3d460991e5d763f9
+matches source; no officialrc6 overwrite/publication/physical install.
+
+Evidence pi-unattended-vm/results/flow-native-join/qml-v5/verification.json and
+results/flow-join-offline-v1, input/flow_native_join_qml.py, evidence/flow-join-*
+package/manifest receipts. Baseline loads original verified6fe wheel78a7203,
+not an installed downgrade: unchanged harness shows native1+retained1; final
+shows1+0. Original producer fixture bytes unchanged; new joins/prose/clock/UI
+history transitions are synthetic. These are genuine Qt layout/pixel tests,
+not new physical touch/navigation/provider/model acceptance. Actual normal
+live VM ID-only reads independently confirm the same Moment ID in both
+projections, without exporting bodies or issuing effects.
+
+Diagnostics preserved: initial external harness could not access component IDs;
+explicit fixture QObject bindings fix that. PySide evaluate returned(value,
+undefined)tuple; fixture now unwraps the value. v1-v4 are INTERMEDIATE/failed,
+not counted with120final. One import-order fix; one git-diff check accidentally
+ran in the non-Git QA snapshot and is not qualification; final own-worktree diff
+check passed. Startup font diagnostics retained. No resource cleanup by Pi.

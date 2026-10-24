@@ -3263,3 +3263,23 @@ The requested paired-iPad comparison is pending Device Hub's missing simulator
 inventory: both existing and dedicated newly created simulator are booted in
 CoreSimulator but not accessible in the normal frontend. No comparison parity
 or iPad pairing is claimed.
+
+### Native/retained Flow duplicate and reading continuity (2026-10-24)
+
+The same current Session+Moment-ID now renders once when independently admitted
+native prose overlaps retained dj_moment history, matching the exact-ID pattern
+in pinned Apple3c223b9. A derived visible list leaves canonical history and
+selection unchanged. Text/title equality never joins rows; foreign Sessions,
+publication/silence/conversation/playback kinds remain distinct. When native
+admission expires or withdraws, only the originally retained body may reappear
+under its own unchanged lifetime. Reading can resolve the fresh alternate card
+or prose body without storing a body/ID/grant mapping. Full mixed chronological
+Flow and remaining Apple/private/media features are still open.
+
+19new/170focused/FULL3478 plus836 actual current-source Qt views pass; see TESTS.
+This is source/isolated-VM qualification, not physical Pi deployment or complete
+Apple parity. The own pinned Apple project3c223b9 now builds and runs normally
+on dedicated iPad024279B0 through Xcode27.1. Device Hub still lacks a usable
+simulator surface; no new iPad credential, HA pairing or matched-session-screen
+comparison is claimed. Apple worktree/WIP and other simulator instances remain
+untouched.

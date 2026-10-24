@@ -13,6 +13,7 @@ Item {
     readonly property bool sessionControlsVisible: !historical && state.session_id.length > 0 && !state.owner_read_only
     property var owner: backend.djSession
     property var state: owner.state
+    readonly property var displayedRetainedFlow: state.flow_retained || state.retained_flow
     readonly property string scopeProfileId: state.owner_profile_id || backend.activeProfileId
     readonly property string artworkTint: {
         if (!visible || historical) return ""
@@ -154,7 +155,7 @@ Item {
         for (var g = 0; g < groups.length; g++) {
             for (var i = 0; i < groups[g].count; i++) {
                 var card = groups[g].itemAt(i)
-                if (!card) continue
+                if (!card || !card.visible) continue
                 var y = card.mapToItem(historyScroll.contentItem, 0, 0).y
                 if (y + card.height > 0 && y < historyScroll.contentItem.height && isFinite(y) && Math.abs(y) <= 1000000 && (!best || y < best.offset)) {
                     best = {session: state.session_id, profile: scopeProfileId,
@@ -200,7 +201,8 @@ Item {
                 typeof saved.offset !== "number" || !isFinite(saved.offset) || Math.abs(saved.offset) > 1000000) return false
         if (saved.kind === "playback") return state.playback.item_id === saved.id && playbackSources.ready
         if (saved.kind === "current_reply") return state.current_reply.reply_id === saved.id
-        if (saved.kind === "moment" || saved.kind === "moment_text") return state.moments.some(function(row) { return row.moment_id === saved.id })
+        if (saved.kind === "moment" || saved.kind === "moment_text") return state.moments.some(function(row) { return row.moment_id === saved.id }) ||
+            displayedRetainedFlow.some(function(row) { return row.kind === "dj_moment" && row.session_id === state.session_id && row.moment_id === saved.id })
         if (saved.kind === "conversation") return state.retained_flow.some(function(row) { return row.entry_id === saved.id })
         return false
     }
@@ -213,6 +215,21 @@ Item {
             var card = rows.itemAt(i)
             var id = card ? (nativeRow ? card.modelData.moment_id : card.modelData.entry_id) : ""
             if (id === saved.id) return saved.kind === "moment_text" ? card.bodyItem : card
+        }
+        // Resolve a fresh alternate presentation by the same original Moment ID.
+        // Never keep a body/ID mapping after either current model withdraws it.
+        var momentId = nativeRow ? saved.id : ""
+        if (!nativeRow) {
+            var entry = state.retained_flow.filter(function(row) { return row.entry_id === saved.id && row.kind === "dj_moment" && row.session_id === state.session_id })
+            if (entry.length !== 1 || typeof entry[0].moment_id !== "string") return null
+            momentId = entry[0].moment_id
+        }
+        var alternate = nativeRow ? conversationRows : liveMomentRows
+        for (var j = 0; j < alternate.count; j++) {
+            var other = alternate.itemAt(j)
+            if (other && other.visible && other.modelData.moment_id === momentId &&
+                    (!nativeRow || (other.modelData.kind === "dj_moment" && other.modelData.session_id === state.session_id)))
+                return saved.kind === "moment_text" ? other.bodyItem : other
         }
         return null
     }
@@ -976,7 +993,7 @@ Item {
             }
             Text {
                 objectName: "sessionRetainedFlowLabel"
-                visible: !screen.historical && screen.state.retained_flow.length > 0
+                visible: !screen.historical && screen.displayedRetainedFlow.length > 0
                 text: screen.tr("session_retained_flow"); textFormat: Text.PlainText
                 color: BrandTheme.colors.muted; font.pixelSize: 18; wrapMode: Text.WordWrap; Layout.fillWidth: true
             }
@@ -984,7 +1001,7 @@ Item {
                 id: conversationRows
                 objectName: "sessionConversationRows"
                 // Presentation only: canonical owner/model order remains ascending.
-                model: !screen.historical ? screen.state.retained_flow.slice().reverse() : []
+                model: !screen.historical ? screen.displayedRetainedFlow.slice().reverse() : []
                 SessionRetainedEntry {
                     objectName: "sessionConversationCard"
                     required property var modelData
