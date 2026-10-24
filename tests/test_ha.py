@@ -1226,6 +1226,35 @@ def test_auth_stale_success_false_errors_raise_authentication_error(error: str) 
         client._json(FakeResponse(200, {"success": False, "error": error}))
 
 
+@pytest.mark.parametrize("status_code", [200, 403, 409])
+def test_profile_device_mismatch_is_rejected_without_authentication_failure(status_code: int) -> None:
+    cfg = Config(ha_url="http://ha", device_token="paired-device", paired=True,
+                 active_profile_id="profile-old", explicit_profile_id="profile-old")
+    client = HAClient(cfg)
+    with pytest.raises(DJConnectError) as error:
+        client._json(FakeResponse(status_code, {"success": False, "error": "profile_device_mismatch"}))
+    assert not isinstance(error.value, AuthenticationError)
+    assert cfg.paired is True
+    assert cfg.device_token == "paired-device"
+    assert cfg.explicit_profile_id == cfg.active_profile_id == "profile-old"
+
+
+@pytest.mark.parametrize("command", ["status", "queue", "playlists"])
+def test_profile_device_mismatch_command_has_one_http_request_and_no_profile_adoption(command: str) -> None:
+    cfg = Config(ha_url="http://ha", device_token="paired-device", paired=True,
+                 websocket_fast_path_enabled=False, active_profile_id="profile-old",
+                 explicit_profile_id="profile-old")
+    client = HAClient(cfg)
+    with patch("djconnect_pi.ha.requests.post", return_value=FakeResponse(
+        403, {"success": False, "error": "profile_device_mismatch", "profile_id": "profile-other"}
+    )) as post, pytest.raises(DJConnectError) as error:
+        client.command(command)
+    assert not isinstance(error.value, AuthenticationError)
+    assert post.call_count == 1
+    assert cfg.paired is True and cfg.device_token == "paired-device"
+    assert cfg.active_profile_id == cfg.explicit_profile_id == "profile-old"
+
+
 def test_empty_2xx_response_is_contract_error(caplog) -> None:
     client = HAClient(Config(ha_url="http://ha"))
     caplog.set_level("WARNING")
@@ -1846,3 +1875,20 @@ def test_websocket_failure_logging_omits_tokens_and_raw_prompt(caplog) -> None:
     assert "secret-token" not in caplog.text
     assert "ha-secret-token" not in caplog.text
     assert "raw private prompt" not in caplog.text
+
+
+@pytest.mark.parametrize("transport", ["http", "websocket"])
+@pytest.mark.parametrize("code", ["music_dna_context_changed", "profile_device_mismatch", "music_dna_unavailable"])
+def test_rejected_music_dna_response_never_adopts_context_or_key(transport, code):
+    cfg = Config(ha_url="http://ha", paired=True, device_token="device-token",
+                 active_profile_id="original", explicit_profile_id="original", music_dna_key="original-key")
+    client = HAClient(cfg)
+    rejected = {"success": False, "error": code, "profile_id": "foreign",
+                "music_dna_key": "foreign-key", "enabled": True, "profile": {"summary": "rejected"}}
+    with patch.object(client, "_try_websocket", return_value=rejected if transport == "websocket" else None), patch(
+        "djconnect_pi.ha.requests.post", return_value=FakeResponse(200, rejected)
+    ) as post, pytest.raises(DJConnectError):
+        client._music_dna_request("djconnect/music_dna/profile", "music_dna/profile", {})
+    assert post.call_count == (transport == "http")
+    assert cfg.active_profile_id == cfg.explicit_profile_id == "original"
+    assert cfg.music_dna_key == "original-key" and cfg.paired

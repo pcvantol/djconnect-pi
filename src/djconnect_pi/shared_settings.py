@@ -129,6 +129,7 @@ class SharedSettingsClient:
     def __init__(self, config: Callable, timeout: float = 4.0) -> None:
         self.config = config
         self.timeout = timeout
+        self.owner_context = None
         self._lock = RLock()
         self._context: tuple = ()
         self._snapshot: dict | None = None
@@ -142,7 +143,8 @@ class SharedSettingsClient:
             c.ha_url,
             c.device_id,
             c.device_token,
-            getattr(c, "active_profile_id", ""),
+            ((getattr(c, "active_profile_id", ""), self.owner_context())
+             if self.owner_context is not None else getattr(c, "active_profile_id", "")),
         )
 
     def _identity(self) -> dict:

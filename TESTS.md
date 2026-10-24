@@ -2388,3 +2388,193 @@ without replay. Intermediate3307 and failed causal/fixture runs are retained
 separately. Fresh native host verify after concrete owner progress returned MATCH;
 previous13-file DRIFT is historical. CoreFinal qualification and distinct V3
 operative binding remain required; no physical repair is asserted.
+
+
+### Profile-device mismatch must not erase pairing
+
+A real wall4 failure on 2026-10-23 first returned HTTP403
+`profile_device_mismatch` at08:59:03UTC, followed by HTTP401 after local pairing
+was lost. The existing HTTP classifier treated this protected Core Profile
+error as AuthenticationError. Add only the released code to the existing
+Profile-error set: reject the request as DJConnectError, without adopting a
+Profile, changing selection, replaying the request or erasing pairing. Explicit
+unauthorized/stale-token handling remains unchanged. The code literal is
+independently verified in protected Core736378/api_handlers.py, not Core WIP.
+
+Seven new cases exercise HTTP200/403/409, one actual command-request seam for
+status/queue/playlists, and the real backend worker/error handler plus persisted
+configuration. Before fix6FAIL/1PASS; after fix244 directed PASS. Full integrated
+3318PASS/no skips56.52s; Ruff0.16 src/tests and diff PASS. All network seams in the
+new tests are synthetic; the full suite retains existing permitted loopbacks.
+No QML/i18n bytes changed; no new Qt-view/ARM/installed/live acceptance is claimed.
+The local review wheel is separate from immutable official rc6 assets.
+
+Physical status is separately preserved: recovery39925675497 succeeded,
+smoke39926183800 remains FAILED/SMOKE_INCONCLUSIVE. Peter confirmed the actual
+app visible after recovery. Subsequently the existing runtime lost pairing;
+TigerVNC's real pixels and local API both show the pairing state. No new pair,
+reset, token patch, claim reset or installation was performed for this fix.
+The HA Store mapping to the intended Profile and the old config-entry binding
+still require owning reconciliation. See PI4_PROFILE_MISMATCH_REPAIR.md.
+
+
+### Music DNA failure is separate from disabled consent
+
+21 new HTTP/WebSocket/backend-worker cases: rejected responses cannot update
+Profile/key/content, failed reads do not become opt-in, explicit successful read
+recovers, auth/protocol classifications remain intact. Initial15cases14FAIL/1PASS
+on original source. Full3339PASS/no skips48.13s; final QML50views/10real Qt
+refresh clicks/two formats/five locales, zero QMLerrors/bindingloops. Final
+first-third error geometry retained after visual spacer regression fix. Existing
+i18n keys only. Ruff0.16 no-cache/diff PASS. Local review package80runtimefiles
+matches source, no officialrc6 overwrite/install. Logs/failed intermediate runs
+retained under pi4-four-features-20261023; final view set dna-qml-final-v4 only.
+Pi10's authorized single reboot retained pairing; readonly queue19/playlists39
+is separate from native UI/Session/Music DNA acceptance, still unverified.
+Config-entry/Store mismatch alone is not proof of server cause; no blind edit.
+
+
+### Pi10 native VibeScape and individual-content consent foundation
+
+Protected Apple3c223b9 visual source is independently pinned. Pi5-only explicit
+native RHI/OpenGL visit: four Mood palettes, bounded procedural field, local
+dynamics/touch, reduced motion, honest non-GL/shader failure and immediate
+Profile/Session/pairing/background withdrawal. Explicit latch prevents returned
+contexts from reopening. Logical idle/return-to-now are held only during the
+visit; normal brightness and timers remain. No microphone, STT, audio analysis,
+provider/model call, scene persistence or iOS visual-director wire adoption.
+
+44 new identifier-only content-consent/isolated-HTTP cases plus2 actual isolated
+Qt admission/context regressions:46 focused PASS; FINAL3385 full integrated
+PASS/no skips49.28s in Debian13/aarch64/Python3.13.5/Qt6.11.2 VM. Ruff0.16 src/tests
+and diff PASS. Final frozen runtime:150broad/436UNMODIFIEDcomposer/180UNMODIFIED
+artwork QML views;20non-GL fallback +25native GL view/interaction records, all5
+locales. Separate final40 native integration cases prove Pi4 absence, Pi10
+entry/exit, brightness pixels, original timer restoration, scope withdrawal and
+no automatic re-entry. Zero QMLerrors/bindingloops; startup font diagnostics kept.
+VM renderer is llvmpipe, NOT physical Pi5 GPU/installed/touch/performance proof.
+
+The content-consent foundation uses released58561f97+Finalb4bf4701, original
+confirmation/UUID lifetime and atomic one-claim, strict owner/unit/scope/digest,
+read-only original status, closed paired identity without Profile/private body
+hints. It is NOT connected to a delete UI/worker/invalidation: individual content
+erasure remains open; no personal erasure was performed. Existing archive single,
+bulk and status remain separate.
+
+All diagnostics retained: initial no-resize QQuickView/translation fixture;
+QML palette-name clash fixed; stale-copy readonly Git-object diagnostic;
+3374PASS5FAIL wrong-runner-cwd corrected; root bindingloop fixed by explicit
+latch; artificial interval1 and wrong paired/brightness fixture notifications
+corrected to real events without weakening assertions. Earlier aggregate runs
+remain FAILED, not relabelled. Final native integration separately replaces the
+last failed brightness-fixture phase on byte-identical frozen product source.
+Evidence: pi-unattended-vm/evidence/VIBESCAPE_QUALIFICATION_FINAL.json with per-run
+logs/manifests and final snapshots; old packages/views are INTERMEDIATE. Final
+local reviewwheel84files SHA5f89487248f83be23ab009bc8320bcc70359e962e2770950b3e1fe479a590567
+matches current source. No officialrc6 overwrite/publication/deployment. Fresh
+actual-root host MATCH is readiness only. See docs/PI10_VIBESCAPE.md.
+
+### Server-owned Session/Profile access without a local second selection
+
+The paired client can now use the existing protected Core8b / Apple3c223b9
+Profile-conversation read (`GET ask_dj/history`, scope profile, contract2) as
+personal-read evidence. The current Session owner is independently joined to
+that exact owner; bodies from this probe are discarded. No Profile type,
+privacy mode, config selection, lifetime, media grant or new wire field is
+fabricated. A successful personal read exposes the existing private functions;
+403 from only this closed probe retains a separately admitted active Session
+without private composer/archive/media.401 and other denials remain failures.
+Without an active Runtime, admitted personal access exposes SessionStartCard;
+no Start or question is sent automatically. Household metadata alone does not
+admit private chat. Each resource retains its original admission/deadlines.
+
+RAM owner epochs prevent revoke/regrant ABA; original context, foreground,
+queued intent and late response fences remain. An owner/permission transition
+withdraws existing private models and open composer/VibeScape visits. Legacy
+Music DNA/Discover/Insight/chat results carry RAM-only original-context tickets;
+shared settings bind their pending/read context to the same owner epoch.
+No device credential or local Profile choice is replaced.
+
+External evidence: pi-unattended-vm/results/private-owner-offline-v11 and
+private-owner-qml-v11, plus evidence/private-owner-package-verification-v11.json.
+Full Debian13/aarch64/Python3.13.5/Qt6.11.2 collection:3459 PASS/no skips.
+Targeted final app/settings/controller/transport:406 PASS.40 actual targeted
+Qt views across both formats/five locales exercise personal active/create,
+real keyboard opening, unsent draft and permission withdrawal; zero QML errors
+or binding loops. Broader current-source QML regression receipts are kept in
+the same offline run. They are synthetic transport, not live HA/provider or
+physical touch/GPU proof. Original fixture bytes remain unchanged.
+
+Diagnostics retained: older local full run's mDNS5353 conflict; intermediate
+VM snapshot missing its QA-only installer git mode index; old household-private
+expectation corrected to the explicit personal-only product decision; shared
+settings test expected reload but the existing late-context classification is
+denied. Earlier read-only-only candidate results are intermediate. Reviewwheel
+84 runtime files matches source:78a7203f3dd632449d6bdc47191600d72e1e2e84135fbb6bca39efcb0724794f.
+The first package audit mistakenly included a nonpackaged fonts/README.md;
+the final audit compares all84 actual wheel runtime entries byte for byte.
+No officialrc6 overwrite, protected merge or physical installation is implied.
+
+Final broader current-source QML run:436 composer +180 artwork +150 broad =766
+views, all PASS, zero errors/bindingloops;40 targeted private-owner views are
+separate, total806 current candidate views. VM live QA activation preserved
+paired credential and blank local Profile selection. Normal existing paired
+reads confirm personal owner fd38 and active Session; actual CUA opens Flow and
+the large unsent Ask DJ keyboard. Live receipt/capture remain private under
+pi-unattended-vm/evidence/PRIVATE_OWNER_LIVE_READBACK_v11.json and
+VM-LIVE-PRIVATE-KEYBOARD-v11.png. No new Session/question/provider write/erase.
+This is QA source-private-owner-v11, not an official physical deployment.
+
+Paired iPad comparison is not yet qualified. Existing iPadVisual6970 has
+DJConnect4.0.0/build40021; Device Hub reports No Simulators despite simctl's
+booted inventory. Normal UI created the dedicated Pi Apple parity comparison
+E8414A1D-E7E3-40CC-89DA-3BF703C96A06, also booted but absent from Device Hub,
+including after reopening only that frontend. No simulator reset, source
+adoption, credential extraction or other Apple-lane takeover. New iPad not
+paired or comparison-PASS. Codex cross-lane bridge still reports Transport
+closed; no failed handoff is represented as delivered or independent review.
+
+### Exact native/retained Moment presentation join (2026-10-24)
+
+A current admitted Moment and retained dj_moment from the same original
+Session+moment_id render once. Only a derived flow_retained presentation changes;
+canonical retained_flow, entry IDs, kinds, original bodies/attribution/deadlines,
+archive/search/selection and wire contracts remain unchanged. Text/title equality,
+foreign Sessions, publication/silence/conversation/playback rows never join.
+Source withdrawal/expiry restores only independently still-retained prose.
+Original retained expiry cannot withdraw or extend separately admitted native
+prose. No retained body is promoted to native/artwork authority.
+
+The same existing five-key RAM reading descriptor can resolve its fresh alternate
+native/retained card (or prose body) by original Moment ID. No body, grant or
+extra entry→Moment map is cached. Missing/expired current references reset safely;
+original Profile/Session, touch, foreground and bounded8-layout fences remain.
+Original Apple3c223b9 SessionTimelineLiveRows.merge independently supplies the
+exact-ID omission pattern; this slice does not claim a full mixed chronological
+Flow or new Bulletin/native rights.
+
+19 new cases;170 focused PASS;FULL3478 integrated/no skips53.46s in isolated
+Debian13/aarch64/Python3.13.5/Qt6.11.2 VM. Ruff0.16/diff PASS.836 actual final
+current-source Qt views:120 exact-ID/fallback/independent-expiry/foreign-kind/
+reading-target cases,436 UNMODIFIED composer,180 UNMODIFIED artwork,100 UNMODIFIED
+history windows. Both formats/five locales;zero QMLerrors/bindingloops. Final
+layouts visually inspected. Local reviewwheel84runtimefiles SHA256
+dcec92424d589a7039ebf5696d8d874b92f8602aa51f7a4c3d460991e5d763f9
+matches source; no officialrc6 overwrite/publication/physical install.
+
+Evidence pi-unattended-vm/results/flow-native-join/qml-v5/verification.json and
+results/flow-join-offline-v1, input/flow_native_join_qml.py, evidence/flow-join-*
+package/manifest receipts. Baseline loads original verified6fe wheel78a7203,
+not an installed downgrade: unchanged harness shows native1+retained1; final
+shows1+0. Original producer fixture bytes unchanged; new joins/prose/clock/UI
+history transitions are synthetic. These are genuine Qt layout/pixel tests,
+not new physical touch/navigation/provider/model acceptance. Actual normal
+live VM ID-only reads independently confirm the same Moment ID in both
+projections, without exporting bodies or issuing effects.
+
+Diagnostics preserved: initial external harness could not access component IDs;
+explicit fixture QObject bindings fix that. PySide evaluate returned(value,
+undefined)tuple; fixture now unwraps the value. v1-v4 are INTERMEDIATE/failed,
+not counted with120final. One import-order fix; one git-diff check accidentally
+ran in the non-Git QA snapshot and is not qualification; final own-worktree diff
+check passed. Startup font diagnostics retained. No resource cleanup by Pi.

@@ -81,6 +81,22 @@ def presented_history(response):
     return result
 
 
+
+def retained_flow_presentation(entries, admitted_moments, session_id):
+    """Omit only a current Session's exact-ID duplicate of admitted native prose.
+
+    Inputs are independently admitted current models. This changes presentation,
+    not canonical history, selection, attribution or either original lifetime.
+    Text equality, titles, publication markers and foreign Sessions never join.
+    """
+    if not isinstance(session_id, str) or not session_id:
+        return list(entries)
+    ids = {row.get("moment_id") for row in admitted_moments
+           if isinstance(row.get("moment_id"), str) and row["moment_id"]}
+    return [row for row in entries if not (row.get("kind") == "dj_moment"
+            and row.get("session_id") == session_id
+            and isinstance(row.get("moment_id"), str) and row["moment_id"] in ids)]
+
 def _highlighted_text(body, marks):
     # Called only after server UTF-16 ranges passed exact character-boundary validation.
     indices = {0: 0}
