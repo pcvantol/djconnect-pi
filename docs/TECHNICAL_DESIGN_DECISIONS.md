@@ -291,3 +291,12 @@ services, config, pairing and display. A source/version match alone is insuffici
 The current canonical operational manifest binds rc.1 to the Pi Zero target only;
 it does not authorize rc.4 or Pi5 deployment. A new exact artifact/target binding
 is required before any operational installation.
+
+The Qt6.12 dependency update retains the existing Python>=3.11 policy. Its
+separate Pdf/WebEngine wheels are upstream PySide6 dependencies; this does not
+introduce a WebView into the Pi app or enable a new feature. Official PyPI
+ARM64 wheels for both the preceding6.11.2 and6.12.0 use manylinux_2_39. The
+Bookworm recommendation elsewhere in bootstrap documentation therefore remains
+an existing unqualified platform gap, not a new6.12 regression or an OS-upgrade
+approval. Compatibility qualification uses isolated Debian13 ARM64 with glibc2.41;
+physical Pi installation and GPU acceptance remain separate.

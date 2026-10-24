@@ -2578,3 +2578,48 @@ undefined)tuple; fixture now unwraps the value. v1-v4 are INTERMEDIATE/failed,
 not counted with120final. One import-order fix; one git-diff check accidentally
 ran in the non-Git QA snapshot and is not qualification; final own-worktree diff
 check passed. Startup font diagnostics retained. No resource cleanup by Pi.
+
+### Qt6.12 dependency compatibility (PR106, 2026-10-24)
+
+The existing dependency PR is synchronized with qualified mainb0dc7fa after
+Source130/Final131 and CodeQL127/Final132. PySide6/Addons/Essentials/shiboken
+are6.12.0; upstream Pdf/WebEngine split dependencies are pinned6.12.0.140.
+Application source/QML/QSB bytes remain unchanged. No WebView feature is added.
+
+An isolated Debian13/aarch64/Python3.13.5/glibc2.41 QA environment preserves the
+running Qt6.11 QA app. FINAL exact candidate runtime/tests/lock:3479PASS/no skips
+60.57s, process exit0; pip check PASS. New slow-splash regression plus original
+Pi4/Pi10 cases:3PASS on preceding Qt6.11.2. Ruff0.16 src/tests and diff PASS.
+Actual current-runtime Qt6.12 views:150broad+436composer+180artwork+100history
+=866offscreen views, both formats/five locales, no QML errors/bindingloops.
+The unchanged shader also passes25VibeScape mood/interaction views on VM
+OpenGL llvmpipe. That is software rendering, not physical Pi GPU acceptance.
+One final Dutch shader capture was visually inspected. Existing startup font
+warnings are retained. No real network/provider/model/HA/device operation ran;
+functional suites use only loopback in an isolated network namespace.
+
+Initial Qt6.12 full run was3477PASS/1FAIL/exit1: first VibeScape click1200 did
+not open. It remains FAILED. Six bounded unmodified-probe comparisons (three
+per Qt version) passed; they do not erase that failure. A separate explicit
+synthetic2000ms splash transition reproduces intercepted clicks on BOTH Qt
+versions with the old500ms fixture. Waiting for the actual splash to disappear
+passes the same assertions on both. The fixture now checks that condition with
+a bounded wait and exercises the slow transition explicitly. No product event,
+admission, withdrawal or click assertion was relaxed. The original one-off
+failure's exact cause is not proven; the specific fixture weakness is proven.
+Earlier historical1477-test bool_dealloc/exit134 diagnostics remain separate;
+no general Qt/PySide native-crash root cause or upstream fix is claimed.
+
+FINAL local reviewwheel SHA256
+90b987715446c4d75514dc3ceb63e438a352657077cf827998a7452ae50d30e9
+matches84runtimefiles; its metadata requires PySide6==6.12.0. All85tracked
+src files are byte-equal to the QML-qualified runtime. Official6.11.2 AND6.12.0
+ARM wheels share manylinux_2_39; the older Bookworm bootstrap-doc gap remains
+separate, not a new dependency regression or permission for an OS upgrade.
+Source/main CI, independent exact review and separate Final remain required.
+No officialrc6 overwrite/publication/physical install or touch claim.
+
+Raw results, source manifest, original failure, finite comparison/causal harnesses,
+package receipt and official PyPI metadata remain in
+/Volumes/Shared Data/tmp/pcvantol/pi-open-pr-merges-20261024. The intermediate
+3479-run and earlier836Qt/source130 proof are not added to these final totals.

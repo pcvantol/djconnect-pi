@@ -7,7 +7,7 @@ from unittest.mock import Mock, patch
 
 from PySide6.QtCore import QObject, QPoint, Qt, QTimer, qInstallMessageHandler
 from PySide6.QtGui import QGuiApplication
-from PySide6.QtQml import QQmlApplicationEngine
+from PySide6.QtQml import QQmlApplicationEngine, QQmlEngine, QQmlExpression
 from PySide6.QtQuickControls2 import QQuickStyle
 from PySide6.QtTest import QTest
 from shiboken6 import delete
@@ -35,6 +35,23 @@ def find(item, name):
         if r is not None:
             return r
     return None
+
+
+def startup_visible(w):
+    expression = QQmlExpression(QQmlEngine.contextForObject(w), w, "splashPanel.visible")
+    value, undefined = expression.evaluate()
+    assert not expression.hasError(), expression.error().toString()
+    assert not undefined
+    assert type(value) is bool
+    return value
+
+
+def wait_for_startup(w):
+    for _ in range(500):
+        if not startup_visible(w):
+            return
+        QTest.qWait(10)
+    raise AssertionError("startup overlay still intercepts input")
 
 
 def click(w, item):
@@ -93,6 +110,8 @@ with (
         w = e.rootObjects()[0]
         w.setWidth(width)
         w.setHeight(height)
+        if "--slow-splash" in sys.argv:
+            w.setProperty("motionStandard", 2000)
         w.setProperty("splashVisible", False)
         w.setProperty("activeScreen", "session")
         w.requestActivate()
@@ -144,6 +163,9 @@ with (
                 w.property("vibeScapeAllowed"),
             )
             w.grabWindow().save(str(OUT / f"{lang}-before.png"))
+            if "--slow-splash" in sys.argv:
+                assert startup_visible(w), "slow-startup fixture did not exercise overlay"
+            wait_for_startup(w)
             click(w, button)
             visit = find(w.contentItem(), "vibeScapeVisit")
             w.grabWindow().save(str(OUT / f"{lang}-after.png"))
