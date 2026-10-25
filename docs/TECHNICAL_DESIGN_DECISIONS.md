@@ -50,7 +50,7 @@ not install apt packages.
 
 | Convention | Evidence/source |
 | --- | --- |
-| Python 3.11+ syntax and typing | `pyproject.toml` has `requires-python = ">=3.11"`; modules use `from __future__ import annotations`, `list[...]`, `dict[...]` and typed signatures. |
+| Python 3.14 runtime baseline | `pyproject.toml` has `requires-python = ">=3.14.9,<3.15"`; modules use `from __future__ import annotations`, `list[...]`, `dict[...]` and typed signatures. |
 | Standard library first, third-party next, local imports last | Visible consistently in `src/djconnect_pi/*.py`. |
 | `pathlib.Path` for filesystem paths | Used across config, updater, installer tests and daemon code. |
 | `logging.getLogger(__name__)` per module | Used in app, HA client, API daemon, updater and system-info modules. |
@@ -146,13 +146,13 @@ mainly by tests plus `compileall`.
 
 ### Python Runtime Dependencies
 
-Versions below are the exact Python 3.11 pins in `requirements.lock`.
+Versions below are the exact Python 3.14 pins in `requirements.lock`.
 Transitive dependencies are listed because the release installer installs the
 same canonical lock before the application wheel.
 
 | Package | Constraint / observed version | Used by | License model | Source URL |
 | --- | --- | --- | --- | --- |
-| Python | `>=3.11`; observed Pi Python `3.13.5` | all Python entrypoints | Python Software Foundation License | https://www.python.org/ |
+| Python | `>=3.14.9,<3.15`; Python 3.14 migration candidate | all Python entrypoints | Python Software Foundation License | https://www.python.org/ |
 | PySide6 | `6.12.0` | Qt Quick/QML UI bridge | LGPL-3.0-only/GPL-3.0-only/commercial Qt licensing | https://pypi.org/project/PySide6/ |
 | PySide6_Addons | `6.12.0` | PySide6 runtime | LGPL-3.0-only/GPL-3.0-only/commercial Qt licensing | https://pypi.org/project/PySide6-Addons/ |
 | PySide6_Essentials | `6.12.0` | PySide6 runtime | LGPL-3.0-only/GPL-3.0-only/commercial Qt licensing | https://pypi.org/project/PySide6-Essentials/ |
@@ -160,20 +160,20 @@ same canonical lock before the application wheel.
 | PySide6_WebEngine | `6.12.0.140` | PySide6 WebEngine runtime dependency | LGPL-3.0-only/GPL-2.0-only/GPL-3.0-only | https://pypi.org/project/PySide6-WebEngine/ |
 | shiboken6 | `6.12.0` | PySide6 binding generator/runtime | LGPL-3.0-only/GPL-3.0-only/commercial Qt licensing | https://pypi.org/project/shiboken6/ |
 | requests | `2.34.2` | HA HTTP, updater GitHub HTTP, album-art cache | Apache-2.0 | https://pypi.org/project/requests/ |
-| certifi | `2026.7.22` | TLS CA bundle for requests | MPL-2.0 | https://pypi.org/project/certifi/ |
+| certifi | `2026.10.19` | TLS CA bundle for requests | MPL-2.0 | https://pypi.org/project/certifi/ |
 | charset-normalizer | `3.4.9` | requests text decoding | MIT | https://pypi.org/project/charset-normalizer/ |
 | idna | `3.18` | requests IDNA support | BSD-3-Clause | https://pypi.org/project/idna/ |
 | urllib3 | `2.7.0` | requests HTTP transport | MIT | https://pypi.org/project/urllib3/ |
-| websocket-client | `1.9.0` | Optional Home Assistant native `/api/websocket` fast path | Apache-2.0 | https://pypi.org/project/websocket-client/ |
-| zeroconf | `0.150.0` | `_djconnect._tcp` mDNS advertisement | LGPL-2.1-or-later | https://pypi.org/project/zeroconf/ |
+| websocket-client | `1.9.2` | Optional Home Assistant native `/api/websocket` fast path | Apache-2.0 | https://pypi.org/project/websocket-client/ |
+| zeroconf | `0.151.5` | `_djconnect._tcp` mDNS advertisement | LGPL-2.1-or-later | https://pypi.org/project/zeroconf/ |
 | ifaddr | `0.2.0` | zeroconf network interface discovery | MIT | https://pypi.org/project/ifaddr/ |
 
 ### Python Build/Test Dependencies
 
 | Package/tool | Constraint / version source | Used by | License model | Source URL |
 | --- | --- | --- | --- | --- |
-| setuptools | `83.0.0` | PEP 517 build backend | MIT | https://pypi.org/project/setuptools/ |
-| pip | `26.1.2` | wheel/install operations | MIT | https://pypi.org/project/pip/ |
+| setuptools | `84.0.0` build backend; `83.0.0` runtime/test lock | PEP 517 build backend | MIT | https://pypi.org/project/setuptools/ |
+| pip | `26.2.2` | wheel/install operations | MIT | https://pypi.org/project/pip/ |
 | pytest | `9.1.1` | test suite | MIT | https://pypi.org/project/pytest/ |
 | pluggy | pytest transitive; local test run used `1.6.0` | pytest plugin system | MIT | https://pypi.org/project/pluggy/ |
 | anyio | local pytest plugin environment used `4.13.0` | test plugin environment on maintainer machine | MIT | https://pypi.org/project/anyio/ |
@@ -292,11 +292,9 @@ The current canonical operational manifest binds rc.1 to the Pi Zero target only
 it does not authorize rc.4 or Pi5 deployment. A new exact artifact/target binding
 is required before any operational installation.
 
-The Qt6.12 dependency update retains the existing Python>=3.11 policy. Its
+The Qt6.12 dependency update now follows Peter's explicit Python3.14 migration decision. Its
 separate Pdf/WebEngine wheels are upstream PySide6 dependencies; this does not
 introduce a WebView into the Pi app or enable a new feature. Official PyPI
-ARM64 wheels for both the preceding6.11.2 and6.12.0 use manylinux_2_39. The
-Bookworm recommendation elsewhere in bootstrap documentation therefore remains
-an existing unqualified platform gap, not a new6.12 regression or an OS-upgrade
-approval. Compatibility qualification uses isolated Debian13 ARM64 with glibc2.41;
+ARM64 wheels for both the preceding6.11.2 and6.12.0 use manylinux_2_39. The rc.7 bootstrap guide now names the Trixie/glibc>=2.39 baseline; this
+does not authorize an OS upgrade on an existing device. Compatibility qualification uses isolated Debian13 ARM64 with glibc2.41;
 physical Pi installation and GPU acceptance remain separate.

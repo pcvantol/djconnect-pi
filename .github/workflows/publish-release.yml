@@ -73,7 +73,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: "3.11"
+          python-version: "3.14.9"
 
       - name: Verify protected source and release versions
         shell: bash
@@ -162,7 +162,7 @@ jobs:
           mkdir -p "${dist}"
           cp -R LICENSE README.md CHANGELOG.md docs examples systemd requirements.lock "${dist}/"
           mkdir -p "${dist}/scripts"
-          cp scripts/install.sh "${dist}/scripts/"
+          cp scripts/install.sh scripts/provision_app_python.py "${dist}/scripts/"
           mkdir -p "${dist}/wheels"
           python -m pip wheel --no-deps --wheel-dir "${dist}/wheels" .
           printf '%s\n' "${version}" > "${dist}/VERSION"

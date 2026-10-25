@@ -21,6 +21,7 @@ jobs:
   python:
     uses: pcvantol/djconnect/.github/workflows/djconnect-python-ci.yml@5f12a591647942c50b59162264529fef6896e5e3
     with:
+      python-version: "3.14.9"
       source-path: src
       test-path: tests
       test-command: >-
@@ -75,7 +76,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
-          python-version: "3.11"
+          python-version: "3.14.9"
       - name: Generate exact-SHA coverage report
         run: |
           sudo apt-get update

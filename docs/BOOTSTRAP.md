@@ -1,6 +1,6 @@
 # Bootstrap a DJConnect Raspberry Pi appliance
 
-Release preparation: the rc.6 download examples below become usable only after
+Release preparation: the rc.7 download examples below become usable only after
 separate publication approval and immutable release verification. They are not
 an instruction to install an unpublished candidate or resolve `latest`.
 
@@ -26,8 +26,8 @@ Hardware:
 
 Software:
 
-- Raspberry Pi OS Lite 64-bit, Bookworm recommended
-- Python 3.11 or newer
+- Raspberry Pi OS Lite 64-bit with glibc >=2.39 (Debian Trixie baseline)
+- standard GIL-enabled Python 3.14.9 (the app uses its own virtual environment)
 - PySide6 / Qt Quick runtime
 - Git
 - GitHub CLI only if releases are managed from the Pi itself
@@ -58,7 +58,7 @@ Network:
 Use Raspberry Pi Imager:
 
 1. Choose Raspberry Pi Zero 2 W.
-2. Choose Raspberry Pi OS Lite 64-bit Bookworm.
+2. Choose Raspberry Pi OS Lite 64-bit Trixie; the Qt ARM64 wheels require glibc >=2.39.
 3. Configure hostname, Wi-Fi, SSH and locale before flashing.
 4. Boot the Pi and SSH into it.
 
@@ -205,9 +205,9 @@ completed:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/download/v4.0.0-rc.6/djconnect-pi-4.0.0-rc.6.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/download/v4.0.0-rc.7/djconnect-pi-4.0.0-rc.7.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-4.0.0-rc.6
+cd djconnect-pi-4.0.0-rc.7
 sudo ./scripts/install.sh
 ```
 
@@ -235,9 +235,9 @@ development checkout:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/download/v4.0.0-rc.6/djconnect-pi-4.0.0-rc.6.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/download/v4.0.0-rc.7/djconnect-pi-4.0.0-rc.7.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-4.0.0-rc.6
+cd djconnect-pi-4.0.0-rc.7
 sudo ./scripts/install.sh
 ```
 
@@ -261,8 +261,10 @@ The installer is safe to run over an earlier DJConnect install:
 - resumes completed install steps after interruption or reboot using markers in
   `/opt/djconnect/install-state/<version>/`
 - reuses Python package downloads from `/var/cache/djconnect-pip`
-- removes an incomplete `.venv` automatically before retrying the Python
-  dependency step
+- refuses an incompatible existing virtual environment before stopping the UI
+- prepares the new release and dependencies before stopping the old UI
+- installs hash-pinned app Python under `/opt/djconnect-python/cpython-3.14.9`;
+  OS bootstrap Python remains separate
 
 If the Pi freezes, overheats, loses power or is rebooted during the heavy
 Python/PySide6 dependency install step, wait for it to boot and run the same
@@ -343,7 +345,7 @@ device is installed.
 From a development checkout:
 
 ```sh
-python3 -m venv .venv
+python3.14 -m venv .venv
 . .venv/bin/activate
 pip install --requirement requirements.lock
 pip install --no-deps -e .

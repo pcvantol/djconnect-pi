@@ -306,6 +306,11 @@ def package_system(tmp_path,monkeypatch):
     state=system.root/"install-state"/(recovery.VERSION+"-"+recovery.PROFILE);state.mkdir(parents=True)
     (state/"approved-artifact.sha256").write_text(recovery.ARTIFACT_SHA256+"\n")
     for n in ("release_unpacked.done","venv_ready.done"):(state/n).touch()
+    # The production reader intentionally rejects group-writable input; fixture
+    # permissions must not depend on the test runner's inherited umask.
+    for fixture in tmp_path.rglob("*"):
+        if fixture.is_file() and not fixture.is_symlink():
+            fixture.chmod(0o600)
     return system,release,state
 
 

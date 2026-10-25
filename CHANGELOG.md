@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+## 4.0.0-rc.7
+
+- Move the application, tests and release builds to standard GIL-enabled
+  Python 3.14.9 and Qt/PySide6 6.12.0; retain OS Python for OS tools.
+- Provision a separate hash-pinned ARM64 application interpreter and verify
+  cached interpreter payloads before reuse. Include the matching pinned helper
+  in release archives; refuse incompatible existing virtual environments.
+- Prepare a distinct release and dependencies while the old touch client stays
+  running. Stop it only after preparation succeeds; reject replacement of the
+  active release directory. Configuration and pairing remain unchanged.
+- Update pip and certificate pins to the Python 3.14.9 security-release baseline.
+- Serialize archive-worker completion against shutdown before native QObject
+  destruction; keep started HTTP independent of the short native emit boundary.
+- Publication and physical migration require new qualified rc.7 delivery
+  bindings; existing rc.6 operational and recovery contracts remain unchanged.
+
 ## 4.0.0-rc.6
 
 - Use shared iPad-style page action capsules and large titles; keep compact

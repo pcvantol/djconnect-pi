@@ -1,5 +1,6 @@
 """Explicit saved-Session erasure, separate worker and original archive ticket."""
 from concurrent.futures import ThreadPoolExecutor
+from threading import RLock
 from uuid import UUID
 
 from PySide6.QtCore import QObject, QTimer, Signal, Slot
@@ -26,6 +27,7 @@ class HistoryDeleteControl(QObject):
         self.kind = "single"
         self.visible = False
         self.closed = False
+        self._completion_lock = RLock()
         self.running = False
         self.blocked = False
         self.status = ""
@@ -272,14 +274,21 @@ class HistoryDeleteControl(QObject):
                 result["code"] = exc.code
             except Exception:  # noqa: BLE001 - one failed effect never causes a replay.
                 result["error"] = "uncertain" if request["posted"] else "unavailable"
+            self._publish(result)
+        if self.executor is None:
+            self.executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="pi-archive-delete")
+        self.executor.submit(worker)
+
+    def _publish(self, result):
+        # shutdown must finish before a caller destroys this QObject. Serialize
+        # the last closed-check and native emission; never hold across HTTP.
+        # RLock permits a same-thread signal handler to shut down reentrantly.
+        with self._completion_lock:
             if not self.closed:
                 try:
                     self.ready.emit(result)
                 except RuntimeError:
-                    pass  # The QObject owner may have been destroyed during a started HTTP request.
-        if self.executor is None:
-            self.executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="pi-archive-delete")
-        self.executor.submit(worker)
+                    pass
 
     @Slot(object)
     def finish(self, result):
@@ -375,7 +384,8 @@ class HistoryDeleteControl(QObject):
             self._notify_timer.start()
 
     def shutdown(self):
-        self.closed = True
+        with self._completion_lock:
+            self.closed = True
         self._notify_timer.stop()
         self.hide(reset=True)
         if self.executor:

@@ -2623,3 +2623,59 @@ Raw results, source manifest, original failure, finite comparison/causal harness
 package receipt and official PyPI metadata remain in
 /Volumes/Shared Data/tmp/pcvantol/pi-open-pr-merges-20261024. The intermediate
 3479-run and earlier836Qt/source130 proof are not added to these final totals.
+
+
+### Python 3.14.9 / Qt 6.12 rc.7 migration (2026-10-25)
+
+Peter explicitly selected a new Python3.14 baseline, including both physical Pis.
+The existing PR106 Python3.11 failures remain failed historical evidence; this
+migration does not explain or close that upstream native failure.
+
+Isolated Debian13 ARM64 VM, actual GIL-enabled CPython3.14.9 / Qt6.12.0:
+FULL3547 passed, no skips,59.21s on frozen source-v8. 68 new cases relative to
+PR106's3479-test baseline cover interpreter/platform/archive/download/cache
+checks, original helper hash/publication join, existing incompatible venv
+preservation, active-release refusal, preparation failure before clientstop,
+ambient Python injection and the archive completion/shutdown gate.191 focused
+cases passed. Ruff0.16.0 src/tests/helper, shell syntax and diff checks passed.
+
+Diagnostics remain under the external own taskroot
+`pi-python314-qt612-migration-20261025`: v2 focused had4 fixture failures due to
+missing synthetic DJCONNECT_VERSION; v4 had1 missing mocked activation function;
+v3 full had1 unsafe-mode testfixture failure (3537pass), fixed by explicit safe
+fixture permissions without changing the privileged reader; v5 full had5 stale
+rc.6 app-version expectations (3538pass). v6 full3543pass is intermediate.
+A subsequent v7 full crashed exit139 in archive-worker ready.emit while the next
+controller fixture was being created. It is FAILED, not a pass. The final code
+serializes closed-check/native emission with shutdown using a short reentrant
+lock; it never holds this lock across HTTP or waits for a network worker. Exact
+old worker-emission AST fails the new controlled boundary race test; current
+code passes including same-thread reentrant shutdown. This demonstrates that
+specific race, not a general PySide crash rootcause or ARM hardware fix. The
+first external AST probe selected notify instead of emission; its failed log
+is retained as a harness diagnostic and is not causal evidence.
+
+Prior source-v6 rendered866 actual QML views (150broad/436composer/180artwork/
+100history) plus25 llvmpipe VibeScape views on Python3.14.9/Qt6.12, both sizes
+and five locales, zero QML errors. Those results precede the completion gate;
+UI/QML bytes are unchanged, but they are not counted as a new final-source run.
+Physical GPU, live HA, Spotify and physical touch are not established by VM
+rendering. Native root provisioner QA unpacked the original verified publisher
+archive on a fresh /opt QA prefix, ran Python3.14.9/ssl/sqlite/zlib/venv and
+verified the cache on a second call; download was locally substituted, no
+services/configuration were changed. Synthetic unit tests do not claim root
+or real network execution.
+
+The local review wheel uses Python3.14.9/setuptools84.0.0, is not published,
+and its payload must independently match all84 runtime files. An earlier
+setuptools83 build is retained as intermediate. Real4inch user-owned interpreter
+preparation preserved app/API PIDs and existing paired:false. Active physical
+apps remain separate from this source/VM qualification; Pi10 is unreachable.
+New protected source/Finalization, immutable rc.7 publication and matching new
+operational binding remain required before physical application activation.
+
+Final source-v8 also passed150 fresh actual broad QML views, both formats/five
+locales, zero QML errors. Earlier891 component views are not added to this150.
+Final local review wheel
+`cae6f52127622b3d8bd49d4334c1ad9b8655665734b665f090c197f9c4dd9c25`
+matches all84 current runtime files. No physical install or release claim.
