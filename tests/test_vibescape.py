@@ -8,11 +8,13 @@ from pathlib import Path
 import pytest
 
 
-@pytest.mark.parametrize("width", [720, 1200])
-def test_native_visit_is_pi10_only_and_context_bound(width):
+@pytest.mark.parametrize(
+    ("width", "slow_splash"), [(720, False), (1200, False), (1200, True)]
+)
+def test_native_visit_is_pi10_only_and_context_bound(width, slow_splash):
     probe = Path(__file__).parent / "probes/vibescape_readback.py"
     result = subprocess.run(
-        [sys.executable, str(probe), str(width)],
+        [sys.executable, str(probe), str(width), *(["--slow-splash"] if slow_splash else [])],
         capture_output=True,
         text=True,
         timeout=35,

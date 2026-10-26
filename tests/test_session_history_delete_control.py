@@ -303,3 +303,49 @@ def test_saved_session_can_be_deleted_without_any_active_runtime(controller):
     owner.transport.delete_history.assert_called_once()
     assert owner.state["archive_delete"]["status"]=="deleted" and not owner._session
     assert len(backend.jobs)==1 and owner._running_action=="refresh"  # No start/end/playback command.
+
+
+def test_shutdown_waits_only_for_native_emit_boundary_and_then_suppresses_late_publish(controller):
+    from threading import Thread
+
+    owner, _, _ = setup(controller)
+    control = owner._archive_delete
+    entered, release, stopped = Event(), Event(), Event()
+    calls = []
+    # Exercise the unmodified production publication method with a controllable
+    # Python emitter. No Qt signal or C++ destructor is called from a test thread.
+    original = control.ready
+    control.ready = SimpleNamespace(emit=lambda result: (entered.set(), release.wait(2), calls.append(result)))
+    publisher = Thread(target=control._publish, args=({"synthetic": 1},))
+    publisher.start()
+    assert entered.wait(1)
+    def close_gate():
+        with control._completion_lock:
+            control.closed = True
+        stopped.set()
+    closer = Thread(target=close_gate)
+    closer.start()
+    try:
+        assert not stopped.wait(0.03)
+        release.set()
+        assert stopped.wait(1)
+    finally:
+        release.set();publisher.join(2);closer.join(2)
+        control.ready = original
+    assert not publisher.is_alive() and not closer.is_alive()
+    control._publish({"synthetic": 2})
+    assert calls == [{"synthetic": 1}]
+
+
+def test_native_emitter_can_shutdown_reentrantly_without_deadlock(controller):
+    owner, _, _ = setup(controller)
+    control = owner._archive_delete
+    original = control.ready
+    calls = []
+    control.ready = SimpleNamespace(emit=lambda result: (control.shutdown(), calls.append(result)))
+    try:
+        control._publish({"synthetic": 1})
+        control._publish({"synthetic": 2})
+        assert control.closed and calls == [{"synthetic": 1}]
+    finally:
+        control.ready = original

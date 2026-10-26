@@ -20,7 +20,7 @@ def qualified() -> dict:
 
 
 def test_current_versions_and_qualified_status() -> None:
-    candidate.validate_versions(ROOT, "4.0.0-rc.6")
+    candidate.validate_versions(ROOT, "4.0.0-rc.7")
     candidate.validate_source_status(qualified(), SHA)
 
 
@@ -43,18 +43,18 @@ def test_source_evidence_fails_closed(mutation: str) -> None:
         candidate.validate_source_status(data, SHA)
 
 
-@pytest.mark.parametrize("version", ["4.0.0-rc.5", "4.0.0", "4.0.0rc6", "4.0.0-rc.6\n"])
+@pytest.mark.parametrize("version", ["4.0.0-rc.5", "4.0.0", "4.0.0rc7", "4.0.0-rc.7\n"])
 def test_wrong_requested_version(version: str) -> None:
     with pytest.raises(ValueError):
         candidate.validate_versions(ROOT, version)
 
 
 @pytest.mark.parametrize("filename,old,new", [
-    ("pyproject.toml", 'version = "4.0.0rc6"', 'version = "4.0.0rc5"'),
-    ("src/djconnect_pi/__init__.py", '"4.0.0-rc.6"', '"4.0.0-rc.5"'),
-    ("src/djconnect_pi/config.py", '"4.0.0-rc.6"', '"4.0.0-rc.5"'),
-    ("scripts/install.sh", ":-4.0.0-rc.6", ":-4.0.0-rc.5"),
-    ("scripts/bootstrap_raspberry_pi_os.sh", ":-4.0.0-rc.6", ":-4.0.0-rc.5"),
+    ("pyproject.toml", 'version = "4.0.0rc7"', 'version = "4.0.0rc5"'),
+    ("src/djconnect_pi/__init__.py", '"4.0.0-rc.7"', '"4.0.0-rc.5"'),
+    ("src/djconnect_pi/config.py", '"4.0.0-rc.7"', '"4.0.0-rc.5"'),
+    ("scripts/install.sh", ":-4.0.0-rc.7", ":-4.0.0-rc.5"),
+    ("scripts/bootstrap_raspberry_pi_os.sh", ":-4.0.0-rc.7", ":-4.0.0-rc.5"),
 ])
 def test_each_version_boundary(tmp_path: Path, filename: str, old: str, new: str) -> None:
     for relative in ("CHANGELOG.md", "pyproject.toml", "src/djconnect_pi/__init__.py", "src/djconnect_pi/config.py",
@@ -64,15 +64,15 @@ def test_each_version_boundary(tmp_path: Path, filename: str, old: str, new: str
         text = (ROOT / relative).read_text(encoding="utf-8")
         target.write_text(text.replace(old, new) if relative == filename else text, encoding="utf-8")
     with pytest.raises(ValueError):
-        candidate.validate_versions(tmp_path, "4.0.0-rc.6")
+        candidate.validate_versions(tmp_path, "4.0.0-rc.7")
 
 
 
-@pytest.mark.parametrize("headings", ["## Unreleased\n", "## 4.0.0-rc.60\n", "## 4.0.0-rc.6\n## 4.0.0-rc.6\n"])
+@pytest.mark.parametrize("headings", ["## Unreleased\n", "## 4.0.0-rc.70\n", "## 4.0.0-rc.7\n## 4.0.0-rc.7\n"])
 def test_missing_ambiguous_or_prefix_changelog_is_rejected(tmp_path: Path, headings: str) -> None:
     (tmp_path / "CHANGELOG.md").write_text(headings, encoding="utf-8")
     with pytest.raises(ValueError, match="exact changelog"):
-        candidate.validate_versions(tmp_path, "4.0.0-rc.6")
+        candidate.validate_versions(tmp_path, "4.0.0-rc.7")
 
 
 def test_publication_waits_for_governance_and_protected_source() -> None:

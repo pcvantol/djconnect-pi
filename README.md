@@ -5,7 +5,7 @@
   <img src="https://raw.githubusercontent.com/pcvantol/djconnect/7e14e5970b3f68d33d243ae6bab2b281fad59bb2/assets/djconnect/brand-v2/wordmark-primary-light.png" alt="DJConnect" width="640">
 </picture>
 
-Version: `4.0.0-rc.6` (release preparation; publication and installation pending)
+Version: `4.0.0-rc.7` (release preparation; publication and installation pending)
 
 One shared Qt Quick/QML application with a PySide6 backend serves the compact
 4-inch Pi and the portrait Pi10. The selected product target is the full
@@ -14,12 +14,12 @@ as design references. Each target requires an explicit, server-authorized
 DJConnect Profile connection; display size or household placement never implies
 personal identity or permission. Home Assistant remains the Profile/Session owner.
 
-The rc.6 candidate adds Session controls, archive recovery, reading continuity,
-Inter and the shared Glass preference to the existing app. Both physical devices
-received official rc.5 previously; these newer source changes are not installed.
-Full Apple feature/visual parity and the requested live Spotify Session test
-remain in progress. See [the parity checkpoint and open gaps](docs/PI10_APPLE_EXPERIENCE_PARITY.md)
-and [the rc.6 delivery plan](docs/PI_4_0_RC6_PREPARATION.md).
+The rc.7 candidate migrates the shared app to Python 3.14.9 and Qt 6.12.0.
+Its interpreter is installed beside OS Python; existing system tools and the
+previous app release remain available. The rc.6 release is immutable. This new
+candidate is not yet published or installed as the active physical app.
+See [the migration and delivery plan](docs/PI_PYTHON314_QT612_MIGRATION.md)
+and [the parity checkpoint and open gaps](docs/PI10_APPLE_EXPERIENCE_PARITY.md).
 
 Current Pi capabilities keep PTT, microphone upload and local DJ response audio
 disabled. This is the implemented and qualified boundary, not a permanent
@@ -417,16 +417,16 @@ not a private source clone:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/download/v4.0.0-rc.6/djconnect-pi-4.0.0-rc.6.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/download/v4.0.0-rc.7/djconnect-pi-4.0.0-rc.7.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-4.0.0-rc.6
+cd djconnect-pi-4.0.0-rc.7
 sudo ./scripts/install.sh
 ```
 
 Development install from a checkout:
 
 ```sh
-python3 -m venv .venv
+python3.14 -m venv .venv
 . .venv/bin/activate
 pip install --requirement requirements.lock
 pip install --no-deps -e .
@@ -560,9 +560,9 @@ installer:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/download/v4.0.0-rc.6/djconnect-pi-4.0.0-rc.6.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/download/v4.0.0-rc.7/djconnect-pi-4.0.0-rc.7.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-4.0.0-rc.6
+cd djconnect-pi-4.0.0-rc.7
 sudo ./scripts/install.sh
 ```
 
