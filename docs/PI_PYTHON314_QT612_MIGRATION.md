@@ -1,6 +1,9 @@
 # Python 3.14 / Qt 6.12 migration
 
-Status: rc.7 source preparation, not a published or operationally approved release.
+Status: protected rc.7 Source PR106/f30be820 is originally qualified. Runtime
+publication, operational approval and physical activation remain pending.
+See PI_PYTHON314_QT612_SOURCE_FINALIZATION.md for exact independent review,
+source/merge/qualification pins and the distinct documentary Final scope.
 Peter explicitly selected Python 3.14 and latest Qt, including both physical Pis.
 
 ## Selected baseline
