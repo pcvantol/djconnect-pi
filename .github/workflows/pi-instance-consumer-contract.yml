@@ -21,12 +21,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
-          python-version: "3.14"
+          python-version: "3.14.9"
       - run: |
           python -m pip install --only-binary=:all: --requirement Tools/pi_deployment_requirements.lock
       - name: Offline identity and authority counterexamples
         run: |
-          python -m pytest tests/test_pi_instance_*.py tests/test_pi_rc6_recovery*.py tests/test_pi_wall4_recovery*.py tests/test_pi_wall4_previous_failure.py tests/test_approved_installer.py tests/test_installation_contract.py -q
+          python -m pytest tests/test_pi_instance_*.py tests/test_pi_rc6_recovery*.py tests/test_pi_wall4_recovery*.py tests/test_pi_wall4_previous_failure.py tests/test_approved_installer.py tests/test_installation_contract.py tests/test_python_runtime_provision.py tests/test_python314_installer_preflight.py -q
       - name: Tooling lint
         run: |
-          python -m ruff check --no-cache Tools/pi_instance_contract.py Tools/pi_instance_authority.py Tools/pi_instance_ssh.py Tools/pi_instance_remote_payload.py Tools/pi_instance_artifact.py Tools/pi_instance_release.py Tools/pi_instance_aggregate.py Tools/pi_rc6_recovery.py Tools/pi_rc6_recovery_root.py Tools/pi_wall4_recovery*.py Tools/pi_wall4_previous_failure.py
+          python -m ruff check --no-cache Tools/pi_instance_contract.py Tools/pi_instance_authority.py Tools/pi_instance_ssh.py Tools/pi_instance_remote_payload.py Tools/pi_instance_artifact.py Tools/pi_instance_release.py Tools/pi_instance_aggregate.py Tools/pi_rc6_recovery.py Tools/pi_rc6_recovery_root.py Tools/pi_wall4_recovery*.py Tools/pi_wall4_previous_failure.py scripts/provision_app_python.py

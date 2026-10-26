@@ -35,7 +35,9 @@ def test_install_script_enables_local_api_service() -> None:
     assert "pkill -TERM -f 'djconnect-pi-client|djconnect_pi\\.app'" in script
     main_body = script.split("main() {", 1)[1]
     assert main_body.index("stop_running_updater_early") < main_body.index("stop_running_client_early")
-    assert main_body.index("stop_running_client_early") < main_body.index("check_runtime_dependencies")
+    assert main_body.index("check_runtime_dependencies") < main_body.index("check_python_version") < main_body.index("check_existing_python_environment") < main_body.index("stop_running_updater_early")
+    assert main_body.index("check_release_not_active") < main_body.index("stop_running_updater_early")
+    assert main_body.index("install_python_dependencies") < main_body.index("stop_running_client_early") < main_body.index("activate_release")
     assert "systemctl enable djconnect-api.service" in script
     assert "systemctl enable djconnect-client.service" in script
     assert "systemctl restart djconnect-api.service" in script
@@ -435,8 +437,8 @@ def test_install_script_can_resume_after_reboot_or_interruption() -> None:
     assert 'DJCONNECT_UPGRADE_PIP="${DJCONNECT_UPGRADE_PIP:-0}"' in script
     assert "Skipping pip self-upgrade" in script
     assert "DJCONNECT_UPGRADE_PIP=1" in script
-    assert '${release_dir}/.venv/bin/python" -m pip install "pip==26.1.2"' in script
-    assert '${release_dir}/.venv/bin/python" -m pip install --no-deps --only-binary=:all: "$wheel_path"' in script
+    assert '${release_dir}/.venv/bin/python" -I -B -m pip install "pip==26.2.2"' in script
+    assert '${release_dir}/.venv/bin/python" -I -B -m pip install --no-deps --only-binary=:all: "$wheel_path"' in script
     assert 'release_state_dir="${release_dir}/.install-state"' in script
     assert '${release_state_dir}/venv_created' in script
     assert '${release_state_dir}/locked_dependencies_installed' in script
@@ -539,7 +541,7 @@ def test_install_script_outputs_resources_and_extra_prerequisite_checks() -> Non
     assert "check_cpu_architecture" in script
     assert "aarch64|arm64" in script
     assert "check_python_version" in script
-    assert "Python 3.11 or newer is required" in script
+    assert "Python 3.14.9 or newer in 3.14 is required" in script
     assert "check_writable_paths" in script
     assert "check_github_reachable" in script
     assert "curl -fsSIL" in script
@@ -587,7 +589,8 @@ def test_bootstrap_documentation_targets_raspberry_pi_os_lite() -> None:
 
     for text in (bootstrap, readme):
         assert "Raspberry Pi OS Lite 64-bit" in text
-    assert "Choose Raspberry Pi OS Lite 64-bit Bookworm" in bootstrap
+    assert "Choose Raspberry Pi OS Lite 64-bit Trixie" in bootstrap
+    assert "glibc >=2.39" in bootstrap
     assert "Raspberry Pi OS Desktop/GUI" not in bootstrap
 
 

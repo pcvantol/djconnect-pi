@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
+export PYTHONDONTWRITEBYTECODE=1
 
-DJCONNECT_VERSION="${DJCONNECT_VERSION:-4.0.0-rc.6}"
+DJCONNECT_VERSION="${DJCONNECT_VERSION:-4.0.0-rc.7}"
 DJCONNECT_REPO="${DJCONNECT_REPO:-pcvantol/djconnect-pi-releases}"
 DJCONNECT_HA_URL="${DJCONNECT_HA_URL:-http://homeassistant.local:8123}"
 DJCONNECT_RUNTIME_USER="${DJCONNECT_RUNTIME_USER:-djconnect}"
 DJCONNECT_INSTALL_USER="${DJCONNECT_INSTALL_USER:-${SUDO_USER:-pi}}"
 DJCONNECT_ROOT="${DJCONNECT_ROOT:-/opt/djconnect}"
+DJCONNECT_PYTHON="/opt/djconnect-python/cpython-3.14.9/bin/python3.14"
+SCRIPT_DIRECTORY="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DJCONNECT_INSTALL_STATE="${DJCONNECT_INSTALL_STATE:-${DJCONNECT_ROOT}/install-state}"
 DJCONNECT_PIP_CACHE="${DJCONNECT_PIP_CACHE:-/var/cache/djconnect-pip}"
 DJCONNECT_UPGRADE_PIP="${DJCONNECT_UPGRADE_PIP:-0}"
@@ -40,6 +43,7 @@ Environment:
   DJCONNECT_RUNTIME_USER=djconnect
   DJCONNECT_INSTALL_USER=${DJCONNECT_INSTALL_USER}
   DJCONNECT_ROOT=/opt/djconnect
+  App Python: /opt/djconnect-python/cpython-3.14.9/bin/python3.14 (hash-pinned side-by-side runtime)
   DJCONNECT_INSTALL_STATE=/opt/djconnect/install-state
   DJCONNECT_PIP_CACHE=/var/cache/djconnect-pip
   DJCONNECT_UPGRADE_PIP=0
@@ -287,6 +291,40 @@ mark_done() {
   touch "$(state_dir)/$1.done"
 }
 
+check_release_not_active() {
+  local release_dir
+  release_dir="${DJCONNECT_ROOT}/releases/$(release_id)"
+  if [[ -e "${DJCONNECT_ROOT}/current" || -L "${DJCONNECT_ROOT}/current" ]]; then
+    [[ "$(readlink -f "${DJCONNECT_ROOT}/current")" != "$(readlink -m "$release_dir")" ]] || {
+      echo PYTHON_MIGRATION_REQUIRES_DISTINCT_RELEASE >&2
+      return 65
+    }
+  fi
+}
+
+
+provision_application_python() {
+  # Read and authenticate helper bytes once, then execute that same buffer.
+  # No mutable helper path is executed after a separate hash-check window.
+  python3 -I - "$SCRIPT_DIRECTORY/provision_app_python.py" "7a9cba68d4ead3d789ba8cc80865a86655be27b983a2cc3f2678ff006f026111" <<'PYPROVISION'
+import hashlib
+import os
+import stat
+import sys
+path, expected = sys.argv[1:]
+fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+with os.fdopen(fd, "rb") as source:
+    info = os.fstat(source.fileno())
+    if not stat.S_ISREG(info.st_mode) or info.st_size > 65536:
+        raise SystemExit("PYTHON_PROVISIONER_INVALID")
+    code = source.read(65537)
+if len(code) > 65536 or hashlib.sha256(code).hexdigest() != expected:
+    raise SystemExit("PYTHON_PROVISIONER_INVALID")
+sys.argv = [path]
+exec(compile(code, path, "exec"), {"__name__": "__main__", "__file__": path})
+PYPROVISION
+}
+
 check_runtime_dependencies() {
   log "Checking DJConnect installer dependencies"
   print_resources "before dependency check"
@@ -298,8 +336,8 @@ check_runtime_dependencies() {
     fi
   done
 
-  if ! python3 -m venv --help >/dev/null 2>&1; then
-    missing+=("python3-venv")
+  if ! "$DJCONNECT_PYTHON" -I -B -m venv --help >/dev/null 2>&1; then
+    missing+=("Python 3.14 venv")
   fi
 
   if [[ "${#missing[@]}" -gt 0 ]]; then
@@ -327,11 +365,44 @@ check_cpu_architecture() {
 check_python_version() {
   log "Checking Python version"
   print_resources "before Python version check"
-  python3 - <<'PY'
+  "$DJCONNECT_PYTHON" -I -B - <<'PY'
 import sys
-if sys.version_info < (3, 11):
-    raise SystemExit(f"Python 3.11 or newer is required, found {sys.version.split()[0]}")
+import sysconfig
+if sys.version_info[:2] != (3, 14) or sys.version_info < (3, 14, 9):
+    raise SystemExit(f"Python 3.14.9 or newer in 3.14 is required, found {sys.version.split()[0]}")
+if sysconfig.get_config_var("Py_GIL_DISABLED"):
+    raise SystemExit("Standard GIL-enabled Python 3.14 is required for Qt")
 PY
+}
+
+
+check_existing_python_environment() {
+  local release_dir="${DJCONNECT_ROOT}/releases/$(release_id)"
+  if marker_done "venv_ready" || [[ -f "${release_dir}/.install-state/venv_created" ]]; then
+    # Inspect with the selected new interpreter, never execute an old venv as root.
+    "$DJCONNECT_PYTHON" -I -B - "${release_dir}/.venv" <<'PYEXISTING'
+import re
+import sys
+from pathlib import Path
+venv = Path(sys.argv[1])
+try:
+    cfg = venv / "pyvenv.cfg"
+    if venv.is_symlink() or cfg.is_symlink() or cfg.stat().st_size > 16384:
+        raise ValueError
+    values = dict(line.split("=", 1) for line in cfg.read_text().splitlines() if "=" in line)
+    values = {key.strip(): value.strip() for key, value in values.items()}
+    match = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)", values.get("version", ""))
+    version = tuple(map(int, match.groups())) if match else ()
+    if version[:2] != (3, 14) or version < (3, 14, 9):
+        raise ValueError
+    if values.get("include-system-site-packages") != "false":
+        raise ValueError
+    if (venv / "bin/python").resolve(strict=True) != Path(sys._base_executable).resolve(strict=True):
+        raise ValueError
+except (OSError, ValueError, RuntimeError):
+    raise SystemExit("EXISTING_PYTHON_ENVIRONMENT_INCOMPATIBLE") from None
+PYEXISTING
+  fi
 }
 
 check_writable_paths() {
@@ -523,24 +594,24 @@ install_python_dependencies() {
       echo "Removing incomplete Python virtualenv before retry: ${release_dir}/.venv"
       rm -rf "${release_dir}/.venv" "${release_dir}/bin"
     fi
-    python3 -m venv "${release_dir}/.venv"
+    "$DJCONNECT_PYTHON" -I -B -m venv "${release_dir}/.venv"
     printf 'ok\n' >"${release_state_dir}/venv_created"
   fi
 
   if [[ "$DJCONNECT_UPGRADE_PIP" == "1" && ! -f "${release_state_dir}/pip_upgraded" ]]; then
-    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install "pip==26.1.2"
+    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -I -B -m pip install "pip==26.2.2"
     printf 'ok\n' >"${release_state_dir}/pip_upgraded"
   elif [[ "$DJCONNECT_UPGRADE_PIP" != "1" && ! -f "${release_state_dir}/pip_checked" ]]; then
-    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip --version
+    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -I -B -m pip --version
     echo "Skipping pip self-upgrade; set DJCONNECT_UPGRADE_PIP=1 to force it."
     printf 'ok\n' >"${release_state_dir}/pip_checked"
   fi
   if [[ ! -f "${release_state_dir}/locked_dependencies_installed" ]]; then
-    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --only-binary=:all: --requirement "$requirements_path"
+    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -I -B -m pip install --only-binary=:all: --requirement "$requirements_path"
     printf 'ok\n' >"${release_state_dir}/locked_dependencies_installed"
   fi
   if [[ ! -f "${release_state_dir}/wheel_installed" ]]; then
-    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -m pip install --no-deps --only-binary=:all: "$wheel_path"
+    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -I -B -m pip install --no-deps --only-binary=:all: "$wheel_path"
     printf 'ok\n' >"${release_state_dir}/wheel_installed"
   fi
   ln -sfn ".venv/bin" "${release_dir}/bin"
@@ -595,7 +666,7 @@ payload = {
     "device_name": "DJConnect Pi",
     "device_token": "",
     "paired": False,
-    "version": "4.0.0-rc.6",
+    "version": "4.0.0-rc.7",
     "update_repo": "pcvantol/djconnect-pi-releases",
     "update_channel": "stable",
     "release_profile": release_profile,
@@ -701,13 +772,15 @@ main() {
   verify_approved_release
   if [[ -n "$APPROVED_ARTIFACT" ]]; then approved_config_digest >/dev/null; fi
   log "DJConnect Pi installer ${DJCONNECT_VERSION}"
+  check_cpu_architecture
+  provision_application_python
+  check_runtime_dependencies
+  check_python_version
+  check_existing_python_environment
+  check_release_not_active
   stop_running_updater_early
-  stop_running_client_early
   print_resources "installer start"
   print_thermal_status
-  check_runtime_dependencies
-  check_cpu_architecture
-  check_python_version
   check_os_baseline
   create_runtime_user
   check_writable_paths
@@ -716,6 +789,7 @@ main() {
   check_github_reachable
   download_release
   install_python_dependencies
+  stop_running_client_early
   if [[ -n "$APPROVED_ARTIFACT" ]]; then
     local config_before config_after
     config_before="$(approved_config_digest)"
