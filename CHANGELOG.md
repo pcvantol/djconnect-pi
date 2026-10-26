@@ -15,6 +15,9 @@
 - Update pip and certificate pins to the Python 3.14.9 security-release baseline.
 - Serialize archive-worker completion against shutdown before native QObject
   destruction; keep started HTTP independent of the short native emit boundary.
+- Use the selected app interpreter in the automatic updater, reject incompatible
+  resume state before effects, prepare before stopping the app, and attempt one
+  service restart when an activation attempt exits with an error.
 - Publication and physical migration require new qualified rc.7 delivery
   bindings; existing rc.6 operational and recovery contracts remain unchanged.
 

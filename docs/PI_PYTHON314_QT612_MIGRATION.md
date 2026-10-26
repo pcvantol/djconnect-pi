@@ -26,8 +26,9 @@ Use a distinct rc.7 app release directory. An active matching release is rejecte
 before preparing or deleting its files. New dependencies are prepared with the
 old client still running; download/dependency failure does not stop that client.
 Only successful preparation reaches the existing service-stop/activation phase.
-An existing incompatible/partial virtual environment is preserved and rejected;
-it is not executed or repaired automatically. The old release, runtime and
+The shell installer rejects marked incompatible environments before stopping the
+UI. The automatic updater also rejects unmarked/incompatible partial environments
+and bin conflicts without deleting or executing them. The old release, runtime and
 configuration remain available for a separately reviewed rollback. No automatic
 watchdog pause, retry after an uncertain root result, pairing or Profile reset.
 
@@ -63,3 +64,29 @@ Root provisioner QA uses a fresh /opt QA prefix in the isolated VM, with the
 original verified archive and transport substituted locally. It has no physical
 service, HA, Profile, provider or model effects. Live UI, GPU and physical device
 acceptance are separate from unit tests and interpreter extraction.
+
+
+## Independent updater review correction
+
+The first independent whole-29-file review of22236d7 returned NO_GO/P1: the
+ordinary updater still created a venv via system python3 and stopped services
+before downloads/dependency installation. That does not satisfy the new minimum
+on Trixie Python3.13. The corrected source selects the same fixed application
+Python as the installer, probes3.14.9+/GIL in isolated mode before service effects,
+checks resumed environment identity/metadata without executing it, and runs
+venv/pip in isolated mode with the security pip pin. The current release target
+is refused before unpacking.
+
+The updater prepares the complete new environment while the current app/API
+remain running. Only then does it stop services and activate once. If that
+switch was started, the exit path makes one update-UI stop and one normal
+service restart attempt even after an error. Failures remain failed. This is
+not an atomic systemd/config rollback or proof that asynchronously restarted
+services are healthy; actual installed smoke remains a separate gate.
+
+Installed rc.6 updater bytes are immutable and are not retroactively corrected.
+The initial rc.6-to-rc.7 interpreter migration must use the qualified protected
+installer route; this fix governs the updater delivered in rc.7 and successors.
+PR133 was already merged by pcvantol at2026-10-26T08:46:01Z as78594211; the
+candidate incorporates that actual main normally and is requalified with
+setuptools84.1.0. No second merge or retroactive review claim is made for133.

@@ -172,7 +172,7 @@ same canonical lock before the application wheel.
 
 | Package/tool | Constraint / version source | Used by | License model | Source URL |
 | --- | --- | --- | --- | --- |
-| setuptools | `84.0.0` build backend; `83.0.0` runtime/test lock | PEP 517 build backend | MIT | https://pypi.org/project/setuptools/ |
+| setuptools | `84.1.0` build backend; `83.0.0` runtime/test lock | PEP 517 build backend | MIT | https://pypi.org/project/setuptools/ |
 | pip | `26.2.2` | wheel/install operations | MIT | https://pypi.org/project/pip/ |
 | pytest | `9.1.1` | test suite | MIT | https://pypi.org/project/pytest/ |
 | pluggy | pytest transitive; local test run used `1.6.0` | pytest plugin system | MIT | https://pypi.org/project/pluggy/ |

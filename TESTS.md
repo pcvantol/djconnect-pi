@@ -2679,3 +2679,48 @@ locales, zero QML errors. Earlier891 component views are not added to this150.
 Final local review wheel
 `cae6f52127622b3d8bd49d4334c1ad9b8655665734b665f090c197f9c4dd9c25`
 matches all84 current runtime files. No physical install or release claim.
+
+
+### Independent automatic-updater P1 closure candidate (2026-10-26)
+
+Exact22236d7 independent whole29-file source review returned NO_GO/P1: updater
+still invoked system python3 for the venv, then failed the new >=3.14.9 wheel
+minimum after stopping the client/API, without restarting on failure. The owning
+source now selects/probes the fixed installer application interpreter, checks
+resumed venv metadata/identity without executing it, rejects partial/active
+conflicts, uses isolated venv/pip and26.2.2, prepares before service stop and
+makes one normal service restart attempt after a started switch exits. No full
+systemd/config rollback or actual asynchronous service health is claimed.
+
+36 new regression cases;113 focused updater+installation cases PASS. The full
+fresh Python3.14.9/Qt6.12 Debian13 ARM64 snapshot passes3583 tests/no skips70.69s.
+Seven actual isolated probe processes exercise supported/unsupported version/GIL
+shapes with synthetic Python version metadata; missing/timeout probes fail closed.
+Filesystem preservation tests cover twelve incompatible/missing/partial/symlink/
+FIFO/resume states. All service/pip/download/update effects are mocked. Seven
+post-stop failure stages each attempt one service restart; four preparation
+failures cause no service or activation effects. Original updater bytes from
+22236 fail the two download/checksum preparation regressions, proving the old
+stop-before-failure behavior. These are controlled old-code failures, not a
+failed current suite, and all logs/source bytes are retained.
+
+PR133 was independently observed already merged by pcvantol before this fix,
+as78594211. Its actual original canonical artifact12637099154/run40294935743
+is1878 bytes SHA256f9580a009ecc0590e664cf13a0c883d1db910cf0a596787c70ceb5134c33a9c7;
+unchanged canonical validation passes. The current candidate normally incorporates
+that main and uses its selected setuptools84.1.0. This does not retrospectively
+claim a premerge Pi-agent review of133. A separate synthetic84.1 build comparison
+was only preparation and is not the actual133 CI evidence.
+
+Evidence: external own taskroot/updater-p1-20261026, immutable source-v1 snapshot,
+focused/full/before logs and original review receipt. No runtime/QML bytes other
+than updater.py changed in this correction. Existing150 final broad QML and
+older866+25 component views keep their prior scope; they were not rerun or added
+to this count. No physical install, HA, provider, model or device action occurred.
+The new exact source must receive a fresh independent closure/review, checks,
+Owner Authorization and original protected postmerge qualification before Final.
+
+Current updater-correction review wheel
+`49b5f3fdcff810a7bf4c7350f4b0f16d52fa0d3e4971b5815616dee77d984c16`
+(Python3.14.9/setuptools84.1.0) matches all84 current runtime files. Earlier
+review wheels remain retained as predecessor evidence and are not published.

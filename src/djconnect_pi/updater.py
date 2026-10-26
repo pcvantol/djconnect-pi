@@ -6,6 +6,7 @@ import json
 import os
 import re
 import shutil
+import stat
 import subprocess
 import tarfile
 import tempfile
@@ -18,6 +19,7 @@ import requests
 
 from .config import DEFAULT_CONFIG_PATH, load_config
 
+APPLICATION_PYTHON = Path("/opt/djconnect-python/cpython-3.14.9/bin/python3.14")
 PIP_CACHE_DIR = Path("/var/cache/djconnect-pip")
 UPGRADE_PIP_ENV = "DJCONNECT_UPGRADE_PIP"
 SUPPORTED_RELEASE_PROFILES = frozenset({"pi5-arm64", "pi-zero-2w-arm64"})
@@ -284,44 +286,86 @@ def _run_once(
     _mark_step_done(state_dir, name)
 
 
+def application_python() -> str:
+    """Validate the fixed installer-provisioned runtime before service effects."""
+    executable = str(APPLICATION_PYTHON)
+    probe = (
+        "import sys,sysconfig;sys.exit(0 if sys.version_info[:2]==(3,14) "
+        "and sys.version_info>=(3,14,9) "
+        "and not sysconfig.get_config_var('Py_GIL_DISABLED') else 64)"
+    )
+    try:
+        subprocess.run([executable, "-I", "-B", "-c", probe], check=True,
+            timeout=30, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL, env={"PATH": "/usr/bin:/bin"})
+    except (OSError, subprocess.SubprocessError):
+        raise RuntimeError("APPLICATION_PYTHON_UNAVAILABLE_OR_INCOMPATIBLE") from None
+    return executable
+
+
+def validate_existing_python_environment(venv: Path, executable: str, state_dir: Path) -> bool:
+    """Never execute or remove an incompatible/incomplete environment to resume."""
+    marked = _step_done(state_dir, "venv_created")
+    if not venv.exists() and not venv.is_symlink():
+        if marked:
+            raise RuntimeError("EXISTING_PYTHON_ENVIRONMENT_INCOMPATIBLE")
+        return False
+    try:
+        cfg = venv / "pyvenv.cfg"
+        meta = cfg.lstat()
+        if (venv.is_symlink() or not stat.S_ISREG(meta.st_mode)
+                or meta.st_size > 16384 or not marked):
+            raise ValueError
+        values = dict(line.split("=", 1) for line in cfg.read_text().splitlines() if "=" in line)
+        values = {key.strip(): value.strip() for key, value in values.items()}
+        match = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)", values.get("version", ""))
+        version = tuple(map(int, match.groups())) if match else ()
+        if (version[:2] != (3, 14) or version < (3, 14, 9)
+                or values.get("include-system-site-packages") != "false"
+                or (venv / "bin/python").resolve(strict=True) != Path(executable).resolve(strict=True)):
+            raise ValueError
+    except (OSError, ValueError, RuntimeError):
+        raise RuntimeError("EXISTING_PYTHON_ENVIRONMENT_INCOMPATIBLE") from None
+    return True
+
+
 def install_python_dependencies(release_dir: Path, version: str, status: UpdateStatus | None = None) -> None:
     wheel_path = wheel_for_release(release_dir, version)
     requirements_lock = release_dir / "requirements.lock"
     if not requirements_lock.is_file():
         raise RuntimeError(f"Release is missing canonical dependency lock: {requirements_lock}")
+    executable = application_python()
     venv_dir = release_dir / ".venv"
     bin_link = release_dir / "bin"
-    if bin_link.exists() or bin_link.is_symlink():
-        if bin_link.is_dir() and not bin_link.is_symlink():
-            shutil.rmtree(bin_link)
-        else:
-            bin_link.unlink()
-
     state_dir = release_dir / ".install-state"
+    existing = validate_existing_python_environment(venv_dir, executable, state_dir)
+    if (bin_link.exists() and not bin_link.is_symlink()) or (
+            bin_link.is_symlink() and os.readlink(bin_link) != ".venv/bin"):
+        raise RuntimeError("RELEASE_BIN_CONFLICT")
     pip_env = pip_environment()
-    if not _step_done(state_dir, "venv_created"):
+    if not existing:
         if status is not None:
             status.write("installing", "Python omgeving voorbereiden", 38)
-        if venv_dir.exists():
-            shutil.rmtree(venv_dir)
-        subprocess.run(["python3", "-m", "venv", str(venv_dir)], check=True)
+        subprocess.run([executable, "-I", "-B", "-m", "venv", str(venv_dir)], check=True)
         _mark_step_done(state_dir, "venv_created")
 
     python = venv_dir / "bin" / "python"
     if os.environ.get(UPGRADE_PIP_ENV) == "1":
-        _run_once(state_dir, "pip_upgraded", [str(python), "-m", "pip", "install", "pip==26.1.2"], env=pip_env, status=status, message="pip bijwerken", progress=42)
+        _run_once(state_dir, "pip_upgraded", [str(python), "-I", "-B", "-m", "pip", "install", "pip==26.2.2"], env=pip_env, status=status, message="pip bijwerken", progress=42)
     else:
-        _run_once(state_dir, "pip_checked", [str(python), "-m", "pip", "--version"], env=pip_env, status=status, message="pip controleren", progress=42)
+        _run_once(state_dir, "pip_checked", [str(python), "-I", "-B", "-m", "pip", "--version"], env=pip_env, status=status, message="pip controleren", progress=42)
     _run_once(
         state_dir,
         "locked_dependencies_installed",
-        [str(python), "-m", "pip", "install", "--only-binary=:all:", "--requirement", str(requirements_lock)],
+        [str(python), "-I", "-B", "-m", "pip", "install", "--only-binary=:all:", "--requirement", str(requirements_lock)],
         env=pip_env,
         status=status,
         message="Vaste Python dependencies installeren",
         progress=92,
     )
-    _run_once(state_dir, "wheel_installed", [str(python), "-m", "pip", "install", "--no-deps", "--only-binary=:all:", str(wheel_path)], env=pip_env, status=status, message="DJConnect app installeren", progress=96)
+    _run_once(state_dir, "wheel_installed", [str(python), "-I", "-B", "-m", "pip", "install", "--no-deps", "--only-binary=:all:", str(wheel_path)], env=pip_env, status=status, message="DJConnect app installeren", progress=96)
+    if bin_link.is_symlink():
+        bin_link.unlink()
     bin_link.symlink_to(".venv/bin")
     validate_release_entrypoints(release_dir)
 
@@ -348,14 +392,19 @@ def activate_release(release_dir: Path, root: Path) -> None:
     os.replace(new_link, current)
 
 
-def install_release(bundle: Path, version: str, root: Path, status: UpdateStatus | None = None, release_profile: str = "") -> Path:
+def install_release(bundle: Path, version: str, root: Path, status: UpdateStatus | None = None, release_profile: str = "", *, activate: bool = True) -> Path:
+    target_id = f"{version}-{release_profile}" if release_profile else version
+    current = root / "current"
+    if (current.exists() or current.is_symlink()) and current.resolve() == (root / "releases" / target_id).resolve():
+        raise RuntimeError("UPDATE_REQUIRES_DISTINCT_RELEASE")
     target = unpack_release(bundle, version, root, release_profile)
     if status is not None:
         status.write("installing", f"Release {version} installeren", 34)
     install_python_dependencies(target, version, status=status)
-    if status is not None:
-        status.write("activating", f"Release {version} activeren", 98)
-    activate_release(target, root)
+    if activate:
+        if status is not None:
+            status.write("activating", f"Release {version} activeren", 98)
+        activate_release(target, root)
     return target
 
 
@@ -455,28 +504,43 @@ def run(cfg: UpdaterConfig, dry_run: bool = False, release_version: str = "") ->
         status_file = cfg.install_root / "config" / "updater-status.json"
     status = UpdateStatus(status_file, current_version=installed_version, target_version=version)
     status.write("checking", f"Nieuwe versie {version} gevonden", 12)
-    stop_services(cfg.stop_service_names)
-    start_service(cfg.update_ui_service_name)
+    services_touched = False
     try:
-        with tempfile.TemporaryDirectory(prefix="djconnect-pi-update-") as tmp:
-            bundle = Path(tmp) / "release.tar.gz"
-            checksum = Path(tmp) / "release.sha256"
-            status.write("downloading", f"Release {version} downloaden", 22)
-            download(bundle_url, bundle)
-            status.write("downloading", "Checksum downloaden", 28)
-            download(checksum_url, checksum)
-            status.write("verifying", "Release controleren", 32)
-            verify_sha256(bundle, checksum)
-            release_dir = install_release(bundle, version, cfg.install_root, status=status, release_profile=profile)
-            refresh_systemd_units(release_dir)
-        status.write("cleanup", "Oude releases opruimen", 99)
-        cleanup_old_releases(cfg.install_root, cfg.keep_releases)
-        status.write("restarting", "DJConnect herstarten", 100)
+        try:
+            application_python()
+            with tempfile.TemporaryDirectory(prefix="djconnect-pi-update-") as tmp:
+                bundle = Path(tmp) / "release.tar.gz"
+                checksum = Path(tmp) / "release.sha256"
+                status.write("downloading", f"Release {version} downloaden", 22)
+                download(bundle_url, bundle)
+                status.write("downloading", "Checksum downloaden", 28)
+                download(checksum_url, checksum)
+                status.write("verifying", "Release controleren", 32)
+                verify_sha256(bundle, checksum)
+                release_dir = install_release(bundle, version, cfg.install_root, status=status,
+                    release_profile=profile, activate=False)
+                # Download, interpreter validation and dependency preparation leave
+                # the current app/API running. Only the verified candidate reaches stop.
+                services_touched = True
+                stop_services(cfg.stop_service_names)
+                start_service(cfg.update_ui_service_name)
+                status.write("activating", f"Release {version} activeren", 98)
+                activate_release(release_dir, cfg.install_root)
+                refresh_systemd_units(release_dir)
+            status.write("cleanup", "Oude releases opruimen", 99)
+            cleanup_old_releases(cfg.install_root, cfg.keep_releases)
+            status.write("restarting", "DJConnect herstarten", 100)
+        finally:
+            if services_touched:
+                # One best-effort exit from update UI, one normal service restart.
+                # A failure after activation is reported; no full rollback is claimed.
+                try:
+                    stop_service(cfg.update_ui_service_name)
+                finally:
+                    restart_services(cfg.service_names)
     except Exception as exc:
         status.write("failed", f"Update mislukt: {exc}", 100)
         raise
-    stop_service(cfg.update_ui_service_name)
-    restart_services(cfg.service_names)
     status.write("complete", f"Versie {version} geinstalleerd", 100)
     return f"Installed {version}"
 

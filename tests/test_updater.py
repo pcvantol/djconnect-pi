@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import sys
 import tarfile
 from pathlib import Path
 from typing import Any
@@ -12,6 +13,14 @@ import pytest
 
 from djconnect_pi import updater
 from djconnect_pi.config import Config, save_config
+
+
+@pytest.fixture(autouse=True)
+def selected_runtime_for_unit_commands(monkeypatch):
+    # This module mocks process/service effects. Real isolated interpreter
+    # preflight and incompatible-runtime failures live in test_updater_python314.
+    monkeypatch.setattr(updater, "APPLICATION_PYTHON", Path(sys._base_executable))
+    monkeypatch.setattr(updater, "application_python", lambda: str(updater.APPLICATION_PYTHON))
 
 
 def make_release() -> dict[str, Any]:
@@ -288,7 +297,7 @@ def test_install_python_dependencies_can_force_pip_upgrade(tmp_path: Path, monke
     ):
         updater.install_python_dependencies(release_dir, "0.2.0")
 
-    assert run.call_args_list[1].args[0][-3:] == ["pip", "install", "pip==26.1.2"]
+    assert run.call_args_list[1].args[0][-3:] == ["pip", "install", "pip==26.2.2"]
 
 
 def test_install_python_dependencies_resumes_completed_steps(tmp_path: Path) -> None:
@@ -299,6 +308,8 @@ def test_install_python_dependencies_resumes_completed_steps(tmp_path: Path) -> 
     state_dir.mkdir()
     write_dependency_lock(release_dir)
     (release_dir / ".venv" / "bin").mkdir(parents=True)
+    (release_dir / ".venv" / "bin/python").symlink_to(sys._base_executable)
+    (release_dir / ".venv" / "pyvenv.cfg").write_text("version = 3.14.9\ninclude-system-site-packages = false\n")
     (state_dir / "venv_created").write_text("ok\n", encoding="utf-8")
     (state_dir / "pip_checked").write_text("ok\n", encoding="utf-8")
     (state_dir / "locked_dependencies_installed").write_text("ok\n", encoding="utf-8")
@@ -312,7 +323,7 @@ def test_install_python_dependencies_resumes_completed_steps(tmp_path: Path) -> 
         updater.install_python_dependencies(release_dir, "0.2.0")
 
     commands = [call.args[0] for call in run.call_args_list]
-    assert not any(command[:3] == ["python3", "-m", "venv"] for command in commands)
+    assert not any("venv" in command for command in commands)
     assert commands[0][-1].endswith("djconnect_pi-0.2.0-py3-none-any.whl")
     assert (state_dir / "locked_dependencies_installed").exists()
     assert (state_dir / "wheel_installed").exists()
@@ -462,7 +473,7 @@ def test_run_restarts_api_and_client_services_after_install(tmp_path: Path) -> N
     def fake_download(*_args: object) -> None:
         nonlocal download_calls
         download_calls += 1
-        assert stop_services.called
+        assert not stop_services.called
 
     with (
         patch("djconnect_pi.updater.public_latest_release", return_value=make_release()),
@@ -546,7 +557,7 @@ def test_run_writes_updater_status_file(tmp_path: Path) -> None:
     assert status["target_version"] == "0.2.0"
 
 
-def test_run_keeps_update_ui_visible_and_writes_failed_status_on_error(tmp_path: Path) -> None:
+def test_run_keeps_old_app_running_and_writes_failed_status_on_preparation_error(tmp_path: Path) -> None:
     cfg = updater.UpdaterConfig(repo="pcvantol/djconnect-pi-releases", release_profile="pi5-arm64", install_root=tmp_path, status_file=tmp_path / "status.json")
 
     with (
@@ -561,7 +572,7 @@ def test_run_keeps_update_ui_visible_and_writes_failed_status_on_error(tmp_path:
     ):
         updater.run(cfg)
 
-    start_service.assert_called_once_with("djconnect-update-ui.service")
+    start_service.assert_not_called()
     stop_service.assert_not_called()
     restart_services.assert_not_called()
     status = json.loads((tmp_path / "status.json").read_text(encoding="utf-8"))
