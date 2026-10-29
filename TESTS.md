@@ -2736,3 +2736,11 @@ current rc.6 workflows/contracts, service/config/pairing or physical device is
 changed. This is not running-service identity or operational smoke approval.
 See docs/PI_RC7_RUNTIME_PROBE_PREPARATION.md. Existing3583full and150published
 package QML views are separate predecessor evidence, not rerun or recounted.
+
+The running-process extension adds21cases (43total targeted PASS): caller PID
+strictness, bounded stat parsing including comm parentheses, starttime/PID reuse,
+exec path/device/inode changes, missing/deleted image and no-cmdline/no-environ.
+Actual VM native proof inspects an explicitly launched temporary QA process and
+rejects it after exit; this is not active app/MainPID/venv/module/config proof.
+Both helpers remain disconnected from all deployment/smoke workflows pending
+protected producer and reviewed adapter authority.

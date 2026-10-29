@@ -99,3 +99,103 @@ def test_exact_native_predicates(paths, case):
     with pytest.raises(SystemExit) as result:
         exec(probe.PROBE, environment)  # noqa: S102 - exact internal constant, controlled imports only
     assert result.value.code == (0 if case == "valid" else 78)
+
+
+@pytest.fixture
+def running(paths, tmp_path, monkeypatch):
+    _, base = paths
+    proc = tmp_path / "proc"
+    process = proc / "123"
+    process.mkdir(parents=True)
+    (process / "exe").symlink_to(base / "bin/python3.14")
+    (process / "stat").write_bytes(b"123 (python ) worker) S " + b"0 " * 18 + b"456 0\n")
+    monkeypatch.setattr(probe, "PROC_ROOT", proc)
+    return process, base
+
+
+def test_running_executable_join_and_comm_parentheses(running):
+    _, base = running
+    assert probe.probe_running_interpreter(123, base) == probe.RunningInterpreterReadback(123, 456)
+
+
+@pytest.mark.parametrize("pid", [True, False, 0, -1, "123", None, 1.5])
+def test_running_pid_requires_positive_strict_integer(running, pid):
+    _, base = running
+    with pytest.raises(probe.RuntimeProbeError, match="^PROCESS_IDENTITY_INVALID$"):
+        probe.probe_running_interpreter(pid, base)
+
+
+@pytest.mark.parametrize("kind", ["wrong-pid", "truncated", "zero-start", "non-numeric", "oversize"])
+def test_running_stat_is_bounded_and_strict(running, kind):
+    process, base = running
+    values = {"wrong-pid": b"12 (python) S " + b"0 " * 18 + b"456",
+              "truncated": b"123 (python) S 0", "zero-start": b"123 (python) S " + b"0 " * 19,
+              "non-numeric": b"123 (python) S " + b"0 " * 18 + b"false",
+              "oversize": b"123 (" + b"x" * 4096}
+    (process / "stat").write_bytes(values[kind])
+    with pytest.raises(probe.RuntimeProbeError, match="^PROCESS_IDENTITY_INVALID$"):
+        probe.probe_running_interpreter(123, base)
+
+
+@pytest.mark.parametrize("kind", ["gone", "wrong-exe", "deleted-exe", "same-inode-wrong-path"])
+def test_running_missing_or_wrong_executable_fails(running, kind):
+    process, base = running
+    (process / "exe").unlink()
+    if kind == "wrong-exe":
+        (process / "exe").write_text("other image")
+    elif kind == "deleted-exe":
+        (process / "exe").symlink_to(str(base / "bin/python3.14") + " (deleted)")
+    elif kind == "same-inode-wrong-path":
+        alternate = base / "bin/other"
+        alternate.hardlink_to(base / "bin/python3.14")
+        (process / "exe").symlink_to(alternate)
+    with pytest.raises(probe.RuntimeProbeError):
+        probe.probe_running_interpreter(123, base)
+
+
+def test_running_pid_reuse_between_reads_fails(running, monkeypatch):
+    _, base = running
+    read = Mock(side_effect=[456, 789])
+    monkeypatch.setattr(probe, "_start_ticks", read)
+    with pytest.raises(probe.RuntimeProbeError, match="^PROCESS_IDENTITY_CHANGED$"):
+        probe.probe_running_interpreter(123, base)
+    assert read.call_count == 2
+
+
+def test_running_exec_change_between_reads_fails(running, monkeypatch):
+    process, base = running
+    real = Path.resolve
+    calls = 0
+    def changing(path, *args, **kwargs):
+        nonlocal calls
+        if path == process / "exe":
+            calls += 1
+            if calls == 2:
+                return base / "other"
+        return real(path, *args, **kwargs)
+    monkeypatch.setattr(Path, "resolve", changing)
+    with pytest.raises(probe.RuntimeProbeError, match="^PROCESS_INTERPRETER_MISMATCH$"):
+        probe.probe_running_interpreter(123, base)
+
+
+def test_running_probe_never_reads_arguments_or_environment(running, monkeypatch):
+    process, base = running
+    original = Path.open
+    opened = []
+    def tracking(path, *args, **kwargs):
+        opened.append(path)
+        return original(path, *args, **kwargs)
+    monkeypatch.setattr(Path, "open", tracking)
+    probe.probe_running_interpreter(123, base)
+    assert opened == [process / "stat", process / "stat"]
+
+
+def test_running_same_path_with_different_inode_is_rejected(running, monkeypatch):
+    process, base = running
+    original = Path.stat
+    def changed(path, *args, **kwargs):
+        result = original(path, *args, **kwargs)
+        return SimpleNamespace(st_dev=result.st_dev, st_ino=result.st_ino + 1) if path == process / "exe" else result
+    monkeypatch.setattr(Path, "stat", changed)
+    with pytest.raises(probe.RuntimeProbeError, match="^PROCESS_INTERPRETER_MISMATCH$"):
+        probe.probe_running_interpreter(123, base)
