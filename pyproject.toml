@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools==84.1.0"]
+requires = ["setuptools==84.2.1"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -21,7 +21,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-  "coverage==7.16.2",
+  "coverage==7.17.0",
   "pytest==9.1.1",
 ]
 
