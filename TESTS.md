@@ -2724,3 +2724,15 @@ Current updater-correction review wheel
 `49b5f3fdcff810a7bf4c7350f4b0f16d52fa0d3e4971b5815616dee77d984c16`
 (Python3.14.9/setuptools84.1.0) matches all84 current runtime files. Earlier
 review wheels remain retained as predecessor evidence and are not published.
+
+## Non-integrated rc.7 native runtime probe preparation
+
+Tools/pi_runtime_probe.py has22 targeted tests for exact native version/GIL/Qt
+and venv/base/executable predicates, pre-execution wrong-path rejection, one
+bounded isolated process, timeout/nonzero/signal failure and secret-safe static
+errors. Final22PASS on existing ARM64 VM Python3.14.9/Qt6.12.0; a separate actual
+native probe of that same isolated venv passes. No published runtime84files,
+current rc.6 workflows/contracts, service/config/pairing or physical device is
+changed. This is not running-service identity or operational smoke approval.
+See docs/PI_RC7_RUNTIME_PROBE_PREPARATION.md. Existing3583full and150published
+package QML views are separate predecessor evidence, not rerun or recounted.
