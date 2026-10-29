@@ -1,5 +1,9 @@
 # rc.7 native runtime probe preparation
 
+Status: protected source PR135/d5d9b1c is originally qualified. The helpers
+remain non-integrated; operational installation is pending. See
+PI_RC7_RUNTIME_PROBE_FINALIZATION.md for exact source/review/evidence pins.
+
 `Tools/pi_runtime_probe.py` is a local, non-integrated helper for the future
 rc.7 smoke adapter. It does not change the current rc.6 contract, schemas,
 workflow, operational binding, installer or published rc.7 runtime bytes.
