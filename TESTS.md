@@ -2744,3 +2744,21 @@ Actual VM native proof inspects an explicitly launched temporary QA process and
 rejects it after exit; this is not active app/MainPID/venv/module/config proof.
 Both helpers remain disconnected from all deployment/smoke workflows pending
 protected producer and reviewed adapter authority.
+
+## Local portal language persistence repair — 31 October 2026
+
+The portal already advertises en/nl/de/fr/es, but its settings handler accepted
+only en/nl. New real loopback-HTTP roundtrips prove the prior regression:6FAIL
+(DE/FR/ES including case/whitespace variants),2PASS(EN/NL). The handler now uses
+the existing central SUPPORTED_LANGUAGES list. No new copy or protocol value.
+All35ClientAPI tests PASS in isolated DebianARM64 Python3.14.9/Qt6.12 with only
+loopback networking, including12new supported/unsupported cases, persisted and
+returned language, unchanged identity/token/pairing/explicit Profile and one
+normal settings notification. Unsupported/regional inputs retain the existing
+choice; there is no new locale alias or right. Local Ruff0.17.3/diff PASS;
+repository-pinned CI is separate. First harness lacked PYTHONPATH and did not
+collect; that diagnostic and the genuine before-fix failures remain retained.
+No live-VM language/config change, GUI click proof, new QML/full-suite/physical
+acceptance or publishedrc7asset overwrite. This fix needs a future reviewed
+app release; current publishedrc7/VM bytes stay unchanged. Evidence external
+pi-portal-five-languages-20261031; computer-use unavailable was not bypassed.

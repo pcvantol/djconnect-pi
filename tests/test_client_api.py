@@ -634,3 +634,45 @@ def test_portal_cannot_use_legacy_output_writer_after_shared_adoption(tmp_path):
     assert result["message"]
     handler._apply_portal_settings.assert_not_called()
     assert cfg.paired and cfg.device_token == "fixture-token"
+
+
+@pytest.mark.parametrize("selected", ["en", "nl", "de", "fr", "es", " DE ", "Fr", "ES"])
+def test_portal_language_roundtrip_preserves_pairing_and_profile(tmp_path: Path, selected: str) -> None:
+    api, cfg, events = start_api(tmp_path, device_token="fixture-token")
+    cfg.language = "nl"
+    cfg.paired = True
+    cfg.active_profile_id = "profile-fixture"
+    cfg.explicit_profile_id = "profile-fixture"
+    save_config(tmp_path / "config.json", cfg)
+    before = json.loads((tmp_path / "config.json").read_text())
+    commands = []
+    api.state.command_handler = lambda command, payload: commands.append((command, payload)) or {"success": True}
+    try:
+        result = requests.post(f"{cfg.local_url}/api/portal/command",
+                               json={"command": "settings", "language": selected}, timeout=3)
+        state = requests.get(f"{cfg.local_url}/api/portal/state?include=settings", timeout=3)
+    finally:
+        api.stop()
+    assert result.status_code == state.status_code == 200
+    assert result.json()["success"] is True
+    assert state.json()["settings"]["language"] == selected.strip().lower()
+    after = json.loads((tmp_path / "config.json").read_text())
+    assert after["language"] == selected.strip().lower()
+    for key in ("device_id", "device_token", "paired", "active_profile_id", "explicit_profile_id"):
+        assert after[key] == before[key]
+    assert commands == [("settings", {"command": "settings", "language": selected})]
+    assert events == []
+
+
+@pytest.mark.parametrize("selected", ["xx", "de-DE", "", None])
+def test_portal_unsupported_language_does_not_replace_existing_choice(tmp_path: Path, selected) -> None:
+    api, cfg, _events = start_api(tmp_path)
+    cfg.language = "fr"
+    save_config(tmp_path / "config.json", cfg)
+    try:
+        result = requests.post(f"{cfg.local_url}/api/portal/command",
+                               json={"command": "settings", "language": selected}, timeout=3)
+    finally:
+        api.stop()
+    assert result.status_code == 200
+    assert load_config(tmp_path / "config.json").language == "fr"
