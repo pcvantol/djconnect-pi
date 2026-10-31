@@ -3293,3 +3293,7 @@ normalization. Real loopback-HTTP tests cover persisted/readback values and
 unchanged pairing/Profile state. No UI copy, server contract or permission
 changes. Source-only future app fix: publishedrc7 and the live-VM configuration
 are unchanged; browser/native click acceptance remains pending computer access.
+
+The five-language portal source is protected as PR139/3787c667 and originally
+qualified via41204276486. See PI_PORTAL_FIVE_LANGUAGE_FINALIZATION.md for review,
+regression and original artifact pins. This does not update the published app.
