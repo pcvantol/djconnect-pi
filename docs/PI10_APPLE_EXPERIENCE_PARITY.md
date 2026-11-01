@@ -3283,3 +3283,17 @@ on dedicated iPad024279B0 through Xcode27.1. Device Hub still lacks a usable
 simulator surface; no new iPad credential, HA pairing or matched-session-screen
 comparison is claimed. Apple worktree/WIP and other simulator instances remain
 untouched.
+
+### Shared local portal five-language persistence (31 October 2026)
+
+Repair the mismatch between the existing five-language selector and an API
+handler that persisted only English/Dutch. German, French and Spanish now use
+the same central supported-language list, including existing case/whitespace
+normalization. Real loopback-HTTP tests cover persisted/readback values and
+unchanged pairing/Profile state. No UI copy, server contract or permission
+changes. Source-only future app fix: publishedrc7 and the live-VM configuration
+are unchanged; browser/native click acceptance remains pending computer access.
+
+The five-language portal source is protected as PR139/3787c667 and originally
+qualified via41204276486. See PI_PORTAL_FIVE_LANGUAGE_FINALIZATION.md for review,
+regression and original artifact pins. This does not update the published app.

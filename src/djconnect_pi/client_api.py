@@ -17,7 +17,7 @@ from .config import (
     normalize_dj_announcement_output,
     save_config,
 )
-from .i18n import translate
+from .i18n import SUPPORTED_LANGUAGES, translate
 from .web_portal import index_html
 
 try:
@@ -319,7 +319,7 @@ class ClientAPIHandler(BaseHTTPRequestHandler):
         self.server.state.reload_config()
         cfg = self.server.state.cfg
         language = str(payload.get("language") or cfg.language).strip().lower()
-        if language in {"en", "nl"}:
+        if language in SUPPORTED_LANGUAGES:
             cfg.language = language
         log_level = str(payload.get("log_level") or cfg.log_level).strip().upper()
         if log_level in {"DEBUG", "INFO", "WARNING", "ERROR"}:
