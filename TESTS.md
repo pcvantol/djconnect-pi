@@ -3162,3 +3162,12 @@ The explicit visit captures the inline mode strip's vertical position. The
 overlay uses that position within its viewport bounds. Its click probe
 compares the two rendered strips within one pixel and still checks the
 4-inch admission boundary and the Flow and Horizon return routes.
+
+
+## Non-integrated rc.7 scheduling hold component
+
+123 targeted `tests/test_pi_rc7_guard.py` cases pass in the existing DebianARM64
+VM. Separate actual PID1 fixture qualification checks loaded denial, cgroup drain
+and hostile reload/timer enable without device/HA/provider effects. This is
+hold-only: restore always rejects and no deployment entrypoint uses the helper.
+See docs/PI_RC7_GUARD_QUALIFICATION.md for original diagnostics and remaining gates.
