@@ -982,9 +982,10 @@ Item {
                             Layout.preferredWidth: text.length ? Math.min(220, implicitWidth) : 48
                             Layout.preferredHeight: 48
                             Layout.alignment: Qt.AlignTop
-                            onCurrentTrackClicked: outputsPanel.openForCurrentItem()
+                            onCurrentTrackClicked: outputsPanel.openForCurrentItem(currentOutputButton)
                         }
                         SessionPlaybackShortcut {
+                            id: currentVolumeButton
                             objectName: "sessionCurrentVolume"
                             visible: playbackSources.ready && !!screen.state.playback_control.available
                                 && !!screen.state.playback_control.volume_supported
@@ -994,12 +995,12 @@ Item {
                             Layout.preferredWidth: 48; Layout.preferredHeight: 48; Layout.alignment: Qt.AlignTop
                             onCurrentTrackClicked: {
                                 if (screen.owner.readPlaybackVolume(screen.state.session_id, screen.state.playback.item_id)) {
-                                    playbackPanel.controlView = "volume"
-                                    playbackPanel.open()
+                                    playbackPanel.openFrom(currentVolumeButton, "volume")
                                 }
                             }
                         }
                         SessionPlaybackShortcut {
+                            id: currentFavoriteButton
                             objectName: "sessionCurrentFavorite"
                             visible: playbackSources.ready && !!screen.state.playback_control.available
                                 && !!screen.state.playback_control.favorite
@@ -1009,8 +1010,7 @@ Item {
                             Layout.preferredWidth: 48; Layout.preferredHeight: 48; Layout.alignment: Qt.AlignTop
                             onCurrentTrackClicked: {
                                 if (screen.owner.readPlaybackFavorite(screen.state.session_id, screen.state.playback.item_id)) {
-                                    playbackPanel.controlView = "favorite"
-                                    playbackPanel.open()
+                                    playbackPanel.openFrom(currentFavoriteButton, "favorite")
                                 }
                             }
                         }
@@ -1020,7 +1020,7 @@ Item {
                             visible: playbackSources.ready && !!screen.state.playback_control.available
                             iconName: "more"; Accessible.name: screen.tr("session_playback_controls")
                             Layout.preferredWidth: 48; Layout.preferredHeight: 48; Layout.alignment: Qt.AlignTop
-                            onClicked: playbackPanel.openControls(playbackMoreButton)
+                            onClicked: playbackPanel.openFrom(playbackMoreButton, "all")
                         }
                         SessionAttribution {
                             id: playbackSources
@@ -1043,7 +1043,7 @@ Item {
                         Accessible.name: screen.tr("session_playback_controls")
                         Accessible.description: screen.state.playback.time_label || ""
                         Accessible.ignored: !enabled
-                        onClicked: playbackPanel.openControls(progressControl)
+                        onClicked: playbackPanel.openFrom(progressControl, "all")
                         background: GlassSurface {
                             visible: progressControl.down || (progressControl.visualFocus && !playbackPanel.visible)
                             radius: height / 2
@@ -1448,23 +1448,15 @@ Item {
                 screen.owner.playbackCommand(screen.state.session_id, screen.state.playback.item_id, commandName, epoch)
         }
     }
-    GlassPopup {
-        id: playbackPanel
-        objectName: "sessionPlaybackPanel"
-        property string controlView: "all"
+    component AnchoredPlaybackPopup: GlassPopup {
         property rect sourceRect: Qt.rect(0, 0, 0, 0)
-        readonly property bool anchored: controlView === "all" && sourceRect.width > 0
+        readonly property bool anchored: sourceRect.width > 0
         readonly property real edgeMargin: 16
-        function openControls(source) {
+        function captureSource(source) {
             var top = source.mapToItem(screen, 0, 0)
             var bottom = source.mapToItem(screen, source.width, source.height)
             sourceRect = Qt.rect(top.x, top.y, bottom.x - top.x, bottom.y - top.y)
-            controlView = "all"
-            open()
         }
-        readonly property bool volumeOnly: controlView === "volume"
-        readonly property bool favoriteOnly: controlView === "favorite"
-        onAboutToHide: { outputsPanel.close(); if (screen.owner) screen.owner.cancelPlaybackIntent() }
         x: anchored
             ? Math.max(edgeMargin, Math.min(sourceRect.x + (sourceRect.width - width) / 2, screen.width - width - edgeMargin))
             : (screen.width - width) / 2
@@ -1478,6 +1470,19 @@ Item {
             return Math.max(edgeMargin, lastTop)
         }
         width: Math.min(screen.width - 32, 520); padding: 20; modal: true; dim: false
+    }
+    AnchoredPlaybackPopup {
+        id: playbackPanel
+        objectName: "sessionPlaybackPanel"
+        property string controlView: "all"
+        function openFrom(source, view) {
+            captureSource(source)
+            controlView = view
+            open()
+        }
+        readonly property bool volumeOnly: controlView === "volume"
+        readonly property bool favoriteOnly: controlView === "favorite"
+        onAboutToHide: { outputsPanel.close(); if (screen.owner) screen.owner.cancelPlaybackIntent() }
         background: GlassSurface { elevated: true }
         contentItem: ColumnLayout {
             spacing: 16
@@ -1624,11 +1629,12 @@ Item {
                 }
             }
             GlassButton {
+                id: menuOutputButton
                 objectName: "sessionOutputOpen"
                 visible: playbackPanel.controlView === "all" && !!screen.state.playback_control.outputs_supported
                 text: screen.tr("session_output_title"); Layout.fillWidth: true
                 enabled: !!screen.state.playback_control.enabled
-                onClicked: outputsPanel.openForCurrentItem()
+                onClicked: outputsPanel.openForCurrentItem(menuOutputButton)
             }
             Text {
                 objectName: "sessionPlaybackStatus"
@@ -1644,14 +1650,13 @@ Item {
             }
         }
     }
-    GlassPopup {
+    AnchoredPlaybackPopup {
         id: outputsPanel
         objectName: "sessionOutputPanel"
-        x: (screen.width - width) / 2; y: toolbar.y + toolbar.height + 8
-        width: Math.min(screen.width - 32, 520); padding: 20; modal: true; dim: false
         readonly property var observation: screen.state.playback_control.outputs || ({})
         readonly property var choices: observation.choices || []
-        function openForCurrentItem() {
+        function openForCurrentItem(source) {
+            captureSource(source)
             if (screen.owner.readPlaybackOutputs(screen.state.session_id, screen.state.playback.item_id)) open()
         }
         onAboutToHide: if (screen.owner) screen.owner.cancelPlaybackIntent()

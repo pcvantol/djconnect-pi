@@ -235,12 +235,12 @@ def main():
                 assert popup.property('controlView') == 'all'
                 assert not intents and not reads
                 assert owner.transport.playback_command.call_count == command_count
-                def assert_popup_anchor(trigger):
+                def assert_popup_anchor(trigger, panel=popup):
                     top = trigger.mapToItem(screen, 0, 0)
                     bottom = trigger.mapToItem(screen, trigger.width(), trigger.height())
-                    popup_width = popup.property('width')
-                    popup_height = popup.property('height')
-                    x, y = popup.property('x'), popup.property('y')
+                    popup_width = panel.property('width')
+                    popup_height = panel.property('height')
+                    x, y = panel.property('x'), panel.property('y')
                     expected_x = max(16, min((top.x() + bottom.x() - popup_width)/2,
                                              width - popup_width - 16))
                     assert abs(x - expected_x) < 2, (width, x, expected_x)
@@ -291,6 +291,7 @@ def main():
                     QTest.qWait(60)
                     assert len(intents) == 1 and panel.property('opened'), name
                     assert owner._playback_control.request['command'] == expected_read
+                    assert_popup_anchor(button, panel)
                     capture('stable-shortcut-' + expected_read)
                     status_count = owner.transport.playback_status.call_count
                     owner._session['broadcast']['playback']['target_name'] = 'Synthetic new speaker'

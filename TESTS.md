@@ -2966,3 +2966,14 @@ The ARM VM passed 280 playback views and 220 output views across both sizes
 and five locales, plus 92 focused playback and QML tests. The Qt tests
 checked the opening geometry, the viewport edges, position stability,
 transport buttons and output selection with all controls available.
+
+### Anchor volume, output and favorites to their buttons
+
+The dedicated volume, output and favorite pop-outs use the same placement
+rules as the full playback menu. Output selection from within the full
+playback menu opens beside its own button.
+
+The ARM VM passed 280 playback views, 220 output views, 200 volume views
+and 92 focused tests. The offline fixtures covered both sizes and five
+locales, including popup placement, nested output selection and the
+volume slider's explicit release behavior.
