@@ -1052,6 +1052,39 @@ Item {
                             focused: progressControl.visualFocus
                         }
                         contentItem: RowLayout {
+                            Row {
+                                id: playbackMeter
+                                objectName: "sessionPlaybackMeter"
+                                readonly property bool playing: screen.state.playback.state === "playing"
+                                readonly property bool animating: visible && playing && GlassStyle.motionEnabled
+                                    && Qt.application.state === Qt.ApplicationActive
+                                property real phase: 0
+                                spacing: 2
+                                Layout.preferredWidth: 18
+                                Layout.preferredHeight: 20
+                                Accessible.ignored: true
+                                Timer {
+                                    interval: 80
+                                    repeat: true
+                                    running: playbackMeter.animating
+                                    onTriggered: playbackMeter.phase = (playbackMeter.phase + 0.32) % (2 * Math.PI)
+                                }
+                                Repeater {
+                                    model: [0.85, 0.35, 0.62, 0.25]
+                                    Rectangle {
+                                        required property int index
+                                        required property real modelData
+                                        readonly property real level: playbackMeter.animating
+                                            ? 0.18 + 0.82 * (0.5 + 0.5 * Math.sin(playbackMeter.phase + index * 1.7))
+                                            : playbackMeter.playing ? modelData : 0.16
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        width: 3
+                                        height: Math.max(3, playbackMeter.height * level)
+                                        radius: 1
+                                        color: BrandTheme.colors.text
+                                    }
+                                }
+                            }
                             ProgressBar {
                                 id: playbackProgress
                                 value: screen.state.playback.progress || 0; Layout.fillWidth: true

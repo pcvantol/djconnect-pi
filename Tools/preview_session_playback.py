@@ -132,6 +132,13 @@ def main():
                 assert vinyl.width() == vinyl.height() == (60 if width == 720 else 144)
                 assert vinyl.mapToItem(metadata, 0, 0).x() >= 0
                 assert vinyl.mapToItem(metadata, vinyl.width(), vinyl.height()).x() <= metadata.width()
+                meter = window.findChild(QObject, 'sessionPlaybackMeter')
+                bars = [item for item in meter.childItems() if item.property('level') is not None]
+                assert meter.property('visible') and meter.property('playing') and len(bars) == 4
+                assert max(bar.height() for bar in bars) > min(bar.height() for bar in bars)
+                phase = meter.property('phase')
+                QTest.qWait(100)
+                assert (meter.property('phase') != phase) == meter.property('animating')
                 capture('inline-vinyl')
                 waiting = window.findChild(QObject, 'sessionWaitingCard')
                 waiting_vinyl = window.findChild(QObject, 'sessionWaitingVinyl')
@@ -209,6 +216,11 @@ def main():
                 owner.refresh(); drain()
                 assert visual(window.contentItem(), 'sessionLiveMomentCard').property('visible')
                 assert not paused_detail.property('visible')
+                assert not meter.property('playing') and not meter.property('animating')
+                assert max(bar.height() for bar in bars) == min(bar.height() for bar in bars)
+                phase = meter.property('phase')
+                QTest.qWait(100)
+                assert meter.property('phase') == phase
                 capture('vinyl-play-affordance')
                 click('sessionPlaybackVinyl')
                 assert len(intents) == 1 and not popup.property('visible')
@@ -490,6 +502,7 @@ def main():
                 capture('malformed-http-denial-withdrawn')
                 owner.setForeground(False); QTest.qWait(60)
                 assert not popup.property('visible') and not owner.state['playback_control']['available']
+                assert not meter.property('animating')
                 capture('foreground-withdrawn')
                 backend.shutdown(); delete(window); delete(engine); delete(backend)
                 app.processEvents()

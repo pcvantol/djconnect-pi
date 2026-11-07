@@ -2989,3 +2989,14 @@ playback views, 220 output views, 20 views in the overflow touch probe, eight
 volume touch views and 92 focused tests. The fixtures verified real Qt
 wheel and touch scrolling, reaching Close, and a volume command only on
 release. The transport was intercepted offline.
+
+### Playback activity meter
+
+A four-bar meter beside the progress bar indicates playing or paused
+playback, following the iPad layout. Its animation follows the shared
+motion setting and stops when the app is inactive or the meter is hidden.
+
+The ARM VM passed 290 playback views across both sizes and five locales,
+plus 92 focused tests. A separate two-view probe observed animation on the
+large default profile, a static indication on the compact default profile,
+and no timer advancement after leaving Session.
