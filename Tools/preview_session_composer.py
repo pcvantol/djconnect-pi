@@ -995,6 +995,9 @@ def main():
             displayed.sort(key=lambda card:card.mapToItem(screen,QPointF(0,0)).y())
             assert [card.property('entry')['entry_id'] for card in displayed]==[row['entry_id'] for row in reversed(owner.state['retained_flow'])]
             assert [row['order'] for row in owner.state['retained_flow']]==sorted(row['order'] for row in owner.state['retained_flow'])
+            for upper, lower in zip(displayed, displayed[1:]):
+                gap = lower.mapToItem(screen, 0, 0).y() - upper.mapToItem(screen, 0, upper.height()).y()
+                assert abs(gap - (22 if width == 720 else 26)) <= 1, (width, language, gap)
             playback_cards=[];literal_text=[]
             def check_readonly(item):
                 if item.objectName()=='sessionConversationCard':

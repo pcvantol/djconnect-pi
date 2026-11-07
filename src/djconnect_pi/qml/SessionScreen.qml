@@ -860,14 +860,19 @@ Item {
         id: historyScroll
         visible: !screen.showForecast
         objectName: "sessionHistoryScroll"
+        readonly property bool spaciousFlow: !screen.compact && !screen.historical
+            && screen.state.loaded && screen.state.runtime_state === "active" && !screen.state.error
+        readonly property int flowSpacing: spaciousFlow ? 26 : 22
         anchors.top: modeSwitch.visible ? modeSwitch.bottom : toolbar.bottom; anchors.bottom: parent.bottom
         anchors.left: parent.left; anchors.right: parent.right
-        anchors.margins: 20; anchors.bottomMargin: composerDock.visible ? composerDock.height + 144 : 132
+        anchors.margins: 20
+        anchors.topMargin: spaciousFlow ? flowSpacing : 20
+        anchors.bottomMargin: composerDock.visible ? composerDock.height + 144 : 132
         clip: true; contentWidth: availableWidth
         ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
         ColumnLayout {
             id: historyContent
-            width: parent.width; spacing: 22
+            width: parent.width; spacing: historyScroll.flowSpacing
             Text {
                 objectName: "sessionFlowHeading"
                 visible: screen.historical || screen.backend.demoMode || !screen.state.loaded

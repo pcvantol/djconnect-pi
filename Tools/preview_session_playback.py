@@ -128,6 +128,12 @@ def main():
                 heading = window.findChild(QObject, 'sessionFlowHeading')
                 assert not heading.property('visible')
                 assert 0 <= metadata.mapToItem(scroll, 0, 0).y() < 1
+                gap = top - metadata.mapToItem(scroll, 0, metadata.height()).y()
+                assert abs(gap - (22 if width == 720 else 26)) <= 1, (width, language, gap)
+                flow_mode = visual(window.contentItem(), 'sessionFlowMode')
+                if flow_mode.property('visible'):
+                    lead_gap = metadata.mapToScene(QPointF()).y() - flow_mode.mapToScene(QPointF(0, flow_mode.height())).y()
+                    assert abs(lead_gap - (20 if width == 720 else 26)) <= 1, (width, language, lead_gap)
                 assert vinyl.property('visible')
                 assert vinyl.width() == vinyl.height() == (60 if width == 720 else 144)
                 assert vinyl.mapToItem(metadata, 0, 0).x() >= 0

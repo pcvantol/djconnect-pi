@@ -3052,3 +3052,17 @@ within one pixel across the changes.
 
 The ARM VM passed 476 composer and 300 playback views without QML errors,
 plus 152 focused controller and projection tests.
+
+### Active Flow spacing on Pi10
+
+The wide active Flow uses the 26-point spacing from Apple #324 both below
+the mode strip and between cards. The compact layout keeps its 20-pixel
+lead-in and 22-pixel card spacing. History, setup and error views keep
+their existing spacing.
+
+The offline playback fixture measures the gap above the first contribution
+and checks that it still starts in the top half of the viewport. The
+composer fixture measures consecutive retained cards in both formats.
+
+The ARM VM passed 476 composer, 300 playback and 180 Moment artwork
+views across both formats and five locales without QML errors.
