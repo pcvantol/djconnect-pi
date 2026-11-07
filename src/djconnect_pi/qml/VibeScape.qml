@@ -22,11 +22,12 @@ Rectangle {
     readonly property var scenePalette: mood === "chill" ? ["#4DA3FF", "#7B61FF", "#D184FF"] : mood === "groove" ? ["#06C7AD", "#169BC8", "#10B981"] : mood === "energy" ? ["#DDFF00", "#00B8FF", "#39FF78"] : mood === "party" ? ["#FF287F", "#AA38F5", "#F43DCE"] : ["#3285FF", "#843DF5", "#CB27F5"]
     property vector4d composition: Qt.vector4d(Math.random(), Math.random(), Math.random(), Math.random())
     signal closeRequested()
+    signal flowRequested()
     signal forecastRequested()
     color: "black"
     focus: true
     Keys.onEscapePressed: closeRequested()
-    function tr(key) { return backend.t(key) }
+    function tr(key) { backend.translationVersion; return backend.t(key) }
     function colorVector(value, w) { var c = Qt.color(value); return Qt.vector4d(c.r,c.g,c.b,w) }
     function touchVector(i) {
         var t = touches[i]
@@ -98,12 +99,18 @@ Rectangle {
         horizontalAlignment: Text.AlignHCenter; wrapMode: Text.WordWrap
         color: "white"; font.pixelSize: 26
     }
-    RowLayout {
+    SessionModeStrip {
+        translate: scene.tr
+        mood: scene.mood
+        forecastAvailable: scene.forecastAvailable
+        vibeScapeAvailable: true
+        inVibeScape: true
         anchors.top: parent.top; anchors.horizontalCenter: parent.horizontalCenter
-        anchors.topMargin: 32; visible: scene.controlsVisible
-        GlassButton { objectName: "vibeScapeFlow"; text: scene.tr("session_flow"); onClicked: scene.closeRequested() }
-        GlassButton { objectName: "vibeScapeForecast"; visible: scene.forecastAvailable; text: scene.tr("session_forecast"); onClicked: scene.forecastRequested() }
-        GlassButton { text: scene.tr("vibescape_title"); checked: true; onClicked: scene.showControls() }
+        anchors.topMargin: 32
+        visible: scene.controlsVisible
+        onFlowRequested: scene.flowRequested()
+        onForecastRequested: scene.forecastRequested()
+        onVibeScapeRequested: scene.showControls()
     }
     GlassSurface {
         anchors.bottom: parent.bottom; anchors.horizontalCenter: parent.horizontalCenter

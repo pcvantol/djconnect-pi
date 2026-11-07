@@ -162,6 +162,9 @@ with (
                 b.paired,
                 w.property("vibeScapeAllowed"),
             )
+            screen = find(w.contentItem(), "djSessionScreen")
+            screen.setProperty("forecastMode", True)
+            assert screen.property("showForecast")
             w.grabWindow().save(str(OUT / f"{lang}-before.png"))
             if "--slow-splash" in sys.argv:
                 assert startup_visible(w), "slow-startup fixture did not exercise overlay"
@@ -179,6 +182,23 @@ with (
                 w.property("active"),
                 warnings,
             )
+            strip = find(visit, "vibeScapeModeStrip")
+            source_strip = find(screen, "sessionModeStrip")
+            assert strip.width() == source_strip.width() == 420
+            assert strip.height() == source_strip.height() == 64
+            assert abs(strip.mapToScene(QPoint(210, 0)).x() - w.width() / 2) <= 1
+            flow = find(visit, "vibeScapeFlow")
+            horizon = find(visit, "vibeScapeForecast")
+            selected = find(visit, "vibeScapeSelectedMode")
+            assert not flow.property("checked") and not horizon.property("checked") and selected.property("checked")
+            for locale in ("en", "de", "fr", "es", "nl"):
+                b.setLanguage(locale)
+                QTest.qWait(30)
+                assert horizon.property("text") == "Horizon"
+                for mode in (flow, horizon, selected):
+                    label = next(item for item in mode.property("contentItem").childItems()
+                                 if item.property("text") == mode.property("text"))
+                    assert not label.property("truncated") and mode.height() == 48
             assert not w.property("screenBlanked")
             assert owner._session["session_id"] == "original-session"
             timer = w.findChild(QObject, "returnToNowTimer")
@@ -194,6 +214,7 @@ with (
             assert im.save(str(OUT / f"{lang}-native-main.png"))
             click(w, find(w.contentItem(), "vibeScapeFlow"))
             assert find(w.contentItem(), "vibeScapeVisit") is None
+            assert not screen.property("showForecast")
             assert timer.property("running")
             assert (
                 w.property("vibeScapeOwner") == ""
@@ -247,6 +268,7 @@ with (
             click(w, find(w.contentItem(), "sessionVibeScapeMode"))
             click(w, find(w.contentItem(), "vibeScapeForecast"))
             assert not w.property("vibeScapeRequested")
+            assert screen.property("showForecast")
             # Rendering and all local gestures must not queue an app/HA action.
             # Foreground recovery may queue the existing independent owner refresh.
             jobs = [

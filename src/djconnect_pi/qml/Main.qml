@@ -71,6 +71,7 @@ BrandWindow {
             mood: root.appearanceMood
             forecastAvailable: djconnect.djSession.state.forecast_supported
             onCloseRequested: root.closeVibeScape()
+            onFlowRequested: { root.closeVibeScape(); sharedSessionScreen.forecastMode = false }
             onForecastRequested: { root.closeVibeScape(); sharedSessionScreen.forecastMode = true }
         }
     }
@@ -376,8 +377,10 @@ BrandWindow {
             spacing: 3
 
             MenuIcon {
+                objectName: "navIcon-" + navControl.iconName
                 iconName: navControl.iconName
-                iconColor: navControl.enabled ? (navControl.checked ? BrandTheme.colors.actionAccent : BrandTheme.colors.muted) : BrandTheme.colors.disabledText
+                iconColor: !navControl.enabled ? BrandTheme.colors.disabledText : navControl.iconName === "session" ?
+                    BrandTheme.colors.white : (navControl.checked ? BrandTheme.colors.actionAccent : BrandTheme.colors.muted)
                 strokeWidth: navControl.checked ? 2.8 : 2.4
                 Layout.preferredWidth: navControl.checked ? 30 : 28
                 Layout.preferredHeight: navControl.checked ? 30 : 28

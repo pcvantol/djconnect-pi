@@ -51,6 +51,48 @@ def test_explicit_command_once_then_independent_owner_read_without_optimism(cont
     assert len(backend.jobs) == 1 and owner._running_action == "refresh"
 
 
+@pytest.mark.parametrize("changed", ["item", "state", "profile", "backend_revision", "credential", "hidden"])
+def test_transport_press_cannot_target_new_context_at_release(controller, changed):
+    owner, backend = setup(controller)
+    pressed_epoch = owner.state["playback_control"]["transport_epoch"]
+    playback = owner._session["broadcast"]["playback"]
+    if changed == "item":
+        playback["item_id"] = "replacement"
+    elif changed == "state":
+        playback["state"] = "paused"
+    elif changed == "profile":
+        backend.cfg.active_profile_id = "replacement"
+    elif changed == "backend_revision":
+        backend.cfg.music_backend_revision += 1
+    elif changed == "credential":
+        backend.cfg.device_token = "replacement"
+    else:
+        owner.cancelPlaybackIntent()
+    assert not owner.playbackCommand("synthetic-session", playback["item_id"], "next", pressed_epoch)
+    assert not backend.jobs
+    owner.transport.playback_command.assert_not_called()
+
+
+def test_observed_item_round_trip_does_not_revalidate_a_transport_press(controller):
+    owner, backend = setup(controller)
+    pressed_epoch = owner.state["playback_control"]["transport_epoch"]
+    playback = owner._session["broadcast"]["playback"]
+    playback["item_id"] = "replacement"
+    assert owner.state["playback_control"]["transport_epoch"] != pressed_epoch
+    playback["item_id"] = ITEM_ID
+    assert not owner.playbackCommand("synthetic-session", ITEM_ID, "next", pressed_epoch)
+    assert not backend.jobs
+
+
+def test_transport_press_survives_position_update(controller):
+    owner, backend = setup(controller)
+    pressed_epoch = owner.state["playback_control"]["transport_epoch"]
+    owner._session["broadcast"]["playback"].update(position_ms=1000, duration_ms=60000)
+    assert owner.state["playback_control"]["transport_epoch"] == pressed_epoch
+    assert owner.playbackCommand("synthetic-session", ITEM_ID, "next", pressed_epoch)
+    assert len(backend.jobs) == 1
+
+
 @pytest.mark.parametrize("reason", ["foreground", "hide", "session", "item", "state", "profile", "backend", "backend_revision", "unavailable", "private", "favorite", "end"])
 def test_withdrawal_before_queued_command_prevents_dispatch_without_tick(controller, reason):
     owner, backend = setup(controller)

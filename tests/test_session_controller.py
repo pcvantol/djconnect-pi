@@ -1116,3 +1116,16 @@ def test_raw_scope_withdrawal_masks_joined_presentation_as_well(controller):
     assert owner.state["flow_retained"]
     backend.cfg.device_token = "changed"
     assert owner.state["flow_retained"] == []
+
+
+@pytest.mark.parametrize("source", ["flow", "timeline"])
+def test_withdrawn_entry_is_not_a_selected_question_target(controller, source):
+    owner, _backend = controller
+    owner._session = {"session_id": "s1"}
+    row = {"session_id": "s1", "entry_id": "row-a", "retained_until": "9999-01-01T00:00:00Z"}
+    owner._retained_flow = [row]
+    owner._timeline = {"session": {"session_id": "s1"}, "entries": [row]}
+    selected = {"kind": "selected_entry", "session_id": "s1", "entry_id": "row-a"}
+    assert owner._entry_selection_valid(selected, source)
+    row["state"] = "source_withdrawn"
+    assert not owner._entry_selection_valid(selected, source)

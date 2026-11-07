@@ -6,11 +6,13 @@ from urllib.parse import urlsplit
 import pytest
 
 from djconnect_pi.session_history_view import (
+    conversation_entries,
     opened_entry,
     presented_history,
     search_page,
     sources,
 )
+from djconnect_pi.session_projection import history_page
 from djconnect_pi.session_transport import SessionError
 
 
@@ -232,3 +234,51 @@ def test_flow_native_join_keeps_original_retained_order_without_promoting_grants
     rows = [{"session_id": "s", "kind": "dj_moment", "moment_id": x, "order": i} for i,x in enumerate(["a","b","c"])]
     assert retained_flow_presentation(rows, [{"moment_id": "b"}], "s") == [rows[0], rows[2]]
     assert retained_flow_presentation(rows, [{"moment_id": None}, {"moment_id": True}], "s") == rows
+
+def withdrawn_timeline(kind):
+    tail = timeline_fixture()
+    row = tail["entries"][0]
+    sid = row["session_id"]
+    # Core #1517 keeps the identity and original retention but removes prose.
+    tail["entries"] = [{
+        **{key: row[key] for key in ("entry_id", "session_id", "order", "retained_until", "occurred_at")},
+        "kind": kind, "role": "user" if kind == "conversation_user" else "assistant",
+        "turn_id": "turn-a", "origin_message_id": "message-a", "input_type": "text",
+        "state": "source_withdrawn", "context": {"session_id": sid}, "text": "",
+        "historical_view_only": True, "current_display_allowed": False,
+    }]
+    return tail, sid
+
+
+@pytest.mark.parametrize("kind", ["conversation_user", "conversation_dj"])
+def test_withdrawn_conversation_keeps_position_without_body_or_actions(kind):
+    page, sid = withdrawn_timeline(kind)
+    row = page["entries"][0]
+    row.update(sources=[{"url": "https://example.org/old"}], navigation_actions=[{"id": "old"}])
+    original = deepcopy(page)
+    admitted = history_page(page, session_id=sid)
+    projected = presented_history(admitted)["entries"][0]
+    assert page == original
+    assert projected["entry_id"] == row["entry_id"]
+    assert projected["order"] == row["order"]
+    assert projected["retained_until"] == row["retained_until"]
+    assert projected["state"] == "source_withdrawn" and projected["text"] == ""
+    assert "sources" not in projected and "navigation_actions" not in projected
+    assert conversation_entries(admitted) == []
+
+
+@pytest.mark.parametrize("changes", [
+    {"text": "withdrawn original body"},
+    {"context": {"session_id": "foreign"}},
+    {"context": {"session_id": "session-basis-contract", "selected": {"entry_id": "old"}}},
+    {"role": "user"},
+    {"origin_message_id": ""},
+    {"turn_id": None},
+    {"input_type": "other"},
+    {"current_display_allowed": True},
+])
+def test_withdrawn_conversation_rejects_body_or_inexact_identity(changes):
+    page, sid = withdrawn_timeline("conversation_dj")
+    page["entries"][0].update(changes)
+    with pytest.raises(SessionError):
+        history_page(page, session_id=sid)

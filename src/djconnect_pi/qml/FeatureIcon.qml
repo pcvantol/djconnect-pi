@@ -140,6 +140,10 @@ Canvas {
             } else if (iconName === "send") {
                 line(5, 14, 28, 4); line(28, 4, 19, 28); line(19, 28, 14, 19)
                 line(14, 19, 5, 14); line(14, 19, 28, 4)
+            } else if (iconName === "forecast_clock") {
+                circle(16, 16, 11, false); line(16, 9, 16, 16); line(16, 16, 21, 19)
+            } else if (iconName === "forecast_target") {
+                circle(16, 16, 11, false); circle(16, 16, 6, false); circle(16, 16, 2, true)
             } else if (iconName === "history") {
                 ctx.beginPath(); ctx.arc(px(16), py(16), 10, -Math.PI * 0.8, Math.PI * 0.8); ctx.stroke()
                 line(8, 5, 7, 12); line(7, 12, 13, 11)
@@ -251,6 +255,9 @@ Canvas {
                 line(16, 11, 16, 21)
             } else if (iconName === "back") {
                 line(20, 7, 11, 16); line(11, 16, 20, 25)
+            } else if (iconName === "arrow_up") {
+                line(16, 25, 16, 7)
+                line(8, 15, 16, 7); line(16, 7, 24, 15)
             } else if (iconName === "logs") {
                 roundRect(9, 6, 13, 18, 2)
                 line(13, 11, 18, 11); line(13, 16, 17, 16)

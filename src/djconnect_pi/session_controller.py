@@ -40,6 +40,7 @@ from .session_playback_control import PlaybackControl
 from .session_projection import (
     active_session,
     history_page,
+    session_current_idle,
     session_playback,
     timestamp,
 )
@@ -59,6 +60,7 @@ class SessionController(QObject):
     forecastImageAboutToChange = Signal()
     artworkChanged = Signal()
     artworkAboutToChange = Signal()
+    flowIdleHeaderAboutToChange = Signal()
     entryOpened = Signal()
     questionConfirmed = Signal(str)
     currentReplyReady = Signal()
@@ -194,6 +196,7 @@ class SessionController(QObject):
             "owner_profile_id": (self._bootstrap_owner if bootstrap else session_profile_id(self.backend.cfg)),
             "runtime_state": session.get("runtime_state", ""),
             "playback": session_playback(session),
+            "current_moment_idle": session_current_idle(session),
             "artwork_prepare": self._artwork_prepare.snapshot(),
             "playback_control": self._playback_control.snapshot(),
             "archive_delete": self._archive_delete.snapshot(),
@@ -256,8 +259,9 @@ class SessionController(QObject):
             self._visibility_notify.start()
 
     @Slot(str, str, str, result=bool)
-    def playbackCommand(self, session_id, item_id, command):
-        return self._playback_control.start(session_id, item_id, command)
+    @Slot(str, str, str, int, result=bool)
+    def playbackCommand(self, session_id, item_id, command, transport_epoch=None):
+        return self._playback_control.start(session_id, item_id, command, transport_epoch=transport_epoch)
 
     @Slot(str, str, result=bool)
     def readPlaybackVolume(self, session_id, item_id):
@@ -571,6 +575,7 @@ class SessionController(QObject):
             session_id, rows = self._timeline.get("session", {}).get("session_id"), self._timeline.get("entries", [])
         return (selected["session_id"] == session_id
                 and any(row["session_id"] == selected["session_id"] and row["entry_id"] == selected["entry_id"]
+                        and row.get("state") != "source_withdrawn"
                         and (timestamp(row.get("retained_until")) or 0) > self._clock.now() for row in rows))
 
     @Slot()
@@ -1364,10 +1369,18 @@ class SessionController(QObject):
                     self._timeline_trail = []
                     self._search = {}
                     self._withdraw_question()
-                if self._session.get("session_id") != result["session"].get("session_id"):
+                incoming_session = result["session"]
+                if self._session.get("session_id") != incoming_session.get("session_id"):
                     self._withdraw_question()
+                elif not scope_changed:
+                    old_idle_state = (session_playback(self._session).get("state")
+                                      if session_current_idle(self._session) else None)
+                    new_idle_state = (session_playback(incoming_session).get("state")
+                                      if session_current_idle(incoming_session) else None)
+                    if old_idle_state != new_idle_state:
+                        self.flowIdleHeaderAboutToChange.emit()
                 self._loaded = True
-                self._session = result["session"]
+                self._session = incoming_session
                 self._moments = live_presentations(self._session, now=self._clock.now())
                 self._caps = result.get("capabilities", self._caps)
                 self._forecast.receive(self._session, self._caps, self._clock.now())

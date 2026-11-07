@@ -3297,3 +3297,24 @@ are unchanged; browser/native click acceptance remains pending computer access.
 The five-language portal source is protected as PR139/3787c667 and originally
 qualified via41204276486. See PI_PORTAL_FIVE_LANGUAGE_FINALIZATION.md for review,
 regression and original artifact pins. This does not update the published app.
+
+### November Session presentation and withdrawn history
+
+Apple protected main `609ccce8` includes the Horizon list treatment from #313
+(refactored in #324) and the confirmed-Mood selection treatment from #322.
+Both Pi sizes now show the authored queue intro, one to five distinct display
+rows, and the authored note. Only the known quoted guidance shape is split;
+other text is shown verbatim. Heading glyphs are Pi-owned. The Session Pulse
+glyph is white, and only the Session mode strip opts into the Apple Mood
+selection colours. VibeScape remains Pi10-only.
+
+Core protected source `ac84880a` (#1517) and Final `5f6b0912` (#1518) retain
+a typed identity for withdrawn conversation rows. Pi renders the existing
+localized unavailable label at the original timeline position and deadline,
+without original text, attribution, actions, question selection or receipt
+confirmation. This adds no deletion operation or private access.
+
+The current Core For-you contract at `50a0884c` still limits the offer to
+iOS/iPadOS and macOS; the Pi does not synthesize an offer or call its actions.
+New Apple speech paths, Watch surfaces and provider actions are outside this
+change. Physical installation and GPU acceptance are separate.

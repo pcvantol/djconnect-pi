@@ -1261,6 +1261,21 @@ for _key, _values in _KEYBOARD_TRANSLATIONS.items():
 
 
 _SESSION_LIFECYCLE_TRANSLATIONS = {
+    "session_back_current": (
+        "Back to current contribution",
+        "Terug naar de actuele bijdrage",
+        "Zurück zum aktuellen Beitrag",
+        "Revenir à la contribution actuelle",
+        "Volver a la contribución actual",
+    ),
+    "session_playback_paused": ("Paused", "Gepauzeerd", "Pausiert", "En pause", "Pausado"),
+    "session_playback_paused_detail": (
+        "Your music is paused. Your DJ session remains active.",
+        "Je muziek staat op pauze. Je DJ-sessie blijft actief.",
+        "Deine Musik ist pausiert. Deine DJ-Session bleibt aktiv.",
+        "Votre musique est en pause. Votre session DJ reste active.",
+        "Tu música está en pausa. Tu sesión de DJ sigue activa.",
+    ),
     "session_starting": ("Your session is starting…", "Je sessie wordt gestart…", "Deine Session wird gestartet…", "Votre session démarre…", "Tu sesión se está iniciando…"),
     "session_ending": ("Your session is ending…", "Je sessie wordt beëindigd…", "Deine Session wird beendet…", "Votre session se termine…", "Tu sesión se está finalizando…"),
 }
@@ -1298,6 +1313,7 @@ for _key, _values in _SESSION_COMPOSER_TRANSLATIONS.items():
 
 _SESSION_FORECAST_TRANSLATIONS = {
     "session_flow": ("Flow", "Flow", "Flow", "Fil", "Flujo"),
+    "session_forecast_tab": ("Horizon", "Horizon", "Horizon", "Horizon", "Horizon"),
     "session_forecast": ("Horizon · about 15 min", "Horizon · ±15 min", "Horizon · ca. 15 Min.", "Horizon · env. 15 min", "Horizon · unos 15 min"),
     "session_owner_read_only": ("Following the active session. Personal functions require personal Profile access.", "Je volgt de actieve sessie. Privéfuncties vereisen toegang tot een persoonlijk profiel.", "Die aktive Session wird angezeigt. Private Funktionen erfordern Zugriff auf ein persönliches Profil.", "La session active est affichée. Les fonctions privées nécessitent un accès à un profil personnel.", "Se muestra la sesión activa. Las funciones privadas requieren acceso a un perfil personal."),
     "session_forecast_current": ("Current", "Huidig", "Aktuell", "Actuel", "Actual"),

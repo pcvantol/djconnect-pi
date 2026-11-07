@@ -2762,3 +2762,340 @@ No live-VM language/config change, GUI click proof, new QML/full-suite/physical
 acceptance or publishedrc7asset overwrite. This fix needs a future reviewed
 app release; current publishedrc7/VM bytes stay unchanged. Evidence external
 pi-portal-five-languages-20261031; computer-use unavailable was not bypassed.
+
+### November Horizon and Session parity
+
+In the existing Debian ARM64 QA VM, Python 3.14.9 and Qt/PySide 6.12.0:
+3,650 full tests passed. Run the focused app rendering with
+`PYTHONPATH=src QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software python Tools/preview_session_horizon.py --output <path>`.
+It verified 50 actual views across both sizes and five locales: real Qt
+Flow/Horizon clicks, four Mood colours, white Session Pulse, original queue
+prose and fallback, wrapping/literal markup, expiry and withdrawn history
+without an action. The unchanged Forecast preview separately passed 90 views
+including late image, expiry and reading continuity. No live HA requests,
+physical Pi or GPU acceptance. The offline wheel matched 85 runtime files;
+it is review evidence, not an updated rc.7 publication.
+
+### Session volume gesture cancellation
+
+On Debian ARM64 with Python 3.14.9 and Qt/PySide 6.12.0, the existing
+volume interaction matrix plus a real Qt pointer ungrab passed 200 rendered
+views across both sizes, both backend fixtures and five locales. An ungrab
+restores the observed value without a command. A release after an ordinary
+playback notification queues one intent. Popup close and keyboard adjustment
+retain their existing behavior.
+
+Eight additional views cover actual Qt touch events in both layouts. During a
+same-item playback position update the popup stays open and retains the drag
+draft. Touch release queues one command. A backend revision change invalidates
+the draft before release. All commands were intercepted offline.
+
+### Direct Session output control
+
+The current music card opens the existing output menu with one explicit
+inventory read. The larger layout shows the reported speaker on the button.
+The compact layout keeps the icon and the separate speaker name. The existing
+playback menu opens the same output control.
+
+The ARM VM with Python 3.14.9 and Qt 6.12 passed 220 views across both screen
+sizes, five locales and playing or paused playback. A position update while
+pressing a speaker retained the original button and queued one selection on
+release. Closing the menu and withdrawing its capability still revoked the
+pending intent. Requests were intercepted offline. The focused QML and
+colour checks passed 27 tests.
+
+### Direct Session volume control
+
+The music card now opens a volume-only view of the existing playback menu.
+Opening the view requests the current volume once. The existing full menu
+and the volume observation lease still govern adjustment and cancellation.
+Losing volume capability closes the direct view and drops its pending read.
+
+The ARM VM with Python 3.14.9 and Qt 6.12 passed 200 views for both sizes,
+five locales and the Spotify Direct and Music Assistant fixtures. The matrix
+covers opening with one read, slider cancel and release, keyboard intent,
+reopening the full menu and losing capability during a pending read. Transport
+was intercepted offline. The focused QML and colour checks passed 27 tests.
+
+### Session transport press context
+
+A press on Previous, Play/Pause or Next captures the current transport context.
+Ordinary position updates preserve the press. A changed track, playback state,
+Profile, backend or device credential rejects release against the old context.
+An observed change back to the original track does not revive that press.
+
+The focused controller and QML checks passed 97 tests. The ARM VM with Python
+3.14.9 and Qt 6.12 passed 150 views across both sizes and five locales. The
+matrix includes an item and state change during a mouse press, one release
+after a normal position update, keyboard activation and existing checks for
+queued command withdrawal. All commands were intercepted offline.
+
+### Direct Session favorite control
+
+The heart on the music card reads the current favorite status and opens
+a dedicated view. Adding or removing the favorite requires another press.
+A release after a track change cannot turn the old press into a read or
+write for the new track. The full playback menu keeps the same action.
+
+The ARM VM passed 180 Qt views across both sizes, five locales and both
+initial favorite states. The fixture checked the first visible contribution,
+a stale press, explicit add or remove, unsupported capability and closing
+before a queued write. Requests were intercepted offline. The focused
+controller and QML checks passed 97 tests.
+
+### DJ identity in the current contribution
+
+The active contribution shows the DJ identity beside its title and text.
+The identity follows the existing current contribution and source admission.
+Artwork, attribution and contribution actions retain their existing positions.
+
+The offline iPad simulator test at Apple commit
+`22c214f667376da425ffd58364791a228445bf87` passed with one DJ identity
+inside its existing current card. The Pi ARM VM passed 180 actual Qt views
+across both sizes and five locales with the identity beside the text, plus
+121 focused QML and artwork tests. The fixtures also exercised artwork
+expiry and reading-position restoration. These runs used synthetic
+transport and did not exercise physical devices.
+
+### Session music artwork fallback
+
+The music header shows the existing local vinyl illustration beside the
+admitted track metadata. Before the first contribution, a known track and its
+controls appear above the waiting card. The standalone illustration remains
+available while there is no current track.
+
+The ARM VM passed 160 Qt views across both layouts and five locales and 92
+focused playback and QML tests. The preview checks both waiting states, the
+compact first-fold limit, and the existing playback commands and withdrawal
+with intercepted transport. The layout was compared with the offline iPad
+reference at Apple commit `22c214f667376da425ffd58364791a228445bf87`.
+
+### Play and pause on the Session vinyl
+
+A single tap uses the same owner and playback checks as the transport menu.
+The vinyl shows a play affordance when paused. Both surfaces capture the
+transport generation at press, so a track or playback-state change between
+press and release rejects the old gesture. Ordinary position updates keep
+the gesture valid.
+
+The ARM VM passed 180 offline Qt views for both sizes and five locales,
+including real pointer input for pause, resume, rejected releases, and the
+existing popup matrix. The focused playback and QML suite passed 92 tests.
+
+### Paused Session waiting card
+
+Before a DJ contribution arrives, an admitted paused track shows a distinct
+waiting card with the same localized pause explanation as Apple. Ending the
+Session remains available. A missing observation uses the regular waiting
+state, and already visible contributions remain readable during a pause.
+
+The offline iPad pause-and-resume test passed on Apple commit
+`22c214f667376da425ffd58364791a228445bf87`. The ARM VM passed 190 offline
+Qt views across both sizes and five locales, including the paused waiting
+card, missing track, and retained visibility of a current contribution.
+The focused i18n, QML and playback suite passed 99 tests.
+
+### Active Flow starts with session content
+
+The active Flow starts directly with session content, matching the iPad
+layout and leaving more space for the first contribution. The start screen,
+archive, transitional and error states keep their headings.
+
+The ARM VM passed 210 playback views and 436 composer and reading views
+across both sizes, and 92 focused tests. The playback preview verifies the
+first fold and heading visibility on the start screen, archive and error
+state. The composer preview checks return to the same contribution and pixel
+offset on both sizes, with a long synthetic track title to exercise a
+scrolled position without the redundant heading. Transport was offline.
+
+### Open playback controls from the progress bar
+
+A tap on the Session progress bar opens the existing playback menu, as on
+the iPad. The bar continues to display the observed playback time. The
+shortcut uses the existing playback availability check.
+
+The ARM VM passed 220 offline Qt views in both layouts and all five locales,
+plus 92 focused playback and QML tests. Real Qt clicks verified that opening
+the menu from the bar queues no command, that the original menu button still
+works, and that access denial withdraws both the progress bar and the menu.
+
+### Session progress layout on both Pi sizes
+
+On the 10-inch layout, the playback progress and reported output align with
+the track details beside the vinyl. The 4-inch layout places them below the
+music header across the available width.
+
+The ARM VM passed 230 playback views and 220 output views on both formats
+and in five locales. The tests covered the progress button geometry,
+continued access to the playback popup and the separate output control
+when volume and favorites are also available. The focused playback and QML
+suite passed 92 tests.
+
+### Bind direct playback shortcuts to the original press
+
+Output, volume and favorite shortcuts capture the playback generation at
+press. A changed track, playback context or reported output name withdraws
+the press. Normal position updates preserve it.
+
+The offline ARM VM reproduced a queued output read after a stale release on
+the previous source. With the fix, 260 Qt views passed in both layouts and all
+five locales, plus 92 focused playback and QML tests. The pointer matrix
+covers stale track and reported output changes, one read after a position
+update, and closing the pop-out before the queued read reaches transport.
+
+### Dismiss playback pop-outs when the context changes
+
+Playback pop-outs stay open during position and play or pause updates. A
+changed track, source link or reported output dismisses the pop-out and
+withdraws any queued action through the existing close handler.
+
+The offline ARM VM reproduced an output pop-out left open after an output
+change on the previous source. The updated source passed 280 playback views,
+200 volume views and 92 focused tests. The pointer tests verified one stable
+presentation during progress changes and that no queued read reaches
+transport when the observed output changes.
+
+### Anchor the playback menu to its opener
+
+The full Session playback menu opens beside the tapped progress bar or
+overflow button. The menu uses the captured position and fits within the
+screen when the content height allows it. Normal progress updates preserve
+the position of the open menu.
+
+The ARM VM passed 280 playback views and 220 output views across both sizes
+and five locales, plus 92 focused playback and QML tests. The Qt tests
+checked the opening geometry, the viewport edges, position stability,
+transport buttons and output selection with all controls available.
+
+### Anchor volume, output and favorites to their buttons
+
+The dedicated volume, output and favorite pop-outs use the same placement
+rules as the full playback menu. Output selection from within the full
+playback menu opens beside its own button.
+
+The ARM VM passed 280 playback views, 220 output views, 200 volume views
+and 92 focused tests. The offline fixtures covered both sizes and five
+locales, including popup placement, nested output selection and the
+volume slider's explicit release behavior.
+
+### Keep long Session playback menus within the screen
+
+The playback pop-out scrolls vertically when its controls exceed the
+available height. A new opening starts at the top.
+
+The ARM VM reproduced a menu exceeding the compact screen margin with a
+long track title and all playback controls. The revised source passed 290
+playback views, 220 output views, 20 views in the overflow touch probe, eight
+volume touch views and 92 focused tests. The fixtures verified real Qt
+wheel and touch scrolling, reaching Close, and a volume command only on
+release. The transport was intercepted offline.
+
+### Playback activity meter
+
+A four-bar meter beside the progress bar indicates playing or paused
+playback, following the iPad layout. Its animation follows the shared
+motion setting and stops when the app is inactive or the meter is hidden.
+
+The ARM VM passed 290 playback views across both sizes and five locales,
+plus 92 focused tests. A separate two-view probe observed animation on the
+large default profile, a static indication on the compact default profile,
+and no timer advancement after leaving Session.
+
+### Return to the current contribution from Flow
+
+The up-arrow appears while the current header is above the visible Flow.
+A tap returns to the top and clears pending automatic scrolls. The draft
+stays in the composer.
+
+The ARM VM passed 456 offline composer views and 29 focused tests. Real Qt
+clicks in both layouts and five locales checked the button, the return to
+the top, the unchanged draft and the absence of a question submission.
+
+### Compact DJ waiting card during confirmed playback
+
+When Flow is empty and the active Runtime explicitly reports no current
+native contribution or silence reference, the waiting card reduces to the DJ
+symbol while music plays. Pause restores the explanatory card. The toolbar
+still offers End and the main navigation offers the archive.
+
+The ARM VM passed 300 offline playback views across both sizes and five
+locales, plus 174 focused projection, controller and QML tests. The checks
+cover explicit empty references, unknown or mismatched native authority,
+the transition to pause and continued access to End.
+
+### Compact DJ symbol above retained Flow
+
+A fresh owner update that explicitly confirms no current native contribution
+can show the compact DJ symbol above older saved contributions during playback.
+A reader already below the header keeps their position on the same admitted
+contribution when the symbol appears or disappears. If that contribution is
+withdrawn, the automatic adjustment is dropped. Touch and explicit reply
+navigation retain priority.
+
+`preview_session_composer.py` tests both directions through the real controller
+with synthetic owner responses at 720×720 and 1200×1920 in all five locales.
+It checks the same contribution ID and a maximum one-pixel offset difference.
+
+On the ARM test VM, 466 composer and 300 playback views completed without
+QML errors. The controller and projection suites passed 152 focused tests.
+
+### Paused DJ card above retained Flow
+
+The same current DJ card expands to the paused state while older contributions
+stay available. A pause without confirmed current-reference authority does not
+insert a new card above retained content. End remains available in the toolbar.
+
+The offline ARM composer fixture changes confirmed playing to paused and back
+through fresh controller reads on both layouts in all five locales. It checks
+the pause detail, toolbar availability and the same admitted reading anchor
+within one pixel across the changes.
+
+The ARM VM passed 476 composer and 300 playback views without QML errors,
+plus 152 focused controller and projection tests.
+
+### Active Flow spacing on Pi10
+
+The wide active Flow uses the 26-point spacing from Apple #324 both below
+the mode strip and between cards. The compact layout keeps its 20-pixel
+lead-in and 22-pixel card spacing. History, setup and error views keep
+their existing spacing.
+
+The offline playback fixture measures the gap above the first contribution
+and checks that it still starts in the top half of the viewport. The
+composer fixture measures consecutive retained cards in both formats.
+
+The ARM VM passed 476 composer, 300 playback and 180 Moment artwork
+views across both formats and five locales without QML errors.
+
+### Centered Session mode capsule
+
+The shared Pi mode strip follows the iPad reference: a centered glass surface,
+at most 420 pixels wide, with an 8-pixel inset, 4-pixel gaps and 48-pixel
+touch targets. The Horizon button uses the short localized tab label. The
+page heading keeps the existing time estimate.
+
+The offline Horizon fixture checks the capsule geometry, equal visible button
+widths, complete labels, Mood selection and real Flow/Horizon clicks in all
+five locales. The playback fixture measures the lead-in from the capsule's
+outer edge and keeps the first contribution above the viewport midpoint.
+
+The final ARM VM runs passed 50 Horizon, 300 playback and 476 composer
+views without QML errors. The first geometry run caught an elided English
+Horizon label before the localized tab label was applied.
+
+### Shared VibeScape mode capsule
+
+Flow, Horizon and the Pi10 VibeScape visit use the same glass component and
+localized labels. VibeScape marks its own segment selected using the Session
+Mood. An explicit Flow or Horizon tap returns to that view. Closing the
+visit without choosing a segment keeps the previous view.
+
+The isolated ARM Qt probe enters VibeScape from Horizon, checks the selected
+segment and label fit in five locales, then clicks Flow and verifies that
+Horizon is no longer selected. A separate click returns to Horizon. The
+probe still checks Pi10-only admission, owner/Session withdrawal and the
+absence of command work. The software renderer exercises the unavailable
+scene fallback and supplies no physical GPU evidence.
+
+The ARM VM passed all three isolated VibeScape cases plus 50 Horizon,
+300 playback and 476 composer views without QML errors.
