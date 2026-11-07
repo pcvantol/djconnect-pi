@@ -1062,8 +1062,25 @@ Item {
                         }
                         SessionAttribution { id: artworkSource; requiresSpotify: true; spotifyURL: screen.owner.momentArtwork.source_url || ""; Layout.fillWidth: true }
                     }
-                    Text { visible: liveSources.ready; text: modelData.title; textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 26; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                    Text { id: momentBody; objectName: "sessionLiveMomentBody"; visible: liveSources.ready; text: modelData.body; textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 23; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                    RowLayout {
+                        visible: liveSources.ready
+                        Layout.fillWidth: true
+                        spacing: screen.compact ? 12 : 16
+                        DJSessionMenuSymbol {
+                            objectName: "sessionCurrentMomentIdentity"
+                            visible: modelData.current
+                            iconColor: BrandTheme.colors.purple
+                            Layout.preferredWidth: screen.compact ? 52 : 76
+                            Layout.preferredHeight: Layout.preferredWidth
+                            Layout.alignment: Qt.AlignTop
+                            Accessible.ignored: true
+                        }
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            Text { text: modelData.title; textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 26; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                            Text { id: momentBody; objectName: "sessionLiveMomentBody"; text: modelData.body; textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 23; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                        }
+                    }
                     GlassButton {
                         objectName: "sessionPrepareArtwork"
                         visible: liveSources.ready && modelData.current && screen.state.artwork_prepare.available && screen.state.artwork_prepare.moment_id === modelData.moment_id

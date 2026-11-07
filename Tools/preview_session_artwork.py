@@ -100,6 +100,10 @@ def main():
                 s,elapsed=install(language);assert len(jobs)==1, (len(jobs), store.visible, owner._foreground, bool(owner._session), owner._caps, backend.cfg.explicit_profile_id, backend.cfg.active_profile_type, backend.cfg.active_profile_privacy_mode, bool(store.desired),screen.property('historical'),screen.property('showForecast'))
                 jobs.pop(0)();QTest.qWait(150)
                 art=visual(screen,'sessionMomentArtworkImage');card=visual(screen,'sessionMomentArtworkCard')
+                moment=visual(screen,'sessionLiveMomentCard')
+                identity=visual(moment,'sessionCurrentMomentIdentity');body=visual(moment,'sessionLiveMomentBody')
+                assert identity.property('visible')
+                assert identity.mapToItem(moment,identity.width(),0).x()<body.mapToItem(moment,0,0).x()
                 assert owner.momentArtwork and card.property('visible') and art.property('source').toString().startswith('data:image/png;base64,')
                 assert art.property('cache') is False and QQmlExpression(engine.rootContext(),art,'status===1 && fillMode===1').evaluate()[0]
                 flick.setProperty('contentY',0);capture('current-header-music-before-moment-'+language)

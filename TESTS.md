@@ -2842,3 +2842,17 @@ initial favorite states. The fixture checked the first visible contribution,
 a stale press, explicit add or remove, unsupported capability and closing
 before a queued write. Requests were intercepted offline. The focused
 controller and QML checks passed 97 tests.
+
+### DJ identity in the current contribution
+
+The active contribution shows the DJ identity beside its title and text.
+The identity follows the existing current contribution and source admission.
+Artwork, attribution and contribution actions retain their existing positions.
+
+The offline iPad simulator test at Apple commit
+`22c214f667376da425ffd58364791a228445bf87` passed with one DJ identity
+inside its existing current card. The Pi ARM VM passed 180 actual Qt views
+across both sizes and five locales with the identity beside the text, plus
+121 focused QML and artwork tests. The fixtures also exercised artwork
+expiry and reading-position restoration. These runs used synthetic
+transport and did not exercise physical devices.
