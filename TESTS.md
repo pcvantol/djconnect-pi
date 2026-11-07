@@ -2856,3 +2856,16 @@ across both sizes and five locales with the identity beside the text, plus
 121 focused QML and artwork tests. The fixtures also exercised artwork
 expiry and reading-position restoration. These runs used synthetic
 transport and did not exercise physical devices.
+
+### Session music artwork fallback
+
+The music header shows the existing local vinyl illustration beside the
+admitted track metadata. Before the first contribution, a known track and its
+controls appear above the waiting card. The standalone illustration remains
+available while there is no current track.
+
+The ARM VM passed 160 Qt views across both layouts and five locales and 92
+focused playback and QML tests. The preview checks both waiting states, the
+compact first-fold limit, and the existing playback commands and withdrawal
+with intercepted transport. The layout was compared with the offline iPad
+reference at Apple commit `22c214f667376da425ffd58364791a228445bf87`.

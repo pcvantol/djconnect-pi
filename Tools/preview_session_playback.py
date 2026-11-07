@@ -122,6 +122,33 @@ def main():
                 scroll = window.findChild(QObject, 'sessionHistoryScroll').property('contentItem')
                 top = current_card.mapToItem(scroll, QPointF(0, 0)).y()
                 assert 0 <= top < scroll.property('height')/2, (width, language, 'contribution below fold', top)
+                vinyl = visual(window.contentItem(), 'sessionPlaybackVinyl')
+                metadata = visual(window.contentItem(), 'sessionPlaybackMetadata')
+                assert vinyl.property('visible')
+                assert vinyl.width() == vinyl.height() == (60 if width == 720 else 144)
+                assert vinyl.mapToItem(metadata, 0, 0).x() >= 0
+                assert vinyl.mapToItem(metadata, vinyl.width(), vinyl.height()).x() <= metadata.width()
+                capture('inline-vinyl')
+                waiting = window.findChild(QObject, 'sessionWaitingCard')
+                waiting_vinyl = window.findChild(QObject, 'sessionWaitingVinyl')
+                moments, retained = owner._moments, owner._retained_flow
+                owner._moments, owner._retained_flow = [], []
+                owner.changed.emit()
+                QTest.qWait(80)
+                assert waiting.property('visible') and not waiting_vinyl.property('visible')
+                assert metadata.mapToItem(scroll, 0, metadata.height()).y() < waiting.mapToItem(scroll, 0, 0).y()
+                capture('inline-vinyl-before-waiting')
+                active_session = owner._session
+                owner._session = deepcopy(active_session)
+                owner._session['broadcast']['playback'] = {}
+                owner.changed.emit()
+                QTest.qWait(80)
+                assert waiting_vinyl.property('visible') and not metadata.property('visible')
+                capture('waiting-vinyl-no-current-item')
+                owner._session = active_session
+                owner._moments, owner._retained_flow = moments, retained
+                owner.changed.emit()
+                QTest.qWait(80)
                 click('sessionPlaybackOpen'); assert popup.property('visible'), warnings
                 capture('ready')
                 image = window.grabWindow()

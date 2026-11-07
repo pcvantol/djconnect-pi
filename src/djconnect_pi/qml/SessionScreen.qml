@@ -857,7 +857,9 @@ Item {
                 textFormat: Text.PlainText; Layout.fillWidth: true
             }
             VinylPlaceholder {
-                visible: !screen.historical && screen.state.session_id.length > 0 && screen.state.loaded && screen.state.moments.length === 0 && screen.state.retained_flow.length === 0 &&
+                objectName: "sessionWaitingVinyl"
+                visible: !screen.historical && screen.state.session_id.length > 0 && screen.state.loaded && !screen.state.playback.item_id &&
+                    screen.state.moments.length === 0 && screen.state.retained_flow.length === 0 &&
                     (!screen.state.profile_confirmation_required || screen.backend.demoMode)
                 Layout.preferredWidth: Math.min(parent.width, screen.compact ? screen.height * 0.38 : 520)
                 Layout.preferredHeight: width
@@ -885,33 +887,6 @@ Item {
                 busy: screen.owner.busy
                 onStartRequested: function(mood) { screen.owner.start(mood) }
             }
-            GlassCard {
-                visible: !screen.historical && screen.state.session_id.length > 0 && screen.state.moments.length === 0 && screen.state.retained_flow.length === 0
-                Layout.fillWidth: true
-                RowLayout {
-                    Layout.fillWidth: true; spacing: 18
-                    DJSessionMenuSymbol { iconColor: BrandTheme.colors.purple; Layout.preferredWidth: 64; Layout.preferredHeight: 64 }
-                    Text { text: screen.tr(screen.state.runtime_state === "opening" ? "session_starting" : screen.state.runtime_state === "ending" ? "session_ending" : "session_listening"); color: BrandTheme.colors.text; font.pixelSize: screen.width > 800 ? 30 : 24; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                }
-                Text {
-                    visible: screen.backend.demoMode
-                    text: screen.tr("session_demo_body"); textFormat: Text.PlainText
-                    color: BrandTheme.colors.muted; font.pixelSize: 22
-                    wrapMode: Text.WordWrap; Layout.fillWidth: true
-                }
-                RowLayout {
-                    Layout.fillWidth: true
-                    visible: !screen.state.owner_read_only
-                    GlassButton { text: screen.tr("session_history"); enabled: !screen.owner.busy; onClicked: screen.openArchive() }
-                    Item { Layout.fillWidth: true }
-                    GlassButton {
-                        objectName: "sessionExpandedEnd"
-                        iconName: "trash"; Accessible.name: screen.tr("session_end")
-                        enabled: !screen.owner.lifecycleBusy && screen.state.runtime_state !== "ending"
-                        onClicked: { endConfirmation.expectedSessionId = screen.state.session_id; endConfirmation.open() }
-                    }
-                }
-            }
             // Current music context precedes admitted native Moments, as in the Apple header.
             GlassCard {
                 id: playbackMetadata
@@ -924,6 +899,14 @@ Item {
                 RowLayout {
                     Layout.fillWidth: true
                     spacing: 12
+                    VinylPlaceholder {
+                        objectName: "sessionPlaybackVinyl"
+                        visible: playbackSources.ready
+                        Layout.preferredWidth: screen.compact ? 60 : 144
+                        Layout.preferredHeight: Layout.preferredWidth
+                        Layout.alignment: Qt.AlignTop
+                        radius: screen.compact ? 14 : 24
+                    }
                     ColumnLayout {
                         Layout.fillWidth: true
                         spacing: screen.compact ? 4 : 12
@@ -1017,6 +1000,34 @@ Item {
                     Layout.fillWidth: true
                     FeatureIcon { iconName: "music"; Layout.preferredWidth: 22; Layout.preferredHeight: 22 }
                     Text { text: screen.state.playback.target_name || ""; textFormat: Text.PlainText; font.pixelSize: 19; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true; Accessible.name: screen.tr("output_device") + ": " + text }
+                }
+            }
+            GlassCard {
+                objectName: "sessionWaitingCard"
+                visible: !screen.historical && screen.state.session_id.length > 0 && screen.state.moments.length === 0 && screen.state.retained_flow.length === 0
+                Layout.fillWidth: true
+                RowLayout {
+                    Layout.fillWidth: true; spacing: 18
+                    DJSessionMenuSymbol { iconColor: BrandTheme.colors.purple; Layout.preferredWidth: 64; Layout.preferredHeight: 64 }
+                    Text { text: screen.tr(screen.state.runtime_state === "opening" ? "session_starting" : screen.state.runtime_state === "ending" ? "session_ending" : "session_listening"); color: BrandTheme.colors.text; font.pixelSize: screen.width > 800 ? 30 : 24; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                }
+                Text {
+                    visible: screen.backend.demoMode
+                    text: screen.tr("session_demo_body"); textFormat: Text.PlainText
+                    color: BrandTheme.colors.muted; font.pixelSize: 22
+                    wrapMode: Text.WordWrap; Layout.fillWidth: true
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    visible: !screen.state.owner_read_only
+                    GlassButton { text: screen.tr("session_history"); enabled: !screen.owner.busy; onClicked: screen.openArchive() }
+                    Item { Layout.fillWidth: true }
+                    GlassButton {
+                        objectName: "sessionExpandedEnd"
+                        iconName: "trash"; Accessible.name: screen.tr("session_end")
+                        enabled: !screen.owner.lifecycleBusy && screen.state.runtime_state !== "ending"
+                        onClicked: { endConfirmation.expectedSessionId = screen.state.session_id; endConfirmation.open() }
+                    }
                 }
             }
             Repeater {
