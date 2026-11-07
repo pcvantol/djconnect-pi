@@ -1373,9 +1373,11 @@ class SessionController(QObject):
                 if self._session.get("session_id") != incoming_session.get("session_id"):
                     self._withdraw_question()
                 elif not scope_changed:
-                    was_idle = session_current_idle(self._session) and session_playback(self._session).get("state") == "playing"
-                    will_be_idle = session_current_idle(incoming_session) and session_playback(incoming_session).get("state") == "playing"
-                    if was_idle != will_be_idle:
+                    old_idle_state = (session_playback(self._session).get("state")
+                                      if session_current_idle(self._session) else None)
+                    new_idle_state = (session_playback(incoming_session).get("state")
+                                      if session_current_idle(incoming_session) else None)
+                    if old_idle_state != new_idle_state:
                         self.flowIdleHeaderAboutToChange.emit()
                 self._loaded = True
                 self._session = incoming_session

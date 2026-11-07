@@ -1124,13 +1124,16 @@ Item {
             GlassCard {
                 id: waitingCard
                 objectName: "sessionWaitingCard"
-                readonly property bool compactIdle: screen.state.loaded && !screen.state.error
+                readonly property bool confirmedIdle: screen.state.loaded && !screen.state.error
                     && !screen.backend.demoMode && !!screen.state.current_moment_idle
                     && !screen.state.moments.some(function(moment) { return moment.current })
-                    && playbackSources.ready && screen.state.playback.state === "playing"
+                    && playbackSources.ready
+                readonly property bool compactIdle: confirmedIdle && screen.state.playback.state === "playing"
                 readonly property bool playbackPaused: !screen.state.error && playbackSources.ready
                     && screen.state.playback.state === "paused"
-                visible: !screen.historical && screen.state.session_id.length > 0 && (compactIdle || (screen.state.moments.length === 0 && screen.state.retained_flow.length === 0))
+                readonly property bool emptyFlow: screen.state.moments.length === 0 && screen.state.retained_flow.length === 0
+                visible: !screen.historical && screen.state.session_id.length > 0
+                    && (emptyFlow || compactIdle || (confirmedIdle && playbackPaused))
                 Layout.fillWidth: !compactIdle
                 Layout.alignment: Qt.AlignLeft
                 padding: compactIdle ? 14 : 22
@@ -1174,7 +1177,7 @@ Item {
                 }
                 RowLayout {
                     Layout.fillWidth: true
-                    visible: !waitingCard.compactIdle && !screen.state.owner_read_only
+                    visible: waitingCard.emptyFlow && !waitingCard.compactIdle && !screen.state.owner_read_only
                     GlassButton { text: screen.tr("session_history"); enabled: !screen.owner.busy; onClicked: screen.openArchive() }
                     Item { Layout.fillWidth: true }
                     GlassButton {

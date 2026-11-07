@@ -3038,3 +3038,17 @@ It checks the same contribution ID and a maximum one-pixel offset difference.
 
 On the ARM test VM, 466 composer and 300 playback views completed without
 QML errors. The controller and projection suites passed 152 focused tests.
+
+### Paused DJ card above retained Flow
+
+The same current DJ card expands to the paused state while older contributions
+stay available. A pause without confirmed current-reference authority does not
+insert a new card above retained content. End remains available in the toolbar.
+
+The offline ARM composer fixture changes confirmed playing to paused and back
+through fresh controller reads on both layouts in all five locales. It checks
+the pause detail, toolbar availability and the same admitted reading anchor
+within one pixel across the changes.
+
+The ARM VM passed 476 composer and 300 playback views without QML errors,
+plus 152 focused controller and projection tests.

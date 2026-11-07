@@ -1038,18 +1038,32 @@ def main():
             idle['broadcast']['native_delivery'] = {'schema_version': 1, 'revision': 'fixture-idle',
                 'session_id': playing['session_id'], 'revocation_scope': 'session',
                 'current_moment_id': None, 'current_silence_moment_id': None}
-            for frame, compact in ((idle, True), (playing, False)):
+            paused = deepcopy(idle)
+            paused['broadcast']['playback']['state'] = 'paused'
+            unconfirmed_pause = deepcopy(playing)
+            unconfirmed_pause['broadcast']['playback']['state'] = 'paused'
+            for frame, mode, image in (
+                (idle, 'compact', 'compact-dj-above-retained'),
+                (paused, 'paused', 'paused-dj-above-retained'),
+                (idle, 'compact', ''),
+                (unconfirmed_pause, '', ''),
+            ):
                 refresh_flow(frame)
-                assert waiting.property('visible') == compact
+                assert waiting.property('visible') == bool(mode)
+                assert waiting.property('compactIdle') == (mode == 'compact')
+                if mode == 'paused':
+                    assert window.findChild(QObject, 'sessionWaitingPausedDetail').property('visible')
+                    assert not window.findChild(QObject, 'sessionExpandedEnd').property('visible')
+                    assert window.findChild(QObject, 'sessionCompactEnd').property('enabled')
                 QMetaObject.invokeMethod(screen, 'rememberFlow')
                 after = screen.property('flowReturn').toVariant()
                 assert after['id'] == before['id'] and abs(after['offset'] - before['offset']) <= 1, (before, after)
                 QMetaObject.invokeMethod(screen, 'clearFlowReturn')
-                if compact:
+                if image:
                     anchored_y = flick.property('contentY')
                     flick.setProperty('contentY', 0)
                     QTest.qWait(40)
-                    capture('compact-dj-above-retained-' + language)
+                    capture(image + '-' + language)
                     flick.setProperty('contentY', anchored_y)
                     QTest.qWait(40)
             refresh_flow(flow_session)
