@@ -2977,3 +2977,15 @@ The ARM VM passed 280 playback views, 220 output views, 200 volume views
 and 92 focused tests. The offline fixtures covered both sizes and five
 locales, including popup placement, nested output selection and the
 volume slider's explicit release behavior.
+
+### Keep long Session playback menus within the screen
+
+The playback pop-out scrolls vertically when its controls exceed the
+available height. A new opening starts at the top.
+
+The ARM VM reproduced a menu exceeding the compact screen margin with a
+long track title and all playback controls. The revised source passed 290
+playback views, 220 output views, 20 views in the overflow touch probe, eight
+volume touch views and 92 focused tests. The fixtures verified real Qt
+wheel and touch scrolling, reaching Close, and a volume command only on
+release. The transport was intercepted offline.

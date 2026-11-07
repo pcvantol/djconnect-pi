@@ -9,7 +9,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from PySide6.QtCore import QMetaObject, QObject, QPoint, QPointF, Qt, QTimer, qInstallMessageHandler
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtGui import QGuiApplication, QWheelEvent
 from PySide6.QtQml import QQmlApplicationEngine, QQmlExpression
 from PySide6.QtQuickControls2 import QQuickStyle
 from PySide6.QtTest import QTest
@@ -260,6 +260,51 @@ def main():
                 QTest.qWait(80)
                 output_panel = window.findChild(QObject, 'sessionOutputPanel')
                 original_session = owner._session
+                owner._session = deepcopy(original_session)
+                owner._session['broadcast']['playback']['title'] = (
+                    'A long synthetic track title with no audio or provider effect ' * 4
+                ).strip()
+                original_status = owner.transport.playback_status.return_value
+                volume_status = deepcopy(original_status)
+                volume_status['music_backend_capabilities'].update(supports_volume=True)
+                volume_status['playback'].update(volume_percent=85, device={
+                    'id': 'synthetic-output', 'name': 'Synthetic loudspeaker', 'active': True,
+                    'is_restricted': False, 'supports_volume': True,
+                })
+                owner.transport.playback_status.return_value = volume_status
+                owner.changed.emit()
+                assert owner.readPlaybackVolume(owner.state['session_id'], owner.state['playback']['item_id'])
+                intents.pop()()
+                assert owner.state['playback_control']['volume']['percent'] == 85
+                owner._playback_control.blocked = True
+                owner.changed.emit()
+                QTest.qWait(80)
+                click('sessionPlaybackOpen')
+                assert popup.property('opened')
+                assert popup.property('height') <= height - 32, (width, language, popup.property('height'))
+                menu_scroll = window.findChild(QObject, 'sessionPlaybackScroll')
+                menu_flick = menu_scroll.property('contentItem')
+                assert abs(menu_flick.property('contentY')) < 1
+                if width == 720:
+                    assert menu_flick.property('contentHeight') > menu_flick.height()
+                    point = menu_scroll.mapToScene(QPointF(menu_scroll.width()/2, menu_scroll.height()/2))
+                    event = QWheelEvent(point, point, QPoint(), QPoint(0, -720),
+                                        Qt.MouseButton.NoButton, modifiers, Qt.ScrollPhase.NoScrollPhase, False)
+                    app.sendEvent(window, event)
+                    for _ in range(20):
+                        QTest.qWait(50)
+                        if not menu_flick.property('moving'):
+                            break
+                    assert menu_flick.property('contentY') > 0
+                    assert not menu_flick.property('moving')
+                capture('long-playback-menu-close-accessible')
+                click('sessionPlaybackClose')
+                assert not popup.property('opened')
+                owner._playback_control.blocked = False
+                owner.transport.playback_status.return_value = original_status
+                owner._session = original_session
+                owner.changed.emit()
+                QTest.qWait(180)
                 shortcuts = [
                     ('sessionCurrentOutput', 'outputs_read', output_panel),
                     ('sessionCurrentVolume', 'volume_read', popup),
