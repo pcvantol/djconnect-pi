@@ -239,9 +239,9 @@ def main():
                 owner._session = {}
                 owner.changed.emit()
                 QTest.qWait(80)
-                assert heading.property('visible')
-                assert heading.property('text') == TRANSLATIONS[language]['session_title']
+                assert not heading.property('visible')
                 assert window.findChild(QObject, 'sessionStartCard').property('visible')
+                assert window.findChild(QObject, 'sessionWelcomeTitle').property('text') == TRANSLATIONS[language]['session_welcome_title']
                 capture('heading-start-session')
                 owner._session = active_session
                 owner._moments, owner._retained_flow = moments, retained

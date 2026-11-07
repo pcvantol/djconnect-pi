@@ -193,6 +193,19 @@ Canvas {
                 line(7, 22.5, 26, 22.5)
             } else if (iconName === "more") {
                 circle(9, 16, 2.2, true); circle(16, 16, 2.2, true); circle(23, 16, 2.2, true)
+            } else if (iconName === "book") {
+                ctx.beginPath()
+                ctx.moveTo(px(16), py(9))
+                ctx.quadraticCurveTo(px(10), py(4), px(4), py(8))
+                ctx.lineTo(px(4), py(25))
+                ctx.quadraticCurveTo(px(10), py(21), px(16), py(26))
+                ctx.quadraticCurveTo(px(22), py(21), px(28), py(25))
+                ctx.lineTo(px(28), py(8))
+                ctx.quadraticCurveTo(px(22), py(4), px(16), py(9))
+                ctx.lineTo(px(16), py(26))
+                ctx.stroke()
+            } else if (iconName === "sparkles") {
+                star(19, 19, 11); star(8, 8, 5); star(23, 5, 3)
             } else if (iconName === "playlists") {
                 line(10, 7, 22, 7); line(8, 10, 24, 10)
                 roundRect(7, 12, 18, 13, 2)

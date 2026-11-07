@@ -12,6 +12,7 @@ Item {
     property bool currentHistory: false
     readonly property bool compact: width < 900
     readonly property real ipadScale: compact ? 1 : Math.min(1.45, width / 835)
+    readonly property bool idleWelcome: !historical && state.loaded && !state.session_id && !state.error
     readonly property bool sessionControlsVisible: !historical && state.session_id.length > 0 && !state.owner_read_only
     property var owner: backend.djSession
     property var state: owner.state
@@ -640,6 +641,7 @@ Item {
         id: toolbar
         anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top
         anchors.margins: 20; height: 58; spacing: 10
+        z: screen.idleWelcome && !screen.compact ? 2 : 0
         GlassSurface {
             visible: screen.sessionControlsVisible || (screen.state.search_available && screen.searchTarget.length > 0)
             Layout.preferredWidth: toolbarButtons.implicitWidth + 18
@@ -736,13 +738,15 @@ Item {
                 anchors.centerIn: parent; spacing: 2
                 GlassButton {
                     objectName: "sessionToolbarConnection"
-                    visible: screen.sessionControlsVisible
-                    iconName: "globe"; Accessible.name: screen.tr("connection_type")
+                    visible: screen.sessionControlsVisible || screen.idleWelcome
+                    iconName: "globe"; foregroundColor: screen.idleWelcome ? BrandTheme.colors.cyan : BrandTheme.colors.text
+                    Accessible.name: screen.tr("connection_type")
                     implicitWidth: 52; background: Item {}
                     onClicked: connectionInfo.open()
                 }
                 GlassButton {
                     objectName: "sessionRefresh"
+                    visible: !screen.idleWelcome || screen.compact
                     iconName: "refresh"; Accessible.name: screen.tr("refresh")
                     implicitWidth: 52; background: Item {}
                     enabled: !screen.owner.busy
@@ -880,10 +884,10 @@ Item {
         readonly property bool spaciousFlow: !screen.compact && !screen.historical
             && screen.state.loaded && screen.state.runtime_state === "active" && !screen.state.error
         readonly property int flowSpacing: spaciousFlow ? 26 : 22
-        anchors.top: modeSwitch.visible ? modeSwitch.bottom : toolbar.bottom; anchors.bottom: parent.bottom
+        anchors.top: screen.idleWelcome && !screen.compact ? parent.top : modeSwitch.visible ? modeSwitch.bottom : toolbar.bottom; anchors.bottom: parent.bottom
         anchors.left: parent.left; anchors.right: parent.right
         anchors.margins: 20
-        anchors.topMargin: spaciousFlow ? flowSpacing : 20
+        anchors.topMargin: screen.idleWelcome && !screen.compact ? 44 : spaciousFlow ? flowSpacing : 20
         anchors.bottomMargin: composerDock.visible ? composerDock.height + 144 : 132
         clip: true; contentWidth: availableWidth
         ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
@@ -892,8 +896,8 @@ Item {
             width: parent.width; spacing: historyScroll.flowSpacing
             Text {
                 objectName: "sessionFlowHeading"
-                visible: screen.historical || screen.backend.demoMode || !screen.state.loaded
-                    || !screen.state.session_id || screen.state.runtime_state !== "active" || !!screen.state.error
+                visible: !screen.idleWelcome && (screen.historical || screen.backend.demoMode || !screen.state.loaded
+                    || !screen.state.session_id || screen.state.runtime_state !== "active" || !!screen.state.error)
                 text: screen.tr(screen.historical ? (screen.state.timeline.session ? "session_history_title" : "session_history") : "session_title") + (screen.backend.demoMode ? " · " + screen.tr("demo_mode") : "")
                 color: BrandTheme.colors.text; font.pixelSize: screen.width > 800 ? 40 : 30; font.bold: true
                 textFormat: Text.PlainText; Layout.fillWidth: true
@@ -923,7 +927,7 @@ Item {
                 wrapMode: Text.WordWrap; Layout.fillWidth: true
             }
             SessionStartCard {
-                visible: !screen.historical && screen.state.loaded && !screen.state.session_id && !screen.state.error
+                visible: screen.idleWelcome
                 Layout.fillWidth: true
                 backend: screen.backend
                 busy: screen.owner.busy
@@ -2180,6 +2184,18 @@ Item {
         contentItem: ColumnLayout {
             Text { text: screen.tr("connection_type"); font.bold: true; font.pixelSize: 24; color: BrandTheme.colors.text }
             Text { text: screen.backend.connectionType; textFormat: Text.PlainText; font.pixelSize: 22; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+            GlassButton {
+                visible: screen.idleWelcome && !screen.compact
+                enabled: !screen.owner.busy
+                iconName: "refresh"
+                text: screen.tr("refresh")
+                Layout.fillWidth: true
+                onClicked: {
+                    connectionInfo.close()
+                    screen.owner.refresh()
+                    screen.backend.pollSharedSettings()
+                }
+            }
         }
     }
     GlassPopup {
