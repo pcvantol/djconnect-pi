@@ -2803,3 +2803,16 @@ pressing a speaker retained the original button and queued one selection on
 release. Closing the menu and withdrawing its capability still revoked the
 pending intent. Requests were intercepted offline. The focused QML and
 colour checks passed 27 tests.
+
+### Direct Session volume control
+
+The music card now opens a volume-only view of the existing playback menu.
+Opening the view requests the current volume once. The existing full menu
+and the volume observation lease still govern adjustment and cancellation.
+Losing volume capability closes the direct view and drops its pending read.
+
+The ARM VM with Python 3.14.9 and Qt 6.12 passed 200 views for both sizes,
+five locales and the Spotify Direct and Music Assistant fixtures. The matrix
+covers opening with one read, slider cancel and release, keyboard intent,
+reopening the full menu and losing capability during a pending read. Transport
+was intercepted offline. The focused QML and colour checks passed 27 tests.

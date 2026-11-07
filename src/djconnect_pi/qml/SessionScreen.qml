@@ -42,7 +42,15 @@ Item {
     }
     Component.onCompleted: syncMediaVisibility()
     onShowForecastChanged: { if (showForecast) { outputsPanel.close(); playbackPanel.close() } if (!showForecast) clearForecastReading(); syncMediaVisibility() }
-    onStateChanged: { if (archiveDeletePanel && archiveDeletePanel.opened && state.archive_delete && !state.archive_delete.status && !state.archive_delete.running) archiveDeletePanel.close(); if (playbackPanel && state.playback_control && !state.playback_control.available) playbackPanel.close(); if (outputsPanel && state.playback_control && (!state.playback_control.available || !state.playback_control.outputs_supported)) outputsPanel.close() }
+    onStateChanged: {
+        if (archiveDeletePanel && archiveDeletePanel.opened && state.archive_delete
+                && !state.archive_delete.status && !state.archive_delete.running) archiveDeletePanel.close()
+        var control = state.playback_control
+        if (!control) return
+        if (playbackPanel && (!control.available || (playbackPanel.volumeOnly && !control.volume_supported)))
+            playbackPanel.close()
+        if (outputsPanel && (!control.available || !control.outputs_supported)) outputsPanel.close()
+    }
     onComposerContextChanged: { clearForecastReading(); clearFlowReturn(); forecastMode = false; closeTransient(); if (historyReadPending && historyReadKind === "current") { historyRead.stop(); historyReadPending = false; navigate("session") } }
     function clearComposer() { followQuestionReply = false; pendingReplyId = ""; draft = ""; if (composeInput) composeInput.clear(); if (composerPanel) composerPanel.close(); if (owner) owner.clearSelection() }
     function submitQuestion() { if (owner.sendQuestion(composeInput.text)) { forecastMode = false; followQuestionReply = true; draft = ""; composeInput.clear(); composerPanel.close() } }
@@ -943,11 +951,26 @@ Item {
                         onClicked: outputsPanel.openForCurrentItem()
                     }
                     GlassButton {
+                        objectName: "sessionCurrentVolume"
+                        visible: playbackSources.ready && !!screen.state.playback_control.available
+                            && !!screen.state.playback_control.volume_supported
+                        enabled: !!screen.state.playback_control.enabled
+                        iconName: "control"
+                        Accessible.name: screen.tr("volume")
+                        Layout.preferredWidth: 48; Layout.preferredHeight: 48; Layout.alignment: Qt.AlignTop
+                        onClicked: {
+                            if (screen.owner.readPlaybackVolume(screen.state.session_id, screen.state.playback.item_id)) {
+                                playbackPanel.volumeOnly = true
+                                playbackPanel.open()
+                            }
+                        }
+                    }
+                    GlassButton {
                         objectName: "sessionPlaybackOpen"
                         visible: playbackSources.ready && !!screen.state.playback_control.available
                         iconName: "more"; Accessible.name: screen.tr("session_playback_controls")
                         Layout.preferredWidth: 48; Layout.preferredHeight: 48; Layout.alignment: Qt.AlignTop
-                        onClicked: playbackPanel.open()
+                        onClicked: { playbackPanel.volumeOnly = false; playbackPanel.open() }
                     }
                     SessionAttribution {
                         id: playbackSources
@@ -1253,15 +1276,17 @@ Item {
     GlassPopup {
         id: playbackPanel
         objectName: "sessionPlaybackPanel"
+        property bool volumeOnly: false
         onAboutToHide: { outputsPanel.close(); if (screen.owner) screen.owner.cancelPlaybackIntent() }
         x: (screen.width - width) / 2; y: toolbar.y + toolbar.height + 8
         width: Math.min(screen.width - 32, 520); padding: 20; modal: true; dim: false
         background: GlassSurface { elevated: true }
         contentItem: ColumnLayout {
             spacing: 16
-            Text { text: screen.tr("session_playback_controls"); textFormat: Text.PlainText; font.pixelSize: 25; font.bold: true; color: BrandTheme.colors.text; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+            Text { text: screen.tr(playbackPanel.volumeOnly ? "volume" : "session_playback_controls"); textFormat: Text.PlainText; font.pixelSize: 25; font.bold: true; color: BrandTheme.colors.text; Layout.fillWidth: true; wrapMode: Text.WordWrap }
             Text { text: screen.state.playback.title || ""; textFormat: Text.PlainText; font.pixelSize: 20; color: BrandTheme.colors.muted; Layout.fillWidth: true; wrapMode: Text.WordWrap }
             RowLayout {
+                visible: !playbackPanel.volumeOnly
                 Layout.fillWidth: true
                 GlassButton { objectName: "sessionPlaybackPrevious"; iconName: "previous"; Accessible.name: screen.tr("previous"); Layout.fillWidth: true; enabled: !!screen.state.playback_control.enabled; onClicked: screen.owner.playbackCommand(screen.state.session_id, screen.state.playback.item_id, "previous") }
                 GlassButton { objectName: "sessionPlaybackToggle"; iconName: screen.state.playback.state === "playing" ? "pause" : "play"; Accessible.name: screen.tr(screen.state.playback.state === "playing" ? "pause" : "play"); Layout.fillWidth: true; enabled: !!screen.state.playback_control.enabled; onClicked: screen.owner.playbackCommand(screen.state.session_id, screen.state.playback.item_id, screen.state.playback.state === "playing" ? "pause" : "play") }
@@ -1271,7 +1296,7 @@ Item {
                 objectName: "sessionPlaybackFavorite"
                 readonly property var observation: screen.state.playback_control.favorite_observation || ({})
                 readonly property bool known: typeof observation.liked === "boolean"
-                visible: !!screen.state.playback_control.favorite
+                visible: !playbackPanel.volumeOnly && !!screen.state.playback_control.favorite
                 text: screen.tr(!known ? "session_favorite_read" : observation.liked ? "session_favorite_remove" : "session_favorite_add")
                 iconName: "heart"; checked: known && observation.liked
                 Layout.fillWidth: true; enabled: !!screen.state.playback_control.enabled
@@ -1281,7 +1306,7 @@ Item {
                 }
             }
             Text {
-                visible: screen.state.playback_control.favorite_status === "unavailable"
+                visible: !playbackPanel.volumeOnly && screen.state.playback_control.favorite_status === "unavailable"
                 text: screen.tr("session_favorite_unavailable"); textFormat: Text.PlainText
                 font.pixelSize: 18; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true
             }
@@ -1377,7 +1402,7 @@ Item {
             }
             GlassButton {
                 objectName: "sessionOutputOpen"
-                visible: !!screen.state.playback_control.outputs_supported
+                visible: !playbackPanel.volumeOnly && !!screen.state.playback_control.outputs_supported
                 text: screen.tr("session_output_title"); Layout.fillWidth: true
                 enabled: !!screen.state.playback_control.enabled
                 onClicked: outputsPanel.openForCurrentItem()
