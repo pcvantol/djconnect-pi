@@ -2869,3 +2869,15 @@ focused playback and QML tests. The preview checks both waiting states, the
 compact first-fold limit, and the existing playback commands and withdrawal
 with intercepted transport. The layout was compared with the offline iPad
 reference at Apple commit `22c214f667376da425ffd58364791a228445bf87`.
+
+### Play and pause on the Session vinyl
+
+A single tap uses the same owner and playback checks as the transport menu.
+The vinyl shows a play affordance when paused. Both surfaces capture the
+transport generation at press, so a track or playback-state change between
+press and release rejects the old gesture. Ordinary position updates keep
+the gesture valid.
+
+The ARM VM passed 180 offline Qt views for both sizes and five locales,
+including real pointer input for pause, resume, rejected releases, and the
+existing popup matrix. The focused playback and QML suite passed 92 tests.

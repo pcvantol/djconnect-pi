@@ -899,13 +899,43 @@ Item {
                 RowLayout {
                     Layout.fillWidth: true
                     spacing: 12
-                    VinylPlaceholder {
+                    SessionTransportButton {
+                        id: vinylButton
                         objectName: "sessionPlaybackVinyl"
                         visible: playbackSources.ready
+                        transportSurfaceReady: visible && !playbackPanel.visible && !outputsPanel.visible
+                        commandName: screen.state.playback.state === "playing" ? "pause" : "play"
+                        Accessible.name: screen.tr(commandName)
+                        Accessible.ignored: !screen.state.playback_control.available
+                        Layout.fillWidth: false
                         Layout.preferredWidth: screen.compact ? 60 : 144
                         Layout.preferredHeight: Layout.preferredWidth
                         Layout.alignment: Qt.AlignTop
-                        radius: screen.compact ? 14 : 24
+                        opacity: 1
+                        padding: 0
+                        background: VinylPlaceholder {
+                            implicitWidth: vinylButton.Layout.preferredWidth
+                            implicitHeight: implicitWidth
+                            radius: screen.compact ? 14 : 24
+                        }
+                        contentItem: Item {
+                            GlassSurface {
+                                anchors.centerIn: parent
+                                visible: vinylButton.enabled && (vinylButton.commandName === "play" || vinylButton.down || vinylButton.activeFocus)
+                                width: screen.compact ? 38 : 60
+                                height: width
+                                radius: width / 2
+                                elevated: true
+                                pressed: vinylButton.down
+                                focused: vinylButton.activeFocus
+                                FeatureIcon {
+                                    anchors.centerIn: parent
+                                    iconName: vinylButton.commandName
+                                    width: screen.compact ? 22 : 32
+                                    height: width
+                                }
+                            }
+                        }
                     }
                     ColumnLayout {
                         Layout.fillWidth: true
@@ -1320,14 +1350,16 @@ Item {
     component SessionTransportButton: GlassButton {
         required property string commandName
         property int pressedEpoch: 0
+        property bool transportSurfaceReady: playbackPanel.opened
         Layout.fillWidth: true
-        enabled: !!screen.state.playback_control.enabled
+        enabled: transportSurfaceReady && !!screen.state.playback_control.enabled
         onPressed: pressedEpoch = screen.state.playback_control.transport_epoch || 0
         onCanceled: pressedEpoch = 0
+        onTransportSurfaceReadyChanged: if (!transportSurfaceReady) pressedEpoch = 0
         onClicked: {
             var epoch = pressedEpoch
             pressedEpoch = 0
-            if (epoch && playbackPanel.opened)
+            if (epoch && transportSurfaceReady)
                 screen.owner.playbackCommand(screen.state.session_id, screen.state.playback.item_id, commandName, epoch)
         }
     }

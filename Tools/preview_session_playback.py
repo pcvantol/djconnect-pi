@@ -149,6 +149,51 @@ def main():
                 owner._moments, owner._retained_flow = moments, retained
                 owner.changed.emit()
                 QTest.qWait(80)
+                vinyl_center = vinyl.mapToScene(QPointF(vinyl.width()/2, vinyl.height()/2))
+                vinyl_point = QPoint(round(vinyl_center.x()), round(vinyl_center.y()))
+                mouse = Qt.MouseButton.LeftButton
+                modifiers = Qt.KeyboardModifier.NoModifier
+                for changed_key, changed_value in [('item_id', 'synthetic-replacement'), ('state', 'paused')]:
+                    QTest.mousePress(window, mouse, modifiers, vinyl_point)
+                    assert vinyl.property('down')
+                    owner._session = deepcopy(active_session)
+                    owner._session['broadcast']['playback'][changed_key] = changed_value
+                    owner.changed.emit()
+                    QTest.qWait(60)
+                    QTest.mouseRelease(window, mouse, modifiers, vinyl_point)
+                    assert not intents
+                    owner.transport.playback_command.assert_not_called()
+                    owner._session = active_session
+                    owner.changed.emit()
+                    QTest.qWait(60)
+                capture('vinyl-stale-release')
+                QTest.mousePress(window, mouse, modifiers, vinyl_point)
+                owner._session = deepcopy(active_session)
+                owner._session['broadcast']['playback']['position_ms'] += 500
+                owner.changed.emit()
+                QTest.qWait(60)
+                assert vinyl.property('down')
+                QTest.mouseRelease(window, mouse, modifiers, vinyl_point)
+                assert len(intents) == 1 and not popup.property('visible')
+                intents.pop()()
+                owner.transport.playback_command.assert_called_once()
+                assert owner.transport.playback_command.call_args.args[1] == 'pause'
+                drain()
+                paused = deepcopy(session)
+                paused['broadcast']['playback']['state'] = 'paused'
+                owner.transport.active.return_value = {'success': True, 'session': paused}
+                owner.transport.playback_status.return_value['playback']['is_playing'] = False
+                owner.refresh(); drain()
+                capture('vinyl-play-affordance')
+                click('sessionPlaybackVinyl')
+                assert len(intents) == 1 and not popup.property('visible')
+                intents.pop()()
+                assert owner.transport.playback_command.call_count == 2
+                assert owner.transport.playback_command.call_args.args[1] == 'play'
+                drain()
+                owner.transport.active.return_value = {'success': True, 'session': deepcopy(session)}
+                owner.transport.playback_status.return_value['playback']['is_playing'] = True
+                owner.refresh(); drain()
                 click('sessionPlaybackOpen'); assert popup.property('visible'), warnings
                 capture('ready')
                 image = window.grabWindow()
