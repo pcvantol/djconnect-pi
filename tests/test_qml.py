@@ -323,11 +323,7 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "to: 60" in main_qml
     assert "Math.round(Math.min(60, djconnect.volume) / 60 * 100) + \"%\"" in main_qml
     assert "property var timeoutChoices: [30, 60, 90, 120, 180, 240, 300, 600]" in main_qml
-    assert "property var returnToNowChoices: [30, 60, 120, 0]" in main_qml
-    assert 'text: root.tr("return_to_now")' in main_qml
-    assert "id: returnToNowBox" in main_qml
-    assert "displayText: root.returnToNowLabel(djconnect.returnToNowSeconds)" in main_qml
-    assert "djconnect.setReturnToNowSeconds(root.returnToNowChoices[index])" in main_qml
+    assert "returnToNowBox" not in main_qml
     logs = files("djconnect_pi.qml").joinpath("LogsView.qml").read_text(encoding="utf-8")
     assert "LogsView {" in main_qml
     assert "view.backend.copyLogs()" in logs
@@ -634,16 +630,12 @@ def test_qml_screen_blanking_wakes_on_tap() -> None:
     assert "root.screenBlanked || root.forceBrightnessFull" in main_qml
     assert "onTapped: root.wakeDisplay()" in main_qml
     assert "id: forcedWakeTimer" in main_qml
-    assert "id: returnToNowTimer" in main_qml
-    assert "interval: Math.max(1000, djconnect.returnToNowSeconds * 1000)" in main_qml
-    assert "running: djconnect.returnToNowSeconds > 0" in main_qml
+    assert "returnToNowTimer" not in main_qml
     assert "interval: 10000" in main_qml
-    assert "root.activeScreen = \"now\"" in main_qml
-    assert "function temporaryWake(seconds, navigateNow)" in main_qml
-    temporary_wake = main_qml[main_qml.index("function temporaryWake(seconds, navigateNow)") : main_qml.index("component PurpleButton")]
-    assert "var wasBlanked = root.screenBlanked" in temporary_wake
-    assert "if (navigateNow && wasBlanked && djconnect.returnToNowSeconds > 0)" in temporary_wake
-    assert "function onTemporaryWakeRequested(seconds, navigateNow)" in main_qml
+    temporary_wake = main_qml[main_qml.index("function temporaryWake(seconds)") : main_qml.index("component PurpleButton")]
+    assert "root.forceScreenAwake = true" in temporary_wake
+    assert "activeScreen" not in temporary_wake
+    assert "function onTemporaryWakeRequested(seconds)" in main_qml
     assert "id: djResponseOverlay" in main_qml
     assert "id: djResponseTimer" in main_qml
     assert "djconnect.djResponseVisible" in main_qml
@@ -665,23 +657,19 @@ def test_qml_screen_blanking_wakes_on_tap() -> None:
     assert "root.lastWakeDisplayAt = now" in wake_display
     assert "djconnect.wakeDisplay()" in wake_display
     assert "root.recordActivity()" in wake_display
-    record_activity = main_qml[main_qml.index("function recordActivity()") : main_qml.index("function wakeDisplay()", main_qml.index("function recordActivity()"))]
+    record_activity = main_qml[main_qml.index("function recordActivity()") : main_qml.index("function openTrackInsightScreen()", main_qml.index("function recordActivity()"))]
     assert "var wasBlanked = root.screenBlanked" in record_activity
     assert "root.restartIdleTimer()" in record_activity
-    assert "root.restartReturnToNowTimer()" in record_activity
     assert "if (root.forceScreenAwake && forcedWakeTimer.running)" in record_activity
     assert "forcedWakeTimer.restart()" in record_activity
     assert "if (wasBlanked)" in record_activity
-    assert "if (djconnect.returnToNowSeconds > 0)" in record_activity
-    assert 'root.activeScreen = "now"' in record_activity
+    assert "activeScreen" not in record_activity
     assert "root.suppressNextNowPanelTap = true" in record_activity
     assert "root.hideTransientUi()" in record_activity
     assert "djconnect.refresh()" in record_activity
     assert "function restartIdleTimer()" in main_qml
-    assert "function restartReturnToNowTimer()" in main_qml
     assert "onActiveScreenChanged: {" in main_qml
     assert "root.restartIdleTimer()" in main_qml
-    assert "root.restartReturnToNowTimer()" in main_qml
     assert "if (root.suppressNextNowPanelTap)" in main_qml
     assert "root.suppressNextNowPanelTap = false" in main_qml
     assert "root.splashVisible = true" not in record_activity

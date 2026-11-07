@@ -5,7 +5,7 @@ import tempfile
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from PySide6.QtCore import QObject, QPoint, Qt, QTimer, qInstallMessageHandler
+from PySide6.QtCore import QPoint, Qt, QTimer, qInstallMessageHandler
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine, QQmlEngine, QQmlExpression
 from PySide6.QtQuickControls2 import QQuickStyle
@@ -235,9 +235,7 @@ with (
             assert horizon.property("activeFocus")
             assert not w.property("screenBlanked")
             assert owner._session["session_id"] == "original-session"
-            timer = w.findChild(QObject, "returnToNowTimer")
-            assert timer and not timer.property("running")
-            timer.triggered.emit()  # A previously queued expiry cannot exit this visit.
+            b.temporaryWakeRequested.emit(10, True)  # Legacy requests may wake the screen without navigation.
             QTest.qWait(30)
             assert find(w.contentItem(), "vibeScapeVisit") is not None
             if "--mesa-dynamics" in sys.argv:
@@ -267,7 +265,7 @@ with (
             click(w, find(w.contentItem(), "vibeScapeFlow"))
             assert find(w.contentItem(), "vibeScapeVisit") is None
             assert not screen.property("showForecast")
-            assert timer.property("running")
+            assert w.property("activeScreen") == "session"
             assert (
                 w.property("vibeScapeOwner") == ""
                 and w.property("vibeScapeSession") == ""

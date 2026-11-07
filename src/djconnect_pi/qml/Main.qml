@@ -61,14 +61,12 @@ BrandWindow {
         focus: active
         onLoaded: item.forceActiveFocus()
         onActiveChanged: {
-            if (active) returnToNowTimer.stop()
-            else {
+            if (!active) {
                 root.vibeScapeRequested = false
                 root.vibeScapeOwner = ""
                 root.vibeScapeSession = ""
                 root.vibeScapePickerTop = 64
                 root.restartIdleTimer()
-                root.restartReturnToNowTimer()
             }
         }
         sourceComponent: VibeScape {
@@ -149,7 +147,6 @@ BrandWindow {
     property double lastWakeDisplayAt: 0
     property int wakeDisplayDebounceMs: 800
     property int standardButtonRadius: 24
-    property var returnToNowChoices: [30, 60, 120, 0]
     property bool screenBlanked: djconnect.screenTimeoutSeconds > 0 && !idleTimer.running && !root.forceScreenAwake && !vibeScapeLoader.active
     property real brightnessOverlayOpacity: root.screenBlanked || root.forceBrightnessFull ? 0 : 1 - (djconnect.screenBrightnessPercent / 100.0)
     property int trVersion: djconnect.translationVersion
@@ -170,17 +167,6 @@ BrandWindow {
         if (value === "track") return root.tr("repeat_one")
         if (value === "context") return root.tr("repeat")
         return root.tr("repeat_off")
-    }
-
-    function returnToNowLabel(value) {
-        return value > 0 ? value : root.tr("return_to_now_off")
-    }
-
-    function returnToNowIndex() {
-        for (var i = 0; i < root.returnToNowChoices.length; i++) {
-            if (root.returnToNowChoices[i] === djconnect.returnToNowSeconds) return i
-        }
-        return 1
     }
 
     function djAnnouncementOutputLabel(value) {
@@ -228,15 +214,11 @@ BrandWindow {
         var wasBlanked = root.screenBlanked
         root.forceBrightnessFull = false
         root.restartIdleTimer()
-        root.restartReturnToNowTimer()
         if (root.forceScreenAwake && forcedWakeTimer.running) {
             forcedWakeTimer.restart()
         }
         if (wasBlanked) {
             root.hideTransientUi()
-            if (djconnect.returnToNowSeconds > 0) {
-                root.activeScreen = "now"
-            }
             root.suppressNextNowPanelTap = true
             djconnect.refresh()
         }
@@ -249,13 +231,6 @@ BrandWindow {
     function restartIdleTimer() {
         if (djconnect.screenTimeoutSeconds > 0) {
             idleTimer.restart()
-        }
-    }
-
-    function restartReturnToNowTimer() {
-        if (vibeScapeLoader.active) { returnToNowTimer.stop(); return }
-        if (djconnect.returnToNowSeconds > 0) {
-            returnToNowTimer.restart()
         }
     }
 
@@ -277,7 +252,6 @@ BrandWindow {
             return
         }
         root.restartIdleTimer()
-        root.restartReturnToNowTimer()
         if (root.activeScreen === "askdj") {
             root.scrollAskDjToTop()
         } else if (root.activeScreen === "musicdna") {
@@ -301,7 +275,6 @@ BrandWindow {
     }
 
     function hideTransientUi() {
-        root.aboutOpen = false
         root.resetPairingConfirmOpen = false
         root.rebootConfirmOpen = false
         root.shutdownConfirmOpen = false
@@ -310,15 +283,9 @@ BrandWindow {
         root.musicDnaDisableConfirmOpen = false
         root.musicDnaClearConfirmOpen = false
         root.discoveryReasonOpen = false
-        djconnect.hideLogs()
     }
 
-    function temporaryWake(seconds, navigateNow) {
-        var wasBlanked = root.screenBlanked
-        if (navigateNow && wasBlanked && djconnect.returnToNowSeconds > 0) {
-            root.hideTransientUi()
-            root.activeScreen = "now"
-        }
+    function temporaryWake(seconds) {
         root.forceScreenAwake = true
         root.forceBrightnessFull = true
         forcedWakeTimer.interval = Math.max(1000, seconds * 1000)
@@ -1163,19 +1130,6 @@ BrandWindow {
     }
 
     Timer {
-        id: returnToNowTimer
-        objectName: "returnToNowTimer"
-        interval: Math.max(1000, djconnect.returnToNowSeconds * 1000)
-        running: djconnect.returnToNowSeconds > 0
-        repeat: false
-        onTriggered: {
-            if (vibeScapeLoader.active) return
-            root.hideTransientUi()
-            root.activeScreen = "now"
-        }
-    }
-
-    Timer {
         id: forcedWakeTimer
         interval: 10000
         repeat: false
@@ -1210,8 +1164,8 @@ BrandWindow {
             forcedWakeTimer.interval = 10000
             forcedWakeTimer.restart()
         }
-        function onTemporaryWakeRequested(seconds, navigateNow) {
-            root.temporaryWake(seconds, navigateNow)
+        function onTemporaryWakeRequested(seconds) {
+            root.temporaryWake(seconds)
         }
         function onDjResponseChanged() {
             if (djconnect.djResponseVisible) {
@@ -1878,34 +1832,6 @@ BrandWindow {
                     }
                     Layout.fillWidth: true
                     onActivated: function(index) { djconnect.setScreenTimeoutSeconds(timeoutChoices[index]) }
-                }
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 14
-
-                Text {
-                    text: root.tr("return_to_now")
-                    color: BrandTheme.colors.muted
-                    font.pixelSize: 22
-                    Layout.preferredWidth: 176
-                    wrapMode: Text.WordWrap
-                }
-
-                BrandComboBox {
-                    id: returnToNowBox
-                    model: root.returnToNowChoices
-                    currentIndex: root.returnToNowIndex()
-                    font.pixelSize: 28
-                    displayText: root.returnToNowLabel(djconnect.returnToNowSeconds)
-                    delegate: ItemDelegate {
-                        width: returnToNowBox.width
-                        text: root.returnToNowLabel(modelData)
-                        font.pixelSize: 30
-                    }
-                    Layout.fillWidth: true
-                    onActivated: function(index) { djconnect.setReturnToNowSeconds(root.returnToNowChoices[index]) }
                 }
             }
 
