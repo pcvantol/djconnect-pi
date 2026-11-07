@@ -199,6 +199,17 @@ with (
                     label = next(item for item in mode.property("contentItem").childItems()
                                  if item.property("text") == mode.property("text"))
                     assert not label.property("truncated") and mode.height() == 48
+            control_point = strip.mapToScene(QPoint(210, 32)).toPoint()
+            click(w, selected)
+            assert not visit.property("controlsVisible") and not strip.property("visible")
+            canvas_point = QPoint(w.width() // 2, w.height() // 2)
+            QTest.mouseClick(w, Qt.LeftButton, Qt.NoModifier, canvas_point)
+            QTest.qWait(50)
+            assert not visit.property("controlsVisible")
+            QTest.mouseClick(w, Qt.LeftButton, Qt.NoModifier, control_point)
+            QTest.qWait(50)
+            assert visit.property("controlsVisible") and strip.property("visible")
+            assert w.property("vibeScapeRequested")  # The reveal tap must not choose an underlying mode.
             assert not w.property("screenBlanked")
             assert owner._session["session_id"] == "original-session"
             timer = w.findChild(QObject, "returnToNowTimer")

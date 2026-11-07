@@ -3099,3 +3099,21 @@ scene fallback and supplies no physical GPU evidence.
 
 The ARM VM passed all three isolated VibeScape cases plus 50 Horizon,
 300 playback and 476 composer views without QML errors.
+
+### VibeScape control visibility
+
+The selected VibeScape button hides the control surfaces. A tap in their
+reserved region reveals them without choosing a mode. A canvas tap stays
+with the visual scene. The existing three-second timeout remains active
+while controls are shown.
+
+The offline Qt click probe covers hide, canvas tap and reveal on the Pi10
+layout. The compact layout still checks that VibeScape cannot open.
+The selection-vs-primary color assertion now follows the shared mode strip
+and checks all three selection bindings. Three GitHub jobs on the preceding
+commit failed the same assertion against its old file location.
+
+The ARM VM passed eight focused tests and 3663 tests in the full collection.
+The remaining test requires a Git index, which the VM source archive does
+not include. Its unchanged assertion passed separately against the actual
+worktree index and verified the install script's executable bit.

@@ -34,6 +34,11 @@ Rectangle {
         return t ? Qt.vector4d(t.x,t.y,touchClock-t.at,1) : Qt.vector4d(0,0,0,0)
     }
     function showControls() { controlsVisible = true; controlsTimeout.restart() }
+    function hideControls() { controlsTimeout.stop(); controlsVisible = false }
+    function inControlArea(x, y) {
+        return modeStrip.contains(modeStrip.mapFromItem(scene, x, y))
+            || (renderable && dynamicsCard.contains(dynamicsCard.mapFromItem(scene, x, y)))
+    }
     function impulse(x,y) {
         if (!admitted || reduceMotion) return
         var fresh = touches.filter(function(t) { return touchClock-t.at < 2.6 })
@@ -57,7 +62,7 @@ Rectangle {
     }
     Timer {
         id: controlsTimeout; interval: 3000
-        onTriggered: { if (!dynamicsSlider.pressed) scene.controlsVisible = false; else restart() }
+        onTriggered: { if (!dynamicsSlider.pressed) scene.hideControls(); else restart() }
     }
     Item {
         anchors.fill: parent
@@ -87,9 +92,18 @@ Rectangle {
     }
     MouseArea {
         anchors.fill: parent
-        onClicked: scene.showControls()
-        onPressed: mouse => scene.impulse(mouse.x,mouse.y)
-        onPositionChanged: mouse => { if (pressed) scene.impulse(mouse.x,mouse.y) }
+        property bool pressOnControlArea: false
+        onPressed: mouse => {
+            pressOnControlArea = scene.inControlArea(mouse.x, mouse.y)
+            if (!pressOnControlArea) scene.impulse(mouse.x, mouse.y)
+        }
+        onPositionChanged: mouse => {
+            if (pressed && !pressOnControlArea && !scene.inControlArea(mouse.x, mouse.y))
+                scene.impulse(mouse.x, mouse.y)
+        }
+        onClicked: mouse => {
+            if (pressOnControlArea && scene.inControlArea(mouse.x, mouse.y)) scene.showControls()
+        }
     }
     Text {
         objectName: "vibeScapeUnavailable"
@@ -100,6 +114,7 @@ Rectangle {
         color: "white"; font.pixelSize: 26
     }
     SessionModeStrip {
+        id: modeStrip
         translate: scene.tr
         mood: scene.mood
         forecastAvailable: scene.forecastAvailable
@@ -110,9 +125,10 @@ Rectangle {
         visible: scene.controlsVisible
         onFlowRequested: scene.flowRequested()
         onForecastRequested: scene.forecastRequested()
-        onVibeScapeRequested: scene.showControls()
+        onVibeScapeRequested: scene.hideControls()
     }
     GlassSurface {
+        id: dynamicsCard
         anchors.bottom: parent.bottom; anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottomMargin: 32; width: Math.min(parent.width-64,560); height: 128
         visible: scene.controlsVisible && scene.renderable; elevated: true
