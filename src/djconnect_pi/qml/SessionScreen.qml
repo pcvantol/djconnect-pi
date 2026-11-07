@@ -1297,27 +1297,50 @@ Item {
                     visible: parent.known && parent.observation.percent <= 60
                     enabled: !!screen.state.playback_control.enabled && parent.known
                     Accessible.name: screen.tr("volume")
-                    property int intentLease: -1
-                    property int selectedValue: 0
-                    property bool userMoved: false
-                    onPressedChanged: {
-                        if (pressed) {
-                            intentLease = screen.state.playback_control.volume.lease
-                            userMoved = false
-                        } else if (userMoved) {
-                            userMoved = false
-                            screen.owner.setPlaybackVolume(screen.state.session_id, screen.state.playback.item_id, intentLease, selectedValue)
-                        }
-                    }
+                    readonly property int observationLease: parent.known ? parent.observation.lease : -1
+                    onObservationLeaseChanged: volumePointer.intentLease = -1
                     onMoved: {
-                        selectedValue = Math.round(value)
-                        if (pressed) userMoved = true
-                        else screen.owner.setPlaybackVolume(screen.state.session_id, screen.state.playback.item_id, screen.state.playback_control.volume.lease, selectedValue)
+                        if (!volumePointer.pressed && observationLease >= 0)
+                            screen.owner.setPlaybackVolume(screen.state.session_id, screen.state.playback.item_id, observationLease, Math.round(value))
+                    }
+                    MouseArea {
+                        id: volumePointer
+                        objectName: "sessionVolumePointer"
+                        anchors.fill: parent
+                        acceptedButtons: Qt.LeftButton
+                        property int intentLease: -1
+                        property int draft: 0
+
+                        function valueAt(x) {
+                            var slider = sessionVolumeSlider
+                            var halfHandle = slider.handle ? slider.handle.width / 2 : 0
+                            var travel = Math.max(1, slider.availableWidth - 2 * halfHandle)
+                            var position = Math.max(0, Math.min(1, (x - slider.leftPadding - halfHandle) / travel))
+                            return Math.round(slider.valueAt(slider.mirrored ? 1 - position : position))
+                        }
+
+                        onPressed: function(mouse) {
+                            sessionVolumeSlider.forceActiveFocus(Qt.MouseFocusReason)
+                            intentLease = sessionVolumeSlider.observationLease
+                            draft = valueAt(mouse.x)
+                        }
+                        onPositionChanged: function(mouse) {
+                            if (pressed && intentLease >= 0) draft = valueAt(mouse.x)
+                        }
+                        onReleased: function(mouse) {
+                            var lease = intentLease
+                            intentLease = -1
+                            if (lease >= 0 && lease === sessionVolumeSlider.observationLease
+                                    && sessionVolumeSlider.enabled && sessionVolumeSlider.visible && playbackPanel.opened)
+                                screen.owner.setPlaybackVolume(screen.state.session_id, screen.state.playback.item_id, lease, valueAt(mouse.x))
+                        }
+                        // Losing the grab is not a user release.
+                        onCanceled: intentLease = -1
                     }
                     Binding {
                         target: sessionVolumeSlider; property: "value"
-                        value: screen.state.playback_control.volume.percent === undefined ? 0 : screen.state.playback_control.volume.percent
-                        when: !sessionVolumeSlider.pressed
+                        value: volumePointer.intentLease >= 0 ? volumePointer.draft
+                            : (sessionVolumeSlider.parent.known ? sessionVolumeSlider.parent.observation.percent : 0)
                         restoreMode: Binding.RestoreNone
                     }
                 }

@@ -2775,3 +2775,17 @@ without an action. The unchanged Forecast preview separately passed 90 views
 including late image, expiry and reading continuity. No live HA requests,
 physical Pi or GPU acceptance. The offline wheel matched 85 runtime files;
 it is review evidence, not an updated rc.7 publication.
+
+### Session volume gesture cancellation
+
+On Debian ARM64 with Python 3.14.9 and Qt/PySide 6.12.0, the existing
+volume interaction matrix plus a real Qt pointer ungrab passed 200 rendered
+views across both sizes, both backend fixtures and five locales. An ungrab
+restores the observed value without a command. A release after an ordinary
+playback notification queues one intent. Popup close and keyboard adjustment
+retain their existing behavior.
+
+Eight additional views cover actual Qt touch events in both layouts. During a
+same-item playback position update the popup stays open and retains the drag
+draft. Touch release queues one command. A backend revision change invalidates
+the draft before release. All commands were intercepted offline.
