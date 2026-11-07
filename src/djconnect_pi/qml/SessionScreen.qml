@@ -898,10 +898,11 @@ Item {
                 visible: !screen.historical && !!screen.state.playback.item_id
                 Layout.fillWidth: true
                 padding: screen.compact ? 16 : 22
-                spacing: screen.compact ? 8 : 16
-                RowLayout {
+                GridLayout {
+                    columns: 2
+                    columnSpacing: 12
+                    rowSpacing: screen.compact ? 8 : 12
                     Layout.fillWidth: true
-                    spacing: 12
                     SessionTransportButton {
                         id: vinylButton
                         objectName: "sessionPlaybackVinyl"
@@ -910,6 +911,9 @@ Item {
                         commandName: screen.state.playback.state === "playing" ? "pause" : "play"
                         Accessible.name: screen.tr(commandName)
                         Accessible.ignored: !screen.state.playback_control.available
+                        Layout.row: 0
+                        Layout.column: 0
+                        Layout.rowSpan: screen.compact ? 1 : 3
                         Layout.fillWidth: false
                         Layout.preferredWidth: screen.compact ? 60 : 144
                         Layout.preferredHeight: Layout.preferredWidth
@@ -940,117 +944,130 @@ Item {
                             }
                         }
                     }
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: screen.compact ? 4 : 12
-                        Text { visible: playbackSources.ready && text.length > 0; text: screen.state.playback.title || ""; textFormat: Text.PlainText; font.pixelSize: screen.compact ? 24 : 30; font.bold: true; color: BrandTheme.colors.text; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                        Text {
-                            visible: screen.compact && playbackSources.ready && text.length > 0
-                            text: [screen.state.playback.artist || "", screen.state.playback.album || ""].filter(function(value) { return value.length > 0 }).join(" · ")
-                            textFormat: Text.PlainText; font.pixelSize: 18; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true
-                        }
-                        Text { visible: !screen.compact && playbackSources.ready && text.length > 0; text: screen.state.playback.artist || ""; textFormat: Text.PlainText; font.pixelSize: 23; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                        Text { visible: !screen.compact && playbackSources.ready && text.length > 0; text: screen.state.playback.album || ""; textFormat: Text.PlainText; font.pixelSize: 19; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                    }
-                    GlassButton {
-                        id: currentOutputButton
-                        objectName: "sessionCurrentOutput"
-                        visible: playbackSources.ready && !!screen.state.playback_control.available
-                            && !!screen.state.playback_control.outputs_supported
-                        enabled: !!screen.state.playback_control.enabled
-                        iconName: "voice"
-                        text: screen.compact ? "" : (screen.state.playback.target_name || "")
-                        Accessible.name: screen.tr("session_output_title")
-                        Accessible.description: screen.state.playback.target_name || ""
-                        Layout.preferredWidth: text.length ? Math.min(220, implicitWidth) : 48
-                        Layout.preferredHeight: 48
+                    RowLayout {
+                        Layout.row: 0
+                        Layout.column: 1
                         Layout.alignment: Qt.AlignTop
-                        onClicked: outputsPanel.openForCurrentItem()
-                    }
-                    GlassButton {
-                        objectName: "sessionCurrentVolume"
-                        visible: playbackSources.ready && !!screen.state.playback_control.available
-                            && !!screen.state.playback_control.volume_supported
-                        enabled: !!screen.state.playback_control.enabled
-                        iconName: "control"
-                        Accessible.name: screen.tr("volume")
-                        Layout.preferredWidth: 48; Layout.preferredHeight: 48; Layout.alignment: Qt.AlignTop
-                        onClicked: {
-                            if (screen.owner.readPlaybackVolume(screen.state.session_id, screen.state.playback.item_id)) {
-                                playbackPanel.controlView = "volume"
-                                playbackPanel.open()
+                        Layout.fillWidth: true
+                        spacing: 12
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: screen.compact ? 4 : 12
+                            Text { visible: playbackSources.ready && text.length > 0; text: screen.state.playback.title || ""; textFormat: Text.PlainText; font.pixelSize: screen.compact ? 24 : 30; font.bold: true; color: BrandTheme.colors.text; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                            Text {
+                                visible: screen.compact && playbackSources.ready && text.length > 0
+                                text: [screen.state.playback.artist || "", screen.state.playback.album || ""].filter(function(value) { return value.length > 0 }).join(" · ")
+                                textFormat: Text.PlainText; font.pixelSize: 18; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true
+                            }
+                            Text { visible: !screen.compact && playbackSources.ready && text.length > 0; text: screen.state.playback.artist || ""; textFormat: Text.PlainText; font.pixelSize: 23; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                            Text { visible: !screen.compact && playbackSources.ready && text.length > 0; text: screen.state.playback.album || ""; textFormat: Text.PlainText; font.pixelSize: 19; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                        }
+                        GlassButton {
+                            id: currentOutputButton
+                            objectName: "sessionCurrentOutput"
+                            visible: playbackSources.ready && !!screen.state.playback_control.available
+                                && !!screen.state.playback_control.outputs_supported
+                            enabled: !!screen.state.playback_control.enabled
+                            iconName: "voice"
+                            text: screen.compact ? "" : (screen.state.playback.target_name || "")
+                            Accessible.name: screen.tr("session_output_title")
+                            Accessible.description: screen.state.playback.target_name || ""
+                            Layout.preferredWidth: text.length ? Math.min(220, implicitWidth) : 48
+                            Layout.preferredHeight: 48
+                            Layout.alignment: Qt.AlignTop
+                            onClicked: outputsPanel.openForCurrentItem()
+                        }
+                        GlassButton {
+                            objectName: "sessionCurrentVolume"
+                            visible: playbackSources.ready && !!screen.state.playback_control.available
+                                && !!screen.state.playback_control.volume_supported
+                            enabled: !!screen.state.playback_control.enabled
+                            iconName: "control"
+                            Accessible.name: screen.tr("volume")
+                            Layout.preferredWidth: 48; Layout.preferredHeight: 48; Layout.alignment: Qt.AlignTop
+                            onClicked: {
+                                if (screen.owner.readPlaybackVolume(screen.state.session_id, screen.state.playback.item_id)) {
+                                    playbackPanel.controlView = "volume"
+                                    playbackPanel.open()
+                                }
                             }
                         }
-                    }
-                    GlassButton {
-                        objectName: "sessionCurrentFavorite"
-                        visible: playbackSources.ready && !!screen.state.playback_control.available
-                            && !!screen.state.playback_control.favorite
-                        enabled: !!screen.state.playback_control.enabled
-                        iconName: "heart"
-                        Accessible.name: screen.tr("session_favorite_read")
-                        Layout.preferredWidth: 48; Layout.preferredHeight: 48; Layout.alignment: Qt.AlignTop
-                        onClicked: {
-                            if (screen.owner.readPlaybackFavorite(screen.state.session_id, screen.state.playback.item_id)) {
-                                playbackPanel.controlView = "favorite"
-                                playbackPanel.open()
+                        GlassButton {
+                            objectName: "sessionCurrentFavorite"
+                            visible: playbackSources.ready && !!screen.state.playback_control.available
+                                && !!screen.state.playback_control.favorite
+                            enabled: !!screen.state.playback_control.enabled
+                            iconName: "heart"
+                            Accessible.name: screen.tr("session_favorite_read")
+                            Layout.preferredWidth: 48; Layout.preferredHeight: 48; Layout.alignment: Qt.AlignTop
+                            onClicked: {
+                                if (screen.owner.readPlaybackFavorite(screen.state.session_id, screen.state.playback.item_id)) {
+                                    playbackPanel.controlView = "favorite"
+                                    playbackPanel.open()
+                                }
                             }
                         }
+                        GlassButton {
+                            objectName: "sessionPlaybackOpen"
+                            visible: playbackSources.ready && !!screen.state.playback_control.available
+                            iconName: "more"; Accessible.name: screen.tr("session_playback_controls")
+                            Layout.preferredWidth: 48; Layout.preferredHeight: 48; Layout.alignment: Qt.AlignTop
+                            onClicked: playbackPanel.openControls()
+                        }
+                        SessionAttribution {
+                            id: playbackSources
+                            requiresSpotify: !!screen.state.playback.requires_spotify_attribution
+                            spotifyURL: screen.state.playback.source_url || ""
+                            visible: requiresSpotify
+                            Layout.preferredWidth: 90; Layout.alignment: Qt.AlignTop
+                        }
                     }
-                    GlassButton {
-                        objectName: "sessionPlaybackOpen"
-                        visible: playbackSources.ready && !!screen.state.playback_control.available
-                        iconName: "more"; Accessible.name: screen.tr("session_playback_controls")
-                        Layout.preferredWidth: 48; Layout.preferredHeight: 48; Layout.alignment: Qt.AlignTop
+                    AbstractButton {
+                        id: progressControl
+                        objectName: "sessionPlaybackProgress"
+                        visible: playbackSources.ready && screen.state.playback.time_label !== undefined
+                        enabled: !!screen.state.playback_control.available
+                        implicitHeight: enabled ? Math.max(44, contentItem.implicitHeight) : contentItem.implicitHeight
+                        Layout.row: 1
+                        Layout.column: screen.compact ? 0 : 1
+                        Layout.columnSpan: screen.compact ? 2 : 1
+                        Layout.fillWidth: true
+                        Accessible.name: screen.tr("session_playback_controls")
+                        Accessible.description: screen.state.playback.time_label || ""
+                        Accessible.ignored: !enabled
                         onClicked: playbackPanel.openControls()
-                    }
-                    SessionAttribution {
-                        id: playbackSources
-                        requiresSpotify: !!screen.state.playback.requires_spotify_attribution
-                        spotifyURL: screen.state.playback.source_url || ""
-                        visible: requiresSpotify
-                        Layout.preferredWidth: 90; Layout.alignment: Qt.AlignTop
-                    }
-                }
-                AbstractButton {
-                    id: progressControl
-                    objectName: "sessionPlaybackProgress"
-                    visible: playbackSources.ready && screen.state.playback.time_label !== undefined
-                    enabled: !!screen.state.playback_control.available
-                    implicitHeight: enabled ? Math.max(44, contentItem.implicitHeight) : contentItem.implicitHeight
-                    Layout.fillWidth: true
-                    Accessible.name: screen.tr("session_playback_controls")
-                    Accessible.description: screen.state.playback.time_label || ""
-                    Accessible.ignored: !enabled
-                    onClicked: playbackPanel.openControls()
-                    background: GlassSurface {
-                        visible: progressControl.down || (progressControl.visualFocus && !playbackPanel.visible)
-                        radius: height / 2
-                        interactive: true
-                        pressed: progressControl.down
-                        focused: progressControl.visualFocus
-                    }
-                    contentItem: RowLayout {
-                        ProgressBar {
-                            id: playbackProgress
-                            value: screen.state.playback.progress || 0; Layout.fillWidth: true
-                            Accessible.name: screen.tr("now_playing")
-                            Accessible.ignored: progressControl.enabled
-                            background: Rectangle { implicitHeight: 6; radius: 3; color: BrandTheme.colors.text; opacity: 0.18 }
-                            contentItem: Item {
-                                implicitHeight: 6
-                                Rectangle { width: playbackProgress.visualPosition * parent.width; height: parent.height; radius: 3; color: BrandTheme.colors.text }
-                            }
+                        background: GlassSurface {
+                            visible: progressControl.down || (progressControl.visualFocus && !playbackPanel.visible)
+                            radius: height / 2
+                            interactive: true
+                            pressed: progressControl.down
+                            focused: progressControl.visualFocus
                         }
-                        Text { text: screen.state.playback.time_label || ""; textFormat: Text.PlainText; font.pixelSize: screen.compact ? 16 : 18; color: BrandTheme.colors.muted }
+                        contentItem: RowLayout {
+                            ProgressBar {
+                                id: playbackProgress
+                                value: screen.state.playback.progress || 0; Layout.fillWidth: true
+                                Accessible.name: screen.tr("now_playing")
+                                Accessible.ignored: progressControl.enabled
+                                background: Rectangle { implicitHeight: 6; radius: 3; color: BrandTheme.colors.text; opacity: 0.18 }
+                                contentItem: Item {
+                                    implicitHeight: 6
+                                    Rectangle { width: playbackProgress.visualPosition * parent.width; height: parent.height; radius: 3; color: BrandTheme.colors.text }
+                                }
+                            }
+                            Text { text: screen.state.playback.time_label || ""; textFormat: Text.PlainText; font.pixelSize: screen.compact ? 16 : 18; color: BrandTheme.colors.muted }
+                        }
                     }
-                }
-                RowLayout {
-                    visible: playbackSources.ready && !!screen.state.playback.target_name
-                        && (screen.compact || !currentOutputButton.visible)
-                    Layout.fillWidth: true
-                    FeatureIcon { iconName: "music"; Layout.preferredWidth: 22; Layout.preferredHeight: 22 }
-                    Text { text: screen.state.playback.target_name || ""; textFormat: Text.PlainText; font.pixelSize: 19; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true; Accessible.name: screen.tr("output_device") + ": " + text }
+                    RowLayout {
+                        visible: playbackSources.ready && !!screen.state.playback.target_name
+                            && (screen.compact || !currentOutputButton.visible)
+                        Layout.row: 2
+                        Layout.column: screen.compact ? 0 : 1
+                        Layout.columnSpan: screen.compact ? 2 : 1
+                        Layout.fillWidth: true
+                        FeatureIcon { iconName: "music"; Layout.preferredWidth: 22; Layout.preferredHeight: 22 }
+                        Text { text: screen.state.playback.target_name || ""; textFormat: Text.PlainText; font.pixelSize: 19; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true; Accessible.name: screen.tr("output_device") + ": " + text }
+                    }
                 }
             }
             GlassCard {

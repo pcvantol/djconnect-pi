@@ -221,6 +221,15 @@ def main():
                 owner.refresh(); drain()
                 progress = window.findChild(QObject, 'sessionPlaybackProgress')
                 assert progress.height() >= 44
+                vinyl_right = vinyl.mapToItem(metadata, vinyl.width(), 0).x()
+                progress_origin = progress.mapToItem(metadata, 0, 0)
+                if width == 720:
+                    assert abs(progress_origin.x() - vinyl.mapToItem(metadata, 0, 0).x()) < 1
+                    assert progress_origin.y() >= vinyl.mapToItem(metadata, 0, vinyl.height()).y()
+                else:
+                    assert progress_origin.x() > vinyl_right
+                    assert progress_origin.y() < vinyl.mapToItem(metadata, 0, vinyl.height()).y()
+                capture('progress-layout')
                 command_count = owner.transport.playback_command.call_count
                 click('sessionPlaybackProgress'); assert popup.property('opened'), warnings
                 assert popup.property('controlView') == 'all'

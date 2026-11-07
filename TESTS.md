@@ -2918,3 +2918,15 @@ The ARM VM passed 220 offline Qt views in both layouts and all five locales,
 plus 92 focused playback and QML tests. Real Qt clicks verified that opening
 the menu from the bar queues no command, that the original menu button still
 works, and that access denial withdraws both the progress bar and the menu.
+
+### Session progress layout on both Pi sizes
+
+On the 10-inch layout, the playback progress and reported output align with
+the track details beside the vinyl. The 4-inch layout places them below the
+music header across the available width.
+
+The ARM VM passed 230 playback views and 220 output views on both formats
+and in five locales. The tests covered the progress button geometry,
+continued access to the playback popup and the separate output control
+when volume and favorites are also available. The focused playback and QML
+suite passed 92 tests.
