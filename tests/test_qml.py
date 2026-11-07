@@ -537,7 +537,8 @@ def test_qml_music_discovery_nav_and_panel() -> None:
     assert 'root.tr("music_discovery_requires_music_dna")' in discover_block
     assert "djconnect.acceptMusicDiscoveryConsent()" in discover_block
     assert "djconnect.rejectMusicDiscoveryConsent()" in discover_block
-    assert "anchors.topMargin: 10" in discover_block
+    assert 'objectName: "discoveryIntroduction"' in discover_block
+    assert 'message: root.tr("music_discovery_introduction")' in discover_block
     assert "id: discoveryRefreshButton" in discover_block
     assert "RefreshIconButton" in discover_block
     assert "enabled: !djconnect.musicDiscoveryBusy" in discover_block
@@ -593,7 +594,8 @@ def test_qml_music_dna_enable_is_available_in_disabled_screen() -> None:
     assert "djconnect.setMusicDnaEnabled(true)" in music_dna_block
     assert "djconnect.refreshMusicDna()" in music_dna_block
     assert "visible: !djconnect.musicDnaEnabled" in music_dna_block
-    assert 'text: root.tr("music_dna_disabled")' in music_dna_block
+    assert 'objectName: "musicDnaOptInHero"' in music_dna_block
+    assert 'iconName: "heart"' in music_dna_block
     assert 'text: root.tr("music_dna_enable")' in music_dna_block
     assert "enabled: !djconnect.musicDnaBusy" in music_dna_block
     assert "Layout.preferredHeight: 56" in music_dna_block

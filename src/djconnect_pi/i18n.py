@@ -1253,6 +1253,27 @@ for _key, _values in _HISTORY_SEARCH_TRANSLATIONS.items():
         TRANSLATIONS[_language][_key] = _value
 
 
+_INTRODUCTION_TRANSLATIONS = {
+    "music_discovery_introduction": (
+        "Learn from your taste and listening habits to tailor recommendations to your listening profile.",
+        "Leer van je smaak en luistergedrag om aanbevelingen af te stemmen op jouw luisterprofiel.",
+        "Lerne aus deinem Geschmack und Hörverhalten, um Empfehlungen auf dein Hörprofil abzustimmen.",
+        "Apprenez de vos goûts et de vos habitudes d’écoute pour adapter les recommandations à votre profil.",
+        "Aprende de tus gustos y hábitos de escucha para adaptar las recomendaciones a tu perfil.",
+    ),
+    "ask_dj_introduction": (
+        "Ask your DJ about music and artists during an active session.",
+        "Vraag je DJ tijdens een actieve sessie naar muziek en artiesten.",
+        "Frag deinen DJ während einer aktiven Session nach Musik und Künstlern.",
+        "Interrogez votre DJ sur la musique et les artistes pendant une session active.",
+        "Pregunta a tu DJ sobre música y artistas durante una sesión activa.",
+    ),
+}
+for _key, _values in _INTRODUCTION_TRANSLATIONS.items():
+    for _language, _value in zip(("en", "nl", "de", "fr", "es"), _values):
+        TRANSLATIONS[_language][_key] = _value
+
+
 _LOG_SEARCH_TRANSLATIONS = {
     "copy_logs": ("Copy logs", "Logs kopiëren", "Protokolle kopieren", "Copier les journaux", "Copiar registros"),
     "logs_copied": ("Logs copied", "Logs gekopieerd", "Protokolle kopiert", "Journaux copiés", "Registros copiados"),

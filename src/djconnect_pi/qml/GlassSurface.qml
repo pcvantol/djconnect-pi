@@ -15,16 +15,17 @@ Rectangle {
     property bool elevated: false
     property bool popover: false
     property bool hero: false
+    property bool introduction: false
     property string artworkTint: ""
     property bool currentMoment: false
     readonly property bool hasArtworkTint: /^#[0-9a-f]{6}$/i.test(artworkTint)
     function boundedColor(color) { return Qt.rgba(Math.min(GlassStyle.materialChannelCeiling,color.r),Math.min(GlassStyle.materialChannelCeiling,color.g),Math.min(GlassStyle.materialChannelCeiling,color.b),1) }
-    readonly property color rawTint: hasArtworkTint ? Qt.tint(GlassStyle.surfaceTint,Qt.rgba(Qt.color(artworkTint).r,Qt.color(artworkTint).g,Qt.color(artworkTint).b,GlassStyle.artworkTintStrength)) : GlassStyle.surfaceTint
-    readonly property color resolvedTint: boundedColor(rawTint)
+    readonly property color rawTint: hasArtworkTint ? Qt.tint(GlassStyle.surfaceTint,Qt.rgba(Qt.color(artworkTint).r,Qt.color(artworkTint).g,Qt.color(artworkTint).b,GlassStyle.artworkTintStrength)) : introduction ? Qt.tint(GlassStyle.introductionTint, Qt.rgba(GlassStyle.moodAccent.r, GlassStyle.moodAccent.g, GlassStyle.moodAccent.b, 0.08)) : GlassStyle.surfaceTint
+    readonly property color resolvedTint: introduction ? rawTint : boundedColor(rawTint)
     property bool primary: false
     property bool destructive: false
     property bool tertiary: false
-    readonly property color surfaceFill: destructive ? Qt.rgba(1, 0.27, 0.23, 0.12) : hasSelectionFill ? selectionFill : selected ? Qt.rgba(tint.r, tint.g, tint.b, 0.22) : elevated ? Qt.rgba(resolvedTint.r,resolvedTint.g,resolvedTint.b,popover ? 0.84 : 0.96) : interactive ? "#1AFFFFFF" : Qt.rgba(resolvedTint.r,resolvedTint.g,resolvedTint.b,0.5)
+    readonly property color surfaceFill: destructive ? Qt.rgba(1, 0.27, 0.23, 0.12) : hasSelectionFill ? selectionFill : selected ? Qt.rgba(tint.r, tint.g, tint.b, 0.22) : elevated ? Qt.rgba(resolvedTint.r,resolvedTint.g,resolvedTint.b,popover ? 0.84 : 0.96) : interactive ? "#1AFFFFFF" : Qt.rgba(resolvedTint.r,resolvedTint.g,resolvedTint.b,introduction ? 0.74 : 0.5)
     readonly property bool glassEnabled: GlassStyle.enabled
     property real interactionProgress: interactive && pressed && GlassStyle.motionEnabled ? 1 : 0
     Behavior on interactionProgress {
@@ -96,7 +97,7 @@ Rectangle {
     }
     Rectangle {
         anchors.fill: parent
-        visible: glass.glassEnabled
+        visible: glass.glassEnabled && !glass.introduction
         anchors.margins: 2
         radius: Math.max(0, glass.radius - 2)
         color: "transparent"
@@ -104,7 +105,7 @@ Rectangle {
         border.color: "#12ffffff"
     }
     Rectangle {
-        visible: glass.glassEnabled
+        visible: glass.glassEnabled && !glass.introduction
         x: glass.radius; y: 1
         width: Math.max(0, parent.width - glass.radius * 2)
         height: 1

@@ -6,6 +6,8 @@ Canvas {
         property string iconName: "more"
         property color iconColor: BrandTheme.colors.text
         property real strokeWidth: 2.4
+        property bool heroGradient: false
+        property real whiteSweep: -1
 
         DJSessionMenuSymbol {
             anchors.fill: parent
@@ -17,6 +19,8 @@ Canvas {
         onIconNameChanged: requestPaint()
         onIconColorChanged: requestPaint()
         onStrokeWidthChanged: requestPaint()
+        onHeroGradientChanged: requestPaint()
+        onWhiteSweepChanged: requestPaint()
         onPaint: {
             var ctx = getContext("2d")
             var w = width
@@ -69,6 +73,13 @@ Canvas {
             ctx.clearRect(0, 0, w, h)
             ctx.strokeStyle = menuIcon.iconColor
             ctx.fillStyle = menuIcon.iconColor
+            if (heroGradient) {
+                var colors = ctx.createLinearGradient(0, 0, w, h)
+                colors.addColorStop(0, "#1F73FF")
+                colors.addColorStop(1, "#D638F5")
+                ctx.strokeStyle = colors
+                ctx.fillStyle = colors
+            }
             ctx.lineWidth = menuIcon.strokeWidth
             ctx.lineCap = "round"
             ctx.lineJoin = "round"
@@ -208,12 +219,22 @@ Canvas {
                 ctx.stroke()
                 line(5, 25, 27, 25)
             } else if (iconName === "discover") {
-                line(9, 23, 22, 10)
-                line(19.5, 7.5, 24.5, 12.5)
-                line(17.8, 9.2, 22.8, 14.2)
-                star(9, 9, 3.2)
-                star(24, 22, 2.5)
-                star(14, 14, 1.8)
+                ctx.save()
+                ctx.translate(px(17), py(17))
+                ctx.rotate(-Math.PI / 4)
+                var unit = s / 32
+                ctx.beginPath()
+                ctx.moveTo(-1.6 * unit, -8.4 * unit)
+                ctx.arc(0, -8.4 * unit, 1.6 * unit, Math.PI, 0)
+                ctx.lineTo(1.6 * unit, 9.4 * unit)
+                ctx.arc(0, 9.4 * unit, 1.6 * unit, 0, Math.PI)
+                ctx.closePath()
+                ctx.stroke()
+                ctx.fillRect(-1.6 * unit, -9 * unit, 3.2 * unit, 7 * unit)
+                ctx.restore()
+                star(21, 7, 4.5)
+                star(7, 19, 3.7)
+                star(11, 25, 2.4)
             } else if (iconName === "heart") {
                 ctx.beginPath()
                 ctx.moveTo(px(16), py(25))
@@ -321,6 +342,22 @@ Canvas {
                 ctx.beginPath(); ctx.arc(px(16), py(17), s * 0.28, -Math.PI * 0.65, Math.PI * 1.1); ctx.stroke()
                 line(19, 5, 23, 10); line(23, 10, 17, 11)
 
+            }
+
+            if (heroGradient && whiteSweep >= 0) {
+                var light = ctx.createConicalGradient(w / 2, h / 2, whiteSweep * Math.PI * 2)
+                light.addColorStop(0, "transparent")
+                light.addColorStop(0.70, "transparent")
+                light.addColorStop(0.78, Qt.rgba(1, 1, 1, 0.04))
+                light.addColorStop(0.90, Qt.rgba(1, 1, 1, 0.25))
+                light.addColorStop(0.96, Qt.rgba(1, 1, 1, 0.82))
+                light.addColorStop(0.985, Qt.rgba(1, 1, 1, 0.18))
+                light.addColorStop(1, "transparent")
+                ctx.save()
+                ctx.globalCompositeOperation = "source-atop"
+                ctx.fillStyle = light
+                ctx.fillRect(0, 0, w, h)
+                ctx.restore()
             }
         }
 

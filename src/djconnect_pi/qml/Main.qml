@@ -108,7 +108,7 @@ BrandWindow {
     AppBackground {
         id: glassUnderlay
         visible: false
-        sessionCanvas: root.activeScreen === "session" || root.activeScreen === "games"
+        sessionCanvas: root.activeScreen === "session" || root.activeScreen === "games" || root.activeScreen === "discover"
     }
     Loader {
         id: sharedGlassCapture
@@ -738,7 +738,7 @@ BrandWindow {
             active: appCanvas.sessionCanvas
             sourceComponent: SessionMoodCanvas {
                 mood: root.appearanceMood
-                activeSession: root.activeScreen === "games" || djconnect.djSession.state.runtime_state === "active"
+                activeSession: root.activeScreen === "games" || (root.activeScreen === "session" && djconnect.djSession.state.runtime_state === "active")
             }
         }
     }
@@ -2386,19 +2386,13 @@ BrandWindow {
                 Layout.fillWidth: true
             }
 
-            GlassCard {
+            IntroductionCard {
                 objectName: "trackInsightEmptyHero"
-                hero: true; padding: 24
+                compact: root.width < 900
+                iconName: "trackInsight"
+                title: root.tr("track_insight")
+                message: root.tr("track_insight_empty")
                 visible: djconnect.trackInsightError.length === 0 && djconnect.trackInsightText.length === 0 && djconnect.trackInsightItems.length === 0 && !djconnect.askDjBusy
-                Layout.fillWidth: true; Layout.maximumHeight: implicitHeight
-                Text {
-                    visible: djconnect.trackInsightError.length === 0 && djconnect.trackInsightText.length === 0 && djconnect.trackInsightItems.length === 0 && !djconnect.askDjBusy
-                    text: root.tr("track_insight_empty")
-                    color: BrandTheme.colors.muted
-                    font.pixelSize: 20
-                    wrapMode: Text.WordWrap
-                    Layout.fillWidth: true
-                }
             }
 
             GlassSurface {
@@ -2696,19 +2690,20 @@ BrandWindow {
         visible: root.activeScreen === "discover"
         z: 17
 
-        AppBackground {}
+        AppBackground { sessionCanvas: true }
         ModalBlocker {}
 
         ColumnLayout {
             anchors.fill: parent
             anchors.leftMargin: 20
-            anchors.topMargin: 10
+            anchors.topMargin: root.wallProfile ? 32 : 10
             anchors.rightMargin: 20
             anchors.bottomMargin: root.edge + 126
-            spacing: 10
+            spacing: root.wallProfile ? 22 : 10
 
             PageToolbar {
                 title: root.tr("music_discovery")
+                Layout.preferredHeight: compact ? implicitHeight : 140
                 showConnection: true
                 connectionLabel: root.tr("connection_type")
                 connectionText: djconnect.connectionType
@@ -2726,6 +2721,14 @@ BrandWindow {
                     enabled: !djconnect.musicDiscoveryBusy
                     onClicked: djconnect.refreshMusicDiscovery()
                 }
+            }
+
+            IntroductionCard {
+                objectName: "discoveryIntroduction"
+                compact: root.width < 900
+                iconName: "discover"
+                title: root.tr("music_discovery")
+                message: root.tr("music_discovery_introduction")
             }
 
             GlassSurface {
@@ -2819,7 +2822,9 @@ BrandWindow {
                 text: djconnect.musicDiscoveryError.length > 0 ? djconnect.musicDiscoveryError : (djconnect.musicDiscoveryEmptyText.length > 0 ? djconnect.musicDiscoveryEmptyText : root.tr("music_discovery_empty"))
                 color: BrandTheme.colors.muted
                 font.pixelSize: 20
+                horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.WordWrap
+                Layout.topMargin: root.wallProfile ? 12 : 4
                 Layout.fillWidth: true
             }
 
@@ -3134,39 +3139,15 @@ BrandWindow {
                 }
             }
 
-            GlassCard {
+            IntroductionCard {
                 objectName: "musicDnaOptInHero"
-                hero: true; padding: 18
+                compact: root.width < 900
+                iconName: "heart"
+                title: root.tr("music_dna")
+                message: root.tr("music_dna_opt_in")
                 visible: !djconnect.musicDnaEnabled && djconnect.musicDnaError.length === 0
-                Layout.fillWidth: true
-                Layout.maximumHeight: implicitHeight
-                RowLayout {
-                    visible: !djconnect.musicDnaEnabled && djconnect.musicDnaError.length === 0
-                    Layout.fillWidth: true
-                    spacing: 10
-
-                    Text {
-                        text: root.tr("music_dna_disabled")
-                        color: BrandTheme.colors.purple
-                        font.pixelSize: 21
-                        font.bold: true
-                        elide: Text.ElideRight
-                        Layout.fillWidth: true
-                    }
-
-                }
-
-                Text {
-                    visible: !djconnect.musicDnaEnabled && djconnect.musicDnaError.length === 0
-                    text: root.tr("music_dna_opt_in")
-                    color: BrandTheme.colors.muted
-                    font.pixelSize: 20
-                    wrapMode: Text.WordWrap
-                    Layout.fillWidth: true
-                }
 
                 PurpleButton {
-                    visible: !djconnect.musicDnaEnabled && djconnect.musicDnaError.length === 0
                     text: root.tr("music_dna_enable")
                     enabled: !djconnect.musicDnaBusy
                     font.pixelSize: 22
@@ -3327,6 +3308,14 @@ BrandWindow {
                 ColumnLayout {
                     width: Math.max(0, askDjScroll.availableWidth)
                     spacing: 10
+
+                    IntroductionCard {
+                        objectName: "askDjIntroduction"
+                        compact: root.width < 900
+                        iconName: "chat"
+                        title: root.tr("ask_dj")
+                        message: root.tr("ask_dj_introduction")
+                    }
 
                     Text {
                         text: root.tr("ask_dj_empty")
