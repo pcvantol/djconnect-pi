@@ -149,9 +149,19 @@ def main():
                 assert waiting.property('visible') and not waiting_vinyl.property('visible')
                 assert metadata.mapToItem(scroll, 0, metadata.height()).y() < waiting.mapToItem(scroll, 0, 0).y()
                 capture('inline-vinyl-before-waiting')
+                assert not waiting.property('compactIdle')  # A hidden moment is not an idle receipt.
                 active_session = owner._session
                 owner._session = deepcopy(active_session)
-                owner._session['broadcast']['playback']['state'] = 'paused'
+                idle_broadcast = owner._session['broadcast']
+                idle_broadcast['session']['runtime_state'] = 'active'
+                idle_broadcast['native_delivery'].update(current_moment_id=None, current_silence_moment_id=None)
+                owner.changed.emit()
+                QTest.qWait(80)
+                assert waiting.property('compactIdle') and waiting.width() < 120
+                assert window.findChild(QObject, 'sessionCompactEnd').property('enabled')
+                assert window.findChild(QObject, 'sessionCompactEnd').property('visible')
+                capture('confirmed-idle-compact')
+                idle_broadcast['playback']['state'] = 'paused'
                 owner.changed.emit()
                 QTest.qWait(80)
                 paused_detail = window.findChild(QObject, 'sessionWaitingPausedDetail')

@@ -1114,14 +1114,27 @@ Item {
             GlassCard {
                 id: waitingCard
                 objectName: "sessionWaitingCard"
+                readonly property bool compactIdle: screen.state.loaded && !screen.state.error
+                    && !screen.backend.demoMode && !!screen.state.current_moment_idle
+                    && playbackSources.ready && screen.state.playback.state === "playing"
                 readonly property bool playbackPaused: !screen.state.error && playbackSources.ready
                     && screen.state.playback.state === "paused"
                 visible: !screen.historical && screen.state.session_id.length > 0 && screen.state.moments.length === 0 && screen.state.retained_flow.length === 0
-                Layout.fillWidth: true
+                Layout.fillWidth: !compactIdle
+                Layout.alignment: Qt.AlignLeft
+                padding: compactIdle ? 14 : 22
                 RowLayout {
                     Layout.fillWidth: true; spacing: 18
-                    DJSessionMenuSymbol { iconColor: BrandTheme.colors.purple; Layout.preferredWidth: 64; Layout.preferredHeight: 64 }
+                    DJSessionMenuSymbol {
+                        iconColor: BrandTheme.colors.purple
+                        Layout.preferredWidth: 64
+                        Layout.preferredHeight: 64
+                        Accessible.role: Accessible.StaticText
+                        Accessible.name: screen.tr("session_listening")
+                        Accessible.ignored: !waitingCard.compactIdle
+                    }
                     ColumnLayout {
+                        visible: !waitingCard.compactIdle
                         Layout.fillWidth: true
                         Text {
                             objectName: "sessionWaitingTitle"
@@ -1150,7 +1163,7 @@ Item {
                 }
                 RowLayout {
                     Layout.fillWidth: true
-                    visible: !screen.state.owner_read_only
+                    visible: !waitingCard.compactIdle && !screen.state.owner_read_only
                     GlassButton { text: screen.tr("session_history"); enabled: !screen.owner.busy; onClicked: screen.openArchive() }
                     Item { Layout.fillWidth: true }
                     GlassButton {

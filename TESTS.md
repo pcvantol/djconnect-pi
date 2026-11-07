@@ -3010,3 +3010,15 @@ stays in the composer.
 The ARM VM passed 456 offline composer views and 29 focused tests. Real Qt
 clicks in both layouts and five locales checked the button, the return to
 the top, the unchanged draft and the absence of a question submission.
+
+### Compact DJ waiting card during confirmed playback
+
+When Flow is empty and the active Runtime explicitly reports no current
+native contribution or silence reference, the waiting card reduces to the DJ
+symbol while music plays. Pause restores the explanatory card. The toolbar
+still offers End and the main navigation offers the archive.
+
+The ARM VM passed 300 offline playback views across both sizes and five
+locales, plus 174 focused projection, controller and QML tests. The checks
+cover explicit empty references, unknown or mismatched native authority,
+the transition to pause and continued access to End.

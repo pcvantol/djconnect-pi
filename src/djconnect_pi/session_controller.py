@@ -40,6 +40,7 @@ from .session_playback_control import PlaybackControl
 from .session_projection import (
     active_session,
     history_page,
+    session_current_idle,
     session_playback,
     timestamp,
 )
@@ -194,6 +195,7 @@ class SessionController(QObject):
             "owner_profile_id": (self._bootstrap_owner if bootstrap else session_profile_id(self.backend.cfg)),
             "runtime_state": session.get("runtime_state", ""),
             "playback": session_playback(session),
+            "current_moment_idle": session_current_idle(session),
             "artwork_prepare": self._artwork_prepare.snapshot(),
             "playback_control": self._playback_control.snapshot(),
             "archive_delete": self._archive_delete.snapshot(),

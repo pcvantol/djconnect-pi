@@ -54,6 +54,26 @@ def active_session(response):
     return session
 
 
+def session_current_idle(session):
+    """Confirmed absence of both current native references, for presentation only."""
+    if not session or session.get("runtime_state") != "active":
+        return False
+    snapshot = session.get("broadcast")
+    if not isinstance(snapshot, dict):
+        return False
+    runtime = snapshot.get("session")
+    authority = snapshot.get("native_delivery")
+    session_id = session.get("session_id")
+    return (bool(text(session_id, 256)) and isinstance(runtime, dict)
+            and runtime.get("session_id") == session_id and runtime.get("runtime_state") == "active"
+            and isinstance(authority, dict) and type(authority.get("schema_version")) is int
+            and authority["schema_version"] == 1 and authority.get("session_id") == session_id
+            and authority.get("revocation_scope") == "session"
+            and bool(text(authority.get("revision"), 256).strip())
+            and authority.get("current_moment_id", False) is None
+            and authority.get("current_silence_moment_id", False) is None)
+
+
 def session_playback(session):
     """Only the current Runtime's renderer-safe observation, never global/history data."""
     if not session or session.get("runtime_state") != "active":
