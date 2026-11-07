@@ -72,10 +72,10 @@ def test_qml_has_touch_games_panel() -> None:
     assert "function tr(key)" in games_qml
     assert "property string gameTitle: root.tr(games[gameIndex].titleKey)" in games_qml
     assert "id: gameSelector" in games_qml
-    assert "id: gameSegment" in games_qml
-    assert 'color: BrandTheme.alpha(BrandTheme.colors.surface, "cc")' in games_qml
-    assert 'GradientStop { position: 0.0; color: gameSegment.checked ? MoodTheme.color(djconnect.moodValue, "gradientStart") : "#00000000" }' in games_qml
-    assert 'GradientStop { position: 1.0; color: gameSegment.checked ? MoodTheme.color(djconnect.moodValue, "gradientEnd") : "#00000000" }' in games_qml
+    assert 'objectName: "gameSelect-" + modelData.id' in games_qml
+    assert 'objectName: "gameReset"' in games_qml
+    assert "GameDirectionPad {" in games_qml
+    assert "SessionMoodCanvas {" in games_qml
     assert "root.tr(modelData.titleKey)" in games_qml
     assert "MouseArea" in games_qml
     assert "preventStealing: true" in games_qml
@@ -85,11 +85,9 @@ def test_qml_has_touch_games_panel() -> None:
     assert "onPressed: function(mouse) { root.handleTouch(mouse.x, mouse.y) }" in games_qml
     assert "mouthOpen" in games_qml
     assert "ghostX - 4" in games_qml
-    assert "property int pacmanPelletColumns: 10" in games_qml
-    assert "property int pacmanPelletRows: 6" in games_qml
-    assert "property real pacmanPelletSpacingX: 280 / (pacmanPelletColumns - 1)" in games_qml
-    assert "property real pacmanPelletSpacingY: 28" in games_qml
-    assert "property var powerPellets: [0, 9, 50, 59]" in games_qml
+    assert "pacmanPelletColumns: compact ? 10 : 11" in games_qml
+    assert "pacmanPelletRows: compact ? 6 : 10" in games_qml
+    assert "powerPellets: [0, pacmanPelletColumns - 1, pelletCount - pacmanPelletColumns, pelletCount - 1]" in games_qml
     assert "function pacmanPelletX(pellet)" in games_qml
     assert "function pacmanPelletY(pellet)" in games_qml
     assert "function pacmanMaxX()" in games_qml
@@ -97,19 +95,13 @@ def test_qml_has_touch_games_panel() -> None:
     assert "property int ghostVulnerableTicks" in games_qml
     assert "ghostVulnerableTicks = 210" in games_qml
     assert "for (var i = 0; i < pacmanPelletColumns * pacmanPelletRows; i++) pellets.push(i)" in games_qml
-    assert "powerPellets = [0, 9, 50, 59]" in games_qml
-    assert "anchors.leftMargin: 12" in games_qml
-    assert "anchors.topMargin: 34" in games_qml
-    assert "anchors.rightMargin: 12" in games_qml
-    assert "Layout.topMargin: 10" in games_qml
-    assert "width: Math.min(parent.width, parent.height * 320 / 170)" in games_qml
-    assert "height: width * 170 / 320" in games_qml
+    assert 'objectName: "gameCanvas"' in games_qml
+    assert "Layout.minimumHeight: 120" in games_qml
     assert "setScore(score + 5)" in games_qml
     assert 'root.ghostVulnerableTicks > 0 ? (ghostBlink ? "#e0f2fe" : "#3b82f6")' in games_qml
     assert "property int deathTicks" in games_qml
     assert "function playSfx(kind)" in games_qml
     assert "djconnect.playGameSound(kind)" in games_qml
-    assert "Layout.preferredHeight: 58" in games_qml
 
 
 def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None:
@@ -129,12 +121,12 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "onVisibleChanged:" in media_list_component
     assert "Qt.callLater(function()" in media_list_component
     assert "mediaScroll.contentItem.contentY = 0" in media_list_component
-    assert "component GlassButton" in games_qml
+    assert "GlassButton {" in games_qml
     assert 'import "MoodTheme.js" as MoodTheme' in main_qml
     assert 'import "MoodTheme.js" as MoodTheme' in games_qml
     assert 'root.moodColor("chip")' in main_qml
-    assert 'MoodTheme.color(djconnect.moodValue, "gradientStart")' in games_qml
-    assert 'MoodTheme.color(djconnect.moodValue, "gradientEnd")' in games_qml
+    assert 'MoodTheme.moodColor(gameMood, "gradientStart")' in games_qml
+    assert 'MoodTheme.moodColor(root.gameMood, "gradientEnd")' in games_qml
     assert 'color: BrandTheme.colors.text' in main_qml
     assert "id: settingsPanel" in main_qml
     assert "id: settingsScroll" in main_qml
@@ -825,9 +817,8 @@ def test_qml_uses_dark_djconnect_gradient_theme() -> None:
     main_qml = qml_root.joinpath("Main.qml").read_text(encoding="utf-8")
     games_qml = qml_root.joinpath("GamesPanel.qml").read_text(encoding="utf-8")
 
-    for text in (main_qml, games_qml):
-        assert "Gradient" in text
-        assert "MoodTheme" in text
+    assert "Gradient" in main_qml and "MoodTheme" in main_qml
+    assert "SessionMoodCanvas {" in games_qml and "MoodTheme" in games_qml
     assert "id: splashPanel" in main_qml
     mood_theme = qml_root.joinpath("MoodTheme.js").read_text(encoding="utf-8")
     assert 'function moodColor(value, token)' in mood_theme

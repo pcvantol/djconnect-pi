@@ -82,6 +82,7 @@ BrandWindow {
     property bool wallProfile: djconnect.releaseProfile === "pi5-arm64"
     readonly property bool liquidGlassEnabled: djconnect.glassEnabled
     readonly property string appearanceMood: {
+        if (root.activeScreen === "games") return gamesPanel.gameMood
         var session = djconnect.djSession.state
         if (session.session_id && ["chill", "groove", "energy", "party"].indexOf(session.mood) >= 0) return session.mood
         var settings = djconnect.sharedSettings
@@ -107,7 +108,7 @@ BrandWindow {
     AppBackground {
         id: glassUnderlay
         visible: false
-        sessionCanvas: root.activeScreen === "session"
+        sessionCanvas: root.activeScreen === "session" || root.activeScreen === "games"
     }
     Loader {
         id: sharedGlassCapture
@@ -165,7 +166,7 @@ BrandWindow {
             return JSON.stringify([root.activeScreen, state.owner_profile_id || "", state.owner_epoch || 0,
                 state.session_id || "", (state.timeline.session || {}).session_id || ""])
         }
-        if (["askdj", "musicdna", "playlists", "settings", "legal", "privacy", "feedback"].indexOf(root.activeScreen) >= 0
+        if (["askdj", "musicdna", "playlists", "settings", "legal", "privacy", "feedback", "games"].indexOf(root.activeScreen) >= 0
                 || (!root.wallProfile && (root.activeScreen === "queue" || root.activeScreen === "control")))
             return root.activeScreen
         return ""
@@ -737,7 +738,7 @@ BrandWindow {
             active: appCanvas.sessionCanvas
             sourceComponent: SessionMoodCanvas {
                 mood: root.appearanceMood
-                activeSession: djconnect.djSession.state.runtime_state === "active"
+                activeSession: root.activeScreen === "games" || djconnect.djSession.state.runtime_state === "active"
             }
         }
     }
@@ -4016,10 +4017,11 @@ BrandWindow {
     }
 
     GamesPanel {
+        id: gamesPanel
         anchors.fill: parent
         visible: gamesOpen
         z: 18
-        onCloseRequested: root.activeScreen = "now"
+        onCloseRequested: root.activeScreen = "more"
     }
 
     GlassSurface {

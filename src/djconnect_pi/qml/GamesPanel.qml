@@ -6,23 +6,10 @@ import "MoodTheme.js" as MoodTheme
 
 Rectangle {
     id: root
-    gradient: Gradient {
-        orientation: Gradient.Vertical
-        GradientStop { position: 0.0; color: MoodTheme.color(djconnect.moodValue, "backgroundStart") }
-        GradientStop { position: 0.42; color: MoodTheme.color(djconnect.moodValue, "backgroundMid") }
-        GradientStop { position: 1.0; color: MoodTheme.color(djconnect.moodValue, "backgroundEnd") }
-    }
-
-    Rectangle {
-        anchors.fill: parent
-        opacity: 0.28
-        gradient: Gradient {
-            orientation: Gradient.Horizontal
-            GradientStop { position: 0.0; color: MoodTheme.color(djconnect.moodValue, "overlayStart") }
-            GradientStop { position: 0.5; color: "#00000000" }
-            GradientStop { position: 1.0; color: MoodTheme.color(djconnect.moodValue, "overlayEnd") }
-        }
-    }
+    objectName: "gamesPanel"
+    readonly property bool compact: width < 900
+    color: BrandTheme.colors.background
+    SessionMoodCanvas { anchors.fill: parent; mood: root.gameMood; activeSession: true }
 
     signal closeRequested()
 
@@ -45,41 +32,35 @@ Rectangle {
         onWheel: function(wheel) { wheel.accepted = true }
     }
 
-    component GlassButton: Button {
-        id: control
-        font.pixelSize: 22
-        font.bold: true
-        contentItem: Text {
-            text: control.text
-            font: control.font
-            color: control.enabled ? BrandTheme.colors.text : BrandTheme.colors.disabledText
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
-            elide: Text.ElideRight
-        }
-        background: Rectangle {
-            radius: Math.min(width, height) / 2
-            border.width: control.checked ? 2 : 0
-            border.color: MoodTheme.color(djconnect.moodValue, "focus")
-            gradient: Gradient {
-                orientation: Gradient.Horizontal
-                GradientStop { position: 0.0; color: control.enabled ? MoodTheme.color(djconnect.moodValue, "gradientStart") : MoodTheme.disabled("start") }
-                GradientStop { position: 0.58; color: control.enabled ? MoodTheme.color(djconnect.moodValue, "gradientMid") : MoodTheme.disabled("mid") }
-                GradientStop { position: 1.0; color: control.enabled ? MoodTheme.color(djconnect.moodValue, "gradientEnd") : MoodTheme.disabled("end") }
-            }
-        }
-    }
-
     property var games: [
-        { id: "pong", titleKey: "game_pong", tint: "#ff9f43" },
-        { id: "asteroids", titleKey: "game_asteroids", tint: "#4aa3ff" },
-        { id: "fly", titleKey: "game_fly", tint: "#48d8ff" },
-        { id: "pacman", titleKey: "game_pacman", tint: "#ffe35a" }
+        { id: "pong", titleKey: "game_pong", mood: "chill", icon: "game_racket" },
+        { id: "asteroids", titleKey: "game_asteroids", mood: "groove", icon: "mood_chill" },
+        { id: "fly", titleKey: "game_fly", mood: "energy", icon: "game_plane" },
+        { id: "pacman", titleKey: "game_pacman", mood: "party", icon: "game_maze" }
     ]
     property int gameIndex: 0
     property string gameId: games[gameIndex].id
     property string gameTitle: root.tr(games[gameIndex].titleKey)
-    property color gameTint: games[gameIndex].tint
+    readonly property string gameMood: games[gameIndex].mood
+    readonly property color gameTint: MoodTheme.moodColor(gameMood, "gradientStart")
+    readonly property bool horizontalControls: gameId === "asteroids" || gameId === "pacman"
+    readonly property bool verticalControls: gameId !== "asteroids"
+    readonly property bool fireControl: gameId === "asteroids" || gameId === "fly"
+    function useDirection(direction) {
+        if (direction === "left" || direction === "right") {
+            if (horizontalControls) moveHorizontal(direction === "left" ? -1 : 1)
+        } else if (verticalControls) move(direction === "up" ? -1 : 1)
+    }
+    onVisibleChanged: {
+        if (visible) forceActiveFocus()
+        else playing = false
+    }
+    Keys.onUpPressed: root.useDirection("up")
+    Keys.onDownPressed: root.useDirection("down")
+    Keys.onLeftPressed: root.useDirection("left")
+    Keys.onRightPressed: root.useDirection("right")
+    Keys.onSpacePressed: root.fire()
+    Keys.onEscapePressed: root.closeRequested()
     property bool playing: false
     property int score: 0
     property var highScores: ({ pong: 0, asteroids: 0, fly: 0, pacman: 0 })
@@ -118,13 +99,15 @@ Rectangle {
     property real pacmanDY: 0
     property real ghostX: 250
     property real ghostY: 86
-    property int pacmanPelletColumns: 10
-    property int pacmanPelletRows: 6
-    property real pacmanPelletOriginX: 20
-    property real pacmanPelletOriginY: 24
-    property real pacmanPelletSpacingX: 280 / (pacmanPelletColumns - 1)
-    property real pacmanPelletSpacingY: 28
-    property var powerPellets: [0, 9, 50, 59]
+    readonly property int pacmanPelletColumns: compact ? 10 : 11
+    readonly property int pacmanPelletRows: compact ? 6 : 10
+    readonly property real pacmanPelletOriginX: compact ? 20 : 40
+    readonly property real pacmanPelletOriginY: compact ? 24 : 21
+    readonly property real pacmanPelletSpacingX: (320 - 2 * pacmanPelletOriginX) / (pacmanPelletColumns - 1)
+    readonly property real pacmanPelletSpacingY: (compact ? 140 : 128) / (pacmanPelletRows - 1)
+    readonly property int pelletCount: pacmanPelletColumns * pacmanPelletRows
+    readonly property var powerPellets: [0, pacmanPelletColumns - 1, pelletCount - pacmanPelletColumns, pelletCount - 1]
+    onCompactChanged: if (gameCanvas && gameId === "pacman") resetGame()
     property int ghostVulnerableTicks: 0
     property var pellets: []
 
@@ -194,7 +177,6 @@ Rectangle {
         pacmanDY = 0
         ghostX = 250
         ghostY = 86
-        powerPellets = [0, 9, 50, 59]
         ghostVulnerableTicks = 0
         deathTicks = 0
         pellets = []
@@ -285,6 +267,7 @@ Rectangle {
     }
 
     function fire() {
+        if (!fireControl) return
         startGame()
         if (gameId === "asteroids" && !asteroidBulletActive) {
             asteroidBulletActive = true
@@ -435,7 +418,7 @@ Rectangle {
                 var pellet = pellets[p]
                 var px = pacmanPelletX(pellet)
                 var py = pacmanPelletY(pellet)
-                if (Math.abs(px - pacmanX) < 10 && Math.abs(py - pacmanY) < 10) {
+                if (Math.abs(px - pacmanX) < 10 && Math.abs(py - pacmanY) < Math.min(10, pacmanPelletSpacingY / 2)) {
                     pellets.splice(p, 1)
                     if (powerPellets.indexOf(pellet) >= 0) {
                         ghostVulnerableTicks = 210
@@ -486,394 +469,343 @@ Rectangle {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.leftMargin: 12
-        anchors.topMargin: 34
-        anchors.rightMargin: 12
-        anchors.bottomMargin: 130
-        spacing: 12
+        anchors.margins: root.compact ? 14 : 26
+        anchors.bottomMargin: root.compact ? 120 : 130
+        spacing: root.compact ? 8 : 20
 
-        PageToolbar { title: root.tr("games") }
-
-        Rectangle {
-            id: gameSelector
+        RowLayout {
             Layout.fillWidth: true
-            Layout.preferredHeight: 58
-            radius: 18
-            color: BrandTheme.alpha(BrandTheme.colors.surface, "cc")
-            border.color: BrandTheme.alpha(BrandTheme.colors.border, "55")
-            border.width: 2
-            clip: true
-
-            Rectangle {
-                anchors.fill: parent
-                anchors.margins: 1
-                radius: 17
-                opacity: 0.5
-                gradient: Gradient {
-                    orientation: Gradient.Vertical
-                    GradientStop { position: 0.0; color: BrandTheme.alpha(BrandTheme.colors.surface, "33") }
-                    GradientStop { position: 1.0; color: BrandTheme.alpha(BrandTheme.colors.surface, "11") }
-                }
+            GlassButton {
+                objectName: "gameBack"
+                iconName: "back"; Accessible.name: root.tr("more")
+                implicitWidth: 48; implicitHeight: 48; padding: 10
+                onClicked: root.closeRequested()
             }
-
-            RowLayout {
-                anchors.fill: parent
-                anchors.margins: 8
-                spacing: 0
-
-                Repeater {
-                    model: root.games
-
-                    Button {
-                        id: gameSegment
-                        text: root.tr(modelData.titleKey)
-                        checkable: true
-                        checked: index === root.gameIndex
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        Layout.minimumWidth: 0
-                        font.pixelSize: 18
-                        font.bold: true
-                        onClicked: root.selectGame(index)
-
-                        contentItem: Text {
-                            text: gameSegment.text
-                            font: gameSegment.font
-                            color: gameSegment.checked ? BrandTheme.colors.text : BrandTheme.colors.muted
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                            elide: Text.ElideRight
+            Item { Layout.fillWidth: true }
+            GlassSurface {
+                id: gameSelector
+                Layout.preferredWidth: selector.implicitWidth + 12
+                Layout.preferredHeight: root.compact ? 50 : 66
+                radius: height / 2
+                RowLayout {
+                    id: selector
+                    anchors.centerIn: parent
+                    spacing: root.compact ? 1 : 8
+                    Repeater {
+                        model: root.games
+                        GlassButton {
+                            required property var modelData
+                            required property int index
+                            objectName: "gameSelect-" + modelData.id
+                            iconName: modelData.icon
+                            Accessible.name: root.tr(modelData.titleKey)
+                            ToolTip.text: Accessible.name
+                            ToolTip.visible: hovered
+                            checked: index === root.gameIndex
+                            foregroundColor: checked ? BrandTheme.colors.actionAccent : BrandTheme.colors.text
+                            implicitWidth: root.compact ? 48 : 64
+                            implicitHeight: root.compact ? 46 : 58
+                            padding: 9
+                            background: Item {}
+                            onClicked: root.selectGame(index)
                         }
-
-                        background: Rectangle {
-                            radius: Math.min(width, height) / 2
-                            border.width: gameSegment.checked ? 2 : 0
-                            border.color: MoodTheme.color(djconnect.moodValue, "focus")
-                            gradient: Gradient {
-                                orientation: Gradient.Horizontal
-                                GradientStop { position: 0.0; color: gameSegment.checked ? MoodTheme.color(djconnect.moodValue, "gradientStart") : "#00000000" }
-                                GradientStop { position: 0.58; color: gameSegment.checked ? MoodTheme.color(djconnect.moodValue, "gradientMid") : "#00000000" }
-                                GradientStop { position: 1.0; color: gameSegment.checked ? MoodTheme.color(djconnect.moodValue, "gradientEnd") : "#00000000" }
-                            }
-                            opacity: gameSegment.down ? 0.82 : 1.0
-                        }
+                    }
+                    GlassButton {
+                        objectName: "gameReset"
+                        iconName: "refresh"; Accessible.name: root.tr("reset")
+                        implicitWidth: root.compact ? 48 : 64
+                        implicitHeight: root.compact ? 46 : 58
+                        padding: 9; background: Item {}
+                        onClicked: { root.playing = false; root.resetGame() }
                     }
                 }
             }
         }
 
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: 14
-
-            Text {
-                text: root.gameTitle
-                color: root.gameTint
-                font.pixelSize: 24
-                font.bold: true
-                Layout.fillWidth: true
-            }
-
-            Text {
-                text: root.tr("score") + " " + root.score
-                color: BrandTheme.colors.text
-                font.pixelSize: 18
-                font.bold: true
-            }
-
-            Text {
-                text: root.tr("high") + " " + root.highScore()
-                color: BrandTheme.colors.disabledText
-                font.pixelSize: 18
-            }
-        }
-
-        Item {
+        GlassCard {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            Layout.minimumHeight: 318
-            Layout.topMargin: 10
-            clip: true
+            Layout.minimumHeight: 0
+            padding: root.compact ? 12 : 20
+            spacing: root.compact ? 8 : 18
 
-            Canvas {
-                id: gameCanvas
-                anchors.centerIn: parent
-                width: Math.min(parent.width, parent.height * 320 / 170)
-                height: width * 170 / 320
-                antialiasing: true
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 12
+                FeatureIcon {
+                    iconName: root.games[root.gameIndex].icon
+                    iconColor: root.gameTint
+                    Layout.preferredWidth: 30; Layout.preferredHeight: 30
+                }
+                Text {
+                    text: root.gameTitle; color: root.gameTint
+                    font.pixelSize: root.compact ? 22 : 29; font.bold: true
+                    Layout.fillWidth: true
+                    elide: Text.ElideRight
+                }
+                Text {
+                    text: root.tr("score") + " " + root.score
+                    color: BrandTheme.colors.text; font.pixelSize: root.compact ? 16 : 20
+                }
+                Text {
+                    text: root.tr("high") + " " + root.highScore()
+                    color: BrandTheme.colors.muted; font.pixelSize: root.compact ? 16 : 20
+                }
+            }
 
-                onPaint: {
-                    var ctx = getContext("2d")
-                    var sx = width / 320
-                    var sy = height / 170
-                    function rx(v) { return v * sx }
-                    function ry(v) { return v * sy }
-                    ctx.setLineDash([])
-                    ctx.fillStyle = "#05080a"
-                    ctx.fillRect(0, 0, width, height)
-                    if (root.gameId === "asteroids" || root.gameId === "fly") {
-                        for (var st = 0; st < root.stars.length; st++) {
-                            var star = root.stars[st]
-                            var alpha = root.gameId === "asteroids" ? 0.32 + Math.sin(star.phase) * 0.18 : 0.28
-                            ctx.fillStyle = "rgba(255,255,255," + alpha + ")"
-                            if (root.gameId === "fly") {
-                                ctx.fillRect(rx(star.x), ry(star.y), rx(8 + star.speed * 4), Math.max(1, ry(1)))
-                            } else {
-                                ctx.fillRect(rx(star.x), ry(star.y), Math.max(1, rx(1.2)), Math.max(1, ry(1.2)))
+            Rectangle {
+                Layout.fillWidth: true; Layout.fillHeight: true; Layout.minimumHeight: 120
+                radius: 12
+                color: "#0E000000"
+                border.color: "#27FFFFFF"
+                clip: true
+                Canvas {
+                    id: gameCanvas
+                    objectName: "gameCanvas"
+                    anchors.fill: parent
+                    anchors.margins: 4
+                    antialiasing: true
+
+                    onPaint: {
+                        var ctx = getContext("2d")
+                        var sx = width / 320
+                        var sy = height / 170
+                        function rx(v) { return v * sx }
+                        function ry(v) { return v * sy }
+                        function size(v) { return v * Math.min(sx, sy) }
+                        ctx.reset()
+                        ctx.clearRect(0, 0, width, height)
+                        ctx.setLineDash([])
+                        if (root.gameId === "asteroids" || root.gameId === "fly") {
+                            for (var st = 0; st < root.stars.length; st++) {
+                                var star = root.stars[st]
+                                var alpha = root.gameId === "asteroids" ? 0.32 + Math.sin(star.phase) * 0.18 : 0.28
+                                ctx.fillStyle = "rgba(255,255,255," + alpha + ")"
+                                if (root.gameId === "fly") {
+                                    ctx.fillRect(rx(star.x), ry(star.y), rx(8 + star.speed * 4), Math.max(1, ry(1)))
+                                } else {
+                                    ctx.fillRect(rx(star.x), ry(star.y), Math.max(1, rx(1.2)), Math.max(1, ry(1.2)))
+                                }
                             }
                         }
-                    }
-                    ctx.strokeStyle = "#26383d"
-                    ctx.lineWidth = 2
-                    ctx.strokeRect(1, 1, width - 2, height - 2)
-                    ctx.fillStyle = root.gameTint
-                    ctx.font = Math.max(16, 14 * sx) + "px sans-serif"
-                    ctx.fillText(root.gameTitle, rx(12), ry(20))
-
-                    if (root.gameId === "pong") {
-                        ctx.strokeStyle = "rgba(255,255,255,0.22)"
-                        ctx.setLineDash([rx(5), rx(7)])
-                        ctx.beginPath()
-                        ctx.moveTo(rx(160), ry(28))
-                        ctx.lineTo(rx(160), ry(150))
-                        ctx.stroke()
-                        ctx.setLineDash([])
-                        ctx.fillStyle = "#ff9f43"
-                        ctx.fillRect(rx(18 - (root.hitPulseTicks > 0 ? 2 : 0)), ry(root.paddleY - 17), rx(root.hitPulseTicks > 0 ? 12 : 8), ry(34))
-                        if (root.wallPulseTicks > 0) {
-                            ctx.strokeStyle = "rgba(255,255,255,0.28)"
-                            ctx.lineWidth = 3
-                            ctx.strokeRect(rx(4), ry(32), rx(312), ry(130))
-                        }
-                        if (root.playing) {
-                            ctx.fillStyle = "#1db954"
+                        if (root.gameId === "pong") {
+                            ctx.strokeStyle = "rgba(255,255,255,0.22)"
+                            ctx.setLineDash([rx(5), rx(7)])
                             ctx.beginPath()
-                            ctx.arc(rx(root.ballX), ry(root.ballY), Math.max(rx(4), ry(4)), 0, Math.PI * 2)
-                            ctx.fill()
-                        }
-                    } else if (root.gameId === "asteroids") {
-                        ctx.strokeStyle = "#4aa3ff"
-                        ctx.lineWidth = 2
-                        ctx.beginPath()
-                        ctx.moveTo(rx(root.shipX), ry(128))
-                        ctx.lineTo(rx(root.shipX - 9), ry(146))
-                        ctx.lineTo(rx(root.shipX + 9), ry(146))
-                        ctx.closePath()
-                        ctx.stroke()
-                        ctx.strokeStyle = ["#ff6fb3", "#facc15", "#a78bfa"][root.asteroidShape]
-                        ctx.beginPath()
-                        if (root.asteroidShape === 0) {
-                            ctx.arc(rx(root.asteroidX), ry(root.asteroidY), Math.max(rx(root.asteroidSize), ry(root.asteroidSize)), 0, Math.PI * 2)
-                        } else if (root.asteroidShape === 1) {
-                            ctx.rect(rx(root.asteroidX - root.asteroidSize), ry(root.asteroidY - root.asteroidSize), rx(root.asteroidSize * 2), ry(root.asteroidSize * 2))
-                        } else {
-                            ctx.moveTo(rx(root.asteroidX), ry(root.asteroidY - root.asteroidSize))
-                            ctx.lineTo(rx(root.asteroidX + root.asteroidSize), ry(root.asteroidY + root.asteroidSize))
-                            ctx.lineTo(rx(root.asteroidX - root.asteroidSize), ry(root.asteroidY + root.asteroidSize * 0.8))
-                            ctx.closePath()
-                        }
-                        ctx.stroke()
-                        if (root.asteroidBulletActive) {
-                            ctx.fillStyle = "#48d8ff"
-                            ctx.fillRect(rx(root.shipX - 2), ry(root.asteroidBulletY), rx(4), ry(10))
-                        }
-                    } else if (root.gameId === "fly") {
-                        ctx.fillStyle = "#48d8ff"
-                        ctx.beginPath()
-                        ctx.moveTo(rx(62), ry(root.planeY))
-                        ctx.lineTo(rx(30), ry(root.planeY - 12))
-                        ctx.lineTo(rx(30), ry(root.planeY + 12))
-                        ctx.closePath()
-                        ctx.fill()
-                        ctx.fillStyle = root.obstacleColor
-                        ctx.beginPath()
-                        if (root.obstacleShape === 0) {
-                            ctx.fillRect(rx(root.obstacleX - 8), ry(root.obstacleY - 18), rx(16), ry(36))
-                        } else if (root.obstacleShape === 1) {
-                            ctx.arc(rx(root.obstacleX), ry(root.obstacleY), Math.max(rx(13), ry(13)), 0, Math.PI * 2)
-                            ctx.fill()
-                        } else if (root.obstacleShape === 2) {
-                            ctx.moveTo(rx(root.obstacleX), ry(root.obstacleY - 18))
-                            ctx.lineTo(rx(root.obstacleX + 16), ry(root.obstacleY))
-                            ctx.lineTo(rx(root.obstacleX), ry(root.obstacleY + 18))
-                            ctx.lineTo(rx(root.obstacleX - 16), ry(root.obstacleY))
-                            ctx.closePath()
-                            ctx.fill()
-                        } else {
-                            ctx.fillRect(rx(root.obstacleX - 14), ry(root.obstacleY - 8), rx(28), ry(16))
-                        }
-                        if (root.flyShotActive) {
-                            ctx.fillStyle = "#d9fbff"
-                            ctx.fillRect(rx(root.flyShotX), ry(root.planeY - 2), rx(14), ry(4))
-                        }
-                    } else {
-                        ctx.fillStyle = "rgba(255,255,255,0.82)"
-                        for (var i = 0; i < root.pellets.length; i++) {
-                            var pellet = root.pellets[i]
-                            var isPowerPellet = root.powerPellets.indexOf(pellet) >= 0
-                            ctx.beginPath()
-                            ctx.arc(
-                                rx(root.pacmanPelletX(pellet)),
-                                ry(root.pacmanPelletY(pellet)),
-                                isPowerPellet ? Math.max(rx(5), ry(5)) : Math.max(rx(2), ry(2)),
-                                0,
-                                Math.PI * 2
-                            )
-                            ctx.fill()
-                        }
-                        var pacRadius = Math.max(rx(10), ry(10))
-                        var mouthCenter = root.pacmanDX < 0 ? Math.PI
-                            : root.pacmanDY < 0 ? Math.PI * 1.5
-                            : root.pacmanDY > 0 ? Math.PI / 2
-                            : 0
-                        var mouthOpen = Math.PI / 5
-                        ctx.fillStyle = "#ffe35a"
-                        ctx.beginPath()
-                        ctx.moveTo(rx(root.pacmanX), ry(root.pacmanY))
-                        ctx.arc(
-                            rx(root.pacmanX),
-                            ry(root.pacmanY),
-                            pacRadius,
-                            mouthCenter + mouthOpen,
-                            mouthCenter + Math.PI * 2 - mouthOpen,
-                            false
-                        )
-                        ctx.closePath()
-                        ctx.fill()
-                        ctx.fillStyle = "#111827"
-                        var eyeX = root.pacmanX + (root.pacmanDX !== 0 ? root.pacmanDX * 3 : 2)
-                        var eyeY = root.pacmanY + (root.pacmanDY !== 0 ? root.pacmanDY * 3 : -4)
-                        ctx.beginPath()
-                        ctx.arc(rx(eyeX), ry(eyeY), Math.max(rx(1.8), ry(1.8)), 0, Math.PI * 2)
-                        ctx.fill()
-                        if (root.deathTicks > 0) {
-                            ctx.strokeStyle = "#fff7ad"
-                            ctx.lineWidth = 3
-                            ctx.beginPath()
-                            ctx.arc(rx(root.pacmanX), ry(root.pacmanY), Math.max(rx(16 + (34 - root.deathTicks) * 0.7), ry(16)), 0, Math.PI * 2)
+                            ctx.moveTo(rx(160), ry(3))
+                            ctx.lineTo(rx(160), ry(167))
                             ctx.stroke()
+                            ctx.setLineDash([])
+                            ctx.fillStyle = MoodTheme.moodColor(root.gameMood, "gradientEnd")
+                            ctx.fillRect(rx(18 - (root.hitPulseTicks > 0 ? 2 : 0)), ry(root.paddleY - 17), rx(root.hitPulseTicks > 0 ? 12 : 8), ry(34))
+                            if (root.wallPulseTicks > 0) {
+                                ctx.strokeStyle = "rgba(255,255,255,0.28)"
+                                ctx.lineWidth = 3
+                                ctx.strokeRect(rx(4), ry(32), rx(312), ry(130))
+                            }
+                            if (root.playing) {
+                                ctx.fillStyle = MoodTheme.moodColor(root.gameMood, "gradientMid")
+                                ctx.beginPath()
+                                ctx.arc(rx(root.ballX), ry(root.ballY), size(4), 0, Math.PI * 2)
+                                ctx.fill()
+                            }
+                        } else if (root.gameId === "asteroids") {
+                            ctx.fillStyle = root.gameTint
+                            ctx.strokeStyle = MoodTheme.moodColor(root.gameMood, "gradientMid")
+                            ctx.lineWidth = 2
+                            ctx.beginPath()
+                            ctx.moveTo(rx(root.shipX), ry(128))
+                            ctx.lineTo(rx(root.shipX - 9), ry(141))
+                            ctx.lineTo(rx(root.shipX - 7), ry(148))
+                            ctx.lineTo(rx(root.shipX + 7), ry(148))
+                            ctx.lineTo(rx(root.shipX + 9), ry(141))
+                            ctx.closePath()
+                            ctx.fill(); ctx.stroke()
+                            ctx.strokeStyle = ["#ff6fb3", "#facc15", "#a78bfa"][root.asteroidShape]
+                            ctx.beginPath()
+                            if (root.asteroidShape === 0) {
+                                ctx.arc(rx(root.asteroidX), ry(root.asteroidY), size(root.asteroidSize), 0, Math.PI * 2)
+                            } else if (root.asteroidShape === 1) {
+                                ctx.rect(rx(root.asteroidX - root.asteroidSize), ry(root.asteroidY - root.asteroidSize), rx(root.asteroidSize * 2), ry(root.asteroidSize * 2))
+                            } else {
+                                ctx.moveTo(rx(root.asteroidX), ry(root.asteroidY - root.asteroidSize))
+                                ctx.lineTo(rx(root.asteroidX + root.asteroidSize), ry(root.asteroidY + root.asteroidSize))
+                                ctx.lineTo(rx(root.asteroidX - root.asteroidSize), ry(root.asteroidY + root.asteroidSize * 0.8))
+                                ctx.closePath()
+                            }
+                            ctx.stroke()
+                            if (root.asteroidBulletActive) {
+                                ctx.fillStyle = "#48d8ff"
+                                ctx.fillRect(rx(root.shipX - 2), ry(root.asteroidBulletY), rx(4), ry(10))
+                            }
+                        } else if (root.gameId === "fly") {
+                            var planeX = rx(46)
+                            var planeY = ry(root.planeY)
+                            ctx.fillStyle = MoodTheme.moodColor(root.gameMood, "gradientEnd")
+                            ctx.beginPath()
+                            ctx.moveTo(planeX - size(6), planeY - size(13))
+                            ctx.lineTo(planeX + size(10), planeY)
+                            ctx.lineTo(planeX - size(6), planeY + size(13))
+                            ctx.lineTo(planeX - size(12), planeY)
+                            ctx.closePath(); ctx.fill()
+                            ctx.fillStyle = root.gameTint
+                            ctx.beginPath()
+                            ctx.moveTo(planeX + size(17), planeY)
+                            ctx.lineTo(planeX + size(2), planeY + size(4))
+                            ctx.lineTo(planeX - size(17), planeY + size(4))
+                            ctx.lineTo(planeX - size(17), planeY - size(4))
+                            ctx.lineTo(planeX + size(2), planeY - size(4))
+                            ctx.closePath(); ctx.fill()
+                            ctx.fillStyle = root.obstacleColor
+                            ctx.beginPath()
+                            if (root.obstacleShape === 0) {
+                                ctx.fillRect(rx(root.obstacleX - 8), ry(root.obstacleY - 18), rx(16), ry(36))
+                            } else if (root.obstacleShape === 1) {
+                                ctx.arc(rx(root.obstacleX), ry(root.obstacleY), size(13), 0, Math.PI * 2)
+                                ctx.fill()
+                            } else if (root.obstacleShape === 2) {
+                                ctx.moveTo(rx(root.obstacleX), ry(root.obstacleY - 18))
+                                ctx.lineTo(rx(root.obstacleX + 16), ry(root.obstacleY))
+                                ctx.lineTo(rx(root.obstacleX), ry(root.obstacleY + 18))
+                                ctx.lineTo(rx(root.obstacleX - 16), ry(root.obstacleY))
+                                ctx.closePath()
+                                ctx.fill()
+                            } else {
+                                ctx.fillRect(rx(root.obstacleX - 14), ry(root.obstacleY - 8), rx(28), ry(16))
+                            }
+                            if (root.flyShotActive) {
+                                ctx.fillStyle = "#d9fbff"
+                                ctx.fillRect(rx(root.flyShotX), ry(root.planeY - 2), rx(14), ry(4))
+                            }
+                        } else {
+                            ctx.fillStyle = "rgba(255,255,255,0.82)"
+                            for (var i = 0; i < root.pellets.length; i++) {
+                                var pellet = root.pellets[i]
+                                var isPowerPellet = root.powerPellets.indexOf(pellet) >= 0
+                                ctx.beginPath()
+                                ctx.arc(
+                                    rx(root.pacmanPelletX(pellet)),
+                                    ry(root.pacmanPelletY(pellet)),
+                                    isPowerPellet ? size(5) : size(2),
+                                    0,
+                                    Math.PI * 2
+                                )
+                                ctx.fill()
+                            }
+                            var pacRadius = size(10)
+                            var mouthCenter = root.pacmanDX < 0 ? Math.PI
+                                : root.pacmanDY < 0 ? Math.PI * 1.5
+                                : root.pacmanDY > 0 ? Math.PI / 2
+                                : 0
+                            var mouthOpen = Math.PI / 5
+                            ctx.fillStyle = root.gameTint
+                            ctx.beginPath()
+                            ctx.moveTo(rx(root.pacmanX), ry(root.pacmanY))
+                            ctx.arc(
+                                rx(root.pacmanX),
+                                ry(root.pacmanY),
+                                pacRadius,
+                                mouthCenter + mouthOpen,
+                                mouthCenter + Math.PI * 2 - mouthOpen,
+                                false
+                            )
+                            ctx.closePath()
+                            ctx.fill()
+                            ctx.fillStyle = "#111827"
+                            var eyeX = root.pacmanX + (root.pacmanDX !== 0 ? root.pacmanDX * 3 : 2)
+                            var eyeY = root.pacmanY + (root.pacmanDY !== 0 ? root.pacmanDY * 3 : -4)
+                            ctx.beginPath()
+                            ctx.arc(rx(eyeX), ry(eyeY), size(1.8), 0, Math.PI * 2)
+                            ctx.fill()
+                            if (root.deathTicks > 0) {
+                                ctx.strokeStyle = "#fff7ad"
+                                ctx.lineWidth = 3
+                                ctx.beginPath()
+                                ctx.arc(rx(root.pacmanX), ry(root.pacmanY), Math.max(rx(16 + (34 - root.deathTicks) * 0.7), ry(16)), 0, Math.PI * 2)
+                                ctx.stroke()
+                            }
+                            var ghostBlink = root.ghostVulnerableTicks > 0 && Math.floor(root.ghostVulnerableTicks / 12) % 2 === 0
+                            ctx.fillStyle = root.ghostVulnerableTicks > 0 ? (ghostBlink ? "#e0f2fe" : "#3b82f6") : "#ff6fb3"
+                            ctx.beginPath()
+                            ctx.arc(rx(root.ghostX), ry(root.ghostY) - size(2), size(9), Math.PI, 0)
+                            ctx.lineTo(rx(root.ghostX + 9), ry(root.ghostY) + size(9))
+                            ctx.lineTo(rx(root.ghostX + 4), ry(root.ghostY) + size(5))
+                            ctx.lineTo(rx(root.ghostX), ry(root.ghostY) + size(9))
+                            ctx.lineTo(rx(root.ghostX - 4), ry(root.ghostY) + size(5))
+                            ctx.lineTo(rx(root.ghostX - 9), ry(root.ghostY) + size(9))
+                            ctx.closePath()
+                            ctx.fill()
+                            ctx.fillStyle = BrandTheme.colors.text
+                            ctx.beginPath()
+                            ctx.arc(rx(root.ghostX - 4), ry(root.ghostY) - size(2), size(2.6), 0, Math.PI * 2)
+                            ctx.arc(rx(root.ghostX + 4), ry(root.ghostY) - size(2), size(2.6), 0, Math.PI * 2)
+                            ctx.fill()
+                            ctx.fillStyle = "#1d2bff"
+                            ctx.beginPath()
+                            ctx.arc(rx(root.ghostX - 3), ry(root.ghostY) - size(2), size(1.2), 0, Math.PI * 2)
+                            ctx.arc(rx(root.ghostX + 5), ry(root.ghostY) - size(2), size(1.2), 0, Math.PI * 2)
+                            ctx.fill()
                         }
-                        var ghostBlink = root.ghostVulnerableTicks > 0 && Math.floor(root.ghostVulnerableTicks / 12) % 2 === 0
-                        ctx.fillStyle = root.ghostVulnerableTicks > 0 ? (ghostBlink ? "#e0f2fe" : "#3b82f6") : "#ff6fb3"
-                        ctx.beginPath()
-                        ctx.arc(rx(root.ghostX), ry(root.ghostY - 2), Math.max(rx(9), ry(9)), Math.PI, 0)
-                        ctx.lineTo(rx(root.ghostX + 9), ry(root.ghostY + 9))
-                        ctx.lineTo(rx(root.ghostX + 4), ry(root.ghostY + 5))
-                        ctx.lineTo(rx(root.ghostX), ry(root.ghostY + 9))
-                        ctx.lineTo(rx(root.ghostX - 4), ry(root.ghostY + 5))
-                        ctx.lineTo(rx(root.ghostX - 9), ry(root.ghostY + 9))
-                        ctx.closePath()
-                        ctx.fill()
-                        ctx.fillStyle = BrandTheme.colors.text
-                        ctx.beginPath()
-                        ctx.arc(rx(root.ghostX - 4), ry(root.ghostY - 2), Math.max(rx(2.6), ry(2.6)), 0, Math.PI * 2)
-                        ctx.arc(rx(root.ghostX + 4), ry(root.ghostY - 2), Math.max(rx(2.6), ry(2.6)), 0, Math.PI * 2)
-                        ctx.fill()
-                        ctx.fillStyle = "#1d2bff"
-                        ctx.beginPath()
-                        ctx.arc(rx(root.ghostX - 3), ry(root.ghostY - 2), Math.max(rx(1.2), ry(1.2)), 0, Math.PI * 2)
-                        ctx.arc(rx(root.ghostX + 5), ry(root.ghostY - 2), Math.max(rx(1.2), ry(1.2)), 0, Math.PI * 2)
-                        ctx.fill()
+
+                        if (root.flash) {
+                            ctx.strokeStyle = "#ff5b5b"
+                            ctx.lineWidth = 5
+                            ctx.strokeRect(4, 4, width - 8, height - 8)
+                        }
+                        for (var ex = 0; ex < root.explosions.length; ex++) {
+                            var boom = root.explosions[ex]
+                            var radius = 4 + boom.age * 1.5
+                            ctx.strokeStyle = boom.tint
+                            ctx.globalAlpha = Math.max(0, 1 - boom.age / 18)
+                            ctx.lineWidth = 3
+                            ctx.beginPath()
+                            ctx.arc(rx(boom.x), ry(boom.y), size(radius), 0, Math.PI * 2)
+                            ctx.stroke()
+                            ctx.globalAlpha = 1
+                        }
                     }
 
-                    if (root.flash) {
-                        ctx.strokeStyle = "#ff5b5b"
-                        ctx.lineWidth = 5
-                        ctx.strokeRect(4, 4, width - 8, height - 8)
-                    }
-                    for (var ex = 0; ex < root.explosions.length; ex++) {
-                        var boom = root.explosions[ex]
-                        var radius = 4 + boom.age * 1.5
-                        ctx.strokeStyle = boom.tint
-                        ctx.globalAlpha = Math.max(0, 1 - boom.age / 18)
-                        ctx.lineWidth = 3
-                        ctx.beginPath()
-                        ctx.arc(rx(boom.x), ry(boom.y), Math.max(rx(radius), ry(radius)), 0, Math.PI * 2)
-                        ctx.stroke()
-                        ctx.globalAlpha = 1
+                    MouseArea {
+                        anchors.fill: parent
+                        onPressed: function(mouse) { root.handleTouch(mouse.x, mouse.y) }
+                        onPositionChanged: function(mouse) { if (pressed) root.handleTouch(mouse.x, mouse.y) }
+                        onReleased: root.fire()
                     }
                 }
 
-                MouseArea {
-                    anchors.fill: parent
-                    onPressed: function(mouse) { root.handleTouch(mouse.x, mouse.y) }
-                    onPositionChanged: function(mouse) { root.handleTouch(mouse.x, mouse.y) }
-                    onReleased: root.fire()
+                GlassButton {
+                    anchors.centerIn: parent
+                    visible: !root.playing
+                    text: root.tr("tap_to_play")
+                    font.pixelSize: 22
+                    onClicked: root.startGame()
                 }
             }
 
-            GlassButton {
-                anchors.centerIn: parent
-                visible: !root.playing
-                text: root.tr("tap_to_play")
-                font.pixelSize: 22
-                onClicked: root.startGame()
+            GameDirectionPad {
+                objectName: "gameDirectionPad"
+                Layout.alignment: Qt.AlignHCenter
+                Layout.preferredWidth: root.compact ? 138 : 238
+                Layout.preferredHeight: Layout.preferredWidth
+                horizontal: root.horizontalControls
+                vertical: root.verticalControls
+                canFire: root.fireControl
+                accent: root.gameTint
+                translate: root.tr
+                onDirection: function(name) { root.useDirection(name) }
+                onFire: root.fire()
             }
-        }
 
-        RowLayout {
-            Layout.fillWidth: true
-            Layout.preferredHeight: 66
-            spacing: 10
-
-            GlassButton {
-                text: root.gameId === "asteroids" ? root.tr("left") : root.tr("up")
+            Text {
+                text: root.gameId === "pong" ? root.tr("game_help_pong")
+                    : root.gameId === "asteroids" ? root.tr("game_help_asteroids")
+                    : root.gameId === "fly" ? root.tr("game_help_fly")
+                    : root.tr("game_help_pacman")
+                color: BrandTheme.colors.muted
+                font.pixelSize: root.compact ? 15 : 20
+                wrapMode: Text.WordWrap
                 Layout.fillWidth: true
-                Layout.preferredHeight: 58
-                onClicked: root.gameId === "asteroids" ? root.moveHorizontal(-1) : root.move(-1)
             }
-
-            GlassButton {
-                visible: root.gameId === "pacman"
-                text: root.tr("down")
-                Layout.fillWidth: true
-                Layout.preferredHeight: 58
-                onClicked: root.move(1)
-            }
-
-            GlassButton {
-                visible: root.gameId === "pacman"
-                text: root.tr("left")
-                Layout.fillWidth: true
-                Layout.preferredHeight: 58
-                onClicked: root.moveHorizontal(-1)
-            }
-
-            GlassButton {
-                text: root.gameId === "pacman" ? root.tr("right") : root.gameId === "asteroids" ? root.tr("right") : root.tr("down")
-                Layout.fillWidth: true
-                Layout.preferredHeight: 58
-                onClicked: root.gameId === "pacman" || root.gameId === "asteroids" ? root.moveHorizontal(1) : root.move(1)
-            }
-
-            GlassButton {
-                visible: root.gameId === "asteroids" || root.gameId === "fly"
-                text: root.tr("fire")
-                Layout.fillWidth: true
-                Layout.preferredHeight: 58
-                onClicked: root.fire()
-            }
-
-            GlassButton {
-                text: root.tr("reset")
-                Layout.fillWidth: true
-                Layout.preferredHeight: 58
-                onClicked: {
-                    root.playing = false
-                    root.resetGame()
-                }
-            }
-        }
-
-        Text {
-            text: root.gameId === "pong" ? root.tr("game_help_pong")
-                : root.gameId === "asteroids" ? root.tr("game_help_asteroids")
-                : root.gameId === "fly" ? root.tr("game_help_fly")
-                : root.tr("game_help_pacman")
-            color: BrandTheme.colors.disabledText
-            font.pixelSize: 15
-            wrapMode: Text.WordWrap
-            Layout.fillWidth: true
         }
     }
 

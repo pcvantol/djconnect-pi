@@ -230,6 +230,29 @@ Canvas {
                 ctx.beginPath()
                 ctx.arc(px(16), py(17), 5, Math.PI * 0.15, Math.PI * 0.85)
                 ctx.stroke()
+            } else if (iconName === "game_racket") {
+                ctx.save()
+                ctx.translate(px(18), py(12))
+                ctx.rotate(Math.PI / 4)
+                ctx.beginPath(); ctx.ellipse(-s * 0.21, -s * 0.28, s * 0.42, s * 0.56); ctx.stroke()
+                ctx.beginPath(); ctx.moveTo(0, s * 0.27); ctx.lineTo(0, s * 0.51); ctx.stroke()
+                for (var racketLine = -1; racketLine <= 1; racketLine++) {
+                    var offset = racketLine * s * 0.10
+                    ctx.beginPath(); ctx.moveTo(offset, -s * 0.21); ctx.lineTo(offset, s * 0.21); ctx.stroke()
+                    ctx.beginPath(); ctx.moveTo(-s * 0.16, offset); ctx.lineTo(s * 0.16, offset); ctx.stroke()
+                }
+                ctx.restore()
+            } else if (iconName === "game_plane") {
+                ctx.beginPath()
+                ctx.moveTo(px(5), py(13)); ctx.lineTo(px(12), py(13)); ctx.lineTo(px(9), py(4))
+                ctx.lineTo(px(13), py(4)); ctx.lineTo(px(20), py(13)); ctx.lineTo(px(26), py(13))
+                ctx.quadraticCurveTo(px(32), py(16), px(26), py(19)); ctx.lineTo(px(20), py(19))
+                ctx.lineTo(px(13), py(28)); ctx.lineTo(px(9), py(28)); ctx.lineTo(px(12), py(19))
+                ctx.lineTo(px(5), py(19)); ctx.lineTo(px(2), py(23)); ctx.lineTo(px(2), py(9))
+                ctx.closePath(); ctx.fill()
+            } else if (iconName === "game_maze") {
+                for (var row = 0; row < 3; row++)
+                    for (var col = 0; col < 3; col++) roundRect(4 + col * 9, 4 + row * 9, 6, 6, 1)
             } else if (iconName === "gamepad") {
                 ctx.beginPath()
                 ctx.moveTo(px(8), py(20))
