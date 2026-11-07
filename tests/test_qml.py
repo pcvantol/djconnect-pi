@@ -344,8 +344,7 @@ def test_qml_has_bottom_navigation_bar() -> None:
     assert "component MenuIcon: FeatureIcon" in main
     for icon in ("trackInsight", "discover", "heart"):
         assert f'iconName === "{icon}"' in icons
-    # Pi10 follows the iPad queue tab; the compact device retains its Now Playing entry.
-    destinations = ['screen: "session"', 'screen: root.wallProfile ? "queue" : "now"',
+    destinations = ['screen: "session"', 'screen: "queue"',
                     'screen: "trackinsight"', 'screen: "discover"', 'screen: "more"']
     offsets = [nav.index(destination) for destination in destinations]
     assert offsets == sorted(offsets)
@@ -353,13 +352,13 @@ def test_qml_has_bottom_navigation_bar() -> None:
     assert "root.activeScreen = modelData.screen" in nav
     assert "radius: height / 2" in nav
     assert "GridLayout" in more and "columns: root.width < 900 ? 1 : Math.max(2, Math.floor(width / 420))" in more
-    more_keys = ["ask_dj", "session_history", "music_dna", "queue", "playlists", "games", "setup", "logs", "about", "legal", "privacy"]
+    more_keys = ["ask_dj", "session_history", "music_dna", "playlists", "games", "setup", "logs", "about", "legal", "privacy"]
     offsets = [more.index(f'root.tr("{key}")') for key in more_keys]
     assert offsets == sorted(offsets)
-    # Existing Pi utilities remain reachable after the common Apple destinations.
-    assert 'root.activeScreen = "control"' in more
+    assert 'root.tr("queue")' not in more
+    assert 'root.activeScreen = "control"' not in more
     assert "djconnect.showLogs()" in more
-    assert "djconnect.loadQueue()" in more and "djconnect.loadPlaylists()" in more
+    assert "djconnect.loadQueue()" in nav and "djconnect.loadPlaylists()" in more
     assert "djconnect.loadAskDjHistory()" in more and "sharedSessionScreen.openArchive()" in more
 
 

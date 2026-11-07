@@ -166,8 +166,7 @@ BrandWindow {
             return JSON.stringify([root.activeScreen, state.owner_profile_id || "", state.owner_epoch || 0,
                 state.session_id || "", (state.timeline.session || {}).session_id || ""])
         }
-        if (["askdj", "musicdna", "playlists", "settings", "legal", "privacy", "feedback", "games"].indexOf(root.activeScreen) >= 0
-                || (!root.wallProfile && (root.activeScreen === "queue" || root.activeScreen === "control")))
+        if (["askdj", "musicdna", "playlists", "settings", "legal", "privacy", "feedback", "games"].indexOf(root.activeScreen) >= 0)
             return root.activeScreen
         return ""
     }
@@ -941,7 +940,7 @@ BrandWindow {
 
             PageToolbar {
                 title: panel.heading
-                showLeading: panel.playCommand === "start_playlist" || !root.wallProfile
+                showLeading: panel.playCommand === "start_playlist"
                 leading: [ GlassButton {
                     iconName: "back"; tertiary: true; implicitWidth: 52
                     Accessible.name: root.tr("more")
@@ -2279,11 +2278,6 @@ BrandWindow {
                         onClicked: root.activeScreen = "musicdna"
                     }
                     MoreMenuButton {
-                        text: root.tr("queue"); iconName: "queue"
-                        visible: !root.wallProfile
-                        onClicked: { root.activeScreen = "queue"; djconnect.loadQueue() }
-                    }
-                    MoreMenuButton {
                         text: root.tr("playlists"); iconName: "playlists"
                         onClicked: { root.activeScreen = "playlists"; djconnect.loadPlaylists() }
                     }
@@ -2317,11 +2311,6 @@ BrandWindow {
                         objectName: "openFeedback"
                         text: root.tr("feedback"); iconName: "chat"
                         onClicked: root.activeScreen = "feedback"
-                    }
-                    MoreMenuButton {
-                        text: root.tr("control"); iconName: "control"
-                        visible: !root.wallProfile
-                        onClicked: root.activeScreen = "control"
                     }
                 }
             }
@@ -4077,8 +4066,7 @@ BrandWindow {
             Repeater {
                 model: [
                     {screen: "session", key: "session_title", icon: "session"},
-                    {screen: root.wallProfile ? "queue" : "now",
-                     key: root.wallProfile ? "queue" : "now_playing", icon: root.wallProfile ? "queue" : "music"},
+                    {screen: "queue", key: "queue", icon: "queue"},
                     {screen: "trackinsight", key: "track_insight", icon: "trackInsight"},
                     {screen: "discover", key: "music_discovery", icon: "discover"},
                     {screen: "more", key: "more", icon: "more"}
@@ -4089,7 +4077,7 @@ BrandWindow {
                     objectName: "appTab-" + modelData.screen
                     iconName: modelData.icon
                     checkable: true
-                    checked: root.aboutOpen ? modelData.screen === "more" : root.activeScreen === modelData.screen || (modelData.screen === "session" && root.activeScreen === "session-history") || (modelData.screen === "more" && !(root.wallProfile && root.activeScreen === "queue") && ["askdj", "history", "queue", "playlists", "games", "settings", "control", "musicdna", "legal", "privacy", "feedback"].indexOf(root.activeScreen) >= 0)
+                    checked: root.aboutOpen ? modelData.screen === "more" : root.activeScreen === modelData.screen || (modelData.screen === "session" && root.activeScreen === "session-history") || (modelData.screen === "more" && ["askdj", "history", "playlists", "games", "settings", "musicdna", "legal", "privacy", "feedback"].indexOf(root.activeScreen) >= 0)
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     onClicked: {
@@ -4390,7 +4378,7 @@ BrandWindow {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 58
                 onClicked: {
-                    root.activeScreen = "now"
+                    root.activeScreen = "session"
                     djconnect.startAfterPairing()
                 }
             }
