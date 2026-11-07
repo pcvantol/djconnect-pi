@@ -26,10 +26,12 @@ def test_qml_has_blocking_pairing_and_splash_views() -> None:
     assert 'id: pairingPanel\n        anchors.fill: parent\n        color: BrandTheme.colors.background' in main_qml
     assert 'id: pairingSuccessPanel\n        anchors.fill: parent\n        color: BrandTheme.colors.background' in main_qml
     assert "id: splashPanel" in main_qml
-    assert "BrandLockup {" in main_qml
-    assert "component AppBanner" in main_qml
-    assert 'radius: root.wallProfile ? 32 : 24\n        color: root.liquidGlassEnabled ? BrandTheme.alpha(BrandTheme.colors.surface, "8a") : BrandTheme.colors.background' in main_qml
-    assert 'GradientStop { position: 0.72; color: root.liquidGlassEnabled ? "#70" + root.moodColor("surface").slice(1) : root.moodColor("surface") }' in main_qml
+    assert 'AppBanner { detailText: root.tr("tagline") }' in main_qml
+    banner = files("djconnect_pi.qml").joinpath("AppBanner.qml").read_text(encoding="utf-8")
+    assert "GlassCard {" in banner
+    assert "BrandLockup {" in banner
+    assert "wordmarkOnly: true" in banner
+    assert 'source: "brand-mark-128.png"' in banner
     assert 'detailText: "v" + djconnect.version' in main_qml
     assert "!djconnect.paired && !djconnect.demoMode" in main_qml
     assert "property int trVersion: djconnect.translationVersion" in main_qml
@@ -646,7 +648,7 @@ def test_qml_screen_blanking_wakes_on_tap() -> None:
     assert "djconnect.djResponseVisible" in main_qml
     assert "djconnect.djResponseText" in main_qml
     assert "djconnect.clearDjResponse()" in main_qml
-    assert "BrandLockup {" in main_qml
+    assert 'detailText: root.tr("dj_response")' in main_qml
     assert "id: albumQuickPlay" not in main_qml
     assert "id: albumQuickPlayIcon" not in main_qml
     assert "function onScreenshotRequested()" in main_qml
@@ -741,7 +743,7 @@ def test_qml_has_pi5_premium_splash_motion_contract() -> None:
 
 def test_qml_has_pi5_ambient_background_drift_contract() -> None:
     main_qml = files("djconnect_pi.qml").joinpath("Main.qml").read_text(encoding="utf-8")
-    background = main_qml[main_qml.index("component AppBackground") : main_qml.index("component AppBanner")]
+    background = main_qml[main_qml.index("component AppBackground") : main_qml.index("component IconButton")]
 
     assert background.count("property real driftX: 0") == 2
     assert background.count("property real driftY: 0") == 2
@@ -774,13 +776,13 @@ def test_qml_has_a_dedicated_pi5_wall_canvas_and_premium_banner_scale() -> None:
 
     assert 'property bool wallProfile: djconnect.releaseProfile === "pi5-arm64"' in main_qml
     assert "width: wallProfile ? Screen.width : 720" in main_qml
-    assert "property int titleSize: root.wallProfile ? 52 : 38" in main_qml
+    banner = qml_root.joinpath("AppBanner.qml").read_text(encoding="utf-8")
+    assert "readonly property bool compact: width < 900" in banner
+    assert "readonly property int logoSize: dense ? 64 : compact ? 84 : 120" in banner
     assert "running: root.wallProfile && !root.screenBlanked" in main_qml
     assert "property int motionStandard: wallProfile ? 360 : 240" in main_qml
     assert "scale: djconnect.toastVisible ? 1 : 0.94" in main_qml
     assert "readonly property bool liquidGlassEnabled: djconnect.glassEnabled" in main_qml
-    assert "#82ffffff" in main_qml
-    assert "#c8ffffff" in main_qml
     assert "BusyIndicator" not in update_qml
     assert "component AppBanner" in update_qml
     assert "AppBanner {}" in update_qml

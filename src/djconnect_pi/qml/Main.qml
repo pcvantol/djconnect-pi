@@ -751,90 +751,6 @@ BrandWindow {
         }
     }
 
-    component AppBanner: Rectangle {
-        id: appBanner
-        property string detailText: root.tr("tagline")
-        property bool sheetStyle: false
-        property int logoSize: root.wallProfile ? 128 : 84
-        property int titleSize: root.wallProfile ? 52 : 38
-        property int detailSize: root.wallProfile ? 26 : 20
-        property int horizontalPadding: root.wallProfile ? 38 : 28
-        property int verticalPadding: root.wallProfile ? 28 : 18
-        property int contentSpacing: root.wallProfile ? 30 : 22
-
-        Layout.fillWidth: true
-        Layout.preferredHeight: root.wallProfile ? 190 : 132
-        radius: root.wallProfile ? 32 : 24
-        color: root.liquidGlassEnabled ? BrandTheme.alpha(BrandTheme.colors.surface, "8a") : BrandTheme.colors.background
-        border.color: root.liquidGlassEnabled ? "#82ffffff" : BrandTheme.colors.surfaceRaised
-        border.width: 1
-        clip: true
-        gradient: Gradient {
-            orientation: Gradient.Horizontal
-            GradientStop { position: 0.0; color: root.liquidGlassEnabled ? "#8c" + root.moodColor("bannerStart").slice(1) : root.moodColor("bannerStart") }
-            GradientStop { position: 0.42; color: root.liquidGlassEnabled ? "#78" + root.moodColor("bannerMid").slice(1) : root.moodColor("bannerMid") }
-            GradientStop { position: 0.72; color: root.liquidGlassEnabled ? "#70" + root.moodColor("surface").slice(1) : root.moodColor("surface") }
-            GradientStop { position: 1.0; color: root.liquidGlassEnabled ? "#88" + root.moodColor("bannerEnd").slice(1) : root.moodColor("bannerEnd") }
-        }
-
-        Rectangle {
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.top: parent.top
-            anchors.margins: 1
-            height: root.liquidGlassEnabled && !appBanner.sheetStyle ? 2 : 0
-            radius: height / 2
-            gradient: Gradient {
-                orientation: Gradient.Horizontal
-                GradientStop { position: 0.0; color: "#18ffffff" }
-                GradientStop { position: 0.5; color: "#c8ffffff" }
-                GradientStop { position: 1.0; color: "#18ffffff" }
-            }
-        }
-
-        RowLayout {
-            anchors.fill: parent
-            anchors.leftMargin: appBanner.horizontalPadding
-            anchors.rightMargin: appBanner.horizontalPadding
-            anchors.topMargin: appBanner.verticalPadding
-            anchors.bottomMargin: appBanner.verticalPadding
-            spacing: appBanner.contentSpacing
-            Image {
-                objectName: "appBannerMark"
-                source: "brand-mark-128.png"
-                Layout.preferredWidth: appBanner.logoSize
-                Layout.preferredHeight: appBanner.logoSize
-                Layout.alignment: Qt.AlignVCenter
-                fillMode: Image.PreserveAspectFit; smooth: true; mipmap: true
-                Accessible.ignored: true
-            }
-            ColumnLayout {
-                Layout.fillWidth: true
-                Layout.alignment: Qt.AlignVCenter
-                spacing: 10
-                BrandLockup {
-                    objectName: "appBannerName"
-                    wordmarkOnly: true
-                    Layout.preferredWidth: Math.min(parent.width, appBanner.titleSize * 1092 / 162)
-                    Layout.preferredHeight: width * 162 / 1092
-                    Layout.alignment: Qt.AlignLeft
-                }
-                Text {
-                    objectName: "appBannerDetail"
-                    text: appBanner.detailText
-                    textFormat: Text.PlainText
-                    color: BrandTheme.colors.muted
-                    font.pixelSize: appBanner.detailSize
-                    font.bold: true
-                    wrapMode: Text.WordWrap
-                    maximumLineCount: 2
-                    Layout.fillWidth: true
-                    Layout.alignment: Qt.AlignLeft
-                }
-            }
-        }
-    }
-
     component IconButton: Button {
         id: control
         property string iconName: "play"
@@ -4086,7 +4002,7 @@ BrandWindow {
             width: Math.min(parent.width - 40, 640)
             spacing: 14
 
-            AppBanner {}
+            AppBanner { detailText: root.tr("tagline") }
 
             Text {
                 text: root.tr("pairing_screen_title")
@@ -4301,7 +4217,7 @@ BrandWindow {
             width: Math.min(parent.width - 40, 640)
             spacing: 28
 
-            AppBanner {}
+            AppBanner { detailText: root.tr("tagline") }
 
             Rectangle {
                 Layout.alignment: Qt.AlignHCenter
@@ -4417,9 +4333,6 @@ BrandWindow {
 
                 AppBanner {
                     detailText: "v" + djconnect.version
-                    titleSize: root.wallProfile ? 52 : 42
-                    detailSize: root.wallProfile ? 26 : 20
-                    logoSize: root.wallProfile ? 128 : 92
                 }
 
                 Text {
@@ -4611,8 +4524,6 @@ BrandWindow {
                 spacing: 22
                 Item { Layout.preferredHeight: musicDnaOptIn.compact ? 0 : 22 }
                 AppBanner {
-                    sheetStyle: true
-                    titleSize: musicDnaOptIn.compact ? 35 : 39
                     Layout.fillWidth: true
                     Layout.maximumWidth: musicDnaOptIn.compact ? optInScroll.width - 40 : 900
                     Layout.alignment: Qt.AlignHCenter
@@ -5147,7 +5058,7 @@ BrandWindow {
 
 
                 AppBanner {
-                    logoSize: 82
+                    detailText: root.tr("tagline")
                 }
 
                 GlassCard {
@@ -5272,14 +5183,8 @@ BrandWindow {
 
             AppBanner {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 98
                 detailText: root.tr("dj_response")
-                logoSize: 64
-                titleSize: 30
-                detailSize: 20
-                horizontalPadding: 20
-                verticalPadding: 14
-                contentSpacing: 16
+                dense: true
             }
 
             Text {

@@ -28,7 +28,7 @@ Item {
             ColumnLayout {
                 width: scroll.availableWidth
                 spacing: 20
-                BrandLockup { Layout.fillWidth: true; Layout.preferredHeight: 100 }
+                AppBanner { detailText: page.tr("tagline") }
                 GlassCard {
                     visible: page.feedback
                     Layout.fillWidth: true
