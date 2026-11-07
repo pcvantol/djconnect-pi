@@ -15,6 +15,7 @@ from shiboken6 import delete
 from djconnect_pi.app import DJConnectBackend
 from djconnect_pi.brand_theme import apply_palette
 from djconnect_pi.config import Config, save_config
+from djconnect_pi.i18n import TRANSLATIONS
 
 ROOT = Path(__file__).resolve().parents[2]
 TEMP = tempfile.TemporaryDirectory()
@@ -217,9 +218,27 @@ with (
             timer.triggered.emit()  # A previously queued expiry cannot exit this visit.
             QTest.qWait(30)
             assert find(w.contentItem(), "vibeScapeVisit") is not None
-            assert not visit.property(
-                "renderable"
-            )  # CI software scenegraph: honest unavailable, never fake GPU.
+            if "--mesa-dynamics" in sys.argv:
+                assert visit.property("renderable") and find(visit, "vibeScapeShader")
+                slider = find(visit, "vibeScapeDynamics")
+                percent = find(visit, "vibeScapeDynamicsPercent")
+                assert slider.property("visible") and slider.height() >= 44
+                assert visit.property("dynamics") == 0.5
+                for locale in ("en", "nl", "de", "fr", "es"):
+                    b.setLanguage(locale)
+                    QTest.qWait(30)
+                    assert percent.property("text") == TRANSLATIONS[locale]["vibescape_dynamics_percent"].replace("%1", "50")
+                point = slider.mapToScene(QPoint(int(slider.width() * 0.8), int(slider.height() / 2))).toPoint()
+                QTest.mouseClick(w, Qt.LeftButton, Qt.NoModifier, point)
+                QTest.qWait(100)
+                value = visit.property("dynamics")
+                assert 0.65 < value < 0.95, value
+                assert percent.property("text") == TRANSLATIONS["es"]["vibescape_dynamics_percent"].replace("%1", str(int(value * 100 + 0.5)))
+                b.setLanguage(lang)
+                QTest.qWait(30)
+            else:
+                assert not visit.property("renderable")  # CI software scenegraph.
+                assert not find(visit, "vibeScapeDynamics").property("visible")
             im = w.grabWindow()
             assert not im.isNull()
             assert im.save(str(OUT / f"{lang}-native-main.png"))

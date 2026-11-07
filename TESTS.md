@@ -3117,3 +3117,20 @@ The ARM VM passed eight focused tests and 3663 tests in the full collection.
 The remaining test requires a Git index, which the VM source archive does
 not include. Its unchanged assertion passed separately against the actual
 worktree index and verified the install script's executable bit.
+
+### Local VibeScape dynamics readout
+
+Pi10 shows a localized percentage beside the visual dynamics slider. The
+48-pixel slider updates only the local visit. Its accessibility description
+reports the same percentage. Software scenegraph keeps the unavailable
+fallback with the slider hidden.
+
+On the ARM VM, the existing synthetic click probe runs in software fallback
+on both layouts. The Pi10 OpenGL branch also ran with Mesa llvmpipe under
+Xvfb using the basic Qt render loop. It checked the visible slider, five
+percentage formats and a real Qt click without queued command work. The
+default threaded Xvfb attempt stalled and was stopped. This evidence does
+not qualify the physical Pi GPU.
+
+Eight focused software-fallback tests and 3663 broad ARM tests passed.
+The executable-bit assertion ran separately against the real Git index.

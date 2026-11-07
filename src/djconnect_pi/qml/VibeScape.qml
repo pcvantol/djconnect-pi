@@ -130,15 +130,27 @@ Rectangle {
     GlassSurface {
         id: dynamicsCard
         anchors.bottom: parent.bottom; anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottomMargin: 32; width: Math.min(parent.width-64,560); height: 128
+        anchors.bottomMargin: 32; width: Math.min(parent.width - 32, 480); height: 72
         visible: scene.controlsVisible && scene.renderable; elevated: true
-        ColumnLayout {
-            anchors.fill: parent; anchors.margins: 20
-            Text { text: scene.tr("vibescape_dynamics"); color: "white"; font.pixelSize: 22; textFormat: Text.PlainText }
+        RowLayout {
+            anchors.fill: parent; anchors.margins: 12; spacing: 12
+            FeatureIcon {
+                iconName: "mood_energy"; iconColor: "white"
+                Layout.preferredWidth: 24; Layout.preferredHeight: 24
+            }
+            Text {
+                id: dynamicsPercent
+                objectName: "vibeScapeDynamicsPercent"
+                text: scene.tr("vibescape_dynamics_percent").replace("%1", Math.round(scene.dynamics * 100))
+                color: "white"; font.pixelSize: 20; textFormat: Text.PlainText
+                Layout.preferredWidth: 68
+            }
             Slider {
                 id: dynamicsSlider; objectName: "vibeScapeDynamics"
-                Layout.fillWidth: true; from: 0; to: 1; value: scene.dynamics
+                Layout.fillWidth: true; Layout.fillHeight: true
+                from: 0; to: 1; value: scene.dynamics
                 Accessible.name: scene.tr("vibescape_dynamics")
+                Accessible.description: dynamicsPercent.text
                 onMoved: { scene.dynamics = value; scene.showControls() }
                 onPressedChanged: scene.showControls()
             }
