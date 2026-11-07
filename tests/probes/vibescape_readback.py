@@ -152,7 +152,7 @@ with (
             if profile != "pi5-arm64":
                 assert not button.property("visible")
                 assert not w.property("vibeScapeAllowed")
-                w.openVibeScape()
+                w.openVibeScape(88)
                 assert not w.property("vibeScapeRequested")
                 rows.append(
                     {"profile": profile, "locale": lang, "case": "no-entry-or-loader"}
@@ -187,6 +187,7 @@ with (
             source_strip = find(screen, "sessionModeStrip")
             assert strip.width() == source_strip.width() == 420
             assert strip.height() == source_strip.height() == 64
+            assert abs(strip.mapToScene(QPoint()).y() - source_strip.mapToScene(QPoint()).y()) <= 1
             assert abs(strip.mapToScene(QPoint(210, 0)).x() - w.width() / 2) <= 1
             flow = find(visit, "vibeScapeFlow")
             horizon = find(visit, "vibeScapeForecast")

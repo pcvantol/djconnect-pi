@@ -3134,3 +3134,10 @@ not qualify the physical Pi GPU.
 
 Eight focused software-fallback tests and 3663 broad ARM tests passed.
 The executable-bit assertion ran separately against the real Git index.
+
+### VibeScape picker position
+
+The explicit visit captures the inline mode strip's vertical position. The
+overlay uses that position within its viewport bounds. Its click probe
+compares the two rendered strips within one pixel and still checks the
+4-inch admission boundary and the Flow and Horizon return routes.

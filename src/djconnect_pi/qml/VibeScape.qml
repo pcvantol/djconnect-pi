@@ -10,6 +10,7 @@ Rectangle {
     required property var backend
     required property bool admitted
     property bool forecastAvailable: false
+    required property real pickerTop
     required property string mood
     property bool reduceMotion: GlassStyle.reduceMotion
     property bool shaderFailed: false
@@ -121,7 +122,7 @@ Rectangle {
         vibeScapeAvailable: true
         inVibeScape: true
         anchors.top: parent.top; anchors.horizontalCenter: parent.horizontalCenter
-        anchors.topMargin: 32
+        anchors.topMargin: Math.min(Math.max(4, scene.pickerTop), Math.max(4, scene.height - height - 12))
         visible: scene.controlsVisible
         onFlowRequested: scene.flowRequested()
         onForecastRequested: scene.forecastRequested()

@@ -496,7 +496,7 @@ Item {
     onVisibleChanged: { syncMediaVisibility(); if (!visible) { clearForecastReading(); cancelArchiveRead(); if (owner) owner.clearArchive(); clearFlowReturn(); historyRead.stop(); historyReadProfile = ""; historyReadSession = ""; historyReadPending = false; readingRestore.stop(); pendingReadingAnchor = ""; closeTransient() } }
     onHistoricalChanged: { if (historical) { outputsPanel.close(); playbackPanel.close() } syncMediaVisibility(); if (!historical) { archiveDetailReturn = null; cancelArchiveRead(); if (owner) owner.clearArchive() } readingRestore.stop(); pendingReadingAnchor = ""; readingOffset = 0; if (!historical && flowReturn) { historyScroll.contentItem.cancelFlick(); flowReturnRestore.restart() } }
     onSearchTargetChanged: { if (searchPanel) searchPanel.close(); if (searchInput) searchInput.clear(); if (owner) owner.clearSearch() }
-    signal openVibeScape()
+    signal openVibeScape(real pickerTop)
     signal navigate(string destination)
     function tr(key) { backend.translationVersion; return backend.t(key) }
     function displayDate(value) { backend.translationVersion; return owner.formatTimestamp(value || "") }
@@ -730,7 +730,7 @@ Item {
         anchors.topMargin: 10
         onFlowRequested: screen.forecastMode = false
         onForecastRequested: screen.forecastMode = true
-        onVibeScapeRequested: screen.openVibeScape()
+        onVibeScapeRequested: screen.openVibeScape(modeSwitch.mapToItem(null, 0, 0).y)
     }
     ScrollView {
         id: forecastScroll

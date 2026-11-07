@@ -22,6 +22,7 @@ BrandWindow {
     property bool vibeScapeRequested: false
     property string vibeScapeOwner: ""
     property string vibeScapeSession: ""
+    property real vibeScapePickerTop: 64
     readonly property bool vibeScapeAllowed: wallProfile && visible && active && activeScreen === "session" &&
         djconnect.paired && !djconnect.demoMode && vibeScapeCurrentOwner.length > 0 &&
         !djconnect.djSession.state.profile_confirmation_required && !djconnect.djSession.state.owner_read_only && djconnect.djSession.state.runtime_state === "active" &&
@@ -42,11 +43,12 @@ BrandWindow {
         function onProfileChanged() { root.syncVibeScape() }
         function onPairedChanged() { root.syncVibeScape() }
     }
-    function openVibeScape() {
+    function openVibeScape(pickerTop) {
         if (!vibeScapeAllowed) return
         vibeScapeOwner = vibeScapeCurrentOwner
         vibeScapeVisitEpoch = vibeScapeCurrentEpoch
         vibeScapeSession = djconnect.djSession.state.session_id
+        vibeScapePickerTop = Number.isFinite(pickerTop) ? vibeScapeLoader.mapFromItem(null, 0, pickerTop).y : 64
         vibeScapeRequested = true
         vibeScapeLoader.active = true
     }
@@ -62,6 +64,7 @@ BrandWindow {
                 root.vibeScapeRequested = false
                 root.vibeScapeOwner = ""
                 root.vibeScapeSession = ""
+                root.vibeScapePickerTop = 64
                 root.restartIdleTimer()
                 root.restartReturnToNowTimer()
             }
@@ -69,6 +72,7 @@ BrandWindow {
         sourceComponent: VibeScape {
             backend: djconnect; admitted: root.vibeScapeAllowed
             mood: root.appearanceMood
+            pickerTop: root.vibeScapePickerTop
             forecastAvailable: djconnect.djSession.state.forecast_supported
             onCloseRequested: root.closeVibeScape()
             onFlowRequested: { root.closeVibeScape(); sharedSessionScreen.forecastMode = false }
@@ -4038,7 +4042,7 @@ BrandWindow {
             backend: djconnect
             historical: root.activeScreen === "history" || root.activeScreen === "session-history"
             currentHistory: root.activeScreen === "session-history"
-            onOpenVibeScape: root.openVibeScape()
+            onOpenVibeScape: function(pickerTop) { root.openVibeScape(pickerTop) }
             onNavigate: function(destination) { root.activeScreen = destination }
         }
     }
