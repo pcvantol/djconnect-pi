@@ -1,23 +1,44 @@
 # Tests
 
-Install development dependencies:
+Use CPython 3.14.9 in a fresh virtual environment. Install the
+canonical lock before installing the application, so local tests use the same
+dependency set as CI.
 
 ```sh
-python3 -m pip install -e ".[dev]"
+python3.14 -m venv .venv
+. .venv/bin/activate
+python -m pip install --only-binary=:all: --requirement requirements.lock
+python -m pip install --no-deps -e ".[dev]"
+python -m pip check
 ```
 
-Run the full suite:
+Run the application suite and the coverage report with the Qt software backend
+on a headless test host:
 
 ```sh
-python3 -m pytest
+export QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software
+python -m coverage run -m pytest
+python -m coverage report
 ```
 
-Run syntax/package smoke checks:
+Run syntax and native QML smoke checks:
 
 ```sh
-python3 -m compileall src tests
-QT_QPA_PLATFORM=offscreen python3 -m djconnect_pi.app --windowed --exit-after-ms 1500
+python -m compileall src tests
+python Tools/preview_brand_colors.py --output /path/to/test-output
 ```
+
+The preview exercises the compact and Pi10 layouts with local data. It does not
+prove GPU rendering or touch behavior on a physical Pi. For dependency updates,
+also install the lock from binary wheels on ARM64 with glibc 2.39 or newer, build
+the application wheel, and check its metadata and startup. Keep the separate
+deployment-tool environment on `Tools/pi_deployment_requirements.lock` and use
+the test selection in `.github/workflows/pi-instance-consumer-contract.yml`.
+
+Queue and playlist tests cover per-list in-flight suppression, independent
+requests, release after failure, and no network dispatch in demo or unpaired
+mode. Client API tests cover mDNS publication before pairing and withdrawal
+after pairing. Multicast discovery on the real LAN is a separate check.
 
 Run the autonomous Home Assistant contract fixture:
 

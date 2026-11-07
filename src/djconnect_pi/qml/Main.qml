@@ -198,12 +198,6 @@ BrandWindow {
         return 0
     }
 
-    function repeatLabel(value) {
-        if (value === "track") return root.tr("repeat_one")
-        if (value === "context") return root.tr("repeat")
-        return root.tr("repeat_off")
-    }
-
     function djAnnouncementOutputLabel(value) {
         if (value === "ha_speaker") return root.tr("dj_announcement_output_ha_speaker")
         return root.tr("dj_announcement_output_text_only")
@@ -259,10 +253,6 @@ BrandWindow {
         }
     }
 
-    function openTrackInsightScreen() {
-        root.activeScreen = "trackinsight"
-    }
-
     function restartIdleTimer() {
         if (djconnect.screenTimeoutSeconds > 0) {
             idleTimer.restart()
@@ -295,8 +285,6 @@ BrandWindow {
             djconnect.loadMusicDiscovery()
         } else if (root.activeScreen === "settings") {
             djconnect.pollSharedSettings()
-        }
-        if (root.activeScreen !== "now") {
         }
     }
 
@@ -490,34 +478,6 @@ BrandWindow {
             radius: root.wallProfile ? 34 : 24
             pressed: moreControl.down
             focused: moreControl.activeFocus
-        }
-    }
-
-    component PlaybackButton: Button {
-        id: control
-        property bool primary: false
-
-        font.pixelSize: primary ? 24 : 22
-        font.bold: true
-        Layout.fillWidth: true
-        Layout.fillHeight: true
-        contentItem: Text {
-            text: control.text
-            font: control.font
-            color: BrandTheme.colors.text
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
-        }
-        background: GlassSurface {
-            radius: control.primary ? height / 2 : root.standardButtonRadius
-            interactive: true
-            primary: control.primary
-            selected: false
-            pressed: control.down
-            focused: control.activeFocus
-            opacity: control.enabled ? 1 : 0.4
-            scale: control.down ? 0.98 : 1
-            Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
         }
     }
 

@@ -115,7 +115,6 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "component DangerButton" in main_qml
     assert "component ModalBlocker" in main_qml
     assert "component AppBackground" in main_qml
-    assert "component PlaybackButton" in main_qml
     assert "component IconButton" in main_qml
     assert "component MediaListPanel" in main_qml
     media_list_component = main_qml[main_qml.index("component MediaListPanel") : main_qml.index("Timer {\n        id: idleTimer")]
@@ -665,7 +664,7 @@ def test_qml_screen_blanking_wakes_on_tap() -> None:
     assert "root.lastWakeDisplayAt = now" in wake_display
     assert "djconnect.wakeDisplay()" in wake_display
     assert "root.recordActivity()" in wake_display
-    record_activity = main_qml[main_qml.index("function recordActivity()") : main_qml.index("function openTrackInsightScreen()", main_qml.index("function recordActivity()"))]
+    record_activity = main_qml[main_qml.index("function recordActivity()") : main_qml.index("function restartIdleTimer()", main_qml.index("function recordActivity()"))]
     assert "var wasBlanked = root.screenBlanked" in record_activity
     assert "root.restartIdleTimer()" in record_activity
     assert "if (root.forceScreenAwake && forcedWakeTimer.running)" in record_activity

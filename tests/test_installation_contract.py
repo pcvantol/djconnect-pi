@@ -458,13 +458,28 @@ def test_install_script_can_resume_after_reboot_or_interruption() -> None:
 def test_canonical_dependency_lock_matches_exact_package_metadata() -> None:
     project = tomllib.loads(ROOT.joinpath("pyproject.toml").read_text(encoding="utf-8"))
     lock_lines = ROOT.joinpath("requirements.lock").read_text(encoding="utf-8").splitlines()
-    locked = {line.split("==", 1)[0].lower(): line for line in lock_lines if "==" in line}
+    locked = {}
+    for line in lock_lines:
+        if not line or line.startswith("#"):
+            continue
+        name, separator, version = line.partition("==")
+        assert name and separator and version
+        canonical = re.sub(r"[-_.]+", "-", name).lower()
+        assert canonical not in locked, f"Duplicate lock entry: {canonical}"
+        locked[canonical] = version
 
-    assert lock_lines
-    assert all("==" in line for line in lock_lines if line and not line.startswith("#"))
-    for requirement in [*project["project"]["dependencies"], *project["project"]["optional-dependencies"]["dev"]]:
-        name, _version = requirement.split("==", 1)
-        assert locked[name.lower()] == requirement
+    declared = [
+        *project["project"]["dependencies"],
+        *project["project"]["optional-dependencies"]["dev"],
+    ]
+    for requirement in declared:
+        name, version = requirement.split("==", 1)
+        assert locked[re.sub(r"[-_.]+", "-", name).lower()] == version
+
+    for companion in ("pyside6-addons", "pyside6-essentials", "shiboken6"):
+        assert locked[companion] == locked["pyside6"]
+    for companion in ("pyside6-pdf", "pyside6-webengine"):
+        assert locked[companion].rsplit(".", 1)[0] == locked["pyside6"]
 
 
 def test_shared_voice_intent_examples_are_available_for_docs_alignment() -> None:

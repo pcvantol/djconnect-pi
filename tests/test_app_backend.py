@@ -2734,6 +2734,58 @@ def test_backend_refresh_preserves_selected_output_device_when_status_omits_it(t
     assert statuses[0].output_devices == ("Woonkamer", "Keuken")
 
 
+@pytest.mark.parametrize("screen, slot, items", [
+    ("queue", "loadQueue", "queueItems"),
+    ("playlists", "loadPlaylists", "playlistItems"),
+])
+def test_media_list_demo_and_unpaired_never_dispatch(tmp_path: Path, screen, slot, items) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend._executor.submit = Mock()
+    backend.client.command = Mock()
+    load = getattr(backend, slot)
+
+    load()
+    assert not getattr(backend, items)
+    assert screen not in backend._media_loads_in_flight
+    backend.enterDemoMode()
+    load()
+    assert getattr(backend, items)
+    backend._executor.submit.assert_not_called()
+    backend.client.command.assert_not_called()
+
+
+def test_media_list_requests_coalesce_per_list_and_release_after_failure(tmp_path: Path) -> None:
+    ensure_app()
+    path = tmp_path / "config.json"
+    save_config(path, Config(paired=True, device_token="test-token", ha_url="http://fixture.invalid"))
+    backend = DJConnectBackend(path)
+    backend._executor.submit = Mock()
+    backend.client.command = Mock(side_effect=DJConnectError("temporary fixture failure"))
+
+    backend.loadQueue()
+    backend.loadQueue()
+    backend.loadPlaylists()
+    backend.loadPlaylists()
+    assert backend._executor.submit.call_count == 2
+    assert backend._media_loads_in_flight == {"queue", "playlists"}
+
+    queue_job, playlist_job = [call.args[0] for call in backend._executor.submit.call_args_list]
+    queue_job()
+    backend.client.command.assert_called_once_with("queue", limit=100)
+    assert backend._media_loads_in_flight == {"playlists"}
+
+    backend.loadQueue()
+    backend.loadPlaylists()
+    assert backend._executor.submit.call_count == 3
+
+    playlist_job()
+    assert backend.client.command.call_args.args == ("playlists",)
+    assert backend._media_loads_in_flight == {"queue"}
+    backend._executor.submit.call_args.args[0]()
+    assert not backend._media_loads_in_flight
+
+
 def test_backend_queue_request_is_limited_to_100_items(tmp_path: Path) -> None:
     ensure_app()
     backend = DJConnectBackend(tmp_path / "config.json")
