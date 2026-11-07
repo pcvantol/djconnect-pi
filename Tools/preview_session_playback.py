@@ -238,6 +238,57 @@ def main():
                 capture('progress-opens-playback-controls')
                 QMetaObject.invokeMethod(popup, 'close')
                 QTest.qWait(160)
+                initial_caps = backend.cfg.music_backend_capabilities
+                backend.cfg.music_backend_capabilities = {
+                    **initial_caps, 'supports_volume': True, 'supports_outputs': True,
+                    'supports_transfer_or_output_selection': True,
+                }
+                owner.changed.emit()
+                QTest.qWait(80)
+                output_panel = window.findChild(QObject, 'sessionOutputPanel')
+                original_session = owner._session
+                shortcuts = [
+                    ('sessionCurrentOutput', 'outputs_read', output_panel),
+                    ('sessionCurrentVolume', 'volume_read', popup),
+                    ('sessionCurrentFavorite', 'favorite_read', popup),
+                ]
+                for name, expected_read, panel in shortcuts:
+                    button = window.findChild(QObject, name)
+                    center = button.mapToScene(QPointF(button.width()/2, button.height()/2))
+                    point = QPoint(round(center.x()), round(center.y()))
+                    for field, value in [('item_id', 'synthetic-replacement'), ('target_name', 'Synthetic changed speaker')]:
+                        QTest.mousePress(window, mouse, modifiers, point)
+                        assert button.property('down')
+                        owner._session = deepcopy(original_session)
+                        owner._session['broadcast']['playback'][field] = value
+                        owner.changed.emit()
+                        QTest.qWait(60)
+                        QTest.mouseRelease(window, mouse, modifiers, point)
+                        assert not intents and not panel.property('visible'), (name, field)
+                        owner._session = original_session
+                        owner.changed.emit()
+                        QTest.qWait(60)
+                    QTest.mousePress(window, mouse, modifiers, point)
+                    owner._session = deepcopy(original_session)
+                    owner._session['broadcast']['playback']['position_ms'] += 500
+                    owner.changed.emit()
+                    QTest.qWait(60)
+                    assert button.property('down')
+                    QTest.mouseRelease(window, mouse, modifiers, point)
+                    QTest.qWait(60)
+                    assert len(intents) == 1 and panel.property('opened'), name
+                    assert owner._playback_control.request['command'] == expected_read
+                    capture('stable-shortcut-' + expected_read)
+                    status_count = owner.transport.playback_status.call_count
+                    QMetaObject.invokeMethod(panel, 'close')
+                    intents.pop()()
+                    assert owner.transport.playback_status.call_count == status_count
+                    owner._session = original_session
+                    owner.changed.emit()
+                    QTest.qWait(180)
+                backend.cfg.music_backend_capabilities = initial_caps
+                owner.changed.emit()
+                QTest.qWait(80)
                 click('sessionPlaybackOpen'); assert popup.property('visible'), warnings
                 capture('ready')
                 image = window.grabWindow()

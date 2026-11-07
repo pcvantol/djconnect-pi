@@ -962,7 +962,7 @@ Item {
                             Text { visible: !screen.compact && playbackSources.ready && text.length > 0; text: screen.state.playback.artist || ""; textFormat: Text.PlainText; font.pixelSize: 23; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                             Text { visible: !screen.compact && playbackSources.ready && text.length > 0; text: screen.state.playback.album || ""; textFormat: Text.PlainText; font.pixelSize: 19; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                         }
-                        GlassButton {
+                        SessionPlaybackShortcut {
                             id: currentOutputButton
                             objectName: "sessionCurrentOutput"
                             visible: playbackSources.ready && !!screen.state.playback_control.available
@@ -975,9 +975,9 @@ Item {
                             Layout.preferredWidth: text.length ? Math.min(220, implicitWidth) : 48
                             Layout.preferredHeight: 48
                             Layout.alignment: Qt.AlignTop
-                            onClicked: outputsPanel.openForCurrentItem()
+                            onCurrentTrackClicked: outputsPanel.openForCurrentItem()
                         }
-                        GlassButton {
+                        SessionPlaybackShortcut {
                             objectName: "sessionCurrentVolume"
                             visible: playbackSources.ready && !!screen.state.playback_control.available
                                 && !!screen.state.playback_control.volume_supported
@@ -985,14 +985,14 @@ Item {
                             iconName: "control"
                             Accessible.name: screen.tr("volume")
                             Layout.preferredWidth: 48; Layout.preferredHeight: 48; Layout.alignment: Qt.AlignTop
-                            onClicked: {
+                            onCurrentTrackClicked: {
                                 if (screen.owner.readPlaybackVolume(screen.state.session_id, screen.state.playback.item_id)) {
                                     playbackPanel.controlView = "volume"
                                     playbackPanel.open()
                                 }
                             }
                         }
-                        GlassButton {
+                        SessionPlaybackShortcut {
                             objectName: "sessionCurrentFavorite"
                             visible: playbackSources.ready && !!screen.state.playback_control.available
                                 && !!screen.state.playback_control.favorite
@@ -1000,7 +1000,7 @@ Item {
                             iconName: "heart"
                             Accessible.name: screen.tr("session_favorite_read")
                             Layout.preferredWidth: 48; Layout.preferredHeight: 48; Layout.alignment: Qt.AlignTop
-                            onClicked: {
+                            onCurrentTrackClicked: {
                                 if (screen.owner.readPlaybackFavorite(screen.state.session_id, screen.state.playback.item_id)) {
                                     playbackPanel.controlView = "favorite"
                                     playbackPanel.open()
@@ -1405,6 +1405,23 @@ Item {
                     onClicked: { composeInput.text = screen.draft; screen.submitQuestion() }
                 }
             }
+        }
+    }
+    component SessionPlaybackShortcut: GlassButton {
+        signal currentTrackClicked()
+        readonly property int transportEpoch: screen.state.playback_control.transport_epoch || 0
+        readonly property string reportedOutput: screen.state.playback.target_name || ""
+        property int pressedEpoch: 0
+
+        onPressed: pressedEpoch = transportEpoch
+        onCanceled: pressedEpoch = 0
+        onReportedOutputChanged: pressedEpoch = 0
+        onVisibleChanged: if (!visible) pressedEpoch = 0
+        onEnabledChanged: if (!enabled) pressedEpoch = 0
+        onClicked: {
+            var epoch = pressedEpoch
+            pressedEpoch = 0
+            if (epoch && epoch === transportEpoch) currentTrackClicked()
         }
     }
     component SessionTransportButton: GlassButton {

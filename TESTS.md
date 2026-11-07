@@ -2930,3 +2930,15 @@ and in five locales. The tests covered the progress button geometry,
 continued access to the playback popup and the separate output control
 when volume and favorites are also available. The focused playback and QML
 suite passed 92 tests.
+
+### Bind direct playback shortcuts to the original press
+
+Output, volume and favorite shortcuts capture the playback generation at
+press. A changed track, playback context or reported output name withdraws
+the press. Normal position updates preserve it.
+
+The offline ARM VM reproduced a queued output read after a stale release on
+the previous source. With the fix, 260 Qt views passed in both layouts and all
+five locales, plus 92 focused playback and QML tests. The pointer matrix
+covers stale track and reported output changes, one read after a position
+update, and closing the pop-out before the queued read reaches transport.
