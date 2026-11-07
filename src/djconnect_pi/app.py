@@ -152,6 +152,7 @@ class DJConnectBackend(QObject):
     _sharedSettingsReady = Signal(object)
     profileChanged = Signal()
     djAnnouncementChanged = Signal()
+    localAudioDevicesChanged = Signal()
     wakeScreenRequested = Signal()
     temporaryWakeRequested = Signal(int, bool)
     screenshotRequested = Signal()
@@ -175,6 +176,7 @@ class DJConnectBackend(QObject):
         super().__init__()
         self.config_path = config_path
         self._shutting_down = False
+        self._audio_devices = None
         self.cfg: Config = load_config(config_path)
         self.client = HAClient(self.cfg)
         self._shared_settings_state = {}
@@ -661,6 +663,33 @@ class DJConnectBackend(QObject):
     @Property(str, notify=settingsChanged)
     def musicBackendError(self) -> str:
         return self.cfg.music_backend_error
+
+    def observeLocalAudioDevices(self) -> None:
+        """Enumerate OS devices without opening an input or output stream."""
+        try:
+            from PySide6.QtMultimedia import QMediaDevices
+
+            self._audio_devices = QMediaDevices(self)
+            self._audio_devices.audioInputsChanged.connect(self.localAudioDevicesChanged.emit)
+            self._audio_devices.audioOutputsChanged.connect(self.localAudioDevicesChanged.emit)
+        except (ImportError, OSError, RuntimeError):
+            self._audio_devices = None
+        self.localAudioDevicesChanged.emit()
+
+    @Property(bool, notify=localAudioDevicesChanged)
+    def localMicrophoneAvailable(self) -> bool:
+        return self._audio_devices is not None and bool(self._audio_devices.audioInputs())
+
+    @Property(bool, notify=localAudioDevicesChanged)
+    def localAudioOutputAvailable(self) -> bool:
+        return self._audio_devices is not None and bool(self._audio_devices.audioOutputs())
+
+    @Property(bool, notify=sharedSettingsChanged)
+    def sessionVoiceAvailable(self) -> bool:
+        state = self._shared_settings_state
+        return (state.get("available") is True and state.get("selection_required") is not True
+                and state.get("voice_available") is True and state.get("speaker_available") is True
+                and (state.get("values") or {}).get("announcement_output") in ("ha_speaker", "both"))
 
     @Property(str, notify=djAnnouncementChanged)
     def djAnnouncementOutput(self) -> str:
@@ -1575,6 +1604,8 @@ class DJConnectBackend(QObject):
 
     @Slot(str)
     def playGameSound(self, kind: str) -> None:
+        if not self.localAudioOutputAvailable:
+            return
         try:
             from PySide6.QtMultimedia import QAudioFormat, QAudioSink, QMediaDevices
         except Exception as exc:  # noqa: BLE001 - optional multimedia support must never prevent the renderer from starting
@@ -2843,6 +2874,7 @@ def main() -> None:
     QPixmapCache.setCacheLimit(QT_PIXMAP_CACHE_LIMIT_KB)
     engine = QQmlApplicationEngine()
     backend = DJConnectBackend(args.config)
+    backend.observeLocalAudioDevices()
     app.applicationStateChanged.connect(lambda state: backend.djSession.setForeground(state == Qt.ApplicationState.ApplicationActive))
     engine.rootContext().setContextProperty("djconnect", backend)
     engine.rootContext().setContextProperty("startWindowed", args.windowed)

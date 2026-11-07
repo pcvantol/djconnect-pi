@@ -79,6 +79,50 @@ def test_backend_exposes_initial_config(tmp_path: Path) -> None:
     assert backend.connectionType == "Niet verbonden"
 
 
+def test_audio_device_observer_reports_input_and_output_independently(tmp_path):
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    changed = Mock()
+    backend.localAudioDevicesChanged.connect(changed)
+    assert not backend.localMicrophoneAvailable and not backend.localAudioOutputAvailable
+    devices = Mock()
+    devices.audioInputs.return_value = []
+    devices.audioOutputs.return_value = [object()]
+    with patch("PySide6.QtMultimedia.QMediaDevices", return_value=devices):
+        backend.observeLocalAudioDevices()
+    assert not backend.localMicrophoneAvailable and backend.localAudioOutputAvailable
+    devices.audioInputs.return_value = [object()]
+    devices.audioOutputs.return_value = []
+    devices.audioOutputsChanged.connect.call_args.args[0]()
+    assert backend.localMicrophoneAvailable and not backend.localAudioOutputAvailable
+    assert changed.call_count == 2
+
+
+@pytest.mark.parametrize("patch_state,available", [
+    ({}, True),
+    ({"speaker_available": False}, False),
+    ({"voice_available": False}, False),
+    ({"speaker_available": "true"}, False),
+    ({"selection_required": True}, False),
+    ({"available": False}, False),
+    ({"values": {"announcement_output": "text_only"}}, False),
+    ({"values": {"announcement_output": "client_device"}}, False),
+    ({"values": {"announcement_output": "both"}}, True),
+])
+def test_session_voice_needs_confirmed_ha_speaker_route(tmp_path, patch_state, available):
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    assert not backend.sessionVoiceAvailable
+    backend._shared_settings_state = {
+        "available": True,
+        "voice_available": True,
+        "speaker_available": True,
+        "values": {"announcement_output": "ha_speaker"},
+        **patch_state,
+    }
+    assert backend.sessionVoiceAvailable is available
+
+
 def test_backend_persists_touch_mood_selector(tmp_path: Path) -> None:
     ensure_app()
     config_path = tmp_path / "config.json"

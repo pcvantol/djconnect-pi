@@ -136,7 +136,7 @@ def main():
         voice_button=window.findChild(QObject,'sessionToolbarVoice')
         more_button=window.findChild(QObject,'sessionToolbarMore')
         assert presence_button.property('visible') and persona_button.property('visible')
-        assert voice_button.property('visible') == (width>=900)
+        assert not voice_button.property('visible')
         assert more_button.property('visible') == (width<900)
         shared={'available':True,'selection_required':False,'operation_pending':False,
             'edit_token':'synthetic-ui-token','values':{'mood':'groove','presence':'balanced','persona':'home_dj'},
@@ -146,6 +146,17 @@ def main():
         backend._shared_settings_state=shared
         backend.sharedSettingsChanged.emit()
         choice=window.findChild(QObject,'sessionToolbarChoice')
+        if width >= 900:
+            shared.update(voice_available=True, speaker_available=True)
+            shared['values']['announcement_output']='ha_speaker'
+            backend.sharedSettingsChanged.emit()
+            assert voice_button.property('visible')
+            QMetaObject.invokeMethod(voice_button,'clicked')
+            assert choice.property('opened') and choice.property('canSubmit')
+            shared['speaker_available']=False
+            backend.sharedSettingsChanged.emit()
+            assert not choice.property('opened') and not voice_button.property('visible')
+
         for setting,button in [('mood',mood_button),('presence',presence_button),('persona',persona_button)]:
             for value in shared['options'][setting]:
                 shared['values'][setting]=value

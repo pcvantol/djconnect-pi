@@ -15,6 +15,8 @@ Item {
     readonly property bool sessionControlsVisible: !historical && state.session_id.length > 0 && !state.owner_read_only
     property var owner: backend.djSession
     property var state: owner.state
+    readonly property bool sessionVoiceAvailable: backend.sessionVoiceAvailable
+    onSessionVoiceAvailableChanged: if (!sessionVoiceAvailable && choices && choices.field === "voice") choices.close()
     readonly property var displayedRetainedFlow: state.flow_retained || state.retained_flow
     readonly property string scopeProfileId: state.owner_profile_id || backend.activeProfileId
     readonly property string artworkTint: {
@@ -518,7 +520,7 @@ Item {
         return ["home_dj", "radio_dj", "club_dj", "festival_dj"].indexOf(value) >= 0 ? "persona_" + value : "session_persona"
     }
     function openChoice(field, button) {
-        if (!sessionControlsVisible) return
+        if (!sessionControlsVisible || (field === "voice" && !sessionVoiceAvailable)) return
         choices.sessionId = state.session_id
         choices.profileId = scopeProfileId
         choices.field = field
@@ -679,7 +681,7 @@ Item {
                 GlassButton {
                     id: voiceButton
                     objectName: "sessionToolbarVoice"
-                    visible: !screen.compact && screen.sessionControlsVisible
+                    visible: !screen.compact && screen.sessionControlsVisible && screen.sessionVoiceAvailable
                     iconName: "voice"; Accessible.name: screen.tr("shared_field_voice")
                     implicitWidth: 52; background: Item {}
                     onClicked: screen.openChoice("voice", voiceButton)
@@ -2149,14 +2151,11 @@ Item {
                 Layout.fillWidth: true
                 onClicked: { moreChoices.close(); screen.showSearch() }
             }
-            Repeater {
-                model: ["voice"]
-                GlassButton {
-                    required property string modelData
-                    text: screen.tr("shared_field_" + modelData)
-                    Layout.fillWidth: true
-                    onClicked: { moreChoices.close(); screen.openChoice(modelData, moreButton) }
-                }
+            GlassButton {
+                visible: screen.sessionVoiceAvailable
+                text: screen.tr("shared_field_voice")
+                Layout.fillWidth: true
+                onClicked: { moreChoices.close(); screen.openChoice("voice", moreButton) }
             }
             GlassButton {
                 text: screen.tr("session_history"); Layout.fillWidth: true
@@ -2182,7 +2181,7 @@ Item {
         property string profileId: ""
         property string field: "mood"
         property string editToken: ""
-        readonly property bool canSubmit: choices.visible && screen.state.runtime_state === "active" && screen.sessionControlsVisible && choices.sessionId === screen.state.session_id && choices.profileId === screen.scopeProfileId && choices.editToken === (screen.backend.sharedSettings.edit_token || "") && !!screen.backend.sharedSettings.available && !screen.backend.sharedSettingsBusy && !screen.backend.sharedSettings.selection_required && choices.editToken.length > 0 && !screen.backend.sharedSettings.operation_pending
+        readonly property bool canSubmit: (choices.field !== "voice" || screen.sessionVoiceAvailable) && choices.visible && screen.state.runtime_state === "active" && screen.sessionControlsVisible && choices.sessionId === screen.state.session_id && choices.profileId === screen.scopeProfileId && choices.editToken === (screen.backend.sharedSettings.edit_token || "") && !!screen.backend.sharedSettings.available && !screen.backend.sharedSettingsBusy && !screen.backend.sharedSettings.selection_required && choices.editToken.length > 0 && !screen.backend.sharedSettings.operation_pending
         y: toolbar.y + toolbar.height + 8; width: Math.min(screen.width - 24, 560); padding: 22
         modal: true; dim: false
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
@@ -2196,7 +2195,7 @@ Item {
                     model: (screen.backend.sharedSettings.options || {})[choices.field] || []
                     GlassButton {
                         required property var modelData
-                        text: choices.field === "voice" ? (modelData.label || "") : screen.tr("shared_" + choices.field + "_" + modelData)
+                        text: choices.field === "voice" ? (modelData.label_key ? screen.tr(modelData.label_key) : modelData.label || "") : screen.tr("shared_" + choices.field + "_" + modelData)
                         checked: screen.toolbarValue(choices.field) === (choices.field === "voice" ? modelData.value : modelData)
                         enabled: choices.canSubmit
                         objectName: "sessionToolbarOption"
