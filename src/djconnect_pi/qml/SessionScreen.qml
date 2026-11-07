@@ -717,8 +717,9 @@ Item {
         }
     }
 
-    RowLayout {
+    GlassSurface {
         id: modeSwitch
+        objectName: "sessionModeStrip"
         readonly property bool allowsVibeScape: screen.backend.releaseProfile === "pi5-arm64" && screen.state.runtime_state === "active" && !screen.state.profile_confirmation_required && !screen.state.owner_read_only
         readonly property var selectionStyle: MoodTheme.sessionSelection(screen.state.mood)
         readonly property color selectedFill: {
@@ -726,29 +727,38 @@ Item {
             return selectionStyle.filled ? Qt.rgba(tint.r, tint.g, tint.b, 0.9) : "transparent"
         }
         visible: !screen.historical && (screen.state.forecast_supported || allowsVibeScape)
-        anchors.left: parent.left; anchors.right: parent.right; anchors.top: toolbar.bottom
-        anchors.leftMargin: 20; anchors.rightMargin: 20; anchors.topMargin: 10; height: 48
-        GlassButton {
-            objectName: "sessionFlowMode"; text: screen.tr("session_flow")
-            Layout.fillWidth: true; Layout.preferredWidth: 1; Layout.preferredHeight: 48
-            checked: !screen.showForecast
-            tint: modeSwitch.selectionStyle.tint; selectionFill: modeSwitch.selectedFill
-            foregroundColor: checked ? modeSwitch.selectionStyle.foreground : BrandTheme.colors.muted
-            onClicked: screen.forecastMode = false
-        }
-        GlassButton {
-            objectName: "sessionForecastMode"; visible: screen.state.forecast_supported; text: screen.tr("session_forecast")
-            Layout.fillWidth: true; Layout.preferredWidth: 1; Layout.preferredHeight: 48
-            checked: screen.showForecast
-            tint: modeSwitch.selectionStyle.tint; selectionFill: modeSwitch.selectedFill
-            foregroundColor: checked ? modeSwitch.selectionStyle.foreground : BrandTheme.colors.muted
-            onClicked: screen.forecastMode = true
-        }
-        GlassButton {
-            objectName: "sessionVibeScapeMode"; visible: modeSwitch.allowsVibeScape
-            text: screen.tr("vibescape_title"); foregroundColor: BrandTheme.colors.muted
-            Layout.fillWidth: true; Layout.preferredWidth: 1; Layout.preferredHeight: 48
-            onClicked: screen.openVibeScape()
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.top: toolbar.bottom
+        anchors.topMargin: 10
+        width: Math.min(420, Math.max(0, parent.width - 40))
+        height: 64
+        radius: height / 2
+        RowLayout {
+            anchors.fill: parent
+            anchors.margins: 8
+            spacing: 4
+            GlassButton {
+                objectName: "sessionFlowMode"; text: screen.tr("session_flow")
+                Layout.fillWidth: true; Layout.preferredWidth: 1; Layout.preferredHeight: 48; padding: 8
+                checked: !screen.showForecast
+                tint: modeSwitch.selectionStyle.tint; selectionFill: modeSwitch.selectedFill
+                foregroundColor: checked ? modeSwitch.selectionStyle.foreground : BrandTheme.colors.muted
+                onClicked: screen.forecastMode = false
+            }
+            GlassButton {
+                objectName: "sessionForecastMode"; visible: screen.state.forecast_supported; text: screen.tr("session_forecast_tab")
+                Layout.fillWidth: true; Layout.preferredWidth: 1; Layout.preferredHeight: 48; padding: 8
+                checked: screen.showForecast
+                tint: modeSwitch.selectionStyle.tint; selectionFill: modeSwitch.selectedFill
+                foregroundColor: checked ? modeSwitch.selectionStyle.foreground : BrandTheme.colors.muted
+                onClicked: screen.forecastMode = true
+            }
+            GlassButton {
+                objectName: "sessionVibeScapeMode"; visible: modeSwitch.allowsVibeScape
+                text: screen.tr("vibescape_title"); foregroundColor: BrandTheme.colors.muted
+                Layout.fillWidth: true; Layout.preferredWidth: 1; Layout.preferredHeight: 48; padding: 8
+                onClicked: screen.openVibeScape()
+            }
         }
     }
     ScrollView {

@@ -1313,6 +1313,7 @@ for _key, _values in _SESSION_COMPOSER_TRANSLATIONS.items():
 
 _SESSION_FORECAST_TRANSLATIONS = {
     "session_flow": ("Flow", "Flow", "Flow", "Fil", "Flujo"),
+    "session_forecast_tab": ("Horizon", "Horizon", "Horizon", "Horizon", "Horizon"),
     "session_forecast": ("Horizon · about 15 min", "Horizon · ±15 min", "Horizon · ca. 15 Min.", "Horizon · env. 15 min", "Horizon · unos 15 min"),
     "session_owner_read_only": ("Following the active session. Personal functions require personal Profile access.", "Je volgt de actieve sessie. Privéfuncties vereisen toegang tot een persoonlijk profiel.", "Die aktive Session wird angezeigt. Private Funktionen erfordern Zugriff auf ein persönliches Profil.", "La session active est affichée. Les fonctions privées nécessitent un accès à un profil personnel.", "Se muestra la sesión activa. Las funciones privadas requieren acceso a un perfil personal."),
     "session_forecast_current": ("Current", "Huidig", "Aktuell", "Actuel", "Actual"),

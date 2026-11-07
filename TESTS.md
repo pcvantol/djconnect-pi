@@ -3066,3 +3066,19 @@ composer fixture measures consecutive retained cards in both formats.
 
 The ARM VM passed 476 composer, 300 playback and 180 Moment artwork
 views across both formats and five locales without QML errors.
+
+### Centered Session mode capsule
+
+The shared Pi mode strip follows the iPad reference: a centered glass surface,
+at most 420 pixels wide, with an 8-pixel inset, 4-pixel gaps and 48-pixel
+touch targets. The Horizon button uses the short localized tab label. The
+page heading keeps the existing time estimate.
+
+The offline Horizon fixture checks the capsule geometry, equal visible button
+widths, complete labels, Mood selection and real Flow/Horizon clicks in all
+five locales. The playback fixture measures the lead-in from the capsule's
+outer edge and keeps the first contribution above the viewport midpoint.
+
+The final ARM VM runs passed 50 Horizon, 300 playback and 476 composer
+views without QML errors. The first geometry run caught an elided English
+Horizon label before the localized tab label was applied.

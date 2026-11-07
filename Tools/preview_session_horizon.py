@@ -128,6 +128,7 @@ def main():
                 QTest.qWait(450)  # Let the startup overlay finish its exit animation.
                 assert one(window.contentItem(), "navIcon-session").property("iconColor").name() == "#ffffff"
                 screen = window.findChild(QObject, "djSessionScreen")
+                mode_strip = one(screen, "sessionModeStrip")
                 horizon = one(screen, "sessionForecastMode")
                 flow = one(screen, "sessionFlowMode")
                 vibescape = one(screen, "sessionVibeScapeMode")
@@ -173,8 +174,17 @@ def main():
                         else:
                             assert horizon.property("selectionFill").alpha() == 0
                         assert vibescape.property("visible") == (profile == "pi5-arm64")
-                        assert all(button.x() + button.width() <= width and button.height() >= 44
-                                   for button in (flow, horizon, vibescape) if button.property("visible"))
+                        assert horizon.property("text") == "Horizon"
+                        assert mode_strip.property("visible") and mode_strip.width() == 420
+                        assert abs(mode_strip.mapToItem(screen, mode_strip.width() / 2, 0).x() - screen.width() / 2) <= 1
+                        buttons = [button for button in (flow, horizon, vibescape) if button.property("visible")]
+                        for button in buttons:
+                            bounds = button.mapToItem(mode_strip, 0, 0)
+                            assert bounds.x() >= 7 and bounds.y() >= 7 and button.height() == 48
+                            assert bounds.x() + button.width() <= mode_strip.width() - 7
+                            labels = [item for item in button.property("contentItem").childItems() if item.property("text") == button.property("text")]
+                            assert len(labels) == 1 and not labels[0].property("truncated")
+                        assert max(button.width() for button in buttons) - min(button.width() for button in buttons) <= 1
                         scroll = window.findChild(QObject, "sessionForecastScroll").property("contentItem")
                         scroll.setProperty("contentY", scroll.property("contentY") + section.mapToItem(scroll, 0, 0).y())
                         QTest.qWait(60)
