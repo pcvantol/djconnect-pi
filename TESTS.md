@@ -3082,3 +3082,20 @@ outer edge and keeps the first contribution above the viewport midpoint.
 The final ARM VM runs passed 50 Horizon, 300 playback and 476 composer
 views without QML errors. The first geometry run caught an elided English
 Horizon label before the localized tab label was applied.
+
+### Shared VibeScape mode capsule
+
+Flow, Horizon and the Pi10 VibeScape visit use the same glass component and
+localized labels. VibeScape marks its own segment selected using the Session
+Mood. An explicit Flow or Horizon tap returns to that view. Closing the
+visit without choosing a segment keeps the previous view.
+
+The isolated ARM Qt probe enters VibeScape from Horizon, checks the selected
+segment and label fit in five locales, then clicks Flow and verifies that
+Horizon is no longer selected. A separate click returns to Horizon. The
+probe still checks Pi10-only admission, owner/Session withdrawal and the
+absence of command work. The software renderer exercises the unavailable
+scene fallback and supplies no physical GPU evidence.
+
+The ARM VM passed all three isolated VibeScape cases plus 50 Horizon,
+300 playback and 476 composer views without QML errors.

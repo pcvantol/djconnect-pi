@@ -71,6 +71,7 @@ BrandWindow {
             mood: root.appearanceMood
             forecastAvailable: djconnect.djSession.state.forecast_supported
             onCloseRequested: root.closeVibeScape()
+            onFlowRequested: { root.closeVibeScape(); sharedSessionScreen.forecastMode = false }
             onForecastRequested: { root.closeVibeScape(); sharedSessionScreen.forecastMode = true }
         }
     }
