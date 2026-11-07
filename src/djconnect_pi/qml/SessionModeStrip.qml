@@ -12,6 +12,7 @@ GlassSurface {
     property bool vibeScapeAvailable: false
     property bool showingForecast: false
     property bool inVibeScape: false
+    function focusFlow() { flowButton.forceActiveFocus(Qt.TabFocusReason) }
     signal flowRequested()
     signal forecastRequested()
     signal vibeScapeRequested()
@@ -28,6 +29,7 @@ GlassSurface {
         anchors.margins: 8
         spacing: 4
         GlassButton {
+            id: flowButton
             objectName: modeSwitch.inVibeScape ? "vibeScapeFlow" : "sessionFlowMode"; text: modeSwitch.translate("session_flow")
             Layout.fillWidth: true; Layout.preferredWidth: 1; Layout.preferredHeight: 48; padding: 8
             checked: !modeSwitch.inVibeScape && !modeSwitch.showingForecast

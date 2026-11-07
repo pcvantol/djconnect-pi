@@ -58,6 +58,8 @@ BrandWindow {
         anchors.fill: parent; z: 35
         // Explicit visit latch: invalidation cannot re-arm a returned context.
         active: false
+        focus: active
+        onLoaded: item.forceActiveFocus()
         onActiveChanged: {
             if (active) returnToNowTimer.stop()
             else {

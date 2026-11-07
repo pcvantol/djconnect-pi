@@ -220,9 +220,9 @@ with (
             QTest.mouseMove(w, canvas_point)
             QTest.qWait(3100)
             assert not visit.property("controlsVisible")
-            QTest.mouseClick(w, Qt.LeftButton, Qt.NoModifier, control_point)
+            QTest.keyClick(w, Qt.Key_Tab)
             QTest.qWait(50)
-            assert visit.property("controlsVisible")
+            assert visit.property("controlsVisible") and flow.property("activeFocus")
             assert not w.property("screenBlanked")
             assert owner._session["session_id"] == "original-session"
             timer = w.findChild(QObject, "returnToNowTimer")
@@ -311,6 +311,11 @@ with (
             click(w, find(w.contentItem(), "vibeScapeForecast"))
             assert not w.property("vibeScapeRequested")
             assert screen.property("showForecast")
+            click(w, find(w.contentItem(), "sessionVibeScapeMode"))
+            assert find(w.contentItem(), "vibeScapeVisit").property("activeFocus")
+            QTest.keyClick(w, Qt.Key_Escape)
+            QTest.qWait(80)
+            assert not w.property("vibeScapeRequested") and screen.property("showForecast")
             # Rendering and all local gestures must not queue an app/HA action.
             # Foreground recovery may queue the existing independent owner refresh.
             jobs = [

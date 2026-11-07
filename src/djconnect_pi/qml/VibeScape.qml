@@ -29,6 +29,14 @@ Rectangle {
     color: "black"
     focus: true
     Keys.onEscapePressed: closeRequested()
+    Keys.onTabPressed: event => {
+        if (controlsVisible) {
+            event.accepted = false
+            return
+        }
+        showControls()
+        modeStrip.focusFlow()
+    }
     function tr(key) { backend.translationVersion; return backend.t(key) }
     function colorVector(value, w) { var c = Qt.color(value); return Qt.vector4d(c.r,c.g,c.b,w) }
     function touchVector(i) {
@@ -39,7 +47,11 @@ Rectangle {
         controlsVisible = true
         if (!controlsHovered) controlsTimeout.restart()
     }
-    function hideControls() { controlsTimeout.stop(); controlsVisible = false }
+    function hideControls() {
+        controlsTimeout.stop()
+        controlsVisible = false
+        forceActiveFocus()
+    }
     function inControlArea(x, y) {
         return modeStrip.contains(modeStrip.mapFromItem(scene, x, y))
             || (renderable && dynamicsCard.contains(dynamicsCard.mapFromItem(scene, x, y)))
