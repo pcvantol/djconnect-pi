@@ -36,6 +36,7 @@ from .session_history_view import (
     retained_flow_presentation,
     search_page,
 )
+from .session_playback_artwork import PlaybackArtwork
 from .session_playback_control import PlaybackControl
 from .session_projection import (
     active_session,
@@ -56,6 +57,7 @@ from .session_transport import (
 
 class SessionController(QObject):
     changed = Signal()
+    playbackArtworkChanged = Signal()
     forecastImageChanged = Signal()
     forecastImageAboutToChange = Signal()
     artworkChanged = Signal()
@@ -135,6 +137,9 @@ class SessionController(QObject):
         self._moment_images.changed.connect(self.artworkChanged.emit)
         self._moment_images.aboutToChange.connect(self.artworkAboutToChange.emit)
         self.changed.connect(self._moment_images.sync)
+        self._playback_artwork = PlaybackArtwork(self)
+        self._playback_artwork.changed.connect(self.playbackArtworkChanged.emit)
+        self.changed.connect(self._playback_artwork.sync)
         self._artwork_prepare = ArtworkPreparation(self)
         self.changed.connect(self._artwork_prepare.sync)
         self._playback_control = PlaybackControl(self)
@@ -232,6 +237,14 @@ class SessionController(QObject):
             return ""
         language = self.backend.cfg.language
         return QLocale(locale_for_language(language)).toString(parsed.toLocalTime(), translate(language, "session_datetime_format"))
+
+    @Property("QVariantMap", notify=playbackArtworkChanged)
+    def playbackArtwork(self):
+        return self._playback_artwork.snapshot()
+
+    @Slot(bool)
+    def setPlaybackArtworkVisible(self, visible):
+        self._playback_artwork.set_visible(visible)
 
     @Property("QVariantMap", notify=forecastImageChanged)
     def forecastImage(self):
@@ -352,6 +365,7 @@ class SessionController(QObject):
         self._visibility_notify.stop()
         self._forecast_images.shutdown()
         self._moment_images.shutdown()
+        self._playback_artwork.shutdown()
         self._artwork_prepare.shutdown()
         self._playback_control.shutdown()
         self._archive_delete.shutdown()

@@ -367,9 +367,10 @@ def test_qml_has_bottom_navigation_bar() -> None:
     assert "component MenuIcon: FeatureIcon" in main
     for icon in ("trackInsight", "discover", "heart"):
         assert f'iconName === "{icon}"' in icons
-    # Portrait iPad has exactly five primary destinations; the same model serves both Pi targets.
-    destinations = ["session", "now", "trackinsight", "discover", "more"]
-    offsets = [nav.index(f'screen: "{key}"') for key in destinations]
+    # Pi10 follows the iPad queue tab; the compact device retains its Now Playing entry.
+    destinations = ['screen: "session"', 'screen: root.wallProfile ? "queue" : "now"',
+                    'screen: "trackinsight"', 'screen: "discover"', 'screen: "more"']
+    offsets = [nav.index(destination) for destination in destinations]
     assert offsets == sorted(offsets)
     assert nav.count("screen:") == 5
     assert "root.activeScreen = modelData.screen" in nav

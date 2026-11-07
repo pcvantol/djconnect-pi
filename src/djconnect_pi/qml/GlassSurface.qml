@@ -13,6 +13,7 @@ Rectangle {
     property bool focused: false
     property bool interactive: false
     property bool elevated: false
+    property bool popover: false
     property bool hero: false
     property string artworkTint: ""
     property bool currentMoment: false
@@ -23,7 +24,7 @@ Rectangle {
     property bool primary: false
     property bool destructive: false
     property bool tertiary: false
-    readonly property color surfaceFill: destructive ? Qt.rgba(1, 0.27, 0.23, 0.12) : hasSelectionFill ? selectionFill : selected ? Qt.rgba(tint.r, tint.g, tint.b, 0.22) : elevated ? Qt.rgba(resolvedTint.r,resolvedTint.g,resolvedTint.b,0.96) : interactive ? "#1AFFFFFF" : Qt.rgba(resolvedTint.r,resolvedTint.g,resolvedTint.b,0.5)
+    readonly property color surfaceFill: destructive ? Qt.rgba(1, 0.27, 0.23, 0.12) : hasSelectionFill ? selectionFill : selected ? Qt.rgba(tint.r, tint.g, tint.b, 0.22) : elevated ? Qt.rgba(resolvedTint.r,resolvedTint.g,resolvedTint.b,popover ? 0.84 : 0.96) : interactive ? "#1AFFFFFF" : Qt.rgba(resolvedTint.r,resolvedTint.g,resolvedTint.b,0.5)
     readonly property bool glassEnabled: GlassStyle.enabled
     property real interactionProgress: interactive && pressed && GlassStyle.motionEnabled ? 1 : 0
     Behavior on interactionProgress {
@@ -37,7 +38,7 @@ Rectangle {
         width > 0 && height > 0 && width <= 2048 && height <= 2048 &&
         backdropPosition.x < GlassStyle.backdrop.width && backdropPosition.y < GlassStyle.backdrop.height &&
         backdropPosition.x + width > 0 && backdropPosition.y + height > 0
-    radius: 28
+    radius: popover ? 32 : 28
     readonly property color effectiveFill: !glassEnabled ?
         (hasSelectionFill ? Qt.tint(resolvedTint, selectionFill) : selected ? Qt.tint(resolvedTint, Qt.rgba(tint.r,tint.g,tint.b,0.22)) : interactive ? BrandTheme.colors.surfaceRaised : resolvedTint) :
         hardwareGlass && !interactive && !selected && !destructive ? "transparent" : surfaceFill

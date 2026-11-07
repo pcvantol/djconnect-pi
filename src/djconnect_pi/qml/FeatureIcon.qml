@@ -151,6 +151,9 @@ Canvas {
             } else if (iconName === "persona") {
                 circle(16, 11, 4, false)
                 ctx.beginPath(); ctx.arc(px(16), py(26), 9 * s / 32, Math.PI, Math.PI * 2); ctx.stroke()
+            } else if (iconName === "output") {
+                roundRect(4, 5, 24, 17, 2)
+                line(10, 27, 22, 27); line(16, 22, 16, 27)
             } else if (iconName === "voice") {
                 line(6, 13, 11, 13); line(11, 13, 17, 8); line(17, 8, 17, 24)
                 line(17, 24, 11, 19); line(11, 19, 6, 19); line(6, 19, 6, 13)

@@ -2,14 +2,25 @@
 from __future__ import annotations
 
 import argparse
-from copy import deepcopy
+import base64
 import json
+from copy import deepcopy
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-from PySide6.QtCore import QMetaObject, QObject, QPoint, QPointF, Qt, QTimer, qInstallMessageHandler
-from PySide6.QtGui import QGuiApplication, QWheelEvent
+from PySide6.QtCore import (
+    QBuffer,
+    QIODevice,
+    QMetaObject,
+    QObject,
+    QPoint,
+    QPointF,
+    Qt,
+    QTimer,
+    qInstallMessageHandler,
+)
+from PySide6.QtGui import QGuiApplication, QImage, QWheelEvent
 from PySide6.QtQml import QQmlApplicationEngine, QQmlExpression
 from PySide6.QtQuickControls2 import QQuickStyle
 from PySide6.QtTest import QTest
@@ -21,7 +32,11 @@ from djconnect_pi.config import Config, save_config
 from djconnect_pi.expiry_clock import ExpiryClock
 from djconnect_pi.i18n import TRANSLATIONS
 from djconnect_pi.session_projection import timestamp
-from djconnect_pi.session_transport import JSON_CONTROL_BYTES, SessionError, SessionTransport
+from djconnect_pi.session_transport import (
+    JSON_CONTROL_BYTES,
+    SessionError,
+    SessionTransport,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -37,6 +52,12 @@ def main():
     app = QGuiApplication([])
     apply_palette(app)
     captures = []
+    art = QImage(16, 16, QImage.Format.Format_RGB32)
+    art.fill(Qt.GlobalColor.cyan)
+    art_buffer = QBuffer()
+    assert art_buffer.open(QIODevice.OpenModeFlag.WriteOnly) and art.save(art_buffer, 'PNG')
+    art_source = 'data:image/png;base64,' + base64.b64encode(bytes(art_buffer.data())).decode()
+    art_path = '/api/djconnect/v1/image_proxy/' + 'a' * 24
     original = json.loads((ROOT/'tests/fixtures/session_core/native-expressive-snapshots.json').read_text())
     with patch('requests.request', side_effect=AssertionError('Unexpected network')) as network:
         for width, height, profile in [(720, 720, 'pi-zero-2w-arm64'), (1200, 1920, 'pi5-arm64')]:
@@ -99,6 +120,7 @@ def main():
                 backend._toast_visible = False; backend.toastChanged.emit()
                 screen = window.findChild(QObject, 'djSessionScreen')
                 popup = window.findChild(QObject, 'sessionPlaybackPanel')
+                transport_opener = 'sessionPlaybackOpen' if width == 720 else 'sessionPlaybackProgress'
                 def click(name):
                     button = window.findChild(QObject, name)
                     assert button is not None and button.property('visible') and button.property('enabled'), name
@@ -135,7 +157,7 @@ def main():
                     lead_gap = metadata.mapToScene(QPointF()).y() - mode_strip.mapToScene(QPointF(0, mode_strip.height())).y()
                     assert abs(lead_gap - (20 if width == 720 else 26)) <= 1, (width, language, lead_gap)
                 assert vinyl.property('visible')
-                assert vinyl.width() == vinyl.height() == (60 if width == 720 else 144)
+                assert vinyl.width() == vinyl.height() == (60 if width == 720 else round(270 * min(1.45, width / 835)))
                 assert vinyl.mapToItem(metadata, 0, 0).x() >= 0
                 assert vinyl.mapToItem(metadata, vinyl.width(), vinyl.height()).x() <= metadata.width()
                 meter = window.findChild(QObject, 'sessionPlaybackMeter')
@@ -146,6 +168,36 @@ def main():
                 QTest.qWait(100)
                 assert (meter.property('phase') != phase) == meter.property('animating')
                 capture('inline-vinyl')
+                owner._playback_artwork.fetch = Mock(return_value=art_source)
+                art_jobs = []
+                owner._playback_artwork.executor = SimpleNamespace(submit=art_jobs.append, shutdown=lambda **kw: None)
+                cover = visual(window.contentItem(), 'sessionTrackArtwork')
+                current_playback = owner._session['broadcast']['playback']
+                original_item = current_playback['item_id']
+                current_playback['artwork_url'] = art_path
+                owner.changed.emit()
+                assert len(art_jobs) == 1
+                art_jobs.pop(0)()
+                expression = QQmlExpression(engine.rootContext(), cover, 'Number(status) === 1')
+                for _ in range(20):
+                    if expression.evaluate()[0] is True:
+                        break
+                    QTest.qWait(50)
+                assert expression.evaluate()[0] is True, warnings
+                capture('current-track-art')
+                current_playback['item_id'] = 'synthetic-cover-replacement'
+                current_playback['artwork_url'] = art_path[:-1] + 'b'
+                owner.changed.emit()
+                assert len(art_jobs) == 1 and cover.property('source').isEmpty()
+                current_playback['artwork_url'] = 'https://external.invalid/album.jpg'
+                owner.changed.emit()
+                art_jobs.pop(0)()
+                QTest.qWait(80)
+                assert not art_jobs and cover.property('source').isEmpty()
+                current_playback['item_id'] = original_item
+                del current_playback['artwork_url']
+                owner.changed.emit()
+
                 waiting = window.findChild(QObject, 'sessionWaitingCard')
                 waiting_vinyl = window.findChild(QObject, 'sessionWaitingVinyl')
                 moments, retained = owner._moments, owner._retained_flow
@@ -276,6 +328,7 @@ def main():
                     if bottom.y() + 8 + popup_height <= height - 16:
                         assert abs(y - (bottom.y() + 8)) < 2
                 assert_popup_anchor(progress)
+                assert popup.property('width') == (520 if width == 720 else round(380 * min(1.45, width / 835)))
                 capture('progress-opens-playback-controls')
                 QMetaObject.invokeMethod(popup, 'close')
                 QTest.qWait(160)
@@ -307,14 +360,13 @@ def main():
                 owner._playback_control.blocked = True
                 owner.changed.emit()
                 QTest.qWait(80)
-                click('sessionPlaybackOpen')
+                click(transport_opener)
                 assert popup.property('opened')
                 assert popup.property('height') <= height - 32, (width, language, popup.property('height'))
                 menu_scroll = window.findChild(QObject, 'sessionPlaybackScroll')
                 menu_flick = menu_scroll.property('contentItem')
                 assert abs(menu_flick.property('contentY')) < 1
-                if width == 720:
-                    assert menu_flick.property('contentHeight') > menu_flick.height()
+                if menu_flick.property('contentHeight') > menu_flick.height():
                     point = menu_scroll.mapToScene(QPointF(menu_scroll.width()/2, menu_scroll.height()/2))
                     event = QWheelEvent(point, point, QPoint(), QPoint(0, -720),
                                         Qt.MouseButton.NoButton, modifiers, Qt.ScrollPhase.NoScrollPhase, False)
@@ -375,11 +427,41 @@ def main():
                     owner._session = original_session
                     owner.changed.emit()
                     QTest.qWait(180)
+                if width == 1200:
+                    observed = deepcopy(volume_status)
+                    observed['music_backend_capabilities'].update(supports_outputs=True, supports_transfer_or_output_selection=True)
+                    observed['playback']['volume_percent'] = 11
+                    owner.transport.playback_status.return_value = observed
+                    owner.transport.playback_outputs = Mock(return_value={**observed, 'devices': [
+                        {'id': 'synthetic-output', 'name': 'Synthetic loudspeaker', 'active': True, 'cached': False, 'is_restricted': False},
+                        {'id': 'synthetic-alternative', 'name': 'Synthetic second speaker', 'active': False, 'cached': False, 'is_restricted': False},
+                    ]})
+                    click('sessionToolbarOutput')
+                    assert output_panel.property('opened') and len(intents) == 1
+                    intents.pop()()
+                    QTest.qWait(80)
+                    assert output_panel.property('width') == round(360 * min(1.45, width / 835))
+                    selected_output = visual(window.contentItem(), 'sessionOutputChoice-synthetic-output')
+                    assert selected_output.property('checked') and not selected_output.property('enabled')
+                    capture('ipad-output-inventory')
+                    click('sessionOutputClose')
+                    QTest.qWait(80)
+                    click('sessionToolbarVolume')
+                    assert popup.property('opened') and len(intents) == 1
+                    intents.pop()()
+                    QTest.qWait(80)
+                    slider = window.findChild(QObject, 'sessionVolumeSlider')
+                    assert slider.property('visible') and slider.property('value') == 11
+                    assert popup.property('width') == round(320 * min(1.45, width / 835))
+                    capture('ipad-volume-observed')
+                    click('sessionPlaybackClose')
+                    QTest.qWait(80)
+                    owner.transport.playback_status.return_value = original_status
                 backend.cfg.music_backend_capabilities = initial_caps
                 owner.changed.emit()
                 QTest.qWait(80)
-                click('sessionPlaybackOpen'); assert popup.property('visible'), warnings
-                assert_popup_anchor(window.findChild(QObject, 'sessionPlaybackOpen'))
+                click(transport_opener); assert popup.property('visible'), warnings
+                assert_popup_anchor(window.findChild(QObject, transport_opener))
                 popup_position = (popup.property('x'), popup.property('y'))
                 capture('ready')
                 original_session = owner._session
@@ -398,7 +480,7 @@ def main():
                 owner._session = original_session
                 owner.changed.emit()
                 QTest.qWait(60)
-                click('sessionPlaybackOpen')
+                click(transport_opener)
                 image = window.grabWindow()
                 for name in ['sessionPlaybackPrevious', 'sessionPlaybackToggle', 'sessionPlaybackNext']:
                     button = window.findChild(QObject, name)
@@ -451,7 +533,7 @@ def main():
                 assert heading.property('text') == TRANSLATIONS[language]['session_history']
                 capture('heading-session-archive')
                 screen.setProperty('historical', False); drain()
-                click('sessionPlaybackOpen')
+                click(transport_opener)
                 backend.cfg.music_backend_capabilities = {'supports_favorites': False}; owner.changed.emit(); QTest.qWait(60)
                 assert not window.findChild(QObject, 'sessionPlaybackFavorite').property('visible')
                 capture('favorite-unsupported')
@@ -523,7 +605,7 @@ def main():
                 backend.shutdown(); delete(window); delete(engine); delete(backend)
                 app.processEvents()
         network.assert_not_called()
-    errors = [x for x in warnings if any(word in x for word in ['Error:', 'ReferenceError', 'TypeError', 'Binding loop', 'Cannot assign'])]
+    errors = [x for x in warnings if any(word in x for word in ['Error:', 'ReferenceError', 'TypeError', 'Binding loop', 'Cannot assign', 'QGridLayoutEngine'])]
     (output/'readback.json').write_text(json.dumps({'captures': captures, 'warnings': warnings, 'errors': errors,
         'proof': 'Real Qt mouse buttons/controller; original native frame bytes replayed at original clock. Backend metadata, commands and owner playback-state updates synthetic; no network/provider/ARM/install/physical effects.'}, indent=2))
     assert not errors, errors[:10]

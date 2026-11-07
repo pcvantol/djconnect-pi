@@ -106,7 +106,11 @@ BrandWindow {
     Binding { target: GlassStyle; property: "backdrop"; value: glassUnderlay }
     Binding { target: GlassStyle; property: "texture"; value: sharedGlassCapture.item ? sharedGlassCapture.item.texture : null }
     // Never captures private content or the material itself; no recursive feedback.
-    AppBackground { id: glassUnderlay; visible: false }
+    AppBackground {
+        id: glassUnderlay
+        visible: false
+        sessionCanvas: root.activeScreen === "session"
+    }
     Loader {
         id: sharedGlassCapture
         objectName: "sharedGlassCapture"
@@ -275,6 +279,11 @@ BrandWindow {
     }
 
     onActiveScreenChanged: {
+        if (root.wallProfile && (root.activeScreen === "now" || root.activeScreen === "control")) {
+            root.closeVibeScape()
+            root.activeScreen = "session"
+            return
+        }
         root.restartIdleTimer()
         root.restartReturnToNowTimer()
         if (root.activeScreen === "askdj") {
@@ -642,6 +651,8 @@ BrandWindow {
     }
 
     component AppBackground: Item {
+        id: appCanvas
+        property bool sessionCanvas: false
         anchors.fill: parent
 
         Rectangle {
@@ -667,19 +678,19 @@ BrandWindow {
             scale: 0.94
 
             SequentialAnimation on scale {
-                running: root.wallProfile && !root.screenBlanked
+                running: root.wallProfile && !root.screenBlanked && !appCanvas.sessionCanvas
                 loops: Animation.Infinite
                 NumberAnimation { to: 1.08; duration: 7200; easing.type: Easing.InOutSine }
                 NumberAnimation { to: 0.94; duration: 7200; easing.type: Easing.InOutSine }
             }
             SequentialAnimation on driftX {
-                running: root.wallProfile && !root.screenBlanked
+                running: root.wallProfile && !root.screenBlanked && !appCanvas.sessionCanvas
                 loops: Animation.Infinite
                 NumberAnimation { to: parent.width * 0.035; duration: 18000; easing.type: Easing.InOutSine }
                 NumberAnimation { to: 0; duration: 18000; easing.type: Easing.InOutSine }
             }
             SequentialAnimation on driftY {
-                running: root.wallProfile && !root.screenBlanked
+                running: root.wallProfile && !root.screenBlanked && !appCanvas.sessionCanvas
                 loops: Animation.Infinite
                 NumberAnimation { to: parent.height * 0.018; duration: 21000; easing.type: Easing.InOutSine }
                 NumberAnimation { to: 0; duration: 21000; easing.type: Easing.InOutSine }
@@ -699,19 +710,19 @@ BrandWindow {
             scale: 1.05
 
             SequentialAnimation on scale {
-                running: root.wallProfile && !root.screenBlanked
+                running: root.wallProfile && !root.screenBlanked && !appCanvas.sessionCanvas
                 loops: Animation.Infinite
                 NumberAnimation { to: 0.92; duration: 8200; easing.type: Easing.InOutSine }
                 NumberAnimation { to: 1.05; duration: 8200; easing.type: Easing.InOutSine }
             }
             SequentialAnimation on driftX {
-                running: root.wallProfile && !root.screenBlanked
+                running: root.wallProfile && !root.screenBlanked && !appCanvas.sessionCanvas
                 loops: Animation.Infinite
                 NumberAnimation { to: -parent.width * 0.028; duration: 20000; easing.type: Easing.InOutSine }
                 NumberAnimation { to: 0; duration: 20000; easing.type: Easing.InOutSine }
             }
             SequentialAnimation on driftY {
-                running: root.wallProfile && !root.screenBlanked
+                running: root.wallProfile && !root.screenBlanked && !appCanvas.sessionCanvas
                 loops: Animation.Infinite
                 NumberAnimation { to: -parent.height * 0.014; duration: 17000; easing.type: Easing.InOutSine }
                 NumberAnimation { to: 0; duration: 17000; easing.type: Easing.InOutSine }
@@ -728,10 +739,18 @@ BrandWindow {
                 GradientStop { position: 1.0; color: root.moodColor("overlayEnd") }
             }
             SequentialAnimation on opacity {
-                running: root.wallProfile && !root.screenBlanked
+                running: root.wallProfile && !root.screenBlanked && !appCanvas.sessionCanvas
                 loops: Animation.Infinite
                 NumberAnimation { to: 0.62; duration: 5200; easing.type: Easing.InOutSine }
                 NumberAnimation { to: 0.42; duration: 5200; easing.type: Easing.InOutSine }
+            }
+        }
+        Loader {
+            anchors.fill: parent
+            active: appCanvas.sessionCanvas
+            sourceComponent: SessionMoodCanvas {
+                mood: root.appearanceMood
+                activeSession: djconnect.djSession.state.runtime_state === "active"
             }
         }
     }
@@ -2338,6 +2357,7 @@ BrandWindow {
                     }
                     MoreMenuButton {
                         text: root.tr("control"); iconName: "control"
+                        visible: !root.wallProfile
                         onClicked: root.activeScreen = "control"
                     }
                 }
@@ -4037,7 +4057,7 @@ BrandWindow {
         anchors.fill: parent
         visible: root.activeScreen === "session" || root.activeScreen === "history" || root.activeScreen === "session-history"
         z: 17
-        AppBackground {}
+        AppBackground { sessionCanvas: root.activeScreen === "session" }
         SessionScreen {
             id: sharedSessionScreen
             anchors.fill: parent
@@ -4077,7 +4097,8 @@ BrandWindow {
             Repeater {
                 model: [
                     {screen: "session", key: "session_title", icon: "session"},
-                    {screen: "now", key: "now_playing", icon: "music"},
+                    {screen: root.wallProfile ? "queue" : "now",
+                     key: root.wallProfile ? "queue" : "now_playing", icon: root.wallProfile ? "queue" : "music"},
                     {screen: "trackinsight", key: "track_insight", icon: "trackInsight"},
                     {screen: "discover", key: "music_discovery", icon: "discover"},
                     {screen: "more", key: "more", icon: "more"}
@@ -4088,10 +4109,13 @@ BrandWindow {
                     objectName: "appTab-" + modelData.screen
                     iconName: modelData.icon
                     checkable: true
-                    checked: root.activeScreen === modelData.screen || (modelData.screen === "session" && root.activeScreen === "session-history") || (modelData.screen === "more" && ["askdj", "history", "queue", "playlists", "games", "settings", "control", "musicdna", "legal", "privacy", "feedback"].indexOf(root.activeScreen) >= 0)
+                    checked: root.activeScreen === modelData.screen || (modelData.screen === "session" && root.activeScreen === "session-history") || (modelData.screen === "more" && !(root.wallProfile && root.activeScreen === "queue") && ["askdj", "history", "queue", "playlists", "games", "settings", "control", "musicdna", "legal", "privacy", "feedback"].indexOf(root.activeScreen) >= 0)
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    onClicked: root.activeScreen = modelData.screen
+                    onClicked: {
+                        root.activeScreen = modelData.screen
+                        if (modelData.screen === "queue") djconnect.loadQueue()
+                    }
                 }
             }
         }

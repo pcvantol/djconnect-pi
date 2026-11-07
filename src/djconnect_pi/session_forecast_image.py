@@ -103,6 +103,14 @@ class ImageGate:
 
 def fetch_pixels(binding, lease, allowed):
     """Only the configured HA's headerless Forecast route; never paired/media/image."""
+    path = lease.get('path')
+    if not isinstance(path, str) or re.fullmatch(r'/api/djconnect/v1/session/forecast/art/[A-Za-z0-9_-]{1,128}/[A-Za-z0-9_-]{32}', path) is None:
+        return ''
+    return fetch_proxy_pixels(binding, path, allowed)
+
+
+def fetch_proxy_pixels(binding, path, allowed):
+    """Bounded, headerless image fetch. The caller admits the exact proxy path."""
     if not isinstance(binding.ha_url, str): return ''
     try:
         origin = urlsplit(binding.ha_url)
@@ -112,16 +120,13 @@ def fetch_pixels(binding, lease, allowed):
     if (origin.scheme not in ('http', 'https') or not origin.hostname or origin.username or origin.password
             or origin.path not in ('', '/') or origin.query or origin.fragment or (port is not None and not 1 <= port <= 65535)):
         return ''
-    if not isinstance(lease.get('path'), str): return ''
-    if re.fullmatch(r'/api/djconnect/v1/session/forecast/art/[A-Za-z0-9_-]{1,128}/[A-Za-z0-9_-]{32}', lease.get('path', '')) is None:
-        return ''
     started = time.monotonic()
     def check(): return allowed() and time.monotonic() - started <= 8
     if not check(): return ''
     try:
         with requests.Session() as client:
             client.trust_env = False  # No netrc, proxy credentials or ambient cookies.
-            with client.get(binding.ha_url.rstrip('/') + lease['path'],
+            with client.get(binding.ha_url.rstrip('/') + path,
                     headers={'Accept': 'image/png,image/jpeg', 'Cache-Control': 'no-store'},
                     stream=True, allow_redirects=False, timeout=(4, 4)) as response:
                 mime = response.headers.get('Content-Type', '').split(';')[0].lower()
@@ -187,7 +192,8 @@ class ForecastImages(QObject):
         try:
             return (not self.closed and self.visible and self.owner._foreground and generation == self.generation
                 and self.owner._running_action not in {'start', 'end'}
-                and self.desired is not None and self.owner._clock.now() < self.desired['deadline']
+                and self.desired is not None and (self.desired['deadline'] is None
+                    or self.owner._clock.now() < self.desired['deadline'])
                 and self.binding == self.owner.transport.binding())
         except (SessionError, AttributeError, TypeError, ValueError):  # No private transport diagnostics
             return False
@@ -207,7 +213,7 @@ class ForecastImages(QObject):
         if (binding, lease) != (self.binding, self.desired):
             self.generation += 1;self.binding = binding;self.desired = lease;self._replace_public({});self.attempted = ''
             self.deadline_timer.stop()
-            if lease: self.deadline_timer.start(max(1, ceil((lease['deadline'] - self.owner._clock.now()) * 1000)))
+            if lease and lease['deadline'] is not None: self.deadline_timer.start(max(1, ceil((lease['deadline'] - self.owner._clock.now()) * 1000)))
             self.changed.emit()
         self._start()
 
@@ -217,12 +223,15 @@ class ForecastImages(QObject):
     def public_pixels(self, pixels):
         return {'source': pixels, 'artist': self.desired['artist'], 'source_url': self.desired['source_url']}
 
+    def _attempt_bucket(self):
+        return self.desired['session_id']
+
     def _start(self):
         if self.running or not self._valid(self.generation): return
         key = hashlib.sha256(json.dumps(self.desired, sort_keys=True).encode()).hexdigest()
         if key == self.attempted: return
-        sid = self.desired['session_id']
-        if sid != self.attempt_session: self.attempt_session = sid;self.attempts = 0
+        bucket = self._attempt_bucket()
+        if bucket != self.attempt_session: self.attempt_session = bucket;self.attempts = 0
         if self.attempts >= 32: return
         self.attempts += 1;self.attempted = key;self.running = True
         generation, binding, lease = self.generation, self.binding, dict(self.desired)
@@ -258,7 +267,7 @@ class ForecastImages(QObject):
 
     def _deadline_tick(self):
         self._tick()
-        if self.desired and self._valid(self.generation):
+        if self.desired and self.desired['deadline'] is not None and self._valid(self.generation):
             self.deadline_timer.start(max(1, ceil((self.desired['deadline'] - self.owner._clock.now()) * 1000)))
 
     def shutdown(self):
