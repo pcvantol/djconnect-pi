@@ -256,8 +256,9 @@ class SessionController(QObject):
             self._visibility_notify.start()
 
     @Slot(str, str, str, result=bool)
-    def playbackCommand(self, session_id, item_id, command):
-        return self._playback_control.start(session_id, item_id, command)
+    @Slot(str, str, str, int, result=bool)
+    def playbackCommand(self, session_id, item_id, command, transport_epoch=None):
+        return self._playback_control.start(session_id, item_id, command, transport_epoch=transport_epoch)
 
     @Slot(str, str, result=bool)
     def readPlaybackVolume(self, session_id, item_id):

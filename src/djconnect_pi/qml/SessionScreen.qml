@@ -1273,6 +1273,20 @@ Item {
             }
         }
     }
+    component SessionTransportButton: GlassButton {
+        required property string commandName
+        property int pressedEpoch: 0
+        Layout.fillWidth: true
+        enabled: !!screen.state.playback_control.enabled
+        onPressed: pressedEpoch = screen.state.playback_control.transport_epoch || 0
+        onCanceled: pressedEpoch = 0
+        onClicked: {
+            var epoch = pressedEpoch
+            pressedEpoch = 0
+            if (epoch && playbackPanel.opened)
+                screen.owner.playbackCommand(screen.state.session_id, screen.state.playback.item_id, commandName, epoch)
+        }
+    }
     GlassPopup {
         id: playbackPanel
         objectName: "sessionPlaybackPanel"
@@ -1288,9 +1302,22 @@ Item {
             RowLayout {
                 visible: !playbackPanel.volumeOnly
                 Layout.fillWidth: true
-                GlassButton { objectName: "sessionPlaybackPrevious"; iconName: "previous"; Accessible.name: screen.tr("previous"); Layout.fillWidth: true; enabled: !!screen.state.playback_control.enabled; onClicked: screen.owner.playbackCommand(screen.state.session_id, screen.state.playback.item_id, "previous") }
-                GlassButton { objectName: "sessionPlaybackToggle"; iconName: screen.state.playback.state === "playing" ? "pause" : "play"; Accessible.name: screen.tr(screen.state.playback.state === "playing" ? "pause" : "play"); Layout.fillWidth: true; enabled: !!screen.state.playback_control.enabled; onClicked: screen.owner.playbackCommand(screen.state.session_id, screen.state.playback.item_id, screen.state.playback.state === "playing" ? "pause" : "play") }
-                GlassButton { objectName: "sessionPlaybackNext"; iconName: "next"; Accessible.name: screen.tr("next"); Layout.fillWidth: true; enabled: !!screen.state.playback_control.enabled; onClicked: screen.owner.playbackCommand(screen.state.session_id, screen.state.playback.item_id, "next") }
+                SessionTransportButton {
+                    objectName: "sessionPlaybackPrevious"
+                    commandName: "previous"; iconName: "previous"
+                    Accessible.name: screen.tr("previous")
+                }
+                SessionTransportButton {
+                    objectName: "sessionPlaybackToggle"
+                    commandName: screen.state.playback.state === "playing" ? "pause" : "play"
+                    iconName: commandName
+                    Accessible.name: screen.tr(commandName)
+                }
+                SessionTransportButton {
+                    objectName: "sessionPlaybackNext"
+                    commandName: "next"; iconName: "next"
+                    Accessible.name: screen.tr("next")
+                }
             }
             GlassButton {
                 objectName: "sessionPlaybackFavorite"

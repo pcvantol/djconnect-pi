@@ -2816,3 +2816,16 @@ five locales and the Spotify Direct and Music Assistant fixtures. The matrix
 covers opening with one read, slider cancel and release, keyboard intent,
 reopening the full menu and losing capability during a pending read. Transport
 was intercepted offline. The focused QML and colour checks passed 27 tests.
+
+### Session transport press context
+
+A press on Previous, Play/Pause or Next captures the current transport context.
+Ordinary position updates preserve the press. A changed track, playback state,
+Profile, backend or device credential rejects release against the old context.
+An observed change back to the original track does not revive that press.
+
+The focused controller and QML checks passed 97 tests. The ARM VM with Python
+3.14.9 and Qt 6.12 passed 150 views across both sizes and five locales. The
+matrix includes an item and state change during a mouse press, one release
+after a normal position update, keyboard activation and existing checks for
+queued command withdrawal. All commands were intercepted offline.

@@ -147,6 +147,8 @@ class PlaybackControl(QObject):
         self.outputs_serial = 0
         self.outputs_status = ""
         self.favorite_serial = 0
+        self._transport_context = None
+        self._transport_epoch = 0
         self.ready.connect(self.finish)
 
     def valid(self):
@@ -220,6 +222,7 @@ class PlaybackControl(QObject):
             self.status = ""
 
     def hide(self, *, reset=False):
+        self._transport_context = None
         self.outputs = None
         self.outputs_status = ""
         self.favorite_state = None
@@ -238,14 +241,22 @@ class PlaybackControl(QObject):
 
     def snapshot(self):
         self.sync()
-        available = False
+        context = None
         try:
-            available = bool(self.visible and reference(self.owner) and self.owner.transport.binding())
+            current = reference(self.owner) if self.visible else None
+            if current:
+                context = (current, self.owner.transport.binding())
         except SessionError:
             pass
+        # Expose only a generation, never the credentials in the binding.
+        if context != self._transport_context:
+            self._transport_context = context
+            self._transport_epoch += 1
+        available = context is not None
         busy = bool(self.running or self.owner._running or self.owner._question_running or self.owner._artwork_prepare.running
                     or getattr(getattr(self.owner, "_archive_delete", None), "running", False))
         return {"available": available, "enabled": available and not busy and not self.blocked,
+                "transport_epoch": self._transport_epoch if available else 0,
                 "favorite": self.favorite_read_supported(), "running": self.running,
                 "favorite_observation": {"liked": self.favorite_state["liked"], "lease": self.favorite_state["serial"]} if self.favorite_valid() else {},
                 "favorite_status": self.favorite_status,
@@ -260,10 +271,10 @@ class PlaybackControl(QObject):
                 "reading_volume": bool(self.running and self.request and self.request["command"] == "volume_read"),
                 "status": "sending" if self.running and self.valid() else "uncertain" if self.blocked else self.status}
 
-    def start(self, session_id, item_id, command):
+    def start(self, session_id, item_id, command, *, transport_epoch=None):
         if not isinstance(command, str) or command not in COMMANDS:
             return False
-        return self._start(session_id, item_id, command)
+        return self._start(session_id, item_id, command, transport_epoch=transport_epoch)
 
     def read_volume(self, session_id, item_id):
         if not self.volume_supported():
@@ -300,8 +311,12 @@ class PlaybackControl(QObject):
             return False
         return self._start(session_id, item_id, "set_output", value=target)
 
-    def _start(self, session_id, item_id, command, *, value=None):
-        if self.closed or not self.snapshot()["enabled"]:
+    def _start(self, session_id, item_id, command, *, value=None, transport_epoch=None):
+        if self.closed:
+            return False
+        state = self.snapshot()
+        if (not state["enabled"] or (transport_epoch is not None
+                and transport_epoch != state["transport_epoch"])):
             return False
         current = reference(self.owner)
         if (current is None or current[:2] != (session_id, item_id)
