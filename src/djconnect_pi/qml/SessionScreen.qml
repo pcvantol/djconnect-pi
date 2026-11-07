@@ -1416,6 +1416,42 @@ Item {
             BusyIndicator { visible: screen.owner.busy; running: visible; Layout.alignment: Qt.AlignHCenter }
         }
     }
+    GlassButton {
+        objectName: "sessionJumpCurrent"
+        readonly property real currentHeaderBottom: {
+            var moments = screen.state.moments
+            for (var i = 0; i < liveMomentRows.count; i++) {
+                var card = liveMomentRows.itemAt(i)
+                if (moments[i] && moments[i].current && card && card.visible)
+                    return card.y + card.height
+            }
+            if (waitingCard.visible) return waitingCard.y + waitingCard.height
+            if (playbackMetadata.visible && playbackSources.ready)
+                return playbackMetadata.y + playbackMetadata.height
+            return 0
+        }
+        visible: screen.visible && !screen.historical && !screen.showForecast
+            && !!screen.state.session_id && currentHeaderBottom > 0
+            && historyScroll.contentItem.contentY >= currentHeaderBottom
+        anchors.right: historyScroll.right
+        anchors.bottom: historyScroll.bottom
+        anchors.margins: 8
+        width: 52
+        height: 52
+        iconName: "arrow_up"
+        Accessible.name: screen.tr("session_back_current")
+        onClicked: {
+            screen.followQuestionReply = false
+            screen.pendingReplyId = ""
+            replyRestore.stop()
+            currentReplyPosition.stop()
+            pendingQuestionPosition.stop()
+            screen.clearFlowReturn()
+            var flick = historyScroll.contentItem
+            flick.cancelFlick()
+            flick.contentY = flick.originY
+        }
+    }
     GlassSurface {
         id: composerDock
         objectName: "sessionComposerDock"

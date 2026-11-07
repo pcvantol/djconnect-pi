@@ -1261,6 +1261,13 @@ for _key, _values in _KEYBOARD_TRANSLATIONS.items():
 
 
 _SESSION_LIFECYCLE_TRANSLATIONS = {
+    "session_back_current": (
+        "Back to current contribution",
+        "Terug naar de actuele bijdrage",
+        "Zurück zum aktuellen Beitrag",
+        "Revenir à la contribution actuelle",
+        "Volver a la contribución actual",
+    ),
     "session_playback_paused": ("Paused", "Gepauzeerd", "Pausiert", "En pause", "Pausado"),
     "session_playback_paused_detail": (
         "Your music is paused. Your DJ session remains active.",

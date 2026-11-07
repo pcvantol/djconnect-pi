@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from PySide6.QtCore import Q_ARG, Q_RETURN_ARG, QMetaObject, QObject, QPoint, QPointF, QTimer, qInstallMessageHandler
+from PySide6.QtCore import Q_ARG, Q_RETURN_ARG, QMetaObject, QObject, QPoint, QPointF, Qt, QTimer, qInstallMessageHandler
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine, QQmlExpression
 from PySide6.QtQuickControls2 import QQuickStyle
@@ -522,6 +522,25 @@ def main():
             reading=screen.property('flowReturn').toVariant()
             assert reading['kind']=='current_reply' and reading['id']==owner.state['current_reply']['reply_id'],(width,language,reading)
             QMetaObject.invokeMethod(screen,'clearFlowReturn')
+            jump = window.findChild(QObject, 'sessionJumpCurrent')
+            flick.setProperty('contentY', flick.property('contentHeight') - flick.height())
+            QTest.qWait(80)
+            assert jump.property('visible')
+            original_draft = screen.property('draft')
+            screen.setProperty('draft', 'Synthetic unsent draft')
+            screen.setProperty('followQuestionReply', True)
+            calls = owner.transport.question.call_count
+            capture('jump-to-current-visible-' + language)
+            point = jump.mapToScene(QPointF(jump.width()/2, jump.height()/2))
+            QTest.mouseClick(window, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier,
+                             QPoint(round(point.x()), round(point.y())))
+            QTest.qWait(100)
+            assert abs(flick.property('contentY') - flick.property('originY')) < 1
+            assert not jump.property('visible') and not screen.property('followQuestionReply')
+            assert screen.property('draft') == 'Synthetic unsent draft'
+            assert owner.transport.question.call_count == calls
+            capture('jump-to-current-returned-' + language)
+            screen.setProperty('draft', original_draft)
             owner._retained_flow=saved_rows;owner.changed.emit();QTest.qWait(80)
             assert window.findChild(QObject,'sessionCurrentReply').property('visible')
             complete_navigation()

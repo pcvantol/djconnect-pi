@@ -255,6 +255,9 @@ Canvas {
                 line(16, 11, 16, 21)
             } else if (iconName === "back") {
                 line(20, 7, 11, 16); line(11, 16, 20, 25)
+            } else if (iconName === "arrow_up") {
+                line(16, 25, 16, 7)
+                line(8, 15, 16, 7); line(16, 7, 24, 15)
             } else if (iconName === "logs") {
                 roundRect(9, 6, 13, 18, 2)
                 line(13, 11, 18, 11); line(13, 16, 17, 16)

@@ -3000,3 +3000,13 @@ The ARM VM passed 290 playback views across both sizes and five locales,
 plus 92 focused tests. A separate two-view probe observed animation on the
 large default profile, a static indication on the compact default profile,
 and no timer advancement after leaving Session.
+
+### Return to the current contribution from Flow
+
+The up-arrow appears while the current header is above the visible Flow.
+A tap returns to the top and clears pending automatic scrolls. The draft
+stays in the composer.
+
+The ARM VM passed 456 offline composer views and 29 focused tests. Real Qt
+clicks in both layouts and five locales checked the button, the return to
+the top, the unchanged draft and the absence of a question submission.
