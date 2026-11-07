@@ -32,7 +32,7 @@ def test_qml_has_blocking_pairing_and_splash_views() -> None:
     assert "BrandLockup {" in banner
     assert "wordmarkOnly: true" in banner
     assert 'source: "brand-mark-128.png"' in banner
-    assert 'detailText: "v" + djconnect.version' in main_qml
+    assert 'text: "v" + djconnect.version' in main_qml
     assert "!djconnect.paired && !djconnect.demoMode" in main_qml
     assert "property int trVersion: djconnect.translationVersion" in main_qml
     assert "function tr(key)" in main_qml
@@ -728,16 +728,21 @@ def test_qml_has_blocking_version_mismatch_view() -> None:
     assert "djconnect.versionMismatchText" in main_qml
 
 
-def test_qml_has_pi5_premium_splash_motion_contract() -> None:
+def test_qml_startup_card_uses_visible_only_vinyl_and_spinner_motion() -> None:
     main_qml = files("djconnect_pi.qml").joinpath("Main.qml").read_text(encoding="utf-8")
     splash_block = main_qml[main_qml.index("id: splashPanel") : main_qml.index("id: toast")]
 
     assert "opacity: root.splashVisible ? 1 : 0" in splash_block
     assert "Behavior on opacity" in splash_block
-    assert "SequentialAnimation on scale" in splash_block
-    assert "easing.type: Easing.OutBack" in splash_block
+    assert "GlassCard {" in splash_block
+    assert "ModalBlocker {}" in splash_block
+    assert "showCardBackground: false" in splash_block
+    assert 'detailText: root.tr("tagline")' in splash_block
+    assert "SessionWelcomeArtwork {" in splash_block
+    assert "animate: splashPanel.animate" in splash_block
     assert "LoadingSpinner {" in splash_block
-    assert "running: splashPanel.visible" in splash_block
+    assert "running: splashPanel.animate" in splash_block
+    assert "!GlassStyle.reduceMotion" in splash_block
     assert 'root.tr("update_trying")' in main_qml
 
 
@@ -777,7 +782,7 @@ def test_qml_has_a_dedicated_pi5_wall_canvas_and_premium_banner_scale() -> None:
     assert 'property bool wallProfile: djconnect.releaseProfile === "pi5-arm64"' in main_qml
     assert "width: wallProfile ? Screen.width : 720" in main_qml
     banner = qml_root.joinpath("AppBanner.qml").read_text(encoding="utf-8")
-    assert "readonly property bool compact: width < 900" in banner
+    assert "property bool compact: width < 900" in banner
     assert "readonly property int logoSize: dense ? 64 : compact ? 84 : 120" in banner
     assert "running: root.wallProfile && !root.screenBlanked" in main_qml
     assert "property int motionStandard: wallProfile ? 360 : 240" in main_qml

@@ -57,41 +57,9 @@ GlassCard {
             wrapMode: Text.Wrap
             Layout.fillWidth: true
         }
-        Item {
+        SessionWelcomeArtwork {
             Layout.preferredWidth: card.compact ? 76 : 84 * card.ipadScale
             Layout.preferredHeight: width
-            Accessible.ignored: true
-            Rectangle {
-                width: parent.width * 0.88; height: width; radius: width / 2; anchors.centerIn: parent
-                color: "#100B25"; border.color: "#55B596F3"
-                Repeater {
-                    model: [0.95, 0.87, 0.79, 0.71, 0.63]
-                    Rectangle {
-                        required property real modelData
-                        width: parent.width * modelData; height: width; radius: width / 2
-                        anchors.centerIn: parent; color: "transparent"; border.color: "#18B5A5D3"
-                    }
-                }
-                Rectangle {
-                    width: parent.width * 0.42; height: width; radius: width / 2; anchors.centerIn: parent
-                    gradient: Gradient {
-                        GradientStop { position: 0; color: BrandTheme.colors.blue }
-                        GradientStop { position: 1; color: BrandTheme.colors.purple }
-                    }
-                    Rectangle { width: parent.width * 0.24; height: width; radius: width / 2; color: "#100B25"; anchors.centerIn: parent }
-                }
-            }
-            Repeater {
-                model: ["presence_music_only", "presence_balanced", "waveform"]
-                GlassSurface {
-                    required property string modelData
-                    required property int index
-                    width: parent.width * (index === 2 ? 0.40 : 0.24); height: parent.width * 0.24; radius: height * 0.32
-                    x: parent.width * (index === 0 ? 0.73 : index === 1 ? 0.00 : 0.53)
-                    y: parent.height * (index === 0 ? 0.02 : index === 1 ? 0.53 : 0.75)
-                    FeatureIcon { anchors.centerIn: parent; width: parent.height * 0.52; height: width; iconName: modelData; iconColor: index === 2 ? BrandTheme.colors.purple : BrandTheme.colors.text }
-                }
-            }
         }
     }
     Text {

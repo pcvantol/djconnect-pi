@@ -7,12 +7,14 @@ GlassCard {
     objectName: "appBanner"
     required property string detailText
     property bool dense: false
-    readonly property bool compact: width < 900
+    property bool showCardBackground: true
+    property bool compact: width < 900
     readonly property int logoSize: dense ? 64 : compact ? 84 : 120
 
     Layout.fillWidth: true
-    padding: dense ? 16 : compact ? 20 : 28
+    padding: !showCardBackground ? 0 : dense ? 16 : compact ? 20 : 28
     background: GlassSurface {
+        visible: banner.showCardBackground
         introduction: true
         radius: banner.compact ? 28 : 44
     }

@@ -557,6 +557,7 @@ BrandWindow {
         id: spinner
         property bool running: true
         property color dotColor: BrandTheme.colors.muted
+        property bool spokes: false
 
         implicitWidth: 42
         implicitHeight: 42
@@ -565,8 +566,10 @@ BrandWindow {
             model: 12
 
             Rectangle {
-                width: Math.max(4, spinner.width * 0.13)
-                height: width
+                required property int index
+                width: spinner.spokes ? Math.max(2, spinner.width * 0.08) : Math.max(4, spinner.width * 0.13)
+                height: spinner.spokes ? spinner.height * 0.23 : width
+                rotation: spinner.spokes ? index * 30 + 90 : 0
                 radius: width / 2
                 color: spinner.dotColor
                 opacity: 0.18 + (index / 11) * 0.72
@@ -580,12 +583,12 @@ BrandWindow {
             loops: Animation.Infinite
             from: 0
             to: 360
-            duration: root.wallProfile ? 1200 : 900
-            easing.type: Easing.InOutSine
+            duration: spinner.spokes ? 900 : root.wallProfile ? 1200 : 900
+            easing.type: spinner.spokes ? Easing.Linear : Easing.InOutSine
         }
 
         SequentialAnimation on scale {
-            running: spinner.running && spinner.visible && root.wallProfile
+            running: spinner.running && spinner.visible && root.wallProfile && !spinner.spokes
             loops: Animation.Infinite
             NumberAnimation { to: 1.12; duration: 760; easing.type: Easing.InOutSine }
             NumberAnimation { to: 0.94; duration: 760; easing.type: Easing.InOutSine }
@@ -4282,73 +4285,62 @@ BrandWindow {
         }
     }
 
-    Rectangle {
+    Item {
         id: splashPanel
+        objectName: "launchSplash"
         anchors.fill: parent
-        gradient: Gradient {
-            orientation: Gradient.Vertical
-            GradientStop { position: 0.0; color: root.moodColor("backgroundStart") }
-            GradientStop { position: 0.5; color: root.moodColor("backgroundMid") }
-            GradientStop { position: 1.0; color: root.moodColor("backgroundEnd") }
-        }
         opacity: root.splashVisible ? 1 : 0
         visible: opacity > 0
         z: 40
+        readonly property bool animate: root.splashVisible && root.active && GlassStyle.awake && !GlassStyle.reduceMotion
 
-        Behavior on opacity { NumberAnimation { duration: root.motionStandard; easing.type: Easing.OutCubic } }
-
-        Rectangle {
-            width: root.wallProfile ? root.width * 0.84 : root.width * 0.7
-            height: width
-            radius: width / 2
-            anchors.centerIn: parent
-            color: BrandTheme.colors.buttonMid
-            opacity: root.wallProfile ? 0.12 : 0.08
-            scale: 0.92
-
-            SequentialAnimation on scale {
-                running: splashPanel.visible && root.wallProfile
-                loops: Animation.Infinite
-                NumberAnimation { to: 1.08; duration: 3400; easing.type: Easing.InOutSine }
-                NumberAnimation { to: 0.92; duration: 3400; easing.type: Easing.InOutSine }
-            }
+        Behavior on opacity {
+            NumberAnimation { duration: GlassStyle.reduceMotion ? 0 : root.motionStandard; easing.type: Easing.OutCubic }
         }
 
+        SessionMoodCanvas { anchors.fill: parent; mood: ""; activeSession: false }
         ModalBlocker {}
 
-        Rectangle {
+        GlassCard {
+            id: launchCard
+            objectName: "launchCard"
             anchors.centerIn: parent
-            width: Math.min(parent.width - 64, 560)
-            height: root.wallProfile ? 350 : 300
-            color: "#00000000"
-            scale: root.splashVisible ? 1 : 0.96
-            y: root.splashVisible ? 0 : 18
+            width: Math.min(parent.width - 48, root.wallProfile ? 560 : 430)
+            height: implicitHeight
+            padding: root.wallProfile ? 30 : 23
+            spacing: root.wallProfile ? 24 : 17
+            background: GlassSurface { introduction: true; radius: root.wallProfile ? 48 : 34 }
 
-            Behavior on scale { NumberAnimation { duration: root.motionStandard; easing.type: Easing.OutBack } }
-            Behavior on y { NumberAnimation { duration: root.motionStandard; easing.type: Easing.OutCubic } }
-
-            ColumnLayout {
-                anchors.fill: parent
-                spacing: 18
-
-                AppBanner {
-                    detailText: "v" + djconnect.version
-                }
-
-                Text {
-                    text: root.tr("startup_message")
-                    color: BrandTheme.colors.disabledText
-                    font.pixelSize: root.wallProfile ? 24 : 18
-                    horizontalAlignment: Text.AlignHCenter
-                    Layout.fillWidth: true
-                }
-
-                LoadingSpinner {
-                    running: splashPanel.visible
-                    implicitWidth: root.wallProfile ? 54 : 42
-                    implicitHeight: root.wallProfile ? 54 : 42
-                    Layout.alignment: Qt.AlignHCenter
-                }
+            AppBanner {
+                detailText: root.tr("tagline")
+                showCardBackground: false
+                compact: !root.wallProfile
+            }
+            SessionWelcomeArtwork {
+                objectName: "launchVinylArtwork"
+                Layout.alignment: Qt.AlignHCenter
+                Layout.preferredWidth: Math.min(launchCard.availableWidth, root.wallProfile ? 360 : 240)
+                Layout.preferredHeight: Layout.preferredWidth
+                animate: splashPanel.animate
+            }
+            Text {
+                objectName: "launchVersion"
+                text: "v" + djconnect.version
+                color: BrandTheme.colors.muted
+                font.pixelSize: root.wallProfile ? 19 : 15
+                font.weight: Font.DemiBold
+                horizontalAlignment: Text.AlignHCenter
+                Layout.fillWidth: true
+            }
+            LoadingSpinner {
+                objectName: "launchSpinner"
+                spokes: true
+                running: splashPanel.animate
+                implicitWidth: root.wallProfile ? 31 : 27
+                implicitHeight: implicitWidth
+                Layout.alignment: Qt.AlignHCenter
+                Accessible.role: Accessible.Indicator
+                Accessible.name: root.tr("startup_message")
             }
         }
     }
