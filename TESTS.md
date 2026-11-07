@@ -2894,3 +2894,16 @@ The offline iPad pause-and-resume test passed on Apple commit
 Qt views across both sizes and five locales, including the paused waiting
 card, missing track, and retained visibility of a current contribution.
 The focused i18n, QML and playback suite passed 99 tests.
+
+### Active Flow starts with session content
+
+The active Flow starts directly with session content, matching the iPad
+layout and leaving more space for the first contribution. The start screen,
+archive, transitional and error states keep their headings.
+
+The ARM VM passed 210 playback views and 436 composer and reading views
+across both sizes, and 92 focused tests. The playback preview verifies the
+first fold and heading visibility on the start screen, archive and error
+state. The composer preview checks return to the same contribution and pixel
+offset on both sizes, with a long synthetic track title to exercise a
+scrolled position without the redundant heading. Transport was offline.

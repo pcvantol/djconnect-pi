@@ -125,6 +125,9 @@ def main():
                 assert 0 <= top < scroll.property('height')/2, (width, language, 'contribution below fold', top)
                 vinyl = visual(window.contentItem(), 'sessionPlaybackVinyl')
                 metadata = visual(window.contentItem(), 'sessionPlaybackMetadata')
+                heading = window.findChild(QObject, 'sessionFlowHeading')
+                assert not heading.property('visible')
+                assert 0 <= metadata.mapToItem(scroll, 0, 0).y() < 1
                 assert vinyl.property('visible')
                 assert vinyl.width() == vinyl.height() == (60 if width == 720 else 144)
                 assert vinyl.mapToItem(metadata, 0, 0).x() >= 0
@@ -158,6 +161,13 @@ def main():
                 assert waiting_vinyl.property('visible') and not metadata.property('visible')
                 assert not paused_detail.property('visible')
                 capture('waiting-vinyl-no-current-item')
+                owner._session = {}
+                owner.changed.emit()
+                QTest.qWait(80)
+                assert heading.property('visible')
+                assert heading.property('text') == TRANSLATIONS[language]['session_title']
+                assert window.findChild(QObject, 'sessionStartCard').property('visible')
+                capture('heading-start-session')
                 owner._session = active_session
                 owner._moments, owner._retained_flow = moments, retained
                 owner.changed.emit()
@@ -259,6 +269,9 @@ def main():
                 assert owner.transport.playback_command.call_count == count
                 capture('closed-before-dispatch')
                 screen.setProperty('historical', True); QTest.qWait(40)
+                assert heading.property('visible')
+                assert heading.property('text') == TRANSLATIONS[language]['session_history']
+                capture('heading-session-archive')
                 screen.setProperty('historical', False); drain()
                 click('sessionPlaybackOpen')
                 backend.cfg.music_backend_capabilities = {'supports_favorites': False}; owner.changed.emit(); QTest.qWait(60)
@@ -323,6 +336,7 @@ def main():
                 assert backend.cfg.paired and backend.cfg.device_token == token
                 assert len(denial_calls) == 1 and not reads
                 response.json.assert_not_called()
+                assert heading.property('visible')
                 capture('malformed-http-denial-withdrawn')
                 owner.setForeground(False); QTest.qWait(60)
                 assert not popup.property('visible') and not owner.state['playback_control']['available']

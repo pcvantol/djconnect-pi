@@ -852,6 +852,9 @@ Item {
             id: historyContent
             width: parent.width; spacing: 22
             Text {
+                objectName: "sessionFlowHeading"
+                visible: screen.historical || screen.backend.demoMode || !screen.state.loaded
+                    || !screen.state.session_id || screen.state.runtime_state !== "active" || !!screen.state.error
                 text: screen.tr(screen.historical ? (screen.state.timeline.session ? "session_history_title" : "session_history") : "session_title") + (screen.backend.demoMode ? " · " + screen.tr("demo_mode") : "")
                 color: BrandTheme.colors.text; font.pixelSize: screen.width > 800 ? 40 : 30; font.bold: true
                 textFormat: Text.PlainText; Layout.fillWidth: true

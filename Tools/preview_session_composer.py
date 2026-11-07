@@ -607,7 +607,10 @@ def main():
                 'selected_mood':'groove','mood_revision':0,'selected_presence':'balanced','presence_revision':0,
                 'dj_persona':frame['persona'],'persona_revision':0,'locale':language,'broadcast':{
                 'session':{'session_id':p['session_id']},'session_forecast':p,'playback':{
-                    'state':'playing','item_id':p['current_anchor']['item_id'],'title':'Observed track',
+                    # Keep enough playback-only content to exercise a real scroll
+                    # position even when the active Flow has no page heading.
+                    'state':'playing','item_id':p['current_anchor']['item_id'],
+                    'title':'Synthetic track with a deliberately long title ' * 5,
                     'source_url':p['current_anchor']['source_url'],'updated_at':p['issued_at']}}}
             owner._caps={**caps,'capabilities':{**caps['capabilities'],**forecast_caps['capabilities']},
                 'contract_versions':{**caps['contract_versions'],**forecast_caps['contract_versions']}}
