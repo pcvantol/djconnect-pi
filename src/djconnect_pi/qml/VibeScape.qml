@@ -21,6 +21,7 @@ Rectangle {
     property var touches: []
     property bool controlsVisible: true
     readonly property bool controlsHovered: modeHover.hovered || dynamicsHover.hovered
+    readonly property bool controlsEngaged: controlsHovered || modeStrip.keyboardFocus || dynamicsSlider.visualFocus
     readonly property var scenePalette: mood === "chill" ? ["#4DA3FF", "#7B61FF", "#D184FF"] : mood === "groove" ? ["#06C7AD", "#169BC8", "#10B981"] : mood === "energy" ? ["#DDFF00", "#00B8FF", "#39FF78"] : mood === "party" ? ["#FF287F", "#AA38F5", "#F43DCE"] : ["#3285FF", "#843DF5", "#CB27F5"]
     property vector4d composition: Qt.vector4d(Math.random(), Math.random(), Math.random(), Math.random())
     signal closeRequested()
@@ -29,13 +30,16 @@ Rectangle {
     color: "black"
     focus: true
     Keys.onEscapePressed: closeRequested()
-    Keys.onTabPressed: event => {
-        if (controlsVisible) {
-            event.accepted = false
-            return
-        }
+    Keys.onTabPressed: moveControlFocus(false)
+    Keys.onBacktabPressed: moveControlFocus(true)
+    function moveControlFocus(backward) {
         showControls()
-        modeStrip.focusFlow()
+        if (backward) {
+            var lastControl = dynamicsSlider.visible ? dynamicsSlider : modeStrip.lastModeControl
+            lastControl.forceActiveFocus(Qt.BacktabFocusReason)
+        } else {
+            modeStrip.firstTabControl.forceActiveFocus(Qt.TabFocusReason)
+        }
     }
     function tr(key) { backend.translationVersion; return backend.t(key) }
     function colorVector(value, w) { var c = Qt.color(value); return Qt.vector4d(c.r,c.g,c.b,w) }
@@ -45,7 +49,7 @@ Rectangle {
     }
     function showControls() {
         controlsVisible = true
-        if (!controlsHovered) controlsTimeout.restart()
+        if (!controlsEngaged) controlsTimeout.restart()
     }
     function hideControls() {
         controlsTimeout.stop()
@@ -66,8 +70,8 @@ Rectangle {
     onAdmittedChanged: if (!admitted) { touches = []; closeRequested() }
     onMoodChanged: touches = []
     onReduceMotionChanged: if (reduceMotion) touches = []
-    onControlsHoveredChanged: {
-        if (controlsHovered) controlsTimeout.stop()
+    onControlsEngagedChanged: {
+        if (controlsEngaged) controlsTimeout.stop()
         else if (controlsVisible) controlsTimeout.restart()
     }
     Component.onCompleted: showControls()
@@ -141,6 +145,7 @@ Rectangle {
         forecastAvailable: scene.forecastAvailable
         vibeScapeAvailable: true
         inVibeScape: true
+        nextAfterModes: dynamicsSlider.visible ? dynamicsSlider : null
         anchors.top: parent.top; anchors.horizontalCenter: parent.horizontalCenter
         anchors.topMargin: Math.min(Math.max(4, scene.pickerTop), Math.max(4, scene.height - height - 12))
         visible: scene.controlsVisible
@@ -170,6 +175,9 @@ Rectangle {
             }
             Slider {
                 id: dynamicsSlider; objectName: "vibeScapeDynamics"
+                KeyNavigation.priority: KeyNavigation.BeforeItem
+                KeyNavigation.tab: modeStrip.firstTabControl
+                KeyNavigation.backtab: modeStrip.lastModeControl
                 Layout.fillWidth: true; Layout.fillHeight: true
                 from: 0; to: 1; value: scene.dynamics
                 Accessible.name: scene.tr("vibescape_dynamics")

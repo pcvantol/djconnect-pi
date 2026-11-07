@@ -223,6 +223,16 @@ with (
             QTest.keyClick(w, Qt.Key_Tab)
             QTest.qWait(50)
             assert visit.property("controlsVisible") and flow.property("activeFocus")
+            QTest.qWait(3200)
+            assert visit.property("controlsVisible") and flow.property("activeFocus")
+            final_control = find(visit, "vibeScapeDynamics") if "--mesa-dynamics" in sys.argv else selected
+            QTest.keyClick(w, Qt.Key_Backtab)
+            QTest.qWait(30)
+            assert final_control.property("activeFocus"), w.activeFocusItem().objectName()
+            QTest.keyClick(w, Qt.Key_Tab)
+            assert flow.property("activeFocus")
+            QTest.keyClick(w, Qt.Key_Tab)
+            assert horizon.property("activeFocus")
             assert not w.property("screenBlanked")
             assert owner._session["session_id"] == "original-session"
             timer = w.findChild(QObject, "returnToNowTimer")

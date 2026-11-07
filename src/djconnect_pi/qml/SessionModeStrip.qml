@@ -12,7 +12,10 @@ GlassSurface {
     property bool vibeScapeAvailable: false
     property bool showingForecast: false
     property bool inVibeScape: false
-    function focusFlow() { flowButton.forceActiveFocus(Qt.TabFocusReason) }
+    readonly property bool keyboardFocus: flowButton.visualFocus || forecastButton.visualFocus || vibeScapeButton.visualFocus
+    property Item nextAfterModes: null
+    readonly property Item firstTabControl: flowButton
+    readonly property Item lastModeControl: vibeScapeButton
     signal flowRequested()
     signal forecastRequested()
     signal vibeScapeRequested()
@@ -30,6 +33,9 @@ GlassSurface {
         spacing: 4
         GlassButton {
             id: flowButton
+            KeyNavigation.priority: KeyNavigation.BeforeItem
+            KeyNavigation.tab: modeSwitch.inVibeScape ? (forecastButton.visible ? forecastButton : vibeScapeButton) : null
+            KeyNavigation.backtab: modeSwitch.inVibeScape ? (modeSwitch.nextAfterModes || vibeScapeButton) : null
             objectName: modeSwitch.inVibeScape ? "vibeScapeFlow" : "sessionFlowMode"; text: modeSwitch.translate("session_flow")
             Layout.fillWidth: true; Layout.preferredWidth: 1; Layout.preferredHeight: 48; padding: 8
             checked: !modeSwitch.inVibeScape && !modeSwitch.showingForecast
@@ -38,6 +44,10 @@ GlassSurface {
             onClicked: modeSwitch.flowRequested()
         }
         GlassButton {
+            id: forecastButton
+            KeyNavigation.priority: KeyNavigation.BeforeItem
+            KeyNavigation.tab: modeSwitch.inVibeScape ? vibeScapeButton : null
+            KeyNavigation.backtab: modeSwitch.inVibeScape ? flowButton : null
             objectName: modeSwitch.inVibeScape ? "vibeScapeForecast" : "sessionForecastMode"
             visible: modeSwitch.forecastAvailable; text: modeSwitch.translate("session_forecast_tab")
             Layout.fillWidth: true; Layout.preferredWidth: 1; Layout.preferredHeight: 48; padding: 8
@@ -47,6 +57,10 @@ GlassSurface {
             onClicked: modeSwitch.forecastRequested()
         }
         GlassButton {
+            id: vibeScapeButton
+            KeyNavigation.priority: KeyNavigation.BeforeItem
+            KeyNavigation.tab: modeSwitch.inVibeScape ? (modeSwitch.nextAfterModes || flowButton) : null
+            KeyNavigation.backtab: modeSwitch.inVibeScape ? (forecastButton.visible ? forecastButton : flowButton) : null
             objectName: modeSwitch.inVibeScape ? "vibeScapeSelectedMode" : "sessionVibeScapeMode"
             visible: modeSwitch.vibeScapeAvailable
             text: modeSwitch.translate("vibescape_title")
