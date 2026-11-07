@@ -1002,7 +1002,7 @@ Item {
                         visible: playbackSources.ready && !!screen.state.playback_control.available
                         iconName: "more"; Accessible.name: screen.tr("session_playback_controls")
                         Layout.preferredWidth: 48; Layout.preferredHeight: 48; Layout.alignment: Qt.AlignTop
-                        onClicked: { playbackPanel.controlView = "all"; playbackPanel.open() }
+                        onClicked: playbackPanel.openControls()
                     }
                     SessionAttribution {
                         id: playbackSources
@@ -1012,20 +1012,38 @@ Item {
                         Layout.preferredWidth: 90; Layout.alignment: Qt.AlignTop
                     }
                 }
-                RowLayout {
+                AbstractButton {
+                    id: progressControl
+                    objectName: "sessionPlaybackProgress"
                     visible: playbackSources.ready && screen.state.playback.time_label !== undefined
+                    enabled: !!screen.state.playback_control.available
+                    implicitHeight: enabled ? Math.max(44, contentItem.implicitHeight) : contentItem.implicitHeight
                     Layout.fillWidth: true
-                    ProgressBar {
-                        id: playbackProgress
-                        value: screen.state.playback.progress || 0; Layout.fillWidth: true
-                        Accessible.name: screen.tr("now_playing")
-                        background: Rectangle { implicitHeight: 6; radius: 3; color: BrandTheme.colors.text; opacity: 0.18 }
-                        contentItem: Item {
-                            implicitHeight: 6
-                            Rectangle { width: playbackProgress.visualPosition * parent.width; height: parent.height; radius: 3; color: BrandTheme.colors.text }
-                        }
+                    Accessible.name: screen.tr("session_playback_controls")
+                    Accessible.description: screen.state.playback.time_label || ""
+                    Accessible.ignored: !enabled
+                    onClicked: playbackPanel.openControls()
+                    background: GlassSurface {
+                        visible: progressControl.down || (progressControl.visualFocus && !playbackPanel.visible)
+                        radius: height / 2
+                        interactive: true
+                        pressed: progressControl.down
+                        focused: progressControl.visualFocus
                     }
-                    Text { text: screen.state.playback.time_label || ""; textFormat: Text.PlainText; font.pixelSize: screen.compact ? 16 : 18; color: BrandTheme.colors.muted }
+                    contentItem: RowLayout {
+                        ProgressBar {
+                            id: playbackProgress
+                            value: screen.state.playback.progress || 0; Layout.fillWidth: true
+                            Accessible.name: screen.tr("now_playing")
+                            Accessible.ignored: progressControl.enabled
+                            background: Rectangle { implicitHeight: 6; radius: 3; color: BrandTheme.colors.text; opacity: 0.18 }
+                            contentItem: Item {
+                                implicitHeight: 6
+                                Rectangle { width: playbackProgress.visualPosition * parent.width; height: parent.height; radius: 3; color: BrandTheme.colors.text }
+                            }
+                        }
+                        Text { text: screen.state.playback.time_label || ""; textFormat: Text.PlainText; font.pixelSize: screen.compact ? 16 : 18; color: BrandTheme.colors.muted }
+                    }
                 }
                 RowLayout {
                     visible: playbackSources.ready && !!screen.state.playback.target_name
@@ -1392,6 +1410,10 @@ Item {
         id: playbackPanel
         objectName: "sessionPlaybackPanel"
         property string controlView: "all"
+        function openControls() {
+            controlView = "all"
+            open()
+        }
         readonly property bool volumeOnly: controlView === "volume"
         readonly property bool favoriteOnly: controlView === "favorite"
         onAboutToHide: { outputsPanel.close(); if (screen.owner) screen.owner.cancelPlaybackIntent() }

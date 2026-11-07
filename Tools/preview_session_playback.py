@@ -219,6 +219,16 @@ def main():
                 owner.transport.active.return_value = {'success': True, 'session': deepcopy(session)}
                 owner.transport.playback_status.return_value['playback']['is_playing'] = True
                 owner.refresh(); drain()
+                progress = window.findChild(QObject, 'sessionPlaybackProgress')
+                assert progress.height() >= 44
+                command_count = owner.transport.playback_command.call_count
+                click('sessionPlaybackProgress'); assert popup.property('opened'), warnings
+                assert popup.property('controlView') == 'all'
+                assert not intents and not reads
+                assert owner.transport.playback_command.call_count == command_count
+                capture('progress-opens-playback-controls')
+                QMetaObject.invokeMethod(popup, 'close')
+                QTest.qWait(160)
                 click('sessionPlaybackOpen'); assert popup.property('visible'), warnings
                 capture('ready')
                 image = window.grabWindow()
@@ -336,7 +346,7 @@ def main():
                 assert backend.cfg.paired and backend.cfg.device_token == token
                 assert len(denial_calls) == 1 and not reads
                 response.json.assert_not_called()
-                assert heading.property('visible')
+                assert heading.property('visible') and not progress.property('visible')
                 capture('malformed-http-denial-withdrawn')
                 owner.setForeground(False); QTest.qWait(60)
                 assert not popup.property('visible') and not owner.state['playback_control']['available']

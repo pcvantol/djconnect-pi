@@ -2907,3 +2907,14 @@ first fold and heading visibility on the start screen, archive and error
 state. The composer preview checks return to the same contribution and pixel
 offset on both sizes, with a long synthetic track title to exercise a
 scrolled position without the redundant heading. Transport was offline.
+
+### Open playback controls from the progress bar
+
+A tap on the Session progress bar opens the existing playback menu, as on
+the iPad. The bar continues to display the observed playback time. The
+shortcut uses the existing playback availability check.
+
+The ARM VM passed 220 offline Qt views in both layouts and all five locales,
+plus 92 focused playback and QML tests. Real Qt clicks verified that opening
+the menu from the bar queues no command, that the original menu button still
+works, and that access denial withdraws both the progress bar and the menu.
