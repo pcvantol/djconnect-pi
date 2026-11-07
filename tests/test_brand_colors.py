@@ -66,6 +66,15 @@ def test_apple_action_tokens_preserve_pinned_primary_and_selection_roles():
         assert contrast(theme["text"], theme[stop]) >= 3
 
 
+def test_ipad_primary_button_palette_has_normal_text_contrast():
+    theme = colors()
+    assert theme["primaryActionFill"] == "#642C80"
+    assert theme["primaryActionEdge"] == "#6E328C"
+    assert theme["primaryActionBorder"] == "#CD4FEF"
+    for stop in ("primaryActionFill", "primaryActionEdge"):
+        assert contrast(theme["text"], theme[stop]) >= 4.5
+
+
 def test_presentation_selection_does_not_use_primary_action_gradient():
     qml = files("djconnect_pi.qml").joinpath("SessionScreen.qml").read_text()
     assert 'checked: known && observation.liked' in qml

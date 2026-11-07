@@ -40,8 +40,8 @@ BrandWindow {
     }
     Connections {
         target: djconnect
-        function onProfileChanged() { root.syncVibeScape() }
-        function onPairedChanged() { root.syncVibeScape() }
+        function onProfileChanged() { root.syncVibeScape(); musicDnaOptIn.close() }
+        function onPairedChanged() { root.syncVibeScape(); musicDnaOptIn.close() }
     }
     function openVibeScape(pickerTop) {
         if (!vibeScapeAllowed) return
@@ -154,7 +154,7 @@ BrandWindow {
 
     readonly property string edgeBackRoute: {
         if (!root.active || root.screenBlanked || root.splashVisible || (!djconnect.paired && !djconnect.demoMode)
-                || vibeScapeLoader.active || root.resetPairingConfirmOpen || root.rebootConfirmOpen
+                || vibeScapeLoader.active || musicDnaOptIn.visible || root.resetPairingConfirmOpen || root.rebootConfirmOpen
                 || root.shutdownConfirmOpen || root.clearLogsConfirmOpen || root.askDjClearConfirmOpen
                 || root.musicDnaDisableConfirmOpen || root.musicDnaClearConfirmOpen || root.discoveryReasonOpen)
             return ""
@@ -178,6 +178,13 @@ BrandWindow {
         else if (root.activeScreen === "history" || root.activeScreen === "session-history")
             sharedSessionScreen.navigateBackFromHistory()
         else root.activeScreen = "more"
+    }
+
+    function openMusicDnaPrompt(discoveryConsent) {
+        if (musicDnaOptIn.visible || djconnect.musicDnaBusy || djconnect.musicDiscoveryBusy) return
+        musicDnaOptIn.discoveryConsent = discoveryConsent
+        musicDnaOptIn.profileId = djconnect.activeProfileId
+        musicDnaOptIn.open()
     }
 
     function tr(key) {
@@ -312,6 +319,7 @@ BrandWindow {
         root.musicDnaDisableConfirmOpen = false
         root.musicDnaClearConfirmOpen = false
         root.discoveryReasonOpen = false
+        musicDnaOptIn.close()
     }
 
     function temporaryWake(seconds) {
@@ -335,7 +343,7 @@ BrandWindow {
             elide: Text.ElideRight
         }
         background: GlassSurface {
-            radius: root.standardButtonRadius
+            radius: control.primary ? height / 2 : root.standardButtonRadius
             interactive: true
             primary: control.primary
             pressed: control.down
@@ -360,9 +368,9 @@ BrandWindow {
             maximumLineCount: 1
         }
         background: GlassSurface {
-            radius: root.standardButtonRadius
+            radius: height / 2
             interactive: true
-            primary: askDjButton.font.pixelSize >= 19
+            primary: true
             pressed: askDjButton.down
             focused: askDjButton.activeFocus
             opacity: askDjButton.enabled ? 1 : 0.45
@@ -499,7 +507,7 @@ BrandWindow {
             verticalAlignment: Text.AlignVCenter
         }
         background: GlassSurface {
-            radius: root.standardButtonRadius
+            radius: control.primary ? height / 2 : root.standardButtonRadius
             interactive: true
             primary: control.primary
             selected: false
@@ -746,6 +754,7 @@ BrandWindow {
     component AppBanner: Rectangle {
         id: appBanner
         property string detailText: root.tr("tagline")
+        property bool sheetStyle: false
         property int logoSize: root.wallProfile ? 128 : 84
         property int titleSize: root.wallProfile ? 52 : 38
         property int detailSize: root.wallProfile ? 26 : 20
@@ -773,7 +782,7 @@ BrandWindow {
             anchors.right: parent.right
             anchors.top: parent.top
             anchors.margins: 1
-            height: root.liquidGlassEnabled ? 2 : 0
+            height: root.liquidGlassEnabled && !appBanner.sheetStyle ? 2 : 0
             radius: height / 2
             gradient: Gradient {
                 orientation: Gradient.Horizontal
@@ -946,7 +955,7 @@ BrandWindow {
             }
         }
         background: GlassSurface {
-            radius: root.standardButtonRadius
+            radius: control.primary ? height / 2 : root.standardButtonRadius
             interactive: true
             primary: control.primary
             selected: control.active
@@ -2122,6 +2131,7 @@ BrandWindow {
 
                 PurpleButton {
                     text: djconnect.musicDnaEnabled ? root.tr("music_dna_disable") : root.tr("music_dna_enable")
+                    primary: !djconnect.musicDnaEnabled
                     enabled: !djconnect.musicDnaBusy
                     font.pixelSize: 22
                     Layout.preferredWidth: 190
@@ -2130,7 +2140,7 @@ BrandWindow {
                         if (djconnect.musicDnaEnabled) {
                             root.musicDnaDisableConfirmOpen = true
                         } else {
-                            djconnect.setMusicDnaEnabled(true)
+                            root.openMusicDnaPrompt(false)
                         }
                     }
                 }
@@ -2757,11 +2767,12 @@ BrandWindow {
 
                         PurpleButton {
                             text: root.tr("music_discovery_enable")
+                            primary: true
                             enabled: !djconnect.musicDiscoveryBusy
                             font.pixelSize: 17
                             Layout.fillWidth: true
                             Layout.preferredHeight: 48
-                            onClicked: djconnect.acceptMusicDiscoveryConsent()
+                            onClicked: root.openMusicDnaPrompt(true)
                         }
 
                         DangerButton {
@@ -2808,11 +2819,12 @@ BrandWindow {
 
                     PurpleButton {
                         text: root.tr("music_discovery_enable")
+                        primary: true
                         enabled: !djconnect.musicDnaBusy && !djconnect.musicDiscoveryBusy
                         font.pixelSize: 19
                         Layout.fillWidth: true
                         Layout.preferredHeight: 52
-                        onClicked: djconnect.setMusicDnaEnabled(true)
+                        onClicked: root.openMusicDnaPrompt(false)
                     }
                 }
             }
@@ -2946,7 +2958,7 @@ BrandWindow {
 
                                         PurpleButton {
                                             text: root.tr("play_now")
-                    primary: true
+                                            primary: true
                                             visible: modelData.playable
                                             enabled: modelData.playable && !djconnect.musicDiscoveryBusy
                                             font.pixelSize: 19
@@ -3149,11 +3161,12 @@ BrandWindow {
 
                 PurpleButton {
                     text: root.tr("music_dna_enable")
+                    primary: true
                     enabled: !djconnect.musicDnaBusy
                     font.pixelSize: 22
                     Layout.fillWidth: true
                     Layout.preferredHeight: 56
-                    onClicked: djconnect.setMusicDnaEnabled(true)
+                    onClicked: root.openMusicDnaPrompt(false)
                 }
             }
 
@@ -4222,6 +4235,7 @@ BrandWindow {
 
             PurpleButton {
                 id: startDemoButton
+                primary: true
                 text: root.tr("start_demo_mode")
                 font.pixelSize: 22
                 Layout.fillWidth: true
@@ -4340,7 +4354,7 @@ BrandWindow {
 
             PurpleButton {
                 text: root.tr("start")
-                    primary: true
+                primary: true
                 font.pixelSize: 24
                 Layout.fillWidth: true
                 Layout.preferredHeight: 58
@@ -4579,21 +4593,109 @@ BrandWindow {
         }
     }
 
-    Rectangle {
+    GlassSheet {
+        id: musicDnaOptIn
+        objectName: "musicDnaOptInSheet"
+        property bool discoveryConsent: false
+        property string profileId: ""
+        z: 86
+        onClosed: profileId = ""
+
+        contentItem: ScrollView {
+            id: optInScroll
+            clip: true
+            contentWidth: availableWidth
+            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+            ColumnLayout {
+                width: optInScroll.availableWidth
+                spacing: 22
+                Item { Layout.preferredHeight: musicDnaOptIn.compact ? 0 : 22 }
+                AppBanner {
+                    sheetStyle: true
+                    titleSize: musicDnaOptIn.compact ? 35 : 39
+                    Layout.fillWidth: true
+                    Layout.maximumWidth: musicDnaOptIn.compact ? optInScroll.width - 40 : 900
+                    Layout.alignment: Qt.AlignHCenter
+                    detailText: root.tr("tagline")
+                }
+                IntroductionCard {
+                    iconName: "heart"
+                    title: root.tr("music_dna_opt_in_title")
+                    message: root.tr("music_dna_opt_in_description")
+                    compact: musicDnaOptIn.compact
+                    centeredMessage: false
+                    Layout.maximumWidth: musicDnaOptIn.compact ? optInScroll.width - 40 : 900
+                    Layout.alignment: Qt.AlignHCenter
+
+                    Repeater {
+                        model: [
+                            {icon: "trash", key: "music_dna_opt_in_erase"},
+                            {icon: "settings", key: "music_dna_opt_in_turn_off"}
+                        ]
+                        RowLayout {
+                            required property var modelData
+                            Layout.fillWidth: true
+                            spacing: 12
+                            FeatureIcon {
+                                iconName: modelData.icon
+                                iconColor: modelData.icon === "trash" ? BrandTheme.colors.actionDanger : BrandTheme.colors.text
+                                Layout.preferredWidth: 22; Layout.preferredHeight: 22
+                            }
+                            Text {
+                                text: root.tr(modelData.key)
+                                textFormat: Text.PlainText
+                                color: BrandTheme.colors.text
+                                font.pixelSize: musicDnaOptIn.compact ? 17 : 20
+                                wrapMode: Text.WordWrap
+                                Layout.fillWidth: true
+                            }
+                        }
+                    }
+                    GlassButton {
+                        objectName: "musicDnaConfirmEnable"
+                        primary: true
+                        text: root.tr("music_dna_opt_in_accept")
+                        iconName: "discover"
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: musicDnaOptIn.compact ? 56 : 68
+                        enabled: djconnect.paired && !djconnect.musicDnaBusy && !djconnect.musicDiscoveryBusy
+                            && musicDnaOptIn.profileId === djconnect.activeProfileId
+                        onClicked: {
+                            if (!musicDnaOptIn.opened || !enabled) return
+                            var discoveryConsent = musicDnaOptIn.discoveryConsent
+                            musicDnaOptIn.close()
+                            if (discoveryConsent) djconnect.acceptMusicDiscoveryConsent()
+                            else djconnect.setMusicDnaEnabled(true)
+                        }
+                    }
+                    GlassButton {
+                        objectName: "musicDnaDeclineEnable"
+                        foregroundColor: BrandTheme.colors.muted
+                        font.pixelSize: musicDnaOptIn.compact ? 18 : 21
+                        text: root.tr("music_dna_opt_in_not_now")
+                        tertiary: true
+                        Layout.fillWidth: true
+                        onClicked: {
+                            if (musicDnaOptIn.discoveryConsent) djconnect.rejectMusicDiscoveryConsent()
+                            musicDnaOptIn.close()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    GlassSheet {
         id: clearLogsConfirmPanel
-        anchors.fill: parent
-        color: BrandTheme.alpha(BrandTheme.colors.background, "cc")
+        objectName: "clearLogsConfirmSheet"
         visible: root.clearLogsConfirmOpen
         z: 86
 
-        ModalBlocker {}
-
-        Rectangle {
+        GlassSurface {
             anchors.centerIn: parent
             width: Math.min(parent.width - 48, 520)
-            radius: 8
-            color: BrandTheme.alpha(BrandTheme.colors.surface, "f0")
-            border.color: BrandTheme.colors.surfaceRaised
+            introduction: true
+            radius: 32
             border.width: 1
 
             implicitHeight: clearLogsConfirmContent.implicitHeight + 44
@@ -4643,21 +4745,16 @@ BrandWindow {
         }
     }
 
-    Rectangle {
+    GlassSheet {
         id: askDjClearConfirmPanel
-        anchors.fill: parent
-        color: BrandTheme.alpha(BrandTheme.colors.background, "cc")
         visible: root.askDjClearConfirmOpen
         z: 86
 
-        ModalBlocker {}
-
-        Rectangle {
+        GlassSurface {
             anchors.centerIn: parent
             width: Math.min(parent.width - 48, 520)
-            radius: 8
-            color: BrandTheme.alpha(BrandTheme.colors.surface, "f0")
-            border.color: BrandTheme.colors.surfaceRaised
+            introduction: true
+            radius: 32
             border.width: 1
 
             implicitHeight: askDjClearConfirmContent.implicitHeight + 44
@@ -4714,21 +4811,16 @@ BrandWindow {
         }
     }
 
-    Rectangle {
+    GlassSheet {
         id: musicDnaClearConfirmPanel
-        anchors.fill: parent
-        color: BrandTheme.alpha(BrandTheme.colors.background, "cc")
         visible: root.musicDnaClearConfirmOpen
         z: 86
 
-        ModalBlocker {}
-
-        Rectangle {
+        GlassSurface {
             anchors.centerIn: parent
             width: Math.min(parent.width - 48, 520)
-            radius: 8
-            color: BrandTheme.alpha(BrandTheme.colors.surface, "f0")
-            border.color: BrandTheme.colors.surfaceRaised
+            introduction: true
+            radius: 32
             border.width: 1
 
             implicitHeight: musicDnaClearConfirmContent.implicitHeight + 44
@@ -4778,21 +4870,16 @@ BrandWindow {
         }
     }
 
-    Rectangle {
+    GlassSheet {
         id: musicDnaDisableConfirmPanel
-        anchors.fill: parent
-        color: BrandTheme.alpha(BrandTheme.colors.background, "cc")
         visible: root.musicDnaDisableConfirmOpen
         z: 86
 
-        ModalBlocker {}
-
-        Rectangle {
+        GlassSurface {
             anchors.centerIn: parent
             width: Math.min(parent.width - 48, 520)
-            radius: 8
-            color: BrandTheme.alpha(BrandTheme.colors.surface, "f0")
-            border.color: BrandTheme.colors.surfaceRaised
+            introduction: true
+            radius: 32
             border.width: 1
 
             implicitHeight: musicDnaDisableConfirmContent.implicitHeight + 44
@@ -4842,21 +4929,17 @@ BrandWindow {
         }
     }
 
-    Rectangle {
+    GlassSheet {
         id: resetPairingConfirmPanel
-        anchors.fill: parent
-        color: BrandTheme.alpha(BrandTheme.colors.background, "cc")
         visible: root.resetPairingConfirmOpen
         z: 84
 
-        ModalBlocker {}
 
-        Rectangle {
+        GlassSurface {
             anchors.centerIn: parent
             width: Math.min(parent.width - 48, 520)
-            radius: 8
-            color: BrandTheme.alpha(BrandTheme.colors.surface, "f0")
-            border.color: BrandTheme.colors.surfaceRaised
+            introduction: true
+            radius: 32
             border.width: 1
 
             implicitHeight: confirmContent.implicitHeight + 44
@@ -4907,21 +4990,17 @@ BrandWindow {
         }
     }
 
-    Rectangle {
+    GlassSheet {
         id: rebootConfirmPanel
-        anchors.fill: parent
-        color: BrandTheme.alpha(BrandTheme.colors.background, "cc")
         visible: root.rebootConfirmOpen
         z: 84
 
-        ModalBlocker {}
 
-        Rectangle {
+        GlassSurface {
             anchors.centerIn: parent
             width: Math.min(parent.width - 48, 520)
-            radius: 8
-            color: BrandTheme.alpha(BrandTheme.colors.surface, "f0")
-            border.color: BrandTheme.colors.surfaceRaised
+            introduction: true
+            radius: 32
             border.width: 1
 
             implicitHeight: rebootConfirmContent.implicitHeight + 44
@@ -4971,21 +5050,17 @@ BrandWindow {
         }
     }
 
-    Rectangle {
+    GlassSheet {
         id: shutdownConfirmPanel
-        anchors.fill: parent
-        color: BrandTheme.alpha(BrandTheme.colors.background, "cc")
         visible: root.shutdownConfirmOpen
         z: 84
 
-        ModalBlocker {}
 
-        Rectangle {
+        GlassSurface {
             anchors.centerIn: parent
             width: Math.min(parent.width - 48, 520)
-            radius: 8
-            color: BrandTheme.alpha(BrandTheme.colors.surface, "f0")
-            border.color: BrandTheme.colors.surfaceRaised
+            introduction: true
+            radius: 32
             border.width: 1
 
             implicitHeight: shutdownConfirmContent.implicitHeight + 44

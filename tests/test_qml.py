@@ -190,7 +190,7 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert 'root.tr("music_dna_enable")' in settings_block
     assert 'root.tr("music_dna_clear")' in settings_block
     assert "root.musicDnaDisableConfirmOpen = true" in settings_block
-    assert "djconnect.setMusicDnaEnabled(true)" in settings_block
+    assert "root.openMusicDnaPrompt(false)" in settings_block
     assert "djconnect.setMusicDnaEnabled(false)" not in settings_block
     assert "id: musicDnaDisableConfirmPanel" in main_qml
     assert 'root.tr("music_dna_disable_confirm_title")' in main_qml
@@ -535,7 +535,7 @@ def test_qml_music_discovery_nav_and_panel() -> None:
     assert "root.activeScreen = modelData.screen" in nav_block
     assert "djconnect.loadMusicDiscovery()" in main_qml
     assert 'root.tr("music_discovery_requires_music_dna")' in discover_block
-    assert "djconnect.acceptMusicDiscoveryConsent()" in discover_block
+    assert "root.openMusicDnaPrompt(true)" in discover_block
     assert "djconnect.rejectMusicDiscoveryConsent()" in discover_block
     assert 'objectName: "discoveryIntroduction"' in discover_block
     assert 'message: root.tr("music_discovery_introduction")' in discover_block
@@ -548,7 +548,7 @@ def test_qml_music_discovery_nav_and_panel() -> None:
     assert 'root.tr("music_dna_opt_in")' in discover_block
     assert 'text: root.tr("music_discovery_enable")' in discover_block
     assert "enabled: !djconnect.musicDnaBusy && !djconnect.musicDiscoveryBusy" in discover_block
-    assert "djconnect.setMusicDnaEnabled(true)" in discover_block
+    assert "root.openMusicDnaPrompt(false)" in discover_block
     assert "columns: 1" in discover_block
     assert "columns: width >= 640 ? 2 : 1" not in discover_block
     assert "Layout.preferredHeight: djconnect.musicDiscoveryFeedbackSupported ? 226 : 178" in discover_block
@@ -586,12 +586,12 @@ def test_qml_music_dna_enable_is_available_in_disabled_screen() -> None:
     music_dna_block = main_qml[main_qml.index("id: musicDnaPanel") : main_qml.index("id: askDjPanel")]
 
     assert "root.musicDnaDisableConfirmOpen = true" in settings_block
-    assert "djconnect.setMusicDnaEnabled(true)" in settings_block
+    assert "root.openMusicDnaPrompt(false)" in settings_block
     assert "root.musicDnaClearConfirmOpen = true" in settings_block
     assert "djconnect.clearMusicDna()" not in settings_block
     assert "djconnect.setMusicDnaEnabled(!djconnect.musicDnaEnabled)" not in music_dna_block
     assert "djconnect.clearMusicDna()" not in music_dna_block
-    assert "djconnect.setMusicDnaEnabled(true)" in music_dna_block
+    assert "root.openMusicDnaPrompt(false)" in music_dna_block
     assert "djconnect.refreshMusicDna()" in music_dna_block
     assert "visible: !djconnect.musicDnaEnabled" in music_dna_block
     assert 'objectName: "musicDnaOptInHero"' in music_dna_block
@@ -602,6 +602,17 @@ def test_qml_music_dna_enable_is_available_in_disabled_screen() -> None:
     assert 'root.tr("music_dna_enabled")' not in music_dna_block
     assert "id: musicDnaRefreshButton" in music_dna_block
     assert "RefreshIconButton" in music_dna_block
+
+
+def test_qml_music_dna_opt_in_submits_only_in_confirmation_sheet() -> None:
+    main = files("djconnect_pi.qml").joinpath("Main.qml").read_text(encoding="utf-8")
+    sheet = main[main.index("id: musicDnaOptIn") : main.index("id: clearLogsConfirmPanel")]
+    assert main.count("djconnect.setMusicDnaEnabled(true)") == 1
+    assert main.count("djconnect.acceptMusicDiscoveryConsent()") == 1
+    assert "musicDnaOptIn.profileId === djconnect.activeProfileId" in sheet
+    assert "if (!musicDnaOptIn.opened || !enabled) return" in sheet
+    assert "if (discoveryConsent) djconnect.acceptMusicDiscoveryConsent()" in sheet
+    assert "else djconnect.setMusicDnaEnabled(true)" in sheet
 
 
 def test_qml_stop_demo_button_returns_to_pairing_flow() -> None:

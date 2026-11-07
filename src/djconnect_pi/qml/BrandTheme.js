@@ -2,6 +2,7 @@
 
 // Pi Brand V2 presentation tokens. UI colours complement the immutable Core artwork.
 // This JSON object is also consumed by Python/portal; keep it valid JSON.
+// The primaryAction tokens are the Apple Display P3 primary surface converted to sRGB.
 var colors = {
     "background": "#080B1A",
     "backgroundStart": "#101D42",
@@ -17,6 +18,9 @@ var colors = {
     "blue": "#638AFF",
     "purple": "#AA8CFF",
     "focus": "#70E3FF",
+    "primaryActionFill": "#642C80",
+    "primaryActionEdge": "#6E328C",
+    "primaryActionBorder": "#CD4FEF",
     "actionBlue": "#298FFF",
     "actionPurple": "#D62EFF",
     "actionAccent": "#D638F5",

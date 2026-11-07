@@ -8,6 +8,7 @@ GlassCard {
     required property string title
     required property string message
     property bool compact: true
+    property bool centeredMessage: true
     Layout.fillWidth: true
     Layout.minimumHeight: compact ? 212 : 340
     padding: compact ? 16 : 30
@@ -56,7 +57,7 @@ GlassCard {
         textFormat: Text.PlainText
         font.pixelSize: intro.compact ? 18 : 21
         color: BrandTheme.colors.muted
-        horizontalAlignment: Text.AlignHCenter
+        horizontalAlignment: intro.centeredMessage ? Text.AlignHCenter : Text.AlignLeft
         wrapMode: Text.Wrap
         Layout.fillWidth: true
         Layout.maximumWidth: 1080

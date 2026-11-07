@@ -23,6 +23,7 @@ Rectangle {
     readonly property color rawTint: hasArtworkTint ? Qt.tint(GlassStyle.surfaceTint,Qt.rgba(Qt.color(artworkTint).r,Qt.color(artworkTint).g,Qt.color(artworkTint).b,GlassStyle.artworkTintStrength)) : introduction ? Qt.tint(GlassStyle.introductionTint, Qt.rgba(GlassStyle.moodAccent.r, GlassStyle.moodAccent.g, GlassStyle.moodAccent.b, 0.08)) : GlassStyle.surfaceTint
     readonly property color resolvedTint: introduction ? rawTint : boundedColor(rawTint)
     property bool primary: false
+    readonly property bool standardPrimary: primary && !destructive && !tertiary
     property bool destructive: false
     property bool tertiary: false
     readonly property color surfaceFill: destructive ? Qt.rgba(1, 0.27, 0.23, 0.12) : hasSelectionFill ? selectionFill : selected ? Qt.rgba(tint.r, tint.g, tint.b, 0.22) : elevated ? Qt.rgba(resolvedTint.r,resolvedTint.g,resolvedTint.b,popover ? 0.84 : 0.96) : interactive ? "#1AFFFFFF" : Qt.rgba(resolvedTint.r,resolvedTint.g,resolvedTint.b,introduction ? 0.74 : 0.5)
@@ -35,23 +36,30 @@ Rectangle {
         GlassStyle.geometryFrame
         return GlassStyle.backdrop ? glass.mapToItem(GlassStyle.backdrop,0,0) : Qt.point(0,0)
     }
-    readonly property bool hardwareGlass: GlassStyle.active && visible && !tertiary && !hero &&
+    readonly property bool hardwareGlass: GlassStyle.active && visible && !tertiary && !hero && !standardPrimary &&
         width > 0 && height > 0 && width <= 2048 && height <= 2048 &&
         backdropPosition.x < GlassStyle.backdrop.width && backdropPosition.y < GlassStyle.backdrop.height &&
         backdropPosition.x + width > 0 && backdropPosition.y + height > 0
-    radius: popover ? 32 : 28
+    radius: standardPrimary ? height / 2 : popover ? 32 : 28
     readonly property color effectiveFill: !glassEnabled ?
         (hasSelectionFill ? Qt.tint(resolvedTint, selectionFill) : selected ? Qt.tint(resolvedTint, Qt.rgba(tint.r,tint.g,tint.b,0.22)) : interactive ? BrandTheme.colors.surfaceRaised : resolvedTint) :
         hardwareGlass && !interactive && !selected && !destructive ? "transparent" : surfaceFill
     color: tertiary ? "transparent" : effectiveFill
     border.width: focused ? 3 : (tertiary ? 0 : 1)
-    border.color: focused ? "#F2FFFFFF" : currentMoment ? GlassStyle.moodAccent : hasArtworkTint && !interactive ? artworkTint : selected ? Qt.rgba(tint.r, tint.g, tint.b, 0.55) : destructive ? "#1FFFFFFF" : interactive ? "#1FFFFFFF" : "#52FFFFFF"
-    gradient: hero ? heroGradient : materialGradient
+    border.color: focused ? "#F2FFFFFF" : standardPrimary ? BrandTheme.colors.primaryActionBorder : currentMoment ? GlassStyle.moodAccent : hasArtworkTint && !interactive ? artworkTint : selected ? Qt.rgba(tint.r, tint.g, tint.b, 0.55) : destructive ? "#1FFFFFFF" : interactive ? "#1FFFFFFF" : "#52FFFFFF"
+    gradient: standardPrimary ? primaryGradient : hero ? heroGradient : materialGradient
     Gradient {
         id: materialGradient
         orientation: Gradient.Horizontal
-        GradientStop { position: 0; color: glass.tertiary ? "transparent" : glass.primary && !glass.destructive ? BrandTheme.colors.actionBlue : glass.effectiveFill }
-        GradientStop { position: 1; color: glass.tertiary ? "transparent" : glass.primary && !glass.destructive ? BrandTheme.colors.actionPurple : glass.effectiveFill }
+        GradientStop { position: 0; color: glass.tertiary ? "transparent" : glass.effectiveFill }
+        GradientStop { position: 1; color: glass.tertiary ? "transparent" : glass.effectiveFill }
+    }
+    Gradient {
+        id: primaryGradient
+        GradientStop { position: 0; color: BrandTheme.colors.primaryActionEdge }
+        GradientStop { position: 0.20; color: BrandTheme.colors.primaryActionFill }
+        GradientStop { position: 0.80; color: BrandTheme.colors.primaryActionFill }
+        GradientStop { position: 1; color: BrandTheme.colors.primaryActionEdge }
     }
     Gradient {
         id: heroGradient
@@ -84,7 +92,7 @@ Rectangle {
     Rectangle {
         objectName: "glassPressHighlight"
         anchors.fill: parent; radius: glass.radius
-        visible: glass.glassEnabled && glass.interactive && !glass.tertiary
+        visible: glass.glassEnabled && glass.interactive && !glass.tertiary && !glass.standardPrimary
         opacity: glass.interactionProgress * 0.14
         gradient: Gradient {
             GradientStop { position: 0; color: "white" }
@@ -97,7 +105,7 @@ Rectangle {
     }
     Rectangle {
         anchors.fill: parent
-        visible: glass.glassEnabled && !glass.introduction
+        visible: glass.glassEnabled && !glass.introduction && !glass.standardPrimary && !glass.tertiary
         anchors.margins: 2
         radius: Math.max(0, glass.radius - 2)
         color: "transparent"
@@ -105,7 +113,7 @@ Rectangle {
         border.color: "#12ffffff"
     }
     Rectangle {
-        visible: glass.glassEnabled && !glass.introduction
+        visible: glass.glassEnabled && !glass.introduction && !glass.standardPrimary && !glass.tertiary
         x: glass.radius; y: 1
         width: Math.max(0, parent.width - glass.radius * 2)
         height: 1
