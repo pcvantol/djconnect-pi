@@ -17,7 +17,7 @@ Item {
         spacing: 20
         PageToolbar {
             title: page.tr(page.feedback ? "feedback" : page.privacy ? "privacy" : "legal")
-            leading: [ GlassButton { objectName: "informationBack"; text: page.tr("more"); iconName: "back"; tertiary: true; onClicked: page.back() } ]
+            leading: [ GlassButton { objectName: "informationBack"; iconName: "back"; tertiary: true; implicitWidth: 52; Accessible.name: page.tr("more"); onClicked: page.back() } ]
         }
         ScrollView {
             id: scroll
@@ -32,7 +32,7 @@ Item {
                 GlassCard {
                     visible: page.feedback
                     Layout.fillWidth: true
-                    Text { text: page.tr("feedback_share"); textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 26; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                    Text { text: page.tr("feedback_share"); textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 20; font.weight: Font.DemiBold; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                     Text { text: page.tr("feedback_help"); textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 22; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                     GlassButton { objectName: "feedbackOpenIssue"; primary: true; text: page.tr("feedback_open"); iconName: "chat"; Layout.fillWidth: true; onClicked: page.feedbackOpenFailed = !page.backend.openFeedbackIssue() }
                     Text { objectName: "feedbackOpenError"; visible: page.feedbackOpenFailed; text: page.tr("feedback_unavailable"); textFormat: Text.PlainText; color: BrandTheme.colors.muted; font.pixelSize: 22; wrapMode: Text.WordWrap; Layout.fillWidth: true }
@@ -40,7 +40,7 @@ Item {
                 GlassCard {
                     visible: page.privacy && !page.feedback
                     Layout.fillWidth: true
-                    Text { text: page.tr("privacy"); textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 26; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                    Text { text: page.tr("privacy"); textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 20; font.weight: Font.DemiBold; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                     Repeater {
                         model: ["privacy_data_body", "privacy_tokens_body", "privacy_ai_body"]
                         Text { required property string modelData; text: page.tr(modelData); textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 22; wrapMode: Text.WordWrap; Layout.fillWidth: true }
@@ -49,7 +49,7 @@ Item {
                 GlassCard {
                     visible: !page.privacy && !page.feedback
                     Layout.fillWidth: true
-                    Text { text: page.tr("legal"); textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 26; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                    Text { text: page.tr("legal"); textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 20; font.weight: Font.DemiBold; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                     Text { text: page.tr("legal_independence"); textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 22; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                     Text { text: page.tr("legal_trademarks"); textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 22; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                 }

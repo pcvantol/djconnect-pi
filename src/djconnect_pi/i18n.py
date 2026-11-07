@@ -1325,6 +1325,9 @@ for _key, _values in _LOG_SEARCH_TRANSLATIONS.items():
 
 
 _KEYBOARD_TRANSLATIONS = {
+    "media_search_queue": ("Search queue", "Zoek in wachtrij", "Warteschlange durchsuchen", "Rechercher dans la file", "Buscar en la cola"),
+    "media_search_playlists": ("Search playlists", "Zoek in afspeellijsten", "Playlists durchsuchen", "Rechercher dans les playlists", "Buscar en las listas"),
+    "media_no_matches": ("No search results", "Geen zoekresultaten", "Keine Suchergebnisse", "Aucun résultat", "Sin resultados"),
     "keyboard_shift": ("Uppercase", "Hoofdletters", "Großbuchstaben", "Majuscules", "Mayúsculas"),
     "keyboard_symbols": ("Letters and symbols", "Letters en symbolen", "Buchstaben und Symbole", "Lettres et symboles", "Letras y símbolos"),
     "keyboard_accents": ("Accented letters", "Letters met accenten", "Akzentbuchstaben", "Lettres accentuées", "Letras acentuadas"),

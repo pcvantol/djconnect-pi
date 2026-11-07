@@ -117,12 +117,11 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "component AppBackground" in main_qml
     assert "component PlaybackButton" in main_qml
     assert "component IconButton" in main_qml
-    assert "component MediaPlayButton" in main_qml
     assert "component MediaListPanel" in main_qml
     media_list_component = main_qml[main_qml.index("component MediaListPanel") : main_qml.index("Timer {\n        id: idleTimer")]
     assert "onVisibleChanged:" in media_list_component
-    assert "Qt.callLater(function()" in media_list_component
-    assert "mediaScroll.contentItem.contentY = 0" in media_list_component
+    assert "if (visible) mediaRows.positionViewAtBeginning()" in media_list_component
+    assert "else closeSearch()" in media_list_component
     assert "GlassButton {" in games_qml
     assert 'import "MoodTheme.js" as MoodTheme' in main_qml
     assert 'import "MoodTheme.js" as MoodTheme' in games_qml
@@ -237,11 +236,11 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "JSON.stringify" in main_qml
     assert "artist: item.artist || \"\"" in main_qml
     assert "album: item.album || \"\"" in main_qml
-    assert "text: modelData.album || \"\"" in main_qml
+    assert "text: mediaRow.modelData.album || \"\"" in main_qml
     assert "djconnect.playMediaItem(panel.playCommand, panel.itemPayload(modelData))" in main_qml
     assert 'onClicked: root.activeScreen = "now"' not in main_qml[main_qml.index('visible: root.activeScreen === "queue"') : main_qml.index('visible: root.activeScreen === "playlists"')]
-    assert "enabled: modelData.uri && modelData.uri.length > 0" in main_qml
-    assert "visible: panel.items.length === 0" in main_qml
+    assert "enabled: !!modelData.uri" in main_qml
+    assert "visible: panel.matches.length === 0" in main_qml
     assert "djconnect.loadQueue()" in main_qml
     assert "djconnect.loadPlaylists()" in main_qml
     assert "onRefreshRequested: djconnect.loadQueue()" in main_qml
@@ -301,11 +300,10 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert main_qml.count("AppBackground {}") >= 4
     assert "id: mediaArt" in main_qml
     assert "id: mediaText" in main_qml
-    assert "id: mediaPlay" in main_qml
-    assert "anchors.left: mediaArt.right" in main_qml
-    assert "anchors.right: mediaPlay.left" in main_qml
-    assert "anchors.right: parent.right" in main_qml
-    assert "MediaPlayButton {" in main_qml
+    assert 'objectName: "mediaPlayIndicator"' in main_qml
+    assert 'objectName: "mediaSearchInput"' in main_qml
+    assert 'keyboardName: "mediaSearchKeyboard"' in main_qml
+    assert "model: panel.matches" in main_qml
     assert "djconnect.trackProgress" in main_qml
     assert "djconnect.progressLabel" in main_qml
     assert 'iconName: djconnect.playing ? "pause" : "play"' in main_qml
@@ -354,7 +352,7 @@ def test_qml_has_bottom_navigation_bar() -> None:
     assert nav.count("screen:") == 5
     assert "root.activeScreen = modelData.screen" in nav
     assert "radius: height / 2" in nav
-    assert "GridLayout" in more and "columns: root.width < 900 ? 1 : 3" in more
+    assert "GridLayout" in more and "columns: root.width < 900 ? 1 : Math.max(2, Math.floor(width / 420))" in more
     more_keys = ["ask_dj", "session_history", "music_dna", "queue", "playlists", "games", "setup", "logs", "about", "legal", "privacy"]
     offsets = [more.index(f'root.tr("{key}")') for key in more_keys]
     assert offsets == sorted(offsets)
@@ -495,7 +493,10 @@ def test_qml_track_insight_panel_renders_contract_fields() -> None:
     assert "hero: true" in panel
     assert "GlassArtworkFrame {" in panel
     assert 'color: BrandTheme.colors.surface' not in panel
-    assert "visible: !trackInsightScroll.visible" in panel
+    assert 'objectName: "trackInsightSubjectHero"' in panel
+    assert 'objectName: "trackInsightAnalysisCard"' in panel
+    assert 'columns: root.wallProfile ? 1 : 2' in panel
+    assert 'width: Math.max(0, trackInsightScroll.availableWidth)' in panel
     assert "Layout.fillHeight: true" in panel
     assert "djconnect.refreshTrackInsight()" in panel
     assert 'root.tr("track_insight_empty")' in panel
@@ -546,18 +547,19 @@ def test_qml_music_discovery_nav_and_panel() -> None:
     assert "enabled: !djconnect.musicDiscoveryBusy" in discover_block
     assert "djconnect.refreshMusicDiscovery()" in discover_block
     assert "id: discoveryMusicDnaDisabledColumn" in discover_block
-    assert "visible: !djconnect.musicDnaEnabled && djconnect.musicDiscoveryItems.length === 0 && !djconnect.musicDiscoveryBusy && !djconnect.musicDiscoveryConsentRejected" in discover_block
+    assert "visible: !djconnect.musicDnaEnabled && djconnect.musicDiscoveryItems.length === 0" in discover_block
+    assert "&& djconnect.musicDiscoveryError.length === 0 && !djconnect.musicDiscoveryBusy" in discover_block
     assert 'root.tr("music_dna_opt_in")' in discover_block
     assert 'text: root.tr("music_discovery_enable")' in discover_block
     assert "enabled: !djconnect.musicDnaBusy && !djconnect.musicDiscoveryBusy" in discover_block
     assert "root.openMusicDnaPrompt(false)" in discover_block
     assert "columns: 1" in discover_block
     assert "columns: width >= 640 ? 2 : 1" not in discover_block
-    assert "Layout.preferredHeight: djconnect.musicDiscoveryFeedbackSupported ? 226 : 178" in discover_block
+    assert "Layout.preferredHeight: discoveryResult.implicitHeight + 2 * inset" in discover_block
     assert "Layout.preferredWidth: 132" in discover_block
     assert "visible: !discoveryScroll.visible" in discover_block
     assert "visible: djconnect.musicDiscoveryItems.length > 0" in discover_block
-    assert "visible: djconnect.musicDnaEnabled && djconnect.musicDiscoveryItems.length === 0 && !djconnect.musicDiscoveryBusy && !djconnect.musicDiscoveryConsentRejected" in discover_block
+    assert "visible: (djconnect.musicDnaEnabled || djconnect.musicDiscoveryError.length > 0)" in discover_block
     assert "Layout.fillHeight: true" in discover_block
     assert "id: discoveryReasonPanel" in discover_block
     assert "visible: root.discoveryReasonOpen" in discover_block
