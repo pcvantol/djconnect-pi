@@ -143,11 +143,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "client_api_url": "Client adres",
         "view_logs": "Logs",
         "logs": "Logs",
-        "copy_logs": "Logs kopiëren",
         "clear_logs": "Logs wissen",
         "clear_logs_confirm_title": "Logs wissen?",
-        "clear_logs_confirm_message": "Dit verwijdert de lokale logweergave uit DJConnect. Nieuwe logs worden daarna weer opgebouwd.",
-        "logs_copied": "Logs gekopieerd",
         "logs_cleared": "Logs gewist",
         "about": "Over",
         "about_title": "Over DJConnect",
@@ -428,11 +425,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "client_api_url": "Client adres",
         "view_logs": "Logs",
         "logs": "Logs",
-        "copy_logs": "Copy logs",
         "clear_logs": "Clear logs",
         "clear_logs_confirm_title": "Clear logs?",
-        "clear_logs_confirm_message": "This clears the local DJConnect log view. New log entries will be collected again afterwards.",
-        "logs_copied": "Logs copied",
         "logs_cleared": "Logs cleared",
         "about": "About",
         "about_title": "About DJConnect",
@@ -1243,6 +1237,26 @@ _HISTORY_SEARCH_TRANSLATIONS = {
     "session_open_entry": ("Open contribution", "Open bijdrage", "Beitrag öffnen", "Ouvrir la contribution", "Abrir contribución"),
 }
 for _key, _values in _HISTORY_SEARCH_TRANSLATIONS.items():
+    for _language, _value in zip(("en", "nl", "de", "fr", "es"), _values):
+        TRANSLATIONS[_language][_key] = _value
+
+
+_LOG_SEARCH_TRANSLATIONS = {
+    "copy_logs": ("Copy logs", "Logs kopiëren", "Protokolle kopieren", "Copier les journaux", "Copiar registros"),
+    "logs_copied": ("Logs copied", "Logs gekopieerd", "Protokolle kopiert", "Journaux copiés", "Registros copiados"),
+    "logs_search": ("Search logs", "Zoek in logs", "Protokolle durchsuchen", "Rechercher dans les journaux", "Buscar en registros"),
+    "logs_previous_match": ("Previous match", "Vorig resultaat", "Vorheriger Treffer", "Résultat précédent", "Coincidencia anterior"),
+    "logs_next_match": ("Next match", "Volgend resultaat", "Nächster Treffer", "Résultat suivant", "Coincidencia siguiente"),
+    "logs_no_matches": ("No matches", "Geen resultaten", "Keine Treffer", "Aucun résultat", "Sin coincidencias"),
+    "clear_logs_confirm_message": (
+        "This clears the local DJConnect log file. New entries will be recorded as usual.",
+        "Dit wist het lokale DJConnect-logbestand. Nieuwe regels worden daarna gewoon vastgelegd.",
+        "Dadurch wird die lokale DJConnect-Protokolldatei geleert. Neue Einträge werden wie gewohnt aufgezeichnet.",
+        "Cette action vide le fichier journal local de DJConnect. Les nouvelles entrées seront enregistrées comme d’habitude.",
+        "Esto vacía el archivo de registro local de DJConnect. Las nuevas entradas se guardarán como de costumbre.",
+    ),
+}
+for _key, _values in _LOG_SEARCH_TRANSLATIONS.items():
     for _language, _value in zip(("en", "nl", "de", "fr", "es"), _values):
         TRANSLATIONS[_language][_key] = _value
 

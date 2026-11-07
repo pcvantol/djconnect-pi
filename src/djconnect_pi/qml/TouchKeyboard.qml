@@ -8,6 +8,7 @@ ColumnLayout {
     objectName: "sessionTouchKeyboard"
     property var target
     property var backend
+    property bool docked: false
     property string submitIcon: "search"
     property string submitLabel: keyboard.tr("session_search")
     property int keyHeight: 44
@@ -58,6 +59,9 @@ ColumnLayout {
         if (backend.language === "de") return ["qwertzuiop", "asdfghjkl", "yxcvbnm"]
         return ["qwertyuiop", "asdfghjkl", "zxcvbnm"]
     }
+    component KeyButton: GlassButton {
+        cornerRadius: keyboard.docked ? 12 : height / 2
+    }
     Repeater {
         model: keyboard.rows()
         RowLayout {
@@ -67,7 +71,7 @@ ColumnLayout {
             spacing: keyboard.keyGap
             Repeater {
                 model: keyRow.modelData.split("")
-                GlassButton {
+                KeyButton {
                     required property string modelData
                     Layout.fillWidth: true; Layout.preferredWidth: 1; Layout.minimumWidth: 44
                     implicitHeight: keyboard.keyHeight; padding: 4; font.pixelSize: keyboard.keyFontSize
@@ -80,40 +84,42 @@ ColumnLayout {
     }
     RowLayout {
         Layout.fillWidth: true; spacing: keyboard.keyGap
-        GlassButton {
+        KeyButton {
             text: "⇧"; Accessible.name: keyboard.tr("keyboard_shift")
             checked: keyboard.shifted; focusPolicy: Qt.NoFocus
             implicitHeight: keyboard.keyHeight; Layout.minimumWidth: keyboard.keyHeight; padding: 6; Layout.preferredWidth: 48
             onClicked: keyboard.shifted = !keyboard.shifted
         }
-        GlassButton {
+        KeyButton {
             text: keyboard.numbers ? "ABC" : "123"
             Accessible.name: keyboard.tr("keyboard_symbols")
             focusPolicy: Qt.NoFocus; implicitHeight: keyboard.keyHeight; Layout.minimumWidth: keyboard.keyHeight; padding: 6; Layout.preferredWidth: 58
             onClicked: { keyboard.numbers = !keyboard.numbers; keyboard.accents = false }
         }
-        GlassButton {
+        KeyButton {
             text: "é"; Accessible.name: keyboard.tr("keyboard_accents")
             checked: keyboard.accents; focusPolicy: Qt.NoFocus
             implicitHeight: keyboard.keyHeight; Layout.minimumWidth: keyboard.keyHeight; padding: 6; Layout.preferredWidth: 44
             onClicked: keyboard.accents = !keyboard.accents
         }
-        GlassButton {
+        KeyButton {
             text: keyboard.tr("keyboard_space"); focusPolicy: Qt.NoFocus
             implicitHeight: keyboard.keyHeight; Layout.minimumWidth: keyboard.keyHeight; padding: 6; Layout.fillWidth: true
             onClicked: keyboard.insertKey(" ")
         }
-        GlassButton {
+        KeyButton {
             text: "⌫"; Accessible.name: keyboard.tr("keyboard_delete")
             focusPolicy: Qt.NoFocus; implicitHeight: keyboard.keyHeight; Layout.minimumWidth: keyboard.keyHeight; padding: 6; Layout.preferredWidth: 54
             onClicked: keyboard.deleteKey()
         }
-        GlassButton {
+        KeyButton {
             iconName: keyboard.submitIcon; Accessible.name: keyboard.submitLabel
+            checked: keyboard.docked
+            selectionFill: keyboard.docked ? BrandTheme.colors.actionBlue : "transparent"
             focusPolicy: Qt.NoFocus; implicitHeight: keyboard.keyHeight; Layout.minimumWidth: keyboard.keyHeight; padding: 6; Layout.preferredWidth: 48
             onClicked: keyboard.submitted()
         }
-        GlassButton {
+        KeyButton {
             text: "⌄"; Accessible.name: keyboard.tr("keyboard_hide")
             focusPolicy: Qt.NoFocus; implicitHeight: keyboard.keyHeight; Layout.minimumWidth: keyboard.keyHeight; padding: 6; Layout.preferredWidth: 44
             onClicked: keyboard.dismissed()

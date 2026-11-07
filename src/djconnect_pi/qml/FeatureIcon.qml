@@ -250,6 +250,9 @@ Canvas {
                     var a = i * Math.PI / 4
                     line(16 + Math.cos(a) * 8, 16 + Math.sin(a) * 8, 16 + Math.cos(a) * 11, 16 + Math.sin(a) * 11)
                 }
+            } else if (iconName === "copy") {
+                roundRect(11, 4, 15, 20, 2)
+                line(8, 10, 6, 10); line(6, 10, 6, 28); line(6, 28, 20, 28)
             } else if (iconName === "document") {
                 roundRect(8, 4, 16, 24, 2)
                 line(12, 11, 20, 11); line(12, 16, 20, 16); line(12, 21, 17, 21)
@@ -261,6 +264,9 @@ Canvas {
             } else if (iconName === "arrow_up") {
                 line(16, 25, 16, 7)
                 line(8, 15, 16, 7); line(16, 7, 24, 15)
+            } else if (iconName === "arrow_down") {
+                line(16, 7, 16, 25)
+                line(8, 17, 16, 25); line(16, 25, 24, 17)
             } else if (iconName === "logs") {
                 roundRect(9, 6, 13, 18, 2)
                 line(13, 11, 18, 11); line(13, 16, 17, 16)

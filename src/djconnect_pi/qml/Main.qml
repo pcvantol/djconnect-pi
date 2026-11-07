@@ -216,14 +216,6 @@ BrandWindow {
         return labels[key] ? root.tr(labels[key]) : (value || "")
     }
 
-    function lineNumbers(text) {
-        if (!text || text.length === 0) return "1"
-        var count = text.split("\n").length
-        var lines = []
-        for (var i = 1; i <= count; i++) lines.push(i.toString())
-        return lines.join("\n")
-    }
-
     function moodColor(token) {
         return MoodTheme.color(root.appearanceMood, token)
     }
@@ -4634,122 +4626,11 @@ BrandWindow {
 
         AppBackground {}
         ModalBlocker {}
-
-        ColumnLayout {
+        LogsView {
             anchors.fill: parent
-            anchors.margins: 28
-            spacing: 12
-
-            Text {
-                text: root.tr("logs")
-                color: BrandTheme.colors.text
-                font.pixelSize: 34
-                font.bold: true
-                Layout.fillWidth: true
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                Layout.minimumHeight: 56
-                Layout.preferredHeight: 56
-                Layout.maximumHeight: 56
-                Layout.fillHeight: false
-                spacing: 10
-
-                Button {
-                    id: clearLogsButton
-                    ToolTip.visible: hovered
-                    ToolTip.text: root.tr("clear_logs")
-                    Accessible.name: root.tr("clear_logs")
-                    Layout.preferredWidth: 56
-                    Layout.preferredHeight: 56
-                    Layout.maximumHeight: 56
-                    onClicked: root.clearLogsConfirmOpen = true
-                    contentItem: MenuIcon {
-                        iconName: "trash"
-                        iconColor: BrandTheme.colors.text
-                        strokeWidth: 2.5
-                        anchors.centerIn: parent
-                        width: 30
-                        height: 30
-                    }
-                    background: Rectangle {
-                        radius: root.standardButtonRadius
-                        color: clearLogsButton.down ? BrandTheme.colors.dangerPressed : BrandTheme.colors.dangerSurface
-                        border.color: clearLogsButton.hovered ? BrandTheme.colors.danger : BrandTheme.colors.danger
-                        border.width: 1
-                    }
-                }
-                RefreshIconButton {
-                    Layout.preferredHeight: 56
-                    Layout.maximumHeight: 56
-                    onClicked: {
-                        djconnect.showLogs()
-                        Qt.callLater(function() { logsArea.cursorPosition = 0 })
-                    }
-                }
-                PurpleButton {
-                    text: root.tr("close")
-                    font.pixelSize: 22
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 56
-                    Layout.maximumHeight: 56
-                    onClicked: djconnect.hideLogs()
-                }
-            }
-
-            ScrollView {
-                id: logsScroll
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                Layout.minimumHeight: 360
-                clip: true
-
-                RowLayout {
-                    width: Math.max(logsScroll.availableWidth, logLineNumbers.implicitWidth + logsArea.implicitWidth + 36)
-                    spacing: 0
-
-                    Text {
-                        id: logLineNumbers
-                        text: root.lineNumbers(djconnect.logsText)
-                        color: BrandTheme.colors.disabledText
-                        font.family: "monospace"
-                        font.pixelSize: 24
-                        horizontalAlignment: Text.AlignRight
-                        Layout.preferredWidth: Math.max(54, implicitWidth + 18)
-                        Layout.alignment: Qt.AlignTop
-                        topPadding: 12
-                        bottomPadding: 12
-                        rightPadding: 10
-                    }
-
-                    TextArea {
-                        id: logsArea
-                        text: djconnect.logsText
-                        readOnly: true
-                        wrapMode: TextEdit.NoWrap
-                        color: BrandTheme.colors.muted
-                        font.family: "monospace"
-                        font.pixelSize: 24
-                        Layout.fillWidth: true
-                        Layout.alignment: Qt.AlignTop
-                        background: Rectangle {
-                            color: BrandTheme.colors.background
-                            radius: 8
-                            border.color: BrandTheme.colors.surfaceRaised
-                        }
-                        onTextChanged: Qt.callLater(function() { logsArea.cursorPosition = 0 })
-                    }
-                }
-            }
-
-            Text {
-                text: root.tr("log") + ": " + djconnect.logFile
-                color: BrandTheme.colors.disabledText
-                font.pixelSize: 17
-                elide: Text.ElideMiddle
-                Layout.fillWidth: true
-            }
+            backend: djconnect
+            confirmationOpen: root.clearLogsConfirmOpen
+            onClearRequested: root.clearLogsConfirmOpen = true
         }
     }
 

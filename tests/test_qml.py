@@ -254,7 +254,9 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "onRefreshRequested: djconnect.loadPlaylists()" in main_qml
     assert "djconnect.manualRefresh()" in main_qml
     assert "component RefreshIconButton" in main_qml
-    assert main_qml.count("RefreshIconButton {") >= 8
+    assert main_qml.count("RefreshIconButton {") >= 7
+    logs_qml = qml_root.joinpath("LogsView.qml").read_text(encoding="utf-8")
+    assert 'iconName: "refresh"' in logs_qml and "view.backend.showLogs()" in logs_qml
     assert main_qml.count('text: root.tr("refresh")') == 1
     assert main_qml.count("Layout.preferredHeight: 48") >= 2
     assert "anchors.topMargin: 16" in main_qml
@@ -284,8 +286,8 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "function selectedIndex()" in main_qml
     assert "currentIndex: selectedIndex()" in main_qml
     assert 'text: "🔊"' not in main_qml
-    assert "wrapMode: TextEdit.NoWrap" in main_qml
-    assert 'text: root.tr("log") + ": " + djconnect.logFile' in main_qml
+    assert "wrapMode: Text.Wrap" in logs_qml
+    assert 'text: view.tr("log") + ": " + view.backend.logFile' in logs_qml
     assert "djconnect.cachedImageUrl(modelData.imageUrl)" not in main_qml
     assert "source: modelData.imageUrl && modelData.imageUrl.length > 0 ? modelData.imageUrl : \"\"" in main_qml
     assert "sourceSize.width: 68" in main_qml
@@ -326,25 +328,12 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "id: returnToNowBox" in main_qml
     assert "displayText: root.returnToNowLabel(djconnect.returnToNowSeconds)" in main_qml
     assert "djconnect.setReturnToNowSeconds(root.returnToNowChoices[index])" in main_qml
-    assert "logsArea.cursorPosition = 0" in main_qml
-    assert "logsArea.cursorPosition = logsArea.length" not in main_qml
-    assert "function lineNumbers(text)" in main_qml
-    assert "id: logLineNumbers" in main_qml
-    assert "text: root.lineNumbers(djconnect.logsText)" in main_qml
-    assert 'color: BrandTheme.colors.disabledText' in main_qml
-    assert "wrapMode: TextEdit.NoWrap" in main_qml
-    assert "djconnect.copyLogs()" not in main_qml
-    assert 'root.tr("copy_logs")' not in main_qml
-    logs_start = main_qml.index("visible: djconnect.logsVisible")
-    logs_block = main_qml[logs_start : main_qml.index("id: clearLogsConfirmPanel", logs_start)]
-    assert "Layout.maximumHeight: 56" in logs_block
-    assert "Layout.fillHeight: false" in logs_block
-    assert "Layout.minimumHeight: 360" in logs_block
-    assert "id: clearLogsButton" in logs_block
-    assert 'iconName: "trash"' in logs_block
-    assert 'ToolTip.text: root.tr("clear_logs")' in logs_block
-    assert 'color: clearLogsButton.down ? BrandTheme.colors.dangerPressed : BrandTheme.colors.dangerSurface' in logs_block
-    assert 'PurpleButton {\n                    text: root.tr("clear_logs")' not in logs_block
+    logs = files("djconnect_pi.qml").joinpath("LogsView.qml").read_text(encoding="utf-8")
+    assert "LogsView {" in main_qml
+    assert "view.backend.copyLogs()" in logs
+    assert "view.clearRequested()" in logs
+    assert 'iconName: "trash"' in logs
+    assert "SearchKeyboardDock {" in logs
     assert 'iconName === "trash"' in files("djconnect_pi.qml").joinpath("FeatureIcon.qml").read_text(encoding="utf-8")
     assert "root.clearLogsConfirmOpen = true" in main_qml
     assert 'root.tr("clear_logs_confirm_title")' in main_qml

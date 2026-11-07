@@ -2030,17 +2030,28 @@ Item {
     GlassPopup {
         id: searchPanel
         objectName: "sessionSearchPanel"
-        property bool keyboardVisible: true
+        property bool keyboardVisible: false
+        readonly property int bodyMargin: keyboardVisible ? 20 : 0
+        function submitSearch() {
+            if (screen.owner.busy || !searchInput.text.trim().length) return
+            keyboardVisible = false
+            screen.searchNow()
+        }
         onOpened: keyboardVisible = true
-        onClosed: { screen.cancelSearchRead(); searchInput.clear(); screen.owner.clearSearch() }
-        x: 16; y: toolbar.y + toolbar.height + 8
-        width: screen.width - 32; height: Math.min(screen.height - y - 126, 760)
-        padding: 20; modal: true; dim: false
+        onClosed: { keyboardVisible = false; screen.cancelSearchRead(); searchInput.clear(); screen.owner.clearSearch() }
+        x: keyboardVisible ? 0 : 16
+        y: toolbar.y + toolbar.height + 8
+        width: screen.width - 2 * x
+        height: keyboardVisible ? screen.height - y : Math.min(screen.height - y - 126, 760)
+        padding: keyboardVisible ? 0 : 20
+        topPadding: 20
+        modal: true; dim: false
         background: GlassSurface { elevated: true }
         contentItem: ColumnLayout {
             spacing: 12
             RowLayout {
                 Layout.fillWidth: true
+                Layout.leftMargin: searchPanel.bodyMargin; Layout.rightMargin: searchPanel.bodyMargin
                 TextField {
                     id: searchInput
                     objectName: "sessionSearchInput"
@@ -2048,38 +2059,44 @@ Item {
                     placeholderText: screen.tr("session_search")
                     maximumLength: 200; font.pixelSize: 21
                     Layout.fillWidth: true; Layout.minimumHeight: 52
+                    background: GlassSurface { radius: 20; interactive: true; focused: searchInput.activeFocus }
                     Accessible.name: screen.tr("session_search")
                     selectByMouse: true
                     onTextEdited: screen.owner.clearSearch()
-                    onAccepted: if (!screen.owner.busy) screen.searchNow()
+                    TapHandler { onTapped: searchPanel.keyboardVisible = true }
+                    onAccepted: searchPanel.submitSearch()
                 }
                 GlassButton {
                     iconName: "search"; Accessible.name: screen.tr("session_search")
                     enabled: !screen.owner.busy && searchInput.text.trim().length > 0
-                    onClicked: screen.searchNow()
+                    onClicked: searchPanel.submitSearch()
                 }
                 GlassButton { text: screen.tr("close"); onClicked: searchPanel.close() }
             }
             Text {
+                Layout.leftMargin: searchPanel.bodyMargin; Layout.rightMargin: searchPanel.bodyMargin
                 visible: screen.state.error.length > 0
                 text: screen.tr(screen.state.error === "uncertain" ? "session_uncertain" : (screen.state.error === "profile_unavailable" || screen.state.error === "profile_required") ? "session_profile_missing" : "session_error")
                 color: BrandTheme.colors.warning; font.pixelSize: 18
                 wrapMode: Text.WordWrap; Layout.fillWidth: true
             }
             Text {
+                Layout.leftMargin: searchPanel.bodyMargin; Layout.rightMargin: searchPanel.bodyMargin
                 visible: !!screen.state.search.query
                 text: screen.tr(screen.state.search_limit_reached ? "session_search_limit" : screen.state.search.complete ? "session_search_complete" : "session_search_partial")
                 color: BrandTheme.colors.muted; font.pixelSize: 18
                 wrapMode: Text.WordWrap; Layout.fillWidth: true
             }
             Text {
+                Layout.leftMargin: searchPanel.bodyMargin; Layout.rightMargin: searchPanel.bodyMargin
                 visible: !!screen.state.search.query && (screen.state.search.matches || []).length === 0 && screen.state.search.complete
                 text: screen.tr("session_search_empty"); color: BrandTheme.colors.muted; font.pixelSize: 20
             }
             ScrollView {
                 id: searchScroll
                 objectName: "sessionSearchScroll"
-                Layout.fillWidth: true; Layout.fillHeight: true
+                Layout.fillWidth: true; Layout.fillHeight: true; Layout.minimumHeight: 0
+                Layout.leftMargin: searchPanel.bodyMargin; Layout.rightMargin: searchPanel.bodyMargin
                 contentWidth: availableWidth; clip: true
                 ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
                 ColumnLayout {
@@ -2108,17 +2125,12 @@ Item {
                     BusyIndicator { visible: screen.owner.busy; running: visible; Layout.alignment: Qt.AlignHCenter }
                 }
             }
-            TouchKeyboard {
+            SearchKeyboardDock {
                 visible: searchPanel.keyboardVisible
                 Layout.fillWidth: true
                 target: searchInput; backend: screen.backend
                 onEdited: screen.owner.clearSearch()
-                onSubmitted: {
-                    if (!screen.owner.busy && searchInput.text.trim().length > 0) {
-                        searchPanel.keyboardVisible = false
-                        screen.searchNow()
-                    }
-                }
+                onSubmitted: searchPanel.submitSearch()
                 onDismissed: searchPanel.keyboardVisible = false
             }
         }

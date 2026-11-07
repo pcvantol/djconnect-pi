@@ -6,6 +6,7 @@ import "BrandTheme.js" as BrandTheme
 Button {
     id: control
     property string iconName: ""
+    property real cornerRadius: height / 2
     property bool primary: false
     property color tint: BrandTheme.colors.actionAccent
     property bool destructive: tint === BrandTheme.colors.danger || tint === BrandTheme.colors.actionDanger
@@ -24,7 +25,7 @@ Button {
     font.bold: true
     Accessible.name: text
     background: GlassSurface {
-        radius: height / 2
+        radius: control.cornerRadius
         interactive: true
         primary: control.primary
         selected: control.checked
