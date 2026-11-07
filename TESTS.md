@@ -2829,3 +2829,16 @@ The focused controller and QML checks passed 97 tests. The ARM VM with Python
 matrix includes an item and state change during a mouse press, one release
 after a normal position update, keyboard activation and existing checks for
 queued command withdrawal. All commands were intercepted offline.
+
+### Direct Session favorite control
+
+The heart on the music card reads the current favorite status and opens
+a dedicated view. Adding or removing the favorite requires another press.
+A release after a track change cannot turn the old press into a read or
+write for the new track. The full playback menu keeps the same action.
+
+The ARM VM passed 180 Qt views across both sizes, five locales and both
+initial favorite states. The fixture checked the first visible contribution,
+a stale press, explicit add or remove, unsupported capability and closing
+before a queued write. Requests were intercepted offline. The focused
+controller and QML checks passed 97 tests.

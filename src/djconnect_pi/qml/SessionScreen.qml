@@ -47,8 +47,9 @@ Item {
                 && !state.archive_delete.status && !state.archive_delete.running) archiveDeletePanel.close()
         var control = state.playback_control
         if (!control) return
-        if (playbackPanel && (!control.available || (playbackPanel.volumeOnly && !control.volume_supported)))
-            playbackPanel.close()
+        if (playbackPanel && (!control.available
+                || (playbackPanel.controlView === "volume" && !control.volume_supported)
+                || (playbackPanel.controlView === "favorite" && !control.favorite))) playbackPanel.close()
         if (outputsPanel && (!control.available || !control.outputs_supported)) outputsPanel.close()
     }
     onComposerContextChanged: { clearForecastReading(); clearFlowReturn(); forecastMode = false; closeTransient(); if (historyReadPending && historyReadKind === "current") { historyRead.stop(); historyReadPending = false; navigate("session") } }
@@ -960,7 +961,22 @@ Item {
                         Layout.preferredWidth: 48; Layout.preferredHeight: 48; Layout.alignment: Qt.AlignTop
                         onClicked: {
                             if (screen.owner.readPlaybackVolume(screen.state.session_id, screen.state.playback.item_id)) {
-                                playbackPanel.volumeOnly = true
+                                playbackPanel.controlView = "volume"
+                                playbackPanel.open()
+                            }
+                        }
+                    }
+                    GlassButton {
+                        objectName: "sessionCurrentFavorite"
+                        visible: playbackSources.ready && !!screen.state.playback_control.available
+                            && !!screen.state.playback_control.favorite
+                        enabled: !!screen.state.playback_control.enabled
+                        iconName: "heart"
+                        Accessible.name: screen.tr("session_favorite_read")
+                        Layout.preferredWidth: 48; Layout.preferredHeight: 48; Layout.alignment: Qt.AlignTop
+                        onClicked: {
+                            if (screen.owner.readPlaybackFavorite(screen.state.session_id, screen.state.playback.item_id)) {
+                                playbackPanel.controlView = "favorite"
                                 playbackPanel.open()
                             }
                         }
@@ -970,7 +986,7 @@ Item {
                         visible: playbackSources.ready && !!screen.state.playback_control.available
                         iconName: "more"; Accessible.name: screen.tr("session_playback_controls")
                         Layout.preferredWidth: 48; Layout.preferredHeight: 48; Layout.alignment: Qt.AlignTop
-                        onClicked: { playbackPanel.volumeOnly = false; playbackPanel.open() }
+                        onClicked: { playbackPanel.controlView = "all"; playbackPanel.open() }
                     }
                     SessionAttribution {
                         id: playbackSources
@@ -1290,17 +1306,19 @@ Item {
     GlassPopup {
         id: playbackPanel
         objectName: "sessionPlaybackPanel"
-        property bool volumeOnly: false
+        property string controlView: "all"
+        readonly property bool volumeOnly: controlView === "volume"
+        readonly property bool favoriteOnly: controlView === "favorite"
         onAboutToHide: { outputsPanel.close(); if (screen.owner) screen.owner.cancelPlaybackIntent() }
         x: (screen.width - width) / 2; y: toolbar.y + toolbar.height + 8
         width: Math.min(screen.width - 32, 520); padding: 20; modal: true; dim: false
         background: GlassSurface { elevated: true }
         contentItem: ColumnLayout {
             spacing: 16
-            Text { text: screen.tr(playbackPanel.volumeOnly ? "volume" : "session_playback_controls"); textFormat: Text.PlainText; font.pixelSize: 25; font.bold: true; color: BrandTheme.colors.text; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+            Text { text: screen.tr(playbackPanel.volumeOnly ? "volume" : playbackPanel.favoriteOnly ? "add_to_favorites" : "session_playback_controls"); textFormat: Text.PlainText; font.pixelSize: 25; font.bold: true; color: BrandTheme.colors.text; Layout.fillWidth: true; wrapMode: Text.WordWrap }
             Text { text: screen.state.playback.title || ""; textFormat: Text.PlainText; font.pixelSize: 20; color: BrandTheme.colors.muted; Layout.fillWidth: true; wrapMode: Text.WordWrap }
             RowLayout {
-                visible: !playbackPanel.volumeOnly
+                visible: playbackPanel.controlView === "all"
                 Layout.fillWidth: true
                 SessionTransportButton {
                     objectName: "sessionPlaybackPrevious"
@@ -1323,12 +1341,24 @@ Item {
                 objectName: "sessionPlaybackFavorite"
                 readonly property var observation: screen.state.playback_control.favorite_observation || ({})
                 readonly property bool known: typeof observation.liked === "boolean"
+                readonly property int currentLease: known ? observation.lease : 0
+                property int pressedEpoch: 0
+                property int pressedLease: 0
                 visible: !playbackPanel.volumeOnly && !!screen.state.playback_control.favorite
                 text: screen.tr(!known ? "session_favorite_read" : observation.liked ? "session_favorite_remove" : "session_favorite_add")
                 iconName: "heart"; checked: known && observation.liked
                 Layout.fillWidth: true; enabled: !!screen.state.playback_control.enabled
+                onPressed: {
+                    pressedEpoch = screen.state.playback_control.transport_epoch || 0
+                    pressedLease = currentLease
+                }
+                onCanceled: pressedEpoch = 0
                 onClicked: {
-                    if (known) screen.owner.setPlaybackFavorite(screen.state.session_id, screen.state.playback.item_id, observation.lease, !observation.liked)
+                    var epoch = pressedEpoch
+                    pressedEpoch = 0
+                    if (!playbackPanel.opened || !epoch || epoch !== screen.state.playback_control.transport_epoch
+                            || pressedLease !== currentLease) return
+                    if (known) screen.owner.setPlaybackFavorite(screen.state.session_id, screen.state.playback.item_id, pressedLease, !observation.liked)
                     else screen.owner.readPlaybackFavorite(screen.state.session_id, screen.state.playback.item_id)
                 }
             }
@@ -1339,7 +1369,7 @@ Item {
             }
             ColumnLayout {
                 objectName: "sessionVolumeControls"
-                visible: !!screen.state.playback_control.volume_supported
+                visible: !playbackPanel.favoriteOnly && !!screen.state.playback_control.volume_supported
                 Layout.fillWidth: true; spacing: 8
                 readonly property var observation: screen.state.playback_control.volume || ({})
                 readonly property bool known: typeof observation.percent === "number"
@@ -1429,7 +1459,7 @@ Item {
             }
             GlassButton {
                 objectName: "sessionOutputOpen"
-                visible: !playbackPanel.volumeOnly && !!screen.state.playback_control.outputs_supported
+                visible: playbackPanel.controlView === "all" && !!screen.state.playback_control.outputs_supported
                 text: screen.tr("session_output_title"); Layout.fillWidth: true
                 enabled: !!screen.state.playback_control.enabled
                 onClicked: outputsPanel.openForCurrentItem()
