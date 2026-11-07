@@ -31,6 +31,13 @@ Item {
     property bool followQuestionReply: false
     property string pendingReplyId: ""
     readonly property string composerContext: state.session_id + "|" + scopeProfileId + "|" + (state.owner_epoch || 0)
+    readonly property string playbackMenuScope: JSON.stringify([
+        state.playback.item_id || "", state.playback.source_url || "", state.playback.target_name || ""
+    ])
+    onPlaybackMenuScopeChanged: {
+        if (playbackPanel && playbackPanel.visible) playbackPanel.close()
+        if (outputsPanel && outputsPanel.visible) outputsPanel.close()
+    }
     property bool forecastMode: false
     readonly property bool showForecast: !historical && state.forecast_supported && forecastMode
     function syncMediaVisibility() {

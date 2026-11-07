@@ -280,7 +280,9 @@ def main():
                     assert owner._playback_control.request['command'] == expected_read
                     capture('stable-shortcut-' + expected_read)
                     status_count = owner.transport.playback_status.call_count
-                    QMetaObject.invokeMethod(panel, 'close')
+                    owner._session['broadcast']['playback']['target_name'] = 'Synthetic new speaker'
+                    owner.changed.emit()
+                    assert not panel.property('opened'), name
                     intents.pop()()
                     assert owner.transport.playback_status.call_count == status_count
                     owner._session = original_session
@@ -291,6 +293,22 @@ def main():
                 QTest.qWait(80)
                 click('sessionPlaybackOpen'); assert popup.property('visible'), warnings
                 capture('ready')
+                original_session = owner._session
+                owner._session = deepcopy(original_session)
+                owner._session['broadcast']['playback']['position_ms'] += 750
+                owner.changed.emit()
+                QTest.qWait(60)
+                assert popup.property('opened') and not intents
+                capture('open-playback-menu-survives-position')
+                owner._session['broadcast']['playback']['item_id'] = 'synthetic-new-track'
+                owner.changed.emit()
+                assert not popup.property('opened') and not intents
+                QTest.qWait(180)
+                capture('playback-menu-closes-on-track-change')
+                owner._session = original_session
+                owner.changed.emit()
+                QTest.qWait(60)
+                click('sessionPlaybackOpen')
                 image = window.grabWindow()
                 for name in ['sessionPlaybackPrevious', 'sessionPlaybackToggle', 'sessionPlaybackNext']:
                     button = window.findChild(QObject, name)

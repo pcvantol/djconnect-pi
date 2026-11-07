@@ -2942,3 +2942,15 @@ the previous source. With the fix, 260 Qt views passed in both layouts and all
 five locales, plus 92 focused playback and QML tests. The pointer matrix
 covers stale track and reported output changes, one read after a position
 update, and closing the pop-out before the queued read reaches transport.
+
+### Dismiss playback pop-outs when the context changes
+
+Playback pop-outs stay open during position and play or pause updates. A
+changed track, source link or reported output dismisses the pop-out and
+withdraws any queued action through the existing close handler.
+
+The offline ARM VM reproduced an output pop-out left open after an output
+change on the previous source. The updated source passed 280 playback views,
+200 volume views and 92 focused tests. The pointer tests verified one stable
+presentation during progress changes and that no queued read reaches
+transport when the observed output changes.
