@@ -2789,3 +2789,17 @@ Eight additional views cover actual Qt touch events in both layouts. During a
 same-item playback position update the popup stays open and retains the drag
 draft. Touch release queues one command. A backend revision change invalidates
 the draft before release. All commands were intercepted offline.
+
+### Direct Session output control
+
+The current music card opens the existing output menu with one explicit
+inventory read. The larger layout shows the reported speaker on the button.
+The compact layout keeps the icon and the separate speaker name. The existing
+playback menu opens the same output control.
+
+The ARM VM with Python 3.14.9 and Qt 6.12 passed 220 views across both screen
+sizes, five locales and playing or paused playback. A position update while
+pressing a speaker retained the original button and queued one selection on
+release. Closing the menu and withdrawing its capability still revoked the
+pending intent. Requests were intercepted offline. The focused QML and
+colour checks passed 27 tests.

@@ -41,8 +41,8 @@ Item {
         owner.setMomentArtworkVisible(visible && !historical && !showForecast)
     }
     Component.onCompleted: syncMediaVisibility()
-    onShowForecastChanged: { if (showForecast) playbackPanel.close(); if (!showForecast) clearForecastReading(); syncMediaVisibility() }
-    onStateChanged: { if (archiveDeletePanel && archiveDeletePanel.opened && state.archive_delete && !state.archive_delete.status && !state.archive_delete.running) archiveDeletePanel.close(); if (playbackPanel && state.playback_control && !state.playback_control.available) playbackPanel.close(); if (outputsPanel && state.playback_control && !state.playback_control.outputs_supported) outputsPanel.close() }
+    onShowForecastChanged: { if (showForecast) { outputsPanel.close(); playbackPanel.close() } if (!showForecast) clearForecastReading(); syncMediaVisibility() }
+    onStateChanged: { if (archiveDeletePanel && archiveDeletePanel.opened && state.archive_delete && !state.archive_delete.status && !state.archive_delete.running) archiveDeletePanel.close(); if (playbackPanel && state.playback_control && !state.playback_control.available) playbackPanel.close(); if (outputsPanel && state.playback_control && (!state.playback_control.available || !state.playback_control.outputs_supported)) outputsPanel.close() }
     onComposerContextChanged: { clearForecastReading(); clearFlowReturn(); forecastMode = false; closeTransient(); if (historyReadPending && historyReadKind === "current") { historyRead.stop(); historyReadPending = false; navigate("session") } }
     function clearComposer() { followQuestionReply = false; pendingReplyId = ""; draft = ""; if (composeInput) composeInput.clear(); if (composerPanel) composerPanel.close(); if (owner) owner.clearSelection() }
     function submitQuestion() { if (owner.sendQuestion(composeInput.text)) { forecastMode = false; followQuestionReply = true; draft = ""; composeInput.clear(); composerPanel.close() } }
@@ -465,6 +465,7 @@ Item {
         archiveDetailReturn = null
         cancelSearchRead()
         clearComposer()
+        if (outputsPanel) outputsPanel.close()
         if (playbackPanel) playbackPanel.close()
         if (searchPanel) searchPanel.close()
         if (searchInput) searchInput.clear()
@@ -476,7 +477,7 @@ Item {
         if (owner) owner.clearSearch()
     }
     onVisibleChanged: { syncMediaVisibility(); if (!visible) { clearForecastReading(); cancelArchiveRead(); if (owner) owner.clearArchive(); clearFlowReturn(); historyRead.stop(); historyReadProfile = ""; historyReadSession = ""; historyReadPending = false; readingRestore.stop(); pendingReadingAnchor = ""; closeTransient() } }
-    onHistoricalChanged: { if (historical) playbackPanel.close(); syncMediaVisibility(); if (!historical) { archiveDetailReturn = null; cancelArchiveRead(); if (owner) owner.clearArchive() } readingRestore.stop(); pendingReadingAnchor = ""; readingOffset = 0; if (!historical && flowReturn) { historyScroll.contentItem.cancelFlick(); flowReturnRestore.restart() } }
+    onHistoricalChanged: { if (historical) { outputsPanel.close(); playbackPanel.close() } syncMediaVisibility(); if (!historical) { archiveDetailReturn = null; cancelArchiveRead(); if (owner) owner.clearArchive() } readingRestore.stop(); pendingReadingAnchor = ""; readingOffset = 0; if (!historical && flowReturn) { historyScroll.contentItem.cancelFlick(); flowReturnRestore.restart() } }
     onSearchTargetChanged: { if (searchPanel) searchPanel.close(); if (searchInput) searchInput.clear(); if (owner) owner.clearSearch() }
     signal openVibeScape()
     signal navigate(string destination)
@@ -927,6 +928,21 @@ Item {
                         Text { visible: !screen.compact && playbackSources.ready && text.length > 0; text: screen.state.playback.album || ""; textFormat: Text.PlainText; font.pixelSize: 19; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                     }
                     GlassButton {
+                        id: currentOutputButton
+                        objectName: "sessionCurrentOutput"
+                        visible: playbackSources.ready && !!screen.state.playback_control.available
+                            && !!screen.state.playback_control.outputs_supported
+                        enabled: !!screen.state.playback_control.enabled
+                        iconName: "voice"
+                        text: screen.compact ? "" : (screen.state.playback.target_name || "")
+                        Accessible.name: screen.tr("session_output_title")
+                        Accessible.description: screen.state.playback.target_name || ""
+                        Layout.preferredWidth: text.length ? Math.min(220, implicitWidth) : 48
+                        Layout.preferredHeight: 48
+                        Layout.alignment: Qt.AlignTop
+                        onClicked: outputsPanel.openForCurrentItem()
+                    }
+                    GlassButton {
                         objectName: "sessionPlaybackOpen"
                         visible: playbackSources.ready && !!screen.state.playback_control.available
                         iconName: "more"; Accessible.name: screen.tr("session_playback_controls")
@@ -958,6 +974,7 @@ Item {
                 }
                 RowLayout {
                     visible: playbackSources.ready && !!screen.state.playback.target_name
+                        && (screen.compact || !currentOutputButton.visible)
                     Layout.fillWidth: true
                     FeatureIcon { iconName: "music"; Layout.preferredWidth: 22; Layout.preferredHeight: 22 }
                     Text { text: screen.state.playback.target_name || ""; textFormat: Text.PlainText; font.pixelSize: 19; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true; Accessible.name: screen.tr("output_device") + ": " + text }
@@ -1363,9 +1380,7 @@ Item {
                 visible: !!screen.state.playback_control.outputs_supported
                 text: screen.tr("session_output_title"); Layout.fillWidth: true
                 enabled: !!screen.state.playback_control.enabled
-                onClicked: {
-                    if (screen.owner.readPlaybackOutputs(screen.state.session_id, screen.state.playback.item_id)) outputsPanel.open()
-                }
+                onClicked: outputsPanel.openForCurrentItem()
             }
             Text {
                 objectName: "sessionPlaybackStatus"
@@ -1388,6 +1403,9 @@ Item {
         width: Math.min(screen.width - 32, 520); padding: 20; modal: true; dim: false
         readonly property var observation: screen.state.playback_control.outputs || ({})
         readonly property var choices: observation.choices || []
+        function openForCurrentItem() {
+            if (screen.owner.readPlaybackOutputs(screen.state.session_id, screen.state.playback.item_id)) open()
+        }
         onAboutToHide: if (screen.owner) screen.owner.cancelPlaybackIntent()
         background: GlassSurface { elevated: true }
         contentItem: ColumnLayout {
