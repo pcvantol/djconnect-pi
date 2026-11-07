@@ -1261,6 +1261,14 @@ for _key, _values in _KEYBOARD_TRANSLATIONS.items():
 
 
 _SESSION_LIFECYCLE_TRANSLATIONS = {
+    "session_playback_paused": ("Paused", "Gepauzeerd", "Pausiert", "En pause", "Pausado"),
+    "session_playback_paused_detail": (
+        "Your music is paused. Your DJ session remains active.",
+        "Je muziek staat op pauze. Je DJ-sessie blijft actief.",
+        "Deine Musik ist pausiert. Deine DJ-Session bleibt aktiv.",
+        "Votre musique est en pause. Votre session DJ reste active.",
+        "Tu música está en pausa. Tu sesión de DJ sigue activa.",
+    ),
     "session_starting": ("Your session is starting…", "Je sessie wordt gestart…", "Deine Session wird gestartet…", "Votre session démarre…", "Tu sesión se está iniciando…"),
     "session_ending": ("Your session is ending…", "Je sessie wordt beëindigd…", "Deine Session wird beendet…", "Votre session se termine…", "Tu sesión se está finalizando…"),
 }

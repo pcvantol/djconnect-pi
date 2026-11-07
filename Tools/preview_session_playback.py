@@ -19,6 +19,7 @@ from djconnect_pi.app import DJConnectBackend
 from djconnect_pi.brand_theme import apply_palette
 from djconnect_pi.config import Config, save_config
 from djconnect_pi.expiry_clock import ExpiryClock
+from djconnect_pi.i18n import TRANSLATIONS
 from djconnect_pi.session_projection import timestamp
 from djconnect_pi.session_transport import JSON_CONTROL_BYTES, SessionError, SessionTransport
 
@@ -140,10 +141,22 @@ def main():
                 capture('inline-vinyl-before-waiting')
                 active_session = owner._session
                 owner._session = deepcopy(active_session)
+                owner._session['broadcast']['playback']['state'] = 'paused'
+                owner.changed.emit()
+                QTest.qWait(80)
+                paused_detail = window.findChild(QObject, 'sessionWaitingPausedDetail')
+                waiting_title = window.findChild(QObject, 'sessionWaitingTitle')
+                assert paused_detail.property('visible')
+                assert waiting_title.property('text') == TRANSLATIONS[language]['session_playback_paused']
+                assert paused_detail.property('text') == TRANSLATIONS[language]['session_playback_paused_detail']
+                assert window.findChild(QObject, 'sessionExpandedEnd').property('enabled')
+                assert metadata.property('visible')
+                capture('waiting-paused')
                 owner._session['broadcast']['playback'] = {}
                 owner.changed.emit()
                 QTest.qWait(80)
                 assert waiting_vinyl.property('visible') and not metadata.property('visible')
+                assert not paused_detail.property('visible')
                 capture('waiting-vinyl-no-current-item')
                 owner._session = active_session
                 owner._moments, owner._retained_flow = moments, retained
@@ -184,6 +197,8 @@ def main():
                 owner.transport.active.return_value = {'success': True, 'session': paused}
                 owner.transport.playback_status.return_value['playback']['is_playing'] = False
                 owner.refresh(); drain()
+                assert visual(window.contentItem(), 'sessionLiveMomentCard').property('visible')
+                assert not paused_detail.property('visible')
                 capture('vinyl-play-affordance')
                 click('sessionPlaybackVinyl')
                 assert len(intents) == 1 and not popup.property('visible')

@@ -1033,13 +1033,35 @@ Item {
                 }
             }
             GlassCard {
+                id: waitingCard
                 objectName: "sessionWaitingCard"
+                readonly property bool playbackPaused: !screen.state.error && playbackSources.ready
+                    && screen.state.playback.state === "paused"
                 visible: !screen.historical && screen.state.session_id.length > 0 && screen.state.moments.length === 0 && screen.state.retained_flow.length === 0
                 Layout.fillWidth: true
                 RowLayout {
                     Layout.fillWidth: true; spacing: 18
                     DJSessionMenuSymbol { iconColor: BrandTheme.colors.purple; Layout.preferredWidth: 64; Layout.preferredHeight: 64 }
-                    Text { text: screen.tr(screen.state.runtime_state === "opening" ? "session_starting" : screen.state.runtime_state === "ending" ? "session_ending" : "session_listening"); color: BrandTheme.colors.text; font.pixelSize: screen.width > 800 ? 30 : 24; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        Text {
+                            objectName: "sessionWaitingTitle"
+                            text: screen.tr(waitingCard.playbackPaused ? "session_playback_paused"
+                                : screen.state.runtime_state === "opening" ? "session_starting"
+                                : screen.state.runtime_state === "ending" ? "session_ending" : "session_listening")
+                            textFormat: Text.PlainText
+                            color: BrandTheme.colors.text; font.pixelSize: screen.compact ? 24 : 30
+                            font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true
+                        }
+                        Text {
+                            objectName: "sessionWaitingPausedDetail"
+                            visible: waitingCard.playbackPaused
+                            text: screen.tr("session_playback_paused_detail")
+                            textFormat: Text.PlainText
+                            color: BrandTheme.colors.muted; font.pixelSize: 22
+                            wrapMode: Text.WordWrap; Layout.fillWidth: true
+                        }
+                    }
                 }
                 Text {
                     visible: screen.backend.demoMode

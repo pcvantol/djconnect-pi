@@ -2881,3 +2881,16 @@ the gesture valid.
 The ARM VM passed 180 offline Qt views for both sizes and five locales,
 including real pointer input for pause, resume, rejected releases, and the
 existing popup matrix. The focused playback and QML suite passed 92 tests.
+
+### Paused Session waiting card
+
+Before a DJ contribution arrives, an admitted paused track shows a distinct
+waiting card with the same localized pause explanation as Apple. Ending the
+Session remains available. A missing observation uses the regular waiting
+state, and already visible contributions remain readable during a pause.
+
+The offline iPad pause-and-resume test passed on Apple commit
+`22c214f667376da425ffd58364791a228445bf87`. The ARM VM passed 190 offline
+Qt views across both sizes and five locales, including the paused waiting
+card, missing track, and retained visibility of a current contribution.
+The focused i18n, QML and playback suite passed 99 tests.
