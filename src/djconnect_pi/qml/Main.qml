@@ -151,6 +151,34 @@ BrandWindow {
     property real brightnessOverlayOpacity: root.screenBlanked || root.forceBrightnessFull ? 0 : 1 - (djconnect.screenBrightnessPercent / 100.0)
     property int trVersion: djconnect.translationVersion
 
+    readonly property string edgeBackRoute: {
+        if (!root.active || root.screenBlanked || root.splashVisible || (!djconnect.paired && !djconnect.demoMode)
+                || vibeScapeLoader.active || root.resetPairingConfirmOpen || root.rebootConfirmOpen
+                || root.shutdownConfirmOpen || root.clearLogsConfirmOpen || root.askDjClearConfirmOpen
+                || root.musicDnaDisableConfirmOpen || root.musicDnaClearConfirmOpen || root.discoveryReasonOpen)
+            return ""
+        if (djconnect.logsVisible) return "logs"
+        if (root.aboutOpen) return "about"
+        if (root.activeScreen === "history" || root.activeScreen === "session-history") {
+            if (sharedSessionScreen.historyNavigationBlocked) return ""
+            var state = djconnect.djSession.state
+            return JSON.stringify([root.activeScreen, state.owner_profile_id || "", state.owner_epoch || 0,
+                state.session_id || "", (state.timeline.session || {}).session_id || ""])
+        }
+        if (["askdj", "musicdna", "playlists", "settings", "legal", "privacy", "feedback"].indexOf(root.activeScreen) >= 0
+                || (!root.wallProfile && (root.activeScreen === "queue" || root.activeScreen === "control")))
+            return root.activeScreen
+        return ""
+    }
+    function navigateEdgeBack(route) {
+        if (!route || route !== edgeBackRoute) return
+        if (route === "logs") djconnect.hideLogs()
+        else if (route === "about") root.aboutOpen = false
+        else if (root.activeScreen === "history" || root.activeScreen === "session-history")
+            sharedSessionScreen.navigateBackFromHistory()
+        else root.activeScreen = "more"
+    }
+
     function tr(key) {
         root.trVersion
         return djconnect.t(key)
@@ -5207,6 +5235,13 @@ BrandWindow {
         TapHandler {
             onTapped: djconnect.clearDjResponse()
         }
+    }
+
+    Component.onCompleted: djconnect.edgeBackGesture.observe(root)
+    onEdgeBackRouteChanged: djconnect.edgeBackGesture.cancel()
+    Connections {
+        target: djconnect.edgeBackGesture
+        function onBackRequested(route) { root.navigateEdgeBack(route) }
     }
 
     MouseArea {

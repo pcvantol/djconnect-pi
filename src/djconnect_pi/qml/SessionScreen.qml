@@ -327,6 +327,14 @@ Item {
             }
         }
     }
+    readonly property bool historyNavigationBlocked: searchPanel.visible || archiveDeletePanel.visible
+        || moreChoices.visible || connectionInfo.visible || choices.visible
+    function navigateBackFromHistory() {
+        if (!historical) return
+        if (currentHistory) { owner.closeSaved(); navigate("session") }
+        else if (state.timeline.session) returnArchiveDetail()
+        else { owner.closeSaved(); navigate("more") }
+    }
     function refreshHistory() {
         if (!historical) return
         if (state.timeline.session) owner.refreshSaved(readingAnchor())
@@ -1428,7 +1436,7 @@ Item {
                 visible: screen.historical
                 objectName: "sessionHistoryBack"
                 text: screen.tr(screen.currentHistory ? "session_back" : screen.state.timeline.session ? "session_history" : "more")
-                onClicked: { if (screen.currentHistory) { screen.owner.closeSaved(); screen.navigate("session") } else if (screen.state.timeline.session) screen.returnArchiveDetail(); else { screen.owner.closeSaved(); screen.navigate("more") } }
+                onClicked: screen.navigateBackFromHistory()
             }
             GlassButton {
                 objectName: "sessionDeleteAllSaved"

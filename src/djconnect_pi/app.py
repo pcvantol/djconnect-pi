@@ -62,6 +62,7 @@ from .ha import (
 )
 from .i18n import LANGUAGES, normalize_language, translate
 from .logging_config import setup_logging
+from .navigation_gesture import EdgeBackGesture
 from .session_controller import SessionController
 from .shared_settings import SettingsError
 from .system_info import log_raspberry_pi_system_info
@@ -177,6 +178,7 @@ class DJConnectBackend(QObject):
         self.config_path = config_path
         self._shutting_down = False
         self._audio_devices = None
+        self._edge_back_gesture = EdgeBackGesture(self)
         self.cfg: Config = load_config(config_path)
         self.client = HAClient(self.cfg)
         self._shared_settings_state = {}
@@ -303,6 +305,10 @@ class DJConnectBackend(QObject):
     @Property(bool, notify=sharedSettingsChanged)
     def sharedSettingsManaged(self) -> bool:
         return self.cfg.paired or self._shared_settings.managed
+
+    @Property(QObject, constant=True)
+    def edgeBackGesture(self):
+        return self._edge_back_gesture
 
     @Property(QObject, constant=True)
     def djSession(self):
@@ -2708,6 +2714,7 @@ class DJConnectBackend(QObject):
     @Slot()
     def shutdown(self) -> None:
         self._shutting_down = True
+        self._edge_back_gesture.cancel()
         _LOGGER.info("Stopping DJConnect Pi client backend")
         self._poll_timer.stop()
         self._event_timer.stop()

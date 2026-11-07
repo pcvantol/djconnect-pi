@@ -339,6 +339,35 @@ with (
             ), owner._running_action
             for pool in pools:
                 pool.submit.reset_mock()
+        wait_for_startup(w)
+        touch = QTest.createTouchDevice()
+
+        def edge_swipe(second=None, window=w, device=touch):
+            sequence = QTest.touchEvent(window, device, False)
+            sequence.press(0, QPoint(5, 245), window).commit()
+            if second:
+                sequence.stationary(0).press(1, second, window).commit()
+            sequence.move(0, QPoint(155, 249), window)
+            if second:
+                sequence.stationary(1)
+            sequence.commit()
+            sequence.release(0, QPoint(155, 249), window)
+            if second:
+                sequence.release(1, second, window)
+            sequence.commit()
+            QTest.qWait(70)
+
+        reset()
+        w.setProperty("activeScreen", "settings")
+        edge_swipe(QPoint(width - 8, 290))
+        assert w.property("activeScreen") == "settings"
+        edge_swipe()
+        assert w.property("activeScreen") == "more"
+        w.setProperty("activeScreen", "session-history")
+        edge_swipe()
+        assert w.property("activeScreen") == "session"
+        edge_swipe()
+        assert w.property("activeScreen") == "session"
         b.shutdown()
         QTest.qWait(20)
         delete(w)
