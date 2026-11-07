@@ -36,34 +36,30 @@ Button {
         tint: control.tint
         selectionFill: control.selectionFill
     }
-    contentItem: Item {
-        implicitWidth: label.implicitWidth
-        implicitHeight: label.implicitHeight
-        RowLayout {
-            id: label
-            anchors.centerIn: parent
-            width: control.primary ? Math.min(implicitWidth, parent.width) : parent.width
-            height: parent.height
-            spacing: control.text.length > 0 && control.iconName.length > 0 ? 10 : 0
-            FeatureIcon {
-                visible: control.iconName.length > 0
-                iconName: control.iconName
-                iconColor: control.foregroundColor
-                Layout.preferredWidth: 26
-                Layout.preferredHeight: 26
-                Layout.alignment: Qt.AlignHCenter
-            }
-            Text {
-                visible: control.text.length > 0
-                text: control.text
-                font: control.font
-                color: control.foregroundColor
-                textFormat: Text.PlainText
-                horizontalAlignment: Text.AlignHCenter
-                verticalAlignment: Text.AlignVCenter
-                elide: Text.ElideRight
-                Layout.fillWidth: true
-            }
+    contentItem: RowLayout {
+        spacing: 0
+        Item { visible: control.primary; Layout.fillWidth: true }
+        FeatureIcon {
+            visible: control.iconName.length > 0
+            iconName: control.iconName
+            iconColor: control.foregroundColor
+            Layout.preferredWidth: 26
+            Layout.preferredHeight: 26
+            Layout.alignment: Qt.AlignHCenter
         }
+        Text {
+            visible: control.text.length > 0
+            text: control.text
+            font: control.font
+            color: control.foregroundColor
+            textFormat: Text.PlainText
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+            elide: Text.ElideRight
+            Layout.leftMargin: control.iconName.length > 0 ? 10 : 0
+            Layout.fillWidth: !control.primary
+            Layout.minimumWidth: 0
+        }
+        Item { visible: control.primary; Layout.fillWidth: true }
     }
 }
