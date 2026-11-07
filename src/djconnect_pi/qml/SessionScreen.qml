@@ -1015,11 +1015,12 @@ Item {
                             }
                         }
                         GlassButton {
+                            id: playbackMoreButton
                             objectName: "sessionPlaybackOpen"
                             visible: playbackSources.ready && !!screen.state.playback_control.available
                             iconName: "more"; Accessible.name: screen.tr("session_playback_controls")
                             Layout.preferredWidth: 48; Layout.preferredHeight: 48; Layout.alignment: Qt.AlignTop
-                            onClicked: playbackPanel.openControls()
+                            onClicked: playbackPanel.openControls(playbackMoreButton)
                         }
                         SessionAttribution {
                             id: playbackSources
@@ -1042,7 +1043,7 @@ Item {
                         Accessible.name: screen.tr("session_playback_controls")
                         Accessible.description: screen.state.playback.time_label || ""
                         Accessible.ignored: !enabled
-                        onClicked: playbackPanel.openControls()
+                        onClicked: playbackPanel.openControls(progressControl)
                         background: GlassSurface {
                             visible: progressControl.down || (progressControl.visualFocus && !playbackPanel.visible)
                             radius: height / 2
@@ -1451,14 +1452,31 @@ Item {
         id: playbackPanel
         objectName: "sessionPlaybackPanel"
         property string controlView: "all"
-        function openControls() {
+        property rect sourceRect: Qt.rect(0, 0, 0, 0)
+        readonly property bool anchored: controlView === "all" && sourceRect.width > 0
+        readonly property real edgeMargin: 16
+        function openControls(source) {
+            var top = source.mapToItem(screen, 0, 0)
+            var bottom = source.mapToItem(screen, source.width, source.height)
+            sourceRect = Qt.rect(top.x, top.y, bottom.x - top.x, bottom.y - top.y)
             controlView = "all"
             open()
         }
         readonly property bool volumeOnly: controlView === "volume"
         readonly property bool favoriteOnly: controlView === "favorite"
         onAboutToHide: { outputsPanel.close(); if (screen.owner) screen.owner.cancelPlaybackIntent() }
-        x: (screen.width - width) / 2; y: toolbar.y + toolbar.height + 8
+        x: anchored
+            ? Math.max(edgeMargin, Math.min(sourceRect.x + (sourceRect.width - width) / 2, screen.width - width - edgeMargin))
+            : (screen.width - width) / 2
+        y: {
+            if (!anchored) return toolbar.y + toolbar.height + 8
+            var below = sourceRect.y + sourceRect.height + 8
+            var above = sourceRect.y - height - 8
+            var lastTop = screen.height - height - edgeMargin
+            if (below <= lastTop) return below
+            if (above >= edgeMargin) return above
+            return Math.max(edgeMargin, lastTop)
+        }
         width: Math.min(screen.width - 32, 520); padding: 20; modal: true; dim: false
         background: GlassSurface { elevated: true }
         contentItem: ColumnLayout {

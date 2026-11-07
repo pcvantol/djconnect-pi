@@ -235,6 +235,19 @@ def main():
                 assert popup.property('controlView') == 'all'
                 assert not intents and not reads
                 assert owner.transport.playback_command.call_count == command_count
+                def assert_popup_anchor(trigger):
+                    top = trigger.mapToItem(screen, 0, 0)
+                    bottom = trigger.mapToItem(screen, trigger.width(), trigger.height())
+                    popup_width = popup.property('width')
+                    popup_height = popup.property('height')
+                    x, y = popup.property('x'), popup.property('y')
+                    expected_x = max(16, min((top.x() + bottom.x() - popup_width)/2,
+                                             width - popup_width - 16))
+                    assert abs(x - expected_x) < 2, (width, x, expected_x)
+                    assert 15 <= y and y + popup_height <= height - 15
+                    if bottom.y() + 8 + popup_height <= height - 16:
+                        assert abs(y - (bottom.y() + 8)) < 2
+                assert_popup_anchor(progress)
                 capture('progress-opens-playback-controls')
                 QMetaObject.invokeMethod(popup, 'close')
                 QTest.qWait(160)
@@ -292,6 +305,8 @@ def main():
                 owner.changed.emit()
                 QTest.qWait(80)
                 click('sessionPlaybackOpen'); assert popup.property('visible'), warnings
+                assert_popup_anchor(window.findChild(QObject, 'sessionPlaybackOpen'))
+                popup_position = (popup.property('x'), popup.property('y'))
                 capture('ready')
                 original_session = owner._session
                 owner._session = deepcopy(original_session)
@@ -299,6 +314,7 @@ def main():
                 owner.changed.emit()
                 QTest.qWait(60)
                 assert popup.property('opened') and not intents
+                assert (popup.property('x'), popup.property('y')) == popup_position
                 capture('open-playback-menu-survives-position')
                 owner._session['broadcast']['playback']['item_id'] = 'synthetic-new-track'
                 owner.changed.emit()

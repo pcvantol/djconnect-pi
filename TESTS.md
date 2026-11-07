@@ -2954,3 +2954,15 @@ change on the previous source. The updated source passed 280 playback views,
 200 volume views and 92 focused tests. The pointer tests verified one stable
 presentation during progress changes and that no queued read reaches
 transport when the observed output changes.
+
+### Anchor the playback menu to its opener
+
+The full Session playback menu opens beside the tapped progress bar or
+overflow button. The menu uses the captured position and fits within the
+screen when the content height allows it. Normal progress updates preserve
+the position of the open menu.
+
+The ARM VM passed 280 playback views and 220 output views across both sizes
+and five locales, plus 92 focused playback and QML tests. The Qt tests
+checked the opening geometry, the viewport edges, position stability,
+transport buttons and output selection with all controls available.
