@@ -20,6 +20,7 @@ Rectangle {
     property real touchClock: 0
     property var touches: []
     property bool controlsVisible: true
+    readonly property bool controlsHovered: modeHover.hovered || dynamicsHover.hovered
     readonly property var scenePalette: mood === "chill" ? ["#4DA3FF", "#7B61FF", "#D184FF"] : mood === "groove" ? ["#06C7AD", "#169BC8", "#10B981"] : mood === "energy" ? ["#DDFF00", "#00B8FF", "#39FF78"] : mood === "party" ? ["#FF287F", "#AA38F5", "#F43DCE"] : ["#3285FF", "#843DF5", "#CB27F5"]
     property vector4d composition: Qt.vector4d(Math.random(), Math.random(), Math.random(), Math.random())
     signal closeRequested()
@@ -34,7 +35,10 @@ Rectangle {
         var t = touches[i]
         return t ? Qt.vector4d(t.x,t.y,touchClock-t.at,1) : Qt.vector4d(0,0,0,0)
     }
-    function showControls() { controlsVisible = true; controlsTimeout.restart() }
+    function showControls() {
+        controlsVisible = true
+        if (!controlsHovered) controlsTimeout.restart()
+    }
     function hideControls() { controlsTimeout.stop(); controlsVisible = false }
     function inControlArea(x, y) {
         return modeStrip.contains(modeStrip.mapFromItem(scene, x, y))
@@ -50,7 +54,11 @@ Rectangle {
     onAdmittedChanged: if (!admitted) { touches = []; closeRequested() }
     onMoodChanged: touches = []
     onReduceMotionChanged: if (reduceMotion) touches = []
-    Component.onCompleted: controlsTimeout.start()
+    onControlsHoveredChanged: {
+        if (controlsHovered) controlsTimeout.stop()
+        else if (controlsVisible) controlsTimeout.restart()
+    }
+    Component.onCompleted: showControls()
     Timer {
         interval: 33; repeat: true
         running: scene.visible && scene.admitted && scene.renderable && !scene.reduceMotion
@@ -124,6 +132,7 @@ Rectangle {
         anchors.top: parent.top; anchors.horizontalCenter: parent.horizontalCenter
         anchors.topMargin: Math.min(Math.max(4, scene.pickerTop), Math.max(4, scene.height - height - 12))
         visible: scene.controlsVisible
+        HoverHandler { id: modeHover }
         onFlowRequested: scene.flowRequested()
         onForecastRequested: scene.forecastRequested()
         onVibeScapeRequested: scene.hideControls()
@@ -133,6 +142,7 @@ Rectangle {
         anchors.bottom: parent.bottom; anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottomMargin: 32; width: Math.min(parent.width - 32, 480); height: 72
         visible: scene.controlsVisible && scene.renderable; elevated: true
+        HoverHandler { id: dynamicsHover }
         RowLayout {
             anchors.fill: parent; anchors.margins: 12; spacing: 12
             FeatureIcon {

@@ -212,6 +212,17 @@ with (
             QTest.qWait(50)
             assert visit.property("controlsVisible") and strip.property("visible")
             assert w.property("vibeScapeRequested")  # The reveal tap must not choose an underlying mode.
+            # Moving onto a visible control pauses the real timeout; leaving starts it again.
+            QTest.mouseMove(w, canvas_point)
+            QTest.mouseMove(w, control_point)
+            QTest.qWait(3100)
+            assert visit.property("controlsVisible") and visit.property("controlsHovered")
+            QTest.mouseMove(w, canvas_point)
+            QTest.qWait(3100)
+            assert not visit.property("controlsVisible")
+            QTest.mouseClick(w, Qt.LeftButton, Qt.NoModifier, control_point)
+            QTest.qWait(50)
+            assert visit.property("controlsVisible")
             assert not w.property("screenBlanked")
             assert owner._session["session_id"] == "original-session"
             timer = w.findChild(QObject, "returnToNowTimer")
