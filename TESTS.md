@@ -2762,3 +2762,16 @@ No live-VM language/config change, GUI click proof, new QML/full-suite/physical
 acceptance or publishedrc7asset overwrite. This fix needs a future reviewed
 app release; current publishedrc7/VM bytes stay unchanged. Evidence external
 pi-portal-five-languages-20261031; computer-use unavailable was not bypassed.
+
+### November Horizon and Session parity
+
+In the existing Debian ARM64 QA VM, Python 3.14.9 and Qt/PySide 6.12.0:
+3,650 full tests passed. Run the focused app rendering with
+`PYTHONPATH=src QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software python Tools/preview_session_horizon.py --output <path>`.
+It verified 50 actual views across both sizes and five locales: real Qt
+Flow/Horizon clicks, four Mood colours, white Session Pulse, original queue
+prose and fallback, wrapping/literal markup, expiry and withdrawn history
+without an action. The unchanged Forecast preview separately passed 90 views
+including late image, expiry and reading continuity. No live HA requests,
+physical Pi or GPU acceptance. The offline wheel matched 85 runtime files;
+it is review evidence, not an updated rc.7 publication.

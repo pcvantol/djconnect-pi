@@ -140,6 +140,10 @@ Canvas {
             } else if (iconName === "send") {
                 line(5, 14, 28, 4); line(28, 4, 19, 28); line(19, 28, 14, 19)
                 line(14, 19, 5, 14); line(14, 19, 28, 4)
+            } else if (iconName === "forecast_clock") {
+                circle(16, 16, 11, false); line(16, 9, 16, 16); line(16, 16, 21, 19)
+            } else if (iconName === "forecast_target") {
+                circle(16, 16, 11, false); circle(16, 16, 6, false); circle(16, 16, 2, true)
             } else if (iconName === "history") {
                 ctx.beginPath(); ctx.arc(px(16), py(16), 10, -Math.PI * 0.8, Math.PI * 0.8); ctx.stroke()
                 line(8, 5, 7, 12); line(7, 12, 13, 11)

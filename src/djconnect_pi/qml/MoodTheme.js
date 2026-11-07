@@ -187,3 +187,14 @@ function disabled(position) {
     if (position === "end") return BrandTheme.colors.disabledEnd
     return BrandTheme.colors.disabledStart
 }
+
+// Apple Session mode selection; keep the action palette for Chill and controls
+// outside this explicitly opted-in selector.
+function sessionSelection(value) {
+    var mood = key(value)
+    var tint = mood === "chill" ? BrandTheme.colors.actionAccent :
+        mood === "groove" || mood === "energy" ? palettes[mood].gradientStart :
+        mood === "party" ? mix("#000000", palettes.party.gradientStart, 0.86) :
+        mix("#000000", palettes.default.gradientEnd, 0.35)
+    return {tint: tint, filled: mood !== "chill", foreground: mood === "energy" ? "#0f1433" : "#ffffff"}
+}

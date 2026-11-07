@@ -12,11 +12,12 @@ GlassCard {
     readonly property bool attributionReady: historySources.ready
     property alias bodyItem: retainedBody
     signal askAbout(string sessionId, string entryId)
+    readonly property bool sourceWithdrawn: entry.state === "source_withdrawn"
     readonly property var played: entry.historical_playback || {}
     Layout.fillWidth: true
     Text {
         visible: historySources.ready
-        text: entry.kind === "playback_observed" ? historyCard.translate("session_history_playback") : entry.kind === "conversation_user" ? historyCard.translate("session_you") : entry.kind === "conversation_dj" ? historyCard.translate("session_dj") : entry.kind === "dj_silence" ? historyCard.translate("session_silence") : entry.kind === "dj_publication" ? historyCard.translate("session_unavailable_contribution") : (entry.summary || historyCard.translate("session_title"))
+        text: historyCard.sourceWithdrawn ? historyCard.translate("session_unavailable_contribution") : entry.kind === "playback_observed" ? historyCard.translate("session_history_playback") : entry.kind === "conversation_user" ? historyCard.translate("session_you") : entry.kind === "conversation_dj" ? historyCard.translate("session_dj") : entry.kind === "dj_silence" ? historyCard.translate("session_silence") : entry.kind === "dj_publication" ? historyCard.translate("session_unavailable_contribution") : (entry.summary || historyCard.translate("session_title"))
         color: BrandTheme.colors.text; font.pixelSize: 24; font.bold: true; wrapMode: Text.WordWrap; textFormat: Text.PlainText; Layout.fillWidth: true
     }
     Text { id: retainedBody; text: entry.text || ""; visible: historySources.ready && text.length > 0 && !historyCard.played.title && !historyCard.played.artist && !historyCard.played.album; color: BrandTheme.colors.text; font.pixelSize: 22; wrapMode: Text.WordWrap; textFormat: Text.PlainText; Layout.fillWidth: true }
@@ -26,7 +27,7 @@ GlassCard {
     SessionAttribution { id: historySources; sources: entry.display_sources || []; requiresSpotify: entry.requires_spotify_attribution || false; spotifyURL: entry.spotify_source_url || ""; Layout.fillWidth: true }
     GlassButton {
         objectName: "sessionRetainedAskAbout"
-        visible: historyCard.selectionAvailable && historySources.ready
+        visible: !historyCard.sourceWithdrawn && historyCard.selectionAvailable && historySources.ready
         text: historyCard.translate("session_ask_about"); enabled: !historyCard.selectionBusy
         onClicked: { historyCard.askAbout(entry.session_id, entry.entry_id) }
     }

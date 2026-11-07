@@ -571,6 +571,7 @@ class SessionController(QObject):
             session_id, rows = self._timeline.get("session", {}).get("session_id"), self._timeline.get("entries", [])
         return (selected["session_id"] == session_id
                 and any(row["session_id"] == selected["session_id"] and row["entry_id"] == selected["entry_id"]
+                        and row.get("state") != "source_withdrawn"
                         and (timestamp(row.get("retained_until")) or 0) > self._clock.now() for row in rows))
 
     @Slot()

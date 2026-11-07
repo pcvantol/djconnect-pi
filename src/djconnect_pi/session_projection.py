@@ -230,6 +230,15 @@ def history_page(response, *, session_id=None, now=None):
             raise SessionError("unavailable")
         if row.get("historical_view_only") is not True or row.get("current_display_allowed") is not False:
             raise SessionError("invalid")
+        if row.get("state") == "source_withdrawn":
+            # Core history2 preserves the typed navigation identity, never the body.
+            roles = {"conversation_user": "user", "conversation_dj": "assistant"}
+            if (row["kind"] not in roles or row.get("role") != roles[row["kind"]]
+                    or row.get("text") != "" or row.get("context") != {"session_id": session_id}
+                    or row.get("input_type") not in ("text", "voice")):
+                raise SessionError("invalid")
+            identifier(row.get("turn_id"))
+            identifier(row.get("origin_message_id"))
         if row["kind"] == "dj_moment" and (not isinstance(row.get("archive_basis"), str) or row["archive_basis"] not in ARCHIVE_BASES):
             raise SessionError("invalid")
         if row["kind"] in {"dj_publication", "dj_silence"} and (row.get("text") is not None or row.get("speech_available") is not False):

@@ -2,6 +2,8 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import "BrandTheme.js" as BrandTheme
+import "ForecastGuidance.js" as ForecastGuidance
+import "MoodTheme.js" as MoodTheme
 
 Item {
     id: screen
@@ -690,12 +692,37 @@ Item {
 
     RowLayout {
         id: modeSwitch
-        visible: !screen.historical && (screen.state.forecast_supported || (screen.backend.releaseProfile === "pi5-arm64" && screen.state.runtime_state === "active"))
-        anchors.left: parent.left; anchors.top: toolbar.bottom
-        anchors.leftMargin: 20; anchors.topMargin: 10; height: 48
-        GlassButton { objectName: "sessionFlowMode"; text: screen.tr("session_flow"); checked: !screen.forecastMode; onClicked: screen.forecastMode = false }
-        GlassButton { objectName: "sessionForecastMode"; visible: screen.state.forecast_supported; text: screen.tr("session_forecast"); checked: screen.forecastMode; onClicked: screen.forecastMode = true }
-        GlassButton { objectName: "sessionVibeScapeMode"; visible: screen.backend.releaseProfile === "pi5-arm64" && screen.state.runtime_state === "active" && !screen.state.profile_confirmation_required && !screen.state.owner_read_only; text: screen.tr("vibescape_title"); onClicked: screen.openVibeScape() }
+        readonly property bool allowsVibeScape: screen.backend.releaseProfile === "pi5-arm64" && screen.state.runtime_state === "active" && !screen.state.profile_confirmation_required && !screen.state.owner_read_only
+        readonly property var selectionStyle: MoodTheme.sessionSelection(screen.state.mood)
+        readonly property color selectedFill: {
+            var tint = Qt.color(selectionStyle.tint)
+            return selectionStyle.filled ? Qt.rgba(tint.r, tint.g, tint.b, 0.9) : "transparent"
+        }
+        visible: !screen.historical && (screen.state.forecast_supported || allowsVibeScape)
+        anchors.left: parent.left; anchors.right: parent.right; anchors.top: toolbar.bottom
+        anchors.leftMargin: 20; anchors.rightMargin: 20; anchors.topMargin: 10; height: 48
+        GlassButton {
+            objectName: "sessionFlowMode"; text: screen.tr("session_flow")
+            Layout.fillWidth: true; Layout.preferredWidth: 1; Layout.preferredHeight: 48
+            checked: !screen.showForecast
+            tint: modeSwitch.selectionStyle.tint; selectionFill: modeSwitch.selectedFill
+            foregroundColor: checked ? modeSwitch.selectionStyle.foreground : BrandTheme.colors.muted
+            onClicked: screen.forecastMode = false
+        }
+        GlassButton {
+            objectName: "sessionForecastMode"; visible: screen.state.forecast_supported; text: screen.tr("session_forecast")
+            Layout.fillWidth: true; Layout.preferredWidth: 1; Layout.preferredHeight: 48
+            checked: screen.showForecast
+            tint: modeSwitch.selectionStyle.tint; selectionFill: modeSwitch.selectedFill
+            foregroundColor: checked ? modeSwitch.selectionStyle.foreground : BrandTheme.colors.muted
+            onClicked: screen.forecastMode = true
+        }
+        GlassButton {
+            objectName: "sessionVibeScapeMode"; visible: modeSwitch.allowsVibeScape
+            text: screen.tr("vibescape_title"); foregroundColor: BrandTheme.colors.muted
+            Layout.fillWidth: true; Layout.preferredWidth: 1; Layout.preferredHeight: 48
+            onClicked: screen.openVibeScape()
+        }
     }
     ScrollView {
         id: forecastScroll
@@ -749,9 +776,54 @@ Item {
                     required property var modelData
                     objectName: "sessionForecastSection-" + modelData.id
                     Layout.fillWidth: true
-                    Text { text: screen.tr("session_forecast_" + modelData.claim_type); textFormat: Text.PlainText; color: BrandTheme.colors.cyan; font.pixelSize: 18; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                    Text { text: modelData.title; textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 25; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                    Text { text: modelData.text; textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 23; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                    RowLayout {
+                        spacing: 10; Layout.fillWidth: true
+                        FeatureIcon {
+                            objectName: "sessionForecastSectionIcon"
+                            iconName: modelData.id === "current" ? "play" : modelData.id === "guidance" ? "forecast_clock" : "forecast_target"
+                            Layout.preferredWidth: 26; Layout.preferredHeight: 26; Layout.alignment: Qt.AlignTop
+                            Accessible.ignored: true
+                        }
+                        Text {
+                            text: modelData.title; textFormat: Text.PlainText; color: BrandTheme.colors.text
+                            font.pixelSize: 25; font.bold: true; wrapMode: Text.Wrap; Layout.fillWidth: true
+                            Accessible.role: Accessible.Heading
+                        }
+                    }
+                    Text { text: screen.tr("session_forecast_" + modelData.claim_type); textFormat: Text.PlainText; color: BrandTheme.colors.muted; font.pixelSize: 18; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                    readonly property var guidance: ForecastGuidance.split(modelData.id, modelData.text)
+                    Text {
+                        objectName: "sessionForecastSectionBody"
+                        text: guidance ? guidance.intro : modelData.text
+                        textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 23
+                        wrapMode: Text.Wrap; Layout.fillWidth: true
+                    }
+                    ColumnLayout {
+                        visible: !!guidance
+                        spacing: 7; Layout.fillWidth: true
+                        Repeater {
+                            model: guidance ? guidance.tracks : []
+                            RowLayout {
+                                required property string modelData
+                                spacing: 8; Layout.fillWidth: true
+                                Text {
+                                    text: "•"; color: BrandTheme.colors.text; font.pixelSize: 23
+                                    Layout.alignment: Qt.AlignTop; Accessible.ignored: true
+                                }
+                                Text {
+                                    objectName: "sessionForecastQueueTrack"; text: modelData
+                                    textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 23
+                                    wrapMode: Text.Wrap; Layout.fillWidth: true
+                                }
+                            }
+                        }
+                    }
+                    Text {
+                        objectName: "sessionForecastQueueNote"; visible: !!guidance
+                        text: guidance ? guidance.note : ""
+                        textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 23
+                        wrapMode: Text.Wrap; Layout.fillWidth: true
+                    }
                 }
             }
             Text { visible: screen.state.forecast.sections.length === 0; text: screen.tr("session_forecast_empty"); textFormat: Text.PlainText; color: BrandTheme.colors.muted; font.pixelSize: 23; wrapMode: Text.WordWrap; Layout.fillWidth: true }

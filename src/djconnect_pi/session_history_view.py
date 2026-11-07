@@ -63,7 +63,15 @@ def historical_playback(row):
 
 def presented_history(response):
     result = deepcopy(response)
-    for row in result.get("entries", []):
+    for index, row in enumerate(result.get("entries", [])):
+        if row.get("state") == "source_withdrawn":
+            # Project only identity, ordering and the original deadline. Even an
+            # additive field cannot reintroduce withdrawn sources or actions.
+            keys = ("entry_id", "session_id", "kind", "order", "retained_until", "occurred_at",
+                    "historical_view_only", "current_display_allowed", "state", "turn_id", "role",
+                    "origin_message_id", "input_type")
+            result["entries"][index] = {**{key: row[key] for key in keys if key in row}, "text": ""}
+            continue
         row["historical_playback"] = historical_playback(row)
         row["display_sources"] = sources(row)
         if type(row.get("requires_spotify_attribution", False)) is not bool:
@@ -229,7 +237,7 @@ def accepted_question(response, binding, request):
 def conversation_entries(page):
     rows = []
     for row in page["entries"]:
-        if row["kind"] not in {"conversation_user", "conversation_dj"}:
+        if row["kind"] not in {"conversation_user", "conversation_dj"} or row.get("state") == "source_withdrawn":
             continue
         expected_role = "user" if row["kind"] == "conversation_user" else "assistant"
         if (row.get("role") != expected_role or not isinstance(row.get("text"), str)

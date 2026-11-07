@@ -69,7 +69,7 @@ def test_apple_action_tokens_preserve_pinned_primary_and_selection_roles():
 def test_presentation_selection_does_not_use_primary_action_gradient():
     qml = files("djconnect_pi.qml").joinpath("SessionScreen.qml").read_text()
     assert 'checked: known && observation.liked' in qml
-    assert 'checked: !screen.forecastMode' in qml
-    assert 'checked: screen.forecastMode' in qml
+    assert 'checked: !screen.showForecast' in qml
+    assert 'checked: screen.showForecast' in qml
     assert 'checked: screen.toolbarValue(choices.field)' in qml
     assert 'primary: known && observation.liked' not in qml
