@@ -1010,6 +1010,49 @@ def main():
             flick.setProperty('contentY',min(playback_cards[0].property('y'),max(0,flick.property('contentHeight')-flick.property('height'))))
             capture('retained-flow-playback-and-conversation-'+language)
             assert owner.state['retained_flow'][6]['historical_playback']['title']=='<img> letterlijk 🎵\nObserved track'
+            # A fresh owner read inserts/removes the compact header above older rows.
+            playing = deepcopy(flow_session)
+            snapshot = playing['broadcast']
+            snapshot['session']['runtime_state'] = 'active'
+            snapshot['playback'] = {'state': 'playing', 'item_id': 'fixture-track',
+                'updated_at': datetime.fromtimestamp(stamp, UTC).isoformat(), 'title': 'Fixture track'}
+            waiting = window.findChild(QObject, 'sessionWaitingCard')
+            jump = window.findChild(QObject, 'sessionJumpCurrent')
+
+            def refresh_flow(frame):
+                owner.transport.active.return_value = {'success': True, 'session': frame}
+                owner.refresh()
+                backend._executor.submit.call_args.args[0]()
+                QTest.qWait(340)
+
+            refresh_flow(playing)
+            assert not waiting.property('visible')
+            flick.setProperty('contentY', min(420, flick.property('contentHeight') - flick.height() - 100))
+            QTest.qWait(40)
+            assert jump.property('visible')
+            QMetaObject.invokeMethod(screen, 'rememberFlow')
+            before = screen.property('flowReturn').toVariant()
+            assert before['kind'] == 'conversation'
+            QMetaObject.invokeMethod(screen, 'clearFlowReturn')
+            idle = deepcopy(playing)
+            idle['broadcast']['native_delivery'] = {'schema_version': 1, 'revision': 'fixture-idle',
+                'session_id': playing['session_id'], 'revocation_scope': 'session',
+                'current_moment_id': None, 'current_silence_moment_id': None}
+            for frame, compact in ((idle, True), (playing, False)):
+                refresh_flow(frame)
+                assert waiting.property('visible') == compact
+                QMetaObject.invokeMethod(screen, 'rememberFlow')
+                after = screen.property('flowReturn').toVariant()
+                assert after['id'] == before['id'] and abs(after['offset'] - before['offset']) <= 1, (before, after)
+                QMetaObject.invokeMethod(screen, 'clearFlowReturn')
+                if compact:
+                    anchored_y = flick.property('contentY')
+                    flick.setProperty('contentY', 0)
+                    QTest.qWait(40)
+                    capture('compact-dj-above-retained-' + language)
+                    flick.setProperty('contentY', anchored_y)
+                    QTest.qWait(40)
+            refresh_flow(flow_session)
             # Existing selected_entry route, driven from the actual retained Flow card.
             def flow_cards(item):
                 if item.objectName()=='sessionConversationCard': yield item

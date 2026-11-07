@@ -3022,3 +3022,19 @@ The ARM VM passed 300 offline playback views across both sizes and five
 locales, plus 174 focused projection, controller and QML tests. The checks
 cover explicit empty references, unknown or mismatched native authority,
 the transition to pause and continued access to End.
+
+### Compact DJ symbol above retained Flow
+
+A fresh owner update that explicitly confirms no current native contribution
+can show the compact DJ symbol above older saved contributions during playback.
+A reader already below the header keeps their position on the same admitted
+contribution when the symbol appears or disappears. If that contribution is
+withdrawn, the automatic adjustment is dropped. Touch and explicit reply
+navigation retain priority.
+
+`preview_session_composer.py` tests both directions through the real controller
+with synthetic owner responses at 720×720 and 1200×1920 in all five locales.
+It checks the same contribution ID and a maximum one-pixel offset difference.
+
+On the ARM test VM, 466 composer and 300 playback views completed without
+QML errors. The controller and projection suites passed 152 focused tests.

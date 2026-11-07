@@ -159,7 +159,7 @@ Item {
     }
     // Only identity/position survives the history view, never a cached body.
     property var flowReturn: null
-    function clearFlowReturn() { flowReturnRestore.stop(); flowReturnRestore.artworkTries = 0; flowReturnRestore.artworkLayout = ""; flowReturn = null }
+    function clearFlowReturn() { flowReturnRestore.stop(); flowReturnRestore.artworkTries = 0; flowReturnRestore.artworkLayout = ""; flowReturnRestore.resetIfMissing = true; flowReturn = null }
     function rememberFlow() {
         clearFlowReturn()
         if (historical || showForecast || !state.session_id) return
@@ -256,6 +256,7 @@ Item {
         objectName: "sessionArtworkReadingRestore"
         interval: 32
         property int artworkTries: 0
+        property bool resetIfMissing: true
         property string artworkLayout: ""
         onTriggered: {
             var saved = screen.flowReturn
@@ -264,14 +265,15 @@ Item {
             if (!screen.visible || screen.historical || screen.showForecast || screen.followQuestionReply || flick.dragging || flick.moving) { screen.clearFlowReturn(); return }
             // Re-resolve admission and the visual item on every bounded attempt.
             if (saved.session !== screen.state.session_id || saved.profile !== screen.scopeProfileId || !screen.flowIdentityPresent(saved)) {
-                screen.clearFlowReturn(); flick.contentY = 0; return
+                if (resetIfMissing) flick.contentY = 0
+                screen.clearFlowReturn(); return
             }
             historyContent.ensurePolished()
             var target = screen.flowTarget(saved)
             artworkTries++
             if (!target || !target.visible || target.height <= 0 || flick.contentHeight + 1 < historyContent.implicitHeight) {
                 if (artworkTries < 8) restart()
-                else { screen.clearFlowReturn(); flick.contentY = 0 }
+                else { if (resetIfMissing) flick.contentY = 0; screen.clearFlowReturn() }
                 return
             }
             target.ensurePolished(); flick.ensurePolished()
@@ -574,6 +576,14 @@ Item {
     }
     Connections {
         target: screen.owner
+        function onFlowIdleHeaderAboutToChange() {
+            if (!jumpCurrent.visible || screen.followQuestionReply || historyScroll.contentItem.moving || screen.flowReturn) return
+            screen.rememberArtworkReading()
+            if (screen.flowReturn) {
+                flowReturnRestore.resetIfMissing = false
+                flowReturnRestore.restart()
+            }
+        }
         function onArtworkAboutToChange() { if (screen.visible && !screen.historical && !screen.showForecast && !screen.followQuestionReply && !historyScroll.contentItem.moving && !screen.flowReturn) screen.rememberArtworkReading() }
         function onArtworkChanged() { if (screen.visible && !screen.historical && !screen.showForecast && !screen.followQuestionReply && !historyScroll.contentItem.moving && screen.flowReturn) { flowReturnRestore.artworkTries = 0; flowReturnRestore.artworkLayout = ""; flowReturnRestore.restart() } }
         function onForecastImageAboutToChange() { screen.rememberForecastReading() }
@@ -1116,10 +1126,11 @@ Item {
                 objectName: "sessionWaitingCard"
                 readonly property bool compactIdle: screen.state.loaded && !screen.state.error
                     && !screen.backend.demoMode && !!screen.state.current_moment_idle
+                    && !screen.state.moments.some(function(moment) { return moment.current })
                     && playbackSources.ready && screen.state.playback.state === "playing"
                 readonly property bool playbackPaused: !screen.state.error && playbackSources.ready
                     && screen.state.playback.state === "paused"
-                visible: !screen.historical && screen.state.session_id.length > 0 && screen.state.moments.length === 0 && screen.state.retained_flow.length === 0
+                visible: !screen.historical && screen.state.session_id.length > 0 && (compactIdle || (screen.state.moments.length === 0 && screen.state.retained_flow.length === 0))
                 Layout.fillWidth: !compactIdle
                 Layout.alignment: Qt.AlignLeft
                 padding: compactIdle ? 14 : 22
@@ -1430,6 +1441,7 @@ Item {
         }
     }
     GlassButton {
+        id: jumpCurrent
         objectName: "sessionJumpCurrent"
         readonly property real currentHeaderBottom: {
             var moments = screen.state.moments

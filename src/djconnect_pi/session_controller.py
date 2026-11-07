@@ -60,6 +60,7 @@ class SessionController(QObject):
     forecastImageAboutToChange = Signal()
     artworkChanged = Signal()
     artworkAboutToChange = Signal()
+    flowIdleHeaderAboutToChange = Signal()
     entryOpened = Signal()
     questionConfirmed = Signal(str)
     currentReplyReady = Signal()
@@ -1368,10 +1369,16 @@ class SessionController(QObject):
                     self._timeline_trail = []
                     self._search = {}
                     self._withdraw_question()
-                if self._session.get("session_id") != result["session"].get("session_id"):
+                incoming_session = result["session"]
+                if self._session.get("session_id") != incoming_session.get("session_id"):
                     self._withdraw_question()
+                elif not scope_changed:
+                    was_idle = session_current_idle(self._session) and session_playback(self._session).get("state") == "playing"
+                    will_be_idle = session_current_idle(incoming_session) and session_playback(incoming_session).get("state") == "playing"
+                    if was_idle != will_be_idle:
+                        self.flowIdleHeaderAboutToChange.emit()
                 self._loaded = True
-                self._session = result["session"]
+                self._session = incoming_session
                 self._moments = live_presentations(self._session, now=self._clock.now())
                 self._caps = result.get("capabilities", self._caps)
                 self._forecast.receive(self._session, self._caps, self._clock.now())
