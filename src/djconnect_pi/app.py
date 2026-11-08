@@ -69,6 +69,7 @@ from .shared_settings import SettingsError
 from .system_info import log_raspberry_pi_system_info
 
 _LOGGER = logging.getLogger(__name__)
+LOCAL_TERMINAL_UNIT = Path("/etc/systemd/system/djconnect-local-terminal.service")
 LOG_LINE_RE = re.compile(
     r"^\d{4}-\d{2}-\d{2}\s+(?P<time>\d{2}:\d{2}:\d{2})(?:[,.]\d+)?\s+(?P<level>[A-Z]+)\s+(?P<rest>.*)$"
 )
@@ -1466,6 +1467,27 @@ class DJConnectBackend(QObject):
         self._forget_pairing()
         self.showToastForContext(self.tr_key("ready_to_pair"), "connectivity")
         self._set_status_text(self.tr_key("ready_to_pair"))
+
+    @Property(bool, constant=True)
+    def localTerminalAvailable(self) -> bool:
+        return LOCAL_TERMINAL_UNIT.is_file()
+
+    @Slot()
+    def openLocalTerminal(self) -> None:
+        if not self.localTerminalAvailable:
+            return
+
+        def start() -> None:
+            try:
+                subprocess.run(
+                    ["/usr/bin/sudo", "-n", "/usr/bin/systemctl", "start", LOCAL_TERMINAL_UNIT.name],
+                    check=True, timeout=10, capture_output=True, text=True,
+                )
+            except (OSError, subprocess.SubprocessError) as exc:
+                _LOGGER.warning("Could not start local terminal: %s", exc)
+                self._toastReady.emit(self.tr_key("local_terminal_failed"), 5000, "diagnostics")
+
+        self._run(self.tr_key("local_terminal"), start)
 
     @Slot()
     def rebootDevice(self) -> None:
