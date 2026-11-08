@@ -275,6 +275,29 @@ def test_flow_interleaves_admitted_previous_bulletins_and_preserves_the_current_
     assert bulletin["source_expires_at"] == "original"
 
 
+@pytest.mark.parametrize("current", [False, True])
+def test_flow_coalesces_only_the_live_bulletins_own_publication_receipt(current):
+    bulletin = {"flow_bulletin": True, "current": current, "moment_id": "m",
+                "occurred_at": "2026-10-31T19:48:15Z"}
+    receipt = {"session_id": "s", "kind": "dj_publication", "moment_id": "m",
+               "moment_type": "dj_bulletin", "content_state": "unavailable",
+               "unavailable_reason": "source_retention_not_qualified"}
+    entries = [
+        receipt,
+        {**receipt, "session_id": "other-session"},
+        {**receipt, "moment_id": "other-bulletin"},
+        {**receipt, "moment_type": "other-type"},
+        {**receipt, "unavailable_reason": "source_withdrawn"},
+    ]
+    original = deepcopy(entries)
+
+    visible = flow_contributions(entries, [bulletin], "s")
+    assert [row["contribution"] for row in visible if not row["bulletin"]] == entries[:0:-1]
+    assert [row["contribution"] for row in visible if row["bulletin"]] == ([] if current else [bulletin])
+    assert [row["contribution"] for row in flow_contributions(entries, [], "s")] == entries[::-1]
+    assert entries == original
+
+
 def withdrawn_timeline(kind):
     tail = timeline_fixture()
     row = tail["entries"][0]

@@ -93,16 +93,25 @@ def presented_history(response):
 def retained_flow_presentation(entries, admitted_moments, session_id):
     """Order admitted history for Flow without changing the canonical timeline.
 
-    Only an exact-ID native prose duplicate from the current Session is omitted.
-    Ties keep the previous reverse canonical order, and a missing date sorts last.
+    Omit same-Session native prose duplicates and the publication receipt
+    for an admitted live Bulletin. Keep original ordering for equal dates.
     """
-    ids = {row["moment_id"] for row in admitted_moments
-           if isinstance(row.get("moment_id"), str) and row["moment_id"]}
-    visible = [row for row in reversed(entries) if not (
-        isinstance(session_id, str) and session_id
-        and row.get("kind") == "dj_moment" and row.get("session_id") == session_id
-        and isinstance(row.get("moment_id"), str) and row["moment_id"] in ids
-    )]
+    moment_ids = {row["moment_id"] for row in admitted_moments
+                  if isinstance(row.get("moment_id"), str) and row["moment_id"]}
+    bulletin_ids = {row.get("moment_id") for row in admitted_moments
+                    if row.get("flow_bulletin") and isinstance(row.get("moment_id"), str)}
+    visible = []
+    for row in reversed(entries):
+        moment_id = row.get("moment_id")
+        same_session = isinstance(session_id, str) and session_id and row.get("session_id") == session_id
+        if same_session and isinstance(moment_id, str) and moment_id:
+            if row.get("kind") == "dj_moment" and moment_id in moment_ids:
+                continue
+            if (moment_id in bulletin_ids and row.get("kind") == "dj_publication"
+                    and row.get("moment_type") == "dj_bulletin" and row.get("content_state") == "unavailable"
+                    and row.get("unavailable_reason") == "source_retention_not_qualified"):
+                continue
+        visible.append(row)
 
     return sorted(visible, key=_flow_time, reverse=True)
 
