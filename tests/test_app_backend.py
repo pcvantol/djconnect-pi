@@ -3392,11 +3392,32 @@ def test_control_volume_rechecks_original_context_before_sending(tmp_path: Path,
         transport.playback_volume.assert_not_called()
 
 
-def test_playback_status_keeps_zero_volume_and_stable_output(tmp_path: Path) -> None:
+@pytest.mark.parametrize("provider", ["spotify_direct", "music_assistant"])
+@pytest.mark.parametrize("observation", ["zero", "missing", "conflicting", "restricted", "no_capability"])
+def test_control_volume_requires_observed_volume_and_writable_output(tmp_path: Path, provider: str, observation: str) -> None:
     ensure_app()
     backend = DJConnectBackend(tmp_path / "config.json")
-    playback = backend.client.playback_from_status({
-        "playback": {"volume": 0, "device": {"id": "speaker-id", "name": "Speaker"}},
-    })
-    assert playback.volume == 0
-    assert playback.volume_output_id == "speaker-id"
+    backend.cfg.paired = True
+    backend.cfg.device_token = "fixture"
+    backend.cfg.active_profile_id = backend.cfg.explicit_profile_id = "fixture"
+    backend.cfg.music_backend = provider
+    backend.cfg.music_backend_capabilities = {"supports_volume": True}
+    device = {"id": "speaker-id", "name": "Speaker", "supports_volume": True,
+              "active": True, "is_restricted": False, "entity_id": "speaker-id"}
+    playback = {"volume": 0, "uri": "fixture:item", "device": device}
+    status = {"music_backend": provider, "backend_available": True, "music_backend_available": True,
+              "music_backend_capabilities": {"supports_volume": True}, "playback": playback}
+    if observation == "missing":
+        playback.pop("volume")
+    elif observation == "conflicting":
+        playback["volume_percent"] = 30
+    elif observation == "restricted":
+        device.update(is_restricted=True, entity_id="other")
+    elif observation == "no_capability":
+        status["music_backend_capabilities"]["supports_volume"] = False
+
+    backend._apply_playback(backend.client.playback_from_status(status))
+
+    assert backend.controlVolumeAvailable is (observation == "zero")
+    if observation == "zero":
+        assert backend.volume == 0

@@ -11,6 +11,8 @@ import requests
 from .config import CLIENT_TYPE, Config, normalize_dj_announcement_output
 from .ha_websocket import WebSocketFastPath, WebSocketWriteUnconfirmed
 from .i18n import locale_for_language, translate
+from .session_projection import volume_observation
+from .session_transport import SessionError
 from .shared_settings import SharedSettingsClient
 
 _LOGGER = logging.getLogger(__name__)
@@ -576,11 +578,19 @@ class HAClient:
             output_device_source,
             _output_device_name(_output_device_name_source(playback, data)),
         )
-        device = playback.get("device")
-        output_id = device.get("id") if isinstance(device, dict) else None
         percent = next((playback[key] for key in ("volume", "volume_percent")
                         if playback.get(key) or playback.get(key) == 0), 50)
+        volume_output_id = ""
         backend_available = data.get("backend_available")
+        if (data.get("success") is not False and backend_available is True
+                and data.get("music_backend_available") is True):
+            try:
+                observation = volume_observation(data, data.get("music_backend"))
+            except SessionError:
+                pass
+            else:
+                volume_output_id = observation["output_id"]
+                percent = observation["percent"]
         if data.get("success") is False or backend_available is False:
             _LOGGER.debug(
                 "Playback status reports backend_available=%s error=%s message=%s",
@@ -631,7 +641,7 @@ class HAClient:
             output_device_id=device_id if isinstance(device_id, str) and device_id.strip() else "",
             output_devices=tuple(output_devices),
             output_device_details=tuple(output_device_details),
-            volume_output_id=output_id if isinstance(output_id, str) else "",
+            volume_output_id=volume_output_id,
         )
 
     def update_backend_summary(self, data: dict[str, Any]) -> MusicBackendSummary:
