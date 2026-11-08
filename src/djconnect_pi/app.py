@@ -2285,7 +2285,7 @@ class DJConnectBackend(QObject):
         self.playback = playback
         track_changed = old.title != playback.title or old.artist != playback.artist or old.image_url != playback.image_url or old.uri != playback.uri
         if (self._track_insight_subject(old) != self._track_insight_subject(playback)
-                or old.output_device != playback.output_device):
+                or self._track_insight_output(old) != self._track_insight_output(playback)):
             self._track_insight_revision += 1
             self._clear_track_insight()
         elif self._track_insight_result_scope is not None and self._track_insight_result_scope != self._track_insight_scope():
@@ -2607,6 +2607,12 @@ class DJConnectBackend(QObject):
             return ("uri", playback.uri.strip())
         return ("metadata", *(value.strip().casefold() for value in (playback.title, playback.artist, playback.album)))
 
+    @staticmethod
+    def _track_insight_output(playback: Playback) -> tuple[str, str]:
+        if playback.output_device_id:
+            return ("id", playback.output_device_id)
+        return ("label", playback.output_device)
+
     def _track_insight_scope(self) -> tuple:
         return (
             self._private_read_context(),
@@ -2615,7 +2621,7 @@ class DJConnectBackend(QObject):
             self.cfg.music_backend,
             self.cfg.music_backend_revision,
             self.cfg.music_target_player.get("id", ""),
-            self.playback.output_device,
+            self._track_insight_output(self.playback),
         )
 
     def _clear_track_insight(self, *, error: str = "") -> None:
