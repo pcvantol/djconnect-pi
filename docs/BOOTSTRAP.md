@@ -27,7 +27,7 @@ Hardware:
 Software:
 
 - Raspberry Pi OS Lite 64-bit with glibc >=2.39 (Debian Trixie baseline)
-- standard GIL-enabled Python 3.14.9 (the app uses its own virtual environment)
+- standard GIL-enabled Python 3.14.10 (the app uses its own virtual environment)
 - PySide6 / Qt Quick runtime
 - Git
 - GitHub CLI only if releases are managed from the Pi itself
@@ -263,7 +263,7 @@ The installer is safe to run over an earlier DJConnect install:
 - reuses Python package downloads from `/var/cache/djconnect-pip`
 - refuses an incompatible existing virtual environment before stopping the UI
 - prepares the new release and dependencies before stopping the old UI
-- installs hash-pinned app Python under `/opt/djconnect-python/cpython-3.14.9`;
+- installs hash-pinned app Python under `/opt/djconnect-python/cpython-3.14.10`;
   OS bootstrap Python remains separate
 
 If the Pi freezes, overheats, loses power or is rebooted during the heavy

@@ -7,7 +7,7 @@ name = "djconnect-pi"
 version = "4.0.0rc8"
 description = "Raspberry Pi touch display client for DJConnect"
 readme = "README.md"
-requires-python = ">=3.14.9,<3.15"
+requires-python = ">=3.14.10,<3.15"
 license = { file = "LICENSE" }
 classifiers = [
   "License :: OSI Approved :: MIT License",

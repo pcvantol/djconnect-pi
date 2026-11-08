@@ -309,7 +309,7 @@ def test_install_python_dependencies_resumes_completed_steps(tmp_path: Path) -> 
     write_dependency_lock(release_dir)
     (release_dir / ".venv" / "bin").mkdir(parents=True)
     (release_dir / ".venv" / "bin/python").symlink_to(sys._base_executable)
-    (release_dir / ".venv" / "pyvenv.cfg").write_text("version = 3.14.9\ninclude-system-site-packages = false\n")
+    (release_dir / ".venv" / "pyvenv.cfg").write_text("version = 3.14.10\ninclude-system-site-packages = false\n")
     (state_dir / "venv_created").write_text("ok\n", encoding="utf-8")
     (state_dir / "pip_checked").write_text("ok\n", encoding="utf-8")
     (state_dir / "locked_dependencies_installed").write_text("ok\n", encoding="utf-8")

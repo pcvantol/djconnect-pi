@@ -1,6 +1,6 @@
 # Tests
 
-Use CPython 3.14.9 in a fresh virtual environment. Install the
+Use CPython 3.14.10 in a fresh virtual environment. Install the
 canonical lock before installing the application, so local tests use the same
 dependency set as CI.
 

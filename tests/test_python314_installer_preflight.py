@@ -36,7 +36,7 @@ def interpreter(tmp_path):
 
 @pytest.mark.parametrize("version,accepted", [
     ("[3,11,17]", False), ("[3,13,5]", False), ("[3,14,8]", False),
-    ("[3,14,9]", True), ("[3,14,10]", True), ("[3,15,0]", False),
+    ("[3,14,9]", False), ("[3,14,10]", True), ("[3,15,0]", False),
 ])
 @pytest.mark.parametrize("approved", [False, True])
 def test_real_preflight_precedes_both_service_effects(tmp_path, version, accepted, approved):
@@ -59,7 +59,7 @@ def test_real_preflight_precedes_both_service_effects(tmp_path, version, accepte
     assert (result.returncode == 0) is accepted, result.stderr
     assert effect.exists() is accepted
     if not accepted:
-        assert "Python 3.14.9 or newer in 3.14 is required" in result.stderr
+        assert "Python 3.14.10 or newer in 3.14 is required" in result.stderr
 
 
 def test_free_threaded_python_is_rejected_before_effects(tmp_path):
@@ -68,7 +68,7 @@ def test_free_threaded_python_is_rejected_before_effects(tmp_path):
                             + function("check_python_version") + "\nDJCONNECT_PYTHON="
                             + shlex.quote(str(python)) + "\ncheck_python_version\necho EFFECT"],
                             capture_output=True, text=True, check=False,
-                            env={**os.environ, "FIXTURE_VERSION": "[3,14,9]", "FIXTURE_NO_GIL": "1"})
+                            env={**os.environ, "FIXTURE_VERSION": "[3,14,10]", "FIXTURE_NO_GIL": "1"})
     assert result.returncode != 0 and "EFFECT" not in result.stdout
 
 
@@ -83,7 +83,7 @@ def test_existing_old_python_venv_is_preserved_and_never_executed(tmp_path, mark
     binary.write_text("#!/bin/sh\ntouch " + shlex.quote(str(executed)) + "\n")
     binary.chmod(0o755)
     cfg = binary.parents[1] / "pyvenv.cfg"
-    cfg.write_text("version = " + ("3.13.5" if problem == "old-version" else "3.14.9")
+    cfg.write_text("version = " + ("3.13.5" if problem == "old-version" else "3.14.10")
                    + "\ninclude-system-site-packages = false\n")
     if marker == "partial":
         (release / ".install-state").mkdir()
@@ -96,7 +96,7 @@ def test_existing_old_python_venv_is_preserved_and_never_executed(tmp_path, mark
              + "\nDJCONNECT_ROOT=" + shlex.quote(str(tmp_path))
              + "\ncheck_existing_python_environment\necho EFFECT")
     result = subprocess.run(["bash", "-c", shell], capture_output=True, text=True, check=False,
-                            env={**os.environ, "FIXTURE_VERSION": "[3,14,9]", "FIXTURE_NO_GIL": "0"})
+                            env={**os.environ, "FIXTURE_VERSION": "[3,14,10]", "FIXTURE_NO_GIL": "0"})
     assert result.returncode != 0 and "EFFECT" not in result.stdout
     assert not executed.exists() and binary.read_bytes() == before
 
@@ -105,7 +105,7 @@ def test_matching_python314_venv_can_resume(tmp_path):
     release = tmp_path / "releases/fixture/.venv"
     (release / "bin").mkdir(parents=True)
     (release / "bin/python").symlink_to(sys._base_executable)
-    (release / "pyvenv.cfg").write_text("version = 3.14.9\ninclude-system-site-packages = false\n")
+    (release / "pyvenv.cfg").write_text("version = 3.14.10\ninclude-system-site-packages = false\n")
     shell = ("set -eu\nrelease_id(){ echo fixture; }; marker_done(){ return 0; }\n"
              + function("check_existing_python_environment")
              + "\nDJCONNECT_PYTHON=" + shlex.quote(sys.executable)

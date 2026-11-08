@@ -28,8 +28,8 @@ def fake_interpreter(tmp_path, version, free_threaded=0):
 
 @pytest.mark.parametrize("version,free_threaded,accepted", [
     ((3, 11, 17), 0, False), ((3, 13, 5), 0, False), ((3, 14, 8), 0, False),
-    ((3, 14, 9), 0, True), ((3, 14, 10), 0, True), ((3, 15, 0), 0, False),
-    ((3, 14, 9), 1, False),
+    ((3, 14, 9), 0, False), ((3, 14, 10), 0, True), ((3, 15, 0), 0, False),
+    ((3, 14, 10), 1, False),
 ])
 def test_actual_selected_interpreter_probe(tmp_path, monkeypatch, version, free_threaded, accepted):
     executable = fake_interpreter(tmp_path, version, free_threaded)
@@ -49,7 +49,7 @@ def test_missing_or_hung_runtime_fails_closed(monkeypatch, failure):
         updater.application_python()
     assert run.call_count == 1
     args, kwargs = run.call_args
-    assert args[0][0] == "/opt/djconnect-python/cpython-3.14.9/bin/python3.14"
+    assert args[0][0] == "/opt/djconnect-python/cpython-3.14.10/bin/python3.14"
     assert args[0][1:4] == ["-I", "-B", "-c"]
     assert kwargs["env"] == {"PATH": "/usr/bin:/bin"} and kwargs["timeout"] == 30
     assert kwargs["stdout"] == kwargs["stderr"] == kwargs["stdin"] == subprocess.DEVNULL
@@ -70,7 +70,7 @@ def test_incompatible_partial_environment_is_preserved_before_any_execution(tmp_
     (venv / "bin").mkdir(parents=True)
     (venv / "bin/python").symlink_to(sys._base_executable)
     cfg = venv / "pyvenv.cfg"
-    cfg.write_text("version = 3.14.9\ninclude-system-site-packages = false\n")
+    cfg.write_text("version = 3.14.10\ninclude-system-site-packages = false\n")
     state = release / ".install-state"
     state.mkdir()
     marker = state / "venv_created"
@@ -78,7 +78,7 @@ def test_incompatible_partial_environment_is_preserved_before_any_execution(tmp_
     if case in {"old", "early314", "next315"}:
         cfg.write_text("version = " + {"old": "3.13.5", "early314": "3.14.8", "next315": "3.15.0"}[case]
             + "\ninclude-system-site-packages = false\n")
-    if case == "site": cfg.write_text("version = 3.14.9\ninclude-system-site-packages = true\n")
+    if case == "site": cfg.write_text("version = 3.14.10\ninclude-system-site-packages = true\n")
     if case == "binary":
         (venv / "bin/python").unlink()
         (venv / "bin/python").write_text("NEVER_EXECUTE_OLD_BINARY")
@@ -87,7 +87,7 @@ def test_incompatible_partial_environment_is_preserved_before_any_execution(tmp_
         cfg.unlink()
         if case == "symlinkcfg":
             other = tmp_path / "other.cfg"
-            other.write_text("version = 3.14.9\ninclude-system-site-packages = false\n")
+            other.write_text("version = 3.14.10\ninclude-system-site-packages = false\n")
             cfg.symlink_to(other)
         if case == "fifo": os.mkfifo(cfg)
     if case == "oversize": cfg.write_text("x" * 16385)
@@ -119,7 +119,7 @@ def test_fixed_runtime_creates_environment_and_isolated_pip_then_can_resume(tmp_
             venv = Path(args[-1])
             (venv / "bin").mkdir(parents=True)
             (venv / "bin/python").symlink_to(sys._base_executable)
-            (venv / "pyvenv.cfg").write_text("version = 3.14.9\ninclude-system-site-packages = false\n")
+            (venv / "pyvenv.cfg").write_text("version = 3.14.10\ninclude-system-site-packages = false\n")
     monkeypatch.setattr(updater.subprocess, "run", command)
     updater.install_python_dependencies(release, "4.0.0-rc.7")
     assert calls[0][0][:5] == [sys._base_executable, "-I", "-B", "-m", "venv"]

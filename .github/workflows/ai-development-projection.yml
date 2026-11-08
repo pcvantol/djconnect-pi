@@ -15,5 +15,5 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
-          python-version: "3.14.9"
+          python-version: "3.14.10"
       - run: python docs/ai-development/validate_projection.py --profile djconnect-pi --source-commit 4a39841a0c85b0e9962c85a74a3fd49d9803c13d --extension-identity DJCONNECT_PI_DEVELOPMENT_EXTENSION
