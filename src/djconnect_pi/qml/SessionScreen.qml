@@ -2049,11 +2049,9 @@ Item {
         objectName: "sessionComposerPanel"
         property bool keyboardVisible: true
         x: screen.compact ? 8 : 16
-        y: screen.compact ? screen.height - height - 8 : toolbar.y + toolbar.height + 8
+        y: screen.height - height - 8
         width: screen.width - 2 * x
-        height: screen.compact
-            ? Math.min(screen.height - 16, contentItem.implicitHeight + 2 * padding)
-            : Math.min(screen.height - y - 126, 760)
+        height: Math.min(screen.height - 16, contentItem.implicitHeight + 2 * padding)
         padding: screen.compact ? 12 : 20
         modal: true; dim: false
         onOpened: {
@@ -2085,20 +2083,17 @@ Item {
             TouchKeyboard {
                 objectName: "sessionComposerKeyboard"
                 visible: composerPanel.keyboardVisible
-                docked: screen.compact
-                keyHeight: screen.compact ? 44 : 88
+                docked: true
+                keyHeight: screen.compact ? 44 : Math.max(44, Math.min(88, Math.floor(screen.height / 10)))
                 keyFontSize: screen.compact ? 19 : 30
                 keyGap: screen.compact ? 4 : 8
                 Layout.fillWidth: true; target: composeInput; backend: screen.backend
                 submitIcon: "send"; submitLabel: screen.tr("session_send")
                 onSubmitted: screen.submitQuestion()
-                onDismissed: {
-                    if (screen.compact) composerPanel.keyboardVisible = false
-                    else composerPanel.close()
-                }
+                onDismissed: composerPanel.keyboardVisible = false
             }
             RowLayout {
-                visible: !screen.compact || !composerPanel.keyboardVisible
+                visible: !composerPanel.keyboardVisible
                 Layout.fillWidth: true
                 GlassButton { text: screen.tr("close"); onClicked: composerPanel.close() }
                 Item { Layout.fillWidth: true }
