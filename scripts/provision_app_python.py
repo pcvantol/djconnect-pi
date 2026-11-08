@@ -248,7 +248,7 @@ def prepare(base=BASE):
             return
         require(shutil.disk_usage(base).free >= MAX_ARCHIVE + MAX_EXPANDED + 67108864,
                 "PYTHON_RUNTIME_SPACE_REQUIRED")
-        stage = Path(tempfile.mkdtemp(prefix=".python3149-", dir=base))
+        stage = Path(tempfile.mkdtemp(prefix=".python31410-", dir=base))
         try:
             source = stage / "runtime.tar.gz"
             download(source)

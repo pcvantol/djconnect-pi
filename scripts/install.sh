@@ -306,7 +306,7 @@ check_release_not_active() {
 provision_application_python() {
   # Read and authenticate helper bytes once, then execute that same buffer.
   # No mutable helper path is executed after a separate hash-check window.
-  python3 -I - "$SCRIPT_DIRECTORY/provision_app_python.py" "7a9cba68d4ead3d789ba8cc80865a86655be27b983a2cc3f2678ff006f026111" <<'PYPROVISION'
+  python3 -I - "$SCRIPT_DIRECTORY/provision_app_python.py" "e204b4bf25cc939464b1e78a778576ab68a6aaf668db41b09b9f4029dfb3d482" <<'PYPROVISION'
 import hashlib
 import os
 import stat
