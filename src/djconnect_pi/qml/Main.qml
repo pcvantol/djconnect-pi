@@ -37,6 +37,12 @@ BrandWindow {
     Connections {
         target: djconnect.djSession
         function onChanged() { root.syncVibeScape() }
+        function onNewCurrentContribution() {
+            if (!root.screenBlanked || !root.active || root.splashVisible || !djconnect.paired)
+                return
+            djconnect.wakeDisplay()
+            root.temporaryWake(20, false)
+        }
     }
     Connections {
         target: djconnect
@@ -309,9 +315,9 @@ BrandWindow {
         musicDnaOptIn.close()
     }
 
-    function temporaryWake(seconds) {
+    function temporaryWake(seconds, fullBrightness = true) {
         root.forceScreenAwake = true
-        root.forceBrightnessFull = true
+        root.forceBrightnessFull = fullBrightness
         forcedWakeTimer.interval = Math.max(1000, seconds * 1000)
         forcedWakeTimer.restart()
     }

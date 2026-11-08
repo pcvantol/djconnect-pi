@@ -639,7 +639,7 @@ def test_qml_screen_blanking_wakes_on_tap() -> None:
     assert "id: forcedWakeTimer" in main_qml
     assert "returnToNowTimer" not in main_qml
     assert "interval: 10000" in main_qml
-    temporary_wake = main_qml[main_qml.index("function temporaryWake(seconds)") : main_qml.index("component PurpleButton")]
+    temporary_wake = main_qml[main_qml.index("function temporaryWake(") : main_qml.index("component PurpleButton")]
     assert "root.forceScreenAwake = true" in temporary_wake
     assert "activeScreen" not in temporary_wake
     assert "function onTemporaryWakeRequested(seconds)" in main_qml

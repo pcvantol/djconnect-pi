@@ -319,6 +319,49 @@ def clock_fixture(owner):
     return host
 
 
+def test_screen_wake_is_only_for_fresh_current_contributions_in_the_same_scope(controller):
+    from test_session_projection import live_fixture
+
+    owner, backend = controller
+    host = clock_fixture(owner)
+    data = live_fixture()
+    wire = data["broadcast"]
+    wire["session"] = {"session_id": data["session_id"]}
+    row = wire["dj_moments"][0]
+    grant = wire["native_delivery"]["admissions"][0]
+    row["created_at"] = "2026-10-19T23:59:58Z"
+    wakes = []
+    owner.newCurrentContribution.connect(lambda: wakes.append(True))
+    owner.transport.active.return_value = {"success": True, "session": data}
+
+    def refresh():
+        owner.refresh()
+        backend.jobs.pop()()
+
+    refresh()
+    assert wakes == []
+    host.tick = 8
+    row.update(moment_id="m2", created_at="2026-10-20T00:00:07Z")
+    grant["moment_id"] = "m2"
+    wire["native_delivery"]["current_moment_id"] = "m2"
+    refresh()
+    refresh()
+    assert wakes == [True]
+    wire["native_delivery"]["current_moment_id"] = None
+    refresh()
+    wire["native_delivery"]["current_moment_id"] = "m2"
+    refresh()
+    assert wakes == [True]
+    host.tick = 80
+    row.update(moment_id="m3", created_at="2026-10-20T00:00:09Z")
+    grant["moment_id"] = "m3"
+    wire["native_delivery"]["current_moment_id"] = "m3"
+    refresh()
+    owner.invalidate()
+    refresh()
+    assert wakes == [True]
+
+
 def test_clock_rollback_cannot_revive_current_or_source_expired_flow_on_refresh(controller):
     from test_session_projection import live_fixture
     owner, backend = controller

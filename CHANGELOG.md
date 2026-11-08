@@ -7,6 +7,7 @@
 - Align Pi Session Flow, Horizon, playback controls and media cards with iPad.
 - Keep playback gestures bound to the original track and output. Show the
   reported volume for each available speaker.
+- Briefly wake a sleeping display for a newly admitted current DJ contribution.
 - Interleave admitted live bulletins with saved contributions and provide
   accessible source links that expire with the original bulletin.
 - Add contextual Ask DJ from contribution text, a bottom-docked keyboard,

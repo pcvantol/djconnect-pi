@@ -63,6 +63,7 @@ class SessionController(QObject):
     artworkChanged = Signal()
     artworkAboutToChange = Signal()
     flowIdleHeaderAboutToChange = Signal()
+    newCurrentContribution = Signal()
     entryOpened = Signal()
     questionConfirmed = Signal(str)
     currentReplyReady = Signal()
@@ -84,6 +85,8 @@ class SessionController(QObject):
         self.transport = SessionTransport(lambda: backend.cfg, owner_scope=self._owner_scope)
         self._clock = ExpiryClock()
         self._foreground = True
+        self._contribution_wake_scope = None
+        self._contribution_wake_at = float("-inf")
         self._session = {}
         self._bootstrap_binding = None
         self._bootstrap_owner = ""
@@ -398,6 +401,7 @@ class SessionController(QObject):
 
     def invalidate(self):
         had_scope = self._bootstrap_binding is not None
+        self._contribution_wake_scope = None
         self._owner_epoch += 1
         self._bootstrap_binding = None
         self._bootstrap_owner = ""
@@ -1231,6 +1235,32 @@ class SessionController(QObject):
         executor = self.backend._question_executor if action == "question" else self.backend._session_executor
         executor.submit(worker)
 
+    def _observe_contribution_wake(self, result):
+        # A successful current read may wake the appliance once. Reconnects,
+        # older Flow rows and the first snapshot for a scope only establish a baseline.
+        session_id = self._session.get("session_id")
+        if (not session_id or self._session.get("runtime_state") != "active"
+                or not self._foreground or not private_scope_allowed(self)):
+            self._contribution_wake_scope = None
+            return
+        scope = (result["binding"], session_id)
+        same_scope = scope == self._contribution_wake_scope
+        if not same_scope:
+            self._contribution_wake_scope = scope
+            self._contribution_wake_at = float("-inf")
+        current_id = next((row["moment_id"] for row in self._moments if row["current"]), None)
+        if current_id is None:
+            return
+        rows = self._session["broadcast"]["dj_moments"]
+        contribution = next(row for row in rows if isinstance(row, dict) and row.get("moment_id") == current_id)
+        created = timestamp(contribution.get("created_at"))
+        now = self._clock.now()
+        if created is None or not self._contribution_wake_at < created <= now:
+            return
+        self._contribution_wake_at = created
+        if same_scope and result["action"] == "refresh" and now - created <= 45:
+            self.newCurrentContribution.emit()
+
     @Slot(object)
     def _apply(self, result):
         scope_changed = False
@@ -1469,6 +1499,10 @@ class SessionController(QObject):
         self._expire()
         confirmed = self._confirm_question()
         self.changed.emit()
+        if "session" in result and "error" not in result:
+            self._observe_contribution_wake(result)
+        elif "error" in result and not self._session:
+            self._contribution_wake_scope = None
         if confirmed:
             self.questionConfirmed.emit(confirmed)
         if "history" in result and "error" not in result:
