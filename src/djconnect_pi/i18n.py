@@ -1342,6 +1342,7 @@ for _key, _values in _LOG_SEARCH_TRANSLATIONS.items():
 
 
 _KEYBOARD_TRANSLATIONS = {
+    "ask_dj_search_history": ("Search Ask DJ history", "Zoek in Ask DJ", "Ask-DJ-Verlauf durchsuchen", "Rechercher dans Ask DJ", "Buscar en Ask DJ"),
     "media_search_queue": ("Search queue", "Zoek in wachtrij", "Warteschlange durchsuchen", "Rechercher dans la file", "Buscar en la cola"),
     "media_search_playlists": ("Search playlists", "Zoek in afspeellijsten", "Playlists durchsuchen", "Rechercher dans les playlists", "Buscar en las listas"),
     "media_no_matches": ("No search results", "Geen zoekresultaten", "Keine Suchergebnisse", "Aucun résultat", "Sin resultados"),
