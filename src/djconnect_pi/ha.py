@@ -116,6 +116,7 @@ class Playback:
     output_devices: tuple[str, ...] = ()
     output_device_details: tuple[dict[str, Any], ...] = ()
     is_favorite: bool = False
+    volume_output_id: str = ""
 
 
 @dataclass
@@ -572,6 +573,10 @@ class HAClient:
             output_device_source,
             _output_device_name(_output_device_name_source(playback, data)),
         )
+        device = playback.get("device")
+        output_id = device.get("id") if isinstance(device, dict) else None
+        percent = next((playback[key] for key in ("volume", "volume_percent")
+                        if playback.get(key) or playback.get(key) == 0), 50)
         backend_available = data.get("backend_available")
         if data.get("success") is False or backend_available is False:
             _LOGGER.debug(
@@ -598,7 +603,7 @@ class HAClient:
                 "current_track_is_liked",
             ),
             is_playing=bool(_first_truthy(playback.get("is_playing"), playback.get("playing"))),
-            volume=int(_first_truthy(playback.get("volume"), playback.get("volume_percent"), 50)),
+            volume=int(percent),
             shuffle=bool(playback.get("shuffle")),
             repeat=str(playback.get("repeat_state") or playback.get("repeat") or "off"),
             position_seconds=_seconds_from_playback(
@@ -622,6 +627,7 @@ class HAClient:
             output_device=output_device,
             output_devices=tuple(output_devices),
             output_device_details=tuple(output_device_details),
+            volume_output_id=output_id if isinstance(output_id, str) else "",
         )
 
     def update_backend_summary(self, data: dict[str, Any]) -> MusicBackendSummary:

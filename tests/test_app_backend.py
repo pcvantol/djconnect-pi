@@ -3226,3 +3226,61 @@ def test_worker_drops_changed_owner_before_profile_metadata_adoption(tmp_path):
         backend._music_dna_profile_worker()
     adopt.assert_not_called()
     assert backend.cfg.active_profile_id != "stale-private"
+
+
+@pytest.mark.parametrize("transition", ["none", "speaker", "profile", "item", "foreground", "fresh_speaker"])
+def test_control_volume_rechecks_original_context_before_sending(tmp_path: Path, transition: str) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "fixture"
+    backend.cfg.ha_url = "http://fixture.invalid"
+    backend.cfg.active_profile_id = backend.cfg.explicit_profile_id = "fixture"
+    backend.cfg.music_backend = "spotify_direct"
+    backend.cfg.music_backend_revision = 3
+    backend.cfg.music_backend_capabilities = {"supports_volume": True}
+    backend._apply_playback(Playback(uri="fixture:a", volume=25, volume_output_id="speaker-a"))
+    backend._refresh_worker = Mock()
+    backend._run = Mock()
+    transport = backend.djSession.transport
+    status = {
+        "music_backend": "spotify_direct", "music_backend_revision": 3,
+        "backend_available": True, "music_backend_available": True,
+        "music_backend_capabilities": {"supports_volume": True},
+        "playback": {"uri": "fixture:a", "has_playback": True, "volume_percent": 25, "device": {
+            "id": "speaker-b" if transition == "fresh_speaker" else "speaker-a",
+            "active": True, "supports_volume": True, "is_restricted": False,
+        }},
+    }
+    transport.playback_status = Mock(return_value=status)
+    transport.playback_volume = Mock()
+    lease = backend.beginControlVolume()
+    assert lease > 0
+    backend.commitControlVolume(lease, 40)
+    backend.commitControlVolume(lease, 41)
+    backend._run.assert_called_once()
+    assert backend.volume == 25
+    if transition == "speaker":
+        backend._apply_playback(Playback(uri="fixture:a", volume=25, volume_output_id="speaker-b"))
+        backend._apply_playback(Playback(uri="fixture:a", volume=25, volume_output_id="speaker-a"))
+    elif transition == "profile":
+        backend.cfg.active_profile_id = "other"
+    elif transition == "item":
+        backend._apply_playback(Playback(uri="fixture:b", volume=25, volume_output_id="speaker-a"))
+    elif transition == "foreground":
+        backend.djSession.setForeground(False)
+    backend._run.call_args.args[1]()
+    if transition == "none":
+        transport.playback_volume.assert_called_once_with(transport.binding(), 40, "spotify_direct")
+    else:
+        transport.playback_volume.assert_not_called()
+
+
+def test_playback_status_keeps_zero_volume_and_stable_output(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    playback = backend.client.playback_from_status({
+        "playback": {"volume": 0, "device": {"id": "speaker-id", "name": "Speaker"}},
+    })
+    assert playback.volume == 0
+    assert playback.volume_output_id == "speaker-id"
