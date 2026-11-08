@@ -2507,7 +2507,7 @@ def test_track_insight_reuses_current_analysis_after_artwork_update(tmp_path: Pa
     assert backend._run.call_count == 1
 
 
-@pytest.mark.parametrize("change", ["none", "track", "track_return", "output", "backend", "profile", "foreground_return"])
+@pytest.mark.parametrize("change", ["none", "track", "track_return", "output", "same_output_name", "same_output_name_return", "output_renamed", "backend", "profile", "foreground_return"])
 def test_track_insight_applies_queued_answer_only_in_original_scope(tmp_path: Path, change: str) -> None:
     ensure_app()
     backend = DJConnectBackend(tmp_path / "config.json")
@@ -2517,7 +2517,14 @@ def test_track_insight_applies_queued_answer_only_in_original_scope(tmp_path: Pa
     backend._sync_config_from_disk = Mock()
     backend._persist_backend_summary = Mock()
     backend._run = Mock()
-    track_a = Playback(title="Track A", uri="fixture:a", is_playing=True, output_device="room-a")
+
+    def observed_playback(output_id, name="room-a"):
+        return backend.client.playback_from_status({"playback": {
+            "title": "Track A", "uri": "fixture:a", "is_playing": True,
+            "device": {"id": output_id, "name": name},
+        }})
+
+    track_a = observed_playback("speaker-a")
     backend._apply_playback(track_a)
     backend.client.track_insight = Mock(return_value={
         "track": {"title": "Track A"},
@@ -2536,7 +2543,13 @@ def test_track_insight_applies_queued_answer_only_in_original_scope(tmp_path: Pa
         if change == "track_return":
             backend._apply_playback(track_a)
     elif change == "output":
-        backend._apply_playback(Playback(title="Track A", uri="fixture:a", output_device="room-b"))
+        backend._apply_playback(observed_playback("speaker-b", "room-b"))
+    elif change in {"same_output_name", "same_output_name_return"}:
+        backend._apply_playback(observed_playback("speaker-b"))
+        if change == "same_output_name_return":
+            backend._apply_playback(track_a)
+    elif change == "output_renamed":
+        backend._apply_playback(observed_playback("speaker-a", "renamed"))
     elif change == "backend":
         backend.cfg.music_backend_revision += 1
     elif change == "profile":
@@ -2546,7 +2559,7 @@ def test_track_insight_applies_queued_answer_only_in_original_scope(tmp_path: Pa
         backend.setApplicationForeground(False)
         backend.setApplicationForeground(True)
     backend._apply_track_insight_data(queued[0])
-    assert backend.trackInsightTitle == ("Track A" if change == "none" else "")
+    assert backend.trackInsightTitle == ("Track A" if change in {"none", "output_renamed"} else "")
 
 
 def test_track_insight_profile_clear_also_removes_visualizer(tmp_path: Path) -> None:

@@ -116,6 +116,7 @@ class Playback:
     output_devices: tuple[str, ...] = ()
     output_device_details: tuple[dict[str, Any], ...] = ()
     is_favorite: bool = False
+    output_device_id: str = ""
 
 
 @dataclass
@@ -565,6 +566,8 @@ class HAClient:
 
     def playback_from_status(self, data: dict[str, Any]) -> Playback:
         playback = data.get("playback") if isinstance(data.get("playback"), dict) else data
+        device = playback.get("device")
+        device_id = device.get("id") if isinstance(device, dict) else None
         output_device_source = _output_device_source(playback, data)
         output_device_details = _output_device_details(output_device_source)
         output_devices = [str(item["name"]) for item in output_device_details]
@@ -620,6 +623,7 @@ class HAClient:
                 "track_duration_seconds",
             ),
             output_device=output_device,
+            output_device_id=device_id if isinstance(device_id, str) and device_id.strip() else "",
             output_devices=tuple(output_devices),
             output_device_details=tuple(output_device_details),
         )
