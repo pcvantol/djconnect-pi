@@ -65,7 +65,8 @@ from .i18n import LANGUAGES, normalize_language, translate
 from .logging_config import setup_logging
 from .navigation_gesture import EdgeBackGesture
 from .session_controller import SessionController
-from .session_playback_control import output_id, volume_observation
+from .session_playback_control import output_id
+from .session_projection import volume_observation
 from .session_transport import SessionError, session_profile_id
 from .shared_settings import SettingsError
 from .system_info import log_raspberry_pi_system_info

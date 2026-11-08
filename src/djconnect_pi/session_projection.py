@@ -112,6 +112,34 @@ def session_playback(session):
     return result
 
 
+def volume_observation(status, backend):
+    """Validate a writable output and its observed volume, including zero."""
+    caps = status.get("music_backend_capabilities")
+    playback = status.get("playback")
+    device = playback.get("device") if isinstance(playback, dict) else None
+    if (not isinstance(caps, dict) or caps.get("supports_volume") is not True
+            or not isinstance(device, dict)):
+        raise SessionError("unavailable")
+    output = device.get("id")
+    if (not isinstance(output, str) or not 1 <= len(output) <= 512 or output != output.strip()
+            or any(ord(char) < 32 or ord(char) == 127 for char in output)):
+        raise SessionError("unavailable")
+    if backend == "spotify_direct":
+        if (device.get("supports_volume") is not True or device.get("is_restricted") is not False
+                or device.get("active") is not True):
+            raise SessionError("unavailable")
+    elif backend != "music_assistant" or device.get("entity_id", output) != output:
+        raise SessionError("unavailable")
+    values = [value for value in (playback.get("volume_percent"), playback.get("volume"),
+                                 device.get("volume_percent")) if value is not None]
+    if (not values or any(type(value) is not int or not 0 <= value <= 100 for value in values)
+            or any(value != values[0] for value in values)):
+        raise SessionError("unavailable")
+    name = device.get("name")
+    return {"output_id": output, "percent": values[0],
+            "output_name": name if isinstance(name, str) and len(name) <= 256 else ""}
+
+
 def live_moments(session, now=None, *, spotify_attribution_available=False):
     now = datetime.now(UTC).timestamp() if now is None else now
     if not session or session.get("runtime_state") != "active":

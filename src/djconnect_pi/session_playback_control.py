@@ -5,7 +5,7 @@ from hashlib import sha256
 
 from PySide6.QtCore import QObject, Signal, Slot
 
-from .session_projection import active_session, session_playback
+from .session_projection import active_session, session_playback, volume_observation
 from .session_transport import SessionError, private_scope_allowed
 
 COMMANDS = frozenset({"play", "pause", "previous", "next", "save_current_track"})
@@ -15,34 +15,6 @@ VOLUME_COMMANDS = frozenset({"volume_read", "set_volume"})
 FAVORITE_COMMANDS = frozenset({"favorite_read", "set_favorite"})
 OUTPUT_COMMANDS = frozenset({"outputs_read", "set_output"})
 OBSERVATION_COMMANDS = frozenset({"volume_read", "favorite_read", "outputs_read"})
-
-
-def volume_observation(status, backend):
-    """Raw current-output observation; missing/zero values are never defaults."""
-    caps = status.get("music_backend_capabilities")
-    playback = status.get("playback")
-    device = playback.get("device") if isinstance(playback, dict) else None
-    if (not isinstance(caps, dict) or caps.get("supports_volume") is not True
-            or not isinstance(device, dict)):
-        raise SessionError("unavailable")
-    output = device.get("id")
-    if (not isinstance(output, str) or not 1 <= len(output) <= 512 or output != output.strip()
-            or any(ord(char) < 32 or ord(char) == 127 for char in output)):
-        raise SessionError("unavailable")
-    if backend == "spotify_direct":
-        if (device.get("supports_volume") is not True or device.get("is_restricted") is not False
-                or device.get("active") is not True):
-            raise SessionError("unavailable")
-    elif backend != "music_assistant" or device.get("entity_id", output) != output:
-        raise SessionError("unavailable")
-    values = [value for value in (playback.get("volume_percent"), playback.get("volume"),
-                                 device.get("volume_percent")) if value is not None]
-    if (not values or any(type(value) is not int or not 0 <= value <= 100 for value in values)
-            or any(value != values[0] for value in values)):
-        raise SessionError("unavailable")
-    name = device.get("name")
-    return {"output_id": output, "percent": values[0],
-            "output_name": name if isinstance(name, str) and len(name) <= 256 else ""}
 
 
 def favorite_observation(status, backend):
