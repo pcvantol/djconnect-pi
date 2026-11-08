@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 4.0.0-rc.9
+
+- Keep Track Insight results with their original Profile, track, backend and speaker.
+- Confirm deletion of individual Session contributions and reconcile uncertain results.
+- Send one verified volume command when the compact slider is released.
+- Show each admitted live Bulletin once in Flow.
+- Search Ask DJ history with the touch keyboard.
+- Put shutdown and an optional local maintenance terminal at the top of Settings.
+
 ## 4.0.0-rc.8
 
 - Provision GIL-enabled Python 3.14.10 side by side with older app runtimes.

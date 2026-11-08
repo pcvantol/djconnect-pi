@@ -163,7 +163,8 @@ jobs:
           cp -R LICENSE README.md CHANGELOG.md docs examples systemd requirements.lock "${dist}/"
           mkdir -p "${dist}/scripts"
           cp scripts/install.sh scripts/provision_app_python.py "${dist}/scripts/"
-          mkdir -p "${dist}/wheels"
+          mkdir -p "${dist}/Tools" "${dist}/wheels"
+          cp -R Tools/local-terminal "${dist}/Tools/"
           python -m pip wheel --no-deps --wheel-dir "${dist}/wheels" .
           printf '%s\n' "${version}" > "${dist}/VERSION"
           git rev-parse HEAD > "${dist}/SOURCE_COMMIT"
