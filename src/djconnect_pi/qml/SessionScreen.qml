@@ -20,12 +20,19 @@ Item {
     onSessionVoiceAvailableChanged: if (!sessionVoiceAvailable && choices && choices.field === "voice") choices.close()
     readonly property var displayedFlow: state.flow_rows || []
     component LiveMomentCard: GlassCard {
+        id: liveCard
         objectName: "sessionLiveMomentCard"
         artworkTint: currentMomentArtworkFrame.artworkTint
         currentMoment: modelData.current
         required property var modelData
         Layout.fillWidth: true
         property alias bodyItem: momentBody
+        readonly property bool canAsk: screen.state.composer_available && liveSources.ready
+            && !screen.owner.busy && !screen.owner.questionBusy
+        function askAbout() {
+            if (canAsk && screen.owner.selectMoment(screen.state.session_id, modelData.moment_id))
+                composerPanel.open()
+        }
         ColumnLayout {
             objectName: "sessionMomentArtworkCard"
             visible: liveSources.ready && !!screen.owner.momentArtwork.source && modelData.current && screen.owner.momentArtwork.moment_id === modelData.moment_id && artworkSource.ready
@@ -74,7 +81,14 @@ Item {
             ColumnLayout {
                 Layout.fillWidth: true
                 Text { text: modelData.title; textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 26; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                Text { id: momentBody; objectName: "sessionLiveMomentBody"; text: modelData.body; textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 23; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                Text {
+                    id: momentBody
+                    objectName: "sessionLiveMomentBody"
+                    text: modelData.body; textFormat: Text.PlainText
+                    color: BrandTheme.colors.text; font.pixelSize: 23
+                    wrapMode: Text.WordWrap; Layout.fillWidth: true
+                    TapHandler { enabled: liveCard.canAsk; onTapped: liveCard.askAbout() }
+                }
             }
         }
         GlassButton {
@@ -92,8 +106,8 @@ Item {
         }
         GlassButton {
             visible: screen.state.composer_available && liveSources.ready
-            text: screen.tr("session_ask_about"); enabled: !screen.owner.busy
-            onClicked: { if (screen.owner.selectMoment(screen.state.session_id, modelData.moment_id)) composerPanel.open() }
+            text: screen.tr("session_ask_about"); enabled: liveCard.canAsk
+            onClicked: liveCard.askAbout()
         }
         SessionAttribution {
             id: liveSources
@@ -1547,7 +1561,7 @@ Item {
                 SessionRetainedEntry {
                     required property var modelData
                     entry: modelData; translate: screen.tr; dateText: screen.displayDate(modelData.occurred_at)
-                    selectionAvailable: screen.state.composer_available; selectionBusy: screen.owner.busy
+                    selectionAvailable: screen.state.composer_available; selectionBusy: screen.owner.busy || screen.owner.questionBusy
                     onAskAbout: (sessionId, entryId) => { if (screen.owner.selectEntry(sessionId, entryId)) { screen.navigate("session"); composerPanel.open() } }
                 }
             }
