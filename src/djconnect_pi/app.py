@@ -65,10 +65,14 @@ from .i18n import LANGUAGES, normalize_language, translate
 from .logging_config import setup_logging
 from .navigation_gesture import EdgeBackGesture
 from .session_controller import SessionController
+from .session_playback_control import output_id
+from .session_projection import volume_observation
+from .session_transport import SessionError, session_profile_id
 from .shared_settings import SettingsError
 from .system_info import log_raspberry_pi_system_info
 
 _LOGGER = logging.getLogger(__name__)
+LOCAL_TERMINAL_UNIT = Path("/etc/systemd/system/djconnect-local-terminal.service")
 LOG_LINE_RE = re.compile(
     r"^\d{4}-\d{2}-\d{2}\s+(?P<time>\d{2}:\d{2}:\d{2})(?:[,.]\d+)?\s+(?P<level>[A-Z]+)\s+(?P<rest>.*)$"
 )
@@ -110,6 +114,14 @@ class _ProfileReadResult(dict):
         self.owner_context = context
 
 
+class _TrackInsightResult(dict):
+    """Track Insight delivery scope captured before dispatch, outside the wire payload."""
+
+    def __init__(self, data, scope):
+        super().__init__(data)
+        self.scope = scope
+
+
 class DJConnectBackend(QObject):
     statusTextChanged = Signal()
     backendAvailableChanged = Signal()
@@ -120,6 +132,8 @@ class DJConnectBackend(QObject):
     favoriteChanged = Signal()
     favoriteBusyChanged = Signal()
     volumeChanged = Signal()
+    controlVolumeChanged = Signal()
+    _controlVolumeFinished = Signal()
     shuffleChanged = Signal()
     repeatChanged = Signal()
     outputDeviceChanged = Signal()
@@ -233,7 +247,9 @@ class DJConnectBackend(QObject):
         self._track_insight_items: list[dict[str, object]] = []
         self._track_insight_sections: list[dict[str, object]] = []
         self._track_insight_visualizer: dict[str, object] = {}
-        self._track_insight_track_key = ""
+        self._application_foreground = True
+        self._track_insight_revision = 0
+        self._track_insight_result_scope = None
         self._ask_dj_unavailable_until = 0.0
         self._ask_dj_poll_error_count = 0
         self._ask_dj_poll_in_flight = False
@@ -255,6 +271,13 @@ class DJConnectBackend(QObject):
         self._shared_settings.owner_context = self._session_controller.scope_context
         self._shared_owner_context = self._shared_settings.context()
         self._session_controller.ownerScopeChanged.connect(self._session_owner_changed)
+        self._control_volume_serial = 0
+        self._control_volume_intent = None
+        self._control_volume_pending = False
+        self._controlVolumeFinished.connect(self._finish_control_volume)
+        self.settingsChanged.connect(self.controlVolumeChanged.emit)
+        self.profileChanged.connect(self.cancelControlVolume)
+        self.demoModeChanged.connect(self.cancelControlVolume)
         self._poll_timer = QTimer(self)
         self._poll_timer.setInterval(5000)
         self._poll_timer.timeout.connect(self.refresh)
@@ -1164,6 +1187,18 @@ class DJConnectBackend(QObject):
         self._set_favorite_busy(True)
         self._run("save_current_track", self._save_current_track_worker, done=lambda: self._set_favorite_busy(False))
 
+    def setApplicationForeground(self, foreground: bool) -> None:
+        if foreground != self._application_foreground:
+            self._application_foreground = foreground
+            if not foreground:
+                self._track_insight_revision += 1
+                self._clear_track_insight()
+        self._session_controller.setForeground(foreground)
+        if foreground:
+            self.controlVolumeChanged.emit()
+        else:
+            self.cancelControlVolume()
+
     @Slot()
     def openTrackInsight(self) -> None:
         if not self.playback.is_playing:
@@ -1176,14 +1211,112 @@ class DJConnectBackend(QObject):
 
     def _request_track_insight(self, *, show_toast: bool) -> None:
         self._sync_config_from_disk()
-        if self._demo_mode or not self.paired or self._ask_dj_busy:
+        if self._demo_mode or not self.paired or self._ask_dj_busy or not self._application_foreground:
             return
         _LOGGER.info("User requested Track Insight for current track")
+        scope = self._track_insight_scope()
+        if self._track_insight_result_scope == scope and not show_toast:
+            return
+        if self._track_insight_result_scope is not None and self._track_insight_result_scope != scope:
+            self._clear_track_insight()
+        playback = deepcopy(self.playback)
         if show_toast:
             self.showToastForContext(self.tr_key("refreshing"), "trackinsight")
-        self._clear_track_insight_if_track_changed()
         self._set_ask_dj_busy(True)
-        self._run(self.tr_key("track_insight"), self._track_insight_worker, done=lambda: self._set_ask_dj_busy(False))
+        self._run(self.tr_key("track_insight"), lambda: self._track_insight_worker(playback, scope),
+                  done=lambda: self._set_ask_dj_busy(False))
+
+    def _control_volume_context(self, playback: Playback) -> tuple | None:
+        if self._demo_mode:
+            return ("demo",)
+        if (not self.paired or not session_profile_id(self.cfg)
+                or (self._pending_output_device and time.monotonic() < self._pending_output_until)
+                or self.cfg.music_backend not in {"spotify_direct", "music_assistant"}
+                or self.cfg.music_backend_capabilities.get("supports_volume") is not True
+                or not playback.uri or not output_id(playback.volume_output_id)):
+            return None
+        return (
+            self._private_read_context(), self.cfg.music_backend, self.cfg.music_backend_revision,
+            self.cfg.music_target_player.get("id", ""), playback.uri, playback.volume_output_id,
+        )
+
+    @Property(bool, notify=controlVolumeChanged)
+    def controlVolumeAvailable(self) -> bool:
+        return (self._session_controller._foreground and not self._control_volume_pending
+                and self._control_volume_context(self.playback) is not None)
+
+    @Slot(result=int)
+    def beginControlVolume(self) -> int:
+        context = self._control_volume_context(self.playback)
+        if not self.controlVolumeAvailable or context is None:
+            return 0
+        self._control_volume_serial += 1
+        self._control_volume_intent = (self._control_volume_serial, context)
+        return self._control_volume_serial
+
+    @Slot()
+    def cancelControlVolume(self) -> None:
+        self._control_volume_serial += 1
+        self._control_volume_intent = None
+        self.controlVolumeChanged.emit()
+
+    @Slot(int, int)
+    def commitControlVolume(self, lease: int, value: int) -> None:
+        intent = self._control_volume_intent
+        if intent is None or lease != intent[0]:
+            return
+        self._control_volume_intent = None
+        context = intent[1]
+        value = max(0, min(60, value))
+        if (not self.controlVolumeAvailable or context != self._control_volume_context(self.playback)
+                or value == self.playback.volume):
+            return
+        if self._demo_mode:
+            self.setVolume(value)
+            return
+        transport = self._session_controller.transport
+        try:
+            binding = transport.binding()
+        except SessionError:
+            return
+        self._control_volume_pending = True
+        self.controlVolumeChanged.emit()
+
+        def current() -> bool:
+            return (self._session_controller._foreground and lease == self._control_volume_serial
+                    and context == self._control_volume_context(self.playback))
+
+        def worker() -> None:
+            if not current():
+                return
+            _, backend, revision, player, uri, output = context
+            try:
+                status = transport.playback_status(binding)
+                observed = status.get("playback")
+                target = status.get("music_target_player")
+                if (not current() or status.get("music_backend") != backend
+                        or type(status.get("music_backend_revision")) is not int
+                        or status["music_backend_revision"] != revision
+                        or status.get("backend_available") is not True
+                        or status.get("music_backend_available") is not True
+                        or not isinstance(observed, dict) or observed.get("has_playback") is not True
+                        or observed.get("uri") != uri
+                        or (target.get("id", "") if isinstance(target, dict) else "") != player
+                        or volume_observation(status, backend)["output_id"] != output):
+                    return
+                if current():
+                    transport.playback_volume(binding, value, backend)
+            except SessionError:
+                return  # Never repeat a volume command with an uncertain outcome.
+            if current():
+                self._refresh_worker()
+
+        self._run(self.tr_key("vol"), worker, done=self._controlVolumeFinished.emit)
+
+    @Slot()
+    def _finish_control_volume(self) -> None:
+        self._control_volume_pending = False
+        self.controlVolumeChanged.emit()
 
     @Slot(int)
     def setVolume(self, value: int) -> None:
@@ -1236,6 +1369,7 @@ class DJConnectBackend(QObject):
         self.playback.output_device = value
         self._pending_output_device = value
         self._pending_output_until = time.monotonic() + 20
+        self.cancelControlVolume()
         self.outputDeviceChanged.emit()
         _LOGGER.info("User selected output device: %s", value)
         self.showToastForContext(value, "playback")
@@ -1466,6 +1600,27 @@ class DJConnectBackend(QObject):
         self._forget_pairing()
         self.showToastForContext(self.tr_key("ready_to_pair"), "connectivity")
         self._set_status_text(self.tr_key("ready_to_pair"))
+
+    @Property(bool, constant=True)
+    def localTerminalAvailable(self) -> bool:
+        return LOCAL_TERMINAL_UNIT.is_file()
+
+    @Slot()
+    def openLocalTerminal(self) -> None:
+        if not self.localTerminalAvailable:
+            return
+
+        def start() -> None:
+            try:
+                subprocess.run(
+                    ["/usr/bin/sudo", "-n", "/usr/bin/systemctl", "start", LOCAL_TERMINAL_UNIT.name],
+                    check=True, timeout=10, capture_output=True, text=True,
+                )
+            except (OSError, subprocess.SubprocessError) as exc:
+                _LOGGER.warning("Could not start local terminal: %s", exc)
+                self._toastReady.emit(self.tr_key("local_terminal_failed"), 5000, "diagnostics")
+
+        self._run(self.tr_key("local_terminal"), start)
 
     @Slot()
     def rebootDevice(self) -> None:
@@ -1906,22 +2061,21 @@ class DJConnectBackend(QObject):
         self._askDjReady.emit(self._profile_read_result(data, ticket))
         self._toastReady.emit(self.tr_key("ask_dj_cleared"), 2500, "askdj")
 
-    def _track_insight_worker(self) -> None:
-        ticket = self._private_read_context()
+    def _track_insight_worker(self, playback: Playback, scope: tuple) -> None:
+        if not self._application_foreground or scope != self._track_insight_scope():
+            return
         try:
-            data = self.client.track_insight(self.playback)
-            if ticket != self._private_read_context():
+            data = self.client.track_insight(playback)
+            if scope != self._track_insight_scope():
                 return
             self._apply_profile_context(data)
-            ticket = self._private_read_context()
             self._persist_backend_summary()
         except (AuthenticationError, ProtocolVersionMismatch):
             raise
         except (DJConnectError, requests.RequestException) as exc:
             _LOGGER.warning("Track Insight unavailable; showing retry state: %s", exc.__class__.__name__)
-            self._trackInsightReady.emit(self._profile_read_result({"success": False, "error": "transient"}, ticket))
-            return
-        self._trackInsightReady.emit(self._profile_read_result(data, ticket))
+            data = {"success": False, "error": "transient"}
+        self._trackInsightReady.emit(_TrackInsightResult(data, scope))
 
     def _music_dna_profile_worker(self) -> None:
         ticket = self._private_read_context()
@@ -2259,9 +2413,18 @@ class DJConnectBackend(QObject):
             self._version_mismatch_text = ""
             self.versionMismatchChanged.emit()
         old = self.playback
+        old_volume_context = self._control_volume_context(old)
         self.playback = playback
+        if old_volume_context != self._control_volume_context(playback):
+            self.cancelControlVolume()
+        else:
+            self.controlVolumeChanged.emit()
         track_changed = old.title != playback.title or old.artist != playback.artist or old.image_url != playback.image_url or old.uri != playback.uri
-        if track_changed:
+        if (self._track_insight_subject(old) != self._track_insight_subject(playback)
+                or self._track_insight_output(old) != self._track_insight_output(playback)):
+            self._track_insight_revision += 1
+            self._clear_track_insight()
+        elif self._track_insight_result_scope is not None and self._track_insight_result_scope != self._track_insight_scope():
             self._clear_track_insight()
         resumed_playback = not old.is_playing and playback.is_playing
         if old.title != playback.title:
@@ -2443,18 +2606,10 @@ class DJConnectBackend(QObject):
         self._music_discovery_playing_id = ""
         self._music_discovery_feedback_supported = False
         self._music_discovery_consent_rejected = False
-        self._track_insight_title = ""
-        self._track_insight_artist = ""
-        self._track_insight_album = ""
-        self._track_insight_image_url = ""
-        self._track_insight_text = ""
-        self._track_insight_error = ""
-        self._track_insight_items = []
-        self._track_insight_sections = []
-        self._track_insight_track_key = ""
+        self._track_insight_revision += 1
+        self._clear_track_insight()
         self.musicDnaChanged.emit()
         self.musicDiscoveryChanged.emit()
-        self.trackInsightChanged.emit()
 
     def _set_ask_dj_busy(self, value: bool) -> None:
         if self._ask_dj_busy == value:
@@ -2543,7 +2698,10 @@ class DJConnectBackend(QObject):
 
     @Slot(object)
     def _apply_track_insight_data(self, data: object) -> None:
-        if not self._profile_result_current(data):
+        if not self._application_foreground or not self._profile_result_current(data):
+            return
+        scope = self._track_insight_scope()
+        if isinstance(data, _TrackInsightResult) and data.scope != scope:
             return
         if not isinstance(data, dict):
             return
@@ -2575,20 +2733,32 @@ class DJConnectBackend(QObject):
         self._track_insight_items = list(message.get("items")) if isinstance(message.get("items"), list) else []
         self._track_insight_sections = list(analysis.get("sections")) if isinstance(analysis.get("sections"), list) else []
         self._track_insight_visualizer = _track_insight_visualizer(track, self._track_insight_items, self._track_insight_sections) if isinstance(track, dict) else {}
-        self._track_insight_track_key = self._current_track_key()
+        self._track_insight_result_scope = scope
         self._set_backend_available(True)
         self.trackInsightChanged.emit()
 
-    def _current_track_key(self) -> str:
-        return "|".join(
-            value.strip().casefold()
-            for value in (self.playback.uri, self.playback.title, self.playback.artist, self.playback.image_url)
-            if value
-        )
+    @staticmethod
+    def _track_insight_subject(playback: Playback) -> tuple[str, ...]:
+        if playback.uri.strip():
+            return ("uri", playback.uri.strip())
+        return ("metadata", *(value.strip().casefold() for value in (playback.title, playback.artist, playback.album)))
 
-    def _clear_track_insight_if_track_changed(self) -> None:
-        if self._track_insight_track_key and self._track_insight_track_key != self._current_track_key():
-            self._clear_track_insight()
+    @staticmethod
+    def _track_insight_output(playback: Playback) -> tuple[str, str]:
+        if playback.output_device_id:
+            return ("id", playback.output_device_id)
+        return ("label", playback.output_device)
+
+    def _track_insight_scope(self) -> tuple:
+        return (
+            self._private_read_context(),
+            self._track_insight_revision,
+            self._track_insight_subject(self.playback),
+            self.cfg.music_backend,
+            self.cfg.music_backend_revision,
+            self.cfg.music_target_player.get("id", ""),
+            self._track_insight_output(self.playback),
+        )
 
     def _clear_track_insight(self, *, error: str = "") -> None:
         changed = any(
@@ -2602,7 +2772,7 @@ class DJConnectBackend(QObject):
                 self._track_insight_items,
                 self._track_insight_sections,
                 self._track_insight_visualizer,
-                self._track_insight_track_key,
+                self._track_insight_result_scope,
             )
         )
         self._track_insight_title = ""
@@ -2614,7 +2784,7 @@ class DJConnectBackend(QObject):
         self._track_insight_items = []
         self._track_insight_sections = []
         self._track_insight_visualizer = {}
-        self._track_insight_track_key = ""
+        self._track_insight_result_scope = None
         if changed or error:
             self.trackInsightChanged.emit()
 
@@ -2875,7 +3045,8 @@ def main() -> None:
     engine = QQmlApplicationEngine()
     backend = DJConnectBackend(args.config)
     backend.observeLocalAudioDevices()
-    app.applicationStateChanged.connect(lambda state: backend.djSession.setForeground(state == Qt.ApplicationState.ApplicationActive))
+    backend.setApplicationForeground(app.applicationState() == Qt.ApplicationState.ApplicationActive)
+    app.applicationStateChanged.connect(lambda state: backend.setApplicationForeground(state == Qt.ApplicationState.ApplicationActive))
     engine.rootContext().setContextProperty("djconnect", backend)
     engine.rootContext().setContextProperty("startWindowed", args.windowed)
     qml_path = files("djconnect_pi.qml").joinpath("Main.qml")

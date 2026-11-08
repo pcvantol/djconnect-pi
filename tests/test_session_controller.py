@@ -1172,3 +1172,69 @@ def test_withdrawn_entry_is_not_a_selected_question_target(controller, source):
     assert owner._entry_selection_valid(selected, source)
     row["state"] = "source_withdrawn"
     assert not owner._entry_selection_valid(selected, source)
+
+
+def _content_delete_fixture(owner, monkeypatch):
+    from test_session_content_delete import CAPS, preview
+    from test_session_history_delete import OP
+
+    from djconnect_pi import session_content_delete
+    from djconnect_pi.session_projection import timestamp
+
+    stamp = timestamp(preview(owner.transport.binding())["created_at"])
+    monkeypatch.setattr(owner._clock, "now", lambda: stamp)
+    monkeypatch.setattr(session_content_delete, "operation_id", lambda: OP)
+    owner.setContentDeleteVisible(True)
+    owner._caps = CAPS
+    owner.transport.capabilities.return_value = CAPS
+    owner._session = {"session_id": "saved"}
+    owner._retained_flow = [{
+        "session_id": "saved", "entry_id": "entry-original", "kind": "conversation_dj",
+        "retained_until": "9999-01-01T00:00:00Z", "text": "private fixture",
+    }]
+    owner.transport.prepare_content_delete = Mock(return_value=preview(
+        owner.transport.binding(), affected_moments=[{"session_id": "saved", "moment_id": "live"}]))
+    owner.transport.delete_content = Mock(side_effect=SessionError("uncertain"))
+    owner.transport.content_delete_status = Mock(return_value="completed")
+
+
+def test_content_erasure_requires_confirmation_and_withdraws_only_after_original_receipt(controller, monkeypatch):
+    owner, backend = controller
+    _content_delete_fixture(owner, monkeypatch)
+    assert owner.beginContentDelete("entry", "saved", "entry-original")
+    assert not owner.confirmContentDelete(1)
+    backend.jobs.pop()()
+    scope = owner.state["content_delete"]
+    assert scope["status"] == "confirm"
+    assert (scope["remove_entries"], scope["unavailable_entries"], scope["moments"]) == (1, 1, 1)
+    original = owner._retained_flow.copy()
+    assert owner.confirmContentDelete(scope["lease"])
+    assert not owner.confirmContentDelete(scope["lease"])
+    backend.jobs.pop()()
+    assert owner.state["content_delete"]["status"] == "uncertain"
+    assert owner._retained_flow == original
+    owner.cancelContentDelete()
+    assert not owner.beginContentDelete("entry", "saved", "entry-original")
+    assert owner.checkContentDeleteStatus()
+    backend.jobs.pop()()
+    owner.transport.delete_content.assert_called_once()
+    owner.transport.content_delete_status.assert_called_once()
+    assert owner.transport.delete_content.call_args.args[1] is owner.transport.content_delete_status.call_args.args[1]
+    assert owner.state["content_delete"]["status"] == "deleted"
+    assert owner._retained_flow == []
+    assert owner._without_withdrawn_entries(original) == []
+    session = {"session_id": "saved", "broadcast": {"dj_moments": [{"moment_id": "live"}, {"moment_id": "other"}]}}
+    assert owner._without_withdrawn_moments(session)["broadcast"]["dj_moments"] == [{"moment_id": "other"}]
+
+
+def test_content_erasure_discards_prepared_scope_after_profile_switch(controller, monkeypatch):
+    owner, backend = controller
+    _content_delete_fixture(owner, monkeypatch)
+    assert owner.beginContentDelete("entry", "saved", "entry-original")
+    backend.jobs.pop()()
+    lease = owner.state["content_delete"]["lease"]
+    backend.cfg.active_profile_id = "profile-b"
+    backend.cfg.explicit_profile_id = "profile-b"
+    owner.invalidate()
+    assert not owner.confirmContentDelete(lease)
+    owner.transport.delete_content.assert_not_called()

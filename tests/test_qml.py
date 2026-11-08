@@ -259,8 +259,8 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "property var deviceChoices" in main_qml
     assert 'property string noOutputDeviceLabel: root.tr("none")' in main_qml
     assert "djconnect.setOutputDevice" in main_qml
-    assert "djconnect.adjustVolume(-10)" in main_qml
-    assert "djconnect.adjustVolume(10)" in main_qml
+    assert "controlPanel.adjustVolume(-10)" in main_qml
+    assert "controlPanel.adjustVolume(10)" in main_qml
     assert 'text: "-"' in main_qml
     assert 'text: "+"' in main_qml
     assert "id: nowPanel" in main_qml
@@ -389,7 +389,8 @@ def test_qml_ask_dj_screen_is_readonly_actions_without_free_input() -> None:
     assert "root.askDjClearConfirmOpen && djconnect.askDjMessages.length === 0" in main_qml
     assert 'root.tr("ask_dj_readonly_hint")' not in ask_dj_block
     assert "djconnect.sendAskDjAction(modelData.payload" in ask_dj_block
-    assert "TextField" not in ask_dj_block
+    assert ask_dj_block.count("TextField {") == 1
+    assert 'objectName: "askDjSearchInput"' in ask_dj_block
     assert 'root.tr("ask_dj_input_placeholder")' not in ask_dj_block
     assert 'root.tr("send")' not in ask_dj_block
     assert "djconnect.sendAskDjMessage" not in ask_dj_block

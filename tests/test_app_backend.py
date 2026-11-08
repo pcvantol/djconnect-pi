@@ -2292,6 +2292,26 @@ def test_backend_reboot_uses_passwordless_absolute_systemctl(tmp_path: Path) -> 
     ]
 
 
+def test_local_terminal_starts_only_the_opted_in_system_unit(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    unit = tmp_path / "djconnect-local-terminal.service"
+    with patch("djconnect_pi.app.LOCAL_TERMINAL_UNIT", unit), patch(
+        "djconnect_pi.app.subprocess.run"
+    ) as run, patch.object(backend, "_run", side_effect=lambda _, worker: worker()):
+        assert not backend.localTerminalAvailable
+        backend.openLocalTerminal()
+        run.assert_not_called()
+
+        unit.touch()
+        assert backend.localTerminalAvailable
+        backend.openLocalTerminal()
+        run.assert_called_once_with(
+            ["/usr/bin/sudo", "-n", "/usr/bin/systemctl", "start", unit.name],
+            check=True, timeout=10, capture_output=True, text=True,
+        )
+
+
 def test_backend_shutdown_uses_passwordless_absolute_systemctl(tmp_path: Path) -> None:
     ensure_app()
     backend = DJConnectBackend(tmp_path / "config.json")
@@ -2483,6 +2503,122 @@ def test_backend_track_insight_auto_open_requires_playing_track(tmp_path: Path) 
     backend.openTrackInsight()
     assert calls
     assert calls[0][0] == backend.t("track_insight")
+
+
+def test_track_insight_reuses_current_analysis_after_artwork_update(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "fixture"
+    backend._sync_config_from_disk = Mock()
+    backend._run = Mock()
+    backend._apply_playback(Playback(title="Track A", uri="fixture:a", is_playing=True))
+    backend._apply_track_insight_data(
+        {"track": {"title": "Track A"}, "analysis": {"summary": "Analysis A."}}
+    )
+    backend._apply_playback(
+        Playback(title="Track A", uri="fixture:a", is_playing=True, image_url="file:///fixture.jpg")
+    )
+    backend.openTrackInsight()
+    assert backend.trackInsightTitle == "Track A"
+    backend._run.assert_not_called()
+
+    backend.refreshTrackInsight()
+    assert backend._run.call_count == 1
+
+
+@pytest.mark.parametrize("change", ["none", "track", "track_return", "output", "same_output_name", "same_output_name_return", "output_renamed", "backend", "profile", "foreground_return"])
+def test_track_insight_applies_queued_answer_only_in_original_scope(tmp_path: Path, change: str) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "fixture"
+    backend.cfg.active_profile_id = "original"
+    backend._sync_config_from_disk = Mock()
+    backend._persist_backend_summary = Mock()
+    backend._run = Mock()
+
+    def observed_playback(output_id, name="room-a"):
+        return backend.client.playback_from_status({"playback": {
+            "title": "Track A", "uri": "fixture:a", "is_playing": True,
+            "device": {"id": output_id, "name": name},
+        }})
+
+    track_a = observed_playback("speaker-a")
+    backend._apply_playback(track_a)
+    backend.client.track_insight = Mock(return_value={
+        "track": {"title": "Track A"},
+        "analysis": {"summary": "Analysis A."},
+    })
+    backend.openTrackInsight()
+    worker = backend._run.call_args.args[1]
+    queued = []
+    backend._trackInsightReady.disconnect(backend._apply_track_insight_data)
+    backend._trackInsightReady.connect(queued.append)
+    worker()
+    assert len(queued) == 1
+
+    if change in {"track", "track_return"}:
+        backend._apply_playback(Playback(title="Track B", uri="fixture:b", output_device="room-a"))
+        if change == "track_return":
+            backend._apply_playback(track_a)
+    elif change == "output":
+        backend._apply_playback(observed_playback("speaker-b", "room-b"))
+    elif change in {"same_output_name", "same_output_name_return"}:
+        backend._apply_playback(observed_playback("speaker-b"))
+        if change == "same_output_name_return":
+            backend._apply_playback(track_a)
+    elif change == "output_renamed":
+        backend._apply_playback(observed_playback("speaker-a", "renamed"))
+    elif change == "backend":
+        backend.cfg.music_backend_revision += 1
+    elif change == "profile":
+        backend.cfg.active_profile_id = "other"
+    elif change == "foreground_return":
+        backend.djSession.refresh = Mock()
+        backend.setApplicationForeground(False)
+        backend.setApplicationForeground(True)
+    backend._apply_track_insight_data(queued[0])
+    assert backend.trackInsightTitle == ("Track A" if change in {"none", "output_renamed"} else "")
+
+
+def test_track_insight_profile_clear_also_removes_visualizer(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend._apply_track_insight_data({
+        "track": {"title": "Track A"},
+        "analysis": {"summary": "Analysis A."},
+        "visualisation": {"bars": [0.1, 0.4, 0.9]},
+    })
+    assert backend.trackInsightVisualizer["available"]
+    backend._clear_profile_scoped_caches(preserve_session=True)
+    assert backend.trackInsightTitle == ""
+    assert backend.trackInsightVisualizer == {}
+
+
+def test_track_insight_backgrounding_withdraws_cached_analysis(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "fixture"
+    backend.cfg.explicit_profile_id = backend.cfg.active_profile_id = "linked"
+    backend._sync_config_from_disk = Mock()
+    backend._run = Mock()
+    backend._apply_playback(Playback(title="Track A", uri="fixture:a", is_playing=True))
+    backend._apply_track_insight_data({
+        "track": {"title": "Track A"},
+        "analysis": {"summary": "Analysis A."},
+        "visualisation": {"bars": [0.1, 0.4, 0.9]},
+    })
+    assert backend.trackInsightVisualizer["available"]
+
+    backend.setApplicationForeground(False)
+
+    assert backend.trackInsightTitle == ""
+    assert backend.trackInsightVisualizer == {}
+    backend.openTrackInsight()
+    backend.refreshTrackInsight()
+    backend._run.assert_not_called()
 
 
 def test_backend_music_discovery_refresh_shows_toast(tmp_path: Path) -> None:
@@ -3226,3 +3362,82 @@ def test_worker_drops_changed_owner_before_profile_metadata_adoption(tmp_path):
         backend._music_dna_profile_worker()
     adopt.assert_not_called()
     assert backend.cfg.active_profile_id != "stale-private"
+
+
+@pytest.mark.parametrize("transition", ["none", "speaker", "profile", "item", "foreground", "fresh_speaker"])
+def test_control_volume_rechecks_original_context_before_sending(tmp_path: Path, transition: str) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "fixture"
+    backend.cfg.ha_url = "http://fixture.invalid"
+    backend.cfg.active_profile_id = backend.cfg.explicit_profile_id = "fixture"
+    backend.cfg.music_backend = "spotify_direct"
+    backend.cfg.music_backend_revision = 3
+    backend.cfg.music_backend_capabilities = {"supports_volume": True}
+    backend._apply_playback(Playback(uri="fixture:a", volume=25, volume_output_id="speaker-a"))
+    backend._refresh_worker = Mock()
+    backend._run = Mock()
+    transport = backend.djSession.transport
+    status = {
+        "music_backend": "spotify_direct", "music_backend_revision": 3,
+        "backend_available": True, "music_backend_available": True,
+        "music_backend_capabilities": {"supports_volume": True},
+        "playback": {"uri": "fixture:a", "has_playback": True, "volume_percent": 25, "device": {
+            "id": "speaker-b" if transition == "fresh_speaker" else "speaker-a",
+            "active": True, "supports_volume": True, "is_restricted": False,
+        }},
+    }
+    transport.playback_status = Mock(return_value=status)
+    transport.playback_volume = Mock()
+    lease = backend.beginControlVolume()
+    assert lease > 0
+    backend.commitControlVolume(lease, 40)
+    backend.commitControlVolume(lease, 41)
+    backend._run.assert_called_once()
+    assert backend.volume == 25
+    if transition == "speaker":
+        backend._apply_playback(Playback(uri="fixture:a", volume=25, volume_output_id="speaker-b"))
+        backend._apply_playback(Playback(uri="fixture:a", volume=25, volume_output_id="speaker-a"))
+    elif transition == "profile":
+        backend.cfg.active_profile_id = "other"
+    elif transition == "item":
+        backend._apply_playback(Playback(uri="fixture:b", volume=25, volume_output_id="speaker-a"))
+    elif transition == "foreground":
+        backend.djSession.setForeground(False)
+    backend._run.call_args.args[1]()
+    if transition == "none":
+        transport.playback_volume.assert_called_once_with(transport.binding(), 40, "spotify_direct")
+    else:
+        transport.playback_volume.assert_not_called()
+
+
+@pytest.mark.parametrize("provider", ["spotify_direct", "music_assistant"])
+@pytest.mark.parametrize("observation", ["zero", "missing", "conflicting", "restricted", "no_capability"])
+def test_control_volume_requires_observed_volume_and_writable_output(tmp_path: Path, provider: str, observation: str) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "fixture"
+    backend.cfg.active_profile_id = backend.cfg.explicit_profile_id = "fixture"
+    backend.cfg.music_backend = provider
+    backend.cfg.music_backend_capabilities = {"supports_volume": True}
+    device = {"id": "speaker-id", "name": "Speaker", "supports_volume": True,
+              "active": True, "is_restricted": False, "entity_id": "speaker-id"}
+    playback = {"volume": 0, "uri": "fixture:item", "device": device}
+    status = {"music_backend": provider, "backend_available": True, "music_backend_available": True,
+              "music_backend_capabilities": {"supports_volume": True}, "playback": playback}
+    if observation == "missing":
+        playback.pop("volume")
+    elif observation == "conflicting":
+        playback["volume_percent"] = 30
+    elif observation == "restricted":
+        device.update(is_restricted=True, entity_id="other")
+    elif observation == "no_capability":
+        status["music_backend_capabilities"]["supports_volume"] = False
+
+    backend._apply_playback(backend.client.playback_from_status(status))
+
+    assert backend.controlVolumeAvailable is (observation == "zero")
+    if observation == "zero":
+        assert backend.volume == 0

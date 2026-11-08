@@ -11,6 +11,8 @@ import requests
 from .config import CLIENT_TYPE, Config, normalize_dj_announcement_output
 from .ha_websocket import WebSocketFastPath, WebSocketWriteUnconfirmed
 from .i18n import locale_for_language, translate
+from .session_projection import volume_observation
+from .session_transport import SessionError
 from .shared_settings import SharedSettingsClient
 
 _LOGGER = logging.getLogger(__name__)
@@ -116,6 +118,8 @@ class Playback:
     output_devices: tuple[str, ...] = ()
     output_device_details: tuple[dict[str, Any], ...] = ()
     is_favorite: bool = False
+    output_device_id: str = ""
+    volume_output_id: str = ""
 
 
 @dataclass
@@ -565,6 +569,8 @@ class HAClient:
 
     def playback_from_status(self, data: dict[str, Any]) -> Playback:
         playback = data.get("playback") if isinstance(data.get("playback"), dict) else data
+        device = playback.get("device")
+        device_id = device.get("id") if isinstance(device, dict) else None
         output_device_source = _output_device_source(playback, data)
         output_device_details = _output_device_details(output_device_source)
         output_devices = [str(item["name"]) for item in output_device_details]
@@ -572,7 +578,19 @@ class HAClient:
             output_device_source,
             _output_device_name(_output_device_name_source(playback, data)),
         )
+        percent = next((playback[key] for key in ("volume", "volume_percent")
+                        if playback.get(key) or playback.get(key) == 0), 50)
+        volume_output_id = ""
         backend_available = data.get("backend_available")
+        if (data.get("success") is not False and backend_available is True
+                and data.get("music_backend_available") is True):
+            try:
+                observation = volume_observation(data, data.get("music_backend"))
+            except SessionError:
+                pass
+            else:
+                volume_output_id = observation["output_id"]
+                percent = observation["percent"]
         if data.get("success") is False or backend_available is False:
             _LOGGER.debug(
                 "Playback status reports backend_available=%s error=%s message=%s",
@@ -598,7 +616,7 @@ class HAClient:
                 "current_track_is_liked",
             ),
             is_playing=bool(_first_truthy(playback.get("is_playing"), playback.get("playing"))),
-            volume=int(_first_truthy(playback.get("volume"), playback.get("volume_percent"), 50)),
+            volume=int(percent),
             shuffle=bool(playback.get("shuffle")),
             repeat=str(playback.get("repeat_state") or playback.get("repeat") or "off"),
             position_seconds=_seconds_from_playback(
@@ -620,8 +638,10 @@ class HAClient:
                 "track_duration_seconds",
             ),
             output_device=output_device,
+            output_device_id=device_id if isinstance(device_id, str) and device_id.strip() else "",
             output_devices=tuple(output_devices),
             output_device_details=tuple(output_device_details),
+            volume_output_id=volume_output_id,
         )
 
     def update_backend_summary(self, data: dict[str, Any]) -> MusicBackendSummary:

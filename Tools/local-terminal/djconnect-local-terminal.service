@@ -1,0 +1,25 @@
+[Unit]
+Description=DJConnect local maintenance terminal
+After=systemd-user-sessions.service systemd-logind.service
+Wants=systemd-logind.service
+ConditionPathExists=/dev/tty8
+
+[Service]
+Type=exec
+User=pi
+WorkingDirectory=~
+PAMName=login
+Environment=GDK_BACKEND=wayland
+Environment=XDG_SESSION_TYPE=wayland
+UnsetEnvironment=DISPLAY WAYLAND_DISPLAY
+TTYPath=/dev/tty8
+StandardInput=tty-fail
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=yes
+UtmpIdentifier=tty8
+UtmpMode=user
+ExecStartPre=+/usr/libexec/djconnect-terminal-vt save
+ExecStart=/usr/bin/cage -- /usr/bin/python3 /usr/libexec/djconnect-touch-terminal
+ExecStartPost=+/usr/bin/chvt 8
+ExecStopPost=+/usr/libexec/djconnect-terminal-vt restore

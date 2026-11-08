@@ -1,6 +1,6 @@
 # Bootstrap a DJConnect Raspberry Pi appliance
 
-Release preparation: the rc.8 download examples below become usable only after
+Release preparation: the rc.9 download examples below become usable only after
 separate publication approval and immutable release verification. They are not
 an instruction to install an unpublished candidate or resolve `latest`.
 
@@ -205,9 +205,9 @@ completed:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/download/v4.0.0-rc.8/djconnect-pi-4.0.0-rc.8.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/download/v4.0.0-rc.9/djconnect-pi-4.0.0-rc.9.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-4.0.0-rc.8
+cd djconnect-pi-4.0.0-rc.9
 sudo ./scripts/install.sh
 ```
 
@@ -235,9 +235,9 @@ development checkout:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/download/v4.0.0-rc.8/djconnect-pi-4.0.0-rc.8.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/download/v4.0.0-rc.9/djconnect-pi-4.0.0-rc.9.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-4.0.0-rc.8
+cd djconnect-pi-4.0.0-rc.9
 sudo ./scripts/install.sh
 ```
 
@@ -438,3 +438,34 @@ Open `Setup` on the touch screen and configure:
   expose free prompt input, local-only history clear, push-to-talk, wake word,
   TTS or local Ask DJ audio playback. Chat clear is confirmation-driven and
   goes through the Home Assistant history clear route.
+
+### Optional local terminal
+
+A local administrator can enable **Settings → Open terminal** for a Pi with
+a working KMS/DRM display and the `pi` account. This opens an interactive
+`pi` login shell with a touch keyboard on a separate local Wayland session.
+Closing the window or exiting the shell returns to the previous console.
+Enable this only where people with physical screen access may use the `pi`
+account and its sudo rights. The default installation leaves it disabled.
+
+Run these commands from the repository root on the Pi, using an administrator
+account. Reserve virtual console 8 for the terminal.
+
+```sh
+sudo apt install cage gir1.2-gtk-3.0 gir1.2-vte-2.91 kbd python3-gi
+sudo install -D -m 0755 Tools/local-terminal/djconnect-terminal-vt /usr/libexec/djconnect-terminal-vt
+sudo install -D -m 0755 Tools/local-terminal/djconnect-touch-terminal /usr/libexec/djconnect-touch-terminal
+sudo install -m 0644 Tools/local-terminal/djconnect-local-terminal.service /etc/systemd/system/
+sudo visudo -f /etc/sudoers.d/djconnect-local-terminal
+```
+
+Add this exact rule with `visudo`:
+
+```sudoers
+djconnect ALL=(root) NOPASSWD: /usr/bin/systemctl start djconnect-local-terminal.service
+```
+
+Run `sudo systemctl daemon-reload` and restart the touch client at a convenient
+time. The terminal starts on demand from Settings. To revoke access, remove
+the sudoers rule, stop the terminal service, remove its unit file and reload
+systemd.

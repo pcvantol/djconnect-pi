@@ -311,6 +311,7 @@ BrandWindow {
         root.shutdownConfirmOpen = false
         root.clearLogsConfirmOpen = false
         root.askDjClearConfirmOpen = false
+        askDjPanel.closeSearch()
         root.musicDnaDisableConfirmOpen = false
         root.musicDnaClearConfirmOpen = false
         root.discoveryReasonOpen = false
@@ -1179,7 +1180,9 @@ BrandWindow {
             }
         }
         function onAskDjChanged() {
-            if (root.activeScreen === "askdj") {
+            if (djconnect.askDjMessages.length === 0 && askDjPanel.searchOpen)
+                askDjPanel.closeSearch()
+            if (root.activeScreen === "askdj" && !askDjPanel.searchOpen) {
                 root.scrollAskDjToTop()
             }
             if (root.askDjClearConfirmOpen && djconnect.askDjMessages.length === 0) {
@@ -1412,6 +1415,12 @@ BrandWindow {
 
     Rectangle {
         id: controlPanel
+        onVisibleChanged: if (!visible) djconnect.cancelControlVolume()
+        function adjustVolume(delta) {
+            var lease = djconnect.beginControlVolume()
+            if (lease > 0)
+                djconnect.commitControlVolume(lease, Math.round(djconnect.volume + delta))
+        }
         anchors.fill: parent
         color: BrandTheme.colors.background
         visible: root.activeScreen === "control"
@@ -1549,17 +1558,63 @@ BrandWindow {
                     font.pixelSize: 30
                     Layout.preferredWidth: 54
                     Layout.preferredHeight: 54
-                    onClicked: djconnect.adjustVolume(-10)
+                    enabled: djconnect.controlVolumeAvailable
+                    onClicked: controlPanel.adjustVolume(-10)
                 }
 
                 Slider {
                     id: controlVolumeSlider
+                    objectName: "controlVolumeSlider"
                     from: 0
                     to: 60
-                    value: Math.min(60, djconnect.volume)
+                    enabled: djconnect.controlVolumeAvailable
                     stepSize: 1
                     Layout.fillWidth: true
-                    onMoved: djconnect.setVolume(Math.round(value))
+                    Accessible.name: root.tr("vol")
+                    onMoved: {
+                        if (!controlVolumePointer.pressed) {
+                            var lease = djconnect.beginControlVolume()
+                            if (lease > 0) djconnect.commitControlVolume(lease, Math.round(value))
+                        }
+                    }
+                    MouseArea {
+                        id: controlVolumePointer
+                        anchors.fill: parent
+                        acceptedButtons: Qt.LeftButton
+                        property int lease: 0
+                        property int draft: 0
+
+                        function valueAt(x) {
+                            var slider = controlVolumeSlider
+                            var halfHandle = slider.handle.width / 2
+                            var travel = Math.max(1, slider.availableWidth - 2 * halfHandle)
+                            var position = Math.max(0, Math.min(1, (x - slider.leftPadding - halfHandle) / travel))
+                            return Math.round(slider.valueAt(slider.mirrored ? 1 - position : position))
+                        }
+
+                        onPressed: function(mouse) {
+                            controlVolumeSlider.forceActiveFocus(Qt.MouseFocusReason)
+                            lease = djconnect.beginControlVolume()
+                            draft = valueAt(mouse.x)
+                        }
+                        onPositionChanged: function(mouse) {
+                            if (pressed && lease > 0) draft = valueAt(mouse.x)
+                        }
+                        onReleased: function(mouse) {
+                            var captured = lease
+                            lease = 0
+                            if (captured > 0) djconnect.commitControlVolume(captured, valueAt(mouse.x))
+                        }
+                        onCanceled: {
+                            if (lease > 0) djconnect.cancelControlVolume()
+                            lease = 0
+                        }
+                    }
+                    Binding {
+                        target: controlVolumeSlider; property: "value"
+                        value: controlVolumePointer.lease > 0 ? controlVolumePointer.draft : Math.min(60, djconnect.volume)
+                        restoreMode: Binding.RestoreNone
+                    }
                     background: Rectangle {
                         x: controlVolumeSlider.leftPadding
                         y: controlVolumeSlider.topPadding + controlVolumeSlider.availableHeight / 2 - height / 2
@@ -1596,7 +1651,8 @@ BrandWindow {
                     font.pixelSize: 30
                     Layout.preferredWidth: 54
                     Layout.preferredHeight: 54
-                    onClicked: djconnect.adjustVolume(10)
+                    enabled: djconnect.controlVolumeAvailable
+                    onClicked: controlPanel.adjustVolume(10)
                 }
 
                 Text {
@@ -1752,6 +1808,31 @@ BrandWindow {
                 width: Math.max(0, settingsScroll.availableWidth)
                 spacing: 20
 
+                PurpleButton {
+                    objectName: "settingsOpenLocalTerminal"
+                    text: root.tr("local_terminal")
+                    enabled: djconnect.localTerminalAvailable && !djconnect.busy
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 58
+                    onClicked: djconnect.openLocalTerminal()
+                }
+
+                Text {
+                    visible: !djconnect.localTerminalAvailable
+                    text: root.tr("local_terminal_disabled")
+                    color: BrandTheme.colors.muted
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+
+                DangerButton {
+                    objectName: "settingsShutdownDevice"
+                    text: root.tr("shutdown_device")
+                    font.pixelSize: 24
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 58
+                    onClicked: root.shutdownConfirmOpen = true
+                }
 
                 ColumnLayout {
                     Layout.fillWidth: true
@@ -2163,14 +2244,6 @@ BrandWindow {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 58
                 onClicked: root.rebootConfirmOpen = true
-            }
-
-            DangerButton {
-                text: root.tr("shutdown_device")
-                font.pixelSize: 24
-                Layout.fillWidth: true
-                Layout.preferredHeight: 58
-                onClicked: root.shutdownConfirmOpen = true
             }
 
             Item { Layout.fillHeight: true }
@@ -3303,10 +3376,90 @@ BrandWindow {
 
     Rectangle {
         id: askDjPanel
+        objectName: "askDjPanel"
         anchors.fill: parent
         color: BrandTheme.colors.background
         visible: root.activeScreen === "askdj"
         z: 17
+        property bool searchOpen: false
+        property bool searchKeyboardOpen: false
+        property int selectedMatch: -1
+        property string selectedMessageId: ""
+        readonly property var matches: {
+            const query = searchText(askDjSearchInput.text.trim())
+            const messages = djconnect.askDjMessages
+            const results = []
+            if (query) {
+                for (let i = 0; i < messages.length; i++) {
+                    if (searchText(messages[i].text || "").includes(query))
+                        results.push({row: i, messageId: messages[i].id || ""})
+                }
+            }
+            return results
+        }
+        readonly property int selectedRow: matches[selectedMatch] ? matches[selectedMatch].row : -1
+
+        onVisibleChanged: if (!visible) closeSearch()
+        onMatchesChanged: {
+            if (!searchOpen)
+                return
+            const previous = selectedMessageId
+                ? matches.findIndex(match => match.messageId === selectedMessageId) : -1
+            selectMatch(previous >= 0 ? previous : Math.max(0, Math.min(selectedMatch, matches.length - 1)))
+        }
+
+        function searchText(value) {
+            return String(value).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+        }
+
+        function openSearch() {
+            searchOpen = true
+            searchKeyboardOpen = true
+            askDjSearchInput.forceActiveFocus()
+        }
+
+        function closeSearch() {
+            searchOpen = false
+            searchKeyboardOpen = false
+            selectedMatch = -1
+            selectedMessageId = ""
+            askDjSearchInput.clear()
+        }
+
+        function selectMatch(position) {
+            const match = matches[position]
+            selectedMatch = match ? position : -1
+            selectedMessageId = match ? match.messageId : ""
+        }
+
+        function centerSelectedMatch() {
+            const bubble = askDjMessagesRepeater.itemAt(selectedRow)
+            const flickable = askDjScroll.contentItem
+            if (!searchOpen || !bubble || !flickable)
+                return
+            const top = flickable.originY
+            const maxY = top + Math.max(0, flickable.contentHeight - flickable.height)
+            const bubbleTop = bubble.mapToItem(flickable.contentItem, 0, 0).y
+            const targetY = bubbleTop - Math.max(0, flickable.height - bubble.height) / 2
+            flickable.contentY = Math.min(maxY, Math.max(top, targetY))
+        }
+
+        function startSearchAtFirstMatch() {
+            selectMatch(0)
+            Qt.callLater(centerSelectedMatch)
+        }
+
+        function dismissSearchKeyboard() {
+            searchKeyboardOpen = false
+            Qt.callLater(centerSelectedMatch)
+        }
+
+        function moveMatch(offset) {
+            if (!matches.length)
+                return
+            selectMatch((selectedMatch + offset + matches.length) % matches.length)
+            centerSelectedMatch()
+        }
 
         AppBackground { sessionCanvas: true }
         ModalBlocker {}
@@ -3329,6 +3482,17 @@ BrandWindow {
                     visible: djconnect.askDjBusy
                     implicitWidth: 30
                     implicitHeight: 30
+                }
+
+                GlassButton {
+                    objectName: "askDjSearchToggle"
+                    iconName: "search"
+                    tertiary: true
+                    checkable: true
+                    checked: askDjPanel.searchOpen
+                    enabled: askDjPanel.searchOpen || djconnect.askDjMessages.length > 0
+                    Accessible.name: root.tr("ask_dj_search_history")
+                    onClicked: askDjPanel.searchOpen ? askDjPanel.closeSearch() : askDjPanel.openSearch()
                 }
 
                 RefreshIconButton {
@@ -3368,8 +3532,71 @@ BrandWindow {
 
             }
 
+            Control {
+                visible: askDjPanel.searchOpen
+                Layout.fillWidth: true
+                padding: 5
+                background: GlassSurface { radius: 24; interactive: true; focused: askDjSearchInput.activeFocus }
+                contentItem: RowLayout {
+                    spacing: 4
+                    TextField {
+                        id: askDjSearchInput
+                        objectName: "askDjSearchInput"
+                        Layout.fillWidth: true
+                        Layout.minimumHeight: 48
+                        background: Item {}
+                        placeholderText: root.tr("ask_dj_search_history")
+                        Accessible.name: placeholderText
+                        font.pixelSize: root.width < 900 ? 18 : 22
+                        maximumLength: 120
+                        selectByMouse: true
+                        TapHandler { onTapped: askDjPanel.searchKeyboardOpen = true }
+                        onTextEdited: askDjPanel.startSearchAtFirstMatch()
+                        onAccepted: {
+                            if (askDjPanel.searchKeyboardOpen)
+                                askDjPanel.dismissSearchKeyboard()
+                            else
+                                askDjPanel.moveMatch(1)
+                        }
+                        Keys.onEscapePressed: {
+                            if (askDjPanel.searchKeyboardOpen)
+                                askDjPanel.dismissSearchKeyboard()
+                            else
+                                askDjPanel.closeSearch()
+                        }
+                    }
+                    Text {
+                        objectName: "askDjSearchCount"
+                        visible: askDjSearchInput.text.trim().length > 0
+                        text: (askDjPanel.selectedMatch + 1) + "/" + askDjPanel.matches.length
+                        color: BrandTheme.colors.muted
+                        font.pixelSize: root.width < 900 ? 14 : 18
+                    }
+                    GlassButton {
+                        objectName: "askDjPreviousMatch"
+                        iconName: "arrow_up"; tertiary: true
+                        Accessible.name: root.tr("logs_previous_match")
+                        enabled: askDjPanel.matches.length > 0
+                        onClicked: askDjPanel.moveMatch(-1)
+                    }
+                    GlassButton {
+                        objectName: "askDjNextMatch"
+                        iconName: "arrow_down"; tertiary: true
+                        Accessible.name: root.tr("logs_next_match")
+                        enabled: askDjPanel.matches.length > 0
+                        onClicked: askDjPanel.moveMatch(1)
+                    }
+                    GlassButton {
+                        objectName: "askDjSearchClose"
+                        iconName: "end"; tertiary: true; Accessible.name: root.tr("close")
+                        onClicked: askDjPanel.closeSearch()
+                    }
+                }
+            }
+
             ScrollView {
                 id: askDjScroll
+                objectName: "askDjScroll"
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 clip: true
@@ -3401,10 +3628,12 @@ BrandWindow {
                     }
 
                     Repeater {
+                        id: askDjMessagesRepeater
                         model: djconnect.askDjMessages
 
                         GlassSurface {
                             border.color: root.moodColor("focus")
+                            focused: askDjPanel.searchOpen && askDjPanel.selectedRow === index
                             property bool userBubble: modelData.role === "user"
                             property bool systemBubble: modelData.role === "system" || modelData.role === "status" || modelData.messageKind === "system" || modelData.messageKind === "status"
 
@@ -4058,6 +4287,17 @@ BrandWindow {
                         }
                     }
                 }
+            }
+
+            SearchKeyboardDock {
+                visible: askDjPanel.searchOpen && askDjPanel.searchKeyboardOpen
+                Layout.fillWidth: true
+                backend: djconnect
+                target: askDjSearchInput
+                keyboardName: "askDjHistorySearchKeyboard"
+                onEdited: askDjPanel.startSearchAtFirstMatch()
+                onSubmitted: askDjPanel.dismissSearchKeyboard()
+                onDismissed: askDjPanel.dismissSearchKeyboard()
             }
         }
 
@@ -5136,6 +5376,7 @@ BrandWindow {
                 }
 
                 DangerButton {
+                    objectName: "confirmSettingsShutdown"
                     text: root.tr("shutdown_device")
                     Layout.fillWidth: true
                     Layout.preferredHeight: 56
