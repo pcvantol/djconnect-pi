@@ -1412,6 +1412,12 @@ BrandWindow {
 
     Rectangle {
         id: controlPanel
+        onVisibleChanged: if (!visible) djconnect.cancelControlVolume()
+        function adjustVolume(delta) {
+            var lease = djconnect.beginControlVolume()
+            if (lease > 0)
+                djconnect.commitControlVolume(lease, Math.round(djconnect.volume + delta))
+        }
         anchors.fill: parent
         color: BrandTheme.colors.background
         visible: root.activeScreen === "control"
@@ -1549,17 +1555,63 @@ BrandWindow {
                     font.pixelSize: 30
                     Layout.preferredWidth: 54
                     Layout.preferredHeight: 54
-                    onClicked: djconnect.adjustVolume(-10)
+                    enabled: djconnect.controlVolumeAvailable
+                    onClicked: controlPanel.adjustVolume(-10)
                 }
 
                 Slider {
                     id: controlVolumeSlider
+                    objectName: "controlVolumeSlider"
                     from: 0
                     to: 60
-                    value: Math.min(60, djconnect.volume)
+                    enabled: djconnect.controlVolumeAvailable
                     stepSize: 1
                     Layout.fillWidth: true
-                    onMoved: djconnect.setVolume(Math.round(value))
+                    Accessible.name: root.tr("vol")
+                    onMoved: {
+                        if (!controlVolumePointer.pressed) {
+                            var lease = djconnect.beginControlVolume()
+                            if (lease > 0) djconnect.commitControlVolume(lease, Math.round(value))
+                        }
+                    }
+                    MouseArea {
+                        id: controlVolumePointer
+                        anchors.fill: parent
+                        acceptedButtons: Qt.LeftButton
+                        property int lease: 0
+                        property int draft: 0
+
+                        function valueAt(x) {
+                            var slider = controlVolumeSlider
+                            var halfHandle = slider.handle.width / 2
+                            var travel = Math.max(1, slider.availableWidth - 2 * halfHandle)
+                            var position = Math.max(0, Math.min(1, (x - slider.leftPadding - halfHandle) / travel))
+                            return Math.round(slider.valueAt(slider.mirrored ? 1 - position : position))
+                        }
+
+                        onPressed: function(mouse) {
+                            controlVolumeSlider.forceActiveFocus(Qt.MouseFocusReason)
+                            lease = djconnect.beginControlVolume()
+                            draft = valueAt(mouse.x)
+                        }
+                        onPositionChanged: function(mouse) {
+                            if (pressed && lease > 0) draft = valueAt(mouse.x)
+                        }
+                        onReleased: function(mouse) {
+                            var captured = lease
+                            lease = 0
+                            if (captured > 0) djconnect.commitControlVolume(captured, valueAt(mouse.x))
+                        }
+                        onCanceled: {
+                            if (lease > 0) djconnect.cancelControlVolume()
+                            lease = 0
+                        }
+                    }
+                    Binding {
+                        target: controlVolumeSlider; property: "value"
+                        value: controlVolumePointer.lease > 0 ? controlVolumePointer.draft : Math.min(60, djconnect.volume)
+                        restoreMode: Binding.RestoreNone
+                    }
                     background: Rectangle {
                         x: controlVolumeSlider.leftPadding
                         y: controlVolumeSlider.topPadding + controlVolumeSlider.availableHeight / 2 - height / 2
@@ -1596,7 +1648,8 @@ BrandWindow {
                     font.pixelSize: 30
                     Layout.preferredWidth: 54
                     Layout.preferredHeight: 54
-                    onClicked: djconnect.adjustVolume(10)
+                    enabled: djconnect.controlVolumeAvailable
+                    onClicked: controlPanel.adjustVolume(10)
                 }
 
                 Text {

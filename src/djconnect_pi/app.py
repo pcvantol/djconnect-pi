@@ -65,6 +65,8 @@ from .i18n import LANGUAGES, normalize_language, translate
 from .logging_config import setup_logging
 from .navigation_gesture import EdgeBackGesture
 from .session_controller import SessionController
+from .session_playback_control import output_id, volume_observation
+from .session_transport import SessionError, session_profile_id
 from .shared_settings import SettingsError
 from .system_info import log_raspberry_pi_system_info
 
@@ -128,6 +130,8 @@ class DJConnectBackend(QObject):
     favoriteChanged = Signal()
     favoriteBusyChanged = Signal()
     volumeChanged = Signal()
+    controlVolumeChanged = Signal()
+    _controlVolumeFinished = Signal()
     shuffleChanged = Signal()
     repeatChanged = Signal()
     outputDeviceChanged = Signal()
@@ -265,6 +269,13 @@ class DJConnectBackend(QObject):
         self._shared_settings.owner_context = self._session_controller.scope_context
         self._shared_owner_context = self._shared_settings.context()
         self._session_controller.ownerScopeChanged.connect(self._session_owner_changed)
+        self._control_volume_serial = 0
+        self._control_volume_intent = None
+        self._control_volume_pending = False
+        self._controlVolumeFinished.connect(self._finish_control_volume)
+        self.settingsChanged.connect(self.controlVolumeChanged.emit)
+        self.profileChanged.connect(self.cancelControlVolume)
+        self.demoModeChanged.connect(self.cancelControlVolume)
         self._poll_timer = QTimer(self)
         self._poll_timer.setInterval(5000)
         self._poll_timer.timeout.connect(self.refresh)
@@ -1181,6 +1192,10 @@ class DJConnectBackend(QObject):
                 self._track_insight_revision += 1
                 self._clear_track_insight()
         self._session_controller.setForeground(foreground)
+        if foreground:
+            self.controlVolumeChanged.emit()
+        else:
+            self.cancelControlVolume()
 
     @Slot()
     def openTrackInsight(self) -> None:
@@ -1208,6 +1223,98 @@ class DJConnectBackend(QObject):
         self._set_ask_dj_busy(True)
         self._run(self.tr_key("track_insight"), lambda: self._track_insight_worker(playback, scope),
                   done=lambda: self._set_ask_dj_busy(False))
+
+    def _control_volume_context(self, playback: Playback) -> tuple | None:
+        if self._demo_mode:
+            return ("demo",)
+        if (not self.paired or not session_profile_id(self.cfg)
+                or (self._pending_output_device and time.monotonic() < self._pending_output_until)
+                or self.cfg.music_backend not in {"spotify_direct", "music_assistant"}
+                or self.cfg.music_backend_capabilities.get("supports_volume") is not True
+                or not playback.uri or not output_id(playback.volume_output_id)):
+            return None
+        return (
+            self._private_read_context(), self.cfg.music_backend, self.cfg.music_backend_revision,
+            self.cfg.music_target_player.get("id", ""), playback.uri, playback.volume_output_id,
+        )
+
+    @Property(bool, notify=controlVolumeChanged)
+    def controlVolumeAvailable(self) -> bool:
+        return (self._session_controller._foreground and not self._control_volume_pending
+                and self._control_volume_context(self.playback) is not None)
+
+    @Slot(result=int)
+    def beginControlVolume(self) -> int:
+        context = self._control_volume_context(self.playback)
+        if not self.controlVolumeAvailable or context is None:
+            return 0
+        self._control_volume_serial += 1
+        self._control_volume_intent = (self._control_volume_serial, context)
+        return self._control_volume_serial
+
+    @Slot()
+    def cancelControlVolume(self) -> None:
+        self._control_volume_serial += 1
+        self._control_volume_intent = None
+        self.controlVolumeChanged.emit()
+
+    @Slot(int, int)
+    def commitControlVolume(self, lease: int, value: int) -> None:
+        intent = self._control_volume_intent
+        if intent is None or lease != intent[0]:
+            return
+        self._control_volume_intent = None
+        context = intent[1]
+        value = max(0, min(60, value))
+        if (not self.controlVolumeAvailable or context != self._control_volume_context(self.playback)
+                or value == self.playback.volume):
+            return
+        if self._demo_mode:
+            self.setVolume(value)
+            return
+        transport = self._session_controller.transport
+        try:
+            binding = transport.binding()
+        except SessionError:
+            return
+        self._control_volume_pending = True
+        self.controlVolumeChanged.emit()
+
+        def current() -> bool:
+            return (self._session_controller._foreground and lease == self._control_volume_serial
+                    and context == self._control_volume_context(self.playback))
+
+        def worker() -> None:
+            if not current():
+                return
+            _, backend, revision, player, uri, output = context
+            try:
+                status = transport.playback_status(binding)
+                observed = status.get("playback")
+                target = status.get("music_target_player")
+                if (not current() or status.get("music_backend") != backend
+                        or type(status.get("music_backend_revision")) is not int
+                        or status["music_backend_revision"] != revision
+                        or status.get("backend_available") is not True
+                        or status.get("music_backend_available") is not True
+                        or not isinstance(observed, dict) or observed.get("has_playback") is not True
+                        or observed.get("uri") != uri
+                        or (target.get("id", "") if isinstance(target, dict) else "") != player
+                        or volume_observation(status, backend)["output_id"] != output):
+                    return
+                if current():
+                    transport.playback_volume(binding, value, backend)
+            except SessionError:
+                return  # Never repeat a volume command with an uncertain outcome.
+            if current():
+                self._refresh_worker()
+
+        self._run(self.tr_key("vol"), worker, done=self._controlVolumeFinished.emit)
+
+    @Slot()
+    def _finish_control_volume(self) -> None:
+        self._control_volume_pending = False
+        self.controlVolumeChanged.emit()
 
     @Slot(int)
     def setVolume(self, value: int) -> None:
@@ -1260,6 +1367,7 @@ class DJConnectBackend(QObject):
         self.playback.output_device = value
         self._pending_output_device = value
         self._pending_output_until = time.monotonic() + 20
+        self.cancelControlVolume()
         self.outputDeviceChanged.emit()
         _LOGGER.info("User selected output device: %s", value)
         self.showToastForContext(value, "playback")
@@ -2282,7 +2390,12 @@ class DJConnectBackend(QObject):
             self._version_mismatch_text = ""
             self.versionMismatchChanged.emit()
         old = self.playback
+        old_volume_context = self._control_volume_context(old)
         self.playback = playback
+        if old_volume_context != self._control_volume_context(playback):
+            self.cancelControlVolume()
+        else:
+            self.controlVolumeChanged.emit()
         track_changed = old.title != playback.title or old.artist != playback.artist or old.image_url != playback.image_url or old.uri != playback.uri
         if (self._track_insight_subject(old) != self._track_insight_subject(playback)
                 or self._track_insight_output(old) != self._track_insight_output(playback)):

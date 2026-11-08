@@ -259,8 +259,8 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert "property var deviceChoices" in main_qml
     assert 'property string noOutputDeviceLabel: root.tr("none")' in main_qml
     assert "djconnect.setOutputDevice" in main_qml
-    assert "djconnect.adjustVolume(-10)" in main_qml
-    assert "djconnect.adjustVolume(10)" in main_qml
+    assert "controlPanel.adjustVolume(-10)" in main_qml
+    assert "controlPanel.adjustVolume(10)" in main_qml
     assert 'text: "-"' in main_qml
     assert 'text: "+"' in main_qml
     assert "id: nowPanel" in main_qml
