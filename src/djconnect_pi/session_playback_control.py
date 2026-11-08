@@ -106,7 +106,11 @@ def output_choices(payload, backend, revision, origin):
         name = row.get("name")
         if not isinstance(name, str) or not 1 <= len(name) <= 256 or any(ord(c) < 32 for c in name):
             raise SessionError("unavailable")
-        choices.append({"id": row["id"], "name": name, "active": row["active"]})
+        choice = {"id": row["id"], "name": name, "active": row["active"]}
+        volume = row.get("volume_percent")
+        if row.get("supports_volume") is True and type(volume) is int and 0 <= volume <= 100:
+            choice["volume_percent"] = volume
+        choices.append(choice)
     if active != [origin] or len(choices) > 32:
         raise SessionError("unavailable")
     return choices

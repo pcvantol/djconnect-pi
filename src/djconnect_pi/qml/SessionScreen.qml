@@ -1990,13 +1990,16 @@ Item {
                     id: outputChoice
                     required property var modelData
                     objectName: "sessionOutputChoice-" + modelData.id
+                    readonly property bool volumeKnown: typeof modelData.volume_percent === "number"
+                    readonly property string volumeLabel: volumeKnown ? modelData.volume_percent + "%" : "–"
                     width: outputChoices.width
                     text: modelData.name + (screen.compact && modelData.active ? " · " + screen.tr("session_output_current") : "")
                     Accessible.name: modelData.name + (modelData.active ? " · " + screen.tr("session_output_current") : "")
+                    Accessible.description: volumeKnown ? screen.tr("volume") + " " + volumeLabel : ""
                     checked: modelData.active && !screen.compact
                     opacity: modelData.active ? 1 : (enabled ? 1 : 0.4)
                     enabled: !!screen.state.playback_control.enabled && !modelData.active
-                    implicitHeight: Math.max(56, outputChoiceText.implicitHeight + 28)
+                    implicitHeight: Math.max(56, outputChoiceLabels.implicitHeight + 28)
                     contentItem: RowLayout {
                         spacing: 12
                         FeatureIcon {
@@ -2004,13 +2007,24 @@ Item {
                             iconName: "voice"
                             Layout.preferredWidth: 24; Layout.preferredHeight: 24
                         }
-                        Text {
-                            id: outputChoiceText
-                            text: outputChoice.text; textFormat: Text.PlainText; wrapMode: Text.WordWrap
-                            font: outputChoice.font; color: BrandTheme.colors.text
+                        ColumnLayout {
+                            id: outputChoiceLabels
                             Layout.fillWidth: true
-                            horizontalAlignment: screen.compact ? Text.AlignHCenter : Text.AlignLeft
-                            verticalAlignment: Text.AlignVCenter
+                            spacing: 2
+                            Text {
+                                text: outputChoice.text; textFormat: Text.PlainText; wrapMode: Text.WordWrap
+                                font: outputChoice.font; color: BrandTheme.colors.text
+                                Layout.fillWidth: true
+                                horizontalAlignment: screen.compact ? Text.AlignHCenter : Text.AlignLeft
+                            }
+                            Text {
+                                objectName: "sessionOutputChoiceVolume"
+                                text: outputChoice.volumeLabel; textFormat: Text.PlainText
+                                color: BrandTheme.colors.muted; font.pixelSize: 15
+                                Layout.fillWidth: true
+                                horizontalAlignment: screen.compact ? Text.AlignHCenter : Text.AlignLeft
+                                Accessible.ignored: true
+                            }
                         }
                         Text {
                             visible: !screen.compact && outputChoice.modelData.active
