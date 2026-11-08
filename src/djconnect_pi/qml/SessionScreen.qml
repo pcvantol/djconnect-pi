@@ -95,7 +95,14 @@ Item {
             text: screen.tr("session_ask_about"); enabled: !screen.owner.busy
             onClicked: { if (screen.owner.selectMoment(screen.state.session_id, modelData.moment_id)) composerPanel.open() }
         }
-        SessionAttribution { id: liveSources; sources: modelData.display_sources || []; requiresSpotify: modelData.requires_spotify_attribution || false; spotifyURL: modelData.spotify_source_url || ""; Layout.fillWidth: true }
+        SessionAttribution {
+            id: liveSources
+            bulletinSources: modelData.bulletin_sources || []
+            sources: bulletinSources.length ? [] : modelData.display_sources || []
+            requiresSpotify: modelData.requires_spotify_attribution || false
+            spotifyURL: modelData.spotify_source_url || ""
+            Layout.fillWidth: true
+        }
 
     }
     readonly property string scopeProfileId: state.owner_profile_id || backend.activeProfileId

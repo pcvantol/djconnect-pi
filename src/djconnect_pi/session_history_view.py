@@ -206,9 +206,24 @@ def live_presentations(session, *, now=None):
         if raw.get("type") == "dj_bulletin":
             if not _valid_bulletin(raw, card):
                 continue
-            card.update(flow_bulletin=True, occurred_at=raw["created_at"])
+            card.update(flow_bulletin=True, occurred_at=raw["created_at"],
+                        bulletin_sources=_bulletin_sources(raw["sources"]))
         result.append(card)
     return result
+
+
+def _bulletin_sources(references):
+    """Project admitted producer references in order, with one link per destination."""
+    by_url = {}
+    for source in references:
+        url = safe_link(source["url"])
+        by_url.setdefault(url, {
+            "url": url,
+            "label": " · ".join((source["provider"], source["license"])),
+            "accessible_label": " · ".join((source["provider"], source["title"], source["license"])),
+            "published_at": source["published_at"],
+        })
+    return list(by_url.values())
 
 
 def _valid_bulletin(raw, card):

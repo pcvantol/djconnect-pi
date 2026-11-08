@@ -6,6 +6,7 @@ import "BrandTheme.js" as BrandTheme
 ColumnLayout {
     id: attribution
     property var sources: []
+    property var bulletinSources: []
     property bool requiresSpotify: false
     property string spotifyURL: ""
     readonly property bool ready: !requiresSpotify || (spotifyLogo.status === Image.Ready && spotifyURL.length > 0)
@@ -20,6 +21,29 @@ ColumnLayout {
         activeFocusOnTab: visible && attribution.ready
         Keys.onReturnPressed: Qt.openUrlExternally(attribution.spotifyURL)
         TapHandler { enabled: attribution.ready; onTapped: Qt.openUrlExternally(attribution.spotifyURL) }
+    }
+    Repeater {
+        model: attribution.bulletinSources
+        Text {
+            id: bulletinLink
+            required property var modelData
+            objectName: "sessionBulletinSourceLink"
+            text: modelData.label; textFormat: Text.PlainText
+            color: BrandTheme.colors.text; font.pixelSize: 16
+            font.underline: activeFocus || hover.hovered
+            wrapMode: Text.WrapAnywhere; verticalAlignment: Text.AlignVCenter
+            Layout.fillWidth: true; Layout.minimumHeight: 44
+            activeFocusOnTab: true
+            Accessible.role: Accessible.Link
+            Accessible.name: modelData.accessible_label
+            Accessible.description: modelData.url
+            Accessible.onPressAction: activate()
+            Keys.onReturnPressed: activate()
+            Keys.onSpacePressed: activate()
+            HoverHandler { id: hover }
+            TapHandler { onTapped: bulletinLink.activate() }
+            function activate() { Qt.openUrlExternally(modelData.url) }
+        }
     }
     Repeater {
         model: attribution.ready ? attribution.sources : []

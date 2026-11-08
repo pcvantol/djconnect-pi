@@ -42,6 +42,36 @@ def live_fixture():
                 'source_expires_at':None,'display_expires_at':'2026-10-20T01:00:00+00:00'}]}}}
 
 
+def test_bulletin_links_preserve_producer_credit_only_during_live_admission():
+    from djconnect_pi.session_history_view import live_presentations
+
+    data = live_fixture()
+    wire = data["broadcast"]
+    admission = wire["native_delivery"]["admissions"][0]
+    expiry = "2026-10-19T01:00:00+00:00"
+    admission["source_expires_at"] = expiry
+    first = {"provider": "CBS", "title": "First release", "license": "CC BY 4.0",
+             "url": "https://example.org/first", "published_at": "2026-10-18T10:00:00Z"}
+    second = {**first, "title": "Second release", "url": "https://example.org/second"}
+    moment = wire["dj_moments"][0]
+    moment.update({
+        "type": "dj_bulletin", "visibility": "owner_only", "delivery_channels": ["owner"],
+        "presentation_intent": {"visibility": "owner_only", "delivery_channels": ["owner"]},
+        "generation_metadata": {"bulletin_schema": "1", "context_source": "fixed_rss_metadata_v1"},
+        "knowledge_intent": {"type": "dj_bulletin"}, "source_references": ["fixed_rss_metadata_v1"],
+        "created_at": "2026-10-18T11:00:00Z", "actions": [], "sources": [first, first, second],
+    })
+    card, = live_presentations(data, now=0)
+    assert card["bulletin_sources"] == [
+        {"url": source["url"], "label": "CBS · CC BY 4.0",
+         "accessible_label": f"CBS · {source['title']} · CC BY 4.0", "published_at": source["published_at"]}
+        for source in (first, second)
+    ]
+    assert live_presentations(data, now=9999999999) == []
+    second["url"] = "https://user:password@example.org/second"
+    assert live_presentations(data, now=0) == []
+
+
 def test_current_grant_expires_independently_of_historical_permission():
     data=live_fixture()
     assert live_moments(data,now=0)[0]['body']=='Confirmed body'
