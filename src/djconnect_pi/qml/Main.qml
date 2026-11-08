@@ -1805,6 +1805,31 @@ BrandWindow {
                 width: Math.max(0, settingsScroll.availableWidth)
                 spacing: 20
 
+                PurpleButton {
+                    objectName: "settingsOpenLocalTerminal"
+                    text: root.tr("local_terminal")
+                    enabled: djconnect.localTerminalAvailable && !djconnect.busy
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 58
+                    onClicked: djconnect.openLocalTerminal()
+                }
+
+                Text {
+                    visible: !djconnect.localTerminalAvailable
+                    text: root.tr("local_terminal_disabled")
+                    color: BrandTheme.colors.muted
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+
+                DangerButton {
+                    objectName: "settingsShutdownDevice"
+                    text: root.tr("shutdown_device")
+                    font.pixelSize: 24
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 58
+                    onClicked: root.shutdownConfirmOpen = true
+                }
 
                 ColumnLayout {
                     Layout.fillWidth: true
@@ -2216,14 +2241,6 @@ BrandWindow {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 58
                 onClicked: root.rebootConfirmOpen = true
-            }
-
-            DangerButton {
-                text: root.tr("shutdown_device")
-                font.pixelSize: 24
-                Layout.fillWidth: true
-                Layout.preferredHeight: 58
-                onClicked: root.shutdownConfirmOpen = true
             }
 
             Item { Layout.fillHeight: true }
@@ -5189,6 +5206,7 @@ BrandWindow {
                 }
 
                 DangerButton {
+                    objectName: "confirmSettingsShutdown"
                     text: root.tr("shutdown_device")
                     Layout.fillWidth: true
                     Layout.preferredHeight: 56

@@ -2292,6 +2292,26 @@ def test_backend_reboot_uses_passwordless_absolute_systemctl(tmp_path: Path) -> 
     ]
 
 
+def test_local_terminal_starts_only_the_opted_in_system_unit(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    unit = tmp_path / "djconnect-local-terminal.service"
+    with patch("djconnect_pi.app.LOCAL_TERMINAL_UNIT", unit), patch(
+        "djconnect_pi.app.subprocess.run"
+    ) as run, patch.object(backend, "_run", side_effect=lambda _, worker: worker()):
+        assert not backend.localTerminalAvailable
+        backend.openLocalTerminal()
+        run.assert_not_called()
+
+        unit.touch()
+        assert backend.localTerminalAvailable
+        backend.openLocalTerminal()
+        run.assert_called_once_with(
+            ["/usr/bin/sudo", "-n", "/usr/bin/systemctl", "start", unit.name],
+            check=True, timeout=10, capture_output=True, text=True,
+        )
+
+
 def test_backend_shutdown_uses_passwordless_absolute_systemctl(tmp_path: Path) -> None:
     ensure_app()
     backend = DJConnectBackend(tmp_path / "config.json")
