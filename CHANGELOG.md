@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## 4.0.0-rc.8
+
+- Align Pi Session Flow, Horizon, playback controls and media cards with iPad.
+- Keep playback gestures bound to the original track and output. Show the
+  reported volume for each available speaker.
+- Interleave admitted live bulletins with saved contributions and provide
+  accessible source links that expire with the original bulletin.
+- Add contextual Ask DJ from contribution text, a bottom-docked keyboard,
+  search match navigation and a return-to-top control in open histories.
+- Update the welcome and launch screens, VibeScape controls, Logs, games,
+  glass components, and shared compact and wide navigation.
+- Update pinned Python dependencies and isolate the audio observer test from
+  native QtMultimedia imports.
+
 ## 4.0.0-rc.7
 
 - Move the application, tests and release builds to standard GIL-enabled
