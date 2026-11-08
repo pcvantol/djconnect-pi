@@ -21,6 +21,7 @@ from .expiry_clock import ExpiryClock
 from .i18n import locale_for_language, translate
 from .session_artwork import MomentImages
 from .session_artwork_prepare import ArtworkPreparation
+from .session_content_delete_control import ContentDeleteControl
 from .session_current_reply import current_reply, moment_reference, reply_valid
 from .session_forecast import ForecastReceiver, forecast_supported
 from .session_forecast_image import ForecastImages
@@ -150,6 +151,12 @@ class SessionController(QObject):
         self._archive_delete = HistoryDeleteControl(self)
         self.changed.connect(self._archive_delete.sync)
         self.contextCleared.connect(self._archive_delete.hide)
+        self._content_delete = ContentDeleteControl(self)
+        self._withdrawn_content_scope = None
+        self._withdrawn_moments = set()
+        self._withdrawn_entries = {}
+        self.changed.connect(self._content_delete.sync)
+        self.contextCleared.connect(self._content_delete.cancel)
         self._ready.connect(self._apply)
         backend.demoModeChanged.connect(self._demo_changed)
         # Deferred visibility notifications must die with their QObject owner.
@@ -208,6 +215,7 @@ class SessionController(QObject):
             "artwork_prepare": self._artwork_prepare.snapshot(),
             "playback_control": self._playback_control.snapshot(),
             "archive_delete": self._archive_delete.snapshot(),
+            "content_delete": self._content_delete.snapshot(),
             "forecast_supported": not revoked and forecast_supported(session, self._caps),
             "forecast": {"state": "empty", "sections": []} if revoked else self._forecast.snapshot(),
             "mood": session.get("selected_mood", ""),
@@ -345,6 +353,90 @@ class SessionController(QObject):
     def recoverHistoryDelete(self):
         return self._archive_delete.recover()
 
+    @Slot(bool)
+    def setContentDeleteVisible(self, visible):
+        if self._content_delete.visible == visible:
+            return
+        self._content_delete.visible = visible
+        if not visible:
+            self._content_delete.cancel()
+        self._visibility_notify.start()
+
+    @Slot(str, str, str, result=bool)
+    def beginContentDelete(self, kind, session_id, identifier):
+        return self._content_delete.begin(kind, session_id, identifier)
+
+    @Slot(int, result=bool)
+    def confirmContentDelete(self, lease):
+        return self._content_delete.confirm(lease)
+
+    @Slot(result=bool)
+    def checkContentDeleteStatus(self):
+        return self._content_delete.check_status()
+
+    @Slot()
+    def cancelContentDelete(self):
+        self._content_delete.cancel()
+        self._visibility_notify.start()
+
+    def _content_withdrawal_scope(self):
+        binding = self._content_delete.binding()
+        if binding is None:
+            return None
+        return (binding.ha_url, binding.device_id, binding.token, binding.profile_id,
+                binding.profile_selection, binding.private_session)
+
+    def _without_withdrawn_entries(self, entries):
+        if self._withdrawn_content_scope != self._content_withdrawal_scope():
+            return entries
+        visible = []
+        for row in entries:
+            disposition = self._withdrawn_entries.get((row.get("session_id"), row.get("entry_id")))
+            if disposition is None or (disposition == "unavailable" and (
+                    row.get("kind") == "dj_publication" or row.get("state") == "source_withdrawn")):
+                visible.append(row)
+        return visible
+
+    def _without_withdrawn_moments(self, session):
+        if not self._withdrawn_moments or self._withdrawn_content_scope != self._content_withdrawal_scope():
+            return session
+        sid = session.get("session_id")
+        broadcast = session.get("broadcast", {})
+        moments = broadcast.get("dj_moments")
+        if not isinstance(moments, list):
+            return session
+        rows = [row for row in moments if not isinstance(row, dict) or not isinstance(row.get("moment_id"), str)
+                or (sid, row["moment_id"]) not in self._withdrawn_moments]
+        return {**session, "broadcast": {**broadcast, "dj_moments": rows}}
+
+    def _filter_withdrawn_history(self, page, field):
+        if field in page:
+            return {**page, field: self._without_withdrawn_entries(page[field])}
+        return page
+
+    def applyContentWithdrawal(self, preview):
+        scope = self._content_withdrawal_scope()
+        if self._withdrawn_content_scope != scope:
+            self._withdrawn_moments.clear()
+            self._withdrawn_entries.clear()
+            self._withdrawn_content_scope = scope
+        self._withdrawn_moments.update(preview.moments)
+        self._withdrawn_entries.update({(sid, entry): disposition for sid, entry, disposition in preview.entries})
+        self._session = self._without_withdrawn_moments(self._session)
+        self._moments = live_presentations(self._session, now=self._clock.now())
+        self._retained_flow = self._without_withdrawn_entries(self._retained_flow)
+        self._conversation = self._without_withdrawn_entries(self._conversation)
+        self._timeline = self._filter_withdrawn_history(self._timeline, "entries")
+        self._search = {}
+        self._timeline_trail = []
+        self._view_epoch += 1
+        if not self._selection_valid():
+            self._withdraw_question()
+            self.selectionInvalidated.emit()
+        if self._current_reply and not self._current_reply_valid():
+            self._current_reply = {}
+            self._current_reply_binding = None
+
     def invalidateArchive(self):
         # Whole archive authority changes on erasure: no old cursor, selection,
         # dependent search/detail or queued archive read may survive the receipt.
@@ -372,10 +464,11 @@ class SessionController(QObject):
         self._artwork_prepare.shutdown()
         self._playback_control.shutdown()
         self._archive_delete.shutdown()
+        self._content_delete.shutdown()
 
     @Property(bool, notify=changed)
     def busy(self):
-        return bool(self._running or self._artwork_prepare.running or self._playback_control.running or self._archive_delete.running)
+        return bool(self._running or self._artwork_prepare.running or self._playback_control.running or self._archive_delete.running or self._content_delete.running)
 
     @Property(bool, notify=changed)
     def lifecycleBusy(self):
@@ -407,6 +500,7 @@ class SessionController(QObject):
         self._bootstrap_owner = ""
         self._bootstrap_private = False
         self._archive_delete.hide(reset=True)
+        self._content_delete.cancel()
         self._playback_control.hide(reset=True)
         self._forecast.reset()
         self._forecast_dirty = False
@@ -990,7 +1084,7 @@ class SessionController(QObject):
     def _launch(self, action, value=""):
         if not self._foreground:
             return
-        if (self._artwork_prepare.running or self._playback_control.running or self._archive_delete.running) and action != "end":
+        if (self._artwork_prepare.running or self._playback_control.running or self._archive_delete.running or self._content_delete.running) and action != "end":
             return
         # End supersedes reads, but never another lifecycle write. Late read results lose their ticket.
         if self._running and (action != "end" or self._running_action in {"start", "end"}):
@@ -1330,8 +1424,8 @@ class SessionController(QObject):
                 self._question_status = "accepted_unavailable"
                 self._selection = {}
                 # The question's GET is a receipt check, not a replacement Runtime snapshot.
-                self._conversation = result.get("conversation", [])
-                self._retained_flow = result.get("retained_flow", [])
+                self._conversation = self._without_withdrawn_entries(result.get("conversation", []))
+                self._retained_flow = self._without_withdrawn_entries(result.get("retained_flow", []))
                 self._expire()
                 confirmed = self._confirm_question()
                 self.changed.emit()
@@ -1424,14 +1518,14 @@ class SessionController(QObject):
                     if old_idle_state != new_idle_state:
                         self.flowIdleHeaderAboutToChange.emit()
                 self._loaded = True
-                self._session = incoming_session
+                self._session = self._without_withdrawn_moments(incoming_session)
                 self._moments = live_presentations(self._session, now=self._clock.now())
                 self._caps = result.get("capabilities", self._caps)
                 self._forecast.receive(self._session, self._caps, self._clock.now())
                 if not self._composer_supported():
                     self._withdraw_question()
-                self._conversation = result.get("conversation", [])
-                self._retained_flow = result.get("retained_flow", [])
+                self._conversation = self._without_withdrawn_entries(result.get("conversation", []))
+                self._retained_flow = self._without_withdrawn_entries(result.get("retained_flow", []))
                 if not self._history_supported():
                     self._timeline = {}
                     self._timeline_trail = []
@@ -1467,7 +1561,7 @@ class SessionController(QObject):
                 self._history_reset = result["history"].get("_window_reset", False)
                 self._history_cursor = page_cursor(result["history"].get("next_cursor"))
             if "search" in result:
-                self._search = result["search"]
+                self._search = self._filter_withdrawn_history(result["search"], "matches")
             if "timeline" in result:
                 incoming = result["timeline"]
                 if not result.get("timeline_prefix"):
@@ -1484,7 +1578,7 @@ class SessionController(QObject):
                     deadlines.append(self._timeline["_session_deadline"])
                 if deadlines:
                     incoming = {**incoming, "_session_deadline": min(deadlines)}
-                self._timeline = incoming
+                self._timeline = self._filter_withdrawn_history(incoming, "entries")
                 # A same-scope/revision background page check must not close an active search.
                 # Search separately re-reads every displayed page; changed scope/revision withdraws it.
                 if not (result["action"] in {"timeline_refresh", "timeline_extend"}

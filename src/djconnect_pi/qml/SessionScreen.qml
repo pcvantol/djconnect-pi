@@ -19,6 +19,10 @@ Item {
     readonly property bool sessionVoiceAvailable: backend.sessionVoiceAvailable
     onSessionVoiceAvailableChanged: if (!sessionVoiceAvailable && choices && choices.field === "voice") choices.close()
     readonly property var displayedFlow: state.flow_rows || []
+    readonly property var contentDeletion: state.content_delete || ({})
+    function deleteContent(kind, sessionId, identifier) {
+        if (owner.beginContentDelete(kind, sessionId, identifier)) contentDeletePanel.open()
+    }
     component LiveMomentCard: GlassCard {
         id: liveCard
         objectName: "sessionLiveMomentCard"
@@ -32,6 +36,13 @@ Item {
         function askAbout() {
             if (canAsk && screen.owner.selectMoment(screen.state.session_id, modelData.moment_id))
                 composerPanel.open()
+        }
+        GlassButton {
+            objectName: "sessionDeleteLiveMoment"
+            visible: !!screen.contentDeletion.available && liveSources.ready
+            enabled: !screen.owner.busy && !screen.owner.questionBusy
+            iconName: "trash"; Accessible.name: screen.tr("session_content_delete_action")
+            onClicked: screen.deleteContent("moment", screen.state.session_id, modelData.moment_id)
         }
         ColumnLayout {
             objectName: "sessionMomentArtworkCard"
@@ -146,6 +157,7 @@ Item {
     readonly property bool showForecast: !historical && state.forecast_supported && forecastMode
     function syncMediaVisibility() {
         if (!owner) return
+        owner.setContentDeleteVisible(visible && !showForecast)
         owner.setArchiveDeleteVisible(visible && historical && !currentHistory)
         owner.setPlaybackControlsVisible(visible && !historical && !showForecast)
         owner.setForecastImagesVisible(showForecast && visible)
@@ -155,6 +167,10 @@ Item {
     Component.onCompleted: syncMediaVisibility()
     onShowForecastChanged: { if (showForecast) { outputsPanel.close(); playbackPanel.close() } if (!showForecast) clearForecastReading(); syncMediaVisibility() }
     onStateChanged: {
+        if (contentDeletePanel && contentDeletePanel.opened && state.content_delete
+                && (!state.content_delete.status
+                    || (!state.content_delete.available && !state.content_delete.status_available)))
+            contentDeletePanel.close()
         if (archiveDeletePanel && archiveDeletePanel.opened && state.archive_delete
                 && !state.archive_delete.status && !state.archive_delete.running) archiveDeletePanel.close()
         var control = state.playback_control
@@ -438,7 +454,7 @@ Item {
             }
         }
     }
-    readonly property bool historyNavigationBlocked: searchPanel.visible || archiveDeletePanel.visible
+    readonly property bool historyNavigationBlocked: searchPanel.visible || archiveDeletePanel.visible || contentDeletePanel.visible
         || moreChoices.visible || connectionInfo.visible || choices.visible
     function navigateBackFromHistory() {
         if (!historical) return
@@ -615,6 +631,7 @@ Item {
         if (connectionInfo) connectionInfo.close()
         if (endConfirmation) endConfirmation.close()
         if (archiveDeletePanel) archiveDeletePanel.close()
+        if (contentDeletePanel) contentDeletePanel.close()
         if (owner) owner.clearSearch()
     }
     onVisibleChanged: { syncMediaVisibility(); if (!visible) { clearForecastReading(); cancelArchiveRead(); if (owner) owner.clearArchive(); clearFlowReturn(); historyRead.stop(); historyReadProfile = ""; historyReadSession = ""; historyReadPending = false; readingRestore.stop(); pendingReadingAnchor = ""; closeTransient() } }
@@ -1404,6 +1421,13 @@ Item {
                     }
                 }
             }
+            GlassButton {
+                objectName: "sessionContentDeleteStatus"
+                visible: !!screen.contentDeletion.status_available
+                text: screen.tr("session_delete_status_action")
+                enabled: !screen.owner.busy && !screen.owner.questionBusy
+                onClicked: { if (screen.owner.checkContentDeleteStatus()) contentDeletePanel.open() }
+            }
             Repeater {
                 id: liveMomentRows
                 objectName: "sessionLiveMomentRows"
@@ -1474,6 +1498,8 @@ Item {
                             entry: modelData; translate: screen.tr; dateText: screen.displayDate(modelData.occurred_at)
                             selectionAvailable: screen.state.composer_available
                             selectionBusy: screen.owner.busy || screen.owner.questionBusy
+                            deletionAvailable: !!screen.contentDeletion.available
+                            onDeleteEntry: (sessionId, entryId) => screen.deleteContent("entry", sessionId, entryId)
                             onAskAbout: (sessionId, entryId) => { if (screen.owner.selectFlowEntry(sessionId, entryId)) composerPanel.open() }
                         }
                     }
@@ -1563,6 +1589,8 @@ Item {
                     required property var modelData
                     entry: modelData; translate: screen.tr; dateText: screen.displayDate(modelData.occurred_at)
                     selectionAvailable: screen.state.composer_available; selectionBusy: screen.owner.busy || screen.owner.questionBusy
+                    deletionAvailable: !!screen.contentDeletion.available
+                    onDeleteEntry: (sessionId, entryId) => screen.deleteContent("entry", sessionId, entryId)
                     onAskAbout: (sessionId, entryId) => { if (screen.owner.selectEntry(sessionId, entryId)) { screen.navigate("session"); composerPanel.open() } }
                 }
             }
@@ -2366,6 +2394,63 @@ Item {
                 }
             }
             GlassButton { text: screen.tr("shared_title"); onClicked: { choices.close(); screen.navigate("settings") } }
+        }
+    }
+    GlassPopup {
+        id: contentDeletePanel
+        objectName: "sessionContentDeletePanel"
+        anchors.centerIn: parent
+        width: Math.min(screen.width - 40, 560); padding: 24; modal: true
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+        onAboutToHide: screen.owner.cancelContentDelete()
+        background: GlassSurface { elevated: true }
+        contentItem: ColumnLayout {
+            spacing: 14
+            Text {
+                Layout.fillWidth: true; wrapMode: Text.WordWrap; textFormat: Text.PlainText
+                color: BrandTheme.colors.text; font.pixelSize: screen.compact ? 20 : 24
+                text: {
+                    var status = screen.contentDeletion.status
+                    if (status === "confirm") return screen.tr("session_content_delete_confirm")
+                    if (status === "deleted") return screen.tr("session_content_delete_complete")
+                    if (status === "pending") return screen.tr("session_delete_status_pending")
+                    if (status === "expired_unknown") return screen.tr("session_delete_status_expired")
+                    if (status === "unknown" || status === "uncertain") return screen.tr("session_content_delete_uncertain")
+                    return screen.tr(status === "loading" ? "loading" : "session_error")
+                }
+            }
+            Text {
+                visible: screen.contentDeletion.status === "confirm"
+                Layout.fillWidth: true; wrapMode: Text.WordWrap; textFormat: Text.PlainText
+                color: BrandTheme.colors.muted; font.pixelSize: 17
+                text: !visible ? "" : screen.tr("session_content_delete_" + screen.contentDeletion.unit)
+                    + " · " + screen.tr("session_content_delete_expires").replace("%1",
+                        new Date(screen.contentDeletion.expires).toLocaleTimeString(Qt.locale(), Locale.ShortFormat))
+                    + "\n" + screen.tr("session_content_delete_scope")
+                    .replace("%1", screen.contentDeletion.remove_entries)
+                    .replace("%2", screen.contentDeletion.unavailable_entries)
+                    .replace("%3", screen.contentDeletion.remove_messages)
+                    .replace("%4", screen.contentDeletion.unavailable_messages)
+                    .replace("%5", screen.contentDeletion.moments)
+                    .replace("%6", screen.contentDeletion.fenced)
+            }
+            GlassButton {
+                objectName: "sessionContentDeleteConfirm"
+                Layout.fillWidth: true; visible: screen.contentDeletion.status === "confirm"
+                text: screen.tr("session_content_delete_action"); iconName: "trash"; tint: BrandTheme.colors.danger
+                enabled: !screen.owner.busy && !screen.owner.questionBusy && screen.contentDeletion.lease > 0
+                onClicked: screen.owner.confirmContentDelete(screen.contentDeletion.lease)
+            }
+            GlassButton {
+                Layout.fillWidth: true; visible: !!screen.contentDeletion.status_available
+                text: screen.tr("session_delete_status_action"); enabled: !screen.owner.busy && !screen.owner.questionBusy
+                onClicked: screen.owner.checkContentDeleteStatus()
+            }
+            GlassButton {
+                Layout.fillWidth: true
+                text: screen.tr(screen.contentDeletion.status === "confirm" ? "cancel" : "close")
+                onClicked: contentDeletePanel.close()
+            }
         }
     }
     GlassPopup {
