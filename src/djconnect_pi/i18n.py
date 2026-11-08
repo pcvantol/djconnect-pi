@@ -1343,6 +1343,13 @@ for _key, _values in _KEYBOARD_TRANSLATIONS.items():
 
 
 _SESSION_LIFECYCLE_TRANSLATIONS = {
+    "session_back_top": (
+        "Back to top",
+        "Terug naar boven",
+        "Zurück nach oben",
+        "Retour en haut",
+        "Volver arriba",
+    ),
     "session_back_current": (
         "Back to current contribution",
         "Terug naar de actuele bijdrage",

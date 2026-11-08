@@ -700,7 +700,7 @@ Item {
     Connections {
         target: screen.owner
         function onFlowIdleHeaderAboutToChange() {
-            if (!jumpCurrent.visible || screen.followQuestionReply || historyScroll.contentItem.moving || screen.flowReturn) return
+            if (screen.historical || !jumpCurrent.visible || screen.followQuestionReply || historyScroll.contentItem.moving || screen.flowReturn) return
             screen.rememberArtworkReading()
             if (screen.flowReturn) {
                 flowReturnRestore.resetIfMissing = false
@@ -1005,6 +1005,7 @@ Item {
             id: historyContent
             width: parent.width; spacing: historyScroll.flowSpacing
             Text {
+                id: historyHeading
                 objectName: "sessionFlowHeading"
                 visible: !screen.idleWelcome && (screen.historical || screen.backend.demoMode || !screen.state.loaded
                     || !screen.state.session_id || screen.state.runtime_state !== "active" || !!screen.state.error)
@@ -1600,6 +1601,8 @@ Item {
         id: jumpCurrent
         objectName: "sessionJumpCurrent"
         readonly property real currentHeaderBottom: {
+            if (screen.historical)
+                return screen.state.timeline.session && historyHeading.visible ? historyHeading.y + historyHeading.height : 0
             for (var i = 0; i < liveMomentRows.count; i++) {
                 var card = liveMomentRows.itemAt(i)
                 if (card && card.modelData.current && card.visible)
@@ -1610,17 +1613,23 @@ Item {
                 return playbackMetadata.y + playbackMetadata.height
             return 0
         }
-        visible: screen.visible && !screen.historical && !screen.showForecast
-            && !!screen.state.session_id && currentHeaderBottom > 0
-            && historyScroll.contentItem.contentY >= currentHeaderBottom
+        visible: screen.visible && !screen.showForecast
+            && (screen.historical ? !!screen.state.timeline.session : !!screen.state.session_id)
+            && currentHeaderBottom > 0 && historyScroll.contentItem.contentY >= currentHeaderBottom
+        enabled: !screen.historical || !screen.owner.busy
         anchors.right: historyScroll.right
         anchors.bottom: historyScroll.bottom
         anchors.margins: 8
         width: 52
         height: 52
         iconName: "arrow_up"
-        Accessible.name: screen.tr("session_back_current")
+        Accessible.name: screen.tr(screen.historical ? "session_back_top" : "session_back_current")
         onClicked: {
+            if (screen.historical) {
+                readingRestore.stop()
+                screen.pendingReadingAnchor = ""
+                screen.readingOffset = 0
+            }
             screen.followQuestionReply = false
             screen.pendingReplyId = ""
             replyRestore.stop()
