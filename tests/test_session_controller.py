@@ -1238,3 +1238,115 @@ def test_content_erasure_discards_prepared_scope_after_profile_switch(controller
     owner.invalidate()
     assert not owner.confirmContentDelete(lease)
     owner.transport.delete_content.assert_not_called()
+
+
+@pytest.fixture
+def vibecast_sender(controller):
+    owner, backend = controller
+    owner._session = {"session_id": "vibe-session", "runtime_state": "active"}
+    owner._caps = {"session_broadcast": {"paired_display_admission": {
+        "supported": True, "version": 1, "owner_authentication": "paired_device_bearer",
+        "owner_context_path": "/api/djconnect/v1/display/owner/context",
+        "entry_path": "/djconnect/vibecast/display", "owner_client_types": ["ios", "macos", "raspberry_pi"],
+    }}}
+    responses = {
+        "context": {"session_id": "vibe-session", "issuer_epoch": "e" * 43,
+                    "route_trust": "paired_owner_response"},
+        "resolve": {"issuer_epoch": "e" * 43, "claim_id": "c" * 43,
+                    "browser_generation": "b" * 43, "expires_in": 120},
+        "approve": {"session_id": "vibe-session", "state": "approved", "display_id": "d" * 43,
+                    "share_id": "s" * 43, "share_generation": 1, "share_expires_in": 7199},
+        "revoke": {},
+    }
+
+    def dispatch(_binding, action, _payload):
+        return {"success": True, "contract_version": 1, **responses[action]}
+
+    owner.transport.display_owner = Mock(side_effect=dispatch)
+    owner.transport.end = Mock()
+    return owner, backend, responses
+
+
+def test_vibecast_lookup_approve_and_stop_are_distinct_from_session_end(vibecast_sender):
+    owner, backend, responses = vibecast_sender
+    assert owner.openVibeCast()
+    backend.jobs.pop()()
+    assert not owner.resolveVibeCastCode("12345")
+    assert owner.resolveVibeCastCode("012345")
+    backend.jobs.pop()()
+    assert [call.args[1] for call in owner.transport.display_owner.call_args_list] == ["context", "resolve"]
+    assert owner.state["vibecast"]["status"] == "confirm"
+    assert "012345" not in str(owner.state["vibecast"])
+    assert owner.approveVibeCast()
+    assert not owner.approveVibeCast()
+    backend.jobs.pop()()
+    approved = owner.transport.display_owner.call_args.args
+    assert approved[1] == "approve"
+    assert approved[2] == {
+        "session_id": "vibe-session", "issuer_epoch": "e" * 43, "claim_id": "c" * 43,
+        "browser_generation": "b" * 43, "code": "012345",
+        "share": {"mode": "create", "consent": True, "lifetime_seconds": 7200},
+    }
+    responses["context"].update(share_id="s" * 43, share_generation=1, expires_in=7199)
+    assert owner.stopVibeCast()
+    backend.jobs.pop()()
+    assert owner.transport.display_owner.call_args.args[1:] == (
+        "revoke", {"session_id": "vibe-session", "share_id": "s" * 43},
+    )
+    assert owner.state["vibecast"]["status"] == "stopped"
+    assert owner.state["session_id"] == "vibe-session"
+    owner.transport.end.assert_not_called()
+
+
+@pytest.mark.parametrize("transition", ["profile", "foreground", "session", "closed", "expired", "capability"])
+def test_vibecast_never_dispatches_approval_after_losing_original_scope(vibecast_sender, transition):
+    owner, backend, _ = vibecast_sender
+    assert owner.openVibeCast()
+    backend.jobs.pop()()
+    assert owner.resolveVibeCastCode("012345")
+    backend.jobs.pop()()
+    if transition == "expired":
+        owner._vibecast.expire_claim()
+        assert not owner.approveVibeCast()
+    else:
+        assert owner.approveVibeCast()
+        approve = backend.jobs.pop()
+        if transition == "profile":
+            backend.cfg.active_profile_id = "other"
+        elif transition == "foreground":
+            owner.setForeground(False)
+        elif transition == "session":
+            owner._session["session_id"] = "different"
+        elif transition == "closed":
+            owner.closeVibeCast()
+        elif transition == "capability":
+            owner._caps = {}
+        approve()
+    assert [call.args[1] for call in owner.transport.display_owner.call_args_list] == ["context", "resolve"]
+
+
+def test_vibecast_uncertain_approval_uses_status_read_instead_of_replay(vibecast_sender):
+    owner, backend, responses = vibecast_sender
+    assert owner.openVibeCast()
+    backend.jobs.pop()()
+    assert owner.resolveVibeCastCode("012345")
+    backend.jobs.pop()()
+    dispatch = owner.transport.display_owner.side_effect
+
+    def lost_reply(binding, action, payload):
+        if action == "approve":
+            responses["context"].update(share_id="s" * 43, share_generation=1, expires_in=7199)
+            raise SessionError("uncertain")
+        return dispatch(binding, action, payload)
+
+    owner.transport.display_owner.side_effect = lost_reply
+    assert owner.approveVibeCast()
+    backend.jobs.pop()()
+    assert owner.state["vibecast"]["status"] == "uncertain"
+    assert not owner.approveVibeCast()
+    owner.refreshVibeCast()
+    backend.jobs.pop()()
+    assert owner.state["vibecast"]["status"] == "active"
+    assert [call.args[1] for call in owner.transport.display_owner.call_args_list] == [
+        "context", "resolve", "context", "approve", "context",
+    ]
