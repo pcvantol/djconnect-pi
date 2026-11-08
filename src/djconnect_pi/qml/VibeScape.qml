@@ -10,6 +10,7 @@ Rectangle {
     required property var backend
     required property bool admitted
     property bool forecastAvailable: false
+    required property real pickerTop
     required property string mood
     property bool reduceMotion: GlassStyle.reduceMotion
     property bool shaderFailed: false
@@ -19,20 +20,46 @@ Rectangle {
     property real touchClock: 0
     property var touches: []
     property bool controlsVisible: true
+    readonly property bool controlsHovered: modeHover.hovered || dynamicsHover.hovered
+    readonly property bool controlsEngaged: controlsHovered || modeStrip.keyboardFocus || dynamicsSlider.visualFocus
     readonly property var scenePalette: mood === "chill" ? ["#4DA3FF", "#7B61FF", "#D184FF"] : mood === "groove" ? ["#06C7AD", "#169BC8", "#10B981"] : mood === "energy" ? ["#DDFF00", "#00B8FF", "#39FF78"] : mood === "party" ? ["#FF287F", "#AA38F5", "#F43DCE"] : ["#3285FF", "#843DF5", "#CB27F5"]
     property vector4d composition: Qt.vector4d(Math.random(), Math.random(), Math.random(), Math.random())
     signal closeRequested()
+    signal flowRequested()
     signal forecastRequested()
     color: "black"
     focus: true
     Keys.onEscapePressed: closeRequested()
-    function tr(key) { return backend.t(key) }
+    Keys.onTabPressed: moveControlFocus(false)
+    Keys.onBacktabPressed: moveControlFocus(true)
+    function moveControlFocus(backward) {
+        showControls()
+        if (backward) {
+            var lastControl = dynamicsSlider.visible ? dynamicsSlider : modeStrip.lastModeControl
+            lastControl.forceActiveFocus(Qt.BacktabFocusReason)
+        } else {
+            modeStrip.firstTabControl.forceActiveFocus(Qt.TabFocusReason)
+        }
+    }
+    function tr(key) { backend.translationVersion; return backend.t(key) }
     function colorVector(value, w) { var c = Qt.color(value); return Qt.vector4d(c.r,c.g,c.b,w) }
     function touchVector(i) {
         var t = touches[i]
         return t ? Qt.vector4d(t.x,t.y,touchClock-t.at,1) : Qt.vector4d(0,0,0,0)
     }
-    function showControls() { controlsVisible = true; controlsTimeout.restart() }
+    function showControls() {
+        controlsVisible = true
+        if (!controlsEngaged) controlsTimeout.restart()
+    }
+    function hideControls() {
+        controlsTimeout.stop()
+        controlsVisible = false
+        forceActiveFocus()
+    }
+    function inControlArea(x, y) {
+        return modeStrip.contains(modeStrip.mapFromItem(scene, x, y))
+            || (renderable && dynamicsCard.contains(dynamicsCard.mapFromItem(scene, x, y)))
+    }
     function impulse(x,y) {
         if (!admitted || reduceMotion) return
         var fresh = touches.filter(function(t) { return touchClock-t.at < 2.6 })
@@ -43,7 +70,11 @@ Rectangle {
     onAdmittedChanged: if (!admitted) { touches = []; closeRequested() }
     onMoodChanged: touches = []
     onReduceMotionChanged: if (reduceMotion) touches = []
-    Component.onCompleted: controlsTimeout.start()
+    onControlsEngagedChanged: {
+        if (controlsEngaged) controlsTimeout.stop()
+        else if (controlsVisible) controlsTimeout.restart()
+    }
+    Component.onCompleted: showControls()
     Timer {
         interval: 33; repeat: true
         running: scene.visible && scene.admitted && scene.renderable && !scene.reduceMotion
@@ -56,7 +87,7 @@ Rectangle {
     }
     Timer {
         id: controlsTimeout; interval: 3000
-        onTriggered: { if (!dynamicsSlider.pressed) scene.controlsVisible = false; else restart() }
+        onTriggered: { if (!dynamicsSlider.pressed) scene.hideControls(); else restart() }
     }
     Item {
         anchors.fill: parent
@@ -86,9 +117,18 @@ Rectangle {
     }
     MouseArea {
         anchors.fill: parent
-        onClicked: scene.showControls()
-        onPressed: mouse => scene.impulse(mouse.x,mouse.y)
-        onPositionChanged: mouse => { if (pressed) scene.impulse(mouse.x,mouse.y) }
+        property bool pressOnControlArea: false
+        onPressed: mouse => {
+            pressOnControlArea = scene.inControlArea(mouse.x, mouse.y)
+            if (!pressOnControlArea) scene.impulse(mouse.x, mouse.y)
+        }
+        onPositionChanged: mouse => {
+            if (pressed && !pressOnControlArea && !scene.inControlArea(mouse.x, mouse.y))
+                scene.impulse(mouse.x, mouse.y)
+        }
+        onClicked: mouse => {
+            if (pressOnControlArea && scene.inControlArea(mouse.x, mouse.y)) scene.showControls()
+        }
     }
     Text {
         objectName: "vibeScapeUnavailable"
@@ -98,24 +138,50 @@ Rectangle {
         horizontalAlignment: Text.AlignHCenter; wrapMode: Text.WordWrap
         color: "white"; font.pixelSize: 26
     }
-    RowLayout {
+    SessionModeStrip {
+        id: modeStrip
+        translate: scene.tr
+        mood: scene.mood
+        forecastAvailable: scene.forecastAvailable
+        vibeScapeAvailable: true
+        inVibeScape: true
+        nextAfterModes: dynamicsSlider.visible ? dynamicsSlider : null
         anchors.top: parent.top; anchors.horizontalCenter: parent.horizontalCenter
-        anchors.topMargin: 32; visible: scene.controlsVisible
-        GlassButton { objectName: "vibeScapeFlow"; text: scene.tr("session_flow"); onClicked: scene.closeRequested() }
-        GlassButton { objectName: "vibeScapeForecast"; visible: scene.forecastAvailable; text: scene.tr("session_forecast"); onClicked: scene.forecastRequested() }
-        GlassButton { text: scene.tr("vibescape_title"); checked: true; onClicked: scene.showControls() }
+        anchors.topMargin: Math.min(Math.max(4, scene.pickerTop), Math.max(4, scene.height - height - 12))
+        visible: scene.controlsVisible
+        HoverHandler { id: modeHover }
+        onFlowRequested: scene.flowRequested()
+        onForecastRequested: scene.forecastRequested()
+        onVibeScapeRequested: scene.hideControls()
     }
     GlassSurface {
+        id: dynamicsCard
         anchors.bottom: parent.bottom; anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottomMargin: 32; width: Math.min(parent.width-64,560); height: 128
+        anchors.bottomMargin: 32; width: Math.min(parent.width - 32, 480); height: 72
         visible: scene.controlsVisible && scene.renderable; elevated: true
-        ColumnLayout {
-            anchors.fill: parent; anchors.margins: 20
-            Text { text: scene.tr("vibescape_dynamics"); color: "white"; font.pixelSize: 22; textFormat: Text.PlainText }
+        HoverHandler { id: dynamicsHover }
+        RowLayout {
+            anchors.fill: parent; anchors.margins: 12; spacing: 12
+            FeatureIcon {
+                iconName: "mood_energy"; iconColor: "white"
+                Layout.preferredWidth: 24; Layout.preferredHeight: 24
+            }
+            Text {
+                id: dynamicsPercent
+                objectName: "vibeScapeDynamicsPercent"
+                text: scene.tr("vibescape_dynamics_percent").replace("%1", Math.round(scene.dynamics * 100))
+                color: "white"; font.pixelSize: 20; textFormat: Text.PlainText
+                Layout.preferredWidth: 68
+            }
             Slider {
                 id: dynamicsSlider; objectName: "vibeScapeDynamics"
-                Layout.fillWidth: true; from: 0; to: 1; value: scene.dynamics
+                KeyNavigation.priority: KeyNavigation.BeforeItem
+                KeyNavigation.tab: modeStrip.firstTabControl
+                KeyNavigation.backtab: modeStrip.lastModeControl
+                Layout.fillWidth: true; Layout.fillHeight: true
+                from: 0; to: 1; value: scene.dynamics
                 Accessible.name: scene.tr("vibescape_dynamics")
+                Accessible.description: dynamicsPercent.text
                 onMoved: { scene.dynamics = value; scene.showControls() }
                 onPressedChanged: scene.showControls()
             }

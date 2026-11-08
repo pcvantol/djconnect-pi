@@ -90,6 +90,12 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "music_dna_disable": "Uitschakelen",
         "music_dna_disable_confirm_title": "Music DNA uitschakelen?",
         "music_dna_disable_confirm_message": "Music DNA stopt met leren van je luistergedrag en wist het bestaande profiel meteen in Home Assistant.",
+        "music_dna_opt_in_title": "Music DNA activeren?",
+        "music_dna_opt_in_accept": "Music DNA activeren",
+        "music_dna_opt_in_description": "Met Music DNA kan DJConnect leren van je smaak en luistergedrag om aanbevelingen te kunnen geven afgestemd op jouw luisterprofiel.",
+        "music_dna_opt_in_erase": "Je kunt het opgebouwde profiel op elk moment wissen.",
+        "music_dna_opt_in_turn_off": "Je kunt Music DNA altijd uitschakelen via Instellingen.",
+        "music_dna_opt_in_not_now": "Niet nu",
         "music_dna_enable": "Inschakelen",
         "music_discovery": "Ontdek",
         "music_discovery_requires_music_dna": "Ontdek werkt alleen als Music DNA is geactiveerd.",
@@ -143,11 +149,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "client_api_url": "Client adres",
         "view_logs": "Logs",
         "logs": "Logs",
-        "copy_logs": "Logs kopiëren",
         "clear_logs": "Logs wissen",
         "clear_logs_confirm_title": "Logs wissen?",
-        "clear_logs_confirm_message": "Dit verwijdert de lokale logweergave uit DJConnect. Nieuwe logs worden daarna weer opgebouwd.",
-        "logs_copied": "Logs gekopieerd",
         "logs_cleared": "Logs gewist",
         "about": "Over",
         "about_title": "Over DJConnect",
@@ -375,6 +378,12 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "music_dna_disable": "Turn off",
         "music_dna_disable_confirm_title": "Turn off Music DNA?",
         "music_dna_disable_confirm_message": "Music DNA will stop learning from your listening behavior and immediately clears the existing profile in Home Assistant.",
+        "music_dna_opt_in_title": "Enable Music DNA?",
+        "music_dna_opt_in_accept": "Enable Music DNA",
+        "music_dna_opt_in_description": "With Music DNA, DJConnect can learn from your taste and listening behavior to give recommendations tailored to your listening profile.",
+        "music_dna_opt_in_erase": "You can clear the learned profile at any time.",
+        "music_dna_opt_in_turn_off": "You can always turn Music DNA off in Settings.",
+        "music_dna_opt_in_not_now": "Not Now",
         "music_dna_enable": "Turn on",
         "music_discovery": "Discover",
         "music_discovery_requires_music_dna": "Discover only works when Music DNA is enabled.",
@@ -428,11 +437,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "client_api_url": "Client adres",
         "view_logs": "Logs",
         "logs": "Logs",
-        "copy_logs": "Copy logs",
         "clear_logs": "Clear logs",
         "clear_logs_confirm_title": "Clear logs?",
-        "clear_logs_confirm_message": "This clears the local DJConnect log view. New log entries will be collected again afterwards.",
-        "logs_copied": "Logs copied",
         "logs_cleared": "Logs cleared",
         "about": "About",
         "about_title": "About DJConnect",
@@ -617,6 +623,12 @@ _EXTRA_TRANSLATIONS: dict[str, dict[str, str]] = {
         "music_dna_settings_disabled_description": "Music DNA ist ausgeschaltet. Schalte Music DNA ein, damit DJConnect von deinem Geschmack und Hörverhalten lernen kann.",
         "music_dna_disable": "Ausschalten", "music_dna_disable_confirm_title": "Music DNA ausschalten?",
         "music_dna_disable_confirm_message": "Music DNA lernt dann nicht mehr aus deinem Hörverhalten und löscht das vorhandene Profil sofort in Home Assistant.",
+        "music_dna_opt_in_title": "Music DNA aktivieren?",
+        "music_dna_opt_in_accept": "Music DNA aktivieren",
+        "music_dna_opt_in_description": "Mit Music DNA lernt DJConnect deinen Musikgeschmack und dein Hörverhalten kennen und gibt dir passende Empfehlungen.",
+        "music_dna_opt_in_erase": "Du kannst das erlernte Profil jederzeit löschen.",
+        "music_dna_opt_in_turn_off": "Du kannst Music DNA jederzeit in den Einstellungen deaktivieren.",
+        "music_dna_opt_in_not_now": "Nicht jetzt",
         "music_dna_enable": "Einschalten", "enable": "Ein", "disable": "Aus",
         "music_discovery": "Entdecken", "music_discovery_requires_music_dna": "Entdecken funktioniert nur, wenn Music DNA aktiviert ist.",
         "music_discovery_enable": "Music DNA aktivieren", "music_discovery_empty": "Noch keine Empfehlungen.",
@@ -652,6 +664,10 @@ _EXTRA_TRANSLATIONS: dict[str, dict[str, str]] = {
         "connection_type": "Verbindungstyp", "ha_local_url": "HA lokal", "client_api_url_label": "Client-Adresse",
         "privacy": "Datenschutz", "household_profile": "Haushalt", "pi_no_spotify_credentials": "Auf diesem Pi werden keine Spotify-Zugangsdaten gespeichert.",
         "connected_value": "Verbunden", "not_connected_value": "Nicht verbunden", "score": "Punkte", "high": "Bestwert",
+        "game_help_pong": "Bewege den Schläger und halte den Ball im Spiel.",
+        "game_help_asteroids": "Bewege dich nach links und rechts. Schieße auf die Meteore.",
+        "game_help_fly": "Fliege durch die Lücken. Schieße, um Hindernisse zu beseitigen.",
+        "game_help_pacman": "Sammle Punkte und weiche dem Geist aus. Große Punkte machen ihn kurz verwundbar.",
         "tap_to_play": "Tippen zum Spielen", "left": "Links", "right": "Rechts", "up": "Hoch", "down": "Runter",
         "fire": "Feuern", "reset": "Zurücksetzen", "refresh": "Aktualisieren", "pair": "Koppeln",
         "save": "Speichern", "close": "Schließen", "dj_response": "DJ-Antwort", "dismiss": "Schließen",
@@ -720,6 +736,12 @@ _EXTRA_TRANSLATIONS: dict[str, dict[str, str]] = {
         "music_dna_settings_disabled_description": "Music DNA est désactivé. Activez Music DNA pour permettre à DJConnect d'apprendre vos goûts et votre comportement d'écoute.",
         "music_dna_disable": "Désactiver", "music_dna_disable_confirm_title": "Désactiver Music DNA ?",
         "music_dna_disable_confirm_message": "Music DNA cessera d'apprendre de votre écoute et effacera immédiatement le profil existant dans Home Assistant.",
+        "music_dna_opt_in_title": "Activer Music DNA ?",
+        "music_dna_opt_in_accept": "Activer Music DNA",
+        "music_dna_opt_in_description": "Avec Music DNA, DJConnect apprend à connaître vos goûts et vos habitudes d’écoute pour vous proposer des recommandations adaptées.",
+        "music_dna_opt_in_erase": "Vous pouvez effacer le profil appris à tout moment.",
+        "music_dna_opt_in_turn_off": "Vous pouvez désactiver Music DNA à tout moment dans les réglages.",
+        "music_dna_opt_in_not_now": "Pas maintenant",
         "music_dna_enable": "Activer", "enable": "Activer", "disable": "Désactiver", "sources": "Sources", "analysis_context": "Contexte",
         "music_discovery": "Découvrir", "music_discovery_requires_music_dna": "Découvrir fonctionne uniquement quand Music DNA est activé.",
         "music_discovery_enable": "Activer Music DNA", "music_discovery_empty": "Aucune recommandation pour le moment.",
@@ -755,6 +777,10 @@ _EXTRA_TRANSLATIONS: dict[str, dict[str, str]] = {
         "capabilities": "Capacités", "backend_error": "Erreur backend", "connection_type": "Type de connexion",
         "ha_local_url": "HA local", "client_api_url_label": "Adresse client", "privacy": "Confidentialité", "household_profile": "Foyer",
         "connected_value": "Connecté", "not_connected_value": "Non connecté", "high": "Record",
+        "game_help_pong": "Déplacez la raquette et gardez la balle en jeu.",
+        "game_help_asteroids": "Déplacez-vous à gauche et à droite. Tirez sur les météores.",
+        "game_help_fly": "Volez à travers les passages. Tirez pour éliminer les obstacles.",
+        "game_help_pacman": "Mangez les points et évitez le fantôme. Les gros points le rendent brièvement vulnérable.",
         "tap_to_play": "Toucher pour jouer", "left": "Gauche", "right": "Droite", "up": "Haut", "down": "Bas",
         "fire": "Tirer", "reset": "Réinitialiser", "refresh": "Actualiser", "pair": "Appairer",
         "save": "Enregistrer", "close": "Fermer", "dj_response": "Réponse DJ", "dismiss": "Fermer",
@@ -819,6 +845,12 @@ _EXTRA_TRANSLATIONS: dict[str, dict[str, str]] = {
         "music_dna_settings_disabled_description": "Music DNA está desactivado. Activa Music DNA para que DJConnect aprenda de tus gustos y hábitos de escucha.",
         "music_dna_disable": "Desactivar", "music_dna_disable_confirm_title": "¿Desactivar Music DNA?",
         "music_dna_disable_confirm_message": "Music DNA dejará de aprender de tus hábitos de escucha y borrará inmediatamente el perfil existente en Home Assistant.",
+        "music_dna_opt_in_title": "¿Activar Music DNA?",
+        "music_dna_opt_in_accept": "Activar Music DNA",
+        "music_dna_opt_in_description": "Con Music DNA, DJConnect puede aprender de tus gustos y hábitos de escucha para recomendarte música adaptada a tu perfil.",
+        "music_dna_opt_in_erase": "Puedes borrar el perfil aprendido en cualquier momento.",
+        "music_dna_opt_in_turn_off": "Puedes desactivar Music DNA en cualquier momento desde Ajustes.",
+        "music_dna_opt_in_not_now": "Ahora no",
         "music_dna_enable": "Activar", "enable": "Activar", "disable": "Desactivar",
         "music_discovery": "Descubrir", "music_discovery_requires_music_dna": "Descubrir solo funciona cuando Music DNA está activado.",
         "music_discovery_enable": "Activar Music DNA", "music_discovery_empty": "Todavía no hay recomendaciones.",
@@ -853,6 +885,10 @@ _EXTRA_TRANSLATIONS: dict[str, dict[str, str]] = {
         "target_player": "Reproductor destino", "capabilities": "Capacidades", "backend_error": "Error de backend",
         "connection_type": "Tipo de conexión", "ha_local_url": "HA local", "client_api_url_label": "Dirección del cliente",
         "privacy": "Privacidad", "household_profile": "Hogar", "connected_value": "Conectado", "not_connected_value": "No conectado",
+        "game_help_pong": "Mueve la pala y mantén la pelota en juego.",
+        "game_help_asteroids": "Muévete a izquierda y derecha. Dispara a los meteoros.",
+        "game_help_fly": "Vuela por los huecos. Dispara para eliminar los obstáculos.",
+        "game_help_pacman": "Come los puntos y esquiva al fantasma. Los puntos grandes lo hacen vulnerable por un momento.",
         "score": "Puntuación", "high": "Récord", "tap_to_play": "Toca para jugar", "left": "Izquierda",
         "right": "Derecha", "up": "Arriba", "down": "Abajo", "fire": "Disparar", "reset": "Reiniciar",
         "refresh": "Actualizar", "pair": "Vincular", "save": "Guardar", "close": "Cerrar",
@@ -974,28 +1010,28 @@ _SHARED_SETTINGS_TRANSLATIONS = {
     ),
     'shared_persona_home_dj': (
         'Home DJ',
-        'Home DJ',
+        'Thuis-dj',
         'Home DJ',
         'Home DJ',
         'Home DJ',
     ),
     'shared_persona_radio_dj': (
         'Radio DJ',
-        'Radio DJ',
+        'Radio-dj',
         'Radio DJ',
         'Radio DJ',
         'Radio DJ',
     ),
     'shared_persona_club_dj': (
         'Club DJ',
-        'Club DJ',
+        'Club-dj',
         'Club DJ',
         'Club DJ',
         'Club DJ',
     ),
     'shared_persona_festival_dj': (
         'Festival DJ',
-        'Festival DJ',
+        'Festival-dj',
         'Festival DJ',
         'Festival DJ',
         'Festival DJ',
@@ -1079,7 +1115,7 @@ _SHARED_SETTINGS_TRANSLATIONS = {
     ),
     'shared_presence_presenter': (
         'Presenter',
-        'Presentator',
+        'Vertellend',
         'Moderator',
         'Présentation',
         'Presentador',
@@ -1236,6 +1272,8 @@ _HISTORY_SEARCH_TRANSLATIONS = {
     "session_history_previous": ("Previous contributions", "Vorige bijdragen", "Vorherige Beiträge", "Contributions précédentes", "Contribuciones anteriores"),
     "session_history_next": ("Next contributions", "Volgende bijdragen", "Nächste Beiträge", "Contributions suivantes", "Contribuciones siguientes"),
     "session_search": ("Search this session", "Zoek in deze sessie", "Diese Session durchsuchen", "Rechercher dans cette session", "Buscar en esta sesión"),
+    "session_search_previous_match": ("Previous match", "Vorig resultaat", "Vorheriger Treffer", "Résultat précédent", "Coincidencia anterior"),
+    "session_search_next_match": ("Next match", "Volgend resultaat", "Nächster Treffer", "Résultat suivant", "Coincidencia siguiente"),
     "session_search_complete": ("All saved entries searched.", "Alle opgeslagen bijdragen doorzocht.", "Alle gespeicherten Beiträge durchsucht.", "Toutes les contributions enregistrées ont été recherchées.", "Se han buscado todas las entradas guardadas."),
     "session_search_limit": ("Refine your search to see more results.", "Verfijn je zoekopdracht om meer resultaten te zien.", "Verfeinere deine Suche, um weitere Ergebnisse zu sehen.", "Affinez votre recherche pour voir plus de résultats.", "Refina tu búsqueda para ver más resultados."),
     "session_search_partial": ("More saved entries remain. Load more to continue searching.", "Er zijn nog meer opgeslagen bijdragen. Laad meer om verder te zoeken.", "Weitere gespeicherte Beiträge sind verfügbar. Lade mehr, um weiterzusuchen.", "D’autres contributions enregistrées restent à rechercher. Chargez la suite.", "Quedan más entradas guardadas. Carga más para continuar buscando."),
@@ -1247,7 +1285,51 @@ for _key, _values in _HISTORY_SEARCH_TRANSLATIONS.items():
         TRANSLATIONS[_language][_key] = _value
 
 
+_INTRODUCTION_TRANSLATIONS = {
+    "music_discovery_introduction": (
+        "Learn from your taste and listening habits to tailor recommendations to your listening profile.",
+        "Leer van je smaak en luistergedrag om aanbevelingen af te stemmen op jouw luisterprofiel.",
+        "Lerne aus deinem Geschmack und Hörverhalten, um Empfehlungen auf dein Hörprofil abzustimmen.",
+        "Apprenez de vos goûts et de vos habitudes d’écoute pour adapter les recommandations à votre profil.",
+        "Aprende de tus gustos y hábitos de escucha para adaptar las recomendaciones a tu perfil.",
+    ),
+    "ask_dj_introduction": (
+        "Ask your DJ about music and artists during an active session.",
+        "Vraag je DJ tijdens een actieve sessie naar muziek en artiesten.",
+        "Frag deinen DJ während einer aktiven Session nach Musik und Künstlern.",
+        "Interrogez votre DJ sur la musique et les artistes pendant une session active.",
+        "Pregunta a tu DJ sobre música y artistas durante una sesión activa.",
+    ),
+}
+for _key, _values in _INTRODUCTION_TRANSLATIONS.items():
+    for _language, _value in zip(("en", "nl", "de", "fr", "es"), _values):
+        TRANSLATIONS[_language][_key] = _value
+
+
+_LOG_SEARCH_TRANSLATIONS = {
+    "copy_logs": ("Copy logs", "Logs kopiëren", "Protokolle kopieren", "Copier les journaux", "Copiar registros"),
+    "logs_copied": ("Logs copied", "Logs gekopieerd", "Protokolle kopiert", "Journaux copiés", "Registros copiados"),
+    "logs_search": ("Search logs", "Zoek in logs", "Protokolle durchsuchen", "Rechercher dans les journaux", "Buscar en registros"),
+    "logs_previous_match": ("Previous match", "Vorig resultaat", "Vorheriger Treffer", "Résultat précédent", "Coincidencia anterior"),
+    "logs_next_match": ("Next match", "Volgend resultaat", "Nächster Treffer", "Résultat suivant", "Coincidencia siguiente"),
+    "logs_no_matches": ("No matches", "Geen resultaten", "Keine Treffer", "Aucun résultat", "Sin coincidencias"),
+    "clear_logs_confirm_message": (
+        "This clears the local DJConnect log file. New entries will be recorded as usual.",
+        "Dit wist het lokale DJConnect-logbestand. Nieuwe regels worden daarna gewoon vastgelegd.",
+        "Dadurch wird die lokale DJConnect-Protokolldatei geleert. Neue Einträge werden wie gewohnt aufgezeichnet.",
+        "Cette action vide le fichier journal local de DJConnect. Les nouvelles entrées seront enregistrées comme d’habitude.",
+        "Esto vacía el archivo de registro local de DJConnect. Las nuevas entradas se guardarán como de costumbre.",
+    ),
+}
+for _key, _values in _LOG_SEARCH_TRANSLATIONS.items():
+    for _language, _value in zip(("en", "nl", "de", "fr", "es"), _values):
+        TRANSLATIONS[_language][_key] = _value
+
+
 _KEYBOARD_TRANSLATIONS = {
+    "media_search_queue": ("Search queue", "Zoek in wachtrij", "Warteschlange durchsuchen", "Rechercher dans la file", "Buscar en la cola"),
+    "media_search_playlists": ("Search playlists", "Zoek in afspeellijsten", "Playlists durchsuchen", "Rechercher dans les playlists", "Buscar en las listas"),
+    "media_no_matches": ("No search results", "Geen zoekresultaten", "Keine Suchergebnisse", "Aucun résultat", "Sin resultados"),
     "keyboard_shift": ("Uppercase", "Hoofdletters", "Großbuchstaben", "Majuscules", "Mayúsculas"),
     "keyboard_symbols": ("Letters and symbols", "Letters en symbolen", "Buchstaben und Symbole", "Lettres et symboles", "Letras y símbolos"),
     "keyboard_accents": ("Accented letters", "Letters met accenten", "Akzentbuchstaben", "Lettres accentuées", "Letras acentuadas"),
@@ -1261,6 +1343,28 @@ for _key, _values in _KEYBOARD_TRANSLATIONS.items():
 
 
 _SESSION_LIFECYCLE_TRANSLATIONS = {
+    "session_back_top": (
+        "Back to top",
+        "Terug naar boven",
+        "Zurück nach oben",
+        "Retour en haut",
+        "Volver arriba",
+    ),
+    "session_back_current": (
+        "Back to current contribution",
+        "Terug naar de actuele bijdrage",
+        "Zurück zum aktuellen Beitrag",
+        "Revenir à la contribution actuelle",
+        "Volver a la contribución actual",
+    ),
+    "session_playback_paused": ("Paused", "Gepauzeerd", "Pausiert", "En pause", "Pausado"),
+    "session_playback_paused_detail": (
+        "Your music is paused. Your DJ session remains active.",
+        "Je muziek staat op pauze. Je DJ-sessie blijft actief.",
+        "Deine Musik ist pausiert. Deine DJ-Session bleibt aktiv.",
+        "Votre musique est en pause. Votre session DJ reste active.",
+        "Tu música está en pausa. Tu sesión de DJ sigue activa.",
+    ),
     "session_starting": ("Your session is starting…", "Je sessie wordt gestart…", "Deine Session wird gestartet…", "Votre session démarre…", "Tu sesión se está iniciando…"),
     "session_ending": ("Your session is ending…", "Je sessie wordt beëindigd…", "Deine Session wird beendet…", "Votre session se termine…", "Tu sesión se está finalizando…"),
 }
@@ -1298,6 +1402,7 @@ for _key, _values in _SESSION_COMPOSER_TRANSLATIONS.items():
 
 _SESSION_FORECAST_TRANSLATIONS = {
     "session_flow": ("Flow", "Flow", "Flow", "Fil", "Flujo"),
+    "session_forecast_tab": ("Horizon", "Horizon", "Horizon", "Horizon", "Horizon"),
     "session_forecast": ("Horizon · about 15 min", "Horizon · ±15 min", "Horizon · ca. 15 Min.", "Horizon · env. 15 min", "Horizon · unos 15 min"),
     "session_owner_read_only": ("Following the active session. Personal functions require personal Profile access.", "Je volgt de actieve sessie. Privéfuncties vereisen toegang tot een persoonlijk profiel.", "Die aktive Session wird angezeigt. Private Funktionen erfordern Zugriff auf ein persönliches Profil.", "La session active est affichée. Les fonctions privées nécessitent un accès à un profil personnel.", "Se muestra la sesión activa. Las funciones privadas requieren acceso a un perfil personal."),
     "session_forecast_current": ("Current", "Huidig", "Aktuell", "Actuel", "Actual"),
@@ -1518,12 +1623,18 @@ for _key, _values in _APPLE_INFORMATION_COPY.items():
 
 _SESSION_WELCOME_COPY = {
     "session_welcome": ("Welcome to DJConnect", "Welkom bij DJConnect", "Willkommen bei DJConnect", "Bienvenue sur DJConnect", "Bienvenido a DJConnect"),
-    "session_welcome_title": ("Your music.\nYour DJ.", "Jouw muziek.\nJouw DJ.", "Deine Musik.\nDein DJ.", "Votre musique.\nVotre DJ.", "Tu música.\nTu DJ."),
-    "session_welcome_lead": ("Start a DJ Session and experience your music in a new way.", "Start een DJ-sessie en beleef je muziek op een nieuwe manier.", "Starte eine DJ-Session und erlebe deine Musik auf neue Weise.", "Démarrez une session DJ et découvrez votre musique autrement.", "Inicia una sesión DJ y vive tu música de una forma nueva."),
-    "session_welcome_detail": ("Discover the stories behind your music. Talk to your DJ. Be surprised.", "Ontdek de verhalen achter je muziek. Praat met je DJ. Laat je verrassen.", "Entdecke die Geschichten hinter deiner Musik. Sprich mit deinem DJ. Lass dich überraschen.", "Découvrez les histoires derrière votre musique. Parlez à votre DJ. Laissez-vous surprendre.", "Descubre las historias detrás de tu música. Habla con tu DJ. Déjate sorprender."),
+    "session_welcome_title": ("Your DJ is ready.", "Jouw DJ staat klaar.", "Dein DJ ist bereit.", "Votre DJ est prêt.", "Tu DJ está listo."),
+    "session_welcome_lead": ("Discover music that fits you and the stories behind what you hear.\nAsk your DJ for more, or enjoy the ride.", "Ontdek muziek die bij je past en de verhalen achter wat je hoort.\nVraag je DJ om meer, of laat je meenemen.", "Entdecke Musik, die zu dir passt, und die Geschichten dahinter.\nFrag deinen DJ nach mehr oder lass dich mitnehmen.", "Découvrez la musique qui vous ressemble et les histoires qui l’accompagnent.\nDemandez-en plus à votre DJ ou laissez-vous emporter.", "Descubre música que encaja contigo y las historias que hay detrás.\nPídele más a tu DJ o déjate llevar."),
+    "session_welcome_feature_music": ("Personal music", "Persoonlijke\nmuziek", "Musik für dich", "Musique pour vous", "Música para ti"),
+    "session_welcome_feature_stories": ("Music stories\nand highlights", "Muziekverhalen\nen highlights", "Musikgeschichten\nund Highlights", "Histoires et temps\nforts musicaux", "Historias y momentos\nmusicales"),
+    "session_welcome_feature_discovery": ("Discover something\nin every session", "Elke sessie\neen ontdekking", "In jeder Session\netwas entdecken", "Une découverte\nà chaque session", "Un descubrimiento\nen cada sesión"),
+    "session_welcome_instruction": ("Adjust your session preferences below. You can change them during the session.", "Pas je sessievoorkeuren hieronder aan. Tijdens de sessie kun je dit altijd wijzigen.", "Passe deine Session-Einstellungen unten an. Du kannst sie während der Session ändern.", "Réglez vos préférences ci-dessous. Vous pouvez les modifier pendant la session.", "Ajusta tus preferencias aquí abajo. Puedes cambiarlas durante la sesión."),
+    "session_listen_how": ("Your mood", "Jouw stemming", "Deine Stimmung", "Votre humeur", "Tu estado de ánimo"),
+    "session_welcome_mood_hint": ("Choose your vibe for this session", "Kies je vibe voor deze sessie", "Wähle die Stimmung für diese Session", "Choisissez l’ambiance de cette session", "Elige el ambiente de esta sesión"),
+    "session_welcome_presence_hint": ("How often your DJ speaks", "Hoe vaak je DJ iets vertelt", "Wie oft dein DJ spricht", "À quelle fréquence votre DJ intervient", "Con qué frecuencia habla tu DJ"),
+    "session_welcome_persona_hint": ("The style and tone of your DJ", "De stijl en toon van je DJ", "Stil und Ton deines DJs", "Le style et le ton de votre DJ", "El estilo y el tono de tu DJ"),
     "session_start_presence_title": ("DJ presence", "DJ aanwezigheid", "DJ-Präsenz", "Présence du DJ", "Presencia del DJ"),
     "session_start_persona_title": ("DJ character", "DJ karakter", "DJ-Charakter", "Caractère du DJ", "Carácter del DJ"),
-    "session_listen_how": ("How do you want to listen?", "Hoe wil je luisteren?", "Wie möchtest du hören?", "Comment voulez-vous écouter ?", "¿Cómo quieres escuchar?"),
     "session_start_preferences_unavailable": ("Loading your confirmed session preferences. Refresh if they remain unavailable.", "Je bevestigde sessievoorkeuren worden geladen. Vernieuw als ze niet beschikbaar komen.", "Deine bestätigten Session-Einstellungen werden geladen. Aktualisiere, falls sie nicht verfügbar werden.", "Chargement de vos préférences de session confirmées. Actualisez si elles restent indisponibles.", "Cargando tus preferencias de sesión confirmadas. Actualiza si siguen sin estar disponibles."),
 }
 for _key, _values in _SESSION_WELCOME_COPY.items():
@@ -1534,6 +1645,7 @@ for _key, _values in _SESSION_WELCOME_COPY.items():
 _VIBESCAPE_COPY = {
     "vibescape_title": ("VibeScape", "VibeScape", "VibeScape", "VibeScape", "VibeScape"),
     "vibescape_dynamics": ("Visual dynamics", "Visuele dynamiek", "Visuelle Dynamik", "Dynamique visuelle", "Dinámica visual"),
+    "vibescape_dynamics_percent": ("%1%", "%1%", "%1\u00a0%", "%1\u202f%", "%1\u00a0%"),
     "vibescape_unavailable": ("VibeScape is unavailable on this display.", "VibeScape is niet beschikbaar op dit scherm.", "VibeScape ist auf diesem Bildschirm nicht verfügbar.", "VibeScape n’est pas disponible sur cet écran.", "VibeScape no está disponible en esta pantalla."),
 }
 for _key, _values in _VIBESCAPE_COPY.items():

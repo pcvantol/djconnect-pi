@@ -6,6 +6,8 @@ Canvas {
         property string iconName: "more"
         property color iconColor: BrandTheme.colors.text
         property real strokeWidth: 2.4
+        property bool heroGradient: false
+        property real whiteSweep: -1
 
         DJSessionMenuSymbol {
             anchors.fill: parent
@@ -17,6 +19,8 @@ Canvas {
         onIconNameChanged: requestPaint()
         onIconColorChanged: requestPaint()
         onStrokeWidthChanged: requestPaint()
+        onHeroGradientChanged: requestPaint()
+        onWhiteSweepChanged: requestPaint()
         onPaint: {
             var ctx = getContext("2d")
             var w = width
@@ -69,6 +73,13 @@ Canvas {
             ctx.clearRect(0, 0, w, h)
             ctx.strokeStyle = menuIcon.iconColor
             ctx.fillStyle = menuIcon.iconColor
+            if (heroGradient) {
+                var colors = ctx.createLinearGradient(0, 0, w, h)
+                colors.addColorStop(0, "#1F73FF")
+                colors.addColorStop(1, "#D638F5")
+                ctx.strokeStyle = colors
+                ctx.fillStyle = colors
+            }
             ctx.lineWidth = menuIcon.strokeWidth
             ctx.lineCap = "round"
             ctx.lineJoin = "round"
@@ -140,6 +151,10 @@ Canvas {
             } else if (iconName === "send") {
                 line(5, 14, 28, 4); line(28, 4, 19, 28); line(19, 28, 14, 19)
                 line(14, 19, 5, 14); line(14, 19, 28, 4)
+            } else if (iconName === "forecast_clock") {
+                circle(16, 16, 11, false); line(16, 9, 16, 16); line(16, 16, 21, 19)
+            } else if (iconName === "forecast_target") {
+                circle(16, 16, 11, false); circle(16, 16, 6, false); circle(16, 16, 2, true)
             } else if (iconName === "history") {
                 ctx.beginPath(); ctx.arc(px(16), py(16), 10, -Math.PI * 0.8, Math.PI * 0.8); ctx.stroke()
                 line(8, 5, 7, 12); line(7, 12, 13, 11)
@@ -147,6 +162,9 @@ Canvas {
             } else if (iconName === "persona") {
                 circle(16, 11, 4, false)
                 ctx.beginPath(); ctx.arc(px(16), py(26), 9 * s / 32, Math.PI, Math.PI * 2); ctx.stroke()
+            } else if (iconName === "output") {
+                roundRect(4, 5, 24, 17, 2)
+                line(10, 27, 22, 27); line(16, 22, 16, 27)
             } else if (iconName === "voice") {
                 line(6, 13, 11, 13); line(11, 13, 17, 8); line(17, 8, 17, 24)
                 line(17, 24, 11, 19); line(11, 19, 6, 19); line(6, 19, 6, 13)
@@ -175,6 +193,19 @@ Canvas {
                 line(7, 22.5, 26, 22.5)
             } else if (iconName === "more") {
                 circle(9, 16, 2.2, true); circle(16, 16, 2.2, true); circle(23, 16, 2.2, true)
+            } else if (iconName === "book") {
+                ctx.beginPath()
+                ctx.moveTo(px(16), py(9))
+                ctx.quadraticCurveTo(px(10), py(4), px(4), py(8))
+                ctx.lineTo(px(4), py(25))
+                ctx.quadraticCurveTo(px(10), py(21), px(16), py(26))
+                ctx.quadraticCurveTo(px(22), py(21), px(28), py(25))
+                ctx.lineTo(px(28), py(8))
+                ctx.quadraticCurveTo(px(22), py(4), px(16), py(9))
+                ctx.lineTo(px(16), py(26))
+                ctx.stroke()
+            } else if (iconName === "sparkles") {
+                star(19, 19, 11); star(8, 8, 5); star(23, 5, 3)
             } else if (iconName === "playlists") {
                 line(10, 7, 22, 7); line(8, 10, 24, 10)
                 roundRect(7, 12, 18, 13, 2)
@@ -201,12 +232,22 @@ Canvas {
                 ctx.stroke()
                 line(5, 25, 27, 25)
             } else if (iconName === "discover") {
-                line(9, 23, 22, 10)
-                line(19.5, 7.5, 24.5, 12.5)
-                line(17.8, 9.2, 22.8, 14.2)
-                star(9, 9, 3.2)
-                star(24, 22, 2.5)
-                star(14, 14, 1.8)
+                ctx.save()
+                ctx.translate(px(17), py(17))
+                ctx.rotate(-Math.PI / 4)
+                var unit = s / 32
+                ctx.beginPath()
+                ctx.moveTo(-1.6 * unit, -8.4 * unit)
+                ctx.arc(0, -8.4 * unit, 1.6 * unit, Math.PI, 0)
+                ctx.lineTo(1.6 * unit, 9.4 * unit)
+                ctx.arc(0, 9.4 * unit, 1.6 * unit, 0, Math.PI)
+                ctx.closePath()
+                ctx.stroke()
+                ctx.fillRect(-1.6 * unit, -9 * unit, 3.2 * unit, 7 * unit)
+                ctx.restore()
+                star(21, 7, 4.5)
+                star(7, 19, 3.7)
+                star(11, 25, 2.4)
             } else if (iconName === "heart") {
                 ctx.beginPath()
                 ctx.moveTo(px(16), py(25))
@@ -223,6 +264,29 @@ Canvas {
                 ctx.beginPath()
                 ctx.arc(px(16), py(17), 5, Math.PI * 0.15, Math.PI * 0.85)
                 ctx.stroke()
+            } else if (iconName === "game_racket") {
+                ctx.save()
+                ctx.translate(px(18), py(12))
+                ctx.rotate(Math.PI / 4)
+                ctx.beginPath(); ctx.ellipse(-s * 0.21, -s * 0.28, s * 0.42, s * 0.56); ctx.stroke()
+                ctx.beginPath(); ctx.moveTo(0, s * 0.27); ctx.lineTo(0, s * 0.51); ctx.stroke()
+                for (var racketLine = -1; racketLine <= 1; racketLine++) {
+                    var offset = racketLine * s * 0.10
+                    ctx.beginPath(); ctx.moveTo(offset, -s * 0.21); ctx.lineTo(offset, s * 0.21); ctx.stroke()
+                    ctx.beginPath(); ctx.moveTo(-s * 0.16, offset); ctx.lineTo(s * 0.16, offset); ctx.stroke()
+                }
+                ctx.restore()
+            } else if (iconName === "game_plane") {
+                ctx.beginPath()
+                ctx.moveTo(px(5), py(13)); ctx.lineTo(px(12), py(13)); ctx.lineTo(px(9), py(4))
+                ctx.lineTo(px(13), py(4)); ctx.lineTo(px(20), py(13)); ctx.lineTo(px(26), py(13))
+                ctx.quadraticCurveTo(px(32), py(16), px(26), py(19)); ctx.lineTo(px(20), py(19))
+                ctx.lineTo(px(13), py(28)); ctx.lineTo(px(9), py(28)); ctx.lineTo(px(12), py(19))
+                ctx.lineTo(px(5), py(19)); ctx.lineTo(px(2), py(23)); ctx.lineTo(px(2), py(9))
+                ctx.closePath(); ctx.fill()
+            } else if (iconName === "game_maze") {
+                for (var row = 0; row < 3; row++)
+                    for (var col = 0; col < 3; col++) roundRect(4 + col * 9, 4 + row * 9, 6, 6, 1)
             } else if (iconName === "gamepad") {
                 ctx.beginPath()
                 ctx.moveTo(px(8), py(20))
@@ -243,6 +307,9 @@ Canvas {
                     var a = i * Math.PI / 4
                     line(16 + Math.cos(a) * 8, 16 + Math.sin(a) * 8, 16 + Math.cos(a) * 11, 16 + Math.sin(a) * 11)
                 }
+            } else if (iconName === "copy") {
+                roundRect(11, 4, 15, 20, 2)
+                line(8, 10, 6, 10); line(6, 10, 6, 28); line(6, 28, 20, 28)
             } else if (iconName === "document") {
                 roundRect(8, 4, 16, 24, 2)
                 line(12, 11, 20, 11); line(12, 16, 20, 16); line(12, 21, 17, 21)
@@ -251,6 +318,12 @@ Canvas {
                 line(16, 11, 16, 21)
             } else if (iconName === "back") {
                 line(20, 7, 11, 16); line(11, 16, 20, 25)
+            } else if (iconName === "arrow_up") {
+                line(16, 25, 16, 7)
+                line(8, 15, 16, 7); line(16, 7, 24, 15)
+            } else if (iconName === "arrow_down") {
+                line(16, 7, 16, 25)
+                line(8, 17, 16, 25); line(16, 25, 24, 17)
             } else if (iconName === "logs") {
                 roundRect(9, 6, 13, 18, 2)
                 line(13, 11, 18, 11); line(13, 16, 17, 16)
@@ -282,6 +355,22 @@ Canvas {
                 ctx.beginPath(); ctx.arc(px(16), py(17), s * 0.28, -Math.PI * 0.65, Math.PI * 1.1); ctx.stroke()
                 line(19, 5, 23, 10); line(23, 10, 17, 11)
 
+            }
+
+            if (heroGradient && whiteSweep >= 0) {
+                var light = ctx.createConicalGradient(w / 2, h / 2, whiteSweep * Math.PI * 2)
+                light.addColorStop(0, "transparent")
+                light.addColorStop(0.70, "transparent")
+                light.addColorStop(0.78, Qt.rgba(1, 1, 1, 0.04))
+                light.addColorStop(0.90, Qt.rgba(1, 1, 1, 0.25))
+                light.addColorStop(0.96, Qt.rgba(1, 1, 1, 0.82))
+                light.addColorStop(0.985, Qt.rgba(1, 1, 1, 0.18))
+                light.addColorStop(1, "transparent")
+                ctx.save()
+                ctx.globalCompositeOperation = "source-atop"
+                ctx.fillStyle = light
+                ctx.fillRect(0, 0, w, h)
+                ctx.restore()
             }
         }
 

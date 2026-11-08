@@ -187,3 +187,30 @@ function disabled(position) {
     if (position === "end") return BrandTheme.colors.disabledEnd
     return BrandTheme.colors.disabledStart
 }
+
+// Apple Session mode selection; keep the action palette for Chill and controls
+// outside this explicitly opted-in selector.
+function sessionSelection(value) {
+    var mood = key(value)
+    var tint = mood === "chill" ? BrandTheme.colors.actionAccent :
+        mood === "groove" || mood === "energy" ? palettes[mood].gradientStart :
+        mood === "party" ? mix("#000000", palettes.party.gradientStart, 0.86) :
+        mix("#000000", palettes.default.gradientEnd, 0.35)
+    return {tint: tint, filled: mood !== "chill", foreground: mood === "energy" ? "#0f1433" : "#ffffff"}
+}
+
+// The idle card has its own surface tones; the Session canvas and generic
+// purple primary action keep their existing palettes.
+function sessionWelcome(mood) {
+    var tones = {
+        chill: {top: "#1F4072", middle: "#30286B", bottom: "#382754",
+                actionStart: "#243A78", actionMiddle: "#422875", actionEnd: "#5B2E86"},
+        groove: {top: "#0C5269", middle: "#273D74", bottom: "#125452",
+                 actionStart: "#24537C", actionMiddle: "#245975", actionEnd: "#1B686E"},
+        energy: {top: "#60903A", middle: "#266D54", bottom: "#1D7850",
+                 actionStart: "#DDFF00", actionMiddle: "#00B8FF", actionEnd: "#39FF78"},
+        party: {top: "#5D2861", middle: "#463078", bottom: "#622B71",
+                actionStart: "#FF287F", actionMiddle: "#AA38F5", actionEnd: "#F43DCE"}
+    }
+    return tones[mood] || tones.chill
+}

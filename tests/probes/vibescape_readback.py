@@ -5,7 +5,7 @@ import tempfile
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from PySide6.QtCore import QObject, QPoint, Qt, QTimer, qInstallMessageHandler
+from PySide6.QtCore import QPoint, Qt, QTimer, qInstallMessageHandler
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine, QQmlEngine, QQmlExpression
 from PySide6.QtQuickControls2 import QQuickStyle
@@ -15,6 +15,7 @@ from shiboken6 import delete
 from djconnect_pi.app import DJConnectBackend
 from djconnect_pi.brand_theme import apply_palette
 from djconnect_pi.config import Config, save_config
+from djconnect_pi.i18n import TRANSLATIONS
 
 ROOT = Path(__file__).resolve().parents[2]
 TEMP = tempfile.TemporaryDirectory()
@@ -151,7 +152,7 @@ with (
             if profile != "pi5-arm64":
                 assert not button.property("visible")
                 assert not w.property("vibeScapeAllowed")
-                w.openVibeScape()
+                w.openVibeScape(88)
                 assert not w.property("vibeScapeRequested")
                 rows.append(
                     {"profile": profile, "locale": lang, "case": "no-entry-or-loader"}
@@ -162,6 +163,9 @@ with (
                 b.paired,
                 w.property("vibeScapeAllowed"),
             )
+            screen = find(w.contentItem(), "djSessionScreen")
+            screen.setProperty("forecastMode", True)
+            assert screen.property("showForecast")
             w.grabWindow().save(str(OUT / f"{lang}-before.png"))
             if "--slow-splash" in sys.argv:
                 assert startup_visible(w), "slow-startup fixture did not exercise overlay"
@@ -179,22 +183,89 @@ with (
                 w.property("active"),
                 warnings,
             )
+            strip = find(visit, "vibeScapeModeStrip")
+            source_strip = find(screen, "sessionModeStrip")
+            assert strip.width() == source_strip.width() == 420
+            assert strip.height() == source_strip.height() == 64
+            assert abs(strip.mapToScene(QPoint()).y() - source_strip.mapToScene(QPoint()).y()) <= 1
+            assert abs(strip.mapToScene(QPoint(210, 0)).x() - w.width() / 2) <= 1
+            flow = find(visit, "vibeScapeFlow")
+            horizon = find(visit, "vibeScapeForecast")
+            selected = find(visit, "vibeScapeSelectedMode")
+            assert not flow.property("checked") and not horizon.property("checked") and selected.property("checked")
+            for locale in ("en", "de", "fr", "es", "nl"):
+                b.setLanguage(locale)
+                QTest.qWait(30)
+                assert horizon.property("text") == "Horizon"
+                for mode in (flow, horizon, selected):
+                    label = next(item for item in mode.property("contentItem").childItems()
+                                 if item.property("text") == mode.property("text"))
+                    assert not label.property("truncated") and mode.height() == 48
+            control_point = strip.mapToScene(QPoint(210, 32)).toPoint()
+            click(w, selected)
+            assert not visit.property("controlsVisible") and not strip.property("visible")
+            canvas_point = QPoint(w.width() // 2, w.height() // 2)
+            QTest.mouseClick(w, Qt.LeftButton, Qt.NoModifier, canvas_point)
+            QTest.qWait(50)
+            assert not visit.property("controlsVisible")
+            QTest.mouseClick(w, Qt.LeftButton, Qt.NoModifier, control_point)
+            QTest.qWait(50)
+            assert visit.property("controlsVisible") and strip.property("visible")
+            assert w.property("vibeScapeRequested")  # The reveal tap must not choose an underlying mode.
+            # Moving onto a visible control pauses the real timeout; leaving starts it again.
+            QTest.mouseMove(w, canvas_point)
+            QTest.mouseMove(w, control_point)
+            QTest.qWait(3100)
+            assert visit.property("controlsVisible") and visit.property("controlsHovered")
+            QTest.mouseMove(w, canvas_point)
+            QTest.qWait(3100)
+            assert not visit.property("controlsVisible")
+            QTest.keyClick(w, Qt.Key_Tab)
+            QTest.qWait(50)
+            assert visit.property("controlsVisible") and flow.property("activeFocus")
+            QTest.qWait(3200)
+            assert visit.property("controlsVisible") and flow.property("activeFocus")
+            final_control = find(visit, "vibeScapeDynamics") if "--mesa-dynamics" in sys.argv else selected
+            QTest.keyClick(w, Qt.Key_Backtab)
+            QTest.qWait(30)
+            assert final_control.property("activeFocus"), w.activeFocusItem().objectName()
+            QTest.keyClick(w, Qt.Key_Tab)
+            assert flow.property("activeFocus")
+            QTest.keyClick(w, Qt.Key_Tab)
+            assert horizon.property("activeFocus")
             assert not w.property("screenBlanked")
             assert owner._session["session_id"] == "original-session"
-            timer = w.findChild(QObject, "returnToNowTimer")
-            assert timer and not timer.property("running")
-            timer.triggered.emit()  # A previously queued expiry cannot exit this visit.
+            b.temporaryWakeRequested.emit(10, True)  # Legacy requests may wake the screen without navigation.
             QTest.qWait(30)
             assert find(w.contentItem(), "vibeScapeVisit") is not None
-            assert not visit.property(
-                "renderable"
-            )  # CI software scenegraph: honest unavailable, never fake GPU.
+            if "--mesa-dynamics" in sys.argv:
+                assert visit.property("renderable") and find(visit, "vibeScapeShader")
+                slider = find(visit, "vibeScapeDynamics")
+                percent = find(visit, "vibeScapeDynamicsPercent")
+                assert slider.property("visible") and slider.height() >= 44
+                assert visit.property("dynamics") == 0.5
+                for locale in ("en", "nl", "de", "fr", "es"):
+                    b.setLanguage(locale)
+                    QTest.qWait(30)
+                    assert percent.property("text") == TRANSLATIONS[locale]["vibescape_dynamics_percent"].replace("%1", "50")
+                point = slider.mapToScene(QPoint(int(slider.width() * 0.8), int(slider.height() / 2))).toPoint()
+                QTest.mouseClick(w, Qt.LeftButton, Qt.NoModifier, point)
+                QTest.qWait(100)
+                value = visit.property("dynamics")
+                assert 0.65 < value < 0.95, value
+                assert percent.property("text") == TRANSLATIONS["es"]["vibescape_dynamics_percent"].replace("%1", str(int(value * 100 + 0.5)))
+                b.setLanguage(lang)
+                QTest.qWait(30)
+            else:
+                assert not visit.property("renderable")  # CI software scenegraph.
+                assert not find(visit, "vibeScapeDynamics").property("visible")
             im = w.grabWindow()
             assert not im.isNull()
             assert im.save(str(OUT / f"{lang}-native-main.png"))
             click(w, find(w.contentItem(), "vibeScapeFlow"))
             assert find(w.contentItem(), "vibeScapeVisit") is None
-            assert timer.property("running")
+            assert not screen.property("showForecast")
+            assert w.property("activeScreen") == "session"
             assert (
                 w.property("vibeScapeOwner") == ""
                 and w.property("vibeScapeSession") == ""
@@ -247,6 +318,12 @@ with (
             click(w, find(w.contentItem(), "sessionVibeScapeMode"))
             click(w, find(w.contentItem(), "vibeScapeForecast"))
             assert not w.property("vibeScapeRequested")
+            assert screen.property("showForecast")
+            click(w, find(w.contentItem(), "sessionVibeScapeMode"))
+            assert find(w.contentItem(), "vibeScapeVisit").property("activeFocus")
+            QTest.keyClick(w, Qt.Key_Escape)
+            QTest.qWait(80)
+            assert not w.property("vibeScapeRequested") and screen.property("showForecast")
             # Rendering and all local gestures must not queue an app/HA action.
             # Foreground recovery may queue the existing independent owner refresh.
             jobs = [
@@ -262,6 +339,35 @@ with (
             ), owner._running_action
             for pool in pools:
                 pool.submit.reset_mock()
+        wait_for_startup(w)
+        touch = QTest.createTouchDevice()
+
+        def edge_swipe(second=None, window=w, device=touch):
+            sequence = QTest.touchEvent(window, device, False)
+            sequence.press(0, QPoint(5, 245), window).commit()
+            if second:
+                sequence.stationary(0).press(1, second, window).commit()
+            sequence.move(0, QPoint(155, 249), window)
+            if second:
+                sequence.stationary(1)
+            sequence.commit()
+            sequence.release(0, QPoint(155, 249), window)
+            if second:
+                sequence.release(1, second, window)
+            sequence.commit()
+            QTest.qWait(70)
+
+        reset()
+        w.setProperty("activeScreen", "settings")
+        edge_swipe(QPoint(width - 8, 290))
+        assert w.property("activeScreen") == "settings"
+        edge_swipe()
+        assert w.property("activeScreen") == "more"
+        w.setProperty("activeScreen", "session-history")
+        edge_swipe()
+        assert w.property("activeScreen") == "session"
+        edge_swipe()
+        assert w.property("activeScreen") == "session"
         b.shutdown()
         QTest.qWait(20)
         delete(w)

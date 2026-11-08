@@ -29,17 +29,19 @@ from .session_history_view import (
     accepted_question,
     confirmed_question_entry,
     conversation_entries,
+    flow_contributions,
     live_presentations,
     opened_entry,
     page_cursor,
     presented_history,
-    retained_flow_presentation,
     search_page,
 )
+from .session_playback_artwork import PlaybackArtwork
 from .session_playback_control import PlaybackControl
 from .session_projection import (
     active_session,
     history_page,
+    session_current_idle,
     session_playback,
     timestamp,
 )
@@ -55,10 +57,13 @@ from .session_transport import (
 
 class SessionController(QObject):
     changed = Signal()
+    playbackArtworkChanged = Signal()
     forecastImageChanged = Signal()
     forecastImageAboutToChange = Signal()
     artworkChanged = Signal()
     artworkAboutToChange = Signal()
+    flowIdleHeaderAboutToChange = Signal()
+    newCurrentContribution = Signal()
     entryOpened = Signal()
     questionConfirmed = Signal(str)
     currentReplyReady = Signal()
@@ -80,6 +85,8 @@ class SessionController(QObject):
         self.transport = SessionTransport(lambda: backend.cfg, owner_scope=self._owner_scope)
         self._clock = ExpiryClock()
         self._foreground = True
+        self._contribution_wake_scope = None
+        self._contribution_wake_at = float("-inf")
         self._session = {}
         self._bootstrap_binding = None
         self._bootstrap_owner = ""
@@ -133,6 +140,9 @@ class SessionController(QObject):
         self._moment_images.changed.connect(self.artworkChanged.emit)
         self._moment_images.aboutToChange.connect(self.artworkAboutToChange.emit)
         self.changed.connect(self._moment_images.sync)
+        self._playback_artwork = PlaybackArtwork(self)
+        self._playback_artwork.changed.connect(self.playbackArtworkChanged.emit)
+        self.changed.connect(self._playback_artwork.sync)
         self._artwork_prepare = ArtworkPreparation(self)
         self.changed.connect(self._artwork_prepare.sync)
         self._playback_control = PlaybackControl(self)
@@ -194,6 +204,7 @@ class SessionController(QObject):
             "owner_profile_id": (self._bootstrap_owner if bootstrap else session_profile_id(self.backend.cfg)),
             "runtime_state": session.get("runtime_state", ""),
             "playback": session_playback(session),
+            "current_moment_idle": session_current_idle(session),
             "artwork_prepare": self._artwork_prepare.snapshot(),
             "playback_control": self._playback_control.snapshot(),
             "archive_delete": self._archive_delete.snapshot(),
@@ -203,7 +214,7 @@ class SessionController(QObject):
             "presence": session.get("selected_presence", ""),
             "persona": session.get("dj_persona", ""),
             "composer_available": self._composer_supported(), "pending_question": {} if revoked else deepcopy(self._pending_question), "current_reply": {} if revoked else deepcopy(self._current_reply), "conversation": [] if revoked else deepcopy(self._conversation), "retained_flow": [] if revoked else deepcopy(self._retained_flow),
-            "flow_retained": [] if revoked else deepcopy(retained_flow_presentation(self._retained_flow, self._moments, session.get("session_id", ""))),
+            "flow_rows": [] if revoked else deepcopy(flow_contributions(self._retained_flow, self._moments, session.get("session_id", ""))),
             "selection": {} if revoked else deepcopy(self._selection), "question_status": self._question_status,
             "moments": [] if revoked else deepcopy(self._moments), "sessions": [] if revoked else deepcopy(self._sessions),
             "timeline": {} if revoked else deepcopy(self._timeline), "search": {} if revoked else deepcopy(self._search), "error": self._error,
@@ -229,6 +240,14 @@ class SessionController(QObject):
             return ""
         language = self.backend.cfg.language
         return QLocale(locale_for_language(language)).toString(parsed.toLocalTime(), translate(language, "session_datetime_format"))
+
+    @Property("QVariantMap", notify=playbackArtworkChanged)
+    def playbackArtwork(self):
+        return self._playback_artwork.snapshot()
+
+    @Slot(bool)
+    def setPlaybackArtworkVisible(self, visible):
+        self._playback_artwork.set_visible(visible)
 
     @Property("QVariantMap", notify=forecastImageChanged)
     def forecastImage(self):
@@ -256,8 +275,9 @@ class SessionController(QObject):
             self._visibility_notify.start()
 
     @Slot(str, str, str, result=bool)
-    def playbackCommand(self, session_id, item_id, command):
-        return self._playback_control.start(session_id, item_id, command)
+    @Slot(str, str, str, int, result=bool)
+    def playbackCommand(self, session_id, item_id, command, transport_epoch=None):
+        return self._playback_control.start(session_id, item_id, command, transport_epoch=transport_epoch)
 
     @Slot(str, str, result=bool)
     def readPlaybackVolume(self, session_id, item_id):
@@ -348,6 +368,7 @@ class SessionController(QObject):
         self._visibility_notify.stop()
         self._forecast_images.shutdown()
         self._moment_images.shutdown()
+        self._playback_artwork.shutdown()
         self._artwork_prepare.shutdown()
         self._playback_control.shutdown()
         self._archive_delete.shutdown()
@@ -380,6 +401,7 @@ class SessionController(QObject):
 
     def invalidate(self):
         had_scope = self._bootstrap_binding is not None
+        self._contribution_wake_scope = None
         self._owner_epoch += 1
         self._bootstrap_binding = None
         self._bootstrap_owner = ""
@@ -571,6 +593,7 @@ class SessionController(QObject):
             session_id, rows = self._timeline.get("session", {}).get("session_id"), self._timeline.get("entries", [])
         return (selected["session_id"] == session_id
                 and any(row["session_id"] == selected["session_id"] and row["entry_id"] == selected["entry_id"]
+                        and row.get("state") != "source_withdrawn"
                         and (timestamp(row.get("retained_until")) or 0) > self._clock.now() for row in rows))
 
     @Slot()
@@ -1212,6 +1235,32 @@ class SessionController(QObject):
         executor = self.backend._question_executor if action == "question" else self.backend._session_executor
         executor.submit(worker)
 
+    def _observe_contribution_wake(self, result):
+        # A successful current read may wake the appliance once. Reconnects,
+        # older Flow rows and the first snapshot for a scope only establish a baseline.
+        session_id = self._session.get("session_id")
+        if (not session_id or self._session.get("runtime_state") != "active"
+                or not self._foreground or not private_scope_allowed(self)):
+            self._contribution_wake_scope = None
+            return
+        scope = (result["binding"], session_id)
+        same_scope = scope == self._contribution_wake_scope
+        if not same_scope:
+            self._contribution_wake_scope = scope
+            self._contribution_wake_at = float("-inf")
+        current_id = next((row["moment_id"] for row in self._moments if row["current"]), None)
+        if current_id is None:
+            return
+        rows = self._session["broadcast"]["dj_moments"]
+        contribution = next(row for row in rows if isinstance(row, dict) and row.get("moment_id") == current_id)
+        created = timestamp(contribution.get("created_at"))
+        now = self._clock.now()
+        if created is None or not self._contribution_wake_at < created <= now:
+            return
+        self._contribution_wake_at = created
+        if same_scope and result["action"] == "refresh" and now - created <= 45:
+            self.newCurrentContribution.emit()
+
     @Slot(object)
     def _apply(self, result):
         scope_changed = False
@@ -1364,10 +1413,18 @@ class SessionController(QObject):
                     self._timeline_trail = []
                     self._search = {}
                     self._withdraw_question()
-                if self._session.get("session_id") != result["session"].get("session_id"):
+                incoming_session = result["session"]
+                if self._session.get("session_id") != incoming_session.get("session_id"):
                     self._withdraw_question()
+                elif not scope_changed:
+                    old_idle_state = (session_playback(self._session).get("state")
+                                      if session_current_idle(self._session) else None)
+                    new_idle_state = (session_playback(incoming_session).get("state")
+                                      if session_current_idle(incoming_session) else None)
+                    if old_idle_state != new_idle_state:
+                        self.flowIdleHeaderAboutToChange.emit()
                 self._loaded = True
-                self._session = result["session"]
+                self._session = incoming_session
                 self._moments = live_presentations(self._session, now=self._clock.now())
                 self._caps = result.get("capabilities", self._caps)
                 self._forecast.receive(self._session, self._caps, self._clock.now())
@@ -1442,6 +1499,10 @@ class SessionController(QObject):
         self._expire()
         confirmed = self._confirm_question()
         self.changed.emit()
+        if "session" in result and "error" not in result:
+            self._observe_contribution_wake(result)
+        elif "error" in result and not self._session:
+            self._contribution_wake_scope = None
         if confirmed:
             self.questionConfirmed.emit(confirmed)
         if "history" in result and "error" not in result:

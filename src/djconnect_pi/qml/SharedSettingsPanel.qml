@@ -190,7 +190,8 @@ ColumnLayout {
                 editor.backend.pollSharedSettings()
             }
         }
-        Button {
+        GlassButton {
+            primary: true
             text: editor.tr("shared_apply")
             Layout.fillWidth: true
             Layout.minimumHeight: 54

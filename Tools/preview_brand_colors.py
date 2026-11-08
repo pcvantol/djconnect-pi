@@ -233,7 +233,7 @@ def main():
         owner._timeline = presented_history(history_page(tail, session_id=sid))
         owner.changed.emit()
         assert QMetaObject.invokeMethod(session_item, "showSearch")
-        keyboard = window.findChild(QObject, "sessionTouchKeyboard")
+        keyboard = window.findChild(QObject, "searchTouchKeyboard")
         search_input = window.findChild(QObject, "sessionSearchInput")
         assert keyboard is not None and search_input is not None
         assert QMetaObject.invokeMethod(keyboard, "insertKey", Q_ARG("QVariant", "é"))

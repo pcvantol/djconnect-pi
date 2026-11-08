@@ -3297,3 +3297,51 @@ are unchanged; browser/native click acceptance remains pending computer access.
 The five-language portal source is protected as PR139/3787c667 and originally
 qualified via41204276486. See PI_PORTAL_FIVE_LANGUAGE_FINALIZATION.md for review,
 regression and original artifact pins. This does not update the published app.
+
+### November Session presentation and withdrawn history
+
+Apple protected main `609ccce8` includes the Horizon list treatment from #313
+(refactored in #324) and the confirmed-Mood selection treatment from #322.
+Both Pi sizes now show the authored queue intro, one to five distinct display
+rows, and the authored note. Only the known quoted guidance shape is split;
+other text is shown verbatim. Heading glyphs are Pi-owned. The Session Pulse
+glyph is white, and only the Session mode strip opts into the Apple Mood
+selection colours. VibeScape remains Pi10-only.
+
+Core protected source `ac84880a` (#1517) and Final `5f6b0912` (#1518) retain
+a typed identity for withdrawn conversation rows. Pi renders the existing
+localized unavailable label at the original timeline position and deadline,
+without original text, attribution, actions, question selection or receipt
+confirmation. This adds no deletion operation or private access.
+
+The current Core For-you contract at `50a0884c` still limits the offer to
+iOS/iPadOS and macOS; the Pi does not synthesize an offer or call its actions.
+New Apple speech paths, Watch surfaces and provider actions are outside this
+change. Physical installation and GPU acceptance are separate.
+
+### Retained contribution dates in current Flow
+
+The current Flow lists admitted saved contributions by their original
+`occurred_at` timestamp, newest first, following the saved-row ordering in
+Apple main `93dccad59304f3b35bc427b79aca3758e56310ab`. Rows with equal times
+keep reverse canonical order. Undated rows sort last. Native Moment duplicate
+suppression still matches only the exact Moment ID and current Session.
+Canonical history, lookup IDs, source permissions and deadlines stay separate
+from the presentation order. Interleaving live Bulletins remains open.
+
+An offline ARM64 Qt probe verified the actual vertical card order with
+out-of-sequence timestamps on both Pi layouts in all five languages. The 271
+focused history, Session, composer and QML tests passed.
+
+### Live Bulletins in current Flow
+
+The active Flow displays previously published, still admitted DJ Bulletins
+among saved contributions. It orders them by the producer's `created_at` and
+`occurred_at` timestamps. The current Moment stays above the list. A saved row
+cannot select the live card renderer. The original bulletin admission, source
+deadline and publisher credits apply to both positions.
+
+The reference is Apple `93dccad59304f3b35bc427b79aca3758e56310ab`. The ARM VM
+uses the original owner snapshot from Core `59d51e692c3c1681b6b9711edd1e2e52c363bf68`
+and a synthetic transition from current to earlier Flow. It checks visible
+card order and removal at source expiry on both sizes in five languages.

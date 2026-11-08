@@ -4,7 +4,7 @@ from html import escape
 from importlib.resources import files
 from urllib.parse import urlsplit
 
-from .session_projection import history_page, live_moments, safe_link, text
+from .session_projection import history_page, live_moments, safe_link, text, timestamp
 from .session_transport import SessionError, identifier
 
 
@@ -63,7 +63,15 @@ def historical_playback(row):
 
 def presented_history(response):
     result = deepcopy(response)
-    for row in result.get("entries", []):
+    for index, row in enumerate(result.get("entries", [])):
+        if row.get("state") == "source_withdrawn":
+            # Project only identity, ordering and the original deadline. Even an
+            # additive field cannot reintroduce withdrawn sources or actions.
+            keys = ("entry_id", "session_id", "kind", "order", "retained_until", "occurred_at",
+                    "historical_view_only", "current_display_allowed", "state", "turn_id", "role",
+                    "origin_message_id", "input_type")
+            result["entries"][index] = {**{key: row[key] for key in keys if key in row}, "text": ""}
+            continue
         row["historical_playback"] = historical_playback(row)
         row["display_sources"] = sources(row)
         if type(row.get("requires_spotify_attribution", False)) is not bool:
@@ -83,19 +91,35 @@ def presented_history(response):
 
 
 def retained_flow_presentation(entries, admitted_moments, session_id):
-    """Omit only a current Session's exact-ID duplicate of admitted native prose.
+    """Order admitted history for Flow without changing the canonical timeline.
 
-    Inputs are independently admitted current models. This changes presentation,
-    not canonical history, selection, attribution or either original lifetime.
-    Text equality, titles, publication markers and foreign Sessions never join.
+    Only an exact-ID native prose duplicate from the current Session is omitted.
+    Ties keep the previous reverse canonical order, and a missing date sorts last.
     """
-    if not isinstance(session_id, str) or not session_id:
-        return list(entries)
-    ids = {row.get("moment_id") for row in admitted_moments
+    ids = {row["moment_id"] for row in admitted_moments
            if isinstance(row.get("moment_id"), str) and row["moment_id"]}
-    return [row for row in entries if not (row.get("kind") == "dj_moment"
-            and row.get("session_id") == session_id
-            and isinstance(row.get("moment_id"), str) and row["moment_id"] in ids)]
+    visible = [row for row in reversed(entries) if not (
+        isinstance(session_id, str) and session_id
+        and row.get("kind") == "dj_moment" and row.get("session_id") == session_id
+        and isinstance(row.get("moment_id"), str) and row["moment_id"] in ids
+    )]
+
+    return sorted(visible, key=_flow_time, reverse=True)
+
+
+def _flow_time(row):
+    value = timestamp(row.get("occurred_at"))
+    return value if value is not None else float("-inf")
+
+
+def flow_contributions(entries, admitted_moments, session_id):
+    """Join already admitted live Bulletins to saved rows for display only."""
+    rows = [{"bulletin": False, "contribution": row}
+            for row in retained_flow_presentation(entries, admitted_moments, session_id)]
+    rows.extend({"bulletin": True, "contribution": row} for row in admitted_moments
+                if row.get("flow_bulletin") and not row["current"])
+    return sorted(rows, key=lambda row: _flow_time(row["contribution"]), reverse=True)
+
 
 def _highlighted_text(body, marks):
     # Called only after server UTF-16 ranges passed exact character-boundary validation.
@@ -179,8 +203,55 @@ def live_presentations(session, *, now=None):
             card["spotify_source_url"] = spotify_source({**raw, "requires_spotify_attribution": card["requires_spotify_attribution"]})
         except SessionError:
             continue
+        if raw.get("type") == "dj_bulletin":
+            if not _valid_bulletin(raw, card):
+                continue
+            card.update(flow_bulletin=True, occurred_at=raw["created_at"],
+                        bulletin_sources=_bulletin_sources(raw["sources"]))
         result.append(card)
     return result
+
+
+def _bulletin_sources(references):
+    """Project admitted producer references in order, with one link per destination."""
+    by_url = {}
+    for source in references:
+        url = safe_link(source["url"])
+        by_url.setdefault(url, {
+            "url": url,
+            "label": " · ".join((source["provider"], source["license"])),
+            "accessible_label": " · ".join((source["provider"], source["title"], source["license"])),
+            "published_at": source["published_at"],
+        })
+    return list(by_url.values())
+
+
+def _valid_bulletin(raw, card):
+    metadata = raw.get("generation_metadata")
+    intent = raw.get("knowledge_intent")
+    presentation = raw.get("presentation_intent")
+    visibility = raw.get("visibility")
+    channels = ["owner"] if visibility == "owner_only" else ["broadcast", "owner", "shared"]
+    references = raw.get("sources")
+    return (
+        visibility in ("owner_only", "session_shared")
+        and isinstance(presentation, dict) and presentation.get("visibility") == visibility
+        and presentation.get("delivery_channels") == raw.get("delivery_channels") == channels
+        and isinstance(metadata, dict) and metadata.get("bulletin_schema") == "1"
+        and metadata.get("context_source") == "fixed_rss_metadata_v1"
+        and isinstance(intent, dict) and intent.get("type") == "dj_bulletin"
+        and raw.get("source_references") == ["fixed_rss_metadata_v1"]
+        and raw.get("artwork") is None and raw.get("source_attribution") is None
+        and raw.get("settings_confirmation") is None and raw.get("actions") == []
+        and timestamp(raw.get("created_at")) is not None and 0 < len(card["body"]) <= 1200
+        and not card["requires_spotify_attribution"] and timestamp(card["source_expires_at"]) is not None
+        and isinstance(references, list) and 2 <= len(references) <= 16
+        and all(isinstance(source, dict)
+                and all(isinstance(source.get(key), str) and source[key].strip()
+                        and len(source[key].encode(errors="surrogatepass")) <= 4096 for key in ("provider", "license", "title"))
+                and safe_link(source.get("url")) and timestamp(source.get("published_at")) is not None
+                for source in references)
+    )
 
 
 def spotify_source(subject):
@@ -229,7 +300,7 @@ def accepted_question(response, binding, request):
 def conversation_entries(page):
     rows = []
     for row in page["entries"]:
-        if row["kind"] not in {"conversation_user", "conversation_dj"}:
+        if row["kind"] not in {"conversation_user", "conversation_dj"} or row.get("state") == "source_withdrawn":
             continue
         expected_role = "user" if row["kind"] == "conversation_user" else "assistant"
         if (row.get("role") != expected_role or not isinstance(row.get("text"), str)

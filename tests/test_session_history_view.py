@@ -6,11 +6,14 @@ from urllib.parse import urlsplit
 import pytest
 
 from djconnect_pi.session_history_view import (
+    conversation_entries,
+    flow_contributions,
     opened_entry,
     presented_history,
     search_page,
     sources,
 )
+from djconnect_pi.session_projection import history_page
 from djconnect_pi.session_transport import SessionError
 
 
@@ -204,7 +207,7 @@ def test_flow_native_join_is_presentation_only_exact_same_session_moment_id():
     original = deepcopy((entries, native))
     assert retained_flow_presentation(entries, native, "s") == [entries[1]]
     assert (entries, native) == original
-    assert retained_flow_presentation(entries, [], "s") == entries
+    assert retained_flow_presentation(entries, [], "s") == entries[::-1]
 
 
 @pytest.mark.parametrize("change", [
@@ -227,8 +230,95 @@ def test_flow_native_join_requires_original_current_session(sid):
     assert retained_flow_presentation([row], [{"moment_id": "m"}], sid) == [row]
 
 
-def test_flow_native_join_keeps_original_retained_order_without_promoting_grants():
+def test_flow_uses_original_dates_then_reverse_canonical_order_without_promoting_grants():
     from djconnect_pi.session_history_view import retained_flow_presentation
-    rows = [{"session_id": "s", "kind": "dj_moment", "moment_id": x, "order": i} for i,x in enumerate(["a","b","c"])]
-    assert retained_flow_presentation(rows, [{"moment_id": "b"}], "s") == [rows[0], rows[2]]
-    assert retained_flow_presentation(rows, [{"moment_id": None}, {"moment_id": True}], "s") == rows
+    rows = [
+        {"session_id": "s", "kind": "dj_moment", "moment_id": "newer", "order": 1,
+         "occurred_at": "2026-10-20T00:03:00Z", "retained_until": "original"},
+        {"session_id": "s", "kind": "dj_moment", "moment_id": "native", "order": 2,
+         "occurred_at": "2026-10-20T00:04:00Z"},
+        {"session_id": "s", "kind": "playback_observed", "order": 3,
+         "occurred_at": "2026-10-20T00:01:00Z"},
+        {"session_id": "s", "kind": "conversation_dj", "order": 4,
+         "occurred_at": "2026-10-20T01:01:00+01:00", "state": "source_withdrawn"},
+        {"session_id": "s", "kind": "dj_silence", "order": 5},
+    ]
+    original = deepcopy(rows)
+    assert retained_flow_presentation(rows, [{"moment_id": "native"}], "s") == [
+        rows[0], rows[3], rows[2], rows[4],
+    ]
+    assert retained_flow_presentation(rows, [], "s") == [
+        rows[1], rows[0], rows[3], rows[2], rows[4],
+    ]
+    assert rows == original
+
+
+def test_flow_interleaves_admitted_previous_bulletins_and_preserves_the_current_header():
+    before = {"entry_id": "before", "occurred_at": "2026-10-31T19:48:00Z", "flow_bulletin": True}
+    after = {"entry_id": "after", "occurred_at": "2026-10-31T19:49:00Z"}
+    bulletin = {"flow_bulletin": True, "current": False, "moment_id": "bulletin",
+                "occurred_at": "2026-10-31T19:48:15Z", "source_expires_at": "original"}
+    duplicate = {"entry_id": "dup", "session_id": "s", "kind": "dj_moment", "moment_id": "bulletin"}
+    current = {**bulletin, "current": True, "moment_id": "current"}
+    other = {**bulletin, "flow_bulletin": False, "moment_id": "other"}
+    entries = [before, after, duplicate]
+    moments = [current, bulletin, other]
+
+    assert flow_contributions(entries, moments, "s") == [
+        {"bulletin": False, "contribution": after},
+        {"bulletin": True, "contribution": bulletin},
+        {"bulletin": False, "contribution": before},
+    ]
+    assert [item["contribution"] for item in flow_contributions(entries, [current, other], "s")] == [
+        after, before, duplicate,
+    ]
+    assert bulletin["source_expires_at"] == "original"
+
+
+def withdrawn_timeline(kind):
+    tail = timeline_fixture()
+    row = tail["entries"][0]
+    sid = row["session_id"]
+    # Core #1517 keeps the identity and original retention but removes prose.
+    tail["entries"] = [{
+        **{key: row[key] for key in ("entry_id", "session_id", "order", "retained_until", "occurred_at")},
+        "kind": kind, "role": "user" if kind == "conversation_user" else "assistant",
+        "turn_id": "turn-a", "origin_message_id": "message-a", "input_type": "text",
+        "state": "source_withdrawn", "context": {"session_id": sid}, "text": "",
+        "historical_view_only": True, "current_display_allowed": False,
+    }]
+    return tail, sid
+
+
+@pytest.mark.parametrize("kind", ["conversation_user", "conversation_dj"])
+def test_withdrawn_conversation_keeps_position_without_body_or_actions(kind):
+    page, sid = withdrawn_timeline(kind)
+    row = page["entries"][0]
+    row.update(sources=[{"url": "https://example.org/old"}], navigation_actions=[{"id": "old"}])
+    original = deepcopy(page)
+    admitted = history_page(page, session_id=sid)
+    projected = presented_history(admitted)["entries"][0]
+    assert page == original
+    assert projected["entry_id"] == row["entry_id"]
+    assert projected["order"] == row["order"]
+    assert projected["retained_until"] == row["retained_until"]
+    assert projected["state"] == "source_withdrawn" and projected["text"] == ""
+    assert "sources" not in projected and "navigation_actions" not in projected
+    assert conversation_entries(admitted) == []
+
+
+@pytest.mark.parametrize("changes", [
+    {"text": "withdrawn original body"},
+    {"context": {"session_id": "foreign"}},
+    {"context": {"session_id": "session-basis-contract", "selected": {"entry_id": "old"}}},
+    {"role": "user"},
+    {"origin_message_id": ""},
+    {"turn_id": None},
+    {"input_type": "other"},
+    {"current_display_allowed": True},
+])
+def test_withdrawn_conversation_rejects_body_or_inexact_identity(changes):
+    page, sid = withdrawn_timeline("conversation_dj")
+    page["entries"][0].update(changes)
+    with pytest.raises(SessionError):
+        history_page(page, session_id=sid)

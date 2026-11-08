@@ -5,7 +5,7 @@
   <img src="https://raw.githubusercontent.com/pcvantol/djconnect/7e14e5970b3f68d33d243ae6bab2b281fad59bb2/assets/djconnect/brand-v2/wordmark-primary-light.png" alt="DJConnect" width="640">
 </picture>
 
-Version: `4.0.0-rc.7` (release preparation; publication and installation pending)
+Version: `4.0.0-rc.8` (release preparation; publication and installation pending)
 
 One shared Qt Quick/QML application with a PySide6 backend serves the compact
 4-inch Pi and the portrait Pi10. The selected product target is the full
@@ -14,7 +14,7 @@ as design references. Each target requires an explicit, server-authorized
 DJConnect Profile connection; display size or household placement never implies
 personal identity or permission. Home Assistant remains the Profile/Session owner.
 
-The rc.7 candidate migrates the shared app to Python 3.14.9 and Qt 6.12.0.
+The app uses Python 3.14.9 and Qt 6.12.0.
 Its interpreter is installed beside OS Python; existing system tools and the
 previous app release remain available. The rc.6 release is immutable. This new
 candidate is not yet published or installed as the active physical app.
@@ -417,9 +417,9 @@ not a private source clone:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/download/v4.0.0-rc.7/djconnect-pi-4.0.0-rc.7.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/download/v4.0.0-rc.8/djconnect-pi-4.0.0-rc.8.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-4.0.0-rc.7
+cd djconnect-pi-4.0.0-rc.8
 sudo ./scripts/install.sh
 ```
 
@@ -560,9 +560,9 @@ installer:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/download/v4.0.0-rc.7/djconnect-pi-4.0.0-rc.7.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/download/v4.0.0-rc.8/djconnect-pi-4.0.0-rc.8.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-4.0.0-rc.7
+cd djconnect-pi-4.0.0-rc.8
 sudo ./scripts/install.sh
 ```
 

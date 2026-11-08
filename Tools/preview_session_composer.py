@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from PySide6.QtCore import Q_ARG, Q_RETURN_ARG, QMetaObject, QObject, QPoint, QPointF, QTimer, qInstallMessageHandler
+from PySide6.QtCore import Q_ARG, Q_RETURN_ARG, QMetaObject, QObject, QPoint, QPointF, Qt, QTimer, qInstallMessageHandler
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine, QQmlExpression
 from PySide6.QtQuickControls2 import QQuickStyle
@@ -136,7 +136,7 @@ def main():
         voice_button=window.findChild(QObject,'sessionToolbarVoice')
         more_button=window.findChild(QObject,'sessionToolbarMore')
         assert presence_button.property('visible') and persona_button.property('visible')
-        assert voice_button.property('visible') == (width>=900)
+        assert not voice_button.property('visible')
         assert more_button.property('visible') == (width<900)
         shared={'available':True,'selection_required':False,'operation_pending':False,
             'edit_token':'synthetic-ui-token','values':{'mood':'groove','presence':'balanced','persona':'home_dj'},
@@ -146,6 +146,17 @@ def main():
         backend._shared_settings_state=shared
         backend.sharedSettingsChanged.emit()
         choice=window.findChild(QObject,'sessionToolbarChoice')
+        if width >= 900:
+            shared.update(voice_available=True, speaker_available=True)
+            shared['values']['announcement_output']='ha_speaker'
+            backend.sharedSettingsChanged.emit()
+            assert voice_button.property('visible')
+            QMetaObject.invokeMethod(voice_button,'clicked')
+            assert choice.property('opened') and choice.property('canSubmit')
+            shared['speaker_available']=False
+            backend.sharedSettingsChanged.emit()
+            assert not choice.property('opened') and not voice_button.property('visible')
+
         for setting,button in [('mood',mood_button),('presence',presence_button),('persona',persona_button)]:
             for value in shared['options'][setting]:
                 shared['values'][setting]=value
@@ -522,6 +533,25 @@ def main():
             reading=screen.property('flowReturn').toVariant()
             assert reading['kind']=='current_reply' and reading['id']==owner.state['current_reply']['reply_id'],(width,language,reading)
             QMetaObject.invokeMethod(screen,'clearFlowReturn')
+            jump = window.findChild(QObject, 'sessionJumpCurrent')
+            flick.setProperty('contentY', flick.property('contentHeight') - flick.height())
+            QTest.qWait(80)
+            assert jump.property('visible')
+            original_draft = screen.property('draft')
+            screen.setProperty('draft', 'Synthetic unsent draft')
+            screen.setProperty('followQuestionReply', True)
+            calls = owner.transport.question.call_count
+            capture('jump-to-current-visible-' + language)
+            point = jump.mapToScene(QPointF(jump.width()/2, jump.height()/2))
+            QTest.mouseClick(window, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier,
+                             QPoint(round(point.x()), round(point.y())))
+            QTest.qWait(100)
+            assert abs(flick.property('contentY') - flick.property('originY')) < 1
+            assert not jump.property('visible') and not screen.property('followQuestionReply')
+            assert screen.property('draft') == 'Synthetic unsent draft'
+            assert owner.transport.question.call_count == calls
+            capture('jump-to-current-returned-' + language)
+            screen.setProperty('draft', original_draft)
             owner._retained_flow=saved_rows;owner.changed.emit();QTest.qWait(80)
             assert window.findChild(QObject,'sessionCurrentReply').property('visible')
             complete_navigation()
@@ -607,7 +637,10 @@ def main():
                 'selected_mood':'groove','mood_revision':0,'selected_presence':'balanced','presence_revision':0,
                 'dj_persona':frame['persona'],'persona_revision':0,'locale':language,'broadcast':{
                 'session':{'session_id':p['session_id']},'session_forecast':p,'playback':{
-                    'state':'playing','item_id':p['current_anchor']['item_id'],'title':'Observed track',
+                    # Keep enough playback-only content to exercise a real scroll
+                    # position even when the active Flow has no page heading.
+                    'state':'playing','item_id':p['current_anchor']['item_id'],
+                    'title':'Synthetic track with a deliberately long title ' * 5,
                     'source_url':p['current_anchor']['source_url'],'updated_at':p['issued_at']}}}
             owner._caps={**caps,'capabilities':{**caps['capabilities'],**forecast_caps['capabilities']},
                 'contract_versions':{**caps['contract_versions'],**forecast_caps['contract_versions']}}
@@ -973,6 +1006,9 @@ def main():
             displayed.sort(key=lambda card:card.mapToItem(screen,QPointF(0,0)).y())
             assert [card.property('entry')['entry_id'] for card in displayed]==[row['entry_id'] for row in reversed(owner.state['retained_flow'])]
             assert [row['order'] for row in owner.state['retained_flow']]==sorted(row['order'] for row in owner.state['retained_flow'])
+            for upper, lower in zip(displayed, displayed[1:]):
+                gap = lower.mapToItem(screen, 0, 0).y() - upper.mapToItem(screen, 0, upper.height()).y()
+                assert abs(gap - (22 if width == 720 else 26)) <= 1, (width, language, gap)
             playback_cards=[];literal_text=[]
             def check_readonly(item):
                 if item.objectName()=='sessionConversationCard':
@@ -988,6 +1024,63 @@ def main():
             flick.setProperty('contentY',min(playback_cards[0].property('y'),max(0,flick.property('contentHeight')-flick.property('height'))))
             capture('retained-flow-playback-and-conversation-'+language)
             assert owner.state['retained_flow'][6]['historical_playback']['title']=='<img> letterlijk 🎵\nObserved track'
+            # A fresh owner read inserts/removes the compact header above older rows.
+            playing = deepcopy(flow_session)
+            snapshot = playing['broadcast']
+            snapshot['session']['runtime_state'] = 'active'
+            snapshot['playback'] = {'state': 'playing', 'item_id': 'fixture-track',
+                'updated_at': datetime.fromtimestamp(stamp, UTC).isoformat(), 'title': 'Fixture track'}
+            waiting = window.findChild(QObject, 'sessionWaitingCard')
+            jump = window.findChild(QObject, 'sessionJumpCurrent')
+
+            def refresh_flow(frame):
+                owner.transport.active.return_value = {'success': True, 'session': frame}
+                owner.refresh()
+                backend._executor.submit.call_args.args[0]()
+                QTest.qWait(340)
+
+            refresh_flow(playing)
+            assert not waiting.property('visible')
+            flick.setProperty('contentY', min(420, flick.property('contentHeight') - flick.height() - 100))
+            QTest.qWait(40)
+            assert jump.property('visible')
+            QMetaObject.invokeMethod(screen, 'rememberFlow')
+            before = screen.property('flowReturn').toVariant()
+            assert before['kind'] == 'conversation'
+            QMetaObject.invokeMethod(screen, 'clearFlowReturn')
+            idle = deepcopy(playing)
+            idle['broadcast']['native_delivery'] = {'schema_version': 1, 'revision': 'fixture-idle',
+                'session_id': playing['session_id'], 'revocation_scope': 'session',
+                'current_moment_id': None, 'current_silence_moment_id': None}
+            paused = deepcopy(idle)
+            paused['broadcast']['playback']['state'] = 'paused'
+            unconfirmed_pause = deepcopy(playing)
+            unconfirmed_pause['broadcast']['playback']['state'] = 'paused'
+            for frame, mode, image in (
+                (idle, 'compact', 'compact-dj-above-retained'),
+                (paused, 'paused', 'paused-dj-above-retained'),
+                (idle, 'compact', ''),
+                (unconfirmed_pause, '', ''),
+            ):
+                refresh_flow(frame)
+                assert waiting.property('visible') == bool(mode)
+                assert waiting.property('compactIdle') == (mode == 'compact')
+                if mode == 'paused':
+                    assert window.findChild(QObject, 'sessionWaitingPausedDetail').property('visible')
+                    assert not window.findChild(QObject, 'sessionExpandedEnd').property('visible')
+                    assert window.findChild(QObject, 'sessionCompactEnd').property('enabled')
+                QMetaObject.invokeMethod(screen, 'rememberFlow')
+                after = screen.property('flowReturn').toVariant()
+                assert after['id'] == before['id'] and abs(after['offset'] - before['offset']) <= 1, (before, after)
+                QMetaObject.invokeMethod(screen, 'clearFlowReturn')
+                if image:
+                    anchored_y = flick.property('contentY')
+                    flick.setProperty('contentY', 0)
+                    QTest.qWait(40)
+                    capture(image + '-' + language)
+                    flick.setProperty('contentY', anchored_y)
+                    QTest.qWait(40)
+            refresh_flow(flow_session)
             # Existing selected_entry route, driven from the actual retained Flow card.
             def flow_cards(item):
                 if item.objectName()=='sessionConversationCard': yield item

@@ -3,8 +3,10 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import sys
 import time
 from pathlib import Path
+from types import ModuleType
 from unittest.mock import Mock, patch
 
 import pytest
@@ -77,6 +79,68 @@ def test_backend_exposes_initial_config(tmp_path: Path) -> None:
     assert backend.busy is False
     assert backend.title == "Niets speelt af"
     assert backend.connectionType == "Niet verbonden"
+
+
+def test_audio_device_observer_reports_input_and_output_independently(tmp_path):
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    changed = Mock()
+    backend.localAudioDevicesChanged.connect(changed)
+    assert not backend.localMicrophoneAvailable and not backend.localAudioOutputAvailable
+    devices = Mock()
+    devices.audioInputs.return_value = []
+    devices.audioOutputs.return_value = [object()]
+    # Supply the optional import without loading native multimedia libraries.
+    multimedia = ModuleType("PySide6.QtMultimedia")
+    multimedia.QMediaDevices = Mock(return_value=devices)
+    with patch.dict(sys.modules, {multimedia.__name__: multimedia}):
+        backend.observeLocalAudioDevices()
+    multimedia.QMediaDevices.assert_called_once_with(backend)
+    assert not backend.localMicrophoneAvailable and backend.localAudioOutputAvailable
+    devices.audioInputs.return_value = [object()]
+    devices.audioOutputs.return_value = []
+    devices.audioOutputsChanged.connect.call_args.args[0]()
+    assert backend.localMicrophoneAvailable and not backend.localAudioOutputAvailable
+    assert changed.call_count == 2
+
+
+def test_audio_device_observer_handles_missing_multimedia(tmp_path):
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    changed = Mock()
+    backend.localAudioDevicesChanged.connect(changed)
+
+    with patch.dict(sys.modules, {"PySide6.QtMultimedia": None}):
+        backend.observeLocalAudioDevices()
+
+    assert not backend.localMicrophoneAvailable
+    assert not backend.localAudioOutputAvailable
+    changed.assert_called_once_with()
+
+
+@pytest.mark.parametrize("patch_state,available", [
+    ({}, True),
+    ({"speaker_available": False}, False),
+    ({"voice_available": False}, False),
+    ({"speaker_available": "true"}, False),
+    ({"selection_required": True}, False),
+    ({"available": False}, False),
+    ({"values": {"announcement_output": "text_only"}}, False),
+    ({"values": {"announcement_output": "client_device"}}, False),
+    ({"values": {"announcement_output": "both"}}, True),
+])
+def test_session_voice_needs_confirmed_ha_speaker_route(tmp_path, patch_state, available):
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    assert not backend.sessionVoiceAvailable
+    backend._shared_settings_state = {
+        "available": True,
+        "voice_available": True,
+        "speaker_available": True,
+        "values": {"announcement_output": "ha_speaker"},
+        **patch_state,
+    }
+    assert backend.sessionVoiceAvailable is available
 
 
 def test_backend_persists_touch_mood_selector(tmp_path: Path) -> None:
@@ -2688,6 +2752,58 @@ def test_backend_refresh_preserves_selected_output_device_when_status_omits_it(t
     assert statuses
     assert statuses[0].output_device == "Keuken"
     assert statuses[0].output_devices == ("Woonkamer", "Keuken")
+
+
+@pytest.mark.parametrize("screen, slot, items", [
+    ("queue", "loadQueue", "queueItems"),
+    ("playlists", "loadPlaylists", "playlistItems"),
+])
+def test_media_list_demo_and_unpaired_never_dispatch(tmp_path: Path, screen, slot, items) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend._executor.submit = Mock()
+    backend.client.command = Mock()
+    load = getattr(backend, slot)
+
+    load()
+    assert not getattr(backend, items)
+    assert screen not in backend._media_loads_in_flight
+    backend.enterDemoMode()
+    load()
+    assert getattr(backend, items)
+    backend._executor.submit.assert_not_called()
+    backend.client.command.assert_not_called()
+
+
+def test_media_list_requests_coalesce_per_list_and_release_after_failure(tmp_path: Path) -> None:
+    ensure_app()
+    path = tmp_path / "config.json"
+    save_config(path, Config(paired=True, device_token="test-token", ha_url="http://fixture.invalid"))
+    backend = DJConnectBackend(path)
+    backend._executor.submit = Mock()
+    backend.client.command = Mock(side_effect=DJConnectError("temporary fixture failure"))
+
+    backend.loadQueue()
+    backend.loadQueue()
+    backend.loadPlaylists()
+    backend.loadPlaylists()
+    assert backend._executor.submit.call_count == 2
+    assert backend._media_loads_in_flight == {"queue", "playlists"}
+
+    queue_job, playlist_job = [call.args[0] for call in backend._executor.submit.call_args_list]
+    queue_job()
+    backend.client.command.assert_called_once_with("queue", limit=100)
+    assert backend._media_loads_in_flight == {"playlists"}
+
+    backend.loadQueue()
+    backend.loadPlaylists()
+    assert backend._executor.submit.call_count == 3
+
+    playlist_job()
+    assert backend.client.command.call_args.args == ("playlists",)
+    assert backend._media_loads_in_flight == {"queue"}
+    backend._executor.submit.call_args.args[0]()
+    assert not backend._media_loads_in_flight
 
 
 def test_backend_queue_request_is_limited_to_100_items(tmp_path: Path) -> None:

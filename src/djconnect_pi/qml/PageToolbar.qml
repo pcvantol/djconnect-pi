@@ -9,6 +9,7 @@ Control {
     objectName: "pageToolbar"
     property string title: ""
     property bool showConnection: false
+    property bool showLeading: true
     property string connectionLabel: ""
     property string connectionText: ""
     onVisibleChanged: if (!visible) connectionInfo.close()
@@ -36,7 +37,7 @@ Control {
             height: 58; spacing: 12
             GlassSurface {
                 objectName: "pageToolbarLeading"
-                visible: leadingRow.children.length > 0
+                visible: bar.showLeading && leadingRow.children.length > 0
                 Layout.preferredWidth: leadingRow.implicitWidth + 12
                 Layout.fillHeight: true; radius: height / 2
                 RowLayout { id: leadingRow; anchors.centerIn: parent; spacing: 2 }

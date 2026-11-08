@@ -51,6 +51,20 @@ def test_explicit_read_admits_only_server_non_cached_unrestricted_choices(contro
     owner.transport.playback_outputs.assert_called_once()
 
 
+@pytest.mark.parametrize(("supports_volume", "volume", "expected"), [
+    (True, 0, 0), (True, 100, 100), (True, 101, None), (True, -1, None),
+    (True, True, None), (True, "24", None), (False, 24, None), (None, 24, None),
+])
+def test_output_volume_is_optional_display_metadata(controller, supports_volume, volume, expected):
+    owner, backend, _, inventory = setup_outputs(controller)
+    inventory["devices"][1].update(supports_volume=supports_volume, volume_percent=volume)
+    first, second = read_ready(owner, backend)["choices"]
+    assert "volume_percent" not in first
+    assert second.get("volume_percent") == expected
+    assert second["id"] == "selected-output"
+    owner.transport.playback_output.assert_not_called()
+
+
 @pytest.mark.parametrize("state", ["playing", "paused"])
 def test_typed_selection_rechecks_original_and_choice_without_optimistic_import(controller, state):
     owner, backend, status, _ = setup_outputs(controller)

@@ -160,23 +160,24 @@ same canonical lock before the application wheel.
 | PySide6_WebEngine | `6.12.0.140` | PySide6 WebEngine runtime dependency | LGPL-3.0-only/GPL-2.0-only/GPL-3.0-only | https://pypi.org/project/PySide6-WebEngine/ |
 | shiboken6 | `6.12.0` | PySide6 binding generator/runtime | LGPL-3.0-only/GPL-3.0-only/commercial Qt licensing | https://pypi.org/project/shiboken6/ |
 | requests | `2.34.2` | HA HTTP, updater GitHub HTTP, album-art cache | Apache-2.0 | https://pypi.org/project/requests/ |
-| certifi | `2026.10.19` | TLS CA bundle for requests | MPL-2.0 | https://pypi.org/project/certifi/ |
-| charset-normalizer | `3.4.9` | requests text decoding | MIT | https://pypi.org/project/charset-normalizer/ |
-| idna | `3.18` | requests IDNA support | BSD-3-Clause | https://pypi.org/project/idna/ |
-| urllib3 | `2.7.0` | requests HTTP transport | MIT | https://pypi.org/project/urllib3/ |
+| certifi | `2026.10.23` | TLS CA bundle for requests | MPL-2.0 | https://pypi.org/project/certifi/ |
+| charset-normalizer | `3.5.2` | requests text decoding | MIT | https://pypi.org/project/charset-normalizer/ |
+| idna | `3.20` | requests IDNA support | BSD-3-Clause | https://pypi.org/project/idna/ |
+| urllib3 | `2.8.0` | requests HTTP transport | MIT | https://pypi.org/project/urllib3/ |
 | websocket-client | `1.9.2` | Optional Home Assistant native `/api/websocket` fast path | Apache-2.0 | https://pypi.org/project/websocket-client/ |
-| zeroconf | `0.151.5` | `_djconnect._tcp` mDNS advertisement | LGPL-2.1-or-later | https://pypi.org/project/zeroconf/ |
+| zeroconf | `0.154.0` | `_djconnect._tcp` mDNS advertisement | LGPL-2.1-or-later | https://pypi.org/project/zeroconf/ |
 | ifaddr | `0.2.0` | zeroconf network interface discovery | MIT | https://pypi.org/project/ifaddr/ |
 
 ### Python Build/Test Dependencies
 
 | Package/tool | Constraint / version source | Used by | License model | Source URL |
 | --- | --- | --- | --- | --- |
-| setuptools | `84.1.0` build backend; `83.0.0` runtime/test lock | PEP 517 build backend | MIT | https://pypi.org/project/setuptools/ |
-| pip | `26.2.2` | wheel/install operations | MIT | https://pypi.org/project/pip/ |
-| pytest | `9.1.1` | test suite | MIT | https://pypi.org/project/pytest/ |
-| pluggy | pytest transitive; local test run used `1.6.0` | pytest plugin system | MIT | https://pypi.org/project/pluggy/ |
-| anyio | local pytest plugin environment used `4.13.0` | test plugin environment on maintainer machine | MIT | https://pypi.org/project/anyio/ |
+| setuptools | `84.2.1` in build isolation and the app lock | PEP 517 build backend | MIT | https://pypi.org/project/setuptools/ |
+| pip | `26.3` | wheel/install operations | MIT | https://pypi.org/project/pip/ |
+| pytest | `9.2.0` | test suite | MIT | https://pypi.org/project/pytest/ |
+| pluggy | `1.7.0` in the app lock | pytest plugin system | MIT | https://pypi.org/project/pluggy/ |
+| coverage | `7.17.2` | branch coverage | Apache-2.0 | https://pypi.org/project/coverage/ |
+| wheel | `0.48.0` | wheel tooling | MIT | https://pypi.org/project/wheel/ |
 
 ### Python Standard Library Modules
 

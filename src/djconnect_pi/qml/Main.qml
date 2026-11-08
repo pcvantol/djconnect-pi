@@ -22,6 +22,7 @@ BrandWindow {
     property bool vibeScapeRequested: false
     property string vibeScapeOwner: ""
     property string vibeScapeSession: ""
+    property real vibeScapePickerTop: 64
     readonly property bool vibeScapeAllowed: wallProfile && visible && active && activeScreen === "session" &&
         djconnect.paired && !djconnect.demoMode && vibeScapeCurrentOwner.length > 0 &&
         !djconnect.djSession.state.profile_confirmation_required && !djconnect.djSession.state.owner_read_only && djconnect.djSession.state.runtime_state === "active" &&
@@ -36,17 +37,24 @@ BrandWindow {
     Connections {
         target: djconnect.djSession
         function onChanged() { root.syncVibeScape() }
+        function onNewCurrentContribution() {
+            if (!root.screenBlanked || !root.active || root.splashVisible || !djconnect.paired)
+                return
+            djconnect.wakeDisplay()
+            root.temporaryWake(20, false)
+        }
     }
     Connections {
         target: djconnect
-        function onProfileChanged() { root.syncVibeScape() }
-        function onPairedChanged() { root.syncVibeScape() }
+        function onProfileChanged() { root.syncVibeScape(); musicDnaOptIn.close() }
+        function onPairedChanged() { root.syncVibeScape(); musicDnaOptIn.close() }
     }
-    function openVibeScape() {
+    function openVibeScape(pickerTop) {
         if (!vibeScapeAllowed) return
         vibeScapeOwner = vibeScapeCurrentOwner
         vibeScapeVisitEpoch = vibeScapeCurrentEpoch
         vibeScapeSession = djconnect.djSession.state.session_id
+        vibeScapePickerTop = Number.isFinite(pickerTop) ? vibeScapeLoader.mapFromItem(null, 0, pickerTop).y : 64
         vibeScapeRequested = true
         vibeScapeLoader.active = true
     }
@@ -56,27 +64,31 @@ BrandWindow {
         anchors.fill: parent; z: 35
         // Explicit visit latch: invalidation cannot re-arm a returned context.
         active: false
+        focus: active
+        onLoaded: item.forceActiveFocus()
         onActiveChanged: {
-            if (active) returnToNowTimer.stop()
-            else {
+            if (!active) {
                 root.vibeScapeRequested = false
                 root.vibeScapeOwner = ""
                 root.vibeScapeSession = ""
+                root.vibeScapePickerTop = 64
                 root.restartIdleTimer()
-                root.restartReturnToNowTimer()
             }
         }
         sourceComponent: VibeScape {
             backend: djconnect; admitted: root.vibeScapeAllowed
             mood: root.appearanceMood
+            pickerTop: root.vibeScapePickerTop
             forecastAvailable: djconnect.djSession.state.forecast_supported
             onCloseRequested: root.closeVibeScape()
+            onFlowRequested: { root.closeVibeScape(); sharedSessionScreen.forecastMode = false }
             onForecastRequested: { root.closeVibeScape(); sharedSessionScreen.forecastMode = true }
         }
     }
     property bool wallProfile: djconnect.releaseProfile === "pi5-arm64"
     readonly property bool liquidGlassEnabled: djconnect.glassEnabled
     readonly property string appearanceMood: {
+        if (root.activeScreen === "games") return gamesPanel.gameMood
         var session = djconnect.djSession.state
         if (session.session_id && ["chill", "groove", "energy", "party"].indexOf(session.mood) >= 0) return session.mood
         var settings = djconnect.sharedSettings
@@ -99,7 +111,11 @@ BrandWindow {
     Binding { target: GlassStyle; property: "backdrop"; value: glassUnderlay }
     Binding { target: GlassStyle; property: "texture"; value: sharedGlassCapture.item ? sharedGlassCapture.item.texture : null }
     // Never captures private content or the material itself; no recursive feedback.
-    AppBackground { id: glassUnderlay; visible: false }
+    AppBackground {
+        id: glassUnderlay
+        visible: false
+        sessionCanvas: root.activeScreen === "session" || root.activeScreen === "games" || root.activeScreen === "discover"
+    }
     Loader {
         id: sharedGlassCapture
         objectName: "sharedGlassCapture"
@@ -138,10 +154,43 @@ BrandWindow {
     property double lastWakeDisplayAt: 0
     property int wakeDisplayDebounceMs: 800
     property int standardButtonRadius: 24
-    property var returnToNowChoices: [30, 60, 120, 0]
     property bool screenBlanked: djconnect.screenTimeoutSeconds > 0 && !idleTimer.running && !root.forceScreenAwake && !vibeScapeLoader.active
     property real brightnessOverlayOpacity: root.screenBlanked || root.forceBrightnessFull ? 0 : 1 - (djconnect.screenBrightnessPercent / 100.0)
     property int trVersion: djconnect.translationVersion
+
+    readonly property string edgeBackRoute: {
+        if (!root.active || root.screenBlanked || root.splashVisible || (!djconnect.paired && !djconnect.demoMode)
+                || vibeScapeLoader.active || musicDnaOptIn.visible || root.resetPairingConfirmOpen || root.rebootConfirmOpen
+                || root.shutdownConfirmOpen || root.clearLogsConfirmOpen || root.askDjClearConfirmOpen
+                || root.musicDnaDisableConfirmOpen || root.musicDnaClearConfirmOpen || root.discoveryReasonOpen)
+            return ""
+        if (djconnect.logsVisible) return "logs"
+        if (root.aboutOpen) return "about"
+        if (root.activeScreen === "history" || root.activeScreen === "session-history") {
+            if (sharedSessionScreen.historyNavigationBlocked) return ""
+            var state = djconnect.djSession.state
+            return JSON.stringify([root.activeScreen, state.owner_profile_id || "", state.owner_epoch || 0,
+                state.session_id || "", (state.timeline.session || {}).session_id || ""])
+        }
+        if (["askdj", "musicdna", "playlists", "settings", "legal", "privacy", "feedback", "games"].indexOf(root.activeScreen) >= 0)
+            return root.activeScreen
+        return ""
+    }
+    function navigateEdgeBack(route) {
+        if (!route || route !== edgeBackRoute) return
+        if (route === "logs") djconnect.hideLogs()
+        else if (route === "about") root.aboutOpen = false
+        else if (root.activeScreen === "history" || root.activeScreen === "session-history")
+            sharedSessionScreen.navigateBackFromHistory()
+        else root.activeScreen = "more"
+    }
+
+    function openMusicDnaPrompt(discoveryConsent) {
+        if (musicDnaOptIn.visible || djconnect.musicDnaBusy || djconnect.musicDiscoveryBusy) return
+        musicDnaOptIn.discoveryConsent = discoveryConsent
+        musicDnaOptIn.profileId = djconnect.activeProfileId
+        musicDnaOptIn.open()
+    }
 
     function tr(key) {
         root.trVersion
@@ -153,23 +202,6 @@ BrandWindow {
             if (languageBox.model[i].code === djconnect.language) return i
         }
         return 0
-    }
-
-    function repeatLabel(value) {
-        if (value === "track") return root.tr("repeat_one")
-        if (value === "context") return root.tr("repeat")
-        return root.tr("repeat_off")
-    }
-
-    function returnToNowLabel(value) {
-        return value > 0 ? value : root.tr("return_to_now_off")
-    }
-
-    function returnToNowIndex() {
-        for (var i = 0; i < root.returnToNowChoices.length; i++) {
-            if (root.returnToNowChoices[i] === djconnect.returnToNowSeconds) return i
-        }
-        return 1
     }
 
     function djAnnouncementOutputLabel(value) {
@@ -205,14 +237,6 @@ BrandWindow {
         return labels[key] ? root.tr(labels[key]) : (value || "")
     }
 
-    function lineNumbers(text) {
-        if (!text || text.length === 0) return "1"
-        var count = text.split("\n").length
-        var lines = []
-        for (var i = 1; i <= count; i++) lines.push(i.toString())
-        return lines.join("\n")
-    }
-
     function moodColor(token) {
         return MoodTheme.color(root.appearanceMood, token)
     }
@@ -225,34 +249,19 @@ BrandWindow {
         var wasBlanked = root.screenBlanked
         root.forceBrightnessFull = false
         root.restartIdleTimer()
-        root.restartReturnToNowTimer()
         if (root.forceScreenAwake && forcedWakeTimer.running) {
             forcedWakeTimer.restart()
         }
         if (wasBlanked) {
             root.hideTransientUi()
-            if (djconnect.returnToNowSeconds > 0) {
-                root.activeScreen = "now"
-            }
             root.suppressNextNowPanelTap = true
             djconnect.refresh()
         }
     }
 
-    function openTrackInsightScreen() {
-        root.activeScreen = "trackinsight"
-    }
-
     function restartIdleTimer() {
         if (djconnect.screenTimeoutSeconds > 0) {
             idleTimer.restart()
-        }
-    }
-
-    function restartReturnToNowTimer() {
-        if (vibeScapeLoader.active) { returnToNowTimer.stop(); return }
-        if (djconnect.returnToNowSeconds > 0) {
-            returnToNowTimer.restart()
         }
     }
 
@@ -268,8 +277,12 @@ BrandWindow {
     }
 
     onActiveScreenChanged: {
+        if (root.wallProfile && (root.activeScreen === "now" || root.activeScreen === "control")) {
+            root.closeVibeScape()
+            root.activeScreen = "session"
+            return
+        }
         root.restartIdleTimer()
-        root.restartReturnToNowTimer()
         if (root.activeScreen === "askdj") {
             root.scrollAskDjToTop()
         } else if (root.activeScreen === "musicdna") {
@@ -278,8 +291,6 @@ BrandWindow {
             djconnect.loadMusicDiscovery()
         } else if (root.activeScreen === "settings") {
             djconnect.pollSharedSettings()
-        }
-        if (root.activeScreen !== "now") {
         }
     }
 
@@ -293,7 +304,6 @@ BrandWindow {
     }
 
     function hideTransientUi() {
-        root.aboutOpen = false
         root.resetPairingConfirmOpen = false
         root.rebootConfirmOpen = false
         root.shutdownConfirmOpen = false
@@ -302,17 +312,12 @@ BrandWindow {
         root.musicDnaDisableConfirmOpen = false
         root.musicDnaClearConfirmOpen = false
         root.discoveryReasonOpen = false
-        djconnect.hideLogs()
+        musicDnaOptIn.close()
     }
 
-    function temporaryWake(seconds, navigateNow) {
-        var wasBlanked = root.screenBlanked
-        if (navigateNow && wasBlanked && djconnect.returnToNowSeconds > 0) {
-            root.hideTransientUi()
-            root.activeScreen = "now"
-        }
+    function temporaryWake(seconds, fullBrightness = true) {
         root.forceScreenAwake = true
-        root.forceBrightnessFull = true
+        root.forceBrightnessFull = fullBrightness
         forcedWakeTimer.interval = Math.max(1000, seconds * 1000)
         forcedWakeTimer.restart()
     }
@@ -331,7 +336,7 @@ BrandWindow {
             elide: Text.ElideRight
         }
         background: GlassSurface {
-            radius: root.standardButtonRadius
+            radius: control.primary ? height / 2 : root.standardButtonRadius
             interactive: true
             primary: control.primary
             pressed: control.down
@@ -356,9 +361,9 @@ BrandWindow {
             maximumLineCount: 1
         }
         background: GlassSurface {
-            radius: root.standardButtonRadius
+            radius: height / 2
             interactive: true
-            primary: askDjButton.font.pixelSize >= 19
+            primary: true
             pressed: askDjButton.down
             focused: askDjButton.activeFocus
             opacity: askDjButton.enabled ? 1 : 0.45
@@ -376,8 +381,10 @@ BrandWindow {
             spacing: 3
 
             MenuIcon {
+                objectName: "navIcon-" + navControl.iconName
                 iconName: navControl.iconName
-                iconColor: navControl.enabled ? (navControl.checked ? BrandTheme.colors.actionAccent : BrandTheme.colors.muted) : BrandTheme.colors.disabledText
+                iconColor: !navControl.enabled ? BrandTheme.colors.disabledText : navControl.iconName === "session" ?
+                    BrandTheme.colors.white : (navControl.checked ? BrandTheme.colors.actionAccent : BrandTheme.colors.muted)
                 strokeWidth: navControl.checked ? 2.8 : 2.4
                 Layout.preferredWidth: navControl.checked ? 30 : 28
                 Layout.preferredHeight: navControl.checked ? 30 : 28
@@ -430,112 +437,53 @@ BrandWindow {
         id: moreControl
         property string iconName: ""
 
-        font.pixelSize: root.width > 800 ? 25 : 21
-        font.bold: false
+        font.pixelSize: root.wallProfile ? 24 : 21
+        font.weight: Font.DemiBold
+        padding: root.wallProfile ? 20 : 15
         Layout.fillWidth: true
-        Layout.preferredHeight: root.width > 800 ? 100 : 80
+        Layout.preferredWidth: 1
+        implicitHeight: Math.max(root.wallProfile ? 108 : 80, contentItem.implicitHeight + 2 * padding)
+        Accessible.name: text
         contentItem: RowLayout {
-            spacing: 16
-            anchors.fill: parent
-            anchors.leftMargin: 20
-            anchors.rightMargin: 16
-            anchors.topMargin: 7
-            anchors.bottomMargin: 7
+            spacing: root.wallProfile ? 19 : 14
 
-            MenuIcon {
-                iconName: moreControl.iconName
-                iconColor: moreControl.enabled ? BrandTheme.colors.text : BrandTheme.colors.disabledText
-                strokeWidth: 2.5
-                Layout.preferredWidth: 42
-                Layout.preferredHeight: 36
+            Rectangle {
+                Layout.preferredWidth: root.wallProfile ? 60 : 44
+                Layout.preferredHeight: Layout.preferredWidth
+                radius: root.wallProfile ? 19 : 14
+                color: BrandTheme.alpha(BrandTheme.colors.actionAccent, "24")
+                border.color: "#23FFFFFF"
+                FeatureIcon {
+                    anchors.centerIn: parent
+                    width: parent.width * 0.63
+                    height: width
+                    iconName: moreControl.iconName
+                    iconColor: BrandTheme.colors.actionAccent
+                    Accessible.ignored: true
+                }
             }
-
             Text {
                 text: moreControl.text
+                textFormat: Text.PlainText
                 color: moreControl.enabled ? BrandTheme.colors.text : BrandTheme.colors.disabledText
                 font: moreControl.font
-                elide: Text.ElideRight
-                verticalAlignment: Text.AlignVCenter
+                wrapMode: Text.Wrap
                 Layout.fillWidth: true
             }
-
-            Text {
-                text: "›"
-                color: BrandTheme.colors.muted
-                font.pixelSize: 42
-                verticalAlignment: Text.AlignVCenter
-                horizontalAlignment: Text.AlignRight
+            FeatureIcon {
+                iconName: "back"
+                rotation: 180
                 Layout.preferredWidth: 24
+                Layout.preferredHeight: 24
+                iconColor: BrandTheme.colors.muted
+                Accessible.ignored: true
             }
         }
         background: GlassSurface {
-            radius: root.width > 800 ? 32 : 26
+            introduction: true
+            radius: root.wallProfile ? 34 : 24
             pressed: moreControl.down
             focused: moreControl.activeFocus
-            interactive: true
-            opacity: moreControl.enabled ? 1 : 0.5
-        }
-    }
-
-    component PlaybackButton: Button {
-        id: control
-        property bool primary: false
-
-        font.pixelSize: primary ? 24 : 22
-        font.bold: true
-        Layout.fillWidth: true
-        Layout.fillHeight: true
-        contentItem: Text {
-            text: control.text
-            font: control.font
-            color: BrandTheme.colors.text
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
-        }
-        background: GlassSurface {
-            radius: root.standardButtonRadius
-            interactive: true
-            primary: control.primary
-            selected: false
-            pressed: control.down
-            focused: control.activeFocus
-            opacity: control.enabled ? 1 : 0.4
-            scale: control.down ? 0.98 : 1
-            Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
-        }
-    }
-
-    component MediaPlayButton: Button {
-        id: control
-
-        width: 68
-        height: 58
-        Layout.fillWidth: false
-        Layout.fillHeight: false
-        Layout.preferredWidth: 68
-        Layout.minimumWidth: 68
-        Layout.maximumWidth: 68
-        Layout.preferredHeight: 58
-        Layout.minimumHeight: 58
-        Layout.maximumHeight: 58
-        contentItem: Text {
-            text: "▶"
-            color: BrandTheme.colors.text
-            font.pixelSize: 28
-            font.bold: true
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
-        }
-        background: GlassSurface {
-            radius: root.standardButtonRadius
-            interactive: true
-            primary: false
-            selected: false
-            pressed: control.down
-            focused: control.activeFocus
-            opacity: control.enabled ? 1 : 0.4
-            scale: control.down ? 0.98 : 1
-            Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
         }
     }
 
@@ -543,6 +491,7 @@ BrandWindow {
         id: spinner
         property bool running: true
         property color dotColor: BrandTheme.colors.muted
+        property bool spokes: false
 
         implicitWidth: 42
         implicitHeight: 42
@@ -551,8 +500,10 @@ BrandWindow {
             model: 12
 
             Rectangle {
-                width: Math.max(4, spinner.width * 0.13)
-                height: width
+                required property int index
+                width: spinner.spokes ? Math.max(2, spinner.width * 0.08) : Math.max(4, spinner.width * 0.13)
+                height: spinner.spokes ? spinner.height * 0.23 : width
+                rotation: spinner.spokes ? index * 30 + 90 : 0
                 radius: width / 2
                 color: spinner.dotColor
                 opacity: 0.18 + (index / 11) * 0.72
@@ -566,12 +517,12 @@ BrandWindow {
             loops: Animation.Infinite
             from: 0
             to: 360
-            duration: root.wallProfile ? 1200 : 900
-            easing.type: Easing.InOutSine
+            duration: spinner.spokes ? 900 : root.wallProfile ? 1200 : 900
+            easing.type: spinner.spokes ? Easing.Linear : Easing.InOutSine
         }
 
         SequentialAnimation on scale {
-            running: spinner.running && spinner.visible && root.wallProfile
+            running: spinner.running && spinner.visible && root.wallProfile && !spinner.spokes
             loops: Animation.Infinite
             NumberAnimation { to: 1.12; duration: 760; easing.type: Easing.InOutSine }
             NumberAnimation { to: 0.94; duration: 760; easing.type: Easing.InOutSine }
@@ -633,6 +584,8 @@ BrandWindow {
     }
 
     component AppBackground: Item {
+        id: appCanvas
+        property bool sessionCanvas: false
         anchors.fill: parent
 
         Rectangle {
@@ -658,19 +611,19 @@ BrandWindow {
             scale: 0.94
 
             SequentialAnimation on scale {
-                running: root.wallProfile && !root.screenBlanked
+                running: root.wallProfile && !root.screenBlanked && !appCanvas.sessionCanvas
                 loops: Animation.Infinite
                 NumberAnimation { to: 1.08; duration: 7200; easing.type: Easing.InOutSine }
                 NumberAnimation { to: 0.94; duration: 7200; easing.type: Easing.InOutSine }
             }
             SequentialAnimation on driftX {
-                running: root.wallProfile && !root.screenBlanked
+                running: root.wallProfile && !root.screenBlanked && !appCanvas.sessionCanvas
                 loops: Animation.Infinite
                 NumberAnimation { to: parent.width * 0.035; duration: 18000; easing.type: Easing.InOutSine }
                 NumberAnimation { to: 0; duration: 18000; easing.type: Easing.InOutSine }
             }
             SequentialAnimation on driftY {
-                running: root.wallProfile && !root.screenBlanked
+                running: root.wallProfile && !root.screenBlanked && !appCanvas.sessionCanvas
                 loops: Animation.Infinite
                 NumberAnimation { to: parent.height * 0.018; duration: 21000; easing.type: Easing.InOutSine }
                 NumberAnimation { to: 0; duration: 21000; easing.type: Easing.InOutSine }
@@ -690,19 +643,19 @@ BrandWindow {
             scale: 1.05
 
             SequentialAnimation on scale {
-                running: root.wallProfile && !root.screenBlanked
+                running: root.wallProfile && !root.screenBlanked && !appCanvas.sessionCanvas
                 loops: Animation.Infinite
                 NumberAnimation { to: 0.92; duration: 8200; easing.type: Easing.InOutSine }
                 NumberAnimation { to: 1.05; duration: 8200; easing.type: Easing.InOutSine }
             }
             SequentialAnimation on driftX {
-                running: root.wallProfile && !root.screenBlanked
+                running: root.wallProfile && !root.screenBlanked && !appCanvas.sessionCanvas
                 loops: Animation.Infinite
                 NumberAnimation { to: -parent.width * 0.028; duration: 20000; easing.type: Easing.InOutSine }
                 NumberAnimation { to: 0; duration: 20000; easing.type: Easing.InOutSine }
             }
             SequentialAnimation on driftY {
-                running: root.wallProfile && !root.screenBlanked
+                running: root.wallProfile && !root.screenBlanked && !appCanvas.sessionCanvas
                 loops: Animation.Infinite
                 NumberAnimation { to: -parent.height * 0.014; duration: 17000; easing.type: Easing.InOutSine }
                 NumberAnimation { to: 0; duration: 17000; easing.type: Easing.InOutSine }
@@ -719,93 +672,18 @@ BrandWindow {
                 GradientStop { position: 1.0; color: root.moodColor("overlayEnd") }
             }
             SequentialAnimation on opacity {
-                running: root.wallProfile && !root.screenBlanked
+                running: root.wallProfile && !root.screenBlanked && !appCanvas.sessionCanvas
                 loops: Animation.Infinite
                 NumberAnimation { to: 0.62; duration: 5200; easing.type: Easing.InOutSine }
                 NumberAnimation { to: 0.42; duration: 5200; easing.type: Easing.InOutSine }
             }
         }
-    }
-
-    component AppBanner: Rectangle {
-        id: appBanner
-        property string detailText: root.tr("tagline")
-        property int logoSize: root.wallProfile ? 128 : 84
-        property int titleSize: root.wallProfile ? 52 : 38
-        property int detailSize: root.wallProfile ? 26 : 20
-        property int horizontalPadding: root.wallProfile ? 38 : 28
-        property int verticalPadding: root.wallProfile ? 28 : 18
-        property int contentSpacing: root.wallProfile ? 30 : 22
-
-        Layout.fillWidth: true
-        Layout.preferredHeight: root.wallProfile ? 190 : 132
-        radius: root.wallProfile ? 32 : 24
-        color: root.liquidGlassEnabled ? BrandTheme.alpha(BrandTheme.colors.surface, "8a") : BrandTheme.colors.background
-        border.color: root.liquidGlassEnabled ? "#82ffffff" : BrandTheme.colors.surfaceRaised
-        border.width: 1
-        clip: true
-        gradient: Gradient {
-            orientation: Gradient.Horizontal
-            GradientStop { position: 0.0; color: root.liquidGlassEnabled ? "#8c" + root.moodColor("bannerStart").slice(1) : root.moodColor("bannerStart") }
-            GradientStop { position: 0.42; color: root.liquidGlassEnabled ? "#78" + root.moodColor("bannerMid").slice(1) : root.moodColor("bannerMid") }
-            GradientStop { position: 0.72; color: root.liquidGlassEnabled ? "#70" + root.moodColor("surface").slice(1) : root.moodColor("surface") }
-            GradientStop { position: 1.0; color: root.liquidGlassEnabled ? "#88" + root.moodColor("bannerEnd").slice(1) : root.moodColor("bannerEnd") }
-        }
-
-        Rectangle {
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.top: parent.top
-            anchors.margins: 1
-            height: root.liquidGlassEnabled ? 2 : 0
-            radius: height / 2
-            gradient: Gradient {
-                orientation: Gradient.Horizontal
-                GradientStop { position: 0.0; color: "#18ffffff" }
-                GradientStop { position: 0.5; color: "#c8ffffff" }
-                GradientStop { position: 1.0; color: "#18ffffff" }
-            }
-        }
-
-        RowLayout {
+        Loader {
             anchors.fill: parent
-            anchors.leftMargin: appBanner.horizontalPadding
-            anchors.rightMargin: appBanner.horizontalPadding
-            anchors.topMargin: appBanner.verticalPadding
-            anchors.bottomMargin: appBanner.verticalPadding
-            spacing: appBanner.contentSpacing
-            Image {
-                objectName: "appBannerMark"
-                source: "brand-mark-128.png"
-                Layout.preferredWidth: appBanner.logoSize
-                Layout.preferredHeight: appBanner.logoSize
-                Layout.alignment: Qt.AlignVCenter
-                fillMode: Image.PreserveAspectFit; smooth: true; mipmap: true
-                Accessible.ignored: true
-            }
-            ColumnLayout {
-                Layout.fillWidth: true
-                Layout.alignment: Qt.AlignVCenter
-                spacing: 10
-                BrandLockup {
-                    objectName: "appBannerName"
-                    wordmarkOnly: true
-                    Layout.preferredWidth: Math.min(parent.width, appBanner.titleSize * 1092 / 162)
-                    Layout.preferredHeight: width * 162 / 1092
-                    Layout.alignment: Qt.AlignLeft
-                }
-                Text {
-                    objectName: "appBannerDetail"
-                    text: appBanner.detailText
-                    textFormat: Text.PlainText
-                    color: BrandTheme.colors.muted
-                    font.pixelSize: appBanner.detailSize
-                    font.bold: true
-                    wrapMode: Text.WordWrap
-                    maximumLineCount: 2
-                    Layout.fillWidth: true
-                    Layout.alignment: Qt.AlignLeft
-                }
+            active: appCanvas.sessionCanvas
+            sourceComponent: SessionMoodCanvas {
+                mood: root.appearanceMood
+                activeSession: root.activeScreen === "games" || (root.activeScreen === "session" && djconnect.djSession.state.runtime_state === "active")
             }
         }
     }
@@ -930,7 +808,7 @@ BrandWindow {
             }
         }
         background: GlassSurface {
-            radius: root.standardButtonRadius
+            radius: control.primary ? height / 2 : root.standardButtonRadius
             interactive: true
             primary: control.primary
             selected: control.active
@@ -946,9 +824,38 @@ BrandWindow {
         id: panel
         property string heading: ""
         property string emptyText: ""
+        property string searchLabel: ""
+        property string iconName: "queue"
         property string playCommand: "play_context_at"
         property var items: []
+        property bool searching: false
+        property bool keyboardOpen: false
+        readonly property bool compact: width < 900
+        readonly property var matches: filterItems(items, searchInput.text)
         signal refreshRequested()
+
+        function filterItems(source, query) {
+            var term = searchText(query.trim())
+            if (!term) return source
+            return source.filter(function(item) {
+                return [item.title, item.subtitle, item.artist, item.album].some(function(value) {
+                    return searchText(value || "").indexOf(term) >= 0
+                })
+            })
+        }
+        function searchText(value) {
+            return String(value).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+        }
+        function moveMatch(delta) {
+            if (!matches.length || !searchInput.text.trim()) return
+            mediaRows.currentIndex = (mediaRows.currentIndex + delta + matches.length) % matches.length
+            mediaRows.positionViewAtIndex(mediaRows.currentIndex, ListView.Contain)
+        }
+        function closeSearch() {
+            keyboardOpen = false
+            searching = false
+            searchInput.clear()
+        }
 
         function itemPayload(item) {
             return JSON.stringify({
@@ -970,166 +877,248 @@ BrandWindow {
         color: BrandTheme.colors.background
         z: 16
         onVisibleChanged: {
-            if (visible) {
-                Qt.callLater(function() {
-                    if (mediaScroll && mediaScroll.contentItem) {
-                        mediaScroll.contentItem.contentY = 0
-                    }
-                })
-            }
+            if (visible) mediaRows.positionViewAtBeginning()
+            else closeSearch()
+        }
+        onMatchesChanged: {
+            mediaRows.currentIndex = 0
+            mediaRows.positionViewAtBeginning()
+        }
+        Connections {
+            target: djconnect
+            function onProfileChanged() { panel.closeSearch() }
+            function onPairedChanged() { panel.closeSearch() }
+        }
+        Connections {
+            target: root
+            function onActiveChanged() { if (!root.active) panel.closeSearch() }
+            function onScreenBlankedChanged() { if (root.screenBlanked) panel.closeSearch() }
         }
 
-        AppBackground {}
+        AppBackground { sessionCanvas: true }
         ModalBlocker {}
 
         ColumnLayout {
             anchors.fill: parent
-            anchors.margins: 16
-            anchors.bottomMargin: 130
-            spacing: 12
+            anchors.margins: panel.compact ? 16 : 24
+            anchors.bottomMargin: panel.keyboardOpen ? 8 : 132
+            spacing: panel.compact ? 10 : 16
 
             PageToolbar {
                 title: panel.heading
+                showLeading: panel.playCommand === "start_playlist"
+                leading: [ GlassButton {
+                    iconName: "back"; tertiary: true; implicitWidth: 52
+                    Accessible.name: root.tr("more")
+                    onClicked: root.activeScreen = "more"
+                } ]
                 showConnection: true
                 connectionLabel: root.tr("connection_type")
                 connectionText: djconnect.connectionType
-                Layout.fillWidth: true
 
-                RefreshIconButton {
-                    onClicked: panel.refreshRequested()
+                GlassButton {
+                    objectName: "mediaSearchOpen"
+                    iconName: "search"
+                    tertiary: true
+                    implicitWidth: 52
+                    foregroundColor: panel.searching ? BrandTheme.colors.actionAccent : BrandTheme.colors.text
+                    Accessible.name: panel.searchLabel
+                    enabled: panel.searching || panel.items.length > 0
+                    onClicked: {
+                        if (panel.searching) panel.closeSearch()
+                        else {
+                            panel.searching = true
+                            panel.keyboardOpen = true
+                            searchInput.forceActiveFocus()
+                        }
+                    }
+                }
+                RefreshIconButton { enabled: !djconnect.busy; onClicked: panel.refreshRequested() }
+            }
+            Control {
+                visible: panel.searching
+                Layout.fillWidth: true
+                padding: 5
+                background: GlassSurface { radius: 24; interactive: true; focused: searchInput.activeFocus }
+                contentItem: RowLayout {
+                    spacing: 4
+                    FeatureIcon { iconName: "search"; Layout.preferredWidth: 27; Layout.preferredHeight: 27 }
+                    TextField {
+                        id: searchInput
+                        objectName: "mediaSearchInput"
+                        Layout.fillWidth: true
+                        Layout.minimumHeight: 48
+                        background: Item {}
+                        placeholderText: panel.searchLabel
+                        Accessible.name: placeholderText
+                        font.pixelSize: panel.compact ? 18 : 22
+                        maximumLength: 120
+                        selectByMouse: true
+                        TapHandler { onTapped: panel.keyboardOpen = true }
+                        onAccepted: {
+                            if (panel.keyboardOpen) panel.keyboardOpen = false
+                            else panel.moveMatch(1)
+                        }
+                        Keys.onEscapePressed: if (panel.keyboardOpen) panel.keyboardOpen = false; else panel.closeSearch()
+                    }
+                    GlassButton {
+                        iconName: "arrow_up"; tertiary: true
+                        Accessible.name: root.tr("logs_previous_match")
+                        enabled: panel.matches.length > 0 && searchInput.text.trim().length > 0
+                        onClicked: panel.moveMatch(-1)
+                    }
+                    GlassButton {
+                        iconName: "arrow_down"; tertiary: true
+                        Accessible.name: root.tr("logs_next_match")
+                        enabled: panel.matches.length > 0 && searchInput.text.trim().length > 0
+                        onClicked: panel.moveMatch(1)
+                    }
+                    GlassButton {
+                        iconName: "end"; tertiary: true; Accessible.name: root.tr("close")
+                        onClicked: panel.closeSearch()
+                    }
                 }
             }
-
-            ScrollView {
-                id: mediaScroll
+            Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                clip: true
-                ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-                contentWidth: availableWidth
-
-                ColumnLayout {
-                    width: Math.max(0, mediaScroll.availableWidth)
-                    spacing: 12
-
-                    Text {
-                        text: panel.emptyText
-                        visible: panel.items.length === 0
-                        color: BrandTheme.colors.muted
-                        font.pixelSize: 26
-                        font.bold: true
-                        horizontalAlignment: Text.AlignHCenter
-                        wrapMode: Text.WordWrap
-                        Layout.fillWidth: true
-                        Layout.topMargin: 36
-                    }
-
-                    Repeater {
-                        model: panel.items
-
-                        Rectangle {
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: 94
-                            radius: 8
-                            color: root.moodColor("accentSoft")
-                            border.color: BrandTheme.alpha(BrandTheme.colors.surface, "4d")
-                            border.width: 1
-                            gradient: Gradient {
-                                orientation: Gradient.Horizontal
-                                GradientStop { position: 0.0; color: BrandTheme.alpha(BrandTheme.colors.surface, "33") }
-                                GradientStop { position: 1.0; color: BrandTheme.alpha(BrandTheme.colors.surface, "55") }
-                            }
-
-                            Item {
-                                anchors.fill: parent
-                                anchors.margins: 12
-
-                                MouseArea {
+                Layout.minimumHeight: 0
+                ListView {
+                    id: mediaRows
+                    objectName: "mediaRows"
+                    anchors.fill: parent
+                    visible: panel.matches.length > 0
+                    model: panel.matches
+                    clip: true
+                    spacing: panel.compact ? 10 : 14
+                    ScrollBar.vertical: ScrollBar {}
+                    delegate: Button {
+                        id: mediaRow
+                        required property var modelData
+                        required property int index
+                        objectName: "mediaItemRow-" + index
+                        width: mediaRows.width
+                        implicitHeight: Math.max(panel.compact ? 86 : 100, contentItem.implicitHeight + 2 * verticalPadding)
+                        topPadding: panel.compact ? 9 : 13
+                        bottomPadding: topPadding
+                        leftPadding: panel.compact ? 12 : 16
+                        rightPadding: leftPadding
+                        text: modelData.title || ""
+                        Accessible.name: text
+                        enabled: !!modelData.uri && !djconnect.busy
+                        opacity: enabled ? 1 : 0.58
+                        onClicked: djconnect.playMediaItem(panel.playCommand, panel.itemPayload(modelData))
+                        background: GlassSurface {
+                            introduction: true
+                            radius: panel.compact ? 24 : 34
+                            pressed: mediaRow.down
+                            focused: mediaRow.activeFocus || (searchInput.text.trim().length > 0
+                                && mediaRows.currentIndex === mediaRow.index)
+                        }
+                        contentItem: RowLayout {
+                            spacing: panel.compact ? 12 : 17
+                            Rectangle {
+                                id: mediaArt
+                                Layout.preferredWidth: panel.compact ? 60 : 74
+                                Layout.preferredHeight: Layout.preferredWidth
+                                radius: panel.compact ? 14 : 19
+                                color: "#22FFFFFF"
+                                clip: true
+                                FeatureIcon {
+                                    anchors.centerIn: parent
+                                    width: parent.width * 0.52; height: width
+                                    visible: cover.status !== Image.Ready
+                                    iconName: panel.iconName
+                                    iconColor: BrandTheme.colors.muted
+                                }
+                                Image {
+                                    id: cover
                                     anchors.fill: parent
-                                    enabled: modelData.uri && modelData.uri.length > 0
-                                    onClicked: djconnect.playMediaItem(panel.playCommand, panel.itemPayload(modelData))
+                                    source: mediaRow.modelData.imageUrl || ""
+                                    sourceSize.width: mediaArt.width
+                                    sourceSize.height: mediaArt.height
+                                    fillMode: Image.PreserveAspectCrop
+                                    asynchronous: true
+                                    cache: false
+                                    visible: status === Image.Ready
                                 }
-
-                                Rectangle {
-                                    id: mediaArt
-                                    anchors.left: parent.left
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    width: 68
-                                    height: 68
-                                    radius: 8
-                                    color: modelData.tint
-                                    clip: true
-
-                                    Image {
-                                        anchors.fill: parent
-                                        source: modelData.imageUrl && modelData.imageUrl.length > 0 ? modelData.imageUrl : ""
-                                        sourceSize.width: 68
-                                        sourceSize.height: 68
-                                        fillMode: Image.PreserveAspectCrop
-                                        asynchronous: true
-                                        cache: false
-                                        opacity: status === Image.Ready ? 1 : 0
-                                    }
-
-                                    Text {
-                                        anchors.centerIn: parent
-                                        text: "DC"
-                                        color: BrandTheme.colors.text
-                                        font.pixelSize: 20
-                                        font.bold: true
-                                        visible: !modelData.imageUrl || modelData.imageUrl.length === 0
-                                    }
+                            }
+                            ColumnLayout {
+                                id: mediaText
+                                Layout.fillWidth: true
+                                spacing: 3
+                                Text {
+                                    text: mediaRow.text
+                                    textFormat: Text.PlainText
+                                    color: BrandTheme.colors.text
+                                    font.pixelSize: panel.compact ? 20 : 24
+                                    font.weight: Font.DemiBold
+                                    wrapMode: Text.Wrap
+                                    maximumLineCount: 2
+                                    elide: Text.ElideRight
+                                    Layout.fillWidth: true
                                 }
-
-                                Column {
-                                    id: mediaText
-                                    anchors.left: mediaArt.right
-                                    anchors.leftMargin: 14
-                                    anchors.right: mediaPlay.left
-                                    anchors.rightMargin: 14
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    spacing: 2
-                                    clip: true
-
-                                    Text {
-                                        text: modelData.title
-                                        color: BrandTheme.colors.text
-                                        font.pixelSize: 24
-                                        font.bold: true
-                                        elide: Text.ElideRight
-                                        width: parent.width
-                                    }
-
-                                    Text {
-                                        text: modelData.subtitle
-                                        visible: modelData.subtitle.length > 0
-                                        color: BrandTheme.colors.muted
-                                        font.pixelSize: 17
-                                        elide: Text.ElideRight
-                                        width: parent.width
-                                    }
-
-                                    Text {
-                                        text: modelData.album || ""
-                                        visible: modelData.album && modelData.album.length > 0 && modelData.album !== modelData.subtitle
-                                        color: BrandTheme.colors.disabledText
-                                        font.pixelSize: 14
-                                        elide: Text.ElideRight
-                                        width: parent.width
-                                    }
+                                Text {
+                                    text: mediaRow.modelData.subtitle || ""
+                                    textFormat: Text.PlainText
+                                    visible: text.length > 0
+                                    color: BrandTheme.colors.muted
+                                    font.pixelSize: panel.compact ? 16 : 19
+                                    elide: Text.ElideRight
+                                    Layout.fillWidth: true
                                 }
-
-                                MediaPlayButton {
-                                    id: mediaPlay
-                                    anchors.right: parent.right
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    enabled: modelData.uri && modelData.uri.length > 0
-                                    onClicked: djconnect.playMediaItem(panel.playCommand, panel.itemPayload(modelData))
+                                Text {
+                                    text: mediaRow.modelData.album || ""
+                                    textFormat: Text.PlainText
+                                    visible: text.length > 0 && text !== (mediaRow.modelData.subtitle || "")
+                                    color: BrandTheme.colors.muted
+                                    font.pixelSize: panel.compact ? 14 : 16
+                                    elide: Text.ElideRight
+                                    Layout.fillWidth: true
                                 }
+                            }
+                            FeatureIcon {
+                                objectName: "mediaPlayIndicator"
+                                visible: mediaRow.enabled
+                                iconName: "play"
+                                Layout.preferredWidth: panel.compact ? 28 : 34
+                                Layout.preferredHeight: Layout.preferredWidth
+                                Accessible.ignored: true
                             }
                         }
                     }
                 }
+                ColumnLayout {
+                    anchors.centerIn: parent
+                    width: parent.width
+                    visible: panel.matches.length === 0
+                    spacing: 14
+                    FeatureIcon {
+                        iconName: panel.items.length > 0 ? "search" : panel.iconName
+                        iconColor: BrandTheme.colors.muted
+                        Layout.alignment: Qt.AlignHCenter
+                        Layout.preferredWidth: panel.compact ? 40 : 62
+                        Layout.preferredHeight: Layout.preferredWidth
+                    }
+                    Text {
+                        text: panel.items.length > 0 ? root.tr("media_no_matches") : panel.emptyText
+                        textFormat: Text.PlainText
+                        color: BrandTheme.colors.muted
+                        font.pixelSize: panel.compact ? 20 : 24
+                        horizontalAlignment: Text.AlignHCenter
+                        wrapMode: Text.Wrap
+                        Layout.fillWidth: true
+                    }
+                }
+            }
+            SearchKeyboardDock {
+                visible: panel.searching && panel.keyboardOpen
+                Layout.fillWidth: true
+                backend: djconnect
+                target: searchInput
+                keyboardName: "mediaSearchKeyboard"
+                onSubmitted: panel.keyboardOpen = false
+                onDismissed: panel.keyboardOpen = false
             }
         }
     }
@@ -1140,19 +1129,6 @@ BrandWindow {
         running: djconnect.screenTimeoutSeconds > 0
         repeat: false
         onTriggered: root.hideTransientUi()
-    }
-
-    Timer {
-        id: returnToNowTimer
-        objectName: "returnToNowTimer"
-        interval: Math.max(1000, djconnect.returnToNowSeconds * 1000)
-        running: djconnect.returnToNowSeconds > 0
-        repeat: false
-        onTriggered: {
-            if (vibeScapeLoader.active) return
-            root.hideTransientUi()
-            root.activeScreen = "now"
-        }
     }
 
     Timer {
@@ -1190,8 +1166,8 @@ BrandWindow {
             forcedWakeTimer.interval = 10000
             forcedWakeTimer.restart()
         }
-        function onTemporaryWakeRequested(seconds, navigateNow) {
-            root.temporaryWake(seconds, navigateNow)
+        function onTemporaryWakeRequested(seconds) {
+            root.temporaryWake(seconds)
         }
         function onDjResponseChanged() {
             if (djconnect.djResponseVisible) {
@@ -1750,13 +1726,14 @@ BrandWindow {
             }
         }
 
-        AppBackground {}
+        AppBackground { sessionCanvas: true }
 
         PageToolbar {
             id: settingsToolbar
             anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top
             anchors.margins: 22
             title: root.tr("setup_title")
+            leading: [ GlassButton { iconName: "back"; tertiary: true; implicitWidth: 52; Accessible.name: root.tr("more"); onClicked: root.activeScreen = "more" } ]
         }
 
         ScrollView {
@@ -1858,34 +1835,6 @@ BrandWindow {
                     }
                     Layout.fillWidth: true
                     onActivated: function(index) { djconnect.setScreenTimeoutSeconds(timeoutChoices[index]) }
-                }
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 14
-
-                Text {
-                    text: root.tr("return_to_now")
-                    color: BrandTheme.colors.muted
-                    font.pixelSize: 22
-                    Layout.preferredWidth: 176
-                    wrapMode: Text.WordWrap
-                }
-
-                BrandComboBox {
-                    id: returnToNowBox
-                    model: root.returnToNowChoices
-                    currentIndex: root.returnToNowIndex()
-                    font.pixelSize: 28
-                    displayText: root.returnToNowLabel(djconnect.returnToNowSeconds)
-                    delegate: ItemDelegate {
-                        width: returnToNowBox.width
-                        text: root.returnToNowLabel(modelData)
-                        font.pixelSize: 30
-                    }
-                    Layout.fillWidth: true
-                    onActivated: function(index) { djconnect.setReturnToNowSeconds(root.returnToNowChoices[index]) }
                 }
             }
 
@@ -2147,6 +2096,7 @@ BrandWindow {
 
                 PurpleButton {
                     text: djconnect.musicDnaEnabled ? root.tr("music_dna_disable") : root.tr("music_dna_enable")
+                    primary: !djconnect.musicDnaEnabled
                     enabled: !djconnect.musicDnaBusy
                     font.pixelSize: 22
                     Layout.preferredWidth: 190
@@ -2155,7 +2105,7 @@ BrandWindow {
                         if (djconnect.musicDnaEnabled) {
                             root.musicDnaDisableConfirmOpen = true
                         } else {
-                            djconnect.setMusicDnaEnabled(true)
+                            root.openMusicDnaPrompt(false)
                         }
                     }
                 }
@@ -2227,18 +2177,23 @@ BrandWindow {
     }
 
     MediaListPanel {
+        id: queuePanel
         visible: root.activeScreen === "queue"
         heading: root.tr("queue")
         emptyText: root.tr("empty_queue")
+        searchLabel: root.tr("media_search_queue")
         playCommand: "play_context_at"
         items: djconnect.queueItems
         onRefreshRequested: djconnect.loadQueue()
     }
 
     MediaListPanel {
+        id: playlistsPanel
         visible: root.activeScreen === "playlists"
         heading: root.tr("playlists")
         emptyText: root.tr("empty_playlists")
+        searchLabel: root.tr("media_search_playlists")
+        iconName: "playlists"
         playCommand: "start_playlist"
         items: djconnect.playlistItems
         onRefreshRequested: djconnect.loadPlaylists()
@@ -2251,14 +2206,14 @@ BrandWindow {
         visible: root.activeScreen === "more"
         z: 16
 
-        AppBackground {}
+        AppBackground { sessionCanvas: true }
         ModalBlocker {}
 
         ColumnLayout {
             anchors.fill: parent
-            anchors.leftMargin: 28
-            anchors.topMargin: 26
-            anchors.rightMargin: 28
+            anchors.leftMargin: 24
+            anchors.topMargin: 24
+            anchors.rightMargin: 24
             anchors.bottomMargin: root.edge + 126
             spacing: 16
 
@@ -2272,25 +2227,21 @@ BrandWindow {
                 ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
                 GridLayout {
                     width: parent.width
-                    columns: root.width < 900 ? 1 : 3
-                    columnSpacing: 16
-                    rowSpacing: 16
+                    columns: root.width < 900 ? 1 : Math.max(2, Math.floor(width / 420))
+                    columnSpacing: root.wallProfile ? 22 : 16
+                    rowSpacing: columnSpacing
                     MoreMenuButton {
                         text: root.tr("ask_dj"); iconName: "chat"
                         onClicked: { root.activeScreen = "askdj"; djconnect.loadAskDjHistory() }
                     }
                     MoreMenuButton {
-                        text: root.tr("session_history"); iconName: "history"
+                        text: root.tr("session_history"); iconName: "session"
                         objectName: "openSessionArchive"
                         onClicked: sharedSessionScreen.openArchive()
                     }
                     MoreMenuButton {
                         text: root.tr("music_dna"); iconName: "heart"
                         onClicked: root.activeScreen = "musicdna"
-                    }
-                    MoreMenuButton {
-                        text: root.tr("queue"); iconName: "queue"
-                        onClicked: { root.activeScreen = "queue"; djconnect.loadQueue() }
                     }
                     MoreMenuButton {
                         text: root.tr("playlists"); iconName: "playlists"
@@ -2327,10 +2278,6 @@ BrandWindow {
                         text: root.tr("feedback"); iconName: "chat"
                         onClicked: root.activeScreen = "feedback"
                     }
-                    MoreMenuButton {
-                        text: root.tr("control"); iconName: "control"
-                        onClicked: root.activeScreen = "control"
-                    }
                 }
             }
         }
@@ -2341,7 +2288,7 @@ BrandWindow {
         visible: root.activeScreen === "legal" || root.activeScreen === "privacy" || root.activeScreen === "feedback"
         color: BrandTheme.colors.background
         z: 17
-        AppBackground {}
+        AppBackground { sessionCanvas: true }
         ModalBlocker {}
         InformationPage {
             objectName: "informationPage"
@@ -2370,7 +2317,7 @@ BrandWindow {
             }
         }
 
-        AppBackground {}
+        AppBackground { sessionCanvas: true }
         ModalBlocker {}
 
         ColumnLayout {
@@ -2401,251 +2348,8 @@ BrandWindow {
                 }
             }
 
-            Text {
-                visible: djconnect.trackInsightError.length > 0
-                text: djconnect.trackInsightError
-                color: BrandTheme.colors.muted
-                font.pixelSize: 20
-                wrapMode: Text.WordWrap
-                Layout.fillWidth: true
-            }
-
-            GlassCard {
-                objectName: "trackInsightEmptyHero"
-                hero: true; padding: 24
-                visible: djconnect.trackInsightError.length === 0 && djconnect.trackInsightText.length === 0 && djconnect.trackInsightItems.length === 0 && !djconnect.askDjBusy
-                Layout.fillWidth: true; Layout.maximumHeight: implicitHeight
-                Text {
-                    visible: djconnect.trackInsightError.length === 0 && djconnect.trackInsightText.length === 0 && djconnect.trackInsightItems.length === 0 && !djconnect.askDjBusy
-                    text: root.tr("track_insight_empty")
-                    color: BrandTheme.colors.muted
-                    font.pixelSize: 20
-                    wrapMode: Text.WordWrap
-                    Layout.fillWidth: true
-                }
-            }
-
-            GlassSurface {
-                border.color: root.moodColor("focus")
-                hero: true
-                artworkTint: trackInsightArtworkFrame.artworkTint
-                visible: djconnect.trackInsightTitle.length > 0 || djconnect.trackInsightArtist.length > 0 || djconnect.trackInsightImageUrl.length > 0
-                Layout.fillWidth: true
-                Layout.preferredHeight: 104
-                radius: root.standardButtonRadius
-                clip: true
-
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.margins: 10
-                    spacing: 10
-
-                    GlassArtworkFrame {
-                        id: trackInsightArtworkFrame
-                        objectName: "trackInsightArtworkFrame"
-                        backend: djconnect; imageItem: trackInsightArtworkImage
-                        active: !root.screenBlanked
-                        leaseKey: djconnect.activeProfileId + "|" + djconnect.trackInsightTitle + "|" + djconnect.trackInsightArtist
-                        visible: djconnect.trackInsightImageUrl.length > 0
-                        Layout.preferredWidth: 76; Layout.preferredHeight: 76
-                        radius: 16
-                        Image {
-                            id: trackInsightArtworkImage
-                            source: djconnect.trackInsightImageUrl
-                            visible: source.toString().length > 0
-                            anchors.fill: parent
-                            fillMode: Image.PreserveAspectCrop
-                            smooth: true
-                        }
-
-                    }
-
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: 4
-
-                        Text {
-                            text: djconnect.trackInsightTitle
-                            color: BrandTheme.colors.text
-                            font.pixelSize: 22
-                            font.bold: true
-                            elide: Text.ElideRight
-                            maximumLineCount: 1
-                            Layout.fillWidth: true
-                        }
-
-                        Text {
-                            text: [djconnect.trackInsightArtist, djconnect.trackInsightAlbum].filter(function(v) { return v && v.length > 0 }).join(" · ")
-                            color: BrandTheme.colors.muted
-                            font.pixelSize: 17
-                            elide: Text.ElideRight
-                            maximumLineCount: 1
-                            Layout.fillWidth: true
-                        }
-                    }
-                }
-            }
-
-            GlassSurface {
-                border.color: root.moodColor("focus")
-                id: trackInsightVisualizer
-                visible: djconnect.trackInsightVisualizer.available === true
-                Layout.fillWidth: true
-                Layout.preferredHeight: 164
-                radius: root.standardButtonRadius
-                clip: true
-
-                property var visualizerData: djconnect.trackInsightVisualizer
-                property real phase: 0
-
-                onVisibleChanged: trackInsightVisualizerCanvas.requestPaint()
-                onVisualizerDataChanged: {
-                    phase = 0
-                    trackInsightVisualizerCanvas.requestPaint()
-                }
-
-                Timer {
-                    interval: 180
-                    repeat: true
-                    running: trackInsightVisualizer.visible && root.activeScreen === "trackinsight"
-                    onTriggered: {
-                        trackInsightVisualizer.phase = (trackInsightVisualizer.phase + 0.08) % 6.28
-                        trackInsightVisualizerCanvas.requestPaint()
-                    }
-                }
-
-                Canvas {
-                    id: trackInsightVisualizerCanvas
-                    anchors.fill: parent
-                    antialiasing: true
-                    onPaint: {
-                        var ctx = getContext("2d")
-                        ctx.clearRect(0, 0, width, height)
-                        var data = trackInsightVisualizer.visualizerData || {}
-                        var bars = data.bars || []
-                        var colors = data.colors || []
-                        var c0 = colors.length > 0 ? colors[0] : root.moodColor("gradientStart")
-                        var c1 = colors.length > 1 ? colors[1] : root.moodColor("gradientMid")
-                        var c2 = colors.length > 2 ? colors[2] : root.moodColor("gradientEnd")
-                        var bg = ctx.createLinearGradient(0, 0, width, height)
-                        bg.addColorStop(0.0, c0)
-                        bg.addColorStop(0.58, c1)
-                        bg.addColorStop(1.0, c2)
-                        ctx.globalAlpha = 0.28
-                        ctx.fillStyle = bg
-                        ctx.fillRect(0, 0, width, height)
-                        ctx.globalAlpha = 1
-
-                        ctx.fillStyle = "rgba(5, 8, 18, 0.34)"
-                        ctx.fillRect(0, 0, width, height)
-
-                        var orbGradient = ctx.createRadialGradient(width * 0.55, height * 0.45, 4, width * 0.55, height * 0.45, Math.max(width, height) * 0.56)
-                        orbGradient.addColorStop(0, c1)
-                        orbGradient.addColorStop(0.42, "rgba(255,255,255,0.16)")
-                        orbGradient.addColorStop(1, "rgba(0,0,0,0)")
-                        ctx.globalAlpha = 0.42
-                        ctx.fillStyle = orbGradient
-                        ctx.fillRect(0, 0, width, height)
-                        ctx.globalAlpha = 1
-
-                        ctx.strokeStyle = "rgba(255,255,255,0.16)"
-                        ctx.lineWidth = 1
-                        for (var line = 0; line < 5; line++) {
-                            var y = height * (0.22 + line * 0.13)
-                            ctx.beginPath()
-                            ctx.moveTo(width * 0.08, y)
-                            ctx.bezierCurveTo(width * 0.28, y - 20, width * 0.52, y + 20, width * 0.92, y - 8)
-                            ctx.stroke()
-                        }
-
-                        if (bars.length === 0) {
-                            return
-                        }
-                        var baseY = height - 18
-                        var topY = 28
-                        var availableHeight = Math.max(28, baseY - topY)
-                        var count = Math.min(48, bars.length)
-                        var gap = Math.max(3, width * 0.008)
-                        var barWidth = Math.max(4, (width - 34 - gap * (count - 1)) / count)
-                        var startX = (width - (barWidth * count + gap * (count - 1))) / 2
-                        var barGradient = ctx.createLinearGradient(0, topY, 0, baseY)
-                        barGradient.addColorStop(0.0, c2)
-                        barGradient.addColorStop(0.52, c1)
-                        barGradient.addColorStop(1.0, c0)
-                        ctx.fillStyle = barGradient
-                        for (var i = 0; i < count; i++) {
-                            var value = Math.max(0.08, Math.min(1, Number(bars[i]) || 0.1))
-                            var pulse = 0.88 + Math.sin(trackInsightVisualizer.phase + i * 0.45) * 0.08
-                            var h = Math.max(10, availableHeight * value * pulse)
-                            var x = startX + i * (barWidth + gap)
-                            var yBar = baseY - h
-                            ctx.fillRect(x, yBar, barWidth, h)
-                        }
-                        ctx.fillStyle = c2
-                        ctx.shadowColor = c2
-                        ctx.shadowBlur = 16
-                        ctx.beginPath()
-                        ctx.arc(width * 0.5, baseY, 8, 0, Math.PI * 2)
-                        ctx.fill()
-                        ctx.shadowBlur = 0
-                    }
-                }
-            }
-
-            Text {
-                visible: djconnect.trackInsightText.length > 0
-                text: djconnect.trackInsightText
-                color: BrandTheme.colors.text
-                font.pixelSize: 21
-                wrapMode: Text.WordWrap
-                Layout.fillWidth: true
-            }
-
-            Flow {
-                visible: djconnect.trackInsightItems.length > 0
-                spacing: 8
-                Layout.fillWidth: true
-
-                Repeater {
-                    model: djconnect.trackInsightItems
-
-                    GlassSurface {
-                        border.color: root.moodColor("focus")
-                        width: Math.max(132, trackMetricContent.implicitWidth + 24)
-                        height: 64
-                        radius: root.standardButtonRadius
-
-                        ColumnLayout {
-                            id: trackMetricContent
-                            anchors.fill: parent
-                            anchors.margins: 8
-                            spacing: 1
-
-                            Text {
-                                text: root.trackInsightLabel(modelData.title || modelData.kind || "")
-                                color: BrandTheme.colors.text
-                                font.pixelSize: 15
-                                font.bold: true
-                                elide: Text.ElideRight
-                                Layout.fillWidth: true
-                            }
-
-                            Text {
-                                text: modelData.value || ""
-                                color: BrandTheme.colors.muted
-                                font.pixelSize: 19
-                                font.bold: true
-                                elide: Text.ElideRight
-                                Layout.fillWidth: true
-                            }
-                        }
-                    }
-                }
-            }
-
             ScrollView {
                 id: trackInsightScroll
-                visible: djconnect.trackInsightSections.length > 0
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 clip: true
@@ -2654,7 +2358,263 @@ BrandWindow {
 
                 ColumnLayout {
                     width: Math.max(0, trackInsightScroll.availableWidth)
-                    spacing: 10
+                    spacing: root.wallProfile ? 18 : 10
+
+                    Text {
+                        visible: djconnect.trackInsightError.length > 0
+                        text: djconnect.trackInsightError
+                        textFormat: Text.PlainText
+                        color: BrandTheme.colors.muted
+                        font.pixelSize: 20
+                        wrapMode: Text.WordWrap
+                        Layout.fillWidth: true
+                    }
+
+                    IntroductionCard {
+                        objectName: "trackInsightEmptyHero"
+                        compact: root.width < 900
+                        iconName: "trackInsight"
+                        title: root.tr("track_insight")
+                        message: root.tr("track_insight_empty")
+                        visible: djconnect.trackInsightError.length === 0 && djconnect.trackInsightText.length === 0
+                                 && djconnect.trackInsightItems.length === 0 && djconnect.trackInsightSections.length === 0
+                                 && !trackInsightSubject.visible && !trackInsightVisualizer.visible && !djconnect.askDjBusy
+                    }
+
+                    GlassCard {
+                        id: trackInsightSubject
+                        objectName: "trackInsightSubjectHero"
+                        hero: true
+                        artworkTint: trackInsightArtworkFrame.artworkTint
+                        visible: djconnect.trackInsightTitle.length > 0 || djconnect.trackInsightArtist.length > 0 || djconnect.trackInsightImageUrl.length > 0
+                        Layout.fillWidth: true
+                        padding: root.wallProfile ? 32 : 12
+                        background: GlassSurface {
+                            hero: true
+                            artworkTint: trackInsightArtworkFrame.artworkTint
+                            border.color: root.moodColor("focus")
+                            radius: root.wallProfile ? 44 : 28
+                        }
+
+                        GridLayout {
+                            Layout.fillWidth: true
+                            columns: root.wallProfile ? 1 : 2
+                            rowSpacing: 18
+                            columnSpacing: 12
+
+                            GlassArtworkFrame {
+                                id: trackInsightArtworkFrame
+                                objectName: "trackInsightArtworkFrame"
+                                backend: djconnect; imageItem: trackInsightArtworkImage
+                                active: !root.screenBlanked
+                                leaseKey: djconnect.activeProfileId + "|" + djconnect.trackInsightTitle + "|" + djconnect.trackInsightArtist
+                                visible: djconnect.trackInsightImageUrl.length > 0
+                                Layout.alignment: Qt.AlignHCenter
+                                Layout.preferredWidth: root.wallProfile ? 228 : 76
+                                Layout.preferredHeight: Layout.preferredWidth
+                                radius: root.wallProfile ? 32 : 16
+                                Image {
+                                    id: trackInsightArtworkImage
+                                    source: djconnect.trackInsightImageUrl
+                                    visible: source.toString().length > 0
+                                    anchors.fill: parent
+                                    fillMode: Image.PreserveAspectCrop
+                                    smooth: true
+                                }
+
+                            }
+
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 4
+
+                                Text {
+                                    text: djconnect.trackInsightTitle
+                                    textFormat: Text.PlainText
+                                    color: BrandTheme.colors.text
+                                    font.pixelSize: root.wallProfile ? 32 : 22
+                                    font.bold: true
+                                    horizontalAlignment: root.wallProfile ? Text.AlignHCenter : Text.AlignLeft
+                                    wrapMode: Text.Wrap
+                                    Layout.fillWidth: true
+                                }
+
+                                Text {
+                                    text: [djconnect.trackInsightArtist, djconnect.trackInsightAlbum].filter(function(v) { return v && v.length > 0 }).join(" · ")
+                                    color: BrandTheme.colors.muted
+                                    font.pixelSize: root.wallProfile ? 21 : 17
+                                    textFormat: Text.PlainText
+                                    horizontalAlignment: root.wallProfile ? Text.AlignHCenter : Text.AlignLeft
+                                    wrapMode: Text.Wrap
+                                    Layout.fillWidth: true
+                                }
+                            }
+                        }
+                    }
+
+                    GlassSurface {
+                        border.color: root.moodColor("focus")
+                        id: trackInsightVisualizer
+                        visible: djconnect.trackInsightVisualizer.available === true
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 164
+                        radius: root.standardButtonRadius
+                        clip: true
+
+                        property var visualizerData: djconnect.trackInsightVisualizer
+                        property real phase: 0
+
+                        onVisibleChanged: trackInsightVisualizerCanvas.requestPaint()
+                        onVisualizerDataChanged: {
+                            phase = 0
+                            trackInsightVisualizerCanvas.requestPaint()
+                        }
+
+                        Timer {
+                            interval: 180
+                            repeat: true
+                            running: trackInsightVisualizer.visible && root.activeScreen === "trackinsight"
+                                     && djconnect.playing && root.active && !root.screenBlanked && !GlassStyle.reduceMotion
+                            onTriggered: {
+                                trackInsightVisualizer.phase = (trackInsightVisualizer.phase + 0.08) % 6.28
+                                trackInsightVisualizerCanvas.requestPaint()
+                            }
+                        }
+
+                        Canvas {
+                            id: trackInsightVisualizerCanvas
+                            anchors.fill: parent
+                            antialiasing: true
+                            onPaint: {
+                                var ctx = getContext("2d")
+                                ctx.clearRect(0, 0, width, height)
+                                var data = trackInsightVisualizer.visualizerData || {}
+                                var bars = data.bars || []
+                                var colors = data.colors || []
+                                var c0 = colors.length > 0 ? colors[0] : root.moodColor("gradientStart")
+                                var c1 = colors.length > 1 ? colors[1] : root.moodColor("gradientMid")
+                                var c2 = colors.length > 2 ? colors[2] : root.moodColor("gradientEnd")
+                                var bg = ctx.createLinearGradient(0, 0, width, height)
+                                bg.addColorStop(0.0, c0)
+                                bg.addColorStop(0.58, c1)
+                                bg.addColorStop(1.0, c2)
+                                ctx.globalAlpha = 0.28
+                                ctx.fillStyle = bg
+                                ctx.fillRect(0, 0, width, height)
+                                ctx.globalAlpha = 1
+
+                                ctx.fillStyle = "rgba(5, 8, 18, 0.34)"
+                                ctx.fillRect(0, 0, width, height)
+
+                                var orbGradient = ctx.createRadialGradient(width * 0.55, height * 0.45, 4, width * 0.55, height * 0.45, Math.max(width, height) * 0.56)
+                                orbGradient.addColorStop(0, c1)
+                                orbGradient.addColorStop(0.42, "rgba(255,255,255,0.16)")
+                                orbGradient.addColorStop(1, "rgba(0,0,0,0)")
+                                ctx.globalAlpha = 0.42
+                                ctx.fillStyle = orbGradient
+                                ctx.fillRect(0, 0, width, height)
+                                ctx.globalAlpha = 1
+
+                                ctx.strokeStyle = "rgba(255,255,255,0.16)"
+                                ctx.lineWidth = 1
+                                for (var line = 0; line < 5; line++) {
+                                    var y = height * (0.22 + line * 0.13)
+                                    ctx.beginPath()
+                                    ctx.moveTo(width * 0.08, y)
+                                    ctx.bezierCurveTo(width * 0.28, y - 20, width * 0.52, y + 20, width * 0.92, y - 8)
+                                    ctx.stroke()
+                                }
+
+                                if (bars.length === 0) {
+                                    return
+                                }
+                                var baseY = height - 18
+                                var topY = 28
+                                var availableHeight = Math.max(28, baseY - topY)
+                                var count = Math.min(48, bars.length)
+                                var gap = Math.max(3, width * 0.008)
+                                var barWidth = Math.max(4, (width - 34 - gap * (count - 1)) / count)
+                                var startX = (width - (barWidth * count + gap * (count - 1))) / 2
+                                var barGradient = ctx.createLinearGradient(0, topY, 0, baseY)
+                                barGradient.addColorStop(0.0, c2)
+                                barGradient.addColorStop(0.52, c1)
+                                barGradient.addColorStop(1.0, c0)
+                                ctx.fillStyle = barGradient
+                                for (var i = 0; i < count; i++) {
+                                    var value = Math.max(0.08, Math.min(1, Number(bars[i]) || 0.1))
+                                    var pulse = 0.88 + Math.sin(trackInsightVisualizer.phase + i * 0.45) * 0.08
+                                    var h = Math.max(10, availableHeight * value * pulse)
+                                    var x = startX + i * (barWidth + gap)
+                                    var yBar = baseY - h
+                                    ctx.fillRect(x, yBar, barWidth, h)
+                                }
+                                ctx.fillStyle = c2
+                                ctx.shadowColor = c2
+                                ctx.shadowBlur = 16
+                                ctx.beginPath()
+                                ctx.arc(width * 0.5, baseY, 8, 0, Math.PI * 2)
+                                ctx.fill()
+                                ctx.shadowBlur = 0
+                            }
+                        }
+                    }
+
+                    GlassCard {
+                        objectName: "trackInsightAnalysisCard"
+                        visible: djconnect.trackInsightText.length > 0
+                        Layout.fillWidth: true
+
+                        Text {
+                            text: djconnect.trackInsightText
+                            textFormat: Text.PlainText
+                            color: BrandTheme.colors.text
+                            font.pixelSize: 21
+                            wrapMode: Text.Wrap
+                            Layout.fillWidth: true
+                        }
+                    }
+
+                    Flow {
+                        visible: djconnect.trackInsightItems.length > 0
+                        spacing: 8
+                        Layout.fillWidth: true
+
+                        Repeater {
+                            model: djconnect.trackInsightItems
+
+                            GlassSurface {
+                                border.color: root.moodColor("focus")
+                                width: Math.max(132, trackMetricContent.implicitWidth + 24)
+                                height: 64
+                                radius: root.standardButtonRadius
+
+                                ColumnLayout {
+                                    id: trackMetricContent
+                                    anchors.fill: parent
+                                    anchors.margins: 8
+                                    spacing: 1
+
+                                    Text {
+                                        text: root.trackInsightLabel(modelData.title || modelData.kind || "")
+                                        color: BrandTheme.colors.text
+                                        font.pixelSize: 15
+                                        font.bold: true
+                                        elide: Text.ElideRight
+                                        Layout.fillWidth: true
+                                    }
+
+                                    Text {
+                                        text: modelData.value || ""
+                                        color: BrandTheme.colors.muted
+                                        font.pixelSize: 19
+                                        font.bold: true
+                                        elide: Text.ElideRight
+                                        Layout.fillWidth: true
+                                    }
+                                }
+                            }
+                        }
+                    }
 
                     Repeater {
                         model: djconnect.trackInsightSections
@@ -2704,12 +2664,6 @@ BrandWindow {
                     }
                 }
             }
-
-            Item {
-                visible: !trackInsightScroll.visible
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-            }
         }
     }
 
@@ -2720,19 +2674,20 @@ BrandWindow {
         visible: root.activeScreen === "discover"
         z: 17
 
-        AppBackground {}
+        AppBackground { sessionCanvas: true }
         ModalBlocker {}
 
         ColumnLayout {
             anchors.fill: parent
             anchors.leftMargin: 20
-            anchors.topMargin: 10
+            anchors.topMargin: root.wallProfile ? 32 : 10
             anchors.rightMargin: 20
             anchors.bottomMargin: root.edge + 126
-            spacing: 10
+            spacing: root.wallProfile ? 22 : 10
 
             PageToolbar {
                 title: root.tr("music_discovery")
+                Layout.preferredHeight: compact ? implicitHeight : 140
                 showConnection: true
                 connectionLabel: root.tr("connection_type")
                 connectionText: djconnect.connectionType
@@ -2750,6 +2705,14 @@ BrandWindow {
                     enabled: !djconnect.musicDiscoveryBusy
                     onClicked: djconnect.refreshMusicDiscovery()
                 }
+            }
+
+            IntroductionCard {
+                objectName: "discoveryIntroduction"
+                compact: root.width < 900
+                iconName: "discover"
+                title: root.tr("music_discovery")
+                message: root.tr("music_discovery_introduction")
             }
 
             GlassSurface {
@@ -2778,11 +2741,12 @@ BrandWindow {
 
                         PurpleButton {
                             text: root.tr("music_discovery_enable")
+                            primary: true
                             enabled: !djconnect.musicDiscoveryBusy
                             font.pixelSize: 17
                             Layout.fillWidth: true
                             Layout.preferredHeight: 48
-                            onClicked: djconnect.acceptMusicDiscoveryConsent()
+                            onClicked: root.openMusicDnaPrompt(true)
                         }
 
                         DangerButton {
@@ -2799,7 +2763,9 @@ BrandWindow {
 
             GlassSurface {
                 hero: true
-                visible: !djconnect.musicDnaEnabled && djconnect.musicDiscoveryItems.length === 0 && !djconnect.musicDiscoveryBusy && !djconnect.musicDiscoveryConsentRejected
+                visible: !djconnect.musicDnaEnabled && djconnect.musicDiscoveryItems.length === 0
+                         && djconnect.musicDiscoveryError.length === 0 && !djconnect.musicDiscoveryBusy
+                         && !djconnect.musicDiscoveryConsentRejected
                 Layout.fillWidth: true
                 Layout.preferredHeight: discoveryMusicDnaDisabledColumn.implicitHeight + 28
                 radius: root.standardButtonRadius
@@ -2829,21 +2795,27 @@ BrandWindow {
 
                     PurpleButton {
                         text: root.tr("music_discovery_enable")
+                        primary: true
                         enabled: !djconnect.musicDnaBusy && !djconnect.musicDiscoveryBusy
                         font.pixelSize: 19
                         Layout.fillWidth: true
                         Layout.preferredHeight: 52
-                        onClicked: djconnect.setMusicDnaEnabled(true)
+                        onClicked: root.openMusicDnaPrompt(false)
                     }
                 }
             }
 
             Text {
-                visible: djconnect.musicDnaEnabled && djconnect.musicDiscoveryItems.length === 0 && !djconnect.musicDiscoveryBusy && !djconnect.musicDiscoveryConsentRejected
+                visible: (djconnect.musicDnaEnabled || djconnect.musicDiscoveryError.length > 0)
+                         && djconnect.musicDiscoveryItems.length === 0 && !djconnect.musicDiscoveryBusy
+                         && !djconnect.musicDiscoveryConsentRejected
+                textFormat: Text.PlainText
                 text: djconnect.musicDiscoveryError.length > 0 ? djconnect.musicDiscoveryError : (djconnect.musicDiscoveryEmptyText.length > 0 ? djconnect.musicDiscoveryEmptyText : root.tr("music_discovery_empty"))
                 color: BrandTheme.colors.muted
                 font.pixelSize: 20
+                horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.WordWrap
+                Layout.topMargin: root.wallProfile ? 12 : 4
                 Layout.fillWidth: true
             }
 
@@ -2867,9 +2839,11 @@ BrandWindow {
 
                         GlassSurface {
                             Layout.fillWidth: true
-                            Layout.preferredHeight: djconnect.musicDiscoveryFeedbackSupported ? 226 : 178
-                            radius: root.standardButtonRadius
+                            property int inset: root.wallProfile ? 24 : 14
+                            Layout.preferredHeight: discoveryResult.implicitHeight + 2 * inset
+                            radius: root.wallProfile ? 34 : 22
                             clip: true
+                            introduction: true
                             focused: discoveryTap.activeFocus
 
                             MouseArea {
@@ -2890,8 +2864,9 @@ BrandWindow {
                             }
 
                             RowLayout {
+                                id: discoveryResult
                                 anchors.fill: parent
-                                anchors.margins: 14
+                                anchors.margins: parent.inset
                                 spacing: 14
 
                                 GlassArtworkFrame {
@@ -2930,6 +2905,7 @@ BrandWindow {
 
                                     Text {
                                         text: modelData.title || ""
+                                        textFormat: Text.PlainText
                                         color: BrandTheme.colors.text
                                         font.pixelSize: 25
                                         font.bold: true
@@ -2965,7 +2941,7 @@ BrandWindow {
 
                                         PurpleButton {
                                             text: root.tr("play_now")
-                    primary: true
+                                            primary: true
                                             visible: modelData.playable
                                             enabled: modelData.playable && !djconnect.musicDiscoveryBusy
                                             font.pixelSize: 19
@@ -3111,7 +3087,7 @@ BrandWindow {
         visible: root.activeScreen === "musicdna"
         z: 17
 
-        AppBackground {}
+        AppBackground { sessionCanvas: true }
         ModalBlocker {}
 
         ColumnLayout {
@@ -3124,6 +3100,7 @@ BrandWindow {
 
             PageToolbar {
                 title: root.tr("music_dna")
+                leading: [ GlassButton { iconName: "back"; tertiary: true; implicitWidth: 52; Accessible.name: root.tr("more"); onClicked: root.activeScreen = "more" } ]
                 showConnection: true
                 connectionLabel: root.tr("connection_type")
                 connectionText: djconnect.connectionType
@@ -3158,57 +3135,35 @@ BrandWindow {
                 }
             }
 
-            GlassCard {
+            IntroductionCard {
                 objectName: "musicDnaOptInHero"
-                hero: true; padding: 18
+                compact: root.width < 900
+                iconName: "heart"
+                title: root.tr("music_dna")
+                message: root.tr("music_dna_opt_in")
                 visible: !djconnect.musicDnaEnabled && djconnect.musicDnaError.length === 0
-                Layout.fillWidth: true
-                Layout.maximumHeight: implicitHeight
-                RowLayout {
-                    visible: !djconnect.musicDnaEnabled && djconnect.musicDnaError.length === 0
-                    Layout.fillWidth: true
-                    spacing: 10
-
-                    Text {
-                        text: root.tr("music_dna_disabled")
-                        color: BrandTheme.colors.purple
-                        font.pixelSize: 21
-                        font.bold: true
-                        elide: Text.ElideRight
-                        Layout.fillWidth: true
-                    }
-
-                }
-
-                Text {
-                    visible: !djconnect.musicDnaEnabled && djconnect.musicDnaError.length === 0
-                    text: root.tr("music_dna_opt_in")
-                    color: BrandTheme.colors.muted
-                    font.pixelSize: 20
-                    wrapMode: Text.WordWrap
-                    Layout.fillWidth: true
-                }
 
                 PurpleButton {
-                    visible: !djconnect.musicDnaEnabled && djconnect.musicDnaError.length === 0
                     text: root.tr("music_dna_enable")
+                    primary: true
                     enabled: !djconnect.musicDnaBusy
                     font.pixelSize: 22
                     Layout.fillWidth: true
                     Layout.preferredHeight: 56
-                    onClicked: djconnect.setMusicDnaEnabled(true)
+                    onClicked: root.openMusicDnaPrompt(false)
                 }
             }
 
             GlassCard {
                 objectName: "musicDnaSummaryHero"
-                hero: true; padding: 18
+                hero: true; padding: root.wallProfile ? 32 : 18
                 visible: djconnect.musicDnaError.length === 0 && djconnect.musicDnaEnabled && djconnect.musicDnaSummary.length > 0
                 Layout.fillWidth: true
                 Layout.maximumHeight: implicitHeight
                 Text {
                     visible: djconnect.musicDnaError.length === 0 && djconnect.musicDnaEnabled && djconnect.musicDnaSummary.length > 0
                     text: djconnect.musicDnaSummary
+                    textFormat: Text.PlainText
                     color: BrandTheme.colors.text
                     font.pixelSize: 22
                     wrapMode: Text.WordWrap
@@ -3232,35 +3187,30 @@ BrandWindow {
                     Repeater {
                         model: djconnect.musicDnaSections
 
-                        GlassSurface {
+                        GlassCard {
                             Layout.fillWidth: true
-                            Layout.preferredHeight: sectionColumn.implicitHeight + 22
-                            radius: root.standardButtonRadius
+                            padding: root.wallProfile ? 30 : 18
+                            spacing: 8
 
-                            ColumnLayout {
-                                id: sectionColumn
-                                anchors.fill: parent
-                                anchors.margins: 11
-                                spacing: 5
+                            Text {
+                                text: modelData.title || ""
+                                textFormat: Text.PlainText
+                                color: BrandTheme.colors.text
+                                font.pixelSize: 19
+                                font.weight: Font.DemiBold
+                                wrapMode: Text.Wrap
+                                Layout.fillWidth: true
+                            }
 
+                            Repeater {
+                                model: modelData.lines || []
                                 Text {
-                                    text: modelData.title || ""
+                                    text: modelData
+                                    textFormat: Text.PlainText
                                     color: BrandTheme.colors.muted
-                                    font.pixelSize: 19
-                                    font.bold: true
-                                    elide: Text.ElideRight
+                                    font.pixelSize: 17
+                                    wrapMode: Text.Wrap
                                     Layout.fillWidth: true
-                                }
-
-                                Repeater {
-                                    model: modelData.lines || []
-                                    Text {
-                                        text: modelData
-                                        color: BrandTheme.colors.muted
-                                        font.pixelSize: 17
-                                        wrapMode: Text.WordWrap
-                                        Layout.fillWidth: true
-                                    }
                                 }
                             }
                         }
@@ -3281,7 +3231,7 @@ BrandWindow {
         visible: root.activeScreen === "askdj"
         z: 17
 
-        AppBackground {}
+        AppBackground { sessionCanvas: true }
         ModalBlocker {}
 
         ColumnLayout {
@@ -3311,6 +3261,7 @@ BrandWindow {
                 }
 
                 leading: [
+                GlassButton { iconName: "back"; tertiary: true; implicitWidth: 52; Accessible.name: root.tr("more"); onClicked: root.activeScreen = "more" },
                 Button {
                     id: askDjClearButton
                     enabled: !djconnect.askDjBusy && djconnect.askDjMessages.length > 0
@@ -3352,6 +3303,14 @@ BrandWindow {
                     width: Math.max(0, askDjScroll.availableWidth)
                     spacing: 10
 
+                    IntroductionCard {
+                        objectName: "askDjIntroduction"
+                        compact: root.width < 900
+                        iconName: "chat"
+                        title: root.tr("ask_dj")
+                        message: root.tr("ask_dj_introduction")
+                    }
+
                     Text {
                         text: root.tr("ask_dj_empty")
                         visible: djconnect.askDjMessages.length === 0
@@ -3374,8 +3333,10 @@ BrandWindow {
 
                             Layout.preferredWidth: userBubble ? Math.min(askDjScroll.availableWidth * 0.78, 520) : askDjScroll.availableWidth
                             Layout.alignment: userBubble ? Qt.AlignRight : Qt.AlignLeft
-                            implicitHeight: askDjBubbleContent.implicitHeight + 24
-                            radius: 8
+                            property int bubblePadding: root.wallProfile ? 24 : 14
+                            implicitHeight: askDjBubbleContent.implicitHeight + 2 * bubblePadding
+                            radius: root.wallProfile ? 34 : 22
+                            introduction: !userBubble
 
                             selected: userBubble
 
@@ -3384,7 +3345,7 @@ BrandWindow {
                                 anchors.left: parent.left
                                 anchors.right: parent.right
                                 anchors.top: parent.top
-                                anchors.margins: 12
+                                anchors.margins: bubblePadding
                                 spacing: 8
 
                                 Text {
@@ -3400,10 +3361,11 @@ BrandWindow {
 
                                 Text {
                                     text: modelData.text
+                                    textFormat: Text.PlainText
                                     color: BrandTheme.colors.text
                                     font.pixelSize: systemBubble ? 19 : 22
-                                    font.bold: !systemBubble
-                                    wrapMode: Text.WordWrap
+                                    font.weight: Font.Normal
+                                    wrapMode: Text.Wrap
                                     Layout.fillWidth: true
                                 }
 
@@ -4028,23 +3990,24 @@ BrandWindow {
         anchors.fill: parent
         visible: root.activeScreen === "session" || root.activeScreen === "history" || root.activeScreen === "session-history"
         z: 17
-        AppBackground {}
+        AppBackground { sessionCanvas: root.activeScreen === "session" }
         SessionScreen {
             id: sharedSessionScreen
             anchors.fill: parent
             backend: djconnect
             historical: root.activeScreen === "history" || root.activeScreen === "session-history"
             currentHistory: root.activeScreen === "session-history"
-            onOpenVibeScape: root.openVibeScape()
+            onOpenVibeScape: function(pickerTop) { root.openVibeScape(pickerTop) }
             onNavigate: function(destination) { root.activeScreen = destination }
         }
     }
 
     GamesPanel {
+        id: gamesPanel
         anchors.fill: parent
         visible: gamesOpen
         z: 18
-        onCloseRequested: root.activeScreen = "now"
+        onCloseRequested: root.activeScreen = "more"
     }
 
     GlassSurface {
@@ -4059,6 +4022,7 @@ BrandWindow {
         border.color: BrandTheme.colors.surfaceRaised
         border.width: 1
         visible: !root.splashVisible && (djconnect.paired || djconnect.demoMode) && !djconnect.logsVisible && !djconnect.versionMismatchVisible
+            && !queuePanel.keyboardOpen && !playlistsPanel.keyboardOpen
         z: 25
 
         RowLayout {
@@ -4068,7 +4032,7 @@ BrandWindow {
             Repeater {
                 model: [
                     {screen: "session", key: "session_title", icon: "session"},
-                    {screen: "now", key: "now_playing", icon: "music"},
+                    {screen: "queue", key: "queue", icon: "queue"},
                     {screen: "trackinsight", key: "track_insight", icon: "trackInsight"},
                     {screen: "discover", key: "music_discovery", icon: "discover"},
                     {screen: "more", key: "more", icon: "more"}
@@ -4079,10 +4043,14 @@ BrandWindow {
                     objectName: "appTab-" + modelData.screen
                     iconName: modelData.icon
                     checkable: true
-                    checked: root.activeScreen === modelData.screen || (modelData.screen === "session" && root.activeScreen === "session-history") || (modelData.screen === "more" && ["askdj", "history", "queue", "playlists", "games", "settings", "control", "musicdna", "legal", "privacy", "feedback"].indexOf(root.activeScreen) >= 0)
+                    checked: root.aboutOpen ? modelData.screen === "more" : root.activeScreen === modelData.screen || (modelData.screen === "session" && root.activeScreen === "session-history") || (modelData.screen === "more" && ["askdj", "history", "playlists", "games", "settings", "musicdna", "legal", "privacy", "feedback"].indexOf(root.activeScreen) >= 0)
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    onClicked: root.activeScreen = modelData.screen
+                    onClicked: {
+                        root.aboutOpen = false
+                        root.activeScreen = modelData.screen
+                        if (modelData.screen === "queue") djconnect.loadQueue()
+                    }
                 }
             }
         }
@@ -4103,7 +4071,7 @@ BrandWindow {
             width: Math.min(parent.width - 40, 640)
             spacing: 14
 
-            AppBanner {}
+            AppBanner { detailText: root.tr("tagline") }
 
             Text {
                 text: root.tr("pairing_screen_title")
@@ -4252,6 +4220,7 @@ BrandWindow {
 
             PurpleButton {
                 id: startDemoButton
+                primary: true
                 text: root.tr("start_demo_mode")
                 font.pixelSize: 22
                 Layout.fillWidth: true
@@ -4317,7 +4286,7 @@ BrandWindow {
             width: Math.min(parent.width - 40, 640)
             spacing: 28
 
-            AppBanner {}
+            AppBanner { detailText: root.tr("tagline") }
 
             Rectangle {
                 Layout.alignment: Qt.AlignHCenter
@@ -4370,88 +4339,74 @@ BrandWindow {
 
             PurpleButton {
                 text: root.tr("start")
-                    primary: true
+                primary: true
                 font.pixelSize: 24
                 Layout.fillWidth: true
                 Layout.preferredHeight: 58
                 onClicked: {
-                    root.activeScreen = "now"
+                    root.activeScreen = "session"
                     djconnect.startAfterPairing()
                 }
             }
         }
     }
 
-    Rectangle {
+    Item {
         id: splashPanel
+        objectName: "launchSplash"
         anchors.fill: parent
-        gradient: Gradient {
-            orientation: Gradient.Vertical
-            GradientStop { position: 0.0; color: root.moodColor("backgroundStart") }
-            GradientStop { position: 0.5; color: root.moodColor("backgroundMid") }
-            GradientStop { position: 1.0; color: root.moodColor("backgroundEnd") }
-        }
         opacity: root.splashVisible ? 1 : 0
         visible: opacity > 0
         z: 40
+        readonly property bool animate: root.splashVisible && root.active && GlassStyle.awake && !GlassStyle.reduceMotion
 
-        Behavior on opacity { NumberAnimation { duration: root.motionStandard; easing.type: Easing.OutCubic } }
-
-        Rectangle {
-            width: root.wallProfile ? root.width * 0.84 : root.width * 0.7
-            height: width
-            radius: width / 2
-            anchors.centerIn: parent
-            color: BrandTheme.colors.buttonMid
-            opacity: root.wallProfile ? 0.12 : 0.08
-            scale: 0.92
-
-            SequentialAnimation on scale {
-                running: splashPanel.visible && root.wallProfile
-                loops: Animation.Infinite
-                NumberAnimation { to: 1.08; duration: 3400; easing.type: Easing.InOutSine }
-                NumberAnimation { to: 0.92; duration: 3400; easing.type: Easing.InOutSine }
-            }
+        Behavior on opacity {
+            NumberAnimation { duration: GlassStyle.reduceMotion ? 0 : root.motionStandard; easing.type: Easing.OutCubic }
         }
 
+        SessionMoodCanvas { anchors.fill: parent; mood: ""; activeSession: false }
         ModalBlocker {}
 
-        Rectangle {
+        GlassCard {
+            id: launchCard
+            objectName: "launchCard"
             anchors.centerIn: parent
-            width: Math.min(parent.width - 64, 560)
-            height: root.wallProfile ? 350 : 300
-            color: "#00000000"
-            scale: root.splashVisible ? 1 : 0.96
-            y: root.splashVisible ? 0 : 18
+            width: Math.min(parent.width - 48, root.wallProfile ? 560 : 430)
+            height: implicitHeight
+            padding: root.wallProfile ? 30 : 23
+            spacing: root.wallProfile ? 24 : 17
+            background: GlassSurface { introduction: true; radius: root.wallProfile ? 48 : 34 }
 
-            Behavior on scale { NumberAnimation { duration: root.motionStandard; easing.type: Easing.OutBack } }
-            Behavior on y { NumberAnimation { duration: root.motionStandard; easing.type: Easing.OutCubic } }
-
-            ColumnLayout {
-                anchors.fill: parent
-                spacing: 18
-
-                AppBanner {
-                    detailText: "v" + djconnect.version
-                    titleSize: root.wallProfile ? 52 : 42
-                    detailSize: root.wallProfile ? 26 : 20
-                    logoSize: root.wallProfile ? 128 : 92
-                }
-
-                Text {
-                    text: root.tr("startup_message")
-                    color: BrandTheme.colors.disabledText
-                    font.pixelSize: root.wallProfile ? 24 : 18
-                    horizontalAlignment: Text.AlignHCenter
-                    Layout.fillWidth: true
-                }
-
-                LoadingSpinner {
-                    running: splashPanel.visible
-                    implicitWidth: root.wallProfile ? 54 : 42
-                    implicitHeight: root.wallProfile ? 54 : 42
-                    Layout.alignment: Qt.AlignHCenter
-                }
+            AppBanner {
+                detailText: root.tr("tagline")
+                showCardBackground: false
+                compact: !root.wallProfile
+            }
+            SessionWelcomeArtwork {
+                objectName: "launchVinylArtwork"
+                Layout.alignment: Qt.AlignHCenter
+                Layout.preferredWidth: Math.min(launchCard.availableWidth, root.wallProfile ? 360 : 240)
+                Layout.preferredHeight: Layout.preferredWidth
+                animate: splashPanel.animate
+            }
+            Text {
+                objectName: "launchVersion"
+                text: "v" + djconnect.version
+                color: BrandTheme.colors.muted
+                font.pixelSize: root.wallProfile ? 19 : 15
+                font.weight: Font.DemiBold
+                horizontalAlignment: Text.AlignHCenter
+                Layout.fillWidth: true
+            }
+            LoadingSpinner {
+                objectName: "launchSpinner"
+                spokes: true
+                running: splashPanel.animate
+                implicitWidth: root.wallProfile ? 31 : 27
+                implicitHeight: implicitWidth
+                Layout.alignment: Qt.AlignHCenter
+                Accessible.role: Accessible.Indicator
+                Accessible.name: root.tr("startup_message")
             }
         }
     }
@@ -4599,142 +4554,117 @@ BrandWindow {
         visible: djconnect.logsVisible
         z: 80
 
-        AppBackground {}
+        AppBackground { sessionCanvas: true }
         ModalBlocker {}
-
-        ColumnLayout {
+        LogsView {
             anchors.fill: parent
-            anchors.margins: 28
-            spacing: 12
+            backend: djconnect
+            confirmationOpen: root.clearLogsConfirmOpen
+            onClearRequested: root.clearLogsConfirmOpen = true
+        }
+    }
 
-            Text {
-                text: root.tr("logs")
-                color: BrandTheme.colors.text
-                font.pixelSize: 34
-                font.bold: true
-                Layout.fillWidth: true
-            }
+    GlassSheet {
+        id: musicDnaOptIn
+        objectName: "musicDnaOptInSheet"
+        property bool discoveryConsent: false
+        property string profileId: ""
+        z: 86
+        onClosed: profileId = ""
 
-            RowLayout {
-                Layout.fillWidth: true
-                Layout.minimumHeight: 56
-                Layout.preferredHeight: 56
-                Layout.maximumHeight: 56
-                Layout.fillHeight: false
-                spacing: 10
-
-                Button {
-                    id: clearLogsButton
-                    ToolTip.visible: hovered
-                    ToolTip.text: root.tr("clear_logs")
-                    Accessible.name: root.tr("clear_logs")
-                    Layout.preferredWidth: 56
-                    Layout.preferredHeight: 56
-                    Layout.maximumHeight: 56
-                    onClicked: root.clearLogsConfirmOpen = true
-                    contentItem: MenuIcon {
-                        iconName: "trash"
-                        iconColor: BrandTheme.colors.text
-                        strokeWidth: 2.5
-                        anchors.centerIn: parent
-                        width: 30
-                        height: 30
-                    }
-                    background: Rectangle {
-                        radius: root.standardButtonRadius
-                        color: clearLogsButton.down ? BrandTheme.colors.dangerPressed : BrandTheme.colors.dangerSurface
-                        border.color: clearLogsButton.hovered ? BrandTheme.colors.danger : BrandTheme.colors.danger
-                        border.width: 1
-                    }
-                }
-                RefreshIconButton {
-                    Layout.preferredHeight: 56
-                    Layout.maximumHeight: 56
-                    onClicked: {
-                        djconnect.showLogs()
-                        Qt.callLater(function() { logsArea.cursorPosition = 0 })
-                    }
-                }
-                PurpleButton {
-                    text: root.tr("close")
-                    font.pixelSize: 22
+        contentItem: ScrollView {
+            id: optInScroll
+            clip: true
+            contentWidth: availableWidth
+            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+            ColumnLayout {
+                width: optInScroll.availableWidth
+                spacing: 22
+                Item { Layout.preferredHeight: musicDnaOptIn.compact ? 0 : 22 }
+                AppBanner {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 56
-                    Layout.maximumHeight: 56
-                    onClicked: djconnect.hideLogs()
+                    Layout.maximumWidth: musicDnaOptIn.compact ? optInScroll.width - 40 : 900
+                    Layout.alignment: Qt.AlignHCenter
+                    detailText: root.tr("tagline")
                 }
-            }
+                IntroductionCard {
+                    iconName: "heart"
+                    title: root.tr("music_dna_opt_in_title")
+                    message: root.tr("music_dna_opt_in_description")
+                    compact: musicDnaOptIn.compact
+                    centeredMessage: false
+                    Layout.maximumWidth: musicDnaOptIn.compact ? optInScroll.width - 40 : 900
+                    Layout.alignment: Qt.AlignHCenter
 
-            ScrollView {
-                id: logsScroll
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                Layout.minimumHeight: 360
-                clip: true
-
-                RowLayout {
-                    width: Math.max(logsScroll.availableWidth, logLineNumbers.implicitWidth + logsArea.implicitWidth + 36)
-                    spacing: 0
-
-                    Text {
-                        id: logLineNumbers
-                        text: root.lineNumbers(djconnect.logsText)
-                        color: BrandTheme.colors.disabledText
-                        font.family: "monospace"
-                        font.pixelSize: 24
-                        horizontalAlignment: Text.AlignRight
-                        Layout.preferredWidth: Math.max(54, implicitWidth + 18)
-                        Layout.alignment: Qt.AlignTop
-                        topPadding: 12
-                        bottomPadding: 12
-                        rightPadding: 10
-                    }
-
-                    TextArea {
-                        id: logsArea
-                        text: djconnect.logsText
-                        readOnly: true
-                        wrapMode: TextEdit.NoWrap
-                        color: BrandTheme.colors.muted
-                        font.family: "monospace"
-                        font.pixelSize: 24
-                        Layout.fillWidth: true
-                        Layout.alignment: Qt.AlignTop
-                        background: Rectangle {
-                            color: BrandTheme.colors.background
-                            radius: 8
-                            border.color: BrandTheme.colors.surfaceRaised
+                    Repeater {
+                        model: [
+                            {icon: "trash", key: "music_dna_opt_in_erase"},
+                            {icon: "settings", key: "music_dna_opt_in_turn_off"}
+                        ]
+                        RowLayout {
+                            required property var modelData
+                            Layout.fillWidth: true
+                            spacing: 12
+                            FeatureIcon {
+                                iconName: modelData.icon
+                                iconColor: modelData.icon === "trash" ? BrandTheme.colors.actionDanger : BrandTheme.colors.text
+                                Layout.preferredWidth: 22; Layout.preferredHeight: 22
+                            }
+                            Text {
+                                text: root.tr(modelData.key)
+                                textFormat: Text.PlainText
+                                color: BrandTheme.colors.text
+                                font.pixelSize: musicDnaOptIn.compact ? 17 : 20
+                                wrapMode: Text.WordWrap
+                                Layout.fillWidth: true
+                            }
                         }
-                        onTextChanged: Qt.callLater(function() { logsArea.cursorPosition = 0 })
+                    }
+                    GlassButton {
+                        objectName: "musicDnaConfirmEnable"
+                        primary: true
+                        text: root.tr("music_dna_opt_in_accept")
+                        iconName: "discover"
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: musicDnaOptIn.compact ? 56 : 68
+                        enabled: djconnect.paired && !djconnect.musicDnaBusy && !djconnect.musicDiscoveryBusy
+                            && musicDnaOptIn.profileId === djconnect.activeProfileId
+                        onClicked: {
+                            if (!musicDnaOptIn.opened || !enabled) return
+                            var discoveryConsent = musicDnaOptIn.discoveryConsent
+                            musicDnaOptIn.close()
+                            if (discoveryConsent) djconnect.acceptMusicDiscoveryConsent()
+                            else djconnect.setMusicDnaEnabled(true)
+                        }
+                    }
+                    GlassButton {
+                        objectName: "musicDnaDeclineEnable"
+                        foregroundColor: BrandTheme.colors.muted
+                        font.pixelSize: musicDnaOptIn.compact ? 18 : 21
+                        text: root.tr("music_dna_opt_in_not_now")
+                        tertiary: true
+                        Layout.fillWidth: true
+                        onClicked: {
+                            if (musicDnaOptIn.discoveryConsent) djconnect.rejectMusicDiscoveryConsent()
+                            musicDnaOptIn.close()
+                        }
                     }
                 }
-            }
-
-            Text {
-                text: root.tr("log") + ": " + djconnect.logFile
-                color: BrandTheme.colors.disabledText
-                font.pixelSize: 17
-                elide: Text.ElideMiddle
-                Layout.fillWidth: true
             }
         }
     }
 
-    Rectangle {
+    GlassSheet {
         id: clearLogsConfirmPanel
-        anchors.fill: parent
-        color: BrandTheme.alpha(BrandTheme.colors.background, "cc")
+        objectName: "clearLogsConfirmSheet"
         visible: root.clearLogsConfirmOpen
         z: 86
 
-        ModalBlocker {}
-
-        Rectangle {
+        GlassSurface {
             anchors.centerIn: parent
             width: Math.min(parent.width - 48, 520)
-            radius: 8
-            color: BrandTheme.alpha(BrandTheme.colors.surface, "f0")
-            border.color: BrandTheme.colors.surfaceRaised
+            introduction: true
+            radius: 32
             border.width: 1
 
             implicitHeight: clearLogsConfirmContent.implicitHeight + 44
@@ -4784,21 +4714,16 @@ BrandWindow {
         }
     }
 
-    Rectangle {
+    GlassSheet {
         id: askDjClearConfirmPanel
-        anchors.fill: parent
-        color: BrandTheme.alpha(BrandTheme.colors.background, "cc")
         visible: root.askDjClearConfirmOpen
         z: 86
 
-        ModalBlocker {}
-
-        Rectangle {
+        GlassSurface {
             anchors.centerIn: parent
             width: Math.min(parent.width - 48, 520)
-            radius: 8
-            color: BrandTheme.alpha(BrandTheme.colors.surface, "f0")
-            border.color: BrandTheme.colors.surfaceRaised
+            introduction: true
+            radius: 32
             border.width: 1
 
             implicitHeight: askDjClearConfirmContent.implicitHeight + 44
@@ -4855,21 +4780,16 @@ BrandWindow {
         }
     }
 
-    Rectangle {
+    GlassSheet {
         id: musicDnaClearConfirmPanel
-        anchors.fill: parent
-        color: BrandTheme.alpha(BrandTheme.colors.background, "cc")
         visible: root.musicDnaClearConfirmOpen
         z: 86
 
-        ModalBlocker {}
-
-        Rectangle {
+        GlassSurface {
             anchors.centerIn: parent
             width: Math.min(parent.width - 48, 520)
-            radius: 8
-            color: BrandTheme.alpha(BrandTheme.colors.surface, "f0")
-            border.color: BrandTheme.colors.surfaceRaised
+            introduction: true
+            radius: 32
             border.width: 1
 
             implicitHeight: musicDnaClearConfirmContent.implicitHeight + 44
@@ -4919,21 +4839,16 @@ BrandWindow {
         }
     }
 
-    Rectangle {
+    GlassSheet {
         id: musicDnaDisableConfirmPanel
-        anchors.fill: parent
-        color: BrandTheme.alpha(BrandTheme.colors.background, "cc")
         visible: root.musicDnaDisableConfirmOpen
         z: 86
 
-        ModalBlocker {}
-
-        Rectangle {
+        GlassSurface {
             anchors.centerIn: parent
             width: Math.min(parent.width - 48, 520)
-            radius: 8
-            color: BrandTheme.alpha(BrandTheme.colors.surface, "f0")
-            border.color: BrandTheme.colors.surfaceRaised
+            introduction: true
+            radius: 32
             border.width: 1
 
             implicitHeight: musicDnaDisableConfirmContent.implicitHeight + 44
@@ -4983,21 +4898,17 @@ BrandWindow {
         }
     }
 
-    Rectangle {
+    GlassSheet {
         id: resetPairingConfirmPanel
-        anchors.fill: parent
-        color: BrandTheme.alpha(BrandTheme.colors.background, "cc")
         visible: root.resetPairingConfirmOpen
         z: 84
 
-        ModalBlocker {}
 
-        Rectangle {
+        GlassSurface {
             anchors.centerIn: parent
             width: Math.min(parent.width - 48, 520)
-            radius: 8
-            color: BrandTheme.alpha(BrandTheme.colors.surface, "f0")
-            border.color: BrandTheme.colors.surfaceRaised
+            introduction: true
+            radius: 32
             border.width: 1
 
             implicitHeight: confirmContent.implicitHeight + 44
@@ -5048,21 +4959,17 @@ BrandWindow {
         }
     }
 
-    Rectangle {
+    GlassSheet {
         id: rebootConfirmPanel
-        anchors.fill: parent
-        color: BrandTheme.alpha(BrandTheme.colors.background, "cc")
         visible: root.rebootConfirmOpen
         z: 84
 
-        ModalBlocker {}
 
-        Rectangle {
+        GlassSurface {
             anchors.centerIn: parent
             width: Math.min(parent.width - 48, 520)
-            radius: 8
-            color: BrandTheme.alpha(BrandTheme.colors.surface, "f0")
-            border.color: BrandTheme.colors.surfaceRaised
+            introduction: true
+            radius: 32
             border.width: 1
 
             implicitHeight: rebootConfirmContent.implicitHeight + 44
@@ -5112,21 +5019,17 @@ BrandWindow {
         }
     }
 
-    Rectangle {
+    GlassSheet {
         id: shutdownConfirmPanel
-        anchors.fill: parent
-        color: BrandTheme.alpha(BrandTheme.colors.background, "cc")
         visible: root.shutdownConfirmOpen
         z: 84
 
-        ModalBlocker {}
 
-        Rectangle {
+        GlassSurface {
             anchors.centerIn: parent
             width: Math.min(parent.width - 48, 520)
-            radius: 8
-            color: BrandTheme.alpha(BrandTheme.colors.surface, "f0")
-            border.color: BrandTheme.colors.surfaceRaised
+            introduction: true
+            radius: 32
             border.width: 1
 
             implicitHeight: shutdownConfirmContent.implicitHeight + 44
@@ -5180,14 +5083,14 @@ BrandWindow {
         anchors.fill: parent
         color: BrandTheme.colors.background
         visible: root.aboutOpen
-        z: 82
+        z: 22
         onVisibleChanged: {
             if (visible && aboutScroll.contentItem) {
                 aboutScroll.contentItem.contentY = 0
             }
         }
 
-        AppBackground {}
+        AppBackground { sessionCanvas: true }
         ModalBlocker {}
 
         PageToolbar {
@@ -5195,14 +5098,15 @@ BrandWindow {
             anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top
             anchors.margins: 22
             title: root.tr("about")
-            GlassButton { text: root.tr("close"); tertiary: true; onClicked: root.aboutOpen = false }
+            leading: [ GlassButton { iconName: "back"; tertiary: true; implicitWidth: 52; Accessible.name: root.tr("close"); onClicked: root.aboutOpen = false } ]
         }
 
         ScrollView {
             id: aboutScroll
             anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
             anchors.top: aboutToolbar.bottom
-            anchors.margins: 22
+            anchors.margins: 24
+            anchors.bottomMargin: root.edge + 126
             clip: true
             ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
             contentWidth: availableWidth
@@ -5213,7 +5117,7 @@ BrandWindow {
 
 
                 AppBanner {
-                    logoSize: 82
+                    detailText: root.tr("tagline")
                 }
 
                 GlassCard {
@@ -5338,14 +5242,8 @@ BrandWindow {
 
             AppBanner {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 98
                 detailText: root.tr("dj_response")
-                logoSize: 64
-                titleSize: 30
-                detailSize: 20
-                horizontalPadding: 20
-                verticalPadding: 14
-                contentSpacing: 16
+                dense: true
             }
 
             Text {
@@ -5367,6 +5265,13 @@ BrandWindow {
         TapHandler {
             onTapped: djconnect.clearDjResponse()
         }
+    }
+
+    Component.onCompleted: djconnect.edgeBackGesture.observe(root)
+    onEdgeBackRouteChanged: djconnect.edgeBackGesture.cancel()
+    Connections {
+        target: djconnect.edgeBackGesture
+        function onBackRequested(route) { root.navigateEdgeBack(route) }
     }
 
     MouseArea {

@@ -9,6 +9,7 @@ import re
 import subprocess
 import sys
 import time
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from datetime import datetime
@@ -62,6 +63,7 @@ from .ha import (
 )
 from .i18n import LANGUAGES, normalize_language, translate
 from .logging_config import setup_logging
+from .navigation_gesture import EdgeBackGesture
 from .session_controller import SessionController
 from .shared_settings import SettingsError
 from .system_info import log_raspberry_pi_system_info
@@ -152,6 +154,7 @@ class DJConnectBackend(QObject):
     _sharedSettingsReady = Signal(object)
     profileChanged = Signal()
     djAnnouncementChanged = Signal()
+    localAudioDevicesChanged = Signal()
     wakeScreenRequested = Signal()
     temporaryWakeRequested = Signal(int, bool)
     screenshotRequested = Signal()
@@ -175,6 +178,8 @@ class DJConnectBackend(QObject):
         super().__init__()
         self.config_path = config_path
         self._shutting_down = False
+        self._audio_devices = None
+        self._edge_back_gesture = EdgeBackGesture(self)
         self.cfg: Config = load_config(config_path)
         self.client = HAClient(self.cfg)
         self._shared_settings_state = {}
@@ -301,6 +306,10 @@ class DJConnectBackend(QObject):
     @Property(bool, notify=sharedSettingsChanged)
     def sharedSettingsManaged(self) -> bool:
         return self.cfg.paired or self._shared_settings.managed
+
+    @Property(QObject, constant=True)
+    def edgeBackGesture(self):
+        return self._edge_back_gesture
 
     @Property(QObject, constant=True)
     def djSession(self):
@@ -661,6 +670,33 @@ class DJConnectBackend(QObject):
     @Property(str, notify=settingsChanged)
     def musicBackendError(self) -> str:
         return self.cfg.music_backend_error
+
+    def observeLocalAudioDevices(self) -> None:
+        """Enumerate OS devices without opening an input or output stream."""
+        try:
+            from PySide6.QtMultimedia import QMediaDevices
+
+            self._audio_devices = QMediaDevices(self)
+            self._audio_devices.audioInputsChanged.connect(self.localAudioDevicesChanged.emit)
+            self._audio_devices.audioOutputsChanged.connect(self.localAudioDevicesChanged.emit)
+        except (ImportError, OSError, RuntimeError):
+            self._audio_devices = None
+        self.localAudioDevicesChanged.emit()
+
+    @Property(bool, notify=localAudioDevicesChanged)
+    def localMicrophoneAvailable(self) -> bool:
+        return self._audio_devices is not None and bool(self._audio_devices.audioInputs())
+
+    @Property(bool, notify=localAudioDevicesChanged)
+    def localAudioOutputAvailable(self) -> bool:
+        return self._audio_devices is not None and bool(self._audio_devices.audioOutputs())
+
+    @Property(bool, notify=sharedSettingsChanged)
+    def sessionVoiceAvailable(self) -> bool:
+        state = self._shared_settings_state
+        return (state.get("available") is True and state.get("selection_required") is not True
+                and state.get("voice_available") is True and state.get("speaker_available") is True
+                and (state.get("values") or {}).get("announcement_output") in ("ha_speaker", "both"))
 
     @Property(str, notify=djAnnouncementChanged)
     def djAnnouncementOutput(self) -> str:
@@ -1575,6 +1611,8 @@ class DJConnectBackend(QObject):
 
     @Slot(str)
     def playGameSound(self, kind: str) -> None:
+        if not self.localAudioOutputAvailable:
+            return
         try:
             from PySide6.QtMultimedia import QAudioFormat, QAudioSink, QMediaDevices
         except Exception as exc:  # noqa: BLE001 - optional multimedia support must never prevent the renderer from starting
@@ -1668,15 +1706,7 @@ class DJConnectBackend(QObject):
             self._queue_items = demo_queue_items()
             self.mediaListsChanged.emit()
             return
-        self._sync_config_from_disk()
-        if not self.paired:
-            return
-        if "queue" in self._media_loads_in_flight:
-            _LOGGER.debug("Queue load skipped because a queue load is already active")
-            return
-        self._media_loads_in_flight.add("queue")
-        _LOGGER.info("User requested queue from touch UI")
-        self._run(self.tr_key("queue"), self._load_queue_worker, done=lambda: self._media_loads_in_flight.discard("queue"))
+        self._start_media_list_load("queue", self._load_queue_worker)
 
     @Slot()
     def loadPlaylists(self) -> None:
@@ -1685,15 +1715,15 @@ class DJConnectBackend(QObject):
             self._playlist_items = demo_playlist_items()
             self.mediaListsChanged.emit()
             return
+        self._start_media_list_load("playlists", self._load_playlists_worker)
+
+    def _start_media_list_load(self, kind: str, worker: Callable[[], None]) -> None:
         self._sync_config_from_disk()
-        if not self.paired:
+        if not self.paired or kind in self._media_loads_in_flight:
             return
-        if "playlists" in self._media_loads_in_flight:
-            _LOGGER.debug("Playlist load skipped because a playlist load is already active")
-            return
-        self._media_loads_in_flight.add("playlists")
-        _LOGGER.info("User requested playlists from touch UI")
-        self._run(self.tr_key("playlists"), self._load_playlists_worker, done=lambda: self._media_loads_in_flight.discard("playlists"))
+        self._media_loads_in_flight.add(kind)
+        _LOGGER.info("User requested %s from touch UI", kind)
+        self._run(self.tr_key(kind), worker, done=lambda: self._media_loads_in_flight.discard(kind))
 
     @Slot(str, result=str)
     def cachedImageUrl(self, url: str) -> str:
@@ -2677,6 +2707,7 @@ class DJConnectBackend(QObject):
     @Slot()
     def shutdown(self) -> None:
         self._shutting_down = True
+        self._edge_back_gesture.cancel()
         _LOGGER.info("Stopping DJConnect Pi client backend")
         self._poll_timer.stop()
         self._event_timer.stop()
@@ -2843,6 +2874,7 @@ def main() -> None:
     QPixmapCache.setCacheLimit(QT_PIXMAP_CACHE_LIMIT_KB)
     engine = QQmlApplicationEngine()
     backend = DJConnectBackend(args.config)
+    backend.observeLocalAudioDevices()
     app.applicationStateChanged.connect(lambda state: backend.djSession.setForeground(state == Qt.ApplicationState.ApplicationActive))
     engine.rootContext().setContextProperty("djconnect", backend)
     engine.rootContext().setContextProperty("startWindowed", args.windowed)
@@ -3796,46 +3828,6 @@ def _track_insight_items(data: dict[str, object]) -> list[dict[str, object]]:
     return items[:20]
 
 
-def _ask_dj_analysis(value: object) -> dict[str, object]:
-    if not isinstance(value, dict):
-        return {}
-    mode = str(value.get("mode") or "").strip()
-    mode_labels = {
-        "measured_plus_knowledge": "Gemeten + duiding",
-        "measured": "Gemeten",
-        "knowledge_plus_metadata": "Duiding",
-        "unavailable": "Niet beschikbaar",
-    }
-    measured = value.get("measured")
-    inferred = value.get("inferred")
-    contract_version = _optional_int(value.get("contract_version") or value.get("contractVersion"))
-    sections = _ask_dj_analysis_sections(value.get("sections"))
-    timeline = _ask_dj_analysis_timeline(value.get("timeline"))
-    dj_tips = _ask_dj_analysis_tips(value.get("dj_tips") or value.get("djTips"))
-    limitations = _ask_dj_analysis_limitations(value.get("limitations"))
-    providers = _ask_dj_analysis_providers(value.get("providers"))
-    metadata = _ask_dj_analysis_metadata(value.get("metadata"))
-    if not sections and not timeline and not dj_tips:
-        sections = _ask_dj_v1_analysis_sections(measured if isinstance(measured, dict) else {}, inferred if isinstance(inferred, dict) else {})
-        if not timeline and isinstance(measured, dict):
-            timeline = _ask_dj_analysis_timeline(measured.get("sections"))
-    return {
-        "contractVersion": contract_version,
-        "mode": mode,
-        "modeLabel": mode_labels.get(mode, ""),
-        "confidence": str(value.get("confidence") or "").strip(),
-        "source": str(value.get("source") or value.get("provider") or "").strip(),
-        "sections": sections,
-        "timeline": timeline,
-        "djTips": dj_tips,
-        "measured": measured if isinstance(measured, dict) else {},
-        "inferred": inferred if isinstance(inferred, dict) else {},
-        "limitations": limitations,
-        "providers": providers,
-        "metadata": metadata,
-    }
-
-
 def _ask_dj_analysis_sections(value: object) -> list[dict[str, object]]:
     if not isinstance(value, list):
         return []
@@ -3867,176 +3859,6 @@ def _ask_dj_analysis_sections(value: object) -> list[dict[str, object]]:
     return sections[:12]
 
 
-def _ask_dj_analysis_timeline(value: object) -> list[dict[str, object]]:
-    if not isinstance(value, list):
-        return []
-    timeline: list[dict[str, object]] = []
-    for item in value:
-        if not isinstance(item, dict):
-            continue
-        label = str(item.get("label") or item.get("title") or item.get("kind") or item.get("id") or "").strip()
-        start = _time_label(_first_present(item, ("start", "start_time", "start_ms", "offset_ms")))
-        end = _time_label(_first_present(item, ("end", "end_time", "end_ms")))
-        duration = _time_label(_first_present(item, ("duration", "duration_ms")))
-        source = str(item.get("source") or item.get("provider") or "").strip()
-        confidence = str(item.get("confidence") or "").strip()
-        if label or start or end or duration:
-            timeline.append(
-                {
-                    "id": str(item.get("id") or "").strip(),
-                    "kind": str(item.get("kind") or "").strip(),
-                    "label": label,
-                    "start": start,
-                    "end": end,
-                    "duration": duration,
-                    "source": source,
-                    "confidence": confidence,
-                }
-            )
-    return timeline[:16]
-
-
-def _ask_dj_analysis_tips(value: object) -> list[dict[str, object]]:
-    if not isinstance(value, list):
-        return []
-    tips: list[dict[str, object]] = []
-    for item in value:
-        if isinstance(item, str):
-            text = item.strip()
-            if text:
-                tips.append({"kind": "", "title": "", "text": text, "source": "", "confidence": ""})
-        elif isinstance(item, dict):
-            text = str(item.get("text") or item.get("body") or item.get("description") or item.get("tip") or "").strip()
-            title = str(item.get("title") or item.get("label") or "").strip()
-            if text or title:
-                tips.append(
-                    {
-                        "kind": str(item.get("kind") or item.get("type") or "").strip(),
-                        "title": title,
-                        "text": text,
-                        "source": str(item.get("source") or item.get("provider") or "").strip(),
-                        "confidence": str(item.get("confidence") or "").strip(),
-                    }
-                )
-    return tips[:8]
-
-
-def _ask_dj_analysis_limitations(value: object) -> list[dict[str, object]]:
-    if not isinstance(value, list):
-        return []
-    limitations: list[dict[str, object]] = []
-    for item in value:
-        if isinstance(item, str):
-            text = item.strip()
-            if text:
-                limitations.append({"text": text, "source": "", "confidence": ""})
-        elif isinstance(item, dict):
-            text = str(item.get("text") or item.get("body") or item.get("description") or item.get("message") or "").strip()
-            if text:
-                limitations.append(
-                    {
-                        "text": text,
-                        "source": str(item.get("source") or item.get("provider") or "").strip(),
-                        "confidence": str(item.get("confidence") or "").strip(),
-                    }
-                )
-    return limitations[:8]
-
-
-def _ask_dj_analysis_providers(value: object) -> list[dict[str, object]]:
-    if not isinstance(value, list):
-        return []
-    providers: list[dict[str, object]] = []
-    for item in value:
-        if not isinstance(item, dict):
-            continue
-        provider_id = str(item.get("provider_id") or item.get("providerId") or "").strip()
-        status = str(item.get("status") or "").strip()
-        display_name = str(item.get("display_name") or item.get("displayName") or "").strip()
-        reason = str(item.get("reason") or "").strip()
-        requires_config = item.get("requires_config") if "requires_config" in item else item.get("requiresConfig")
-        provider: dict[str, object] = {
-            "providerId": provider_id or translate("en", "unknown"),
-            "displayName": display_name,
-            "status": status or translate("en", "unknown"),
-            "reason": reason,
-            "requiresConfig": requires_config if isinstance(requires_config, bool) else None,
-        }
-        provider["label"] = display_name or provider["providerId"]
-        providers.append(provider)
-    return providers[:8]
-
-
-def _ask_dj_analysis_metadata(value: object) -> dict[str, object]:
-    if not isinstance(value, dict):
-        return {}
-    release = value.get("release")
-    release_data: dict[str, object] = {}
-    if isinstance(release, dict):
-        release_data = {
-            "title": str(release.get("title") or "").strip(),
-            "date": str(release.get("date") or "").strip(),
-            "country": str(release.get("country") or "").strip(),
-            "status": str(release.get("status") or "").strip(),
-        }
-    match_score = value.get("match_score") if "match_score" in value else value.get("matchScore")
-    listen_count = value.get("listenbrainz_listen_count") if "listenbrainz_listen_count" in value else value.get("listenbrainzListenCount")
-    metadata: dict[str, object] = {
-        "musicbrainzRecordingId": str(value.get("musicbrainz_recording_id") or value.get("musicbrainzRecordingId") or "").strip(),
-        "matchScore": _optional_int(match_score),
-        "recordingTitle": str(value.get("recording_title") or value.get("recordingTitle") or "").strip(),
-        "artist": str(value.get("artist") or "").strip(),
-        "firstReleaseDate": str(value.get("first_release_date") or value.get("firstReleaseDate") or "").strip(),
-        "release": release_data,
-        "genres": _string_list(value.get("genres")),
-        "tags": _string_list(value.get("tags")),
-        "listenbrainzListenCount": _optional_int(listen_count),
-    }
-    details: list[str] = []
-    if metadata["musicbrainzRecordingId"]:
-        details.append(f"MusicBrainz: {metadata['musicbrainzRecordingId']}")
-    if metadata["firstReleaseDate"]:
-        details.append(f"First release: {metadata['firstReleaseDate']}")
-    release_title = release_data.get("title") if release_data else ""
-    if release_title:
-        details.append(f"Release: {release_title}")
-    genres = metadata["genres"]
-    if isinstance(genres, list) and genres:
-        details.append(f"Genres: {', '.join(str(item) for item in genres[:4])}")
-    tags = metadata["tags"]
-    if isinstance(tags, list) and tags:
-        details.append(f"Tags: {', '.join(str(item) for item in tags[:4])}")
-    listen_count = metadata["listenbrainzListenCount"]
-    if listen_count is not None:
-        details.append(f"ListenBrainz listens: {listen_count}")
-    metadata["details"] = details[:8]
-    return metadata
-
-
-def _ask_dj_v1_analysis_sections(measured: dict[str, object], inferred: dict[str, object]) -> list[dict[str, object]]:
-    sections: list[dict[str, object]] = []
-    metric_parts = []
-    for label, key in (("Energy", "energy"), ("Danceability", "danceability")):
-        raw = measured.get(key)
-        if raw not in (None, ""):
-            metric_parts.append(f"{label}: {raw}")
-    features = measured.get("features")
-    if isinstance(features, dict):
-        for key, raw in features.items():
-            if raw not in (None, ""):
-                metric_parts.append(f"{str(key).replace('_', ' ').title()}: {raw}")
-    if metric_parts:
-        sections.append({"id": "measured", "kind": "measured", "title": "Measured", "body": " · ".join(metric_parts), "source": str(measured.get("source") or measured.get("provider") or "").strip(), "confidence": str(measured.get("confidence") or "").strip(), "details": []})
-    inferred_parts = []
-    for key, raw in inferred.items():
-        if key in {"source", "provider", "confidence"} or raw in (None, ""):
-            continue
-        inferred_parts.append(f"{str(key).replace('_', ' ').title()}: {raw}")
-    if inferred_parts:
-        sections.append({"id": "inferred", "kind": "inferred", "title": "Inferred", "body": " · ".join(inferred_parts), "source": str(inferred.get("source") or inferred.get("provider") or "").strip(), "confidence": str(inferred.get("confidence") or "").strip(), "details": []})
-    return sections
-
-
 def _string_list(value: object) -> list[str]:
     if not isinstance(value, list):
         return []
@@ -4046,17 +3868,6 @@ def _string_list(value: object) -> list[str]:
         if text:
             result.append(text)
     return result[:8]
-
-
-def _time_label(value: object) -> str:
-    if value in (None, ""):
-        return ""
-    if isinstance(value, (int, float)):
-        seconds = float(value) / 1000.0 if float(value) >= 1000 else float(value)
-        minutes = int(seconds // 60)
-        remainder = int(seconds % 60)
-        return f"{minutes}:{remainder:02d}"
-    return str(value).strip()
 
 
 def _metric_percent(value: object) -> str:
@@ -4213,11 +4024,6 @@ def _ask_dj_display_text(text: str, actions: list[dict[str, object]]) -> str:
 
 def _normalized_action_title(value: str) -> str:
     return " ".join(value.strip().casefold().split())
-
-
-def _ask_dj_message_key(message: dict[str, object]) -> str:
-    keys = _ask_dj_message_keys(message)
-    return keys[0] if keys else ""
 
 
 def _ask_dj_message_keys(message: dict[str, object]) -> list[str]:
@@ -4514,104 +4320,6 @@ def _music_dna_is_sensitive_key(key: str) -> bool:
     if normalized.startswith("stores_"):
         return False
     return any(part in normalized for part in _MUSIC_DNA_SENSITIVE_KEY_PARTS)
-
-
-def _music_dna_list_section(profile: dict[str, object], key: str, title: str) -> list[dict[str, object]]:
-    return _music_dna_section(title, _music_dna_lines(profile.get(key)))
-
-
-def _music_dna_track_section(profile: dict[str, object], key: str, title: str) -> list[dict[str, object]]:
-    lines: list[str] = []
-    for item in _music_dna_items(profile.get(key)):
-        if isinstance(item, dict):
-            track = str(item.get("title") or item.get("name") or item.get("track") or "").strip()
-            artist = str(item.get("artist") or item.get("artist_name") or item.get("subtitle") or "").strip()
-            if track and artist:
-                lines.append(f"{track} - {artist}")
-            elif track:
-                lines.append(track)
-        elif isinstance(item, str) and item.strip():
-            lines.append(item.strip())
-    return _music_dna_section(title, lines)
-
-
-def _music_dna_playtime_section(profile: dict[str, object]) -> list[dict[str, object]]:
-    playtime = profile.get("playtime")
-    if not isinstance(playtime, dict) or _int_value(playtime.get("total_seconds"), 0) <= 0:
-        return []
-    lines = [str(playtime.get("formatted_total") or "").strip()]
-    lines.extend(f"Artist: {line}" for line in _music_dna_lines(playtime.get("top_artists"))[:4])
-    lines.extend(f"Album: {line}" for line in _music_dna_lines(playtime.get("top_albums"))[:4])
-    return _music_dna_section("Playtime", lines)
-
-
-def _music_dna_rhythm_section(profile: dict[str, object]) -> list[dict[str, object]]:
-    rhythm = profile.get("listening_rhythm")
-    if not isinstance(rhythm, dict) or _int_value(rhythm.get("sample_count"), 0) < 3:
-        return []
-    lines = [
-        _label_value("Daypart", rhythm.get("top_daypart") or rhythm.get("daypart")),
-        _label_value("Weekday", rhythm.get("top_weekday") or rhythm.get("weekday")),
-    ]
-    lines.extend(_music_dna_distribution_lines(rhythm.get("distribution")))
-    return _music_dna_section("Listening rhythm", lines)
-
-
-def _music_dna_mood_mix_section(profile: dict[str, object]) -> list[dict[str, object]]:
-    mood = profile.get("mood_mix")
-    if not isinstance(mood, dict) or _int_value(mood.get("sample_count"), 0) <= 0:
-        return []
-    lines = [_label_value(label.title(), mood.get(label)) for label in ("chill", "groove", "energy", "party")]
-    return _music_dna_section("Mood mix", lines)
-
-
-def _music_dna_eligible_section(profile: dict[str, object], key: str, title: str) -> list[dict[str, object]]:
-    value = profile.get(key)
-    if isinstance(value, dict):
-        if value.get("eligible") is not True:
-            return []
-        return _music_dna_section(title, _music_dna_lines(value.get("items") or value.get("values") or value.get("tracks")))
-    return []
-
-
-def _music_dna_items(value: object) -> list[object]:
-    if isinstance(value, dict):
-        for key in ("items", "tracks", "artists", "genres", "values", "signals"):
-            nested = value.get(key)
-            if isinstance(nested, list):
-                return nested
-        return []
-    if isinstance(value, list):
-        return value
-    return []
-
-
-def _music_dna_lines(value: object) -> list[str]:
-    lines: list[str] = []
-    for item in _music_dna_items(value):
-        if isinstance(item, str):
-            text = item.strip()
-        elif isinstance(item, dict):
-            text = str(item.get("label") or item.get("name") or item.get("title") or item.get("value") or "").strip()
-            score = item.get("percent") if item.get("percent") is not None else item.get("score")
-            if text and score not in (None, ""):
-                text = f"{text} ({score})"
-        else:
-            text = str(item).strip()
-        if text:
-            lines.append(text)
-    return lines
-
-
-def _music_dna_distribution_lines(value: object) -> list[str]:
-    if not isinstance(value, dict):
-        return []
-    return [_label_value(str(key).replace("_", " ").title(), item) for key, item in value.items()]
-
-
-def _label_value(label: str, value: object) -> str:
-    text = str(value or "").strip()
-    return f"{label}: {text}" if text else ""
 
 
 if __name__ == "__main__":

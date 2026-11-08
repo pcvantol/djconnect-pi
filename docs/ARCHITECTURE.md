@@ -386,7 +386,11 @@ Media browsing commands use explicit bounded limits: `queue` sends
 older playlist requests without a limit by defaulting them internally to 50,
 and it should paginate Spotify internally with a Spotify-safe page size of 50
 while returning up to the client-requested playlist limit. Raspberry Pi and
-queue browsing both use a local maximum of 100 items.
+queue browsing both use a local maximum of 100 items. The touch client shares
+one dispatch gate for both lists. It allows one request per list at a time,
+so a pending queue load does not suppress a playlist load. Completion or a
+worker failure releases that list for a new request. Demo mode supplies local
+rows, while an unpaired client does not dispatch either request.
 
 Queue row playback sends `command:"play_context_at"` and nests the selected
 item fields under `value`. A playable queue item only needs a non-empty Spotify
