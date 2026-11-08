@@ -2105,6 +2105,32 @@ Item {
         id: searchPanel
         objectName: "sessionSearchPanel"
         property bool keyboardVisible: false
+        property string selectedMatchId: ""
+        readonly property var matches: screen.state.search.matches || []
+        readonly property int selectedMatchIndex: matches.findIndex(function(row) { return row.entry_id === selectedMatchId })
+        onMatchesChanged: {
+            if (selectedMatchId && !matches.some(function(row) { return row.entry_id === selectedMatchId }))
+                selectedMatchId = ""
+        }
+        function resetSearch() {
+            selectedMatchId = ""
+            screen.owner.clearSearch()
+        }
+        function moveMatch(delta) {
+            var count = matches.length
+            if (!count) return
+            var index = selectedMatchIndex < 0 ? (delta < 0 ? count - 1 : 0)
+                : (selectedMatchIndex + delta + count) % count
+            var card = searchRows.itemAt(index)
+            if (!card) return
+            selectedMatchId = card.modelData.entry_id
+            var flick = searchScroll.contentItem
+            flick.cancelFlick()
+            searchPosition.stop()
+            var top = flick.contentY + card.mapToItem(flick, 0, 0).y
+            flick.contentY = Math.max(0, Math.min(top, flick.contentHeight - flick.height))
+            screen.rememberSearch()
+        }
         readonly property int bodyMargin: keyboardVisible ? 20 : 0
         function submitSearch() {
             if (screen.owner.busy || !searchInput.text.trim().length) return
@@ -2112,7 +2138,7 @@ Item {
             screen.searchNow()
         }
         onOpened: keyboardVisible = true
-        onClosed: { keyboardVisible = false; screen.cancelSearchRead(); searchInput.clear(); screen.owner.clearSearch() }
+        onClosed: { keyboardVisible = false; screen.cancelSearchRead(); searchInput.clear(); resetSearch() }
         x: keyboardVisible ? 0 : 16
         y: toolbar.y + toolbar.height + 8
         width: screen.width - 2 * x
@@ -2136,7 +2162,7 @@ Item {
                     background: GlassSurface { radius: 20; interactive: true; focused: searchInput.activeFocus }
                     Accessible.name: screen.tr("session_search")
                     selectByMouse: true
-                    onTextEdited: screen.owner.clearSearch()
+                    onTextEdited: searchPanel.resetSearch()
                     TapHandler { onTapped: searchPanel.keyboardVisible = true }
                     onAccepted: searchPanel.submitSearch()
                 }
@@ -2144,6 +2170,25 @@ Item {
                     iconName: "search"; Accessible.name: screen.tr("session_search")
                     enabled: !screen.owner.busy && searchInput.text.trim().length > 0
                     onClicked: searchPanel.submitSearch()
+                }
+                Text {
+                    objectName: "sessionSearchMatchCount"
+                    visible: searchPanel.matches.length > 0
+                    text: searchPanel.selectedMatchIndex < 0 ? String(searchPanel.matches.length)
+                        : (searchPanel.selectedMatchIndex + 1) + " / " + searchPanel.matches.length
+                    color: BrandTheme.colors.muted; font.pixelSize: 17
+                }
+                GlassButton {
+                    objectName: "sessionSearchPreviousMatch"
+                    iconName: "arrow_up"; Accessible.name: screen.tr("session_search_previous_match")
+                    enabled: searchPanel.matches.length > 0
+                    onClicked: searchPanel.moveMatch(-1)
+                }
+                GlassButton {
+                    objectName: "sessionSearchNextMatch"
+                    iconName: "arrow_down"; Accessible.name: screen.tr("session_search_next_match")
+                    enabled: searchPanel.matches.length > 0
+                    onClicked: searchPanel.moveMatch(1)
                 }
                 GlassButton { text: screen.tr("close"); onClicked: searchPanel.close() }
             }
@@ -2178,10 +2223,14 @@ Item {
                     Repeater {
                         id: searchRows
                         objectName: "sessionSearchRows"
-                        model: screen.state.search.matches || []
+                        model: searchPanel.matches
                         GlassCard {
+                            id: searchMatch
                             required property var modelData
+                            readonly property bool selectedMatch: modelData.entry_id === searchPanel.selectedMatchId
                             Layout.fillWidth: true
+                            Accessible.selected: selectedMatch
+                            background: GlassSurface { selected: searchMatch.selectedMatch }
                             Text { visible: searchSources.ready; text: modelData.summary || screen.tr("session_title"); textFormat: Text.PlainText; color: BrandTheme.colors.text; font.bold: true; font.pixelSize: 22; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                             Text { objectName: "sessionSearchHighlightedBody"; visible: searchSources.ready; text: modelData.highlighted_text || ""; textFormat: Text.StyledText; color: BrandTheme.colors.text; font.pixelSize: 20; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                             SessionAttribution { id: searchSources; sources: modelData.display_sources || []; requiresSpotify: modelData.requires_spotify_attribution || false; spotifyURL: modelData.spotify_source_url || ""; Layout.fillWidth: true }
@@ -2203,7 +2252,7 @@ Item {
                 visible: searchPanel.keyboardVisible
                 Layout.fillWidth: true
                 target: searchInput; backend: screen.backend
-                onEdited: screen.owner.clearSearch()
+                onEdited: searchPanel.resetSearch()
                 onSubmitted: searchPanel.submitSearch()
                 onDismissed: searchPanel.keyboardVisible = false
             }
