@@ -89,6 +89,8 @@ BrandWindow {
     readonly property bool liquidGlassEnabled: djconnect.glassEnabled
     readonly property string appearanceMood: {
         if (root.activeScreen === "games") return gamesPanel.gameMood
+        if (root.activeScreen === "trackinsight" && !trackInsightPanel.hasLiveSession)
+            return trackInsightPanel.visualMood
         var session = djconnect.djSession.state
         if (session.session_id && ["chill", "groove", "energy", "party"].indexOf(session.mood) >= 0) return session.mood
         var settings = djconnect.sharedSettings
@@ -2303,6 +2305,14 @@ BrandWindow {
 
     Rectangle {
         id: trackInsightPanel
+        objectName: "trackInsightPanel"
+        property string visualMood: "groove"
+        readonly property bool hasLiveSession: {
+            const session = djconnect.djSession.state
+            return !!session.session_id && ["opening", "active", "ending"].includes(session.runtime_state)
+        }
+        readonly property bool canChooseVisualMood: visible && root.active && !root.screenBlanked && !hasLiveSession
+        onCanChooseVisualMoodChanged: if (!canChooseVisualMood) trackInsightMoodPopup.close()
         property bool autoInsightRequested: false
         anchors.fill: parent
         color: BrandTheme.colors.background
@@ -2330,6 +2340,28 @@ BrandWindow {
 
             PageToolbar {
                 title: root.tr("track_insight")
+                showLeading: !trackInsightPanel.hasLiveSession
+                leading: [
+                    GlassButton {
+                        id: trackInsightMoodButton
+                        objectName: "trackInsightVisualMoodToggle"
+                        iconName: "mood_" + trackInsightPanel.visualMood
+                        tertiary: true
+                        implicitWidth: 52
+                        enabled: trackInsightPanel.canChooseVisualMood
+                        Accessible.name: root.tr("shared_field_mood")
+                        Accessible.description: root.tr("shared_mood_" + trackInsightPanel.visualMood)
+                        onClicked: {
+                            if (!trackInsightPanel.canChooseVisualMood)
+                                return
+                            const anchor = trackInsightMoodButton.mapToItem(trackInsightPanel, 0, trackInsightMoodButton.height)
+                            trackInsightMoodPopup.x = Math.max(12, Math.min(anchor.x,
+                                trackInsightPanel.width - trackInsightMoodPopup.width - 12))
+                            trackInsightMoodPopup.y = anchor.y + 8
+                            trackInsightMoodPopup.open()
+                        }
+                    }
+                ]
                 showConnection: true
                 connectionLabel: root.tr("connection_type")
                 connectionText: djconnect.connectionType
@@ -2659,6 +2691,51 @@ BrandWindow {
                                         Layout.fillWidth: true
                                     }
                                 }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        GlassPopup {
+            id: trackInsightMoodPopup
+            objectName: "trackInsightVisualMoodPopup"
+            width: Math.min(trackInsightPanel.width - 24, 440)
+            padding: 18
+            modal: true
+            dim: false
+            closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+            background: GlassSurface { popover: true; elevated: true }
+
+            contentItem: ColumnLayout {
+                spacing: 12
+                Text {
+                    text: root.tr("shared_field_mood")
+                    color: BrandTheme.colors.text
+                    font.pixelSize: 24
+                    font.bold: true
+                }
+                GridLayout {
+                    Layout.fillWidth: true
+                    columns: 2
+                    columnSpacing: 8
+                    rowSpacing: 8
+                    Repeater {
+                        model: ["chill", "groove", "energy", "party"]
+                        GlassButton {
+                            required property string modelData
+                            objectName: "trackInsightVisualMood-" + modelData
+                            Layout.fillWidth: true
+                            Layout.preferredWidth: 1
+                            iconName: "mood_" + modelData
+                            text: root.tr("shared_mood_" + modelData)
+                            checked: trackInsightPanel.visualMood === modelData
+                            enabled: trackInsightPanel.canChooseVisualMood
+                            onClicked: {
+                                if (!trackInsightPanel.canChooseVisualMood)
+                                    return
+                                trackInsightPanel.visualMood = modelData
+                                trackInsightMoodPopup.close()
                             }
                         }
                     }
