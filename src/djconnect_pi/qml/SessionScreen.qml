@@ -18,7 +18,7 @@ Item {
     property var state: owner.state
     readonly property bool sessionVoiceAvailable: backend.sessionVoiceAvailable
     onSessionVoiceAvailableChanged: if (!sessionVoiceAvailable && choices && choices.field === "voice") choices.close()
-    readonly property var displayedRetainedFlow: state.flow_retained || state.retained_flow
+    readonly property var displayedRetainedFlow: state.flow_retained || state.retained_flow.slice().reverse()
     readonly property string scopeProfileId: state.owner_profile_id || backend.activeProfileId
     readonly property string artworkTint: {
         if (!visible || historical) return ""
@@ -1420,7 +1420,7 @@ Item {
                 id: conversationRows
                 objectName: "sessionConversationRows"
                 // Presentation only: canonical owner/model order remains ascending.
-                model: !screen.historical ? screen.displayedRetainedFlow.slice().reverse() : []
+                model: !screen.historical ? screen.displayedRetainedFlow : []
                 SessionRetainedEntry {
                     objectName: "sessionConversationCard"
                     required property var modelData

@@ -4,7 +4,7 @@ from html import escape
 from importlib.resources import files
 from urllib.parse import urlsplit
 
-from .session_projection import history_page, live_moments, safe_link, text
+from .session_projection import history_page, live_moments, safe_link, text, timestamp
 from .session_transport import SessionError, identifier
 
 
@@ -91,19 +91,25 @@ def presented_history(response):
 
 
 def retained_flow_presentation(entries, admitted_moments, session_id):
-    """Omit only a current Session's exact-ID duplicate of admitted native prose.
+    """Order admitted history for Flow without changing the canonical timeline.
 
-    Inputs are independently admitted current models. This changes presentation,
-    not canonical history, selection, attribution or either original lifetime.
-    Text equality, titles, publication markers and foreign Sessions never join.
+    Only an exact-ID native prose duplicate from the current Session is omitted.
+    Ties keep the previous reverse canonical order, and a missing date sorts last.
     """
-    if not isinstance(session_id, str) or not session_id:
-        return list(entries)
-    ids = {row.get("moment_id") for row in admitted_moments
+    ids = {row["moment_id"] for row in admitted_moments
            if isinstance(row.get("moment_id"), str) and row["moment_id"]}
-    return [row for row in entries if not (row.get("kind") == "dj_moment"
-            and row.get("session_id") == session_id
-            and isinstance(row.get("moment_id"), str) and row["moment_id"] in ids)]
+    visible = [row for row in reversed(entries) if not (
+        isinstance(session_id, str) and session_id
+        and row.get("kind") == "dj_moment" and row.get("session_id") == session_id
+        and isinstance(row.get("moment_id"), str) and row["moment_id"] in ids
+    )]
+
+    def occurred_at(row):
+        value = timestamp(row.get("occurred_at"))
+        return value if value is not None else float("-inf")
+
+    return sorted(visible, key=occurred_at, reverse=True)
+
 
 def _highlighted_text(body, marks):
     # Called only after server UTF-16 ranges passed exact character-boundary validation.

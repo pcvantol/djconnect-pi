@@ -3318,3 +3318,17 @@ The current Core For-you contract at `50a0884c` still limits the offer to
 iOS/iPadOS and macOS; the Pi does not synthesize an offer or call its actions.
 New Apple speech paths, Watch surfaces and provider actions are outside this
 change. Physical installation and GPU acceptance are separate.
+
+### Retained contribution dates in current Flow
+
+The current Flow lists admitted saved contributions by their original
+`occurred_at` timestamp, newest first, following the saved-row ordering in
+Apple main `93dccad59304f3b35bc427b79aca3758e56310ab`. Rows with equal times
+keep reverse canonical order. Undated rows sort last. Native Moment duplicate
+suppression still matches only the exact Moment ID and current Session.
+Canonical history, lookup IDs, source permissions and deadlines stay separate
+from the presentation order. Interleaving live Bulletins remains open.
+
+An offline ARM64 Qt probe verified the actual vertical card order with
+out-of-sequence timestamps on both Pi layouts in all five languages. The 271
+focused history, Session, composer and QML tests passed.

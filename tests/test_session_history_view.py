@@ -206,7 +206,7 @@ def test_flow_native_join_is_presentation_only_exact_same_session_moment_id():
     original = deepcopy((entries, native))
     assert retained_flow_presentation(entries, native, "s") == [entries[1]]
     assert (entries, native) == original
-    assert retained_flow_presentation(entries, [], "s") == entries
+    assert retained_flow_presentation(entries, [], "s") == entries[::-1]
 
 
 @pytest.mark.parametrize("change", [
@@ -229,11 +229,28 @@ def test_flow_native_join_requires_original_current_session(sid):
     assert retained_flow_presentation([row], [{"moment_id": "m"}], sid) == [row]
 
 
-def test_flow_native_join_keeps_original_retained_order_without_promoting_grants():
+def test_flow_uses_original_dates_then_reverse_canonical_order_without_promoting_grants():
     from djconnect_pi.session_history_view import retained_flow_presentation
-    rows = [{"session_id": "s", "kind": "dj_moment", "moment_id": x, "order": i} for i,x in enumerate(["a","b","c"])]
-    assert retained_flow_presentation(rows, [{"moment_id": "b"}], "s") == [rows[0], rows[2]]
-    assert retained_flow_presentation(rows, [{"moment_id": None}, {"moment_id": True}], "s") == rows
+    rows = [
+        {"session_id": "s", "kind": "dj_moment", "moment_id": "newer", "order": 1,
+         "occurred_at": "2026-10-20T00:03:00Z", "retained_until": "original"},
+        {"session_id": "s", "kind": "dj_moment", "moment_id": "native", "order": 2,
+         "occurred_at": "2026-10-20T00:04:00Z"},
+        {"session_id": "s", "kind": "playback_observed", "order": 3,
+         "occurred_at": "2026-10-20T00:01:00Z"},
+        {"session_id": "s", "kind": "conversation_dj", "order": 4,
+         "occurred_at": "2026-10-20T01:01:00+01:00", "state": "source_withdrawn"},
+        {"session_id": "s", "kind": "dj_silence", "order": 5},
+    ]
+    original = deepcopy(rows)
+    assert retained_flow_presentation(rows, [{"moment_id": "native"}], "s") == [
+        rows[0], rows[3], rows[2], rows[4],
+    ]
+    assert retained_flow_presentation(rows, [], "s") == [
+        rows[1], rows[0], rows[3], rows[2], rows[4],
+    ]
+    assert rows == original
+
 
 def withdrawn_timeline(kind):
     tail = timeline_fixture()
