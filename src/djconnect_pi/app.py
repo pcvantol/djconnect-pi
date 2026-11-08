@@ -241,6 +241,7 @@ class DJConnectBackend(QObject):
         self._track_insight_items: list[dict[str, object]] = []
         self._track_insight_sections: list[dict[str, object]] = []
         self._track_insight_visualizer: dict[str, object] = {}
+        self._application_foreground = True
         self._track_insight_revision = 0
         self._track_insight_result_scope = None
         self._ask_dj_unavailable_until = 0.0
@@ -1173,6 +1174,14 @@ class DJConnectBackend(QObject):
         self._set_favorite_busy(True)
         self._run("save_current_track", self._save_current_track_worker, done=lambda: self._set_favorite_busy(False))
 
+    def setApplicationForeground(self, foreground: bool) -> None:
+        if foreground != self._application_foreground:
+            self._application_foreground = foreground
+            if not foreground:
+                self._track_insight_revision += 1
+                self._clear_track_insight()
+        self._session_controller.setForeground(foreground)
+
     @Slot()
     def openTrackInsight(self) -> None:
         if not self.playback.is_playing:
@@ -1185,7 +1194,7 @@ class DJConnectBackend(QObject):
 
     def _request_track_insight(self, *, show_toast: bool) -> None:
         self._sync_config_from_disk()
-        if self._demo_mode or not self.paired or self._ask_dj_busy:
+        if self._demo_mode or not self.paired or self._ask_dj_busy or not self._application_foreground:
             return
         _LOGGER.info("User requested Track Insight for current track")
         scope = self._track_insight_scope()
@@ -1922,7 +1931,7 @@ class DJConnectBackend(QObject):
         self._toastReady.emit(self.tr_key("ask_dj_cleared"), 2500, "askdj")
 
     def _track_insight_worker(self, playback: Playback, scope: tuple) -> None:
-        if scope != self._track_insight_scope():
+        if not self._application_foreground or scope != self._track_insight_scope():
             return
         try:
             data = self.client.track_insight(playback)
@@ -2553,7 +2562,7 @@ class DJConnectBackend(QObject):
 
     @Slot(object)
     def _apply_track_insight_data(self, data: object) -> None:
-        if not self._profile_result_current(data):
+        if not self._application_foreground or not self._profile_result_current(data):
             return
         scope = self._track_insight_scope()
         if isinstance(data, _TrackInsightResult) and data.scope != scope:
@@ -2894,7 +2903,8 @@ def main() -> None:
     engine = QQmlApplicationEngine()
     backend = DJConnectBackend(args.config)
     backend.observeLocalAudioDevices()
-    app.applicationStateChanged.connect(lambda state: backend.djSession.setForeground(state == Qt.ApplicationState.ApplicationActive))
+    backend.setApplicationForeground(app.applicationState() == Qt.ApplicationState.ApplicationActive)
+    app.applicationStateChanged.connect(lambda state: backend.setApplicationForeground(state == Qt.ApplicationState.ApplicationActive))
     engine.rootContext().setContextProperty("djconnect", backend)
     engine.rootContext().setContextProperty("startWindowed", args.windowed)
     qml_path = files("djconnect_pi.qml").joinpath("Main.qml")
