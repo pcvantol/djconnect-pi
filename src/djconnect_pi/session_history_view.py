@@ -104,11 +104,21 @@ def retained_flow_presentation(entries, admitted_moments, session_id):
         and isinstance(row.get("moment_id"), str) and row["moment_id"] in ids
     )]
 
-    def occurred_at(row):
-        value = timestamp(row.get("occurred_at"))
-        return value if value is not None else float("-inf")
+    return sorted(visible, key=_flow_time, reverse=True)
 
-    return sorted(visible, key=occurred_at, reverse=True)
+
+def _flow_time(row):
+    value = timestamp(row.get("occurred_at"))
+    return value if value is not None else float("-inf")
+
+
+def flow_contributions(entries, admitted_moments, session_id):
+    """Join already admitted live Bulletins to saved rows for display only."""
+    rows = [{"bulletin": False, "contribution": row}
+            for row in retained_flow_presentation(entries, admitted_moments, session_id)]
+    rows.extend({"bulletin": True, "contribution": row} for row in admitted_moments
+                if row.get("flow_bulletin") and not row["current"])
+    return sorted(rows, key=lambda row: _flow_time(row["contribution"]), reverse=True)
 
 
 def _highlighted_text(body, marks):
@@ -193,8 +203,40 @@ def live_presentations(session, *, now=None):
             card["spotify_source_url"] = spotify_source({**raw, "requires_spotify_attribution": card["requires_spotify_attribution"]})
         except SessionError:
             continue
+        if raw.get("type") == "dj_bulletin":
+            if not _valid_bulletin(raw, card):
+                continue
+            card.update(flow_bulletin=True, occurred_at=raw["created_at"])
         result.append(card)
     return result
+
+
+def _valid_bulletin(raw, card):
+    metadata = raw.get("generation_metadata")
+    intent = raw.get("knowledge_intent")
+    presentation = raw.get("presentation_intent")
+    visibility = raw.get("visibility")
+    channels = ["owner"] if visibility == "owner_only" else ["broadcast", "owner", "shared"]
+    references = raw.get("sources")
+    return (
+        visibility in ("owner_only", "session_shared")
+        and isinstance(presentation, dict) and presentation.get("visibility") == visibility
+        and presentation.get("delivery_channels") == raw.get("delivery_channels") == channels
+        and isinstance(metadata, dict) and metadata.get("bulletin_schema") == "1"
+        and metadata.get("context_source") == "fixed_rss_metadata_v1"
+        and isinstance(intent, dict) and intent.get("type") == "dj_bulletin"
+        and raw.get("source_references") == ["fixed_rss_metadata_v1"]
+        and raw.get("artwork") is None and raw.get("source_attribution") is None
+        and raw.get("settings_confirmation") is None and raw.get("actions") == []
+        and timestamp(raw.get("created_at")) is not None and 0 < len(card["body"]) <= 1200
+        and not card["requires_spotify_attribution"] and timestamp(card["source_expires_at"]) is not None
+        and isinstance(references, list) and 2 <= len(references) <= 16
+        and all(isinstance(source, dict)
+                and all(isinstance(source.get(key), str) and source[key].strip()
+                        and len(source[key].encode(errors="surrogatepass")) <= 4096 for key in ("provider", "license", "title"))
+                and safe_link(source.get("url")) and timestamp(source.get("published_at")) is not None
+                for source in references)
+    )
 
 
 def spotify_source(subject):

@@ -7,6 +7,7 @@ import pytest
 
 from djconnect_pi.session_history_view import (
     conversation_entries,
+    flow_contributions,
     opened_entry,
     presented_history,
     search_page,
@@ -250,6 +251,28 @@ def test_flow_uses_original_dates_then_reverse_canonical_order_without_promoting
         rows[1], rows[0], rows[3], rows[2], rows[4],
     ]
     assert rows == original
+
+
+def test_flow_interleaves_admitted_previous_bulletins_and_preserves_the_current_header():
+    before = {"entry_id": "before", "occurred_at": "2026-10-31T19:48:00Z", "flow_bulletin": True}
+    after = {"entry_id": "after", "occurred_at": "2026-10-31T19:49:00Z"}
+    bulletin = {"flow_bulletin": True, "current": False, "moment_id": "bulletin",
+                "occurred_at": "2026-10-31T19:48:15Z", "source_expires_at": "original"}
+    duplicate = {"entry_id": "dup", "session_id": "s", "kind": "dj_moment", "moment_id": "bulletin"}
+    current = {**bulletin, "current": True, "moment_id": "current"}
+    other = {**bulletin, "flow_bulletin": False, "moment_id": "other"}
+    entries = [before, after, duplicate]
+    moments = [current, bulletin, other]
+
+    assert flow_contributions(entries, moments, "s") == [
+        {"bulletin": False, "contribution": after},
+        {"bulletin": True, "contribution": bulletin},
+        {"bulletin": False, "contribution": before},
+    ]
+    assert [item["contribution"] for item in flow_contributions(entries, [current, other], "s")] == [
+        after, before, duplicate,
+    ]
+    assert bulletin["source_expires_at"] == "original"
 
 
 def withdrawn_timeline(kind):

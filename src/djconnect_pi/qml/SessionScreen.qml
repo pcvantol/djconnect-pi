@@ -18,7 +18,86 @@ Item {
     property var state: owner.state
     readonly property bool sessionVoiceAvailable: backend.sessionVoiceAvailable
     onSessionVoiceAvailableChanged: if (!sessionVoiceAvailable && choices && choices.field === "voice") choices.close()
-    readonly property var displayedRetainedFlow: state.flow_retained || state.retained_flow.slice().reverse()
+    readonly property var displayedFlow: state.flow_rows || []
+    component LiveMomentCard: GlassCard {
+        objectName: "sessionLiveMomentCard"
+        artworkTint: currentMomentArtworkFrame.artworkTint
+        currentMoment: modelData.current
+        required property var modelData
+        Layout.fillWidth: true
+        property alias bodyItem: momentBody
+        ColumnLayout {
+            objectName: "sessionMomentArtworkCard"
+            visible: liveSources.ready && !!screen.owner.momentArtwork.source && modelData.current && screen.owner.momentArtwork.moment_id === modelData.moment_id && artworkSource.ready
+            Layout.fillWidth: true
+            GlassArtworkFrame {
+                Connections {
+                    target: screen.owner
+                    function onArtworkAboutToChange() { currentMomentArtworkFrame.invalidatePalette() }
+                }
+                id: currentMomentArtworkFrame
+                objectName: "sessionMomentArtworkFrame"
+                backend: screen.backend; imageItem: currentMomentArtworkImage
+                leaseKey: screen.scopeProfileId + "|" + screen.state.session_id + "|" + modelData.moment_id
+                admissionCheck: function() {
+                    var art = screen.owner.momentArtwork
+                    return modelData.current && liveSources.ready && artworkSource.ready && !!art.source && art.moment_id === modelData.moment_id
+                }
+                Layout.preferredWidth: 100 * (screen.owner.momentArtwork.width || 100) / Math.max(screen.owner.momentArtwork.width || 100, screen.owner.momentArtwork.height || 100)
+                Layout.preferredHeight: 100 * (screen.owner.momentArtwork.height || 100) / Math.max(screen.owner.momentArtwork.width || 100, screen.owner.momentArtwork.height || 100)
+                Layout.alignment: Qt.AlignLeft
+                Image {
+                    id: currentMomentArtworkImage
+                    objectName: "sessionMomentArtworkImage"
+                    source: parent.visible ? (screen.owner.momentArtwork.source || "") : ""
+                    cache: false; asynchronous: true; retainWhileLoading: false
+                    fillMode: Image.PreserveAspectFit
+                    anchors.fill: parent
+                    Accessible.name: screen.owner.momentArtwork.artist || ""
+                }
+            }
+            SessionAttribution { id: artworkSource; requiresSpotify: true; spotifyURL: screen.owner.momentArtwork.source_url || ""; Layout.fillWidth: true }
+        }
+        RowLayout {
+            visible: liveSources.ready
+            Layout.fillWidth: true
+            spacing: screen.compact ? 12 : 16
+            DJSessionMenuSymbol {
+                objectName: "sessionCurrentMomentIdentity"
+                visible: modelData.current
+                iconColor: BrandTheme.colors.purple
+                Layout.preferredWidth: screen.compact ? 52 : 76
+                Layout.preferredHeight: Layout.preferredWidth
+                Layout.alignment: Qt.AlignTop
+                Accessible.ignored: true
+            }
+            ColumnLayout {
+                Layout.fillWidth: true
+                Text { text: modelData.title; textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 26; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                Text { id: momentBody; objectName: "sessionLiveMomentBody"; text: modelData.body; textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 23; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+            }
+        }
+        GlassButton {
+            objectName: "sessionPrepareArtwork"
+            visible: liveSources.ready && modelData.current && screen.state.artwork_prepare.available && screen.state.artwork_prepare.moment_id === modelData.moment_id
+            text: screen.tr(screen.state.artwork_prepare.status === "loading" ? "session_artwork_loading" : "session_artwork_load")
+            enabled: !screen.owner.busy && !screen.owner.questionBusy
+            onClicked: screen.owner.prepareArtwork(screen.state.session_id, modelData.moment_id)
+        }
+        Text {
+            objectName: "sessionPrepareArtworkStatus"
+            visible: modelData.current && liveSources.ready && (screen.state.artwork_prepare.status === "unavailable" || screen.state.artwork_prepare.status === "uncertain")
+            text: screen.tr(screen.state.artwork_prepare.status === "uncertain" ? "session_artwork_uncertain" : "session_artwork_unavailable")
+            textFormat: Text.PlainText; color: BrandTheme.colors.muted; font.pixelSize: 20; wrapMode: Text.WordWrap; Layout.fillWidth: true
+        }
+        GlassButton {
+            visible: screen.state.composer_available && liveSources.ready
+            text: screen.tr("session_ask_about"); enabled: !screen.owner.busy
+            onClicked: { if (screen.owner.selectMoment(screen.state.session_id, modelData.moment_id)) composerPanel.open() }
+        }
+        SessionAttribution { id: liveSources; sources: modelData.display_sources || []; requiresSpotify: modelData.requires_spotify_attribution || false; spotifyURL: modelData.spotify_source_url || ""; Layout.fillWidth: true }
+
+    }
     readonly property string scopeProfileId: state.owner_profile_id || backend.activeProfileId
     readonly property string artworkTint: {
         if (!visible || historical) return ""
@@ -177,13 +256,13 @@ Item {
         var groups = [liveMomentRows, conversationRows]
         for (var g = 0; g < groups.length; g++) {
             for (var i = 0; i < groups[g].count; i++) {
-                var card = groups[g].itemAt(i)
+                var card = flowCardAt(groups[g], i)
                 if (!card || !card.visible) continue
                 var y = card.mapToItem(historyScroll.contentItem, 0, 0).y
                 if (y + card.height > 0 && y < historyScroll.contentItem.height && isFinite(y) && Math.abs(y) <= 1000000 && (!best || y < best.offset)) {
                     best = {session: state.session_id, profile: scopeProfileId,
-                        kind: g === 0 ? "moment" : "conversation",
-                        id: g === 0 ? card.modelData.moment_id : card.modelData.entry_id, offset: y}
+                        kind: card.modelData.entry_id ? "conversation" : "moment",
+                        id: card.modelData.entry_id || card.modelData.moment_id, offset: y}
                 }
             }
         }
@@ -225,36 +304,46 @@ Item {
         if (saved.kind === "playback") return state.playback.item_id === saved.id && playbackSources.ready
         if (saved.kind === "current_reply") return state.current_reply.reply_id === saved.id
         if (saved.kind === "moment" || saved.kind === "moment_text") return state.moments.some(function(row) { return row.moment_id === saved.id }) ||
-            displayedRetainedFlow.some(function(row) { return row.kind === "dj_moment" && row.session_id === state.session_id && row.moment_id === saved.id })
+            displayedFlow.some(function(item) {
+                var row = item.contribution
+                return !item.bulletin && row.kind === "dj_moment" && row.session_id === state.session_id && row.moment_id === saved.id
+            })
         if (saved.kind === "conversation") return state.retained_flow.some(function(row) { return row.entry_id === saved.id })
         return false
+    }
+    function flowCardAt(rows, index) {
+        var delegate = rows.itemAt(index)
+        return rows === conversationRows && delegate ? delegate.item : delegate
+    }
+    function findFlowCard(field, identity, match) {
+        var groups = [liveMomentRows, conversationRows]
+        for (var g = 0; g < groups.length; g++) {
+            for (var i = 0; i < groups[g].count; i++) {
+                var card = flowCardAt(groups[g], i)
+                if (card && card.visible && card.modelData[field] === identity && match(card.modelData)) return card
+            }
+        }
+        return null
     }
     function flowTarget(saved) {
         if (saved.kind === "playback") return playbackMetadata.visible ? playbackMetadata : null
         if (saved.kind === "current_reply") return currentReplyCard.visible ? currentReplyCard : null
         var nativeRow = saved.kind === "moment" || saved.kind === "moment_text"
-        var rows = nativeRow ? liveMomentRows : conversationRows
-        for (var i = 0; i < rows.count; i++) {
-            var card = rows.itemAt(i)
-            var id = card ? (nativeRow ? card.modelData.moment_id : card.modelData.entry_id) : ""
-            if (id === saved.id) return saved.kind === "moment_text" ? card.bodyItem : card
+        var card = findFlowCard(nativeRow ? "moment_id" : "entry_id", saved.id,
+                                function(row) { return !nativeRow || !row.entry_id })
+        if (!card && nativeRow) {
+            card = findFlowCard("moment_id", saved.id, function(row) {
+                return row.kind === "dj_moment" && row.session_id === state.session_id
+            })
+        } else if (!card) {
+            // The canonical entry must still authorize matching the exact Moment.
+            var entries = state.retained_flow.filter(function(row) {
+                return row.entry_id === saved.id && row.kind === "dj_moment" && row.session_id === state.session_id
+            })
+            if (entries.length === 1 && typeof entries[0].moment_id === "string")
+                card = findFlowCard("moment_id", entries[0].moment_id, function(row) { return !row.entry_id })
         }
-        // Resolve a fresh alternate presentation by the same original Moment ID.
-        // Never keep a body/ID mapping after either current model withdraws it.
-        var momentId = nativeRow ? saved.id : ""
-        if (!nativeRow) {
-            var entry = state.retained_flow.filter(function(row) { return row.entry_id === saved.id && row.kind === "dj_moment" && row.session_id === state.session_id })
-            if (entry.length !== 1 || typeof entry[0].moment_id !== "string") return null
-            momentId = entry[0].moment_id
-        }
-        var alternate = nativeRow ? conversationRows : liveMomentRows
-        for (var j = 0; j < alternate.count; j++) {
-            var other = alternate.itemAt(j)
-            if (other && other.visible && other.modelData.moment_id === momentId &&
-                    (!nativeRow || (other.modelData.kind === "dj_moment" && other.modelData.session_id === state.session_id)))
-                return saved.kind === "moment_text" ? other.bodyItem : other
-        }
-        return null
+        return card && saved.kind === "moment_text" ? card.bodyItem : card
     }
     Timer {
         id: flowReturnRestore
@@ -545,7 +634,7 @@ Item {
         onTriggered: {
             if (!screen.visible || screen.historical || !screen.followQuestionReply) return
             for (var i = 0; i < conversationRows.count; i++) {
-                var card = conversationRows.itemAt(i)
+                var card = flowCardAt(conversationRows, i)
                 if (card && card.modelData.entry_id === screen.pendingReplyId) {
                     var flick = historyScroll.contentItem
                     flick.contentY = Math.max(0, Math.min(flick.contentY + card.mapToItem(flick, 0, 0).y - 12, Math.max(0, flick.contentHeight - flick.height)))
@@ -1296,86 +1385,10 @@ Item {
             Repeater {
                 id: liveMomentRows
                 objectName: "sessionLiveMomentRows"
-                model: !screen.historical ? screen.state.moments : []
-                GlassCard {
-                    objectName: "sessionLiveMomentCard"
-                    artworkTint: currentMomentArtworkFrame.artworkTint
-                    currentMoment: modelData.current
-                    required property var modelData
-                    Layout.fillWidth: true
-                    property alias bodyItem: momentBody
-                    ColumnLayout {
-                        objectName: "sessionMomentArtworkCard"
-                        visible: liveSources.ready && !!screen.owner.momentArtwork.source && modelData.current && screen.owner.momentArtwork.moment_id === modelData.moment_id && artworkSource.ready
-                        Layout.fillWidth: true
-                        GlassArtworkFrame {
-                            Connections {
-                                target: screen.owner
-                                function onArtworkAboutToChange() { currentMomentArtworkFrame.invalidatePalette() }
-                            }
-                            id: currentMomentArtworkFrame
-                            objectName: "sessionMomentArtworkFrame"
-                            backend: screen.backend; imageItem: currentMomentArtworkImage
-                            leaseKey: screen.scopeProfileId + "|" + screen.state.session_id + "|" + modelData.moment_id
-                            admissionCheck: function() {
-                                var art = screen.owner.momentArtwork
-                                return modelData.current && liveSources.ready && artworkSource.ready && !!art.source && art.moment_id === modelData.moment_id
-                            }
-                            Layout.preferredWidth: 100 * (screen.owner.momentArtwork.width || 100) / Math.max(screen.owner.momentArtwork.width || 100, screen.owner.momentArtwork.height || 100)
-                            Layout.preferredHeight: 100 * (screen.owner.momentArtwork.height || 100) / Math.max(screen.owner.momentArtwork.width || 100, screen.owner.momentArtwork.height || 100)
-                            Layout.alignment: Qt.AlignLeft
-                            Image {
-                                id: currentMomentArtworkImage
-                                objectName: "sessionMomentArtworkImage"
-                                source: parent.visible ? (screen.owner.momentArtwork.source || "") : ""
-                                cache: false; asynchronous: true; retainWhileLoading: false
-                                fillMode: Image.PreserveAspectFit
-                                anchors.fill: parent
-                                Accessible.name: screen.owner.momentArtwork.artist || ""
-                            }
-                        }
-                        SessionAttribution { id: artworkSource; requiresSpotify: true; spotifyURL: screen.owner.momentArtwork.source_url || ""; Layout.fillWidth: true }
-                    }
-                    RowLayout {
-                        visible: liveSources.ready
-                        Layout.fillWidth: true
-                        spacing: screen.compact ? 12 : 16
-                        DJSessionMenuSymbol {
-                            objectName: "sessionCurrentMomentIdentity"
-                            visible: modelData.current
-                            iconColor: BrandTheme.colors.purple
-                            Layout.preferredWidth: screen.compact ? 52 : 76
-                            Layout.preferredHeight: Layout.preferredWidth
-                            Layout.alignment: Qt.AlignTop
-                            Accessible.ignored: true
-                        }
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            Text { text: modelData.title; textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 26; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                            Text { id: momentBody; objectName: "sessionLiveMomentBody"; text: modelData.body; textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 23; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                        }
-                    }
-                    GlassButton {
-                        objectName: "sessionPrepareArtwork"
-                        visible: liveSources.ready && modelData.current && screen.state.artwork_prepare.available && screen.state.artwork_prepare.moment_id === modelData.moment_id
-                        text: screen.tr(screen.state.artwork_prepare.status === "loading" ? "session_artwork_loading" : "session_artwork_load")
-                        enabled: !screen.owner.busy && !screen.owner.questionBusy
-                        onClicked: screen.owner.prepareArtwork(screen.state.session_id, modelData.moment_id)
-                    }
-                    Text {
-                        objectName: "sessionPrepareArtworkStatus"
-                        visible: modelData.current && liveSources.ready && (screen.state.artwork_prepare.status === "unavailable" || screen.state.artwork_prepare.status === "uncertain")
-                        text: screen.tr(screen.state.artwork_prepare.status === "uncertain" ? "session_artwork_uncertain" : "session_artwork_unavailable")
-                        textFormat: Text.PlainText; color: BrandTheme.colors.muted; font.pixelSize: 20; wrapMode: Text.WordWrap; Layout.fillWidth: true
-                    }
-                    GlassButton {
-                        visible: screen.state.composer_available && liveSources.ready
-                        text: screen.tr("session_ask_about"); enabled: !screen.owner.busy
-                        onClicked: { if (screen.owner.selectMoment(screen.state.session_id, modelData.moment_id)) composerPanel.open() }
-                    }
-                    SessionAttribution { id: liveSources; sources: modelData.display_sources || []; requiresSpotify: modelData.requires_spotify_attribution || false; spotifyURL: modelData.spotify_source_url || ""; Layout.fillWidth: true }
-
-                }
+                model: !screen.historical ? screen.state.moments.filter(function(moment) {
+                    return moment.current || !moment.flow_bulletin
+                }) : []
+                LiveMomentCard {}
             }
             GlassCard {
                 id: pendingQuestionCard
@@ -1412,7 +1425,8 @@ Item {
             }
             Text {
                 objectName: "sessionRetainedFlowLabel"
-                visible: !screen.historical && screen.displayedRetainedFlow.length > 0
+                visible: !screen.historical && screen.displayedFlow.length > 0
+                    && !screen.displayedFlow.some(function(row) { return row.bulletin })
                 text: screen.tr("session_retained_flow"); textFormat: Text.PlainText
                 color: BrandTheme.colors.muted; font.pixelSize: 18; wrapMode: Text.WordWrap; Layout.fillWidth: true
             }
@@ -1420,14 +1434,27 @@ Item {
                 id: conversationRows
                 objectName: "sessionConversationRows"
                 // Presentation only: canonical owner/model order remains ascending.
-                model: !screen.historical ? screen.displayedRetainedFlow : []
-                SessionRetainedEntry {
-                    objectName: "sessionConversationCard"
+                model: !screen.historical ? screen.displayedFlow : []
+                Loader {
+                    id: flowRow
                     required property var modelData
-                    entry: modelData; translate: screen.tr; dateText: screen.displayDate(modelData.occurred_at)
-                    selectionAvailable: screen.state.composer_available
-                    selectionBusy: screen.owner.busy || screen.owner.questionBusy
-                    onAskAbout: (sessionId, entryId) => { if (screen.owner.selectFlowEntry(sessionId, entryId)) composerPanel.open() }
+                    Layout.fillWidth: true
+                    sourceComponent: modelData.bulletin ? bulletin : retained
+                    Component {
+                        id: bulletin
+                        LiveMomentCard { modelData: flowRow.modelData.contribution }
+                    }
+                    Component {
+                        id: retained
+                        SessionRetainedEntry {
+                            objectName: "sessionConversationCard"
+                            readonly property var modelData: flowRow.modelData.contribution
+                            entry: modelData; translate: screen.tr; dateText: screen.displayDate(modelData.occurred_at)
+                            selectionAvailable: screen.state.composer_available
+                            selectionBusy: screen.owner.busy || screen.owner.questionBusy
+                            onAskAbout: (sessionId, entryId) => { if (screen.owner.selectFlowEntry(sessionId, entryId)) composerPanel.open() }
+                        }
+                    }
                 }
             }
             GlassButton {
@@ -1552,10 +1579,9 @@ Item {
         id: jumpCurrent
         objectName: "sessionJumpCurrent"
         readonly property real currentHeaderBottom: {
-            var moments = screen.state.moments
             for (var i = 0; i < liveMomentRows.count; i++) {
                 var card = liveMomentRows.itemAt(i)
-                if (moments[i] && moments[i].current && card && card.visible)
+                if (card && card.modelData.current && card.visible)
                     return card.y + card.height
             }
             if (waitingCard.visible) return waitingCard.y + waitingCard.height

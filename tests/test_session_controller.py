@@ -1098,14 +1098,14 @@ def test_flow_native_join_falls_back_only_to_independently_retained_original_bod
     row = {"entry_id": "retained", "session_id": "s1", "kind": "dj_moment", "moment_id": "m1", "text": "independent retained prose", "retained_until": "2026-10-20T00:00:05Z"}
     owner._retained_flow = [row]
     original = deepcopy(row)
-    assert owner.state["moments"] and not owner.state["flow_retained"]
+    assert owner.state["moments"] and not owner.state["flow_rows"]
     assert owner.state["retained_flow"] == [original]
     host.tick = 4; owner._expire()
     assert not owner.state["moments"]
-    assert owner.state["flow_retained"] == [original]
+    assert owner.state["flow_rows"] == [{"bulletin": False, "contribution": original}]
     assert row == original
     host.tick = 6; owner._expire()
-    assert not owner.state["moments"] and not owner.state["retained_flow"] and not owner.state["flow_retained"]
+    assert not owner.state["moments"] and not owner.state["retained_flow"] and not owner.state["flow_rows"]
 
 
 def test_raw_scope_withdrawal_masks_joined_presentation_as_well(controller):
@@ -1113,9 +1113,9 @@ def test_raw_scope_withdrawal_masks_joined_presentation_as_well(controller):
     _personal_owner(owner, backend)
     owner.refresh(); backend.jobs.pop()()
     owner._retained_flow = [{"entry_id": "secret", "kind": "conversation_dj"}]
-    assert owner.state["flow_retained"]
+    assert owner.state["flow_rows"]
     backend.cfg.device_token = "changed"
-    assert owner.state["flow_retained"] == []
+    assert owner.state["flow_rows"] == []
 
 
 @pytest.mark.parametrize("source", ["flow", "timeline"])

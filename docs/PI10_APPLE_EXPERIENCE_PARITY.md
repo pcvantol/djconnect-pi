@@ -3332,3 +3332,16 @@ from the presentation order. Interleaving live Bulletins remains open.
 An offline ARM64 Qt probe verified the actual vertical card order with
 out-of-sequence timestamps on both Pi layouts in all five languages. The 271
 focused history, Session, composer and QML tests passed.
+
+### Live Bulletins in current Flow
+
+The active Flow displays previously published, still admitted DJ Bulletins
+among saved contributions. It orders them by the producer's `created_at` and
+`occurred_at` timestamps. The current Moment stays above the list. A saved row
+cannot select the live card renderer. The original bulletin admission, source
+deadline and publisher credits apply to both positions.
+
+The reference is Apple `93dccad59304f3b35bc427b79aca3758e56310ab`. The ARM VM
+uses the original owner snapshot from Core `59d51e692c3c1681b6b9711edd1e2e52c363bf68`
+and a synthetic transition from current to earlier Flow. It checks visible
+card order and removal at source expiry on both sizes in five languages.

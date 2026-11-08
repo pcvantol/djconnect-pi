@@ -29,11 +29,11 @@ from .session_history_view import (
     accepted_question,
     confirmed_question_entry,
     conversation_entries,
+    flow_contributions,
     live_presentations,
     opened_entry,
     page_cursor,
     presented_history,
-    retained_flow_presentation,
     search_page,
 )
 from .session_playback_artwork import PlaybackArtwork
@@ -211,7 +211,7 @@ class SessionController(QObject):
             "presence": session.get("selected_presence", ""),
             "persona": session.get("dj_persona", ""),
             "composer_available": self._composer_supported(), "pending_question": {} if revoked else deepcopy(self._pending_question), "current_reply": {} if revoked else deepcopy(self._current_reply), "conversation": [] if revoked else deepcopy(self._conversation), "retained_flow": [] if revoked else deepcopy(self._retained_flow),
-            "flow_retained": [] if revoked else deepcopy(retained_flow_presentation(self._retained_flow, self._moments, session.get("session_id", ""))),
+            "flow_rows": [] if revoked else deepcopy(flow_contributions(self._retained_flow, self._moments, session.get("session_id", ""))),
             "selection": {} if revoked else deepcopy(self._selection), "question_status": self._question_status,
             "moments": [] if revoked else deepcopy(self._moments), "sessions": [] if revoked else deepcopy(self._sessions),
             "timeline": {} if revoked else deepcopy(self._timeline), "search": {} if revoked else deepcopy(self._search), "error": self._error,
