@@ -110,6 +110,14 @@ class _ProfileReadResult(dict):
         self.owner_context = context
 
 
+class _TrackInsightResult(dict):
+    """Track Insight delivery scope captured before dispatch, outside the wire payload."""
+
+    def __init__(self, data, scope):
+        super().__init__(data)
+        self.scope = scope
+
+
 class DJConnectBackend(QObject):
     statusTextChanged = Signal()
     backendAvailableChanged = Signal()
@@ -233,7 +241,8 @@ class DJConnectBackend(QObject):
         self._track_insight_items: list[dict[str, object]] = []
         self._track_insight_sections: list[dict[str, object]] = []
         self._track_insight_visualizer: dict[str, object] = {}
-        self._track_insight_track_key = ""
+        self._track_insight_revision = 0
+        self._track_insight_result_scope = None
         self._ask_dj_unavailable_until = 0.0
         self._ask_dj_poll_error_count = 0
         self._ask_dj_poll_in_flight = False
@@ -1179,11 +1188,17 @@ class DJConnectBackend(QObject):
         if self._demo_mode or not self.paired or self._ask_dj_busy:
             return
         _LOGGER.info("User requested Track Insight for current track")
+        scope = self._track_insight_scope()
+        if self._track_insight_result_scope == scope and not show_toast:
+            return
+        if self._track_insight_result_scope is not None and self._track_insight_result_scope != scope:
+            self._clear_track_insight()
+        playback = deepcopy(self.playback)
         if show_toast:
             self.showToastForContext(self.tr_key("refreshing"), "trackinsight")
-        self._clear_track_insight_if_track_changed()
         self._set_ask_dj_busy(True)
-        self._run(self.tr_key("track_insight"), self._track_insight_worker, done=lambda: self._set_ask_dj_busy(False))
+        self._run(self.tr_key("track_insight"), lambda: self._track_insight_worker(playback, scope),
+                  done=lambda: self._set_ask_dj_busy(False))
 
     @Slot(int)
     def setVolume(self, value: int) -> None:
@@ -1906,22 +1921,21 @@ class DJConnectBackend(QObject):
         self._askDjReady.emit(self._profile_read_result(data, ticket))
         self._toastReady.emit(self.tr_key("ask_dj_cleared"), 2500, "askdj")
 
-    def _track_insight_worker(self) -> None:
-        ticket = self._private_read_context()
+    def _track_insight_worker(self, playback: Playback, scope: tuple) -> None:
+        if scope != self._track_insight_scope():
+            return
         try:
-            data = self.client.track_insight(self.playback)
-            if ticket != self._private_read_context():
+            data = self.client.track_insight(playback)
+            if scope != self._track_insight_scope():
                 return
             self._apply_profile_context(data)
-            ticket = self._private_read_context()
             self._persist_backend_summary()
         except (AuthenticationError, ProtocolVersionMismatch):
             raise
         except (DJConnectError, requests.RequestException) as exc:
             _LOGGER.warning("Track Insight unavailable; showing retry state: %s", exc.__class__.__name__)
-            self._trackInsightReady.emit(self._profile_read_result({"success": False, "error": "transient"}, ticket))
-            return
-        self._trackInsightReady.emit(self._profile_read_result(data, ticket))
+            data = {"success": False, "error": "transient"}
+        self._trackInsightReady.emit(_TrackInsightResult(data, scope))
 
     def _music_dna_profile_worker(self) -> None:
         ticket = self._private_read_context()
@@ -2261,7 +2275,11 @@ class DJConnectBackend(QObject):
         old = self.playback
         self.playback = playback
         track_changed = old.title != playback.title or old.artist != playback.artist or old.image_url != playback.image_url or old.uri != playback.uri
-        if track_changed:
+        if (self._track_insight_subject(old) != self._track_insight_subject(playback)
+                or old.output_device != playback.output_device):
+            self._track_insight_revision += 1
+            self._clear_track_insight()
+        elif self._track_insight_result_scope is not None and self._track_insight_result_scope != self._track_insight_scope():
             self._clear_track_insight()
         resumed_playback = not old.is_playing and playback.is_playing
         if old.title != playback.title:
@@ -2443,18 +2461,10 @@ class DJConnectBackend(QObject):
         self._music_discovery_playing_id = ""
         self._music_discovery_feedback_supported = False
         self._music_discovery_consent_rejected = False
-        self._track_insight_title = ""
-        self._track_insight_artist = ""
-        self._track_insight_album = ""
-        self._track_insight_image_url = ""
-        self._track_insight_text = ""
-        self._track_insight_error = ""
-        self._track_insight_items = []
-        self._track_insight_sections = []
-        self._track_insight_track_key = ""
+        self._track_insight_revision += 1
+        self._clear_track_insight()
         self.musicDnaChanged.emit()
         self.musicDiscoveryChanged.emit()
-        self.trackInsightChanged.emit()
 
     def _set_ask_dj_busy(self, value: bool) -> None:
         if self._ask_dj_busy == value:
@@ -2545,6 +2555,9 @@ class DJConnectBackend(QObject):
     def _apply_track_insight_data(self, data: object) -> None:
         if not self._profile_result_current(data):
             return
+        scope = self._track_insight_scope()
+        if isinstance(data, _TrackInsightResult) and data.scope != scope:
+            return
         if not isinstance(data, dict):
             return
         error = str(data.get("error") or "").strip()
@@ -2575,20 +2588,26 @@ class DJConnectBackend(QObject):
         self._track_insight_items = list(message.get("items")) if isinstance(message.get("items"), list) else []
         self._track_insight_sections = list(analysis.get("sections")) if isinstance(analysis.get("sections"), list) else []
         self._track_insight_visualizer = _track_insight_visualizer(track, self._track_insight_items, self._track_insight_sections) if isinstance(track, dict) else {}
-        self._track_insight_track_key = self._current_track_key()
+        self._track_insight_result_scope = scope
         self._set_backend_available(True)
         self.trackInsightChanged.emit()
 
-    def _current_track_key(self) -> str:
-        return "|".join(
-            value.strip().casefold()
-            for value in (self.playback.uri, self.playback.title, self.playback.artist, self.playback.image_url)
-            if value
-        )
+    @staticmethod
+    def _track_insight_subject(playback: Playback) -> tuple[str, ...]:
+        if playback.uri.strip():
+            return ("uri", playback.uri.strip())
+        return ("metadata", *(value.strip().casefold() for value in (playback.title, playback.artist, playback.album)))
 
-    def _clear_track_insight_if_track_changed(self) -> None:
-        if self._track_insight_track_key and self._track_insight_track_key != self._current_track_key():
-            self._clear_track_insight()
+    def _track_insight_scope(self) -> tuple:
+        return (
+            self._private_read_context(),
+            self._track_insight_revision,
+            self._track_insight_subject(self.playback),
+            self.cfg.music_backend,
+            self.cfg.music_backend_revision,
+            self.cfg.music_target_player.get("id", ""),
+            self.playback.output_device,
+        )
 
     def _clear_track_insight(self, *, error: str = "") -> None:
         changed = any(
@@ -2602,7 +2621,7 @@ class DJConnectBackend(QObject):
                 self._track_insight_items,
                 self._track_insight_sections,
                 self._track_insight_visualizer,
-                self._track_insight_track_key,
+                self._track_insight_result_scope,
             )
         )
         self._track_insight_title = ""
@@ -2614,7 +2633,7 @@ class DJConnectBackend(QObject):
         self._track_insight_items = []
         self._track_insight_sections = []
         self._track_insight_visualizer = {}
-        self._track_insight_track_key = ""
+        self._track_insight_result_scope = None
         if changed or error:
             self.trackInsightChanged.emit()
 

@@ -2485,6 +2485,80 @@ def test_backend_track_insight_auto_open_requires_playing_track(tmp_path: Path) 
     assert calls[0][0] == backend.t("track_insight")
 
 
+def test_track_insight_reuses_current_analysis_after_artwork_update(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "fixture"
+    backend._sync_config_from_disk = Mock()
+    backend._run = Mock()
+    backend._apply_playback(Playback(title="Track A", uri="fixture:a", is_playing=True))
+    backend._apply_track_insight_data(
+        {"track": {"title": "Track A"}, "analysis": {"summary": "Analysis A."}}
+    )
+    backend._apply_playback(
+        Playback(title="Track A", uri="fixture:a", is_playing=True, image_url="file:///fixture.jpg")
+    )
+    backend.openTrackInsight()
+    assert backend.trackInsightTitle == "Track A"
+    backend._run.assert_not_called()
+
+    backend.refreshTrackInsight()
+    assert backend._run.call_count == 1
+
+
+@pytest.mark.parametrize("change", ["none", "track", "track_return", "output", "backend", "profile"])
+def test_track_insight_applies_queued_answer_only_in_original_scope(tmp_path: Path, change: str) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "fixture"
+    backend.cfg.active_profile_id = "original"
+    backend._sync_config_from_disk = Mock()
+    backend._persist_backend_summary = Mock()
+    backend._run = Mock()
+    track_a = Playback(title="Track A", uri="fixture:a", is_playing=True, output_device="room-a")
+    backend._apply_playback(track_a)
+    backend.client.track_insight = Mock(return_value={
+        "track": {"title": "Track A"},
+        "analysis": {"summary": "Analysis A."},
+    })
+    backend.openTrackInsight()
+    worker = backend._run.call_args.args[1]
+    queued = []
+    backend._trackInsightReady.disconnect(backend._apply_track_insight_data)
+    backend._trackInsightReady.connect(queued.append)
+    worker()
+    assert len(queued) == 1
+
+    if change in {"track", "track_return"}:
+        backend._apply_playback(Playback(title="Track B", uri="fixture:b", output_device="room-a"))
+        if change == "track_return":
+            backend._apply_playback(track_a)
+    elif change == "output":
+        backend._apply_playback(Playback(title="Track A", uri="fixture:a", output_device="room-b"))
+    elif change == "backend":
+        backend.cfg.music_backend_revision += 1
+    elif change == "profile":
+        backend.cfg.active_profile_id = "other"
+    backend._apply_track_insight_data(queued[0])
+    assert backend.trackInsightTitle == ("Track A" if change == "none" else "")
+
+
+def test_track_insight_profile_clear_also_removes_visualizer(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend._apply_track_insight_data({
+        "track": {"title": "Track A"},
+        "analysis": {"summary": "Analysis A."},
+        "visualisation": {"bars": [0.1, 0.4, 0.9]},
+    })
+    assert backend.trackInsightVisualizer["available"]
+    backend._clear_profile_scoped_caches(preserve_session=True)
+    assert backend.trackInsightTitle == ""
+    assert backend.trackInsightVisualizer == {}
+
+
 def test_backend_music_discovery_refresh_shows_toast(tmp_path: Path) -> None:
     ensure_app()
     backend = DJConnectBackend(tmp_path / "config.json")
