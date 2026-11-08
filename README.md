@@ -14,7 +14,7 @@ as design references. Each target requires an explicit, server-authorized
 DJConnect Profile connection; display size or household placement never implies
 personal identity or permission. Home Assistant remains the Profile/Session owner.
 
-The app uses Python 3.14.9 and Qt 6.12.0.
+The app uses Python 3.14.10 and Qt 6.12.0.
 Its interpreter is installed beside OS Python; existing system tools and the
 previous app release remain available. The rc.6 release is immutable. This new
 candidate is not yet published or installed as the active physical app.

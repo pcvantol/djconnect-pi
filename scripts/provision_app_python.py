@@ -1,6 +1,6 @@
 """Hash-pinned, side-by-side application Python; never replaces OS Python.
 
-Bootstrap-compatible with OS Python 3.11+. The installed application uses3.14.9.
+Bootstrap-compatible with OS Python 3.11+. The installed application uses 3.14.10.
 Only the reviewed installer invokes main as root; there are no caller-selected
 URLs, hashes, destinations, commands, or environment overrides.
 """
@@ -22,9 +22,9 @@ from pathlib import Path, PurePosixPath
 from urllib.parse import urlsplit
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
-VERSION = "3.14.9"
-SHA256 = "6f77731d85a14ed848dd4041478cd3ed511523caa3d896b84b436a7edf13cf62"
-URL = "https://github.com/astral-sh/python-build-standalone/releases/download/20261021/cpython-3.14.9%2B20261021-aarch64-unknown-linux-gnu-install_only_stripped.tar.gz"
+VERSION = "3.14.10"
+SHA256 = "90f48337bc3dd4ae6eda81e001e4c981236d403b6b5a07778bbdf94ee423dc00"
+URL = "https://github.com/astral-sh/python-build-standalone/releases/download/20261026/cpython-3.14.10%2B20261026-aarch64-unknown-linux-gnu-install_only_stripped.tar.gz"
 BASE = Path("/opt/djconnect-python")
 NAME = "cpython-" + VERSION
 MARKER = ".djconnect-runtime.json"
@@ -254,7 +254,7 @@ def prepare(base=BASE):
             download(source)
             entries = extract_archive(source, stage)
             binary = stage / "python/bin/python3.14"
-            command = "import sys,sysconfig;assert sys.version_info[:3]==(3,14,9);assert not sysconfig.get_config_var('Py_GIL_DISABLED')"
+            command = "import sys,sysconfig;assert sys.version_info[:3]==(3,14,10);assert not sysconfig.get_config_var('Py_GIL_DISABLED')"
             result = subprocess.run([str(binary), "-I", "-B", "-c", command],
                                     env={"PATH": "/usr/bin:/bin"}, capture_output=True,
                                     timeout=30, check=False)

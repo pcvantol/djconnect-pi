@@ -4,6 +4,7 @@
 
 ## 4.0.0-rc.8
 
+- Provision GIL-enabled Python 3.14.10 side by side with older app runtimes.
 - Align Pi Session Flow, Horizon, playback controls and media cards with iPad.
 - Keep playback gestures bound to the original track and output. Show the
   reported volume for each available speaker.

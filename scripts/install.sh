@@ -8,7 +8,7 @@ DJCONNECT_HA_URL="${DJCONNECT_HA_URL:-http://homeassistant.local:8123}"
 DJCONNECT_RUNTIME_USER="${DJCONNECT_RUNTIME_USER:-djconnect}"
 DJCONNECT_INSTALL_USER="${DJCONNECT_INSTALL_USER:-${SUDO_USER:-pi}}"
 DJCONNECT_ROOT="${DJCONNECT_ROOT:-/opt/djconnect}"
-DJCONNECT_PYTHON="/opt/djconnect-python/cpython-3.14.9/bin/python3.14"
+DJCONNECT_PYTHON="/opt/djconnect-python/cpython-3.14.10/bin/python3.14"
 SCRIPT_DIRECTORY="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DJCONNECT_INSTALL_STATE="${DJCONNECT_INSTALL_STATE:-${DJCONNECT_ROOT}/install-state}"
 DJCONNECT_PIP_CACHE="${DJCONNECT_PIP_CACHE:-/var/cache/djconnect-pip}"
@@ -43,7 +43,7 @@ Environment:
   DJCONNECT_RUNTIME_USER=djconnect
   DJCONNECT_INSTALL_USER=${DJCONNECT_INSTALL_USER}
   DJCONNECT_ROOT=/opt/djconnect
-  App Python: /opt/djconnect-python/cpython-3.14.9/bin/python3.14 (hash-pinned side-by-side runtime)
+  App Python: /opt/djconnect-python/cpython-3.14.10/bin/python3.14 (hash-pinned side-by-side runtime)
   DJCONNECT_INSTALL_STATE=/opt/djconnect/install-state
   DJCONNECT_PIP_CACHE=/var/cache/djconnect-pip
   DJCONNECT_UPGRADE_PIP=0
@@ -368,8 +368,8 @@ check_python_version() {
   "$DJCONNECT_PYTHON" -I -B - <<'PY'
 import sys
 import sysconfig
-if sys.version_info[:2] != (3, 14) or sys.version_info < (3, 14, 9):
-    raise SystemExit(f"Python 3.14.9 or newer in 3.14 is required, found {sys.version.split()[0]}")
+if sys.version_info[:2] != (3, 14) or sys.version_info < (3, 14, 10):
+    raise SystemExit(f"Python 3.14.10 or newer in 3.14 is required, found {sys.version.split()[0]}")
 if sysconfig.get_config_var("Py_GIL_DISABLED"):
     raise SystemExit("Standard GIL-enabled Python 3.14 is required for Qt")
 PY
@@ -393,7 +393,7 @@ try:
     values = {key.strip(): value.strip() for key, value in values.items()}
     match = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)", values.get("version", ""))
     version = tuple(map(int, match.groups())) if match else ()
-    if version[:2] != (3, 14) or version < (3, 14, 9):
+    if version[:2] != (3, 14) or version < (3, 14, 10):
         raise ValueError
     if values.get("include-system-site-packages") != "false":
         raise ValueError

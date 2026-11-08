@@ -556,7 +556,7 @@ def test_install_script_outputs_resources_and_extra_prerequisite_checks() -> Non
     assert "check_cpu_architecture" in script
     assert "aarch64|arm64" in script
     assert "check_python_version" in script
-    assert "Python 3.14.9 or newer in 3.14 is required" in script
+    assert "Python 3.14.10 or newer in 3.14 is required" in script
     assert "check_writable_paths" in script
     assert "check_github_reachable" in script
     assert "curl -fsSIL" in script

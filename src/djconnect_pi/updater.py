@@ -19,7 +19,7 @@ import requests
 
 from .config import DEFAULT_CONFIG_PATH, load_config
 
-APPLICATION_PYTHON = Path("/opt/djconnect-python/cpython-3.14.9/bin/python3.14")
+APPLICATION_PYTHON = Path("/opt/djconnect-python/cpython-3.14.10/bin/python3.14")
 PIP_CACHE_DIR = Path("/var/cache/djconnect-pip")
 UPGRADE_PIP_ENV = "DJCONNECT_UPGRADE_PIP"
 SUPPORTED_RELEASE_PROFILES = frozenset({"pi5-arm64", "pi-zero-2w-arm64"})
@@ -291,7 +291,7 @@ def application_python() -> str:
     executable = str(APPLICATION_PYTHON)
     probe = (
         "import sys,sysconfig;sys.exit(0 if sys.version_info[:2]==(3,14) "
-        "and sys.version_info>=(3,14,9) "
+        "and sys.version_info>=(3,14,10) "
         "and not sysconfig.get_config_var('Py_GIL_DISABLED') else 64)"
     )
     try:
@@ -320,7 +320,7 @@ def validate_existing_python_environment(venv: Path, executable: str, state_dir:
         values = {key.strip(): value.strip() for key, value in values.items()}
         match = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)", values.get("version", ""))
         version = tuple(map(int, match.groups())) if match else ()
-        if (version[:2] != (3, 14) or version < (3, 14, 9)
+        if (version[:2] != (3, 14) or version < (3, 14, 10)
                 or values.get("include-system-site-packages") != "false"
                 or (venv / "bin/python").resolve(strict=True) != Path(executable).resolve(strict=True)):
             raise ValueError
