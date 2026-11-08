@@ -3,8 +3,10 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import sys
 import time
 from pathlib import Path
+from types import ModuleType
 from unittest.mock import Mock, patch
 
 import pytest
@@ -88,14 +90,32 @@ def test_audio_device_observer_reports_input_and_output_independently(tmp_path):
     devices = Mock()
     devices.audioInputs.return_value = []
     devices.audioOutputs.return_value = [object()]
-    with patch("PySide6.QtMultimedia.QMediaDevices", return_value=devices):
+    # Supply the optional import without loading native multimedia libraries.
+    multimedia = ModuleType("PySide6.QtMultimedia")
+    multimedia.QMediaDevices = Mock(return_value=devices)
+    with patch.dict(sys.modules, {multimedia.__name__: multimedia}):
         backend.observeLocalAudioDevices()
+    multimedia.QMediaDevices.assert_called_once_with(backend)
     assert not backend.localMicrophoneAvailable and backend.localAudioOutputAvailable
     devices.audioInputs.return_value = [object()]
     devices.audioOutputs.return_value = []
     devices.audioOutputsChanged.connect.call_args.args[0]()
     assert backend.localMicrophoneAvailable and not backend.localAudioOutputAvailable
     assert changed.call_count == 2
+
+
+def test_audio_device_observer_handles_missing_multimedia(tmp_path):
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    changed = Mock()
+    backend.localAudioDevicesChanged.connect(changed)
+
+    with patch.dict(sys.modules, {"PySide6.QtMultimedia": None}):
+        backend.observeLocalAudioDevices()
+
+    assert not backend.localMicrophoneAvailable
+    assert not backend.localAudioOutputAvailable
+    changed.assert_called_once_with()
 
 
 @pytest.mark.parametrize("patch_state,available", [
