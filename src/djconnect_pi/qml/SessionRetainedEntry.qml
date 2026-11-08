@@ -9,6 +9,8 @@ GlassCard {
     property string dateText: ""
     property bool selectionAvailable: false
     property bool selectionBusy: false
+    property bool deletionAvailable: false
+    signal deleteEntry(string sessionId, string entryId)
     readonly property bool attributionReady: historySources.ready
     property alias bodyItem: retainedBody
     signal askAbout(string sessionId, string entryId)
@@ -47,6 +49,14 @@ GlassCard {
         visible: historyCard.canAsk
         text: historyCard.translate("session_ask_about"); enabled: !historyCard.selectionBusy
         onClicked: historyCard.askAboutEntry()
+    }
+    GlassButton {
+        objectName: "sessionDeleteRetainedEntry"
+        visible: historyCard.deletionAvailable && !historyCard.sourceWithdrawn
+            && ["dj_moment", "conversation_user", "conversation_dj"].includes(entry.kind)
+        iconName: "trash"; Accessible.name: historyCard.translate("session_content_delete_action")
+        enabled: !historyCard.selectionBusy
+        onClicked: historyCard.deleteEntry(entry.session_id, entry.entry_id)
     }
     Text { objectName: "sessionHistoryEntryDate"; text: historyCard.dateText; color: BrandTheme.colors.muted; font.pixelSize: 16; textFormat: Text.PlainText }
 }

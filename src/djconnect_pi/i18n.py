@@ -1560,6 +1560,33 @@ for _key, _values in _PLAYBACK_CONTROL_TRANSLATIONS.items():
 
 # Confirmed erasure is separate from read-only archived contribution navigation.
 _SESSION_DELETE_TRANSLATIONS = {
+    "session_content_delete_action": ("Delete contribution", "Bijdrage verwijderen", "Beitrag löschen", "Supprimer la contribution", "Eliminar contribución"),
+    "session_content_delete_confirm": (
+        "Permanently delete this contribution and the related content listed below? Music playback is unaffected.",
+        "Deze bijdrage en de hieronder vermelde bijbehorende inhoud definitief verwijderen? De muziek blijft gewoon afspelen.",
+        "Diesen Beitrag und die unten aufgeführten zugehörigen Inhalte endgültig löschen? Die Musikwiedergabe läuft weiter.",
+        "Supprimer définitivement cette contribution et les contenus associés indiqués ci-dessous ? La lecture de la musique continue.",
+        "¿Eliminar permanentemente esta contribución y el contenido relacionado que se indica abajo? La música seguirá reproduciéndose.",
+    ),
+    "session_content_delete_scope": (
+        "History rows: %1 removed, %2 marked unavailable. Messages: %3 removed, %4 marked unavailable. Live moments withdrawn: %5. Pending requests blocked: %6.",
+        "Geschiedenisregels: %1 verwijderd, %2 als niet beschikbaar gemarkeerd. Berichten: %3 verwijderd, %4 als niet beschikbaar gemarkeerd. Ingetrokken live-momenten: %5. Geblokkeerde openstaande verzoeken: %6.",
+        "Verlaufseinträge: %1 gelöscht, %2 als nicht verfügbar markiert. Nachrichten: %3 gelöscht, %4 als nicht verfügbar markiert. Zurückgezogene Live-Momente: %5. Blockierte offene Anfragen: %6.",
+        "Entrées d’historique : %1 supprimées, %2 marquées comme indisponibles. Messages : %3 supprimés, %4 marqués comme indisponibles. Moments en direct retirés : %5. Demandes en attente bloquées : %6.",
+        "Entradas del historial: %1 eliminadas y %2 marcadas como no disponibles. Mensajes: %3 eliminados y %4 marcados como no disponibles. Momentos en directo retirados: %5. Solicitudes pendientes bloqueadas: %6.",
+    ),
+    "session_content_delete_moment": ("DJ contribution", "DJ-bijdrage", "DJ-Beitrag", "Contribution DJ", "Contribución del DJ"),
+    "session_content_delete_exchange": ("Entire Ask DJ exchange", "Volledige Ask DJ-uitwisseling", "Gesamter Ask-DJ-Austausch", "Échange Ask DJ complet", "Intercambio completo de Ask DJ"),
+    "session_content_delete_attempt": ("Ask DJ request", "Ask DJ-verzoek", "Ask-DJ-Anfrage", "Demande Ask DJ", "Solicitud de Ask DJ"),
+    "session_content_delete_expires": ("Confirm before %1", "Bevestig vóór %1", "Vor %1 bestätigen", "Confirmer avant %1", "Confirma antes de las %1"),
+    "session_content_delete_complete": ("Contribution deleted.", "Bijdrage verwijderd.", "Beitrag gelöscht.", "Contribution supprimée.", "Contribución eliminada."),
+    "session_content_delete_uncertain": (
+        "Deletion is unconfirmed. You can check the status of the original request.",
+        "De verwijdering is nog niet bevestigd. Je kunt de status van het oorspronkelijke verzoek controleren.",
+        "Die Löschung ist noch nicht bestätigt. Du kannst den Status der ursprünglichen Anfrage prüfen.",
+        "La suppression n’est pas confirmée. Vous pouvez vérifier l’état de la demande initiale.",
+        "La eliminación aún no se ha confirmado. Puedes consultar el estado de la solicitud original.",
+    ),
     "session_delete_status_action": ("Check deletion status", "Verwijderstatus controleren", "Löschstatus prüfen", "Vérifier la suppression", "Consultar estado de eliminación"),
     "session_delete_status_pending": (
         "The server is still processing the original deletion. Completion is not confirmed. No new deletion will be sent.",
