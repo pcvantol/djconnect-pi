@@ -1560,6 +1560,7 @@ for _key, _values in _PLAYBACK_CONTROL_TRANSLATIONS.items():
 
 # Confirmed erasure is separate from read-only archived contribution navigation.
 _SESSION_DELETE_TRANSLATIONS = {
+    "session_saved_contributions": ("Saved contributions", "Opgeslagen bijdragen", "Gespeicherte Beiträge", "Contributions enregistrées", "Contribuciones guardadas"),
     "session_content_delete_action": ("Delete contribution", "Bijdrage verwijderen", "Beitrag löschen", "Supprimer la contribution", "Eliminar contribución"),
     "session_content_delete_confirm": (
         "Permanently delete this contribution and the related content listed below? Music playback is unaffected.",
