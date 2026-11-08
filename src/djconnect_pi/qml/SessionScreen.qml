@@ -1473,7 +1473,8 @@ Item {
                 objectName: "sessionRetainedFlowLabel"
                 visible: !screen.historical && screen.displayedFlow.length > 0
                     && !screen.displayedFlow.some(function(row) { return row.bulletin })
-                text: screen.tr("session_retained_flow"); textFormat: Text.PlainText
+                text: screen.tr(screen.contentDeletion.available || screen.contentDeletion.status_available
+                    ? "session_saved_contributions" : "session_retained_flow"); textFormat: Text.PlainText
                 color: BrandTheme.colors.muted; font.pixelSize: 18; wrapMode: Text.WordWrap; Layout.fillWidth: true
             }
             Repeater {
@@ -2437,7 +2438,7 @@ Item {
             GlassButton {
                 objectName: "sessionContentDeleteConfirm"
                 Layout.fillWidth: true; visible: screen.contentDeletion.status === "confirm"
-                text: screen.tr("session_content_delete_action"); iconName: "trash"; tint: BrandTheme.colors.danger
+                text: screen.tr("session_content_delete_action"); iconName: "trash"; primary: true; tint: BrandTheme.colors.danger
                 enabled: !screen.owner.busy && !screen.owner.questionBusy && screen.contentDeletion.lease > 0
                 onClicked: screen.owner.confirmContentDelete(screen.contentDeletion.lease)
             }
