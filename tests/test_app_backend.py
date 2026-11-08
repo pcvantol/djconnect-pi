@@ -2507,7 +2507,7 @@ def test_track_insight_reuses_current_analysis_after_artwork_update(tmp_path: Pa
     assert backend._run.call_count == 1
 
 
-@pytest.mark.parametrize("change", ["none", "track", "track_return", "output", "backend", "profile"])
+@pytest.mark.parametrize("change", ["none", "track", "track_return", "output", "backend", "profile", "foreground_return"])
 def test_track_insight_applies_queued_answer_only_in_original_scope(tmp_path: Path, change: str) -> None:
     ensure_app()
     backend = DJConnectBackend(tmp_path / "config.json")
@@ -2541,6 +2541,10 @@ def test_track_insight_applies_queued_answer_only_in_original_scope(tmp_path: Pa
         backend.cfg.music_backend_revision += 1
     elif change == "profile":
         backend.cfg.active_profile_id = "other"
+    elif change == "foreground_return":
+        backend.djSession.refresh = Mock()
+        backend.setApplicationForeground(False)
+        backend.setApplicationForeground(True)
     backend._apply_track_insight_data(queued[0])
     assert backend.trackInsightTitle == ("Track A" if change == "none" else "")
 
@@ -2557,6 +2561,31 @@ def test_track_insight_profile_clear_also_removes_visualizer(tmp_path: Path) -> 
     backend._clear_profile_scoped_caches(preserve_session=True)
     assert backend.trackInsightTitle == ""
     assert backend.trackInsightVisualizer == {}
+
+
+def test_track_insight_backgrounding_withdraws_cached_analysis(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "fixture"
+    backend.cfg.explicit_profile_id = backend.cfg.active_profile_id = "linked"
+    backend._sync_config_from_disk = Mock()
+    backend._run = Mock()
+    backend._apply_playback(Playback(title="Track A", uri="fixture:a", is_playing=True))
+    backend._apply_track_insight_data({
+        "track": {"title": "Track A"},
+        "analysis": {"summary": "Analysis A."},
+        "visualisation": {"bars": [0.1, 0.4, 0.9]},
+    })
+    assert backend.trackInsightVisualizer["available"]
+
+    backend.setApplicationForeground(False)
+
+    assert backend.trackInsightTitle == ""
+    assert backend.trackInsightVisualizer == {}
+    backend.openTrackInsight()
+    backend.refreshTrackInsight()
+    backend._run.assert_not_called()
 
 
 def test_backend_music_discovery_refresh_shows_toast(tmp_path: Path) -> None:
