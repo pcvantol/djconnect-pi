@@ -1610,6 +1610,11 @@ Item {
                 visible: screen.historical && !!screen.state.timeline.session
                 text: screen.tr(screen.state.archive_delete.available ? "session_saved_title" : "session_history_view_readonly"); color: BrandTheme.colors.muted; font.pixelSize: 20
             }
+            GlassButton {
+                visible: screen.historical && !!screen.state.timeline.session
+                text: screen.tr("session_history_first"); enabled: !screen.owner.busy
+                onClicked: screen.owner.firstEntries()
+            }
             Repeater {
                 objectName: "sessionSavedSummary"
                 model: screen.historical && !screen.currentHistory ? (screen.state.saved_summary || []) : []
@@ -1631,11 +1636,6 @@ Item {
                     Layout.fillWidth: true
                     wrapMode: Text.WordWrap
                 }
-            }
-            GlassButton {
-                visible: screen.historical && !!screen.state.timeline.session
-                text: screen.tr("session_history_first"); enabled: !screen.owner.busy
-                onClicked: screen.owner.firstEntries()
             }
             GlassButton {
                 objectName: "sessionDeleteSaved"
