@@ -163,6 +163,8 @@ class VibeCastSender(QObject):
             except SessionError:
                 if action in {"approve", "revoke"}:
                     status = "uncertain"
+                elif action == "resolve":
+                    status = "lookup_failed"
             with self._lock:
                 if not self.closed:
                     self.ready.emit((epoch, action, status, result))

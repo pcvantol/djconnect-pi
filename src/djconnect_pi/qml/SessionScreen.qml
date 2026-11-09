@@ -2448,7 +2448,7 @@ Item {
             TextField {
                 id: codeInput
                 objectName: "sessionVibeCastCode"
-                visible: ["ready", "active", "stopped"].includes(vibeCastPanel.sender.status)
+                visible: ["ready", "active", "stopped", "lookup_failed", "expired"].includes(vibeCastPanel.sender.status)
                 Layout.fillWidth: true
                 placeholderText: screen.tr("vibecast_code")
                 Accessible.name: placeholderText

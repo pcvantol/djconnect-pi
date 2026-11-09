@@ -1325,6 +1325,30 @@ def test_vibecast_never_dispatches_approval_after_losing_original_scope(vibecast
     assert [call.args[1] for call in owner.transport.display_owner.call_args_list] == ["context", "resolve"]
 
 
+def test_vibecast_lookup_can_retry_after_rejection_or_expiry(vibecast_sender):
+    owner, backend, responses = vibecast_sender
+    assert owner.openVibeCast()
+    backend.jobs.pop()()
+    responses["resolve"]["success"] = False
+    assert owner.resolveVibeCastCode("012345")
+    backend.jobs.pop()()
+    assert owner.state["vibecast"]["status"] == "lookup_failed"
+    assert not owner.approveVibeCast()
+
+    responses["resolve"]["success"] = True
+    assert owner.resolveVibeCastCode("123456")
+    backend.jobs.pop()()
+    owner._vibecast.expire_claim()
+    assert owner.state["vibecast"]["status"] == "expired"
+    assert not owner.approveVibeCast()
+    assert owner.resolveVibeCastCode("234567")
+    backend.jobs.pop()()
+    assert owner.state["vibecast"]["status"] == "confirm"
+    assert [call.args[1] for call in owner.transport.display_owner.call_args_list] == [
+        "context", "resolve", "resolve", "resolve",
+    ]
+
+
 def test_vibecast_uncertain_approval_uses_status_read_instead_of_replay(vibecast_sender):
     owner, backend, responses = vibecast_sender
     assert owner.openVibeCast()
