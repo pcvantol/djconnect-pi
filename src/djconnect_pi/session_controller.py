@@ -978,8 +978,9 @@ class SessionController(QObject):
         if (not self._saved_open_retry or not self._foreground or not self._history_supported()
                 or self._error not in {"offline", "unavailable"}):
             return ""
-        session_id, epoch, _ = self._saved_open_retry
-        if epoch == self._view_epoch and any(row["session_id"] == session_id for row in self._sessions):
+        retry = self._saved_open_retry
+        session_id = retry["session_id"]
+        if retry["epoch"] == self._view_epoch and any(row["session_id"] == session_id for row in self._sessions):
             return session_id
         return ""
 
@@ -994,17 +995,21 @@ class SessionController(QObject):
         except SessionError:
             self.invalidate()
             return
-        if current_binding != self._saved_open_retry[2]:
+        retry = self._saved_open_retry
+        if current_binding != retry["binding"]:
             self.invalidate()
             return
-        self.openSaved(session_id)
+        if retry["action"] == "timeline":
+            self.openSaved(session_id)
+        else:
+            self._launch(retry["action"], retry["value"])
 
     @Slot(str)
     def refreshSaved(self, anchor_entry_id=""):
         sid = self._timeline.get("session", {}).get("session_id")
         if sid and self._timeline.get("_prefix_pages"):
             self._launch("timeline_extend", {"session_id": sid, "pages": self._timeline["_prefix_pages"],
-                "reading_anchor": anchor_entry_id})
+                "reading_anchor": anchor_entry_id, "revalidation": True})
         elif sid:
             self._launch("timeline_refresh", {"session_id": sid, "entry_id": anchor_entry_id,
                 "page_cursor": self._timeline.get("_page_cursor")})
@@ -1100,6 +1105,9 @@ class SessionController(QObject):
 
     @Slot()
     def clearSearch(self):
+        # Closing search when a failed timeline disappears must not cancel its retry.
+        if not self._search and self._saved_open_target():
+            return
         self._view_epoch += 1
         had_search = bool(self._search)
         self._search = {}
@@ -1288,6 +1296,11 @@ class SessionController(QObject):
 
         def worker():
             result = {"serial": serial, "binding": binding, "action": action, "view_epoch": view_epoch, "question_epoch": question_epoch, "raw_binding": raw_binding}
+            if action == "timeline":
+                result["saved_read_target"] = value
+            elif action == "timeline_refresh" or (action == "timeline_extend" and value.get("revalidation")):
+                result["saved_read_target"] = value["session_id"]
+                result["saved_read_value"] = value
             try:
                 if bootstrap:
                     # Current owner and personal-read permission are independent.
@@ -1355,7 +1368,6 @@ class SessionController(QObject):
                 elif action in {"history", "history_more", "history_refresh"}:
                     result["history"] = self._read_history(binding, value, view_epoch)
                 elif action == "timeline":
-                    result["saved_open_session"] = value
                     result["timeline"] = presented_history(history_page(self.transport.timeline(binding, value), session_id=value, now=self._clock.now()))
                 elif action == "timeline_extend":
                     result["timeline"] = self._read_timeline_prefix(binding, value["session_id"], value["pages"], view_epoch, serial)
@@ -1587,8 +1599,13 @@ class SessionController(QObject):
             self._history_trail = []
             self._history_reset = False
         if "error" in result and history_action and result["error"] not in {"denied", "context_changed", "unpaired"}:
-            if result.get("saved_open_session") and result["error"] in {"offline", "unavailable"}:
-                self._saved_open_retry = (result["saved_open_session"], result["view_epoch"], result["binding"])
+            if result.get("saved_read_target") and (result["error"] == "offline"
+                    or (result["action"] == "timeline" and result["error"] == "unavailable")):
+                self._saved_open_retry = {
+                    "session_id": result["saved_read_target"], "action": result["action"],
+                    "value": result.get("saved_read_value"), "epoch": result["view_epoch"],
+                    "binding": result["binding"],
+                }
             self._search = {}
             self._timeline = {}
             self._timeline_trail = []

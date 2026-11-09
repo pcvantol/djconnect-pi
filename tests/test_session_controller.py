@@ -232,6 +232,41 @@ def test_retry_saved_open_stays_bound_to_the_failed_read(controller, dismiss):
         assert not owner.state["saved_open_retry"]
 
 
+@pytest.mark.parametrize("window", ["anchor", "cursor", "prefix"])
+def test_retry_saved_refresh_repeats_the_same_read(controller, window):
+    from test_session_history_view import timeline_fixture
+
+    owner, backend = controller
+    enable_search(owner)
+    tail = timeline_fixture()
+    session_id = tail["session"]["session_id"]
+    anchor = tail["entries"][0]["entry_id"]
+    owner._sessions = [{"session_id": session_id}]
+    owner._timeline = {**tail}
+    if window == "cursor":
+        owner._timeline["_page_cursor"] = "server-issued-cursor"
+    elif window == "prefix":
+        owner._timeline["_prefix_pages"] = 1
+    timeline_updated = Mock()
+    owner.timelineUpdated.connect(timeline_updated)
+    owner.transport.timeline = Mock(side_effect=[SessionError("offline"), tail])
+    owner.refreshSaved(anchor)
+    backend.jobs.pop()()
+    assert not owner.state["timeline"]
+    assert owner.state["saved_open_retry"]
+
+    owner.clearSearch()
+    owner.retrySavedOpen()
+    backend.jobs.pop()()
+
+    first, second = owner.transport.timeline.call_args_list
+    assert first == second
+    assert second.args[1] == session_id
+    assert owner.state["timeline"]["session"]["session_id"] == session_id
+    assert not owner.state["saved_open_retry"]
+    timeline_updated.assert_called_once_with(anchor)
+
+
 def test_timeline_pages_replace_window_and_reject_changed_revision(controller):
     from copy import deepcopy
 
