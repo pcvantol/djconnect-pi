@@ -1695,3 +1695,107 @@ _VIBESCAPE_COPY = {
 for _key, _values in _VIBESCAPE_COPY.items():
     for _locale, _value in zip(("en", "nl", "de", "fr", "es"), _values, strict=True):
         TRANSLATIONS[_locale][_key] = _value
+
+_VIBECAST_SENDER_TRANSLATIONS = {
+    "vibecast_ready": (
+        "Enter the six digits shown on the external display. Looking up the display does not share anything.",
+        "Voer de zes cijfers op het externe scherm in. Met opzoeken deel je nog niets.",
+        "Gib die sechs Ziffern des externen Bildschirms ein. Bei der Suche wird noch nichts geteilt.",
+        "Saisissez les six chiffres affichés sur l’écran externe. La recherche de l’écran ne partage rien.",
+        "Introduce los seis dígitos que aparecen en la pantalla externa. Buscar la pantalla todavía no comparte nada.",
+    ),
+    "vibecast_code": ("Six-digit code", "Zescijferige code", "Sechsstelliger Code", "Code à six chiffres", "Código de seis dígitos"),
+    "vibecast_lookup": ("Look up display", "Scherm opzoeken", "Bildschirm suchen", "Rechercher l’écran", "Buscar pantalla"),
+    "vibecast_confirm": (
+        "Display found. Share this DJ Session until it ends or for up to two hours.",
+        "Scherm gevonden. Deel deze DJ-sessie tot het einde van de sessie of maximaal twee uur.",
+        "Bildschirm gefunden. Teile die DJ-Session bis zu ihrem Ende oder maximal zwei Stunden.",
+        "Écran trouvé. Partagez cette session DJ jusqu’à sa fin ou pendant deux heures maximum.",
+        "Pantalla encontrada. Comparte esta sesión DJ hasta que termine o durante dos horas como máximo.",
+    ),
+    "vibecast_confirm_existing": (
+        "Add this display to the current share. The existing expiry still applies.",
+        "Voeg dit scherm toe aan de huidige deling. De bestaande eindtijd geldt ook voor dit scherm.",
+        "Füge den Bildschirm zur aktuellen Freigabe hinzu. Die bestehende Ablaufzeit gilt auch hier.",
+        "Ajoutez cet écran au partage actuel. L’heure de fin existante s’applique aussi à cet écran.",
+        "Añade esta pantalla al uso compartido actual. Se mantiene la hora de finalización.",
+    ),
+    "vibecast_approve": ("Share DJ Session", "DJ-sessie delen", "DJ-Session teilen", "Partager la session DJ", "Compartir sesión DJ"),
+    "vibecast_sharing": (
+        "Sharing is approved. Check the external display.",
+        "Delen is bevestigd. Controleer het externe scherm.",
+        "Freigabe bestätigt. Prüfe den externen Bildschirm.",
+        "Partage confirmé. Vérifiez l’écran externe.",
+        "Se ha aprobado el uso compartido. Comprueba la pantalla externa.",
+    ),
+    "vibecast_disconnect_display": (
+        "Disconnect last added display",
+        "Laatst toegevoegde scherm loskoppelen",
+        "Zuletzt hinzugefügten Bildschirm trennen",
+        "Déconnecter le dernier écran ajouté",
+        "Desconectar la última pantalla añadida",
+    ),
+    "vibecast_display_stopped": (
+        "Display disconnected. The DJ Session continues.",
+        "Scherm losgekoppeld. De DJ-sessie loopt door.",
+        "Bildschirm getrennt. Die DJ-Session läuft weiter.",
+        "Écran déconnecté. La session DJ continue.",
+        "Pantalla desconectada. La sesión DJ continúa.",
+    ),
+    "vibecast_stop_all": (
+        "Stop sharing on all displays", "Stop delen op alle schermen", "Freigabe auf allen Bildschirmen beenden",
+        "Arrêter le partage sur tous les écrans", "Dejar de compartir en todas las pantallas",
+    ),
+    "vibecast_active": (
+        "This session is shared. Enter a code to add another display.",
+        "Deze sessie wordt gedeeld. Voer een code in om een scherm toe te voegen.",
+        "Diese Session wird geteilt. Gib einen Code ein, um einen Bildschirm hinzuzufügen.",
+        "Cette session est partagée. Saisissez un code pour ajouter un écran.",
+        "Esta sesión se está compartiendo. Introduce un código para añadir una pantalla.",
+    ),
+    "vibecast_stopped": (
+        "Sharing stopped. The DJ Session continues.",
+        "Delen is gestopt. De DJ-sessie loopt door.",
+        "Freigabe beendet. Die DJ-Session läuft weiter.",
+        "Partage arrêté. La session DJ continue.",
+        "Se ha dejado de compartir. La sesión DJ continúa.",
+    ),
+    "vibecast_share_changed": (
+        "Sharing changed. Choose what to do next.",
+        "De deelstatus is gewijzigd. Kies wat je nu wilt doen.",
+        "Die Freigabe hat sich geändert. Wähle den nächsten Schritt.",
+        "Le partage a changé. Choisissez la prochaine action.",
+        "El uso compartido ha cambiado. Elige qué hacer ahora.",
+    ),
+    "vibecast_failed": (
+        "Sharing status is unavailable. Refresh to try again.",
+        "De deelstatus is niet beschikbaar. Ververs om het opnieuw te proberen.",
+        "Der Freigabestatus ist nicht verfügbar. Aktualisiere, um es erneut zu versuchen.",
+        "Le statut du partage est indisponible. Actualisez pour réessayer.",
+        "El estado del uso compartido no está disponible. Actualiza para reintentar.",
+    ),
+    "vibecast_lookup_failed": (
+        "Could not find the display. Check the code or enter a new one.",
+        "Scherm niet gevonden. Controleer de code of voer een nieuwe in.",
+        "Bildschirm nicht gefunden. Prüfe den Code oder gib einen neuen ein.",
+        "Écran introuvable. Vérifiez le code ou saisissez-en un nouveau.",
+        "No se encontró la pantalla. Comprueba el código o introduce uno nuevo.",
+    ),
+    "vibecast_expired": (
+        "The code expired. Enter a new one.",
+        "De code is verlopen. Voer een nieuwe in.",
+        "Der Code ist abgelaufen. Gib einen neuen ein.",
+        "Le code a expiré. Saisissez-en un nouveau.",
+        "El código ha caducado. Introduce uno nuevo.",
+    ),
+    "vibecast_uncertain": (
+        "The change could not be confirmed. Refresh to check sharing.",
+        "De wijziging kon niet worden bevestigd. Ververs om te controleren of de sessie wordt gedeeld.",
+        "Die Änderung wurde nicht bestätigt. Aktualisiere, um die Freigabe zu prüfen.",
+        "La modification n’a pas pu être confirmée. Actualisez pour vérifier le partage.",
+        "No se pudo confirmar el cambio. Actualiza para comprobar si se está compartiendo.",
+    ),
+}
+for _key, _values in _VIBECAST_SENDER_TRANSLATIONS.items():
+    for _locale, _value in zip(("en", "nl", "de", "fr", "es"), _values, strict=True):
+        TRANSLATIONS[_locale][_key] = _value

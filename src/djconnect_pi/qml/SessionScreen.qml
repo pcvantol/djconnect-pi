@@ -847,6 +847,14 @@ Item {
                     onCurrentTrackClicked: outputsPanel.openForCurrentItem(toolbarOutput)
                 }
                 GlassButton {
+                    objectName: "sessionToolbarVibeCast"
+                    visible: screen.sessionControlsVisible && !screen.showForecast && screen.state.vibecast.available
+                    enabled: !screen.state.vibecast.busy
+                    iconName: "vibecast"; Accessible.name: "VibeCast"
+                    implicitWidth: 52; background: Item {}
+                    onClicked: { if (screen.owner.openVibeCast()) vibeCastPanel.open() }
+                }
+                GlassButton {
                     visible: screen.sessionControlsVisible
                     objectName: "sessionCompactEnd"
                     iconName: "end"; Accessible.name: screen.tr("session_end")
@@ -2397,6 +2405,194 @@ Item {
             GlassButton { text: screen.tr("shared_title"); onClicked: { choices.close(); screen.navigate("settings") } }
         }
     }
+    GlassPopup {
+        id: vibeCastPanel
+        objectName: "sessionVibeCastPanel"
+        anchors.centerIn: parent
+        width: Math.min(screen.width - 32, 520)
+        padding: 18
+        modal: true
+        background: GlassSurface { elevated: true }
+        readonly property var sender: screen.state.vibecast
+        onAboutToHide: {
+            codeInput.clear()
+            screen.owner.closeVibeCast()
+        }
+        Connections {
+            target: screen
+            function onStateChanged() {
+                if (vibeCastPanel.opened && !vibeCastPanel.sender.open) vibeCastPanel.close()
+            }
+            function onShowForecastChanged() { if (screen.showForecast) vibeCastPanel.close() }
+            function onVisibleChanged() { if (!screen.visible) vibeCastPanel.close() }
+            function onHistoricalChanged() { if (screen.historical) vibeCastPanel.close() }
+        }
+        contentItem: ColumnLayout {
+            spacing: 8
+            FeatureIcon {
+                objectName: "sessionVibeCastGlyph"
+                iconName: "vibecast"
+                heroGradient: true
+                Layout.alignment: Qt.AlignHCenter
+                Layout.preferredWidth: screen.compact ? 48 : 64
+                Layout.preferredHeight: Layout.preferredWidth
+            }
+            Text {
+                text: "VibeCast"; color: BrandTheme.colors.text
+                font.pixelSize: 23; font.bold: true
+                Layout.alignment: Qt.AlignHCenter
+            }
+            Text {
+                objectName: "sessionVibeCastStatus"
+                Layout.fillWidth: true
+                color: BrandTheme.colors.text
+                wrapMode: Text.WordWrap; textFormat: Text.PlainText
+                text: {
+                    const status = vibeCastPanel.sender.status
+                    if (status === "loading") return screen.tr("loading")
+                    if (status === "confirm" && vibeCastPanel.sender.has_share)
+                        return screen.tr("vibecast_confirm_existing")
+                    return screen.tr("vibecast_" + (status || "ready"))
+                }
+            }
+            TextField {
+                id: codeInput
+                objectName: "sessionVibeCastCode"
+                visible: ["ready", "active", "sharing", "stopped", "lookup_failed", "expired",
+                          "display_stopped", "share_changed"]
+                    .includes(vibeCastPanel.sender.status)
+                Layout.fillWidth: true
+                Layout.preferredHeight: screen.compact ? 48 : 60
+                readonly property int cellGap: 6
+                readonly property real cellWidth: Math.max(0, (width - 5 * cellGap) / 6)
+                color: "transparent"
+                selectionColor: "transparent"
+                selectedTextColor: "transparent"
+                cursorDelegate: Item { width: 1 }
+                font.pixelSize: screen.compact ? 24 : 28
+                Accessible.name: screen.tr("vibecast_code")
+                maximumLength: 6
+                validator: RegularExpressionValidator { regularExpression: /^[0-9]{0,6}$/ }
+                inputMethodHints: Qt.ImhDigitsOnly | Qt.ImhNoPredictiveText
+                onAccepted: lookupCode.clicked()
+                MouseArea {
+                    anchors.fill: parent
+                    onClicked: (mouse) => {
+                        codeInput.forceActiveFocus(Qt.MouseFocusReason)
+                        const cell = Math.floor(mouse.x / (codeInput.cellWidth + codeInput.cellGap))
+                        codeInput.cursorPosition = Math.min(codeInput.length, cell)
+                    }
+                }
+                background: Row {
+                    spacing: codeInput.cellGap
+                    Repeater {
+                        model: 6
+                        GlassSurface {
+                            required property int index
+                            objectName: "sessionVibeCastCodeCell-" + index
+                            width: codeInput.cellWidth
+                            height: codeInput.height
+                            radius: 12
+                            interactive: true
+                            selected: index >= codeInput.selectionStart && index < codeInput.selectionEnd
+                            focused: codeInput.activeFocus && index === Math.min(codeInput.cursorPosition, 5)
+                            Text {
+                                anchors.centerIn: parent
+                                text: codeInput.text.charAt(parent.index)
+                                color: BrandTheme.colors.text
+                                font.pixelSize: codeInput.font.pixelSize
+                                font.bold: true
+                                Accessible.ignored: true
+                            }
+                        }
+                    }
+                }
+            }
+            GridLayout {
+                visible: codeInput.visible
+                Layout.fillWidth: true
+                columns: 6
+                Repeater {
+                    model: ["1", "2", "3", "4", "5", "⌫", "6", "7", "8", "9", "0"]
+                    GlassButton {
+                        required property string modelData
+                        objectName: "sessionVibeCastDigit-" + modelData
+                        text: modelData
+                        Layout.fillWidth: true
+                        Layout.preferredWidth: 1
+                        Layout.preferredHeight: 42
+                        focusPolicy: Qt.NoFocus
+                        Accessible.name: modelData === "⌫" ? screen.tr("keyboard_delete") : modelData
+                        onClicked: {
+                            const selected = codeInput.selectionStart !== codeInput.selectionEnd
+                            const start = selected ? codeInput.selectionStart : codeInput.cursorPosition
+                            const end = selected ? codeInput.selectionEnd : start
+                            if (modelData === "⌫") {
+                                const removeFrom = selected ? start : Math.max(0, start - 1)
+                                codeInput.remove(removeFrom, end)
+                                codeInput.cursorPosition = removeFrom
+                            } else if (selected || codeInput.length < 6) {
+                                codeInput.remove(start, end)
+                                codeInput.insert(start, modelData)
+                                codeInput.cursorPosition = start + 1
+                            }
+                        }
+                    }
+                }
+            }
+            GlassButton {
+                id: lookupCode
+                objectName: "sessionVibeCastResolve"
+                visible: codeInput.visible
+                enabled: visible && codeInput.acceptableInput && codeInput.length === 6
+                text: screen.tr("vibecast_lookup")
+                primary: true
+                Layout.fillWidth: true
+                onClicked: {
+                    if (enabled && screen.owner.resolveVibeCastCode(codeInput.text)) codeInput.clear()
+                }
+            }
+            GlassButton {
+                objectName: "sessionVibeCastApprove"
+                visible: vibeCastPanel.sender.status === "confirm"
+                text: screen.tr("vibecast_approve"); primary: true
+                Layout.fillWidth: true
+                onClicked: screen.owner.approveVibeCast()
+            }
+            GlassButton {
+                objectName: "sessionVibeCastDisconnect"
+                visible: vibeCastPanel.sender.has_display && !vibeCastPanel.sender.busy
+                    && vibeCastPanel.sender.status !== "confirm"
+                text: screen.tr("vibecast_disconnect_display")
+                Layout.fillWidth: true
+                onClicked: screen.owner.disconnectVibeCastDisplay()
+            }
+            GlassButton {
+                objectName: "sessionVibeCastStop"
+                visible: vibeCastPanel.sender.has_share
+                enabled: !vibeCastPanel.sender.busy
+                text: screen.tr("vibecast_stop_all")
+                tint: BrandTheme.colors.danger
+                Layout.fillWidth: true
+                onClicked: screen.owner.stopVibeCast()
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                GlassButton {
+                    text: screen.tr("refresh")
+                    enabled: !vibeCastPanel.sender.busy
+                    Layout.fillWidth: true
+                    onClicked: { codeInput.clear(); screen.owner.refreshVibeCast() }
+                }
+                GlassButton {
+                    text: screen.tr("close")
+                    Layout.fillWidth: true
+                    onClicked: vibeCastPanel.close()
+                }
+            }
+        }
+    }
+
     GlassPopup {
         id: contentDeletePanel
         objectName: "sessionContentDeletePanel"

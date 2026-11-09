@@ -54,6 +54,7 @@ from .session_transport import (
     private_scope_allowed,
     session_profile_id,
 )
+from .session_vibecast import VibeCastSender
 
 
 class SessionController(QObject):
@@ -152,6 +153,9 @@ class SessionController(QObject):
         self.changed.connect(self._archive_delete.sync)
         self.contextCleared.connect(self._archive_delete.hide)
         self._content_delete = ContentDeleteControl(self)
+        self._vibecast = VibeCastSender(self)
+        self.changed.connect(self._vibecast.sync)
+        self.contextCleared.connect(self._vibecast.hide)
         self._withdrawn_content_scope = None
         self._withdrawn_moments = set()
         self._withdrawn_entries = {}
@@ -216,6 +220,7 @@ class SessionController(QObject):
             "playback_control": self._playback_control.snapshot(),
             "archive_delete": self._archive_delete.snapshot(),
             "content_delete": self._content_delete.snapshot(),
+            "vibecast": self._vibecast.snapshot(),
             "forecast_supported": not revoked and forecast_supported(session, self._caps),
             "forecast": {"state": "empty", "sections": []} if revoked else self._forecast.snapshot(),
             "mood": session.get("selected_mood", ""),
@@ -353,6 +358,35 @@ class SessionController(QObject):
     def recoverHistoryDelete(self):
         return self._archive_delete.recover()
 
+    @Slot(result=bool)
+    def openVibeCast(self):
+        return self._vibecast.open()
+
+    @Slot(str, result=bool)
+    def resolveVibeCastCode(self, code):
+        return self._vibecast.action("resolve", code)
+
+    @Slot(result=bool)
+    def approveVibeCast(self):
+        return self._vibecast.action("approve")
+
+    @Slot(result=bool)
+    def stopVibeCast(self):
+        return self._vibecast.action("revoke")
+
+    @Slot(result=bool)
+    def disconnectVibeCastDisplay(self):
+        return self._vibecast.action("disconnect")
+
+    @Slot()
+    def refreshVibeCast(self):
+        self._vibecast.action("context")
+
+    @Slot()
+    def closeVibeCast(self):
+        self._vibecast.hide()
+        self._visibility_notify.start()
+
     @Slot(bool)
     def setContentDeleteVisible(self, visible):
         if self._content_delete.visible == visible:
@@ -465,6 +499,7 @@ class SessionController(QObject):
         self._playback_control.shutdown()
         self._archive_delete.shutdown()
         self._content_delete.shutdown()
+        self._vibecast.shutdown()
 
     @Property(bool, notify=changed)
     def busy(self):
