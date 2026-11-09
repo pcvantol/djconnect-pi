@@ -1283,7 +1283,6 @@ _HISTORY_SEARCH_TRANSLATIONS = {
     "session_history_title": ("Session history", "Sessiegeschiedenis", "Session-Verlauf", "Historique de session", "Historial de sesión"),
     "session_history_view_readonly": ("Session history · read only", "Sessiegeschiedenis · alleen-lezen", "Session-Verlauf · schreibgeschützt", "Historique de session · lecture seule", "Historial de sesión · solo lectura"),
     "session_datetime_format": ("d MMM yyyy · HH:mm", "d MMM yyyy · HH:mm", "d. MMM yyyy · HH:mm", "d MMM yyyy · HH:mm", "d MMM yyyy · HH:mm"),
-    "session_history_interrupted": ("Interrupted", "Onderbroken", "Unterbrochen", "Interrompue", "Interrumpida"),
     "session_history_first": ("Read from the beginning", "Lees vanaf het begin", "Von Anfang an lesen", "Lire depuis le début", "Leer desde el principio"),
     "session_history_previous": ("Previous contributions", "Vorige bijdragen", "Vorherige Beiträge", "Contributions précédentes", "Contribuciones anteriores"),
     "session_history_next": ("Next contributions", "Volgende bijdragen", "Nächste Beiträge", "Contributions suivantes", "Contribuciones siguientes"),
@@ -1639,6 +1638,7 @@ _SESSION_DELETE_TRANSLATIONS = {
         "Die gespeicherte Auswahl wurde geändert oder ist abgelaufen. Lade neu und prüfe eine neue Auswahl vor einer erneuten Bestätigung.",
         "La sélection enregistrée a changé ou a expiré. Rechargez et vérifiez une nouvelle sélection avant de confirmer à nouveau.",
         "La selección guardada cambió o caducó. Recarga y comprueba una nueva selección antes de volver a confirmar."),
+    "session_history_interrupted": ("Interrupted", "Onderbroken", "Unterbrochen", "Interrompue", "Interrumpida"),
     "session_saved_title": ("Saved session", "Opgeslagen sessie", "Gespeicherte Session", "Session enregistrée", "Sesión guardada"),
     "session_delete_action": ("Delete saved session", "Opgeslagen sessie verwijderen", "Gespeicherte Session löschen", "Supprimer la session enregistrée", "Eliminar sesión guardada"),
     "session_delete_confirm": (
