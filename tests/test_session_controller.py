@@ -1526,6 +1526,51 @@ def test_vibecast_uncertain_revoke_uses_status_read_instead_of_replay(vibecast_s
     owner.transport.end.assert_not_called()
 
 
+@pytest.mark.parametrize("phase", ["context", "approve"])
+def test_vibecast_approval_respects_original_code_deadline(vibecast_sender, monkeypatch, phase):
+    owner, backend, _ = vibecast_sender
+    clock = [100.0]
+    monkeypatch.setattr("djconnect_pi.session_vibecast.time.monotonic", lambda: clock[0])
+    assert owner.openVibeCast()
+    backend.jobs.pop()()
+    assert owner.resolveVibeCastCode("012345")
+    backend.jobs.pop()()
+    dispatch = owner.transport.display_owner.side_effect
+
+    def delayed_reply(binding, action, payload):
+        if action == phase:
+            clock[0] = 220.0
+        return dispatch(binding, action, payload)
+
+    owner.transport.display_owner.side_effect = delayed_reply
+    assert owner.approveVibeCast()
+    backend.jobs.pop()()
+    assert owner.state["vibecast"]["status"] == ("expired" if phase == "context" else "uncertain")
+    assert not owner.state["vibecast"]["has_display"]
+    assert not owner.approveVibeCast()
+    calls = [call.args[1] for call in owner.transport.display_owner.call_args_list]
+    assert calls.count("approve") == (0 if phase == "context" else 1)
+
+
+def test_vibecast_approval_does_not_extend_original_share_deadline(vibecast_sender, monkeypatch):
+    owner, backend, responses = vibecast_sender
+    responses["context"].update(share_id="s" * 43, share_generation=1, expires_in=1)
+    clock = [100.0]
+    monkeypatch.setattr("djconnect_pi.session_vibecast.time.monotonic", lambda: clock[0])
+    assert owner.openVibeCast()
+    backend.jobs.pop()()
+    assert owner.resolveVibeCastCode("012345")
+    backend.jobs.pop()()
+    clock[0] = 101.0
+    responses["context"]["expires_in"] = 5
+    assert owner.approveVibeCast()
+    backend.jobs.pop()()
+    assert [call.args[1] for call in owner.transport.display_owner.call_args_list] == [
+        "context", "context", "resolve", "context",
+    ]
+    assert owner.state["vibecast"]["status"] == "failed"
+
+
 def test_vibecast_uncertain_approval_uses_status_read_instead_of_replay(vibecast_sender):
     owner, backend, responses = vibecast_sender
     assert owner.openVibeCast()

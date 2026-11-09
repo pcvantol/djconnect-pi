@@ -270,12 +270,14 @@ class VibeCastSender(QObject):
                 return "display_stopped", fresh
             return "stopped", replace(fresh, share=None)
 
-        if time.monotonic() >= claim[1]:
+        requested = time.monotonic()
+        if requested >= claim[1]:
+            return "expired", fresh
+        if requested >= min(context.share_deadline, fresh.share_deadline):
             raise SessionError("unavailable")
         share = ({"mode": "create", "consent": True, "lifetime_seconds": SHARE_SECONDS}
                  if context.share is None else
                  {"mode": "existing", "share_id": context.share[0], "share_generation": context.share[1]})
-        requested = time.monotonic()
         data = call("approve", {"session_id": session_id, **claim[0], "share": share})
         if data.get("state") != "approved" or data.get("session_id") != session_id:
             raise SessionError("invalid")
@@ -283,7 +285,7 @@ class VibeCastSender(QObject):
         maximum = SHARE_SECONDS if context.share is None else 28800
         deadline = min(requested + duration(data, "share_expires_in", maximum),
                        context.share_deadline, fresh.share_deadline)
-        if time.monotonic() >= deadline:
+        if time.monotonic() >= min(deadline, claim[1]):
             raise SessionError("invalid")
         approved = (opaque(data, "share_id"), generation(data))
         if (context.share is None and approved[1] != 1) or (context.share is not None and approved != context.share):
