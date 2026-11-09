@@ -67,6 +67,57 @@ def test_invalidating_profile_discards_already_queued_results(controller):
     assert not owner.busy
 
 
+def test_saved_summary_requires_a_current_owner_binding_and_coherent_final_metrics(controller):
+    import json
+    from copy import deepcopy
+    from datetime import UTC, datetime
+    from pathlib import Path
+
+    owner, backend = controller
+    fixture_path = Path(__file__).parent / "fixtures/session_core/retention-v2-touch.json"
+    fixture = json.loads(fixture_path.read_text())
+    timeline = next(value for value in fixture.values() if isinstance(value, dict)
+                    and isinstance(value.get("session"), dict) and "summary" in value["session"])
+    header = timeline["session"]
+    header.update(lifecycle_status="ENDED", read_only=True)
+    summary = header["summary"]
+    summary["state"] = "final"
+    for key in ("tracks_observed", "moments_published", "mood"):
+        summary[key]["state"] = "final"
+    summary["moments_published"].update(value=3, coverage="partial")
+    summary["mood"].update(value=None, coverage="withdrawn")
+    owner._caps = {"capabilities": {"session_conversation_history": True, "session_history_summary": True},
+                   "contract_versions": {"session_history_entries": 2, "session_history_summary": 1}}
+    owner._timeline = {**timeline, "_session_deadline": 4_000_000_000}
+    assert owner.state["saved_summary"] == []
+    owner._saved_summary_binding = owner.transport.binding()
+    assert [(metric["value"], metric["coverage"]) for metric in owner.state["saved_summary"]] == [
+        (0, "complete"), (3, "partial"), (None, "withdrawn")]
+    bad = deepcopy(owner._timeline)
+    bad["session"]["summary"]["moments_published"]["revision"] = "other"
+    owner._timeline = bad
+    assert owner.state["saved_summary"] == []
+    owner._timeline = {**timeline, "_session_deadline": 4_000_000_000}
+    archive_header = deepcopy(header)
+    archive_header.update(revision=7, ended_at=datetime.now(UTC).isoformat(),
+                          summary_metrics=[{"value": "untrusted"}])
+    archive_summary = archive_header["summary"]
+    archive_summary["session_revision"] = 7
+    for key in ("tracks_observed", "moments_published", "mood"):
+        archive_summary[key]["revision"] = 7
+    owner.transport.history = Mock(return_value={
+        "success": True, "schema_version": 2, "history_contract_version": 2,
+        "retention_days": 90, "retention_revision": 1, "revision": "owner-r1",
+        "next_cursor": None, "sessions": [archive_header],
+    })
+    owner.loadHistory()
+    backend.jobs.pop()()
+    assert owner.state["sessions"][0]["summary_metrics"][0]["value"] == 0
+    backend.cfg.active_profile_id = "different-owner"
+    assert owner.state["saved_summary"] == []
+    assert "summary_metrics" not in owner.state["sessions"][0]
+
+
 def test_same_context_refresh_marks_empty_only_after_success(controller):
     owner, backend = controller
     owner.refresh()
@@ -108,10 +159,13 @@ def test_demo_session_never_uses_server_or_survives_demo_exit(controller):
     owner.setDemoPreference("presence", "occasional")
     owner.start("chill")
     assert owner.state["session_id"] == "demo-session"
+    started_at = owner.state["started_at"]
+    assert owner.formatTimestamp(started_at)
     assert owner.state["persona"] == "festival_dj"
     assert owner.state["presence"] == "occasional"
     owner.setDemoPreference("mood", "energy")
     assert owner.state["mood"] == "energy"
+    assert owner.state["started_at"] == started_at
     positioned = []
     owner.questionConfirmed.connect(positioned.append)
     assert owner.sendQuestion("What should I listen to next?")
@@ -122,6 +176,7 @@ def test_demo_session_never_uses_server_or_survives_demo_exit(controller):
     ]
     owner.end("demo-session")
     assert not owner.state["flow_rows"] and not owner.sendQuestion("No session")
+    assert not owner.state["started_at"]
     assert owner.state["loaded"] and not owner.state["session_id"]
     owner.start("party")
     assert owner.state["mood"] == "party"
@@ -194,6 +249,77 @@ def test_unavailable_history_cannot_end_or_replace_current_session(controller):
     backend.jobs.pop()()
     assert owner.state['error'] == 'unavailable'
     assert owner.state['session_id'] == 'current-session'
+
+
+@pytest.mark.parametrize("dismiss", ["", "close", "profile", "foreground"])
+def test_retry_saved_open_stays_bound_to_the_failed_read(controller, dismiss):
+    from test_session_history_view import timeline_fixture
+
+    owner, backend = controller
+    enable_search(owner)
+    tail = timeline_fixture()
+    session_id = tail["session"]["session_id"]
+    owner._sessions = [{"session_id": session_id}]
+    owner.transport.timeline = Mock(side_effect=[SessionError("offline"), tail])
+    owner.openSaved(session_id)
+    backend.jobs.pop()()
+    assert owner.state["saved_open_retry"] and not owner.state["timeline"]
+    assert owner.transport.timeline.call_count == 1
+
+    if dismiss == "close":
+        owner.closeSaved()
+    elif dismiss == "profile":
+        backend.cfg.explicit_profile_id = backend.cfg.active_profile_id = "profile-b"
+    elif dismiss == "foreground":
+        owner.setForeground(False)
+    owner.retrySavedOpen()
+
+    if dismiss:
+        assert not backend.jobs
+        assert not owner.state["saved_open_retry"]
+        assert owner.transport.timeline.call_count == 1
+    else:
+        assert len(backend.jobs) == 1
+        backend.jobs.pop()()
+        assert owner.transport.timeline.call_count == 2
+        assert owner.transport.timeline.call_args.args[1] == session_id
+        assert owner.state["timeline"]["session"]["session_id"] == session_id
+        assert not owner.state["saved_open_retry"]
+
+
+@pytest.mark.parametrize("window", ["anchor", "cursor", "prefix"])
+def test_retry_saved_refresh_repeats_the_same_read(controller, window):
+    from test_session_history_view import timeline_fixture
+
+    owner, backend = controller
+    enable_search(owner)
+    tail = timeline_fixture()
+    session_id = tail["session"]["session_id"]
+    anchor = tail["entries"][0]["entry_id"]
+    owner._sessions = [{"session_id": session_id}]
+    owner._timeline = {**tail}
+    if window == "cursor":
+        owner._timeline["_page_cursor"] = "server-issued-cursor"
+    elif window == "prefix":
+        owner._timeline["_prefix_pages"] = 1
+    timeline_updated = Mock()
+    owner.timelineUpdated.connect(timeline_updated)
+    owner.transport.timeline = Mock(side_effect=[SessionError("offline"), tail])
+    owner.refreshSaved(anchor)
+    backend.jobs.pop()()
+    assert not owner.state["timeline"]
+    assert owner.state["saved_open_retry"]
+
+    owner.clearSearch()
+    owner.retrySavedOpen()
+    backend.jobs.pop()()
+
+    first, second = owner.transport.timeline.call_args_list
+    assert first == second
+    assert second.args[1] == session_id
+    assert owner.state["timeline"]["session"]["session_id"] == session_id
+    assert not owner.state["saved_open_retry"]
+    timeline_updated.assert_called_once_with(anchor)
 
 
 def test_timeline_pages_replace_window_and_reject_changed_revision(controller):
@@ -523,6 +649,23 @@ def test_history_dates_are_localized_and_equivalent_offsets_show_same_instant(co
     assert '2026-10-18' not in formatted and 'T12:34' not in formatted
     assert owner.formatTimestamp('2026-10-18T12:34:00') == ''  # no guessed timezone
     assert owner.formatTimestamp('not-a-date') == ''
+
+
+@pytest.mark.parametrize(("session", "expected"), [
+    ({"lifecycle_status": "ENDED", "ended_at": "2026-10-18T15:45:59+02:00"}, "1 u 11 min"),
+    ({"lifecycle_status": "ENDED", "ended_at": "2026-10-18T13:34:00Z"}, "1 u"),
+    ({"lifecycle_status": "INTERRUPTED", "interrupted_at": "2026-10-18T12:41:00Z"}, "7 min"),
+    ({"lifecycle_status": "ENDED", "ended_at": "2026-10-18T12:34:59Z"}, "Minder dan 1 min"),
+    ({"lifecycle_status": "ENDED", "ended_at": "2026-10-18T12:33:59Z"}, ""),
+    ({"lifecycle_status": "ENDED", "interrupted_at": "2026-10-18T12:41:00Z"}, ""),
+    ({"lifecycle_status": "ACTIVE", "ended_at": "2026-10-18T13:34:00Z"}, ""),
+    ({"lifecycle_status": "ENDED", "ended_at": "2026-10-18T13:34:00"}, ""),
+    ({"lifecycle_status": "ENDED", "started_at": "", "ended_at": "2026-10-18T13:34:00Z"}, ""),
+])
+def test_saved_duration_uses_confirmed_timestamps(controller, session, expected):
+    owner, backend = controller
+    backend.cfg.language = "nl"
+    assert owner.formatSavedDuration({"started_at": "2026-10-18T12:34:00Z", **session}) == expected
 
 
 def paged_timeline(owner):
@@ -1643,3 +1786,52 @@ def test_vibecast_uncertain_approval_uses_status_read_instead_of_replay(vibecast
     assert [call.args[1] for call in owner.transport.display_owner.call_args_list] == [
         "context", "context", "resolve", "context", "approve", "context",
     ]
+
+
+@pytest.mark.parametrize("entry_count", [30, 61])
+def test_flow_loads_a_larger_authorized_tail_without_opening_saved_history(controller, entry_count):
+    owner, backend = controller
+    session = {"session_id": "s", "runtime_state": "active", "broadcast": {"session": {"session_id": "s"}}}
+    owner.transport.active.return_value = {"success": True, "session": session}
+
+    def tail(binding, sid, *, limit=20):
+        assert sid == "s"
+        return {"success": True, "schema_version": 2, "history_contract_version": 2,
+                "session": {"session_id": sid}, "revision": "r", "next_cursor": None,
+                "window": "tail", "coverage": "bounded_saved_entry_window", "window_limit": limit,
+                "scan_complete": limit >= entry_count, "entries": [
+                    {"entry_id": f"entry-{i}", "session_id": sid, "order": i, "kind": "dj_silence",
+                     "text": None, "speech_available": False, "historical_view_only": True,
+                     "current_display_allowed": False, "occurred_at": "2026-11-09T00:00:00Z",
+                     "retained_until": "2099-01-01T00:00:00Z"}
+                    for i in range(max(1, entry_count + 1 - limit), entry_count + 1)]}
+
+    owner.transport.timeline = Mock(side_effect=tail)
+    owner.refresh()
+    backend.jobs.pop()()
+    assert owner.state["flow_more"] and len(owner.state["flow_rows"]) == 20
+    assert not owner.state["flow_history_hint"]
+    owner.expandFlow("wrong-session")
+    assert not backend.jobs
+    owner.expandFlow("s")
+    backend.jobs.pop()()
+    assert len(owner.state["flow_rows"]) == min(50, entry_count)
+    assert not owner.state["flow_more"] and not owner.state["timeline"]
+    assert owner.state["flow_history_hint"] == (entry_count > 50)
+    owner.expandFlow("s")
+    assert not backend.jobs
+    owner.refresh()
+    backend.jobs.pop()()
+    assert owner.transport.timeline.call_args.kwargs == {"limit": 50}
+    assert len(owner.state["flow_rows"]) == min(50, entry_count)
+
+    new_session = {"session_id": "new", "runtime_state": "active",
+                   "broadcast": {"session": {"session_id": "new"}}}
+    owner.transport.active.return_value = {"success": True, "session": new_session}
+    owner.transport.timeline.side_effect = None
+    owner.transport.timeline.return_value = {**tail(None, "s"), "session": {"session_id": "new"}, "entries": []}
+    owner.refresh()
+    backend.jobs.pop()()
+    assert owner.transport.timeline.call_args.kwargs == {}
+    assert owner.state["session_id"] == "new" and not owner.state["flow_rows"]
+    assert not owner.state["flow_history_hint"]

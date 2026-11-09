@@ -47,32 +47,79 @@ ColumnLayout {
     }
     Repeater {
         model: attribution.ready ? attribution.sources : []
-        ColumnLayout {
+        Flow {
             id: sourceRow
             required property var modelData
+            readonly property string providerName: modelData.provider || ""
+            readonly property var sourceUrls: modelData.links || []
+            readonly property string linkLabel: {
+                if (providerName) return providerName
+                djconnect.translationVersion
+                return djconnect.t("session_attribution_source")
+            }
             Layout.fillWidth: true
-            spacing: 2
+            spacing: 8
+
+            SourceLink {
+                visible: sourceRow.sourceUrls.length > 0
+                text: sourceRow.linkLabel
+                targetUrl: sourceRow.sourceUrls[0] || ""
+                width: Math.min(implicitWidth, sourceRow.width)
+            }
             Text {
-                text: [sourceRow.modelData.provider, sourceRow.modelData.license].filter(function(value) { return value.length > 0 }).join(" · ")
-                visible: text.length > 0
-                textFormat: Text.PlainText; color: BrandTheme.colors.muted
-                font.pixelSize: 16; wrapMode: Text.WordWrap; Layout.fillWidth: true
+                visible: !sourceRow.sourceUrls.length && text.length > 0
+                text: sourceRow.providerName
+                width: Math.min(implicitWidth, sourceRow.width)
+                textFormat: Text.PlainText
+                color: BrandTheme.colors.muted
+                font.pixelSize: 16
+                wrapMode: Text.Wrap
+            }
+            Text {
+                visible: !!sourceRow.modelData.license
+                text: (sourceRow.providerName || sourceRow.sourceUrls.length ? "· " : "") + (sourceRow.modelData.license || "")
+                width: Math.min(implicitWidth, sourceRow.width)
+                height: Math.max(implicitHeight, sourceRow.sourceUrls.length ? 44 : 0)
+                verticalAlignment: Text.AlignVCenter
+                textFormat: Text.PlainText
+                color: BrandTheme.colors.muted
+                font.pixelSize: 16
+                wrapMode: Text.Wrap
             }
             Repeater {
-                model: sourceRow.modelData.links
-                Text {
+                model: sourceRow.sourceUrls.slice(1)
+                SourceLink {
                     required property string modelData
-                    text: modelData; textFormat: Text.PlainText
-                    color: BrandTheme.colors.cyan; font.pixelSize: 16; font.underline: true
-                    wrapMode: Text.WrapAnywhere; verticalAlignment: Text.AlignVCenter
-                    Layout.fillWidth: true; Layout.minimumHeight: 44
-                    activeFocusOnTab: true
-                    Accessible.name: text
-                    Keys.onReturnPressed: Qt.openUrlExternally(modelData)
-                    Keys.onSpacePressed: Qt.openUrlExternally(modelData)
-                    TapHandler { onTapped: Qt.openUrlExternally(parent.modelData) }
+                    required property int index
+                    text: sourceRow.linkLabel + " (" + (index + 2) + ")"
+                    targetUrl: modelData
+                    width: Math.min(implicitWidth, sourceRow.width)
                 }
             }
+        }
+    }
+
+    component SourceLink: Text {
+        id: sourceLink
+        required property string targetUrl
+        objectName: "sessionAttributionSourceLink"
+        textFormat: Text.PlainText
+        color: BrandTheme.colors.cyan
+        font.pixelSize: 16
+        font.underline: true
+        wrapMode: Text.Wrap
+        verticalAlignment: Text.AlignVCenter
+        height: Math.max(implicitHeight, 44)
+        activeFocusOnTab: visible && targetUrl.length > 0
+        Accessible.role: Accessible.Link
+        Accessible.name: text
+        Accessible.onPressAction: activate()
+        Keys.onReturnPressed: activate()
+        Keys.onSpacePressed: activate()
+        TapHandler { onTapped: sourceLink.activate() }
+
+        function activate() {
+            if (visible && targetUrl.length) Qt.openUrlExternally(targetUrl)
         }
     }
 }

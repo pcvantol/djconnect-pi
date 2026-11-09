@@ -27,6 +27,7 @@ from .session_current_reply import current_reply, moment_reference, reply_valid
 from .session_forecast import ForecastReceiver, forecast_supported
 from .session_forecast_image import ForecastImages
 from .session_history_delete_control import HistoryDeleteControl
+from .session_history_summary import archive_session_summary, saved_session_summary
 from .session_history_view import (
     accepted_question,
     confirmed_question_entry,
@@ -45,6 +46,7 @@ from .session_projection import (
     history_page,
     session_current_idle,
     session_playback,
+    text,
     timestamp,
 )
 from .session_transport import (
@@ -52,6 +54,7 @@ from .session_transport import (
     SessionError,
     SessionTransport,
     identifier,
+    private_binding_allowed,
     private_scope_allowed,
     session_profile_id,
 )
@@ -67,6 +70,7 @@ class SessionController(QObject):
     artworkChanged = Signal()
     artworkAboutToChange = Signal()
     flowIdleHeaderAboutToChange = Signal()
+    flowExpansionAboutToChange = Signal()
     newCurrentContribution = Signal()
     entryOpened = Signal()
     questionConfirmed = Signal(str)
@@ -103,6 +107,8 @@ class SessionController(QObject):
         self._moments = []
         self._conversation = []
         self._retained_flow = []
+        self._flow_window = None
+        self._incomplete_flow_limit = 0
         self._demo_flow = []
         self._pending_question = {}
         self._pending_question_binding = None
@@ -115,11 +121,14 @@ class SessionController(QObject):
         self._question_status = ""
         self._question_receipt = {}
         self._sessions = []
+        self._archive_summary_binding = None
         self._history_dirty = False
         self._history_selection_dirty = False
         self._timeline = {}
+        self._saved_summary_binding = None
         self._timeline_trail = []
         self._error = ""
+        self._saved_open_retry = None
         self._serial = 0
         self._running = 0
         self._running_action = ""
@@ -215,11 +224,13 @@ class SessionController(QObject):
         revoked = self._bootstrap_binding is not None and not bootstrap
         session = {} if revoked else self._session
         flow = self._demo_flow if self.backend.demoMode else self._retained_flow
+        active_history = session.get("runtime_state") == "active" and self._history_supported()
         return {"session_id": session.get("session_id", ""),
             "owner_read_only": bootstrap and not self._bootstrap_private,
             "owner_epoch": self._owner_epoch if bootstrap else 0,
             "owner_profile_id": (self._bootstrap_owner if bootstrap else session_profile_id(self.backend.cfg)),
             "runtime_state": session.get("runtime_state", ""),
+            "started_at": text(session.get("started_at"), 64),
             "playback": self._demo_playback() if self.backend.demoMode else session_playback(session),
             "current_moment_idle": session_current_idle(session),
             "artwork_prepare": self._artwork_prepare.snapshot(),
@@ -233,11 +244,15 @@ class SessionController(QObject):
             "presence": session.get("selected_presence", ""),
             "persona": session.get("dj_persona", ""),
             "composer_available": self._composer_supported(), "pending_question": {} if revoked else deepcopy(self._pending_question), "current_reply": {} if revoked else deepcopy(self._current_reply), "conversation": [] if revoked else deepcopy(self._conversation), "retained_flow": [] if revoked else deepcopy(flow),
+            "flow_more": active_history and self._incomplete_flow_limit == 20,
+            "flow_history_hint": active_history and self._incomplete_flow_limit == 50,
             "flow_rows": [] if revoked else deepcopy(flow_contributions(flow, self._moments, session.get("session_id", ""))),
             "selection": {} if revoked else deepcopy(self._selection), "question_status": self._question_status,
-            "moments": [] if revoked else deepcopy(self._moments), "sessions": [] if revoked else deepcopy(self._sessions),
+            "moments": [] if revoked else deepcopy(self._moments), "sessions": [] if revoked else self._archive_view(),
+            "saved_summary": [] if revoked else self._saved_summary(),
             "timeline": {} if revoked else deepcopy(self._timeline), "search": {} if revoked else deepcopy(self._search), "error": self._error,
             "profile_confirmation_required": not (bool(session_profile_id(self.backend.cfg)) or bootstrap),
+            "saved_open_retry": not revoked and bool(self._saved_open_target()),
             "history_available": self._history_supported(), "search_available": self._search_supported(),
             "loaded": self._loaded and not revoked, "history_loaded": self._history_loaded and not revoked,
             "has_previous_entries": bool(self._timeline_trail),
@@ -259,6 +274,28 @@ class SessionController(QObject):
             return ""
         language = self.backend.cfg.language
         return QLocale(locale_for_language(language)).toString(parsed.toLocalTime(), translate(language, "session_datetime_format"))
+
+    @Slot("QVariantMap", result=str)
+    def formatSavedDuration(self, session):
+        status = session.get("lifecycle_status")
+        if status not in ("ENDED", "INTERRUPTED"):
+            return ""
+        start = timestamp(session.get("started_at"))
+        end_stamp = session.get("ended_at")
+        if status == "INTERRUPTED" and not end_stamp:
+            end_stamp = session.get("interrupted_at")
+        end = timestamp(end_stamp)
+        if start is None or end is None or end < start:
+            return ""
+        hours, minutes = divmod(int((end - start) // 60), 60)
+        language = self.backend.cfg.language
+        if hours and minutes:
+            return translate(language, "session_duration_hours_minutes").replace("%1", str(hours)).replace("%2", str(minutes))
+        if hours:
+            return translate(language, "session_duration_hours").replace("%1", str(hours))
+        if minutes:
+            return translate(language, "session_duration_minutes").replace("%1", str(minutes))
+        return translate(language, "session_duration_subminute")
 
     @Property("QVariantMap", notify=playbackArtworkChanged)
     def playbackArtwork(self):
@@ -467,6 +504,8 @@ class SessionController(QObject):
         self._retained_flow = self._without_withdrawn_entries(self._retained_flow)
         self._conversation = self._without_withdrawn_entries(self._conversation)
         self._timeline = self._filter_withdrawn_history(self._timeline, "entries")
+        self._saved_summary_binding = None
+        self._archive_summary_binding = None
         self._search = {}
         self._timeline_trail = []
         self._view_epoch += 1
@@ -483,6 +522,7 @@ class SessionController(QObject):
         # Active Flow, Session, settings and playback are separate owners.
         self._clear_archive(notify=False)
         self._timeline = {}
+        self._saved_summary_binding = None
         self._timeline_trail = []
         self._search = {}
         if self._selection.get("kind") == "selected_entry" and self._selection_source == "timeline":
@@ -554,12 +594,16 @@ class SessionController(QObject):
         self._moments = []
         self._conversation = []
         self._retained_flow = []
+        self._flow_window = None
+        self._incomplete_flow_limit = 0
         self._demo_flow = []
         self._selection = {}
         self._selection_source = "timeline"
         self._question_status = ""
         self._sessions = []
+        self._archive_summary_binding = None
         self._timeline = {}
+        self._saved_summary_binding = None
         self._timeline_trail = []
         self._caps = {}
         self._loaded = False
@@ -572,6 +616,7 @@ class SessionController(QObject):
         self._history_trail = []
         self._history_reset = False
         self._search = {}
+        self._saved_open_retry = None
         self._view_epoch = getattr(self, "_view_epoch", 0) + 1
         self._error = ""
         if had_scope:
@@ -638,6 +683,7 @@ class SessionController(QObject):
                 return
             self._demo_preferences["mood"] = value
             self._session = {"session_id": "demo-session", "runtime_state": "active",
+                             "started_at": datetime.now(UTC).isoformat(),
                              "selected_mood": value, "selected_presence": self._demo_preferences["presence"],
                              "dj_persona": self._demo_preferences["persona"]}
             self._append_demo_entry("dj_moment", translate(self.backend.cfg.language, "demo_session_welcome"))
@@ -686,6 +732,7 @@ class SessionController(QObject):
 
         if self._timeline.get("session", {}).get("session_id") in expired:
             self._timeline = {}
+            self._saved_summary_binding = None
             self._timeline_trail = []
         if self._search.get("session_id") in expired:
             self._search = {}
@@ -879,6 +926,36 @@ class SessionController(QObject):
                 and type(versions.get("session_history_entries")) is int
                 and versions["session_history_entries"] == 2)
 
+    def _summary_supported(self):
+        if not (self._foreground and self._history_supported() and private_scope_allowed(self)):
+            return False
+        features = self._caps["capabilities"]
+        version = self._caps["contract_versions"].get("session_history_summary")
+        return features.get("session_history_summary") is True and type(version) is int and version == 1
+
+    def _summary_binding_current(self, expected):
+        if expected is None or not self._summary_supported():
+            return False
+        try:
+            binding = self.transport.binding()
+        except SessionError:
+            return False
+        return binding == expected and private_binding_allowed(binding)
+
+    def _saved_summary(self):
+        if self._timeline.get("_session_deadline") is None or not self._summary_binding_current(self._saved_summary_binding):
+            return []
+        return saved_session_summary(self._timeline)
+
+    def _archive_view(self):
+        rows = deepcopy(self._sessions)
+        can_show_summary = self._summary_binding_current(self._archive_summary_binding)
+        for row in rows:
+            row.pop("summary_metrics", None)
+            if can_show_summary and row.get("_history_deadline") is not None:
+                row["summary_metrics"] = archive_session_summary(row)
+        return rows
+
     @Slot(str)
     def confirmProfile(self, expected_profile_id):
         cfg = self.backend.cfg
@@ -896,6 +973,13 @@ class SessionController(QObject):
     @Slot()
     def refresh(self):
         self._launch("refresh")
+
+    @Slot(str)
+    def expandFlow(self, session_id):
+        if (session_id and session_id == self._session.get("session_id") and self._incomplete_flow_limit == 20
+                and self._session.get("runtime_state") == "active" and self._history_supported()
+                and not self.backend.demoMode and not self._question_running):
+            self._launch("refresh", session_id)
 
     @Slot(str)
     def start(self, mood):
@@ -916,7 +1000,9 @@ class SessionController(QObject):
     def _clear_archive(self, *, notify=True):
         had = bool(self._sessions or self._history_loaded or self._history_cursor or self._history_trail)
         self._view_epoch += 1
+        self._saved_open_retry = None
         self._sessions = []
+        self._archive_summary_binding = None
         self._history_loaded = False
         self._history_cursor = ""
         self._history_pages = 1
@@ -985,12 +1071,42 @@ class SessionController(QObject):
         self._search = {}
         self._launch("timeline", session_id)
 
+    def _saved_open_target(self):
+        if (not self._saved_open_retry or not self._foreground or not self._history_supported()
+                or self._error not in {"offline", "unavailable"}):
+            return ""
+        retry = self._saved_open_retry
+        session_id = retry["session_id"]
+        if retry["epoch"] == self._view_epoch and any(row["session_id"] == session_id for row in self._sessions):
+            return session_id
+        return ""
+
+    @Slot()
+    def retrySavedOpen(self):
+        self._expire()
+        session_id = self._saved_open_target()
+        if not session_id or self.busy:
+            return
+        try:
+            current_binding = self.transport.binding()
+        except SessionError:
+            self.invalidate()
+            return
+        retry = self._saved_open_retry
+        if current_binding != retry["binding"]:
+            self.invalidate()
+            return
+        if retry["action"] == "timeline":
+            self.openSaved(session_id)
+        else:
+            self._launch(retry["action"], retry["value"])
+
     @Slot(str)
     def refreshSaved(self, anchor_entry_id=""):
         sid = self._timeline.get("session", {}).get("session_id")
         if sid and self._timeline.get("_prefix_pages"):
             self._launch("timeline_extend", {"session_id": sid, "pages": self._timeline["_prefix_pages"],
-                "reading_anchor": anchor_entry_id})
+                "reading_anchor": anchor_entry_id, "revalidation": True})
         elif sid:
             self._launch("timeline_refresh", {"session_id": sid, "entry_id": anchor_entry_id,
                 "page_cursor": self._timeline.get("_page_cursor")})
@@ -1078,13 +1194,18 @@ class SessionController(QObject):
     @Slot()
     def closeSaved(self):
         self._view_epoch += 1
+        self._saved_open_retry = None
         self._timeline = {}
+        self._saved_summary_binding = None
         self._timeline_trail = []
         self._search = {}
         self.changed.emit()
 
     @Slot()
     def clearSearch(self):
+        # Closing search when a failed timeline disappears must not cancel its retry.
+        if not self._search and self._saved_open_target():
+            return
         self._view_epoch += 1
         had_search = bool(self._search)
         self._search = {}
@@ -1238,6 +1359,13 @@ class SessionController(QObject):
         view_epoch = self._view_epoch
         receipt_snapshot = deepcopy(self._question_receipt)
         selection_source = self._selection_source
+        flow_window = self._flow_window
+        expand_session = value if action == "refresh" else ""
+        def read_flow(sid, receipt):
+            expanding = bool(expand_session and expand_session == sid and view_epoch == self._view_epoch)
+            limit = 50 if expanding or flow_window == (binding, sid, 50) else 20
+            projection = self._read_conversation(binding, sid, receipt, check_conversation_read, limit=limit)
+            return {**projection, "flow_window": (binding, sid, limit), "flow_expanded": expanding}
         self._serial += 1
         serial = self._serial
         if action == "question":
@@ -1251,6 +1379,7 @@ class SessionController(QObject):
             self._withdraw_question()
             self.contextCleared.emit()
         question_epoch = self._question_epoch
+        self._saved_open_retry = None
         self._error = ""
         if action == "question":
             self._pending_question = {"text": value["text"], "session_id": value["session_id"], "client_message_id": value["client_message_id"]}
@@ -1272,6 +1401,11 @@ class SessionController(QObject):
 
         def worker():
             result = {"serial": serial, "binding": binding, "action": action, "view_epoch": view_epoch, "question_epoch": question_epoch, "raw_binding": raw_binding}
+            if action == "timeline":
+                result["saved_read_target"] = value
+            elif action == "timeline_refresh" or (action == "timeline_extend" and value.get("revalidation")):
+                result["saved_read_target"] = value["session_id"]
+                result["saved_read_value"] = value
             try:
                 if bootstrap:
                     # Current owner and personal-read permission are independent.
@@ -1306,7 +1440,7 @@ class SessionController(QObject):
                     if (personal and binding.private_authorized and sid
                             and caps.get("capabilities", {}).get("session_conversation_history") is True
                             and caps.get("contract_versions", {}).get("session_history_entries") == 2):
-                        result.update(self._read_conversation(binding, sid, receipt_snapshot, check_conversation_read))
+                        result.update(read_flow(sid, receipt_snapshot))
                 elif action == "question":
                     # Queued work must validate the original intent without a GUI getter/tick.
                     check_conversation_read()
@@ -1335,7 +1469,7 @@ class SessionController(QObject):
                         result["private_response"] = True
                         result["current_reply"] = current_reply(response, binding, value, fresh, now=self._clock.now())
                     else:
-                        result.update(self._read_conversation(binding, value["session_id"], result["question_receipt"], check_conversation_read))
+                        result.update(read_flow(value["session_id"], result["question_receipt"]))
                 elif action in {"history", "history_more", "history_refresh"}:
                     result["history"] = self._read_history(binding, value, view_epoch)
                 elif action == "timeline":
@@ -1433,7 +1567,7 @@ class SessionController(QObject):
                     if sid and caps.get("capabilities", {}).get("session_conversation_history") is True and caps.get("contract_versions", {}).get("session_history_entries") == 2:
                         result["receipt_update"] = receipt_snapshot
                         try:
-                            result.update(self._read_conversation(binding, sid, receipt_snapshot, check_conversation_read))
+                            result.update(read_flow(sid, receipt_snapshot))
                         except SessionError as exc:
                             if exc.category in {"denied", "unpaired", "context_changed"}:
                                 raise
@@ -1496,6 +1630,9 @@ class SessionController(QObject):
         except SessionError:
             self.invalidate()
             return
+        if result.get("flow_expanded") and result.get("view_epoch") != self._view_epoch:
+            self.changed.emit()
+            return
         if (result.get("receipt_update") and result["question_epoch"] == self._question_epoch
                 and result["receipt_update"].get("client_message_id") == self._question_receipt.get("client_message_id")):
             self._question_receipt = result["receipt_update"]
@@ -1533,6 +1670,8 @@ class SessionController(QObject):
                 self._question_status = "accepted_unavailable" if result.get("question_accepted") else "uncertain" if result["error"] == "uncertain" else "failed"
                 self._conversation = []
                 self._retained_flow = []
+                self._flow_window = None
+                self._incomplete_flow_limit = 0
                 self._selection = {}
                 if result["error"] not in {"denied", "context_changed", "unpaired"}:
                     self._error = result["error"]
@@ -1543,7 +1682,7 @@ class SessionController(QObject):
                 self._selection = {}
                 # The question's GET is a receipt check, not a replacement Runtime snapshot.
                 self._conversation = self._without_withdrawn_entries(result.get("conversation", []))
-                self._retained_flow = self._without_withdrawn_entries(result.get("retained_flow", []))
+                self._apply_retained_flow(result)
                 self._expire()
                 confirmed = self._confirm_question()
                 self.changed.emit()
@@ -1566,6 +1705,7 @@ class SessionController(QObject):
                 result["error"] = exc.category
         if "error" in result and result["action"] in {"history", "history_more", "history_refresh"}:
             self._sessions = []
+            self._archive_summary_binding = None
             self._history_cursor = ""
             self._history_pages = 1
             self._history_start = ""
@@ -1574,8 +1714,16 @@ class SessionController(QObject):
             self._history_trail = []
             self._history_reset = False
         if "error" in result and history_action and result["error"] not in {"denied", "context_changed", "unpaired"}:
+            if result.get("saved_read_target") and (result["error"] == "offline"
+                    or (result["action"] == "timeline" and result["error"] == "unavailable")):
+                self._saved_open_retry = {
+                    "session_id": result["saved_read_target"], "action": result["action"],
+                    "value": result.get("saved_read_value"), "epoch": result["view_epoch"],
+                    "binding": result["binding"],
+                }
             self._search = {}
             self._timeline = {}
+            self._saved_summary_binding = None
             self._timeline_trail = []
             self._error = result["error"]
             self.changed.emit()
@@ -1596,10 +1744,14 @@ class SessionController(QObject):
             self._moments = []
             self._conversation = []
             self._retained_flow = []
+            self._flow_window = None
+            self._incomplete_flow_limit = 0
             self._selection = {}
             self._timeline = {}
+            self._saved_summary_binding = None
             self._timeline_trail = []
             self._sessions = []
+            self._archive_summary_binding = None
             self._history_cursor = ""
             self._history_pages = 1
             self._history_start = ""
@@ -1622,6 +1774,7 @@ class SessionController(QObject):
                     scope_changed = True
                     self._clear_archive(notify=False)
                     self._timeline = {}
+                    self._saved_summary_binding = None
                     self._timeline_trail = []
                     self._search = {}
                     self._withdraw_question()
@@ -1643,13 +1796,17 @@ class SessionController(QObject):
                 if not self._composer_supported():
                     self._withdraw_question()
                 self._conversation = self._without_withdrawn_entries(result.get("conversation", []))
-                self._retained_flow = self._without_withdrawn_entries(result.get("retained_flow", []))
+                self._apply_retained_flow(result)
                 if not self._history_supported():
                     self._timeline = {}
+                    self._saved_summary_binding = None
                     self._timeline_trail = []
                     self._conversation = []
                     self._retained_flow = []
+                    self._flow_window = None
+                    self._incomplete_flow_limit = 0
                     self._sessions = []
+                    self._archive_summary_binding = None
                     self._history_cursor = ""
                     self._history_pages = 1
                     self._history_start = ""
@@ -1671,6 +1828,7 @@ class SessionController(QObject):
                     if old is not None:
                         row["_history_deadline"] = min(old, row["_history_deadline"]) if row.get("_history_deadline") is not None else old
                 self._sessions = rows
+                self._archive_summary_binding = result["binding"] if self._summary_supported() else None
                 self._history_pages = result["history"].get("_pages", 1)
                 self._history_start = result["history"].get("_start", "")
                 self._history_scope = result["history"].get("_scope")
@@ -1697,6 +1855,7 @@ class SessionController(QObject):
                 if deadlines:
                     incoming = {**incoming, "_session_deadline": min(deadlines)}
                 self._timeline = self._filter_withdrawn_history(incoming, "entries")
+                self._saved_summary_binding = result["binding"] if self._summary_supported() else None
                 # A same-scope/revision background page check must not close an active search.
                 # Search separately re-reads every displayed page; changed scope/revision withdraws it.
                 if not (result["action"] in {"timeline_refresh", "timeline_extend"}
@@ -1756,16 +1915,32 @@ class SessionController(QObject):
         self._question_status = "accepted"
         return entry_id if first_confirmation else ""
 
-    def _read_conversation(self, binding, session_id, receipt, check):
+    def _apply_retained_flow(self, result):
+        if result.get("flow_expanded"):
+            self.flowExpansionAboutToChange.emit()
+        self._retained_flow = self._without_withdrawn_entries(result.get("retained_flow", []))
+        self._flow_window = result.get("flow_window")
+        self._incomplete_flow_limit = result.get("incomplete_flow_limit", 0)
+
+    def _read_conversation(self, binding, session_id, receipt, check, *, limit=20):
         check()
-        page = history_page(self.transport.timeline(binding, session_id), session_id=session_id, now=self._clock.now())
+        response = self.transport.timeline(binding, session_id, **({"limit": limit} if limit != 20 else {}))
+        page = history_page(response, session_id=session_id, now=self._clock.now())
         check()
-        if len(page["entries"]) > 20:
+        if len(page["entries"]) > limit or (limit > 20 and (
+                page.get("window") != "tail" or page.get("coverage") != "bounded_saved_entry_window"
+                or type(page.get("window_limit")) is not int or page["window_limit"] != limit
+                or type(page.get("scan_complete")) is not bool or page.get("next_cursor") is not None)):
             raise SessionError("invalid")
         retained = presented_history(page)["entries"]
         rows = conversation_entries(page)
         def projection(entries):
-            return {"retained_flow": entries, "conversation": conversation_entries({"entries": entries})}
+            incomplete = (page.get("window") == "tail"
+                    and page.get("coverage") == "bounded_saved_entry_window"
+                    and type(page.get("window_limit")) is int and page["window_limit"] == limit
+                    and page.get("scan_complete") is False and page.get("next_cursor") is None)
+            return {"retained_flow": entries, "conversation": conversation_entries({"entries": entries}),
+                    "incomplete_flow_limit": limit if incomplete else 0}
         if (receipt.get("session_id") != session_id or len(receipt.get("entry_ids", [])) != 2
                 or confirmed_question_entry(rows, receipt)):
             return projection(retained)

@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import "BrandTheme.js" as BrandTheme
 import "ForecastGuidance.js" as ForecastGuidance
+import "MoodTheme.js" as MoodTheme
 
 Item {
     id: screen
@@ -36,6 +37,37 @@ Item {
     readonly property var contentDeletion: state.content_delete || ({})
     function deleteContent(kind, sessionId, identifier) {
         if (owner.beginContentDelete(kind, sessionId, identifier)) contentDeletePanel.open()
+    }
+    component SessionTimingCard: GlassCard {
+        id: timingCard
+        required property string startedAt
+        property string endedAt: ""
+        readonly property string started: screen.displayDate(startedAt)
+        readonly property string ended: screen.displayDate(endedAt)
+        visible: started.length > 0 || ended.length > 0
+        Layout.fillWidth: true
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 10
+            FeatureIcon { iconName: "history"; Layout.preferredWidth: 24; Layout.preferredHeight: 24 }
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 4
+                SessionTimingLine { date: timingCard.started; translationKey: "session_start_metadata" }
+                SessionTimingLine { date: timingCard.ended; translationKey: "session_end_metadata" }
+            }
+        }
+    }
+    component SessionTimingLine: Text {
+        required property string date
+        required property string translationKey
+        visible: date.length > 0
+        text: screen.tr(translationKey).replace("%1", date)
+        textFormat: Text.PlainText
+        color: BrandTheme.colors.muted
+        font.pixelSize: screen.compact ? 17 : 20
+        wrapMode: Text.WordWrap
+        Layout.fillWidth: true
     }
     component LiveMomentCard: GlassCard {
         id: liveCard
@@ -678,6 +710,11 @@ Item {
     signal navigate(string destination)
     function tr(key) { backend.translationVersion; return backend.t(key) }
     function displayDate(value) { backend.translationVersion; return owner.formatTimestamp(value || "") }
+    function savedDurationSuffix(header) {
+        backend.translationVersion
+        var duration = owner.formatSavedDuration(header || ({}))
+        return duration ? " · " + duration : ""
+    }
     function toolbarValue(field) {
         if (backend.demoMode) return owner.demoPreferences[field] || ""
         var shared = backend.sharedSettings
@@ -703,7 +740,7 @@ Item {
         choices.open()
     }
     Timer { objectName: "sessionRuntimePollTimer"; interval: 3000; running: screen.visible && screen.backend.paired && !screen.historyReadPending && !screen.searchRefreshPending; repeat: true; triggeredOnStart: true; onTriggered: { if (!screen.historical) screen.owner.refresh(); else if (!screen.currentHistory && !screen.state.history_loaded) screen.owner.loadHistory() } }
-    Timer { objectName: "sessionHistoryRevalidationTimer"; interval: 15000; running: screen.visible && screen.historical && screen.backend.paired; repeat: true; onTriggered: screen.refreshHistory() }
+    Timer { objectName: "sessionHistoryRevalidationTimer"; interval: 15000; running: screen.visible && screen.historical && screen.backend.paired; repeat: true; onTriggered: { if (!screen.state.saved_open_retry) screen.refreshHistory() } }
     Timer {
         id: replyRestore
         interval: 32
@@ -750,10 +787,42 @@ Item {
     }
     Connections {
         target: historyScroll.contentItem
-        function onDraggingChanged() { if (historyScroll.contentItem.dragging) { archivePosition.stop(); screen.archiveReturn = null; screen.followQuestionReply = false; readingRestore.stop(); if (!screen.historical) screen.clearFlowReturn() } }
+        property string flowDragContext: ""
+        property string automaticLoadContext: ""
+        property real flowDragStart: 0
+        function onDraggingChanged() {
+            var flick = historyScroll.contentItem
+            if (!flick.dragging) return
+            flowDragContext = flowLoadOlder.visible && screen.visible ? screen.composerContext : ""
+            flowDragStart = flick.contentY
+            archivePosition.stop()
+            screen.archiveReturn = null
+            screen.followQuestionReply = false
+            readingRestore.stop()
+            if (!screen.historical) screen.clearFlowReturn()
+        }
+        function onMovementEnded() {
+            var dragContext = flowDragContext
+            flowDragContext = ""
+            var flick = historyScroll.contentItem
+            if (!dragContext || dragContext !== screen.composerContext || dragContext === automaticLoadContext
+                    || !screen.visible || !flowLoadOlder.visible || !flowLoadOlder.enabled
+                    || !flick.atYEnd || flick.contentY <= flowDragStart) return
+            automaticLoadContext = dragContext
+            screen.owner.expandFlow(screen.state.session_id)
+        }
     }
     Connections {
         target: screen.owner
+        function onFlowExpansionAboutToChange() {
+            if (!screen.visible || screen.historical || screen.showForecast || screen.followQuestionReply
+                    || historyScroll.contentItem.moving || screen.flowReturn) return
+            screen.rememberFlow()
+            if (screen.flowReturn) {
+                flowReturnRestore.resetIfMissing = false
+                flowReturnRestore.restart()
+            }
+        }
         function onFlowIdleHeaderAboutToChange() {
             if (screen.historical || !jumpCurrent.visible || screen.followQuestionReply || historyScroll.contentItem.moving || screen.flowReturn) return
             screen.rememberArtworkReading()
@@ -1092,6 +1161,20 @@ Item {
                     text: screen.tr(screen.state.error === "uncertain" ? "session_uncertain" : (screen.state.error === "profile_unavailable" || screen.state.error === "profile_required") ? "session_profile_missing" : "session_error")
                     color: BrandTheme.colors.warning; font.pixelSize: 21; wrapMode: Text.WordWrap
                     Layout.fillWidth: true; textFormat: Text.PlainText
+                }
+                GlassButton {
+                    objectName: "sessionArchiveRetry"
+                    visible: screen.historical && !screen.currentHistory && !screen.state.timeline.session
+                        && screen.state.history_available
+                        && ["offline", "unavailable", "conflict"].indexOf(screen.state.error) >= 0
+                    enabled: !screen.owner.busy && !screen.historyReadPending
+                        && !screen.archiveReadActive && !screen.archiveIntent
+                    iconName: "refresh"
+                    text: screen.tr(screen.state.saved_open_retry ? "session_saved_reopen" : "session_archive_retry")
+                    onClicked: {
+                        if (screen.state.saved_open_retry) screen.owner.retrySavedOpen()
+                        else screen.refreshHistory()
+                    }
                 }
             }
             Text {
@@ -1570,6 +1653,28 @@ Item {
                     }
                 }
             }
+            SessionTimingCard {
+                objectName: "sessionFlowStartMetadata"
+                startedAt: !screen.historical && screen.state.runtime_state === "active"
+                    ? (screen.state.started_at || "") : ""
+            }
+            GlassButton {
+                id: flowLoadOlder
+                objectName: "sessionFlowLoadOlder"
+                visible: !screen.historical && !!screen.state.flow_more
+                text: screen.tr("session_more"); enabled: !screen.owner.busy && !screen.owner.questionBusy
+                onClicked: screen.owner.expandFlow(screen.state.session_id)
+            }
+            Text {
+                objectName: "sessionFlowHistoryHint"
+                visible: !screen.historical && !!screen.state.flow_history_hint
+                text: screen.tr("session_flow_history_hint")
+                textFormat: Text.PlainText
+                color: BrandTheme.colors.muted
+                font.pixelSize: 18
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
             GlassButton {
                 objectName: "sessionReadCurrentHistory"
                 visible: !screen.historical && screen.state.history_available && screen.state.session_id.length > 0
@@ -1601,25 +1706,84 @@ Item {
                 model: screen.historical && !screen.state.timeline.session ? screen.state.sessions : []
                 GlassButton {
                     required property var modelData
-                    Layout.fillWidth: true; implicitHeight: 78
+                    id: archiveRow
+                    Layout.fillWidth: true
+                    implicitHeight: Math.max(78, contentItem.implicitHeight + topPadding + bottomPadding)
                     objectName: "sessionArchiveRow"
+                    contentItem: RowLayout {
+                        spacing: 12
+                        SavedMoodMark {
+                            objectName: "sessionArchiveMoodMark"
+                            metrics: archiveRow.modelData.summary_metrics || []
+                        }
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 4
+                            Text {
+                                text: archiveRow.text
+                                font: archiveRow.font
+                                color: archiveRow.foregroundColor
+                                textFormat: Text.PlainText
+                                wrapMode: Text.WordWrap
+                                Layout.fillWidth: true
+                            }
+                            Repeater {
+                                objectName: "sessionArchiveSummary"
+                                model: archiveRow.modelData.summary_metrics || []
+                                SessionSummaryMetric { compactMetric: true }
+                            }
+                        }
+                    }
                     enabled: !screen.owner.busy && !screen.archiveIntent
                     text: screen.tr("session_title") + " · " + screen.displayDate(modelData.started_at || modelData.created_at)
+                        + screen.savedDurationSuffix(modelData)
+                        + (modelData.lifecycle_status === "INTERRUPTED" ? "\n" + screen.tr("session_history_interrupted") : "")
                     onClicked: screen.openArchiveSession(modelData.session_id)
                 }
             }
             Text {
-                visible: screen.historical && !screen.owner.busy && screen.state.history_loaded && screen.state.sessions.length === 0 && !screen.state.timeline.session
+                objectName: "sessionArchiveEmpty"
+                visible: screen.historical && !screen.currentHistory && !screen.owner.busy && !screen.state.error
+                    && screen.state.history_loaded && screen.state.sessions.length === 0 && !screen.state.timeline.session
                 text: screen.tr(screen.state.archive_older_window || screen.state.has_more_sessions || screen.state.has_older_sessions ? "session_archive_window_empty" : "session_history_empty"); color: BrandTheme.colors.muted; font.pixelSize: 22
             }
             Text {
                 visible: screen.historical && !!screen.state.timeline.session
-                text: screen.tr(screen.state.archive_delete.available ? "session_saved_title" : "session_history_view_readonly"); color: BrandTheme.colors.muted; font.pixelSize: 20
+                text: screen.tr(screen.state.archive_delete.available ? "session_saved_title" : "session_history_view_readonly") + screen.savedDurationSuffix(screen.state.timeline.session); color: BrandTheme.colors.muted; font.pixelSize: 20
+            }
+            Text {
+                objectName: "sessionSavedInterruptedStatus"
+                visible: screen.historical && !!screen.state.timeline.session
+                    && screen.state.timeline.session.lifecycle_status === "INTERRUPTED"
+                text: screen.tr("session_history_interrupted")
+                textFormat: Text.PlainText
+                color: BrandTheme.colors.muted
+                font.pixelSize: 17
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
             }
             GlassButton {
                 visible: screen.historical && !!screen.state.timeline.session
                 text: screen.tr("session_history_first"); enabled: !screen.owner.busy
                 onClicked: screen.owner.firstEntries()
+            }
+            RowLayout {
+                visible: screen.historical && !screen.currentHistory && !!screen.state.timeline.session
+                Layout.fillWidth: true
+                spacing: 12
+                SavedMoodMark {
+                    objectName: "sessionSavedMoodMark"
+                    metrics: screen.state.saved_summary || []
+                }
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 4
+                    Repeater {
+                        objectName: "sessionSavedSummary"
+                        model: screen.state.saved_summary || []
+                        SessionSummaryMetric { objectName: "sessionSavedSummaryMetric" }
+                    }
+                }
             }
             GlassButton {
                 objectName: "sessionDeleteSaved"
@@ -1646,6 +1810,18 @@ Item {
                 text: screen.tr("refresh"); enabled: !screen.owner.busy
                 onClicked: screen.owner.recoverHistoryDelete()
             }
+            Text {
+                objectName: "sessionTimelineEmpty"
+                visible: screen.historical && !!screen.state.timeline.session && !!screen.state.timeline.revision
+                    && !screen.owner.busy && !screen.historyReadPending && !screen.state.error
+                    && (screen.state.timeline.entries || []).length === 0
+                text: screen.tr("session_timeline_empty")
+                textFormat: Text.PlainText
+                color: BrandTheme.colors.muted
+                font.pixelSize: screen.compact ? 18 : 21
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
             Repeater {
                 id: historyRows
                 objectName: "sessionHistoryRows"
@@ -1658,6 +1834,15 @@ Item {
                     onDeleteEntry: (sessionId, entryId) => screen.deleteContent("entry", sessionId, entryId)
                     onAskAbout: (sessionId, entryId) => { if (screen.owner.selectEntry(sessionId, entryId)) { screen.navigate("session"); composerPanel.open() } }
                 }
+            }
+            SessionTimingCard {
+                objectName: "sessionSavedStartMetadata"
+                readonly property var header: screen.state.timeline.session || ({})
+                startedAt: screen.historical && header.session_id && typeof header.started_at === "string"
+                    ? header.started_at : ""
+                readonly property var endStamp: header.lifecycle_status === "INTERRUPTED" ? header.interrupted_at
+                    : header.lifecycle_status === "ENDED" ? header.ended_at : ""
+                endedAt: screen.historical && header.session_id && typeof endStamp === "string" ? endStamp : ""
             }
             GlassButton {
                 objectName: "sessionHistoryExtend"
@@ -1769,6 +1954,56 @@ Item {
                 }
             }
         }
+    }
+    component SavedMoodMark: Rectangle {
+        id: moodMark
+        required property var metrics
+        readonly property string moodKey: {
+            const mood = metrics.find(metric => metric.label === "session_summary_mood"
+                                      && metric.coverage === "complete")
+            return MoodTheme.key(mood ? mood.value : "")
+        }
+        implicitWidth: screen.compact ? 42 : 52
+        implicitHeight: implicitWidth
+        Layout.alignment: Qt.AlignVCenter
+        radius: width / 2
+        border.width: 1
+        border.color: moodKey === "default" ? BrandTheme.colors.border : MoodTheme.moodColor(moodKey, "focus")
+        Accessible.ignored: true
+
+        gradient: Gradient {
+            GradientStop {
+                position: 0
+                color: moodMark.moodKey === "default" ? BrandTheme.colors.surfaceRaised
+                    : MoodTheme.mix(BrandTheme.colors.surface, MoodTheme.moodColor(moodMark.moodKey, "gradientStart"), 0.35)
+            }
+            GradientStop { position: 1; color: BrandTheme.colors.surface }
+        }
+        FeatureIcon {
+            objectName: "savedMoodIcon"
+            anchors.centerIn: parent
+            width: parent.width * 0.62
+            height: width
+            iconName: moodMark.moodKey === "default" ? "session" : "mood_" + moodMark.moodKey
+        }
+    }
+    component SessionSummaryMetric: Text {
+        required property var modelData
+        property bool compactMetric: false
+        readonly property string valueText: {
+            if (modelData.coverage === "withdrawn") return screen.tr("session_summary_withdrawn")
+            if (modelData.value === null) return screen.tr("session_summary_unknown")
+            if (typeof modelData.value === "string")
+                return screen.tr(modelData.value === "mixed" ? "session_summary_mixed" : "mood_" + modelData.value)
+            const count = Number(modelData.value).toLocaleString(Qt.locale(screen.backend.language), "f", 0)
+            return modelData.coverage === "partial" ? count + " · " + screen.tr("session_summary_partial") : count
+        }
+        text: screen.tr(modelData.label) + ": " + valueText
+        textFormat: Text.PlainText
+        color: BrandTheme.colors.muted
+        font.pixelSize: compactMetric || screen.compact ? 17 : 20
+        Layout.fillWidth: true
+        wrapMode: Text.WordWrap
     }
     component SessionPlaybackShortcut: GlassButton {
         signal currentTrackClicked()
