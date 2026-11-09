@@ -37,6 +37,26 @@ Item {
     function deleteContent(kind, sessionId, identifier) {
         if (owner.beginContentDelete(kind, sessionId, identifier)) contentDeletePanel.open()
     }
+    component SessionStartMetadataCard: GlassCard {
+        id: sessionStartCard
+        required property string startedAt
+        readonly property string started: screen.displayDate(startedAt)
+        visible: started.length > 0
+        Layout.fillWidth: true
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 10
+            FeatureIcon { iconName: "history"; Layout.preferredWidth: 24; Layout.preferredHeight: 24 }
+            Text {
+                text: screen.tr("session_start_metadata").replace("%1", sessionStartCard.started)
+                textFormat: Text.PlainText
+                color: BrandTheme.colors.muted
+                font.pixelSize: screen.compact ? 17 : 20
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+        }
+    }
     component LiveMomentCard: GlassCard {
         id: liveCard
         objectName: "sessionLiveMomentCard"
@@ -1564,25 +1584,10 @@ Item {
                     }
                 }
             }
-            GlassCard {
-                id: sessionStartCard
+            SessionStartMetadataCard {
                 objectName: "sessionFlowStartMetadata"
-                readonly property string started: screen.displayDate(screen.state.started_at)
-                visible: !screen.historical && screen.state.runtime_state === "active" && started.length > 0
-                Layout.fillWidth: true
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 10
-                    FeatureIcon { iconName: "history"; Layout.preferredWidth: 24; Layout.preferredHeight: 24 }
-                    Text {
-                        text: screen.tr("session_start_metadata").replace("%1", sessionStartCard.started)
-                        textFormat: Text.PlainText
-                        color: BrandTheme.colors.muted
-                        font.pixelSize: screen.compact ? 17 : 20
-                        wrapMode: Text.WordWrap
-                        Layout.fillWidth: true
-                    }
-                }
+                startedAt: !screen.historical && screen.state.runtime_state === "active"
+                    ? (screen.state.started_at || "") : ""
             }
             GlassButton {
                 objectName: "sessionReadCurrentHistory"
@@ -1672,6 +1677,12 @@ Item {
                     onDeleteEntry: (sessionId, entryId) => screen.deleteContent("entry", sessionId, entryId)
                     onAskAbout: (sessionId, entryId) => { if (screen.owner.selectEntry(sessionId, entryId)) { screen.navigate("session"); composerPanel.open() } }
                 }
+            }
+            SessionStartMetadataCard {
+                objectName: "sessionSavedStartMetadata"
+                readonly property var header: screen.state.timeline.session || ({})
+                startedAt: screen.historical && header.session_id && typeof header.started_at === "string"
+                    ? header.started_at : ""
             }
             GlassButton {
                 objectName: "sessionHistoryExtend"
