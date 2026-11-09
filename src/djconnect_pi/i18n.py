@@ -1283,6 +1283,13 @@ _HISTORY_SEARCH_TRANSLATIONS = {
     "session_history_title": ("Session history", "Sessiegeschiedenis", "Session-Verlauf", "Historique de session", "Historial de sesión"),
     "session_history_view_readonly": ("Session history · read only", "Sessiegeschiedenis · alleen-lezen", "Session-Verlauf · schreibgeschützt", "Historique de session · lecture seule", "Historial de sesión · solo lectura"),
     "session_datetime_format": ("d MMM yyyy · HH:mm", "d MMM yyyy · HH:mm", "d. MMM yyyy · HH:mm", "d MMM yyyy · HH:mm", "d MMM yyyy · HH:mm"),
+    "session_flow_history_hint": (
+        "Flow shows part of this session. Open its history to read from the beginning.",
+        "Flow toont een deel van deze sessie. Open de geschiedenis om vanaf het begin te lezen.",
+        "Flow zeigt einen Teil dieser Session. Öffne den Verlauf, um von Anfang an zu lesen.",
+        "Flow affiche une partie de cette session. Ouvrez son historique pour lire depuis le début.",
+        "Flow muestra parte de esta sesión. Abre el historial para leer desde el principio.",
+    ),
     "session_history_first": ("Read from the beginning", "Lees vanaf het begin", "Von Anfang an lesen", "Lire depuis le début", "Leer desde el principio"),
     "session_history_previous": ("Previous contributions", "Vorige bijdragen", "Vorherige Beiträge", "Contributions précédentes", "Contribuciones anteriores"),
     "session_history_next": ("Next contributions", "Volgende bijdragen", "Nächste Beiträge", "Contributions suivantes", "Contribuciones siguientes"),

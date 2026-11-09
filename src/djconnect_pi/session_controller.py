@@ -104,7 +104,7 @@ class SessionController(QObject):
         self._conversation = []
         self._retained_flow = []
         self._flow_window = None
-        self._flow_more = False
+        self._incomplete_flow_limit = 0
         self._demo_flow = []
         self._pending_question = {}
         self._pending_question_binding = None
@@ -217,6 +217,7 @@ class SessionController(QObject):
         revoked = self._bootstrap_binding is not None and not bootstrap
         session = {} if revoked else self._session
         flow = self._demo_flow if self.backend.demoMode else self._retained_flow
+        active_history = session.get("runtime_state") == "active" and self._history_supported()
         return {"session_id": session.get("session_id", ""),
             "owner_read_only": bootstrap and not self._bootstrap_private,
             "owner_epoch": self._owner_epoch if bootstrap else 0,
@@ -235,8 +236,8 @@ class SessionController(QObject):
             "presence": session.get("selected_presence", ""),
             "persona": session.get("dj_persona", ""),
             "composer_available": self._composer_supported(), "pending_question": {} if revoked else deepcopy(self._pending_question), "current_reply": {} if revoked else deepcopy(self._current_reply), "conversation": [] if revoked else deepcopy(self._conversation), "retained_flow": [] if revoked else deepcopy(flow),
-            "flow_more": (self._flow_more and session.get("runtime_state") == "active"
-                          and self._history_supported()),
+            "flow_more": active_history and self._incomplete_flow_limit == 20,
+            "flow_history_hint": active_history and self._incomplete_flow_limit == 50,
             "flow_rows": [] if revoked else deepcopy(flow_contributions(flow, self._moments, session.get("session_id", ""))),
             "selection": {} if revoked else deepcopy(self._selection), "question_status": self._question_status,
             "moments": [] if revoked else deepcopy(self._moments), "sessions": [] if revoked else deepcopy(self._sessions),
@@ -559,7 +560,7 @@ class SessionController(QObject):
         self._conversation = []
         self._retained_flow = []
         self._flow_window = None
-        self._flow_more = False
+        self._incomplete_flow_limit = 0
         self._demo_flow = []
         self._selection = {}
         self._selection_source = "timeline"
@@ -891,7 +892,7 @@ class SessionController(QObject):
 
     @Slot(str)
     def expandFlow(self, session_id):
-        if (session_id and session_id == self._session.get("session_id") and self._flow_more
+        if (session_id and session_id == self._session.get("session_id") and self._incomplete_flow_limit == 20
                 and self._session.get("runtime_state") == "active" and self._history_supported()
                 and not self.backend.demoMode and not self._question_running):
             self._launch("refresh", session_id)
@@ -1539,7 +1540,7 @@ class SessionController(QObject):
                 self._conversation = []
                 self._retained_flow = []
                 self._flow_window = None
-                self._flow_more = False
+                self._incomplete_flow_limit = 0
                 self._selection = {}
                 if result["error"] not in {"denied", "context_changed", "unpaired"}:
                     self._error = result["error"]
@@ -1604,7 +1605,7 @@ class SessionController(QObject):
             self._conversation = []
             self._retained_flow = []
             self._flow_window = None
-            self._flow_more = False
+            self._incomplete_flow_limit = 0
             self._selection = {}
             self._timeline = {}
             self._timeline_trail = []
@@ -1659,7 +1660,7 @@ class SessionController(QObject):
                     self._conversation = []
                     self._retained_flow = []
                     self._flow_window = None
-                    self._flow_more = False
+                    self._incomplete_flow_limit = 0
                     self._sessions = []
                     self._history_cursor = ""
                     self._history_pages = 1
@@ -1772,7 +1773,7 @@ class SessionController(QObject):
             self.flowExpansionAboutToChange.emit()
         self._retained_flow = self._without_withdrawn_entries(result.get("retained_flow", []))
         self._flow_window = result.get("flow_window")
-        self._flow_more = result.get("flow_more", False)
+        self._incomplete_flow_limit = result.get("incomplete_flow_limit", 0)
 
     def _read_conversation(self, binding, session_id, receipt, check, *, limit=20):
         check()
@@ -1787,12 +1788,12 @@ class SessionController(QObject):
         retained = presented_history(page)["entries"]
         rows = conversation_entries(page)
         def projection(entries):
-            more = (limit == 20 and page.get("window") == "tail"
+            incomplete = (page.get("window") == "tail"
                     and page.get("coverage") == "bounded_saved_entry_window"
                     and type(page.get("window_limit")) is int and page["window_limit"] == limit
                     and page.get("scan_complete") is False and page.get("next_cursor") is None)
             return {"retained_flow": entries, "conversation": conversation_entries({"entries": entries}),
-                    "flow_more": more}
+                    "incomplete_flow_limit": limit if incomplete else 0}
         if (receipt.get("session_id") != session_id or len(receipt.get("entry_ids", [])) != 2
                 or confirmed_question_entry(rows, receipt)):
             return projection(retained)

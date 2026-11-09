@@ -1603,6 +1603,16 @@ Item {
                 text: screen.tr("session_more"); enabled: !screen.owner.busy && !screen.owner.questionBusy
                 onClicked: screen.owner.expandFlow(screen.state.session_id)
             }
+            Text {
+                objectName: "sessionFlowHistoryHint"
+                visible: !screen.historical && !!screen.state.flow_history_hint
+                text: screen.tr("session_flow_history_hint")
+                textFormat: Text.PlainText
+                color: BrandTheme.colors.muted
+                font.pixelSize: 18
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
             GlassButton {
                 objectName: "sessionReadCurrentHistory"
                 visible: !screen.historical && screen.state.history_available && screen.state.session_id.length > 0
