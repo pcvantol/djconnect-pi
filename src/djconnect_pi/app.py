@@ -439,6 +439,10 @@ class DJConnectBackend(QObject):
     def title(self) -> str:
         return self.playback.title or self.tr_key("nothing_playing")
 
+    @Property(bool, notify=titleChanged)
+    def hasTrackTitle(self) -> bool:
+        return bool(self.playback.title)
+
     @Property(str, notify=artistChanged)
     def artist(self) -> str:
         return self.playback.artist

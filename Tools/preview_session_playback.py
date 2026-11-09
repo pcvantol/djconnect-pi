@@ -30,6 +30,7 @@ from djconnect_pi.app import DJConnectBackend
 from djconnect_pi.brand_theme import apply_palette
 from djconnect_pi.config import Config, save_config
 from djconnect_pi.expiry_clock import ExpiryClock
+from djconnect_pi.ha import Playback
 from djconnect_pi.i18n import TRANSLATIONS
 from djconnect_pi.session_projection import timestamp
 from djconnect_pi.session_transport import (
@@ -146,6 +147,7 @@ def main():
                 top = current_card.mapToItem(scroll, QPointF(0, 0)).y()
                 assert 0 <= top < scroll.property('height')/2, (width, language, 'contribution below fold', top)
                 vinyl = visual(window.contentItem(), 'sessionPlaybackVinyl')
+                artwork_button = visual(window.contentItem(), 'sessionExpandTrackArtwork')
                 metadata = visual(window.contentItem(), 'sessionPlaybackMetadata')
                 heading = window.findChild(QObject, 'sessionFlowHeading')
                 assert not heading.property('visible')
@@ -157,9 +159,9 @@ def main():
                     lead_gap = metadata.mapToScene(QPointF()).y() - mode_strip.mapToScene(QPointF(0, mode_strip.height())).y()
                     assert abs(lead_gap - (20 if width == 720 else 26)) <= 1, (width, language, lead_gap)
                 assert vinyl.property('visible')
-                assert vinyl.width() == vinyl.height() == (60 if width == 720 else round(270 * min(1.45, width / 835)))
-                assert vinyl.mapToItem(metadata, 0, 0).x() >= 0
-                assert vinyl.mapToItem(metadata, vinyl.width(), vinyl.height()).x() <= metadata.width()
+                assert artwork_button.width() == artwork_button.height() == (60 if width == 720 else round(270 * min(1.45, width / 835)))
+                assert artwork_button.mapToItem(metadata, 0, 0).x() >= 0
+                assert artwork_button.mapToItem(metadata, artwork_button.width(), artwork_button.height()).x() <= metadata.width()
                 meter = window.findChild(QObject, 'sessionPlaybackMeter')
                 bars = [item for item in meter.childItems() if item.property('level') is not None]
                 assert meter.property('visible') and meter.property('playing') and len(bars) == 4
@@ -185,6 +187,32 @@ def main():
                     QTest.qWait(50)
                 assert expression.evaluate()[0] is True, warnings
                 capture('current-track-art')
+                click('sessionExpandTrackMetadata')
+                overlay = visual(window.contentItem(), 'trackArtworkOverlay')
+                expanded = visual(overlay, 'expandedTrackArtwork')
+                QTest.qWait(100)
+                assert overlay.width() == width and overlay.height() == height
+                title = visual(overlay, 'expandedTrackTitle')
+                artist = visual(overlay, 'expandedTrackArtist')
+                card = expanded.parentItem()
+                column = card.parentItem()
+                assert expanded.width() == expanded.height() and expanded.width() > width * 0.65
+                assert title.y() == card.height() + column.property('spacing')
+                assert card.width() == column.width() or abs(column.height() - column.parentItem().height()) < 1
+                assert expanded.property('source') == cover.property('source')
+                assert title.property('text') == owner.state['playback']['title']
+                assert artist.property('text') == owner.state['playback']['artist']
+                capture('fullscreen-track-art')
+                click('closeTrackArtwork')
+                assert not window.property('trackArtworkOpen')
+                origin = artwork_button.mapToScene(QPointF(8, 8))
+                QTest.mouseClick(window, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier,
+                                 QPoint(round(origin.x()), round(origin.y())))
+                QTest.qWait(60)
+                assert window.property('trackArtworkOpen') and not intents
+                QTest.keyClick(window, Qt.Key.Key_Escape)
+                QTest.qWait(60)
+                assert not window.property('trackArtworkOpen')
                 current_playback['item_id'] = 'synthetic-cover-replacement'
                 current_playback['artwork_url'] = art_path[:-1] + 'b'
                 owner.changed.emit()
@@ -301,14 +329,14 @@ def main():
                 owner.refresh(); drain()
                 progress = window.findChild(QObject, 'sessionPlaybackProgress')
                 assert progress.height() >= 44
-                vinyl_right = vinyl.mapToItem(metadata, vinyl.width(), 0).x()
+                artwork_right = artwork_button.mapToItem(metadata, artwork_button.width(), 0).x()
                 progress_origin = progress.mapToItem(metadata, 0, 0)
                 if width == 720:
-                    assert abs(progress_origin.x() - vinyl.mapToItem(metadata, 0, 0).x()) < 1
-                    assert progress_origin.y() >= vinyl.mapToItem(metadata, 0, vinyl.height()).y()
+                    assert abs(progress_origin.x() - artwork_button.mapToItem(metadata, 0, 0).x()) < 1
+                    assert progress_origin.y() >= artwork_button.mapToItem(metadata, 0, artwork_button.height()).y()
                 else:
-                    assert progress_origin.x() > vinyl_right
-                    assert progress_origin.y() < vinyl.mapToItem(metadata, 0, vinyl.height()).y()
+                    assert progress_origin.x() > artwork_right
+                    assert progress_origin.y() < artwork_button.mapToItem(metadata, 0, artwork_button.height()).y()
                 capture('progress-layout')
                 command_count = owner.transport.playback_command.call_count
                 click('sessionPlaybackProgress'); assert popup.property('opened'), warnings
@@ -602,6 +630,19 @@ def main():
                 assert not popup.property('visible') and not owner.state['playback_control']['available']
                 assert not meter.property('animating')
                 capture('foreground-withdrawn')
+                if width == 720 and language == 'en':
+                    backend._apply_playback(Playback(title='Local track', artist='Local artist', image_url=art_source))
+                    window.setProperty('activeScreen', 'now')
+                    QTest.qWait(80)
+                    click('nowExpandTrackArtwork')
+                    assert visual(window.contentItem(), 'expandedTrackTitle').property('text') == 'Local track'
+                    click('closeTrackArtwork')
+                    window.setProperty('activeScreen', 'control')
+                    QTest.qWait(80)
+                    click('controlExpandTrackMetadata')
+                    assert window.property('trackArtworkOpen')
+                    window.setProperty('activeScreen', 'now')
+                    assert not window.property('trackArtworkOpen')
                 backend.shutdown(); delete(window); delete(engine); delete(backend)
                 app.processEvents()
         network.assert_not_called()
