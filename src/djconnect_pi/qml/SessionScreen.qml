@@ -1564,6 +1564,26 @@ Item {
                     }
                 }
             }
+            GlassCard {
+                id: sessionStartCard
+                objectName: "sessionFlowStartMetadata"
+                readonly property string started: screen.displayDate(screen.state.started_at)
+                visible: !screen.historical && screen.state.runtime_state === "active" && started.length > 0
+                Layout.fillWidth: true
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 10
+                    FeatureIcon { iconName: "history"; Layout.preferredWidth: 24; Layout.preferredHeight: 24 }
+                    Text {
+                        text: screen.tr("session_start_metadata").replace("%1", sessionStartCard.started)
+                        textFormat: Text.PlainText
+                        color: BrandTheme.colors.muted
+                        font.pixelSize: screen.compact ? 17 : 20
+                        wrapMode: Text.WordWrap
+                        Layout.fillWidth: true
+                    }
+                }
+            }
             GlassButton {
                 objectName: "sessionReadCurrentHistory"
                 visible: !screen.historical && screen.state.history_available && screen.state.session_id.length > 0

@@ -108,10 +108,13 @@ def test_demo_session_never_uses_server_or_survives_demo_exit(controller):
     owner.setDemoPreference("presence", "occasional")
     owner.start("chill")
     assert owner.state["session_id"] == "demo-session"
+    started_at = owner.state["started_at"]
+    assert owner.formatTimestamp(started_at)
     assert owner.state["persona"] == "festival_dj"
     assert owner.state["presence"] == "occasional"
     owner.setDemoPreference("mood", "energy")
     assert owner.state["mood"] == "energy"
+    assert owner.state["started_at"] == started_at
     positioned = []
     owner.questionConfirmed.connect(positioned.append)
     assert owner.sendQuestion("What should I listen to next?")
@@ -122,6 +125,7 @@ def test_demo_session_never_uses_server_or_survives_demo_exit(controller):
     ]
     owner.end("demo-session")
     assert not owner.state["flow_rows"] and not owner.sendQuestion("No session")
+    assert not owner.state["started_at"]
     assert owner.state["loaded"] and not owner.state["session_id"]
     owner.start("party")
     assert owner.state["mood"] == "party"

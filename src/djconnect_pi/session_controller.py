@@ -45,6 +45,7 @@ from .session_projection import (
     history_page,
     session_current_idle,
     session_playback,
+    text,
     timestamp,
 )
 from .session_transport import (
@@ -219,6 +220,7 @@ class SessionController(QObject):
             "owner_epoch": self._owner_epoch if bootstrap else 0,
             "owner_profile_id": (self._bootstrap_owner if bootstrap else session_profile_id(self.backend.cfg)),
             "runtime_state": session.get("runtime_state", ""),
+            "started_at": text(session.get("started_at"), 64),
             "playback": self._demo_playback() if self.backend.demoMode else session_playback(session),
             "current_moment_idle": session_current_idle(session),
             "artwork_prepare": self._artwork_prepare.snapshot(),
@@ -623,6 +625,7 @@ class SessionController(QObject):
                 return
             self._demo_preferences["mood"] = value
             self._session = {"session_id": "demo-session", "runtime_state": "active",
+                             "started_at": datetime.now(UTC).isoformat(),
                              "selected_mood": value, "selected_presence": self._demo_preferences["presence"],
                              "dj_persona": self._demo_preferences["persona"]}
             self._append_demo_entry("dj_moment", translate(self.backend.cfg.language, "demo_session_welcome"))
