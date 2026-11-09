@@ -1610,6 +1610,28 @@ Item {
                 visible: screen.historical && !!screen.state.timeline.session
                 text: screen.tr(screen.state.archive_delete.available ? "session_saved_title" : "session_history_view_readonly"); color: BrandTheme.colors.muted; font.pixelSize: 20
             }
+            Repeater {
+                objectName: "sessionSavedSummary"
+                model: screen.historical && !screen.currentHistory ? (screen.state.saved_summary || []) : []
+                Text {
+                    required property var modelData
+                    objectName: "sessionSavedSummaryMetric"
+                    readonly property string valueText: {
+                        if (modelData.coverage === "withdrawn") return screen.tr("session_summary_withdrawn")
+                        if (modelData.value === null) return screen.tr("session_summary_unknown")
+                        if (typeof modelData.value === "string")
+                            return screen.tr(modelData.value === "mixed" ? "session_summary_mixed" : "mood_" + modelData.value)
+                        const count = Number(modelData.value).toLocaleString(Qt.locale(screen.backend.language), "f", 0)
+                        return modelData.coverage === "partial" ? count + " · " + screen.tr("session_summary_partial") : count
+                    }
+                    text: screen.tr(modelData.label) + ": " + valueText
+                    textFormat: Text.PlainText
+                    color: BrandTheme.colors.muted
+                    font.pixelSize: screen.compact ? 17 : 20
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+                }
+            }
             GlassButton {
                 visible: screen.historical && !!screen.state.timeline.session
                 text: screen.tr("session_history_first"); enabled: !screen.owner.busy

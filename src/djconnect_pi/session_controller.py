@@ -27,6 +27,7 @@ from .session_current_reply import current_reply, moment_reference, reply_valid
 from .session_forecast import ForecastReceiver, forecast_supported
 from .session_forecast_image import ForecastImages
 from .session_history_delete_control import HistoryDeleteControl
+from .session_history_summary import saved_session_summary
 from .session_history_view import (
     accepted_question,
     confirmed_question_entry,
@@ -52,6 +53,7 @@ from .session_transport import (
     SessionError,
     SessionTransport,
     identifier,
+    private_binding_allowed,
     private_scope_allowed,
     session_profile_id,
 )
@@ -117,6 +119,7 @@ class SessionController(QObject):
         self._history_dirty = False
         self._history_selection_dirty = False
         self._timeline = {}
+        self._saved_summary_binding = None
         self._timeline_trail = []
         self._error = ""
         self._serial = 0
@@ -235,6 +238,7 @@ class SessionController(QObject):
             "flow_rows": [] if revoked else deepcopy(flow_contributions(flow, self._moments, session.get("session_id", ""))),
             "selection": {} if revoked else deepcopy(self._selection), "question_status": self._question_status,
             "moments": [] if revoked else deepcopy(self._moments), "sessions": [] if revoked else deepcopy(self._sessions),
+            "saved_summary": [] if revoked else self._saved_summary(),
             "timeline": {} if revoked else deepcopy(self._timeline), "search": {} if revoked else deepcopy(self._search), "error": self._error,
             "profile_confirmation_required": not (bool(session_profile_id(self.backend.cfg)) or bootstrap),
             "history_available": self._history_supported(), "search_available": self._search_supported(),
@@ -466,6 +470,7 @@ class SessionController(QObject):
         self._retained_flow = self._without_withdrawn_entries(self._retained_flow)
         self._conversation = self._without_withdrawn_entries(self._conversation)
         self._timeline = self._filter_withdrawn_history(self._timeline, "entries")
+        self._saved_summary_binding = None
         self._search = {}
         self._timeline_trail = []
         self._view_epoch += 1
@@ -482,6 +487,7 @@ class SessionController(QObject):
         # Active Flow, Session, settings and playback are separate owners.
         self._clear_archive(notify=False)
         self._timeline = {}
+        self._saved_summary_binding = None
         self._timeline_trail = []
         self._search = {}
         if self._selection.get("kind") == "selected_entry" and self._selection_source == "timeline":
@@ -559,6 +565,7 @@ class SessionController(QObject):
         self._question_status = ""
         self._sessions = []
         self._timeline = {}
+        self._saved_summary_binding = None
         self._timeline_trail = []
         self._caps = {}
         self._loaded = False
@@ -671,6 +678,7 @@ class SessionController(QObject):
 
         if self._timeline.get("session", {}).get("session_id") in expired:
             self._timeline = {}
+            self._saved_summary_binding = None
             self._timeline_trail = []
         if self._search.get("session_id") in expired:
             self._search = {}
@@ -863,6 +871,24 @@ class SessionController(QObject):
                 and features.get("session_conversation_history") is True
                 and type(versions.get("session_history_entries")) is int
                 and versions["session_history_entries"] == 2)
+
+    def _summary_supported(self):
+        if not (self._foreground and self._history_supported() and private_scope_allowed(self)):
+            return False
+        features = self._caps["capabilities"]
+        version = self._caps["contract_versions"].get("session_history_summary")
+        return features.get("session_history_summary") is True and type(version) is int and version == 1
+
+    def _saved_summary(self):
+        if self._timeline.get("_session_deadline") is None or not self._summary_supported():
+            return []
+        try:
+            binding = self.transport.binding()
+        except SessionError:
+            return []
+        if binding != self._saved_summary_binding or not private_binding_allowed(binding):
+            return []
+        return saved_session_summary(self._timeline)
 
     @Slot(str)
     def confirmProfile(self, expected_profile_id):
@@ -1064,6 +1090,7 @@ class SessionController(QObject):
     def closeSaved(self):
         self._view_epoch += 1
         self._timeline = {}
+        self._saved_summary_binding = None
         self._timeline_trail = []
         self._search = {}
         self.changed.emit()
@@ -1557,6 +1584,7 @@ class SessionController(QObject):
         if "error" in result and history_action and result["error"] not in {"denied", "context_changed", "unpaired"}:
             self._search = {}
             self._timeline = {}
+            self._saved_summary_binding = None
             self._timeline_trail = []
             self._error = result["error"]
             self.changed.emit()
@@ -1579,6 +1607,7 @@ class SessionController(QObject):
             self._retained_flow = []
             self._selection = {}
             self._timeline = {}
+            self._saved_summary_binding = None
             self._timeline_trail = []
             self._sessions = []
             self._history_cursor = ""
@@ -1603,6 +1632,7 @@ class SessionController(QObject):
                     scope_changed = True
                     self._clear_archive(notify=False)
                     self._timeline = {}
+                    self._saved_summary_binding = None
                     self._timeline_trail = []
                     self._search = {}
                     self._withdraw_question()
@@ -1627,6 +1657,7 @@ class SessionController(QObject):
                 self._retained_flow = self._without_withdrawn_entries(result.get("retained_flow", []))
                 if not self._history_supported():
                     self._timeline = {}
+                    self._saved_summary_binding = None
                     self._timeline_trail = []
                     self._conversation = []
                     self._retained_flow = []
@@ -1678,6 +1709,7 @@ class SessionController(QObject):
                 if deadlines:
                     incoming = {**incoming, "_session_deadline": min(deadlines)}
                 self._timeline = self._filter_withdrawn_history(incoming, "entries")
+                self._saved_summary_binding = result["binding"] if self._summary_supported() else None
                 # A same-scope/revision background page check must not close an active search.
                 # Search separately re-reads every displayed page; changed scope/revision withdraws it.
                 if not (result["action"] in {"timeline_refresh", "timeline_extend"}

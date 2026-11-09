@@ -1613,3 +1613,37 @@ def test_vibecast_uncertain_approval_uses_status_read_instead_of_replay(vibecast
     assert [call.args[1] for call in owner.transport.display_owner.call_args_list] == [
         "context", "context", "resolve", "context", "approve", "context",
     ]
+
+
+def test_saved_summary_requires_a_current_owner_binding_and_coherent_final_metrics(controller):
+    from copy import deepcopy
+    import json
+    from pathlib import Path
+
+    owner, backend = controller
+    fixture_path = Path(__file__).parent / "fixtures/session_core/retention-v2-touch.json"
+    fixture = json.loads(fixture_path.read_text())
+    timeline = next(value for value in fixture.values() if isinstance(value, dict)
+                    and isinstance(value.get("session"), dict) and "summary" in value["session"])
+    header = timeline["session"]
+    header.update(lifecycle_status="ENDED", read_only=True)
+    summary = header["summary"]
+    summary["state"] = "final"
+    for key in ("tracks_observed", "moments_published", "mood"):
+        summary[key]["state"] = "final"
+    summary["moments_published"].update(value=3, coverage="partial")
+    summary["mood"].update(value=None, coverage="withdrawn")
+    owner._caps = {"capabilities": {"session_conversation_history": True, "session_history_summary": True},
+                   "contract_versions": {"session_history_entries": 2, "session_history_summary": 1}}
+    owner._timeline = {**timeline, "_session_deadline": 4_000_000_000}
+    assert owner.state["saved_summary"] == []
+    owner._saved_summary_binding = owner.transport.binding()
+    assert [(metric["value"], metric["coverage"]) for metric in owner.state["saved_summary"]] == [
+        (0, "complete"), (3, "partial"), (None, "withdrawn")]
+    bad = deepcopy(owner._timeline)
+    bad["session"]["summary"]["moments_published"]["revision"] = "other"
+    owner._timeline = bad
+    assert owner.state["saved_summary"] == []
+    owner._timeline = {**timeline, "_session_deadline": 4_000_000_000}
+    backend.cfg.active_profile_id = "different-owner"
+    assert owner.state["saved_summary"] == []
