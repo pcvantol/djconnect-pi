@@ -1326,7 +1326,8 @@ def test_vibecast_never_dispatches_approval_after_losing_original_scope(vibecast
     assert [call.args[1] for call in owner.transport.display_owner.call_args_list] == ["context", "resolve"]
 
 
-def test_vibecast_can_stop_all_from_sender_without_local_display_receipt(vibecast_sender):
+@pytest.mark.parametrize("pending_confirmation", [False, True])
+def test_vibecast_can_stop_all_from_sender_without_local_display_receipt(vibecast_sender, pending_confirmation):
     owner, backend, responses = vibecast_sender
     responses["context"].update(share_id="s" * 43, share_generation=2, expires_in=240)
     assert owner.openVibeCast()
@@ -1334,13 +1335,20 @@ def test_vibecast_can_stop_all_from_sender_without_local_display_receipt(vibecas
     assert owner.state["vibecast"]["has_share"]
     assert not owner.state["vibecast"]["has_display"]
 
+    if pending_confirmation:
+        assert owner.resolveVibeCastCode("012345")
+        backend.jobs.pop()()
+        assert owner.state["vibecast"]["status"] == "confirm"
+
     assert owner.stopVibeCast()
+    assert not owner.approveVibeCast()
     backend.jobs.pop()()
     assert owner.transport.display_owner.call_args.args[1:] == (
         "revoke", {"session_id": "vibe-session", "share_id": "s" * 43},
     )
     assert owner.state["vibecast"]["status"] == "stopped"
     assert not owner.state["vibecast"]["has_share"]
+    assert not owner.approveVibeCast()
     owner.transport.end.assert_not_called()
 
 

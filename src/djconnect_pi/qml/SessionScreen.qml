@@ -2448,7 +2448,8 @@ Item {
             TextField {
                 id: codeInput
                 objectName: "sessionVibeCastCode"
-                visible: ["ready", "active", "stopped", "lookup_failed", "expired", "display_stopped"].includes(vibeCastPanel.sender.status)
+                visible: ["ready", "active", "sharing", "stopped", "lookup_failed", "expired", "display_stopped"]
+                    .includes(vibeCastPanel.sender.status)
                 Layout.fillWidth: true
                 placeholderText: screen.tr("vibecast_code")
                 Accessible.name: placeholderText
@@ -2507,8 +2508,8 @@ Item {
             }
             GlassButton {
                 objectName: "sessionVibeCastStop"
-                visible: vibeCastPanel.sender.has_share && !vibeCastPanel.sender.busy
-                    && vibeCastPanel.sender.status !== "confirm"
+                visible: vibeCastPanel.sender.has_share
+                enabled: !vibeCastPanel.sender.busy
                 text: screen.tr("vibecast_stop_all")
                 tint: BrandTheme.colors.danger
                 Layout.fillWidth: true
