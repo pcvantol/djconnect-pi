@@ -2412,6 +2412,7 @@ Item {
         width: Math.min(screen.width - 32, 520)
         padding: 18
         modal: true
+        background: GlassSurface { elevated: true }
         readonly property var sender: screen.state.vibecast
         onAboutToHide: {
             codeInput.clear()
@@ -2452,12 +2453,51 @@ Item {
                           "display_stopped", "share_changed"]
                     .includes(vibeCastPanel.sender.status)
                 Layout.fillWidth: true
-                placeholderText: screen.tr("vibecast_code")
-                Accessible.name: placeholderText
+                Layout.preferredHeight: screen.compact ? 48 : 60
+                readonly property int cellGap: 6
+                readonly property real cellWidth: Math.max(0, (width - 5 * cellGap) / 6)
+                color: "transparent"
+                selectionColor: "transparent"
+                selectedTextColor: "transparent"
+                cursorDelegate: Item { width: 1 }
+                font.pixelSize: screen.compact ? 24 : 28
+                Accessible.name: screen.tr("vibecast_code")
                 maximumLength: 6
                 validator: RegularExpressionValidator { regularExpression: /^[0-9]{0,6}$/ }
                 inputMethodHints: Qt.ImhDigitsOnly | Qt.ImhNoPredictiveText
                 onAccepted: lookupCode.clicked()
+                MouseArea {
+                    anchors.fill: parent
+                    onClicked: (mouse) => {
+                        codeInput.forceActiveFocus(Qt.MouseFocusReason)
+                        const cell = Math.floor(mouse.x / (codeInput.cellWidth + codeInput.cellGap))
+                        codeInput.cursorPosition = Math.min(codeInput.length, cell)
+                    }
+                }
+                background: Row {
+                    spacing: codeInput.cellGap
+                    Repeater {
+                        model: 6
+                        GlassSurface {
+                            required property int index
+                            objectName: "sessionVibeCastCodeCell-" + index
+                            width: codeInput.cellWidth
+                            height: codeInput.height
+                            radius: 12
+                            interactive: true
+                            selected: index >= codeInput.selectionStart && index < codeInput.selectionEnd
+                            focused: codeInput.activeFocus && index === Math.min(codeInput.cursorPosition, 5)
+                            Text {
+                                anchors.centerIn: parent
+                                text: codeInput.text.charAt(parent.index)
+                                color: BrandTheme.colors.text
+                                font.pixelSize: codeInput.font.pixelSize
+                                font.bold: true
+                                Accessible.ignored: true
+                            }
+                        }
+                    }
+                }
             }
             GridLayout {
                 visible: codeInput.visible
@@ -2475,8 +2515,18 @@ Item {
                         focusPolicy: Qt.NoFocus
                         Accessible.name: modelData === "⌫" ? screen.tr("keyboard_delete") : modelData
                         onClicked: {
-                            if (modelData === "⌫") codeInput.text = codeInput.text.slice(0, -1)
-                            else if (codeInput.length < 6) codeInput.text += modelData
+                            const selected = codeInput.selectionStart !== codeInput.selectionEnd
+                            const start = selected ? codeInput.selectionStart : codeInput.cursorPosition
+                            const end = selected ? codeInput.selectionEnd : start
+                            if (modelData === "⌫") {
+                                const removeFrom = selected ? start : Math.max(0, start - 1)
+                                codeInput.remove(removeFrom, end)
+                                codeInput.cursorPosition = removeFrom
+                            } else if (selected || codeInput.length < 6) {
+                                codeInput.remove(start, end)
+                                codeInput.insert(start, modelData)
+                                codeInput.cursorPosition = start + 1
+                            }
                         }
                     }
                 }
@@ -2487,6 +2537,7 @@ Item {
                 visible: codeInput.visible
                 enabled: visible && codeInput.acceptableInput && codeInput.length === 6
                 text: screen.tr("vibecast_lookup")
+                primary: true
                 Layout.fillWidth: true
                 onClicked: {
                     if (enabled && screen.owner.resolveVibeCastCode(codeInput.text)) codeInput.clear()
