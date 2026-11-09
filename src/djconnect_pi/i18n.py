@@ -1760,6 +1760,13 @@ _VIBECAST_SENDER_TRANSLATIONS = {
         "Partage arrêté. La session DJ continue.",
         "Se ha dejado de compartir. La sesión DJ continúa.",
     ),
+    "vibecast_share_changed": (
+        "Sharing changed. Choose what to do next.",
+        "De deelstatus is gewijzigd. Kies wat je nu wilt doen.",
+        "Die Freigabe hat sich geändert. Wähle den nächsten Schritt.",
+        "Le partage a changé. Choisissez la prochaine action.",
+        "El uso compartido ha cambiado. Elige qué hacer ahora.",
+    ),
     "vibecast_failed": (
         "Sharing status is unavailable. Refresh to try again.",
         "De deelstatus is niet beschikbaar. Ververs om het opnieuw te proberen.",

@@ -198,11 +198,7 @@ class VibeCastSender(QObject):
 
             try:
                 if current():
-                    result = self.perform(action, code, context, claim, scope, current, mark_write_attempt)
-                    status = {"context": "ready", "resolve": "confirm",
-                              "approve": "sharing", "revoke": "stopped", "disconnect": "display_stopped"}[action]
-                    if action == "context" and result.share is not None:
-                        status = "active"
+                    status, result = self.perform(action, code, context, claim, scope, current, mark_write_attempt)
             except SessionError:
                 if write_attempted:
                     status = "uncertain"
@@ -241,7 +237,8 @@ class VibeCastSender(QObject):
             return DisplayContext(display_entry_url(data), opaque(data, "issuer_epoch"), share, deadline)
 
         if action == "context":
-            return fresh_context()
+            fresh = fresh_context()
+            return ("active" if fresh.share is not None else "ready"), fresh
         if action == "resolve":
             start = time.monotonic()
             data = call("resolve", {"code": code})
@@ -249,10 +246,14 @@ class VibeCastSender(QObject):
                 raise SessionError("context_changed")
             payload = {"issuer_epoch": context.issuer_epoch, "claim_id": opaque(data, "claim_id"),
                        "browser_generation": opaque(data, "browser_generation"), "code": code}
-            return payload, start + duration(data, "expires_in", 120)
+            return "confirm", (payload, start + duration(data, "expires_in", 120))
         fresh = fresh_context()
-        if fresh != context:
+        if fresh.entry_url != context.entry_url or fresh.issuer_epoch != context.issuer_epoch:
             raise SessionError("context_changed")
+        if fresh.share != context.share:
+            # Another sender may have ended or replaced the share. A new
+            # user action is required for the newly observed state.
+            return "share_changed", fresh
         if action in {"revoke", "disconnect"}:
             payload = {"session_id": session_id, "share_id": context.share[0]}
             if action == "disconnect":
@@ -260,7 +261,9 @@ class VibeCastSender(QObject):
                     raise SessionError("unavailable")
                 payload["display_id"] = context.display_receipt[0]
             call("revoke", payload)
-            return replace(fresh, display_receipt=None) if action == "disconnect" else replace(fresh, share=None)
+            if action == "disconnect":
+                return "display_stopped", fresh
+            return "stopped", replace(fresh, share=None)
 
         if time.monotonic() >= claim[1]:
             raise SessionError("unavailable")
@@ -280,7 +283,7 @@ class VibeCastSender(QObject):
         approved = (opaque(data, "share_id"), generation(data))
         if (context.share is None and approved[1] != 1) or (context.share is not None and approved != context.share):
             raise SessionError("context_changed")
-        return replace(fresh, share=approved, share_deadline=deadline, display_receipt=(display_id, deadline))
+        return "sharing", replace(fresh, share=approved, share_deadline=deadline, display_receipt=(display_id, deadline))
 
     @Slot(object)
     def finish(self, reply):

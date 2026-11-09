@@ -1352,6 +1352,33 @@ def test_vibecast_can_stop_all_from_sender_without_local_display_receipt(vibecas
     owner.transport.end.assert_not_called()
 
 
+@pytest.mark.parametrize("replacement", [False, True])
+def test_vibecast_stop_reads_new_share_without_replaying(vibecast_sender, replacement):
+    owner, backend, responses = vibecast_sender
+    context = responses["context"]
+    context.update(share_id="s" * 43, share_generation=1, expires_in=240)
+    assert owner.openVibeCast()
+    backend.jobs.pop()()
+    if replacement:
+        context.update(share_id="r" * 43, share_generation=2)
+    else:
+        for field in ("share_id", "share_generation", "expires_in"):
+            context.pop(field)
+
+    assert owner.stopVibeCast()
+    backend.jobs.pop()()
+    assert [call.args[1] for call in owner.transport.display_owner.call_args_list] == ["context", "context"]
+    assert owner.state["vibecast"]["status"] == "share_changed"
+    assert owner.state["vibecast"]["has_share"] is replacement
+    assert owner.stopVibeCast() is replacement
+    if replacement:
+        backend.jobs.pop()()
+        assert owner.transport.display_owner.call_args.args[1:] == (
+            "revoke", {"session_id": "vibe-session", "share_id": "r" * 43},
+        )
+    owner.transport.end.assert_not_called()
+
+
 @pytest.mark.parametrize("change", [None, "expired", "generation"])
 def test_vibecast_disconnect_targets_only_last_approved_display(vibecast_sender, monkeypatch, change):
     owner, backend, responses = vibecast_sender
