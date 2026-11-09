@@ -1425,6 +1425,7 @@ _SESSION_FORECAST_TRANSLATIONS = {
     "session_forecast_intention": ("Intention", "Voornemen", "Absicht", "Intention", "Intención"),
     "session_forecast_conditional_target": ("Possible direction", "Mogelijke richting", "Mögliche Richtung", "Direction possible", "Dirección posible"),
     "session_forecast_empty": ("Horizon is currently unavailable.", "Horizon is nu niet beschikbaar.", "Horizon ist derzeit nicht verfügbar.", "Horizon est actuellement indisponible.", "Horizon no está disponible actualmente."),
+    "session_attribution_source": ("Source", "Bron", "Quelle", "Source", "Fuente"),
     "session_forecast_source": ("Current music source", "Bron van de huidige muziek", "Quelle der aktuellen Musik", "Source de la musique actuelle", "Fuente de la música actual"),
 }
 for _key, _values in _SESSION_FORECAST_TRANSLATIONS.items():
