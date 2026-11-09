@@ -11,6 +11,7 @@ GlassCard {
     property bool selectionBusy: false
     property bool deletionAvailable: false
     property string flowDeletionScope: ""
+    trailingRevealWidth: deleteAction.revealWidth
     signal deleteEntry(string sessionId, string entryId)
     readonly property bool attributionReady: historySources.ready
     property alias bodyItem: retainedBody
@@ -52,6 +53,7 @@ GlassCard {
         onClicked: historyCard.askAboutEntry()
     }
     SessionFlowDelete {
+        id: deleteAction
         objectName: "sessionDeleteRetainedEntry"
         card: historyCard
         scope: historyCard.flowDeletionScope

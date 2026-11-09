@@ -28,6 +28,7 @@ Item {
         objectName: "sessionLiveMomentCard"
         artworkTint: currentMomentArtworkFrame.artworkTint
         currentMoment: modelData.current
+        trailingRevealWidth: deleteAction.revealWidth
         required property var modelData
         Layout.fillWidth: true
         property alias bodyItem: momentBody
@@ -38,6 +39,7 @@ Item {
                 composerPanel.open()
         }
         SessionFlowDelete {
+            id: deleteAction
             objectName: "sessionDeleteLiveMoment"
             card: liveCard
             allowed: !!screen.contentDeletion.available && liveSources.ready

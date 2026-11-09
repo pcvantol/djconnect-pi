@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Controls
-import QtQuick.Layouts
 import "BrandTheme.js" as BrandTheme
 
 GlassButton {
@@ -11,14 +10,19 @@ GlassButton {
     property bool gesturesOnly: true
     property string scope: ""
     property bool revealed: false
+    readonly property real revealWidth: revealed ? width + 8 : 0
     readonly property bool canReveal: gesturesOnly && allowed && enabled && card.visible
 
     signal deleteRequested()
 
+    parent: gesturesOnly ? card : card.contentItem
+    anchors.right: gesturesOnly && parent === card ? parent.right : undefined
+    anchors.rightMargin: 4
+    anchors.verticalCenter: gesturesOnly && parent === card ? parent.verticalCenter : undefined
+    z: gesturesOnly ? 1 : 0
     visible: allowed && (!gesturesOnly || revealed)
     iconName: "trash"
     tint: BrandTheme.colors.danger
-    Layout.alignment: gesturesOnly ? Qt.AlignRight : Qt.AlignLeft
     Accessible.name: actionLabel
 
     onCanRevealChanged: if (!canReveal) dismiss()
