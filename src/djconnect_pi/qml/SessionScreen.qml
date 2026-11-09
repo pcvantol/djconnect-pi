@@ -1640,6 +1640,18 @@ Item {
                 text: screen.tr("refresh"); enabled: !screen.owner.busy
                 onClicked: screen.owner.recoverHistoryDelete()
             }
+            Text {
+                objectName: "sessionTimelineEmpty"
+                visible: screen.historical && !!screen.state.timeline.session && !!screen.state.timeline.revision
+                    && !screen.owner.busy && !screen.historyReadPending && !screen.state.error
+                    && (screen.state.timeline.entries || []).length === 0
+                text: screen.tr("session_timeline_empty")
+                textFormat: Text.PlainText
+                color: BrandTheme.colors.muted
+                font.pixelSize: screen.compact ? 18 : 21
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
             Repeater {
                 id: historyRows
                 objectName: "sessionHistoryRows"
