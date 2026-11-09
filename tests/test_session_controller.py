@@ -112,8 +112,11 @@ def test_demo_session_never_uses_server_or_survives_demo_exit(controller):
     assert owner.state["presence"] == "occasional"
     owner.setDemoPreference("mood", "energy")
     assert owner.state["mood"] == "energy"
+    positioned = []
+    owner.questionConfirmed.connect(positioned.append)
     assert owner.sendQuestion("What should I listen to next?")
     owner._expire()
+    assert positioned == [owner.state["flow_rows"][0]["contribution"]["entry_id"]]
     assert [row["contribution"]["kind"] for row in owner.state["flow_rows"]] == [
         "conversation_dj", "conversation_user", "dj_moment",
     ]

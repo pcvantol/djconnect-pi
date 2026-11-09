@@ -182,7 +182,19 @@ Item {
     }
     onComposerContextChanged: { clearForecastReading(); clearFlowReturn(); forecastMode = false; closeTransient(); if (historyReadPending && historyReadKind === "current") { historyRead.stop(); historyReadPending = false; navigate("session") } }
     function clearComposer() { followQuestionReply = false; pendingReplyId = ""; draft = ""; if (composeInput) composeInput.clear(); if (composerPanel) composerPanel.close(); if (owner) owner.clearSelection() }
-    function submitQuestion() { if (owner.sendQuestion(composeInput.text)) { forecastMode = false; followQuestionReply = true; draft = ""; composeInput.clear(); composerPanel.close() } }
+    function submitQuestion() {
+        // A local demo answer can arrive before sendQuestion returns.
+        if (backend.demoMode) followQuestionReply = true
+        if (!owner.sendQuestion(composeInput.text)) {
+            if (backend.demoMode) followQuestionReply = false
+            return
+        }
+        forecastMode = false
+        followQuestionReply = true
+        draft = ""
+        composeInput.clear()
+        composerPanel.close()
+    }
     // A position descriptor grants no image or text retention.
     property var forecastReading: null
     property int forecastReadingTries: 0

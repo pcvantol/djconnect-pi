@@ -600,10 +600,12 @@ class SessionController(QObject):
         self.changed.emit()
 
     def _append_demo_entry(self, kind, text):
+        entry_id = uuid4().hex
         self._demo_flow = [*self._demo_flow[-99:], {
-            "entry_id": uuid4().hex, "session_id": self._session["session_id"],
+            "entry_id": entry_id, "session_id": self._session["session_id"],
             "kind": kind, "text": text, "occurred_at": datetime.now(UTC).isoformat(),
         }]
+        return entry_id
 
     def demo_playback_changed(self):
         if self.backend.demoMode and self._session:
@@ -793,8 +795,9 @@ class SessionController(QObject):
             return False
         if self.backend.demoMode:
             self._append_demo_entry("conversation_user", body.strip())
-            self._append_demo_entry("conversation_dj", translate(self.backend.cfg.language, "demo_dj_answer"))
+            reply_id = self._append_demo_entry("conversation_dj", translate(self.backend.cfg.language, "demo_dj_answer"))
             self.changed.emit()
+            self.questionConfirmed.emit(reply_id)
             return True
         if not self._selection_valid():
             self._selection = {}
