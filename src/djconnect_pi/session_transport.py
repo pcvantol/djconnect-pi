@@ -175,7 +175,7 @@ class SessionTransport:
                                   profile_type="", privacy_mode="", private_authorized=private, owner_epoch=epoch)
         return binding
 
-    def _request(self, binding: SessionBinding, method: str, route: str, payload=None, *, timeout=None, isolated=False, archive_delete=False, content_delete=False, private_probe=False) -> dict:
+    def _request(self, binding: SessionBinding, method: str, route: str, payload=None, *, timeout=None, isolated=False, archive_delete=False, content_delete=False, private_probe=False, display_owner=False) -> dict:
         if binding != self.binding():
             raise SessionError("context_changed")
         if private_probe:
@@ -211,6 +211,16 @@ class SessionTransport:
                     or type(payload.get("contract_version")) is not int or payload["contract_version"] != 1):
                 raise SessionError("invalid")
             isolated = True
+        if display_owner:
+            shapes = {
+                "display/owner/context": {"session_id"},
+                "display/owner/resolve": {"code"},
+                "display/owner/approve": {"session_id", "issuer_epoch", "claim_id", "browser_generation", "code", "share"},
+                "display/owner/revoke": {"session_id", "share_id"},
+            }
+            if method != "POST" or not isinstance(payload, dict) or set(payload) != shapes.get(route):
+                raise SessionError("invalid")
+            isolated = True
         if isolated:
             try:
                 base = urlsplit(binding.ha_url)
@@ -229,11 +239,14 @@ class SessionTransport:
             "Accept": "application/json", "Cache-Control": "no-store",
             "Accept-Language": locale_for_language(binding.language),
         }
-        if binding.profile_id:
+        if binding.profile_id and not display_owner:
             headers["X-DJConnect-Profile-ID"] = binding.profile_id
         identity = ({"device_id": binding.device_id, "client_type": CLIENT_TYPE}
                     if archive_delete or content_delete else binding.identity())
         body = {**identity, **(payload or {})}
+        if display_owner:
+            body = {"contract_version": 1, "identity": {"device_id": binding.device_id,
+                    "client_type": CLIENT_TYPE}, **payload}
         if method == "GET":
             body = {key: str(value).lower() if isinstance(value, bool) else value for key, value in body.items()}
         category = "invalid" if method == "GET" else "uncertain"
@@ -354,6 +367,9 @@ class SessionTransport:
             "contract_version": 1, "confirmation_id": intent.preview.confirmation,
             "operation_id": intent.operation}, content_delete=True)
         return intent.outcome(result)
+
+    def display_owner(self, binding, action, payload):
+        return self._request(binding, "POST", "display/owner/" + action, payload, display_owner=True)
 
     def capabilities(self, binding, *, isolated=False):
         return self._request(binding, "GET", "capabilities", isolated=isolated)

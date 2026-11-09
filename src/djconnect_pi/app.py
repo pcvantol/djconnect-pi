@@ -220,6 +220,9 @@ class DJConnectBackend(QObject):
         self._logs_text = ""
         self._logs_visible = False
         self._demo_mode = False
+        self._demo_progress = QTimer(self)
+        self._demo_progress.setInterval(1000)
+        self._demo_progress.timeout.connect(self._tick_demo_playback)
         self._queue_items: list[dict[str, object]] = []
         self._playlist_items: list[dict[str, object]] = []
         self._ask_dj_messages: list[dict[str, object]] = []
@@ -1110,6 +1113,7 @@ class DJConnectBackend(QObject):
         if self._demo_mode:
             self.playback.is_playing = not self.playback.is_playing
             self.playingChanged.emit()
+            self.djSession.demo_playback_changed()
             _LOGGER.info("User toggled demo playback to playing=%s", self.playback.is_playing)
             self.showToastForContext(self.tr_key("pause") if self.playback.is_playing else self.tr_key("play"), "playback")
             return
@@ -1158,7 +1162,7 @@ class DJConnectBackend(QObject):
     def previous(self) -> None:
         self.wakeScreenRequested.emit()
         if self._demo_mode:
-            self._apply_demo_track("Blue Monday", "New Order")
+            self._move_demo_track(-1)
             _LOGGER.info("User selected previous demo track")
             self.showToastForContext(self.tr_key("previous"), "playback")
             return
@@ -1170,7 +1174,7 @@ class DJConnectBackend(QObject):
     def next(self) -> None:
         self.wakeScreenRequested.emit()
         if self._demo_mode:
-            self._apply_demo_track("Around the World", "Daft Punk")
+            self._move_demo_track(1)
             _LOGGER.info("User selected next demo track")
             self.showToastForContext(self.tr_key("next"), "playback")
             return
@@ -1201,7 +1205,7 @@ class DJConnectBackend(QObject):
 
     @Slot()
     def openTrackInsight(self) -> None:
-        if not self.playback.is_playing:
+        if not self._demo_mode and not self.playback.is_playing:
             return
         self._request_track_insight(show_toast=False)
 
@@ -1210,6 +1214,9 @@ class DJConnectBackend(QObject):
         self._request_track_insight(show_toast=True)
 
     def _request_track_insight(self, *, show_toast: bool) -> None:
+        if self._demo_mode:
+            self._show_demo_track_insight()
+            return
         self._sync_config_from_disk()
         if self._demo_mode or not self.paired or self._ask_dj_busy or not self._application_foreground:
             return
@@ -1379,7 +1386,7 @@ class DJConnectBackend(QObject):
 
     @Slot()
     def enterDemoMode(self) -> None:
-        if self.paired:
+        if self.paired or self._demo_mode:
             return
         self._demo_mode = True
         self._queue_items = demo_queue_items()
@@ -1389,7 +1396,9 @@ class DJConnectBackend(QObject):
         self.demoModeChanged.emit()
         self.mediaListsChanged.emit()
         self.outputDeviceChanged.emit()
-        self._apply_demo_track("Midnight City", "M83")
+        self._apply_demo_track(self._queue_items[0])
+        self._demo_progress.start()
+        self._seed_demo_content()
         _LOGGER.info("User entered local demo mode")
         self.showToastForContext(self.tr_key("demo_active"), "playback")
         self._set_status_text(self.tr_key("demo_active"))
@@ -1399,6 +1408,8 @@ class DJConnectBackend(QObject):
         if not self._demo_mode:
             return
         self._demo_mode = False
+        self._demo_progress.stop()
+        self._clear_profile_scoped_caches(preserve_session=True)
         self._queue_items = []
         self._playlist_items = []
         self.demoModeChanged.emit()
@@ -1411,6 +1422,7 @@ class DJConnectBackend(QObject):
         self.volumeChanged.emit()
         self.shuffleChanged.emit()
         self.repeatChanged.emit()
+        self.progressChanged.emit()
         self.outputDeviceChanged.emit()
         _LOGGER.info("User exited local demo mode")
         self.showToastForContext(self.tr_key("exit_demo"), "connectivity")
@@ -1449,6 +1461,9 @@ class DJConnectBackend(QObject):
 
     @Slot()
     def clearAskDjHistory(self) -> None:
+        if self._demo_mode:
+            self._clear_ask_dj_cache()
+            return
         self._sync_config_from_disk()
         if self._demo_mode or not self.paired or self._ask_dj_busy:
             return
@@ -1500,6 +1515,12 @@ class DJConnectBackend(QObject):
         self._music_dna_request("clear")
 
     def _music_dna_request(self, action: str, show_toast: bool = False, **payload: object) -> None:
+        if self._demo_mode:
+            if action == "settings":
+                self._set_demo_music_dna(bool(payload["enabled"]))
+            elif action == "clear":
+                self._set_demo_music_dna(False)
+            return
         self._sync_config_from_disk()
         if self._demo_mode or not self.paired or self._music_dna_busy:
             return
@@ -1538,8 +1559,9 @@ class DJConnectBackend(QObject):
 
     @Slot(str)
     def playMusicDiscoveryItem(self, payload: str) -> None:
-        self._sync_config_from_disk()
-        if self._demo_mode or not self.paired or self._music_discovery_busy:
+        if not self._demo_mode:
+            self._sync_config_from_disk()
+        if (not self._demo_mode and not self.paired) or self._music_discovery_busy:
             return
         try:
             item = json.loads(payload)
@@ -1552,6 +1574,9 @@ class DJConnectBackend(QObject):
             _LOGGER.info("Ignoring Music Discovery item without backend id")
             return
         item_id = str(item.get("discovery_item_id") or item.get("id") or "").strip()
+        if self._demo_mode:
+            self._play_demo_uri(item_id)
+            return
         self._music_discovery_playing_id = item_id
         self.musicDiscoveryChanged.emit()
         self._run(self.tr_key("music_discovery"), lambda: self._music_discovery_play_worker(item), done=lambda: self._clear_music_discovery_playing())
@@ -1579,6 +1604,10 @@ class DJConnectBackend(QObject):
         )
 
     def _music_discovery_request(self, action: str) -> None:
+        if self._demo_mode:
+            if action == "accept":
+                self._set_demo_music_dna(True)
+            return
         self._sync_config_from_disk()
         if self._demo_mode or not self.paired or self._music_discovery_busy:
             return
@@ -1710,6 +1739,10 @@ class DJConnectBackend(QObject):
             return
         if command not in {"play_context_at", "start_playlist"}:
             _LOGGER.warning("Ignoring unsupported media item command from touch UI: %s", command)
+            return
+        if self._demo_mode:
+            uri = payload["uri"] if command == "start_playlist" else payload["value"]["uri"]
+            self._play_demo_uri(uri)
             return
         _LOGGER.info("User requested %s from touch UI", command)
         self.showToastForContext(self.tr_key("play"), "playback")
@@ -1850,6 +1883,9 @@ class DJConnectBackend(QObject):
         uri = uri.strip()
         if not uri:
             return
+        if self._demo_mode:
+            self._play_demo_uri(uri)
+            return
         _LOGGER.info("User requested play_uri from touch UI")
         self.showToastForContext(self.tr_key("play"), "playback")
         self.command("play_uri", uri=uri)
@@ -1857,11 +1893,8 @@ class DJConnectBackend(QObject):
     @Slot()
     def loadQueue(self) -> None:
         self.showToastForContext(self.tr_key("refreshing"), "queue")
-        if self._demo_mode:
-            self._queue_items = demo_queue_items()
-            self.mediaListsChanged.emit()
-            return
-        self._start_media_list_load("queue", self._load_queue_worker)
+        if not self._demo_mode:
+            self._start_media_list_load("queue", self._load_queue_worker)
 
     @Slot()
     def loadPlaylists(self) -> None:
@@ -2328,15 +2361,86 @@ class DJConnectBackend(QObject):
         self.mediaListsChanged.emit()
         self.profileChanged.emit()
 
-    def _apply_demo_track(self, title: str, artist: str) -> None:
-        self.playback.title = title
-        self.playback.artist = artist
+    def _play_demo_uri(self, uri: str) -> None:
+        tracks = demo_queue_items()
+        for index, playlist in enumerate(demo_playlist_items()):
+            if playlist["uri"] == uri:
+                self._queue_items = tracks[index:] + tracks[:index]
+                self.mediaListsChanged.emit()
+                self._apply_demo_track(self._queue_items[0])
+                return
+        track = next((item for item in tracks if item["uri"] == uri), None)
+        if track:
+            self._apply_demo_track(track)
+
+    def _move_demo_track(self, step: int) -> None:
+        if not self._queue_items:
+            return
+        index = next((i for i, track in enumerate(self._queue_items) if track["uri"] == self.playback.uri), 0)
+        self._apply_demo_track(self._queue_items[(index + step) % len(self._queue_items)])
+
+    def _tick_demo_playback(self) -> None:
+        if not self._demo_mode or not self.playback.is_playing:
+            return
+        if self.playback.position_seconds + 1 >= self.playback.duration_seconds:
+            self._move_demo_track(1)
+            return
+        self.playback.position_seconds += 1
+        self.progressChanged.emit()
+        self.djSession.demo_playback_changed()
+
+    def _apply_demo_track(self, track: dict[str, object]) -> None:
+        refresh_insight = bool(self._track_insight_title)
+        self.playback.title = str(track["title"])
+        self.playback.artist = str(track["subtitle"])
+        self.playback.uri = str(track["uri"])
+        self.playback.position_seconds = 0
+        self.playback.duration_seconds = int(track["duration"])
         self.playback.image_url = ""
         self.playback.is_playing = True
+        self._clear_track_insight()
+        if refresh_insight:
+            self._show_demo_track_insight()
         self.titleChanged.emit()
         self.artistChanged.emit()
         self.imageUrlChanged.emit()
         self.playingChanged.emit()
+        self.progressChanged.emit()
+        self.djSession.demo_playback_changed()
+
+    def _show_demo_track_insight(self) -> None:
+        track = next((item for item in demo_queue_items() if item["uri"] == self.playback.uri), None)
+        if not track:
+            return
+        self._track_insight_title = self.playback.title
+        self._track_insight_artist = self.playback.artist
+        self._track_insight_text = self.tr_key(str(track["insight_key"]))
+        self._track_insight_error = ""
+        self.trackInsightChanged.emit()
+
+    def _seed_demo_content(self) -> None:
+        self._ask_dj_messages = parse_ask_dj_messages({"messages": [
+            {"id": "demo-ask", "role": "user", "text": self.tr_key("demo_dj_question")},
+            {"id": "demo-reply", "role": "assistant", "text": self.tr_key("demo_dj_answer")},
+        ]})
+        self.askDjChanged.emit()
+        self._set_demo_music_dna(True)
+
+    def _set_demo_music_dna(self, enabled: bool) -> None:
+        self._music_dna_enabled = enabled
+        self._music_discovery_consent_rejected = False
+        self._music_dna_summary = self.tr_key("demo_dna_summary") if enabled else ""
+        tracks = demo_queue_items()
+        self._music_dna_sections = [{"title": self.tr_key("demo_mode"),
+            "lines": [f"{track['title']} · {track['subtitle']}" for track in tracks]}] if enabled else []
+        self._music_discovery_items = parse_music_discovery_feed({"sections": [{
+            "id": "demo", "title": self.tr_key("demo_mode"), "items": [
+                {"id": track["uri"], "uri": track["uri"], "title": track["title"],
+                 "subtitle": track["subtitle"], "reason": self.tr_key(str(track["insight_key"]))}
+                for track in tracks],
+        }]})["items"] if enabled else []
+        self.musicDnaChanged.emit()
+        self.musicDiscoveryChanged.emit()
 
     def _run(self, label: str, worker, done=None) -> None:
         self._set_busy(True)
@@ -2407,6 +2511,8 @@ class DJConnectBackend(QObject):
 
     @Slot(object)
     def _apply_playback(self, playback: Playback) -> None:
+        if self._demo_mode:
+            return
         self._set_backend_available(True)
         if self._version_mismatch_visible:
             self._version_mismatch_visible = False
@@ -2460,6 +2566,8 @@ class DJConnectBackend(QObject):
 
     @Slot(str, object)
     def _apply_media_list(self, kind: str, items: object) -> None:
+        if self._demo_mode:
+            return
         if not isinstance(items, list):
             return
         if kind == "queue":
@@ -2472,6 +2580,8 @@ class DJConnectBackend(QObject):
 
     @Slot(object)
     def _apply_ask_dj_data(self, data: object) -> None:
+        if self._demo_mode:
+            return
         if not self._profile_result_current(data):
             return
         if not isinstance(data, dict):
@@ -2641,6 +2751,8 @@ class DJConnectBackend(QObject):
 
     @Slot(object)
     def _apply_music_dna_data(self, data: object) -> None:
+        if self._demo_mode:
+            return
         if not self._profile_result_current(data):
             return
         if not isinstance(data, dict):
@@ -2664,6 +2776,8 @@ class DJConnectBackend(QObject):
 
     @Slot(object)
     def _apply_music_discovery_data(self, data: object) -> None:
+        if self._demo_mode:
+            return
         if not self._profile_result_current(data):
             return
         if not isinstance(data, dict):
@@ -2698,6 +2812,8 @@ class DJConnectBackend(QObject):
 
     @Slot(object)
     def _apply_track_insight_data(self, data: object) -> None:
+        if self._demo_mode:
+            return
         if not self._application_foreground or not self._profile_result_current(data):
             return
         scope = self._track_insight_scope()
@@ -3145,21 +3261,27 @@ def demo_queue_items() -> list[dict[str, object]]:
         {
             "title": "Midnight City",
             "subtitle": "M83",
-            "uri": "spotify:track:demo-0",
+            "uri": "demo:track:0",
+            "duration": 244,
+            "insight_key": "demo_insight_0",
             "imageUrl": "",
             "tint": "#d946ef",
         },
         {
             "title": "Sweet Disposition",
             "subtitle": "The Temper Trap",
-            "uri": "spotify:track:demo-1",
+            "uri": "demo:track:1",
+            "duration": 232,
+            "insight_key": "demo_insight_1",
             "imageUrl": "",
             "tint": "#a78bfa",
         },
         {
             "title": "Electric Feel",
             "subtitle": "MGMT",
-            "uri": "spotify:track:demo-2",
+            "uri": "demo:track:2",
+            "duration": 228,
+            "insight_key": "demo_insight_2",
             "imageUrl": "",
             "tint": "#38bdf8",
         },
@@ -3168,9 +3290,9 @@ def demo_queue_items() -> list[dict[str, object]]:
 
 def demo_playlist_items() -> list[dict[str, object]]:
     return [
-        {"title": "Friday Night", "subtitle": "", "uri": "spotify:playlist:djconnect-demo", "imageUrl": "", "tint": "#d946ef"},
-        {"title": "Dinner Vibes", "subtitle": "", "uri": "spotify:playlist:djconnect-dinner", "imageUrl": "", "tint": "#64748b"},
-        {"title": "DJConnect", "subtitle": "", "uri": "spotify:playlist:djconnect", "imageUrl": "", "tint": "#8b5cf6"},
+        {"title": "Friday Night", "subtitle": "", "uri": "demo:playlist:night", "imageUrl": "", "tint": "#d946ef"},
+        {"title": "Dinner Vibes", "subtitle": "", "uri": "demo:playlist:dinner", "imageUrl": "", "tint": "#64748b"},
+        {"title": "DJConnect", "subtitle": "", "uri": "demo:playlist:djconnect", "imageUrl": "", "tint": "#8b5cf6"},
     ]
 
 

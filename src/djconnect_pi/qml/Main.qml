@@ -2392,7 +2392,7 @@ BrandWindow {
         visible: root.activeScreen === "trackinsight"
         z: 17
         onVisibleChanged: {
-            if (visible && !autoInsightRequested && djconnect.playing) {
+            if (visible && !autoInsightRequested && (djconnect.playing || djconnect.demoMode)) {
                 autoInsightRequested = true
                 djconnect.openTrackInsight()
             } else if (!visible) {

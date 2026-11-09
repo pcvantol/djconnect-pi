@@ -7,6 +7,20 @@ import "ForecastGuidance.js" as ForecastGuidance
 Item {
     id: screen
     objectName: "djSessionScreen"
+    property Item revealedFlowAction: null
+    Item {
+        anchors.fill: parent
+        z: 10
+        visible: !!screen.revealedFlowAction
+        TapHandler {
+            gesturePolicy: TapHandler.DragThreshold
+            onTapped: eventPoint => {
+                const action = screen.revealedFlowAction
+                if (action && !action.contains(action.mapFromItem(screen, eventPoint.position)))
+                    action.dismiss()
+            }
+        }
+    }
     property var backend
     property bool historical: false
     property bool currentHistory: false
@@ -28,6 +42,7 @@ Item {
         objectName: "sessionLiveMomentCard"
         artworkTint: currentMomentArtworkFrame.artworkTint
         currentMoment: modelData.current
+        trailingRevealWidth: deleteAction.revealWidth
         required property var modelData
         Layout.fillWidth: true
         property alias bodyItem: momentBody
@@ -37,12 +52,16 @@ Item {
             if (canAsk && screen.owner.selectMoment(screen.state.session_id, modelData.moment_id))
                 composerPanel.open()
         }
-        GlassButton {
+        SessionFlowDelete {
+            id: deleteAction
             objectName: "sessionDeleteLiveMoment"
-            visible: !!screen.contentDeletion.available && liveSources.ready
-            enabled: !screen.owner.busy && !screen.owner.questionBusy
-            iconName: "trash"; Accessible.name: screen.tr("session_content_delete_action")
-            onClicked: screen.deleteContent("moment", screen.state.session_id, modelData.moment_id)
+            card: liveCard
+            dismissalSurface: screen
+            allowed: !!screen.contentDeletion.available && liveSources.ready
+                && !screen.owner.busy && !screen.owner.questionBusy && !screen.showForecast
+            scope: screen.composerContext + "|" + modelData.moment_id
+            actionLabel: screen.tr("session_content_delete_action")
+            onDeleteRequested: screen.deleteContent("moment", screen.state.session_id, modelData.moment_id)
         }
         ColumnLayout {
             objectName: "sessionMomentArtworkCard"
@@ -182,7 +201,19 @@ Item {
     }
     onComposerContextChanged: { clearForecastReading(); clearFlowReturn(); forecastMode = false; closeTransient(); if (historyReadPending && historyReadKind === "current") { historyRead.stop(); historyReadPending = false; navigate("session") } }
     function clearComposer() { followQuestionReply = false; pendingReplyId = ""; draft = ""; if (composeInput) composeInput.clear(); if (composerPanel) composerPanel.close(); if (owner) owner.clearSelection() }
-    function submitQuestion() { if (owner.sendQuestion(composeInput.text)) { forecastMode = false; followQuestionReply = true; draft = ""; composeInput.clear(); composerPanel.close() } }
+    function submitQuestion() {
+        // A local demo answer can arrive before sendQuestion returns.
+        if (backend.demoMode) followQuestionReply = true
+        if (!owner.sendQuestion(composeInput.text)) {
+            if (backend.demoMode) followQuestionReply = false
+            return
+        }
+        forecastMode = false
+        followQuestionReply = true
+        draft = ""
+        composeInput.clear()
+        composerPanel.close()
+    }
     // A position descriptor grants no image or text retention.
     property var forecastReading: null
     property int forecastReadingTries: 0
@@ -642,6 +673,7 @@ Item {
     function tr(key) { backend.translationVersion; return backend.t(key) }
     function displayDate(value) { backend.translationVersion; return owner.formatTimestamp(value || "") }
     function toolbarValue(field) {
+        if (backend.demoMode) return owner.demoPreferences[field] || ""
         var shared = backend.sharedSettings
         var value = (shared.values || {})[field]
         if (shared.available && !shared.selection_required && typeof value === "string") return value
@@ -845,6 +877,14 @@ Item {
                     iconName: "output"; Accessible.name: screen.tr("session_output_title")
                     implicitWidth: 52; background: Item {}
                     onCurrentTrackClicked: outputsPanel.openForCurrentItem(toolbarOutput)
+                }
+                GlassButton {
+                    objectName: "sessionToolbarVibeCast"
+                    visible: screen.sessionControlsVisible && !screen.showForecast && screen.state.vibecast.available
+                    enabled: !screen.state.vibecast.busy
+                    iconName: "vibecast"; Accessible.name: "VibeCast"
+                    implicitWidth: 52; background: Item {}
+                    onClicked: { if (screen.owner.openVibeCast()) vibeCastPanel.open() }
                 }
                 GlassButton {
                     visible: screen.sessionControlsVisible
@@ -1411,11 +1451,10 @@ Item {
                 RowLayout {
                     Layout.fillWidth: true
                     visible: waitingCard.emptyFlow && !waitingCard.compactIdle && !screen.state.owner_read_only
-                    GlassButton { text: screen.tr("session_history"); enabled: !screen.owner.busy; onClicked: screen.openArchive() }
                     Item { Layout.fillWidth: true }
                     GlassButton {
                         objectName: "sessionExpandedEnd"
-                        iconName: "trash"; Accessible.name: screen.tr("session_end")
+                        iconName: "end"; Accessible.name: screen.tr("session_end")
                         enabled: !screen.owner.lifecycleBusy && screen.state.runtime_state !== "ending"
                         onClicked: { endConfirmation.expectedSessionId = screen.state.session_id; endConfirmation.open() }
                     }
@@ -1435,6 +1474,23 @@ Item {
                     return moment.current || !moment.flow_bulletin
                 }) : []
                 LiveMomentCard {}
+            }
+            RowLayout {
+                visible: !screen.historical && screen.backend.demoMode && !!screen.state.playback.item_id
+                Layout.alignment: Qt.AlignHCenter
+                GlassButton {
+                    iconName: "previous"; Accessible.name: screen.tr("previous")
+                    onClicked: screen.backend.previous()
+                }
+                GlassButton {
+                    iconName: screen.backend.playing ? "pause" : "play"
+                    Accessible.name: screen.tr(screen.backend.playing ? "pause" : "play")
+                    onClicked: screen.backend.togglePlay()
+                }
+                GlassButton {
+                    iconName: "next"; Accessible.name: screen.tr("next")
+                    onClicked: screen.backend.next()
+                }
             }
             GlassCard {
                 id: pendingQuestionCard
@@ -1499,7 +1555,9 @@ Item {
                             entry: modelData; translate: screen.tr; dateText: screen.displayDate(modelData.occurred_at)
                             selectionAvailable: screen.state.composer_available
                             selectionBusy: screen.owner.busy || screen.owner.questionBusy
-                            deletionAvailable: !!screen.contentDeletion.available
+                            deletionAvailable: !!screen.contentDeletion.available && !screen.showForecast
+                            flowDeletionScope: screen.composerContext + "|" + modelData.entry_id
+                            flowSurface: screen
                             onDeleteEntry: (sessionId, entryId) => screen.deleteContent("entry", sessionId, entryId)
                             onAskAbout: (sessionId, entryId) => { if (screen.owner.selectFlowEntry(sessionId, entryId)) composerPanel.open() }
                         }
@@ -1673,9 +1731,11 @@ Item {
     GlassSurface {
         id: composerDock
         objectName: "sessionComposerDock"
-        visible: screen.state.composer_available
-        anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
-        anchors.leftMargin: 20; anchors.rightMargin: 20; anchors.bottomMargin: 120
+        visible: !screen.historical && !screen.showForecast && !searchPanel.visible
+            && screen.state.composer_available
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: parent.bottom; anchors.bottomMargin: 120
+        width: screen.compact ? parent.width - 40 : Math.min(1000, parent.width - 24) * 0.75
         height: composerColumn.implicitHeight + 16; radius: 30; elevated: true
         ColumnLayout {
             id: composerColumn
@@ -1691,6 +1751,7 @@ Item {
                 Layout.fillWidth: true; spacing: 8
                 GlassButton {
                     objectName: "openSessionComposer"
+                    Accessible.name: screen.tr("session_question_placeholder")
                     Layout.fillWidth: true; enabled: !screen.owner.busy
                     onClicked: composerPanel.open()
                     contentItem: Text { text: screen.draft || screen.tr("session_question_placeholder"); textFormat: Text.PlainText; elide: Text.ElideRight; color: BrandTheme.colors.muted; font.pixelSize: 21; verticalAlignment: Text.AlignVCenter }
@@ -2366,7 +2427,15 @@ Item {
         property string profileId: ""
         property string field: "mood"
         property string editToken: ""
-        readonly property bool canSubmit: (choices.field !== "voice" || screen.sessionVoiceAvailable) && choices.visible && screen.state.runtime_state === "active" && screen.sessionControlsVisible && choices.sessionId === screen.state.session_id && choices.profileId === screen.scopeProfileId && choices.editToken === (screen.backend.sharedSettings.edit_token || "") && !!screen.backend.sharedSettings.available && !screen.backend.sharedSettingsBusy && !screen.backend.sharedSettings.selection_required && choices.editToken.length > 0 && !screen.backend.sharedSettings.operation_pending
+        readonly property bool canSubmit: choices.visible && screen.state.runtime_state === "active"
+            && screen.sessionControlsVisible && choices.sessionId === screen.state.session_id
+            && choices.profileId === screen.scopeProfileId
+            && (screen.backend.demoMode ? (screen.owner.demoOptions[choices.field] || []).length > 0
+                : ((choices.field !== "voice" || screen.sessionVoiceAvailable)
+                    && choices.editToken === (screen.backend.sharedSettings.edit_token || "")
+                    && !!screen.backend.sharedSettings.available && !screen.backend.sharedSettingsBusy
+                    && !screen.backend.sharedSettings.selection_required && choices.editToken.length > 0
+                    && !screen.backend.sharedSettings.operation_pending))
         y: toolbar.y + toolbar.height + 8; width: Math.min(screen.width - 24, 560); padding: 22
         modal: true; dim: false
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
@@ -2377,7 +2446,7 @@ Item {
             Flow {
                 Layout.fillWidth: true; spacing: 10
                 Repeater {
-                    model: (screen.backend.sharedSettings.options || {})[choices.field] || []
+                    model: (screen.backend.demoMode ? screen.owner.demoOptions : screen.backend.sharedSettings.options || {})[choices.field] || []
                     GlassButton {
                         required property var modelData
                         text: choices.field === "voice" ? (modelData.label_key ? screen.tr(modelData.label_key) : modelData.label || "") : screen.tr("shared_" + choices.field + "_" + modelData)
@@ -2386,9 +2455,13 @@ Item {
                         objectName: "sessionToolbarOption"
                         onClicked: {
                             if (!choices.canSubmit) return
-                            var patch = {_edit_token: choices.editToken}
-                            patch[choices.field] = choices.field === "voice" ? modelData.value : modelData
-                            screen.backend.saveSharedSettings(patch)
+                            if (screen.backend.demoMode) {
+                                screen.owner.setDemoPreference(choices.field, modelData)
+                            } else {
+                                var patch = {_edit_token: choices.editToken}
+                                patch[choices.field] = choices.field === "voice" ? modelData.value : modelData
+                                screen.backend.saveSharedSettings(patch)
+                            }
                             choices.close()
                         }
                     }
@@ -2397,6 +2470,194 @@ Item {
             GlassButton { text: screen.tr("shared_title"); onClicked: { choices.close(); screen.navigate("settings") } }
         }
     }
+    GlassPopup {
+        id: vibeCastPanel
+        objectName: "sessionVibeCastPanel"
+        anchors.centerIn: parent
+        width: Math.min(screen.width - 32, 520)
+        padding: 18
+        modal: true
+        background: GlassSurface { elevated: true }
+        readonly property var sender: screen.state.vibecast
+        onAboutToHide: {
+            codeInput.clear()
+            screen.owner.closeVibeCast()
+        }
+        Connections {
+            target: screen
+            function onStateChanged() {
+                if (vibeCastPanel.opened && !vibeCastPanel.sender.open) vibeCastPanel.close()
+            }
+            function onShowForecastChanged() { if (screen.showForecast) vibeCastPanel.close() }
+            function onVisibleChanged() { if (!screen.visible) vibeCastPanel.close() }
+            function onHistoricalChanged() { if (screen.historical) vibeCastPanel.close() }
+        }
+        contentItem: ColumnLayout {
+            spacing: 8
+            FeatureIcon {
+                objectName: "sessionVibeCastGlyph"
+                iconName: "vibecast"
+                heroGradient: true
+                Layout.alignment: Qt.AlignHCenter
+                Layout.preferredWidth: screen.compact ? 48 : 64
+                Layout.preferredHeight: Layout.preferredWidth
+            }
+            Text {
+                text: "VibeCast"; color: BrandTheme.colors.text
+                font.pixelSize: 23; font.bold: true
+                Layout.alignment: Qt.AlignHCenter
+            }
+            Text {
+                objectName: "sessionVibeCastStatus"
+                Layout.fillWidth: true
+                color: BrandTheme.colors.text
+                wrapMode: Text.WordWrap; textFormat: Text.PlainText
+                text: {
+                    const status = vibeCastPanel.sender.status
+                    if (status === "loading") return screen.tr("loading")
+                    if (status === "confirm" && vibeCastPanel.sender.has_share)
+                        return screen.tr("vibecast_confirm_existing")
+                    return screen.tr("vibecast_" + (status || "ready"))
+                }
+            }
+            TextField {
+                id: codeInput
+                objectName: "sessionVibeCastCode"
+                visible: ["ready", "active", "sharing", "stopped", "lookup_failed", "expired",
+                          "display_stopped", "share_changed"]
+                    .includes(vibeCastPanel.sender.status)
+                Layout.fillWidth: true
+                Layout.preferredHeight: screen.compact ? 48 : 60
+                readonly property int cellGap: 6
+                readonly property real cellWidth: Math.max(0, (width - 5 * cellGap) / 6)
+                color: "transparent"
+                selectionColor: "transparent"
+                selectedTextColor: "transparent"
+                cursorDelegate: Item { width: 1 }
+                font.pixelSize: screen.compact ? 24 : 28
+                Accessible.name: screen.tr("vibecast_code")
+                maximumLength: 6
+                validator: RegularExpressionValidator { regularExpression: /^[0-9]{0,6}$/ }
+                inputMethodHints: Qt.ImhDigitsOnly | Qt.ImhNoPredictiveText
+                onAccepted: lookupCode.clicked()
+                MouseArea {
+                    anchors.fill: parent
+                    onClicked: (mouse) => {
+                        codeInput.forceActiveFocus(Qt.MouseFocusReason)
+                        const cell = Math.floor(mouse.x / (codeInput.cellWidth + codeInput.cellGap))
+                        codeInput.cursorPosition = Math.min(codeInput.length, cell)
+                    }
+                }
+                background: Row {
+                    spacing: codeInput.cellGap
+                    Repeater {
+                        model: 6
+                        GlassSurface {
+                            required property int index
+                            objectName: "sessionVibeCastCodeCell-" + index
+                            width: codeInput.cellWidth
+                            height: codeInput.height
+                            radius: 12
+                            interactive: true
+                            selected: index >= codeInput.selectionStart && index < codeInput.selectionEnd
+                            focused: codeInput.activeFocus && index === Math.min(codeInput.cursorPosition, 5)
+                            Text {
+                                anchors.centerIn: parent
+                                text: codeInput.text.charAt(parent.index)
+                                color: BrandTheme.colors.text
+                                font.pixelSize: codeInput.font.pixelSize
+                                font.bold: true
+                                Accessible.ignored: true
+                            }
+                        }
+                    }
+                }
+            }
+            GridLayout {
+                visible: codeInput.visible
+                Layout.fillWidth: true
+                columns: 6
+                Repeater {
+                    model: ["1", "2", "3", "4", "5", "⌫", "6", "7", "8", "9", "0"]
+                    GlassButton {
+                        required property string modelData
+                        objectName: "sessionVibeCastDigit-" + modelData
+                        text: modelData
+                        Layout.fillWidth: true
+                        Layout.preferredWidth: 1
+                        Layout.preferredHeight: 42
+                        focusPolicy: Qt.NoFocus
+                        Accessible.name: modelData === "⌫" ? screen.tr("keyboard_delete") : modelData
+                        onClicked: {
+                            const selected = codeInput.selectionStart !== codeInput.selectionEnd
+                            const start = selected ? codeInput.selectionStart : codeInput.cursorPosition
+                            const end = selected ? codeInput.selectionEnd : start
+                            if (modelData === "⌫") {
+                                const removeFrom = selected ? start : Math.max(0, start - 1)
+                                codeInput.remove(removeFrom, end)
+                                codeInput.cursorPosition = removeFrom
+                            } else if (selected || codeInput.length < 6) {
+                                codeInput.remove(start, end)
+                                codeInput.insert(start, modelData)
+                                codeInput.cursorPosition = start + 1
+                            }
+                        }
+                    }
+                }
+            }
+            GlassButton {
+                id: lookupCode
+                objectName: "sessionVibeCastResolve"
+                visible: codeInput.visible
+                enabled: visible && codeInput.acceptableInput && codeInput.length === 6
+                text: screen.tr("vibecast_lookup")
+                primary: true
+                Layout.fillWidth: true
+                onClicked: {
+                    if (enabled && screen.owner.resolveVibeCastCode(codeInput.text)) codeInput.clear()
+                }
+            }
+            GlassButton {
+                objectName: "sessionVibeCastApprove"
+                visible: vibeCastPanel.sender.status === "confirm"
+                text: screen.tr("vibecast_approve"); primary: true
+                Layout.fillWidth: true
+                onClicked: screen.owner.approveVibeCast()
+            }
+            GlassButton {
+                objectName: "sessionVibeCastDisconnect"
+                visible: vibeCastPanel.sender.has_display && !vibeCastPanel.sender.busy
+                    && vibeCastPanel.sender.status !== "confirm"
+                text: screen.tr("vibecast_disconnect_display")
+                Layout.fillWidth: true
+                onClicked: screen.owner.disconnectVibeCastDisplay()
+            }
+            GlassButton {
+                objectName: "sessionVibeCastStop"
+                visible: vibeCastPanel.sender.has_share
+                enabled: !vibeCastPanel.sender.busy
+                text: screen.tr("vibecast_stop_all")
+                tint: BrandTheme.colors.danger
+                Layout.fillWidth: true
+                onClicked: screen.owner.stopVibeCast()
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                GlassButton {
+                    text: screen.tr("refresh")
+                    enabled: !vibeCastPanel.sender.busy
+                    Layout.fillWidth: true
+                    onClicked: { codeInput.clear(); screen.owner.refreshVibeCast() }
+                }
+                GlassButton {
+                    text: screen.tr("close")
+                    Layout.fillWidth: true
+                    onClicked: vibeCastPanel.close()
+                }
+            }
+        }
+    }
+
     GlassPopup {
         id: contentDeletePanel
         objectName: "sessionContentDeletePanel"

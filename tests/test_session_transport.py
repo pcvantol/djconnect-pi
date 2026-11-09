@@ -295,3 +295,26 @@ def test_owner_witness_cannot_override_existing_local_choice(transport):
     client.owner_scope = lambda: ("injected", True, 1)
     assert client.binding().profile_id == cfg.explicit_profile_id
     assert not client.binding().private_authorized
+
+
+def test_display_owner_uses_closed_device_identity_and_never_retries(transport):
+    client, cfg, request, response = transport
+    response.json.return_value = {"success": True, "contract_version": 1}
+    client.display_owner(client.binding(), "resolve", {"code": "012345"})
+    args, kwargs = request.call_args
+    assert args == ("POST", "http://fixture.invalid/api/djconnect/v1/display/owner/resolve")
+    assert kwargs["json"] == {
+        "contract_version": 1,
+        "identity": {"device_id": cfg.device_id, "client_type": "raspberry_pi"},
+        "code": "012345",
+    }
+    assert "X-DJConnect-Profile-ID" not in kwargs["headers"]
+    assert not kwargs["allow_redirects"]
+
+    request.reset_mock(side_effect=True)
+    request.side_effect = requests.Timeout()
+    with pytest.raises(SessionError, match="uncertain"):
+        client.display_owner(client.binding(), "revoke", {"session_id": "session", "share_id": "share"})
+    with pytest.raises(SessionError, match="invalid"):
+        client.display_owner(client.binding(), "resolve", {"code": "012345", "profile_id": "foreign"})
+    request.assert_called_once()

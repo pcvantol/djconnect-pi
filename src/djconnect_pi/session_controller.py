@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from datetime import UTC, datetime
 from math import isfinite
 from uuid import uuid4
 
@@ -54,6 +55,8 @@ from .session_transport import (
     private_scope_allowed,
     session_profile_id,
 )
+from .session_vibecast import VibeCastSender
+from .shared_settings import CHOICES
 
 
 class SessionController(QObject):
@@ -83,6 +86,7 @@ class SessionController(QObject):
     def __init__(self, backend):
         super().__init__(backend)
         self.backend = backend
+        self._demo_preferences = {"mood": "groove", "presence": "balanced", "persona": "home_dj"}
         self.transport = SessionTransport(lambda: backend.cfg, owner_scope=self._owner_scope)
         self._clock = ExpiryClock()
         self._foreground = True
@@ -98,6 +102,7 @@ class SessionController(QObject):
         self._moments = []
         self._conversation = []
         self._retained_flow = []
+        self._demo_flow = []
         self._pending_question = {}
         self._pending_question_binding = None
         self._current_reply = {}
@@ -152,6 +157,9 @@ class SessionController(QObject):
         self.changed.connect(self._archive_delete.sync)
         self.contextCleared.connect(self._archive_delete.hide)
         self._content_delete = ContentDeleteControl(self)
+        self._vibecast = VibeCastSender(self)
+        self.changed.connect(self._vibecast.sync)
+        self.contextCleared.connect(self._vibecast.hide)
         self._withdrawn_content_scope = None
         self._withdrawn_moments = set()
         self._withdrawn_entries = {}
@@ -205,24 +213,26 @@ class SessionController(QObject):
         bootstrap = self._bootstrap_current()
         revoked = self._bootstrap_binding is not None and not bootstrap
         session = {} if revoked else self._session
+        flow = self._demo_flow if self.backend.demoMode else self._retained_flow
         return {"session_id": session.get("session_id", ""),
             "owner_read_only": bootstrap and not self._bootstrap_private,
             "owner_epoch": self._owner_epoch if bootstrap else 0,
             "owner_profile_id": (self._bootstrap_owner if bootstrap else session_profile_id(self.backend.cfg)),
             "runtime_state": session.get("runtime_state", ""),
-            "playback": session_playback(session),
+            "playback": self._demo_playback() if self.backend.demoMode else session_playback(session),
             "current_moment_idle": session_current_idle(session),
             "artwork_prepare": self._artwork_prepare.snapshot(),
             "playback_control": self._playback_control.snapshot(),
             "archive_delete": self._archive_delete.snapshot(),
             "content_delete": self._content_delete.snapshot(),
+            "vibecast": self._vibecast.snapshot(),
             "forecast_supported": not revoked and forecast_supported(session, self._caps),
             "forecast": {"state": "empty", "sections": []} if revoked else self._forecast.snapshot(),
             "mood": session.get("selected_mood", ""),
             "presence": session.get("selected_presence", ""),
             "persona": session.get("dj_persona", ""),
-            "composer_available": self._composer_supported(), "pending_question": {} if revoked else deepcopy(self._pending_question), "current_reply": {} if revoked else deepcopy(self._current_reply), "conversation": [] if revoked else deepcopy(self._conversation), "retained_flow": [] if revoked else deepcopy(self._retained_flow),
-            "flow_rows": [] if revoked else deepcopy(flow_contributions(self._retained_flow, self._moments, session.get("session_id", ""))),
+            "composer_available": self._composer_supported(), "pending_question": {} if revoked else deepcopy(self._pending_question), "current_reply": {} if revoked else deepcopy(self._current_reply), "conversation": [] if revoked else deepcopy(self._conversation), "retained_flow": [] if revoked else deepcopy(flow),
+            "flow_rows": [] if revoked else deepcopy(flow_contributions(flow, self._moments, session.get("session_id", ""))),
             "selection": {} if revoked else deepcopy(self._selection), "question_status": self._question_status,
             "moments": [] if revoked else deepcopy(self._moments), "sessions": [] if revoked else deepcopy(self._sessions),
             "timeline": {} if revoked else deepcopy(self._timeline), "search": {} if revoked else deepcopy(self._search), "error": self._error,
@@ -353,6 +363,35 @@ class SessionController(QObject):
     def recoverHistoryDelete(self):
         return self._archive_delete.recover()
 
+    @Slot(result=bool)
+    def openVibeCast(self):
+        return self._vibecast.open()
+
+    @Slot(str, result=bool)
+    def resolveVibeCastCode(self, code):
+        return self._vibecast.action("resolve", code)
+
+    @Slot(result=bool)
+    def approveVibeCast(self):
+        return self._vibecast.action("approve")
+
+    @Slot(result=bool)
+    def stopVibeCast(self):
+        return self._vibecast.action("revoke")
+
+    @Slot(result=bool)
+    def disconnectVibeCastDisplay(self):
+        return self._vibecast.action("disconnect")
+
+    @Slot()
+    def refreshVibeCast(self):
+        self._vibecast.action("context")
+
+    @Slot()
+    def closeVibeCast(self):
+        self._vibecast.hide()
+        self._visibility_notify.start()
+
     @Slot(bool)
     def setContentDeleteVisible(self, visible):
         if self._content_delete.visible == visible:
@@ -465,6 +504,7 @@ class SessionController(QObject):
         self._playback_control.shutdown()
         self._archive_delete.shutdown()
         self._content_delete.shutdown()
+        self._vibecast.shutdown()
 
     @Property(bool, notify=changed)
     def busy(self):
@@ -513,6 +553,7 @@ class SessionController(QObject):
         self._moments = []
         self._conversation = []
         self._retained_flow = []
+        self._demo_flow = []
         self._selection = {}
         self._selection_source = "timeline"
         self._question_status = ""
@@ -547,24 +588,74 @@ class SessionController(QObject):
         if foreground:
             self.refresh()
 
+    @Property("QVariantMap", notify=changed)
+    def demoPreferences(self):
+        return self._demo_preferences.copy()
+
+    @Property("QVariantMap", constant=True)
+    def demoOptions(self):
+        return {field: list(CHOICES[field][:4]) for field in ("mood", "persona", "presence")}
+
+    @Slot(str, str)
+    def setDemoPreference(self, field, value):
+        if not self.backend.demoMode or not self._foreground or value not in self.demoOptions.get(field, []):
+            return
+        self._demo_preferences[field] = value
+        if self._session:
+            self._session.update(selected_mood=self._demo_preferences["mood"],
+                                 selected_presence=self._demo_preferences["presence"],
+                                 dj_persona=self._demo_preferences["persona"])
+        self.changed.emit()
+
     def _demo_changed(self):
         self.invalidate()
+        self._demo_preferences = {"mood": "groove", "presence": "balanced", "persona": "home_dj"}
         if self.backend.demoMode:
-            self._demo_action("start", "groove")
+            self._loaded = True
+        self.changed.emit()
 
     def _demo_action(self, action, value):
         # Product demo is visibly labelled and never enters the native grant decoder.
         if action == "start":
             if value not in {"chill", "groove", "energy", "party"}:
                 return
+            if self._session:
+                return
+            self._demo_preferences["mood"] = value
             self._session = {"session_id": "demo-session", "runtime_state": "active",
-                             "selected_mood": value, "broadcast": {}}
+                             "selected_mood": value, "selected_presence": self._demo_preferences["presence"],
+                             "dj_persona": self._demo_preferences["persona"]}
+            self._append_demo_entry("dj_moment", translate(self.backend.cfg.language, "demo_session_welcome"))
         elif action == "end":
             self._session = {}
+            self._demo_flow = []
         elif action in {"history", "history_more", "history_refresh"}:
             self._history_loaded = True
         self._loaded = True
         self.changed.emit()
+
+    def _append_demo_entry(self, kind, text):
+        entry_id = uuid4().hex
+        self._demo_flow = [*self._demo_flow[-99:], {
+            "entry_id": entry_id, "session_id": self._session["session_id"],
+            "kind": kind, "text": text, "occurred_at": datetime.now(UTC).isoformat(),
+        }]
+        return entry_id
+
+    def demo_playback_changed(self):
+        if self.backend.demoMode and self._session:
+            self.changed.emit()
+
+    def _demo_playback(self):
+        playback = getattr(self.backend, "playback", None)
+        if not playback or not self._session or not playback.uri:
+            return {}
+        position = playback.position_seconds
+        duration = playback.duration_seconds
+        return {"item_id": playback.uri, "title": playback.title, "artist": playback.artist,
+                "state": "playing" if playback.is_playing else "paused",
+                "progress": position / duration if duration else 0,
+                "time_label": f"{position // 60}:{position % 60:02d} / {duration // 60}:{duration % 60:02d}"}
 
     def _expire_history_headers(self, now):
         expired = {row["session_id"] for row in self._sessions
@@ -666,6 +757,8 @@ class SessionController(QObject):
             return False
 
     def _composer_supported(self):
+        if self.backend.demoMode:
+            return self._session.get("runtime_state") == "active"
         return (self._history_supported() and self._caps.get("capabilities", {}).get("ask_dj_contextual_dialogue") is True
                 and type(self._caps.get("contract_versions", {}).get("ask_dj_contextual_dialogue")) is int
                 and self._caps["contract_versions"]["ask_dj_contextual_dialogue"] == 1
@@ -735,6 +828,12 @@ class SessionController(QObject):
     def sendQuestion(self, body):
         if self.busy or self._question_running or not self._foreground or not self._composer_supported() or not isinstance(body, str) or not 1 <= len(body.strip()) <= 4000:
             return False
+        if self.backend.demoMode:
+            self._append_demo_entry("conversation_user", body.strip())
+            reply_id = self._append_demo_entry("conversation_dj", translate(self.backend.cfg.language, "demo_dj_answer"))
+            self.changed.emit()
+            self.questionConfirmed.emit(reply_id)
+            return True
         if not self._selection_valid():
             self._selection = {}
             self._error = "context_changed"
