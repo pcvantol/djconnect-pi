@@ -213,6 +213,12 @@ def main():
                 QTest.keyClick(window, Qt.Key.Key_Escape)
                 QTest.qWait(60)
                 assert not window.property('trackArtworkOpen')
+                if language == 'en':
+                    click('sessionExpandTrackMetadata')
+                    QTest.qWait(4300)
+                    assert window.property('trackArtworkOpen')
+                    QTest.qWait(850)
+                    assert not window.property('trackArtworkOpen') and not intents
                 current_playback['item_id'] = 'synthetic-cover-replacement'
                 current_playback['artwork_url'] = art_path[:-1] + 'b'
                 owner.changed.emit()

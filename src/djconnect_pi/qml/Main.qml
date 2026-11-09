@@ -5574,6 +5574,12 @@ BrandWindow {
             objectName: "trackArtworkOverlay"
             Keys.onEscapePressed: root.trackArtworkOpen = false
 
+            Timer {
+                interval: 5000
+                running: true
+                onTriggered: root.trackArtworkOpen = false
+            }
+
             Rectangle {
                 anchors.fill: parent
                 color: BrandTheme.alpha(BrandTheme.colors.background, "ee")
