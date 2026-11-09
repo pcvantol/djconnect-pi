@@ -1599,6 +1599,7 @@ Item {
                     objectName: "sessionArchiveRow"
                     enabled: !screen.owner.busy && !screen.archiveIntent
                     text: screen.tr("session_title") + " · " + screen.displayDate(modelData.started_at || modelData.created_at)
+                        + (modelData.lifecycle_status === "INTERRUPTED" ? "\n" + screen.tr("session_history_interrupted") : "")
                     onClicked: screen.openArchiveSession(modelData.session_id)
                 }
             }
@@ -1609,6 +1610,17 @@ Item {
             Text {
                 visible: screen.historical && !!screen.state.timeline.session
                 text: screen.tr(screen.state.archive_delete.available ? "session_saved_title" : "session_history_view_readonly"); color: BrandTheme.colors.muted; font.pixelSize: 20
+            }
+            Text {
+                objectName: "sessionSavedInterruptedStatus"
+                visible: screen.historical && !!screen.state.timeline.session
+                    && screen.state.timeline.session.lifecycle_status === "INTERRUPTED"
+                text: screen.tr("session_history_interrupted")
+                textFormat: Text.PlainText
+                color: BrandTheme.colors.muted
+                font.pixelSize: 17
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
             }
             GlassButton {
                 visible: screen.historical && !!screen.state.timeline.session
