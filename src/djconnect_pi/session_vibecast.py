@@ -3,10 +3,10 @@
 import math
 import re
 import time
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from threading import Lock
 
-from PySide6.QtCore import QObject, QTimer, Signal, Slot
+from PySide6.QtCore import QObject, Qt, QTimer, Signal, Slot
 
 from .config import CLIENT_TYPE
 from .session_transport import SessionError
@@ -25,6 +25,11 @@ class DisplayContext:
     entry_url: str
     issuer_epoch: str
     share: tuple[str, int] | None
+    share_deadline: float = field(default=math.inf, compare=False)
+    display_receipt: tuple[str, float] | None = field(default=None, compare=False)
+
+    def can_disconnect(self):
+        return self.display_receipt is not None and time.monotonic() < self.display_receipt[1]
 
 
 def display_entry_url(data):
@@ -94,6 +99,10 @@ class VibeCastSender(QObject):
         self._claim_timer = QTimer(self)
         self._claim_timer.setSingleShot(True)
         self._claim_timer.timeout.connect(self.expire_claim)
+        self._receipt_timer = QTimer(self)
+        self._receipt_timer.setSingleShot(True)
+        self._receipt_timer.setTimerType(Qt.TimerType.PreciseTimer)
+        self._receipt_timer.timeout.connect(self.owner.changed.emit)
 
     def basis(self):
         owner = self.owner
@@ -126,6 +135,7 @@ class VibeCastSender(QObject):
             "open": current,
             "busy": self.running,
             "status": self.status if current else "",
+            "has_display": current and self.context is not None and self.context.can_disconnect(),
             "has_share": current and self.context is not None and self.context.share is not None,
         }
 
@@ -144,6 +154,7 @@ class VibeCastSender(QObject):
 
     def hide(self):
         self._claim_timer.stop()
+        self._receipt_timer.stop()
         self.epoch += 1
         self.visible = False
         self.scope = self.context = self.claim = None
@@ -164,6 +175,8 @@ class VibeCastSender(QObject):
         if action == "approve" and (self.status != "confirm" or claim is None or time.monotonic() >= claim[1]):
             return False
         if action == "revoke" and (context is None or context.share is None):
+            return False
+        if action == "disconnect" and (context is None or not context.can_disconnect()):
             return False
         self._claim_timer.stop()
         self.claim = None  # Approval consumes the local confirmation before dispatch.
@@ -187,7 +200,7 @@ class VibeCastSender(QObject):
                 if current():
                     result = self.perform(action, code, context, claim, scope, current, mark_write_attempt)
                     status = {"context": "ready", "resolve": "confirm",
-                              "approve": "sharing", "revoke": "stopped"}[action]
+                              "approve": "sharing", "revoke": "stopped", "disconnect": "display_stopped"}[action]
                     if action == "context" and result.share is not None:
                         status = "active"
             except SessionError:
@@ -216,14 +229,16 @@ class VibeCastSender(QObject):
             return data
 
         def fresh_context():
+            requested = time.monotonic()
             data = call("context", {"session_id": session_id})
             if data.get("session_id") != session_id or data.get("route_trust") != "paired_owner_response":
                 raise SessionError("context_changed")
             share = None
+            deadline = math.inf
             if "share_id" in data:
                 share = (opaque(data, "share_id"), generation(data))
-                duration(data, "expires_in", 28800)
-            return DisplayContext(display_entry_url(data), opaque(data, "issuer_epoch"), share)
+                deadline = requested + duration(data, "expires_in", 28800)
+            return DisplayContext(display_entry_url(data), opaque(data, "issuer_epoch"), share, deadline)
 
         if action == "context":
             return fresh_context()
@@ -235,26 +250,37 @@ class VibeCastSender(QObject):
             payload = {"issuer_epoch": context.issuer_epoch, "claim_id": opaque(data, "claim_id"),
                        "browser_generation": opaque(data, "browser_generation"), "code": code}
             return payload, start + duration(data, "expires_in", 120)
-        if fresh_context() != context:
+        fresh = fresh_context()
+        if fresh != context:
             raise SessionError("context_changed")
-        if action == "revoke":
-            call("revoke", {"session_id": session_id, "share_id": context.share[0]})
-            return replace(context, share=None)
+        if action in {"revoke", "disconnect"}:
+            payload = {"session_id": session_id, "share_id": context.share[0]}
+            if action == "disconnect":
+                if not context.can_disconnect() or time.monotonic() >= fresh.share_deadline:
+                    raise SessionError("unavailable")
+                payload["display_id"] = context.display_receipt[0]
+            call("revoke", payload)
+            return replace(fresh, display_receipt=None) if action == "disconnect" else replace(fresh, share=None)
 
         if time.monotonic() >= claim[1]:
             raise SessionError("unavailable")
         share = ({"mode": "create", "consent": True, "lifetime_seconds": SHARE_SECONDS}
                  if context.share is None else
                  {"mode": "existing", "share_id": context.share[0], "share_generation": context.share[1]})
+        requested = time.monotonic()
         data = call("approve", {"session_id": session_id, **claim[0], "share": share})
         if data.get("state") != "approved" or data.get("session_id") != session_id:
             raise SessionError("invalid")
-        opaque(data, "display_id")
-        duration(data, "share_expires_in", 28800)
+        display_id = opaque(data, "display_id")
+        maximum = SHARE_SECONDS if context.share is None else 28800
+        deadline = min(requested + duration(data, "share_expires_in", maximum),
+                       context.share_deadline, fresh.share_deadline)
+        if time.monotonic() >= deadline:
+            raise SessionError("invalid")
         approved = (opaque(data, "share_id"), generation(data))
-        if context.share is not None and approved != context.share:
+        if (context.share is None and approved[1] != 1) or (context.share is not None and approved != context.share):
             raise SessionError("context_changed")
-        return replace(context, share=approved)
+        return replace(fresh, share=approved, share_deadline=deadline, display_receipt=(display_id, deadline))
 
     @Slot(object)
     def finish(self, reply):
@@ -268,8 +294,13 @@ class VibeCastSender(QObject):
                 if result is not None:
                     remaining = max(0, math.ceil((result[1] - time.monotonic()) * 1000))
                     self._claim_timer.start(remaining)
-            elif result is not None:
-                self.context = result
             else:
-                self.context = None
+                self._receipt_timer.stop()
+                if action == "context" and result is not None and result == self.context and self.context.can_disconnect():
+                    display_id, deadline = self.context.display_receipt
+                    result = replace(result, display_receipt=(display_id, min(deadline, result.share_deadline)))
+                self.context = result
+                if result is not None and result.can_disconnect():
+                    remaining = math.ceil((result.display_receipt[1] - time.monotonic()) * 1000)
+                    self._receipt_timer.start(max(0, remaining))
         self.owner.changed.emit()

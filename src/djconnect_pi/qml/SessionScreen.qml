@@ -2448,7 +2448,7 @@ Item {
             TextField {
                 id: codeInput
                 objectName: "sessionVibeCastCode"
-                visible: ["ready", "active", "stopped", "lookup_failed", "expired"].includes(vibeCastPanel.sender.status)
+                visible: ["ready", "active", "stopped", "lookup_failed", "expired", "display_stopped"].includes(vibeCastPanel.sender.status)
                 Layout.fillWidth: true
                 placeholderText: screen.tr("vibecast_code")
                 Accessible.name: placeholderText
@@ -2496,6 +2496,14 @@ Item {
                 text: screen.tr("vibecast_approve"); primary: true
                 Layout.fillWidth: true
                 onClicked: screen.owner.approveVibeCast()
+            }
+            GlassButton {
+                objectName: "sessionVibeCastDisconnect"
+                visible: vibeCastPanel.sender.has_display && !vibeCastPanel.sender.busy
+                    && vibeCastPanel.sender.status !== "confirm"
+                text: screen.tr("vibecast_disconnect_display")
+                Layout.fillWidth: true
+                onClicked: screen.owner.disconnectVibeCastDisplay()
             }
             GlassButton {
                 objectName: "sessionVibeCastStop"

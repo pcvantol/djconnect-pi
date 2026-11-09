@@ -1326,6 +1326,56 @@ def test_vibecast_never_dispatches_approval_after_losing_original_scope(vibecast
     assert [call.args[1] for call in owner.transport.display_owner.call_args_list] == ["context", "resolve"]
 
 
+def test_vibecast_can_stop_all_from_sender_without_local_display_receipt(vibecast_sender):
+    owner, backend, responses = vibecast_sender
+    responses["context"].update(share_id="s" * 43, share_generation=2, expires_in=240)
+    assert owner.openVibeCast()
+    backend.jobs.pop()()
+    assert owner.state["vibecast"]["has_share"]
+    assert not owner.state["vibecast"]["has_display"]
+
+    assert owner.stopVibeCast()
+    backend.jobs.pop()()
+    assert owner.transport.display_owner.call_args.args[1:] == (
+        "revoke", {"session_id": "vibe-session", "share_id": "s" * 43},
+    )
+    assert owner.state["vibecast"]["status"] == "stopped"
+    assert not owner.state["vibecast"]["has_share"]
+    owner.transport.end.assert_not_called()
+
+
+@pytest.mark.parametrize("change", [None, "expired", "generation"])
+def test_vibecast_disconnect_targets_only_last_approved_display(vibecast_sender, monkeypatch, change):
+    owner, backend, responses = vibecast_sender
+    assert owner.openVibeCast()
+    backend.jobs.pop()()
+    assert not owner.disconnectVibeCastDisplay()
+    assert owner.resolveVibeCastCode("012345")
+    backend.jobs.pop()()
+    assert owner.approveVibeCast()
+    backend.jobs.pop()()
+    assert owner.state["vibecast"]["has_display"]
+
+    responses["context"].update(share_id="s" * 43, share_generation=1, expires_in=7199)
+    assert owner.disconnectVibeCastDisplay()
+    if change == "generation":
+        responses["context"]["share_generation"] = 2
+    elif change == "expired":
+        deadline = owner._vibecast.context.display_receipt[1]
+        monkeypatch.setattr("djconnect_pi.session_vibecast.time.monotonic", lambda: deadline)
+    backend.jobs.pop()()
+    writes = [call.args[2] for call in owner.transport.display_owner.call_args_list if call.args[1] == "revoke"]
+    if change is None:
+        assert writes == [{"session_id": "vibe-session", "share_id": "s" * 43, "display_id": "d" * 43}]
+        assert owner.state["vibecast"]["status"] == "display_stopped"
+        assert owner.state["vibecast"]["has_share"]
+    else:
+        assert writes == []
+    assert not owner.state["vibecast"]["has_display"]
+    assert not owner.disconnectVibeCastDisplay()
+    owner.transport.end.assert_not_called()
+
+
 @pytest.mark.parametrize("entry_url", [
     None,
     "http://display.djconnect.dev/djconnect/vibecast/display",

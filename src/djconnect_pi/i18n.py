@@ -1728,6 +1728,20 @@ _VIBECAST_SENDER_TRANSLATIONS = {
         "Partage confirmé. Vérifiez l’écran externe.",
         "Se ha aprobado el uso compartido. Comprueba la pantalla externa.",
     ),
+    "vibecast_disconnect_display": (
+        "Disconnect last added display",
+        "Laatst toegevoegde scherm loskoppelen",
+        "Zuletzt hinzugefügten Bildschirm trennen",
+        "Déconnecter le dernier écran ajouté",
+        "Desconectar la última pantalla añadida",
+    ),
+    "vibecast_display_stopped": (
+        "Display disconnected. The DJ Session continues.",
+        "Scherm losgekoppeld. De DJ-sessie loopt door.",
+        "Bildschirm getrennt. Die DJ-Session läuft weiter.",
+        "Écran déconnecté. La session DJ continue.",
+        "Pantalla desconectada. La sesión DJ continúa.",
+    ),
     "vibecast_stop_all": (
         "Stop sharing on all displays", "Stop delen op alle schermen", "Freigabe auf allen Bildschirmen beenden",
         "Arrêter le partage sur tous les écrans", "Dejar de compartir en todas las pantallas",

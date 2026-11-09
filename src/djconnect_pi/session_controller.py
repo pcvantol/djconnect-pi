@@ -374,6 +374,10 @@ class SessionController(QObject):
     def stopVibeCast(self):
         return self._vibecast.action("revoke")
 
+    @Slot(result=bool)
+    def disconnectVibeCastDisplay(self):
+        return self._vibecast.action("disconnect")
+
     @Slot()
     def refreshVibeCast(self):
         self._vibecast.action("context")
