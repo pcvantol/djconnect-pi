@@ -3,6 +3,7 @@
 import math
 import re
 import time
+from dataclasses import dataclass, replace
 from threading import Lock
 
 from PySide6.QtCore import QObject, QTimer, Signal, Slot
@@ -13,6 +14,29 @@ from .session_transport import SessionError
 CODE = re.compile(r"[0-9]{6}")
 OPAQUE = re.compile(r"[A-Za-z0-9_-]{43}")
 SHARE_SECONDS = 7200
+DISPLAY_PATH = "/djconnect/vibecast/display"
+HOST_LABEL = r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
+DISPLAY_URL = re.compile(rf"https://((?:{HOST_LABEL}\.)+[a-z]{{2,63}}){DISPLAY_PATH}")
+RESERVED_SUFFIXES = {"local", "localhost", "internal", "invalid", "test", "example", "lan", "home", "onion", "arpa"}
+
+
+@dataclass(frozen=True)
+class DisplayContext:
+    entry_url: str
+    issuer_epoch: str
+    share: tuple[str, int] | None
+
+
+def display_entry_url(data):
+    value = data.get("display_entry_url")
+    match = DISPLAY_URL.fullmatch(value) if isinstance(value, str) and len(value) <= 2048 else None
+    if match is None:
+        raise SessionError("invalid")
+    host = match[1]
+    labels = host.split(".")
+    if len(host) > 253 or labels[-1] in RESERVED_SUFFIXES or any(label.startswith("xn--") for label in labels):
+        raise SessionError("invalid")
+    return value
 
 
 def supported(capabilities):
@@ -25,7 +49,7 @@ def supported(capabilities):
         cap.get("supported") is True and type(cap.get("version")) is int and cap["version"] == 1
         and cap.get("owner_authentication") == "paired_device_bearer"
         and cap.get("owner_context_path") == "/api/djconnect/v1/display/owner/context"
-        and cap.get("entry_path") == "/djconnect/vibecast/display"
+        and cap.get("entry_path") == DISPLAY_PATH
         and isinstance(clients, list) and CLIENT_TYPE in clients
     )
 
@@ -102,7 +126,7 @@ class VibeCastSender(QObject):
             "open": current,
             "busy": self.running,
             "status": self.status if current else "",
-            "has_share": current and self.context is not None and self.context[1] is not None,
+            "has_share": current and self.context is not None and self.context.share is not None,
         }
 
     def open(self):
@@ -139,7 +163,7 @@ class VibeCastSender(QObject):
             return False
         if action == "approve" and (self.status != "confirm" or claim is None or time.monotonic() >= claim[1]):
             return False
-        if action == "revoke" and (context is None or context[1] is None):
+        if action == "revoke" and (context is None or context.share is None):
             return False
         self._claim_timer.stop()
         self.claim = None  # Approval consumes the local confirmation before dispatch.
@@ -158,7 +182,7 @@ class VibeCastSender(QObject):
                     result = self.perform(action, code, context, claim, scope, current)
                     status = {"context": "ready", "resolve": "confirm",
                               "approve": "sharing", "revoke": "stopped"}[action]
-                    if action == "context" and result[1] is not None:
+                    if action == "context" and result.share is not None:
                         status = "active"
             except SessionError:
                 if action in {"approve", "revoke"}:
@@ -191,38 +215,38 @@ class VibeCastSender(QObject):
             if "share_id" in data:
                 share = (opaque(data, "share_id"), generation(data))
                 duration(data, "expires_in", 28800)
-            return opaque(data, "issuer_epoch"), share
+            return DisplayContext(display_entry_url(data), opaque(data, "issuer_epoch"), share)
 
         if action == "context":
             return fresh_context()
         if action == "resolve":
             start = time.monotonic()
             data = call("resolve", {"code": code})
-            if opaque(data, "issuer_epoch") != context[0]:
+            if opaque(data, "issuer_epoch") != context.issuer_epoch:
                 raise SessionError("context_changed")
-            payload = {"issuer_epoch": context[0], "claim_id": opaque(data, "claim_id"),
+            payload = {"issuer_epoch": context.issuer_epoch, "claim_id": opaque(data, "claim_id"),
                        "browser_generation": opaque(data, "browser_generation"), "code": code}
             return payload, start + duration(data, "expires_in", 120)
         if fresh_context() != context:
             raise SessionError("context_changed")
         if action == "revoke":
-            call("revoke", {"session_id": session_id, "share_id": context[1][0]})
-            return context[0], None
+            call("revoke", {"session_id": session_id, "share_id": context.share[0]})
+            return replace(context, share=None)
 
         if time.monotonic() >= claim[1]:
             raise SessionError("unavailable")
         share = ({"mode": "create", "consent": True, "lifetime_seconds": SHARE_SECONDS}
-                 if context[1] is None else
-                 {"mode": "existing", "share_id": context[1][0], "share_generation": context[1][1]})
+                 if context.share is None else
+                 {"mode": "existing", "share_id": context.share[0], "share_generation": context.share[1]})
         data = call("approve", {"session_id": session_id, **claim[0], "share": share})
         if data.get("state") != "approved" or data.get("session_id") != session_id:
             raise SessionError("invalid")
         opaque(data, "display_id")
         duration(data, "share_expires_in", 28800)
         approved = (opaque(data, "share_id"), generation(data))
-        if context[1] is not None and approved != context[1]:
+        if context.share is not None and approved != context.share:
             raise SessionError("context_changed")
-        return context[0], approved
+        return replace(context, share=approved)
 
     @Slot(object)
     def finish(self, reply):

@@ -1251,7 +1251,8 @@ def vibecast_sender(controller):
     }}}
     responses = {
         "context": {"session_id": "vibe-session", "issuer_epoch": "e" * 43,
-                    "route_trust": "paired_owner_response"},
+                    "route_trust": "paired_owner_response",
+                    "display_entry_url": "https://display.djconnect.dev/djconnect/vibecast/display"},
         "resolve": {"issuer_epoch": "e" * 43, "claim_id": "c" * 43,
                     "browser_generation": "b" * 43, "expires_in": 120},
         "approve": {"session_id": "vibe-session", "state": "approved", "display_id": "d" * 43,
@@ -1323,6 +1324,46 @@ def test_vibecast_never_dispatches_approval_after_losing_original_scope(vibecast
             owner._caps = {}
         approve()
     assert [call.args[1] for call in owner.transport.display_owner.call_args_list] == ["context", "resolve"]
+
+
+@pytest.mark.parametrize("entry_url", [
+    None,
+    "http://display.djconnect.dev/djconnect/vibecast/display",
+    "https://display.djconnect.dev:443/djconnect/vibecast/display",
+    "https://display.djconnect.dev/djconnect/vibecast/display?redirect=other",
+    "https://display.djconnect.dev/djconnect/vibecast",
+    "https://display.local/djconnect/vibecast/display",
+    "https://127.0.0.1/djconnect/vibecast/display",
+])
+def test_vibecast_requires_canonical_external_display_route(vibecast_sender, entry_url):
+    owner, backend, responses = vibecast_sender
+    responses["context"]["display_entry_url"] = entry_url
+    assert owner.openVibeCast()
+    backend.jobs.pop()()
+    assert owner.state["vibecast"]["status"] == "failed"
+    assert not owner.resolveVibeCastCode("012345")
+    assert [call.args[1] for call in owner.transport.display_owner.call_args_list] == ["context"]
+
+
+@pytest.mark.parametrize("action", ["approve", "revoke"])
+def test_vibecast_refuses_mutation_when_display_origin_changes(vibecast_sender, action):
+    owner, backend, responses = vibecast_sender
+    if action == "revoke":
+        responses["context"].update(share_id="s" * 43, share_generation=1, expires_in=7199)
+    assert owner.openVibeCast()
+    backend.jobs.pop()()
+    if action == "approve":
+        assert owner.resolveVibeCastCode("012345")
+        backend.jobs.pop()()
+        assert owner.approveVibeCast()
+    else:
+        assert owner.stopVibeCast()
+
+    responses["context"]["display_entry_url"] = "https://other.djconnect.dev/djconnect/vibecast/display"
+    backend.jobs.pop()()
+    calls = [call.args[1] for call in owner.transport.display_owner.call_args_list]
+    assert calls == (["context", "resolve", "context"] if action == "approve" else ["context", "context"])
+    assert owner.state["vibecast"]["status"] == "uncertain"
 
 
 def test_vibecast_lookup_can_retry_after_rejection_or_expiry(vibecast_sender):
