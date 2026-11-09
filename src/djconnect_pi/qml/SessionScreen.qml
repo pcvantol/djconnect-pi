@@ -37,12 +37,14 @@ Item {
             if (canAsk && screen.owner.selectMoment(screen.state.session_id, modelData.moment_id))
                 composerPanel.open()
         }
-        GlassButton {
+        SessionFlowDelete {
             objectName: "sessionDeleteLiveMoment"
-            visible: !!screen.contentDeletion.available && liveSources.ready
-            enabled: !screen.owner.busy && !screen.owner.questionBusy
-            iconName: "trash"; Accessible.name: screen.tr("session_content_delete_action")
-            onClicked: screen.deleteContent("moment", screen.state.session_id, modelData.moment_id)
+            card: liveCard
+            allowed: !!screen.contentDeletion.available && liveSources.ready
+                && !screen.owner.busy && !screen.owner.questionBusy && !screen.showForecast
+            scope: screen.composerContext + "|" + modelData.moment_id
+            actionLabel: screen.tr("session_content_delete_action")
+            onDeleteRequested: screen.deleteContent("moment", screen.state.session_id, modelData.moment_id)
         }
         ColumnLayout {
             objectName: "sessionMomentArtworkCard"
@@ -1411,11 +1413,10 @@ Item {
                 RowLayout {
                     Layout.fillWidth: true
                     visible: waitingCard.emptyFlow && !waitingCard.compactIdle && !screen.state.owner_read_only
-                    GlassButton { text: screen.tr("session_history"); enabled: !screen.owner.busy; onClicked: screen.openArchive() }
                     Item { Layout.fillWidth: true }
                     GlassButton {
                         objectName: "sessionExpandedEnd"
-                        iconName: "trash"; Accessible.name: screen.tr("session_end")
+                        iconName: "end"; Accessible.name: screen.tr("session_end")
                         enabled: !screen.owner.lifecycleBusy && screen.state.runtime_state !== "ending"
                         onClicked: { endConfirmation.expectedSessionId = screen.state.session_id; endConfirmation.open() }
                     }
@@ -1499,7 +1500,8 @@ Item {
                             entry: modelData; translate: screen.tr; dateText: screen.displayDate(modelData.occurred_at)
                             selectionAvailable: screen.state.composer_available
                             selectionBusy: screen.owner.busy || screen.owner.questionBusy
-                            deletionAvailable: !!screen.contentDeletion.available
+                            deletionAvailable: !!screen.contentDeletion.available && !screen.showForecast
+                            flowDeletionScope: screen.composerContext + "|" + modelData.entry_id
                             onDeleteEntry: (sessionId, entryId) => screen.deleteContent("entry", sessionId, entryId)
                             onAskAbout: (sessionId, entryId) => { if (screen.owner.selectFlowEntry(sessionId, entryId)) composerPanel.open() }
                         }
