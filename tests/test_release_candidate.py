@@ -44,7 +44,7 @@ def test_source_evidence_fails_closed(mutation: str) -> None:
         candidate.validate_source_status(data, SHA)
 
 
-@pytest.mark.parametrize("version", ["4.0.0-rc.5", "4.0.0", "4.0.0rc7", "4.0.0-rc.7\n"])
+@pytest.mark.parametrize("version", ["4.0.0-rc.5", "4.0.1", "4.0.0rc7", "4.0.0-rc.7\n"])
 def test_wrong_requested_version(version: str) -> None:
     with pytest.raises(ValueError):
         candidate.validate_versions(ROOT, version)

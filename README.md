@@ -5,7 +5,7 @@
   <img src="https://raw.githubusercontent.com/pcvantol/djconnect/7e14e5970b3f68d33d243ae6bab2b281fad59bb2/assets/djconnect/brand-v2/wordmark-primary-light.png" alt="DJConnect" width="640">
 </picture>
 
-Version: `4.0.0-rc.10` (release preparation; publication and installation pending)
+Version: `4.0.0` (release preparation; publication and installation pending)
 
 One shared Qt Quick/QML application with a PySide6 backend serves the compact
 4-inch Pi and the portrait Pi10. The selected product target is the full
@@ -417,9 +417,9 @@ not a private source clone:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/download/v4.0.0-rc.10/djconnect-pi-4.0.0-rc.10.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/download/v4.0.0/djconnect-pi-4.0.0.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-4.0.0-rc.10
+cd djconnect-pi-4.0.0
 sudo ./scripts/install.sh
 ```
 
@@ -568,9 +568,9 @@ installer:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/download/v4.0.0-rc.10/djconnect-pi-4.0.0-rc.10.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/download/v4.0.0/djconnect-pi-4.0.0.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-4.0.0-rc.10
+cd djconnect-pi-4.0.0
 sudo ./scripts/install.sh
 ```
 
