@@ -9,6 +9,9 @@ Item {
     id: screen
     objectName: "djSessionScreen"
     property Item revealedFlowAction: null
+    readonly property bool trackArtworkAvailable: playbackMetadata.visible && playbackSources.ready
+    readonly property url trackArtworkSource: trackCover.source
+    signal expandTrackArtwork()
     Item {
         anchors.fill: parent
         z: 10
@@ -1204,77 +1207,71 @@ Item {
                     columnSpacing: screen.compact ? 12 : 24 * screen.ipadScale
                     rowSpacing: screen.compact ? 8 : 10
                     Layout.fillWidth: true
-                    SessionTransportButton {
-                        id: vinylButton
-                        objectName: "sessionPlaybackVinyl"
-                        visible: playbackSources.ready
-                        transportSurfaceReady: visible && !playbackPanel.visible && !outputsPanel.visible
-                        commandName: screen.state.playback.state === "playing" ? "pause" : "play"
-                        Accessible.name: screen.tr(commandName)
-                        Accessible.ignored: !screen.state.playback_control.available
+                    Item {
+                        id: coverTile
+                        visible: screen.trackArtworkAvailable
                         Layout.row: 0
                         Layout.column: 0
                         Layout.rowSpan: screen.compact ? 1 : 4
-                        Layout.fillWidth: false
                         Layout.preferredWidth: screen.compact ? 60 : Math.round(270 * screen.ipadScale)
                         Layout.preferredHeight: Layout.preferredWidth
                         Layout.alignment: Qt.AlignTop
-                        opacity: 1
-                        padding: 0
-                        background: Item {
-                            implicitWidth: vinylButton.Layout.preferredWidth
-                            implicitHeight: implicitWidth
-                            VinylPlaceholder {
-                                anchors.fill: parent
-                                visible: trackCover.status !== Image.Ready
-                                radius: screen.compact ? 14 : 24
-                            }
-                            GlassArtworkFrame {
-                                id: trackArtworkFrame
-                                anchors.fill: parent
-                                visible: trackCover.status === Image.Ready
-                                radius: screen.compact ? 14 : 24
-                                padding: screen.compact ? 3 : 6
-                                backend: screen.backend
-                                imageItem: trackCover
-                                leaseKey: screen.state.playback.item_id || ""
-                                active: screen.visible && !screen.historical && !screen.showForecast
-                                admissionCheck: function() {
-                                    return screen.owner.playbackArtwork.session_id === screen.state.session_id
-                                        && screen.owner.playbackArtwork.item_id === screen.state.playback.item_id
-                                        && !!screen.owner.playbackArtwork.source
-                                }
-                                Image {
-                                    id: trackCover
-                                    objectName: "sessionTrackArtwork"
+
+                        AbstractButton {
+                            objectName: "sessionExpandTrackArtwork"
+                            anchors.fill: parent
+                            Accessible.name: screen.tr("track_artwork")
+                            onClicked: screen.expandTrackArtwork()
+                            background: Item {
+                                VinylPlaceholder {
                                     anchors.fill: parent
-                                    source: vinylButton.visible && trackArtworkFrame.admittedCover
-                                        ? (screen.owner.playbackArtwork.source || "") : ""
-                                    cache: false
-                                    asynchronous: true
-                                    retainWhileLoading: false
-                                    fillMode: Image.PreserveAspectFit
+                                    visible: trackCover.status !== Image.Ready
+                                    radius: screen.compact ? 14 : 24
                                 }
-                                readonly property bool admittedCover: admissionCheck()
+                                GlassArtworkFrame {
+                                    id: trackArtworkFrame
+                                    anchors.fill: parent
+                                    visible: trackCover.status === Image.Ready
+                                    radius: screen.compact ? 14 : 24
+                                    padding: screen.compact ? 3 : 6
+                                    backend: screen.backend
+                                    imageItem: trackCover
+                                    leaseKey: screen.state.playback.item_id || ""
+                                    active: screen.visible && !screen.historical && !screen.showForecast
+                                    admissionCheck: function() {
+                                        return screen.owner.playbackArtwork.session_id === screen.state.session_id
+                                            && screen.owner.playbackArtwork.item_id === screen.state.playback.item_id
+                                            && !!screen.owner.playbackArtwork.source
+                                    }
+                                    Image {
+                                        id: trackCover
+                                        objectName: "sessionTrackArtwork"
+                                        anchors.fill: parent
+                                        source: coverTile.visible && trackArtworkFrame.admittedCover
+                                            ? (screen.owner.playbackArtwork.source || "") : ""
+                                        cache: false
+                                        asynchronous: true
+                                        retainWhileLoading: false
+                                        fillMode: Image.PreserveAspectFit
+                                    }
+                                    readonly property bool admittedCover: admissionCheck()
+                                }
                             }
                         }
-                        contentItem: Item {
-                            GlassSurface {
-                                anchors.centerIn: parent
-                                visible: vinylButton.enabled && (vinylButton.commandName === "play" || vinylButton.down || vinylButton.activeFocus)
-                                width: screen.compact ? 38 : 60
-                                height: width
-                                radius: width / 2
-                                elevated: true
-                                pressed: vinylButton.down
-                                focused: vinylButton.activeFocus
-                                FeatureIcon {
-                                    anchors.centerIn: parent
-                                    iconName: vinylButton.commandName
-                                    width: screen.compact ? 22 : 32
-                                    height: width
-                                }
-                            }
+
+                        SessionTransportButton {
+                            id: vinylButton
+                            objectName: "sessionPlaybackVinyl"
+                            anchors.right: parent.right
+                            anchors.bottom: parent.bottom
+                            width: screen.compact ? 44 : 60
+                            height: width
+                            visible: !!screen.state.playback_control.available
+                            transportSurfaceReady: visible && !playbackPanel.visible && !outputsPanel.visible
+                            commandName: screen.state.playback.state === "playing" ? "pause" : "play"
+                            iconName: commandName
+                            Accessible.name: screen.tr(commandName)
+                            padding: 0
                         }
                     }
                     RowLayout {
@@ -1287,6 +1284,11 @@ Item {
                         ColumnLayout {
                             Layout.fillWidth: true
                             spacing: screen.compact ? 4 : 12
+                            objectName: "sessionExpandTrackMetadata"
+                            TapHandler {
+                                enabled: screen.trackArtworkAvailable
+                                onTapped: screen.expandTrackArtwork()
+                            }
                             Text { visible: playbackSources.ready && text.length > 0; text: screen.state.playback.title || ""; textFormat: Text.PlainText; font.pixelSize: screen.compact ? 24 : 30; font.bold: true; color: BrandTheme.colors.text; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                             Text {
                                 visible: screen.compact && playbackSources.ready && text.length > 0

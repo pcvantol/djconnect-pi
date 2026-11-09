@@ -1591,6 +1591,7 @@ _PLAYBACK_CONTROL_TRANSLATIONS = {
     "session_volume_unavailable": ("Current output volume is unavailable.", "Het volume van de huidige uitvoer is niet beschikbaar.", "Die Lautstärke der aktuellen Ausgabe ist nicht verfügbar.", "Le volume de la sortie actuelle est indisponible.", "El volumen de la salida actual no está disponible."),
     "session_volume_limit": ("This control is limited to 60%.", "Deze bediening is begrensd op 60%.", "Diese Steuerung ist auf 60% begrenzt.", "Cette commande est limitée à 60%.", "Este control está limitado al 60%."),
     "session_volume_reduce": ("Set to 60%", "Instellen op 60%", "Auf 60% einstellen", "Régler à 60%", "Ajustar al 60%"),
+    "track_artwork": ("Track artwork", "Trackhoes", "Titelcover", "Pochette du titre", "Portada de la pista"),
     "session_playback_controls": ("Playback controls", "Afspeelbediening", "Wiedergabesteuerung", "Commandes de lecture", "Controles de reproducción"),
     "session_playback_sent": (
         "Command sent. Playback updates from the server.",

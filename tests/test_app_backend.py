@@ -2036,6 +2036,21 @@ def test_backend_requests_temporary_wake_for_backend_track_change(tmp_path: Path
     assert wakes == [(10, True)]
 
 
+def test_backend_track_change_signal_ignores_artwork_metadata_and_resume(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    changes = []
+    backend.playbackTrackChanged.connect(lambda: changes.append(backend.title))
+
+    backend._apply_playback(Playback(title="First", artist="Artist", is_playing=True))
+    backend._apply_playback(Playback(title="First", artist="Artist", uri="backend:track:1"))
+    backend._apply_playback(Playback(title="First remastered", artist="Artist", uri="backend:track:1",
+                                     image_url="https://example.test/art.jpg", is_playing=True))
+    backend._apply_playback(Playback(title="Second", artist="Artist", uri="backend:track:2", is_playing=True))
+
+    assert changes == ["First", "Second"]
+
+
 def test_backend_requests_temporary_wake_when_playback_resumes(tmp_path: Path) -> None:
     ensure_app()
     backend = DJConnectBackend(tmp_path / "config.json")

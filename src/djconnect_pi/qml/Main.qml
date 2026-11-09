@@ -46,8 +46,8 @@ BrandWindow {
     }
     Connections {
         target: djconnect
-        function onProfileChanged() { root.syncVibeScape(); musicDnaOptIn.close() }
-        function onPairedChanged() { root.syncVibeScape(); musicDnaOptIn.close() }
+        function onProfileChanged() { root.trackArtworkOpen = false; root.syncVibeScape(); musicDnaOptIn.close() }
+        function onPairedChanged() { root.trackArtworkOpen = false; root.syncVibeScape(); musicDnaOptIn.close() }
     }
     function openVibeScape(pickerTop) {
         if (!vibeScapeAllowed) return
@@ -153,6 +153,23 @@ BrandWindow {
     property bool forceScreenAwake: false
     property bool forceBrightnessFull: false
     property bool suppressNextNowPanelTap: false
+    property bool trackArtworkOpen: false
+    property bool sessionTrackArtwork: false
+    readonly property bool trackArtworkAvailable: activeScreen === "session" ? sharedSessionScreen.trackArtworkAvailable
+        : (activeScreen === "now" || activeScreen === "control") && djconnect.hasTrackTitle
+    readonly property bool overlayTrackAvailable: sessionTrackArtwork ? sharedSessionScreen.trackArtworkAvailable : djconnect.hasTrackTitle
+    onOverlayTrackAvailableChanged: if (!overlayTrackAvailable) trackArtworkOpen = false
+    onTrackArtworkOpenChanged: if (!trackArtworkOpen) trackArtworkDismissTimer.stop()
+    onScreenBlankedChanged: if (screenBlanked) trackArtworkOpen = false
+    function showTrackArtwork(fromSession) {
+        sessionTrackArtwork = fromSession
+        trackArtworkOpen = true
+        trackArtworkDismissTimer.restart()
+    }
+    function openTrackArtwork() {
+        if (trackArtworkAvailable && !screenBlanked)
+            showTrackArtwork(activeScreen === "session")
+    }
     property double lastWakeDisplayAt: 0
     property int wakeDisplayDebounceMs: 800
     property int standardButtonRadius: 24
@@ -162,7 +179,7 @@ BrandWindow {
 
     readonly property string edgeBackRoute: {
         if (!root.active || root.screenBlanked || root.splashVisible || (!djconnect.paired && !djconnect.demoMode)
-                || vibeScapeLoader.active || musicDnaOptIn.visible || root.resetPairingConfirmOpen || root.rebootConfirmOpen
+                || root.trackArtworkOpen || vibeScapeLoader.active || musicDnaOptIn.visible || root.resetPairingConfirmOpen || root.rebootConfirmOpen
                 || root.shutdownConfirmOpen || root.clearLogsConfirmOpen || root.askDjClearConfirmOpen
                 || root.musicDnaDisableConfirmOpen || root.musicDnaClearConfirmOpen || root.discoveryReasonOpen)
             return ""
@@ -279,6 +296,7 @@ BrandWindow {
     }
 
     onActiveScreenChanged: {
+        root.trackArtworkOpen = false
         if (root.wallProfile && (root.activeScreen === "now" || root.activeScreen === "control")) {
             root.closeVibeScape()
             root.activeScreen = "session"
@@ -1172,6 +1190,13 @@ BrandWindow {
         function onTemporaryWakeRequested(seconds) {
             root.temporaryWake(seconds)
         }
+        function onPlaybackTrackChanged() {
+            if (root.splashVisible || (!djconnect.paired && !djconnect.demoMode) || !djconnect.hasTrackTitle)
+                return
+            djconnect.wakeDisplay()
+            root.temporaryWake(10)
+            root.showTrackArtwork(false)
+        }
         function onDjResponseChanged() {
             if (djconnect.djResponseVisible) {
                 djResponseTimer.restart()
@@ -1286,6 +1311,12 @@ BrandWindow {
                     implicitHeight: 28
                 }
 
+                GlassButton {
+                    iconName: "control"
+                    Accessible.name: root.tr("control")
+                    onClicked: root.activeScreen = "control"
+                }
+
                 RefreshIconButton {
                     id: nowRefreshButton
                     Layout.rightMargin: 0
@@ -1296,6 +1327,7 @@ BrandWindow {
 
             Item {
                 id: artShell
+                objectName: "nowExpandTrackArtwork"
                 Layout.fillWidth: true
                 Layout.fillHeight: true
 
@@ -1404,7 +1436,10 @@ BrandWindow {
                             root.suppressNextNowPanelTap = false
                             return
                         }
-                        root.activeScreen = "control"
+                        if (root.trackArtworkAvailable)
+                            root.openTrackArtwork()
+                        else
+                            root.activeScreen = "control"
                     }
                 }
             }
@@ -1458,8 +1493,14 @@ BrandWindow {
 
             ColumnLayout {
                 Layout.fillWidth: true
+                objectName: "controlExpandTrackMetadata"
                 Layout.preferredHeight: 72
                 spacing: 2
+
+                TapHandler {
+                    enabled: root.trackArtworkAvailable
+                    onTapped: root.openTrackArtwork()
+                }
 
                 Text {
                     text: djconnect.title
@@ -4314,6 +4355,7 @@ BrandWindow {
             backend: djconnect
             historical: root.activeScreen === "history" || root.activeScreen === "session-history"
             currentHistory: root.activeScreen === "session-history"
+            onExpandTrackArtwork: root.openTrackArtwork()
             onOpenVibeScape: function(pickerTop) { root.openVibeScape(pickerTop) }
             onNavigate: function(destination) { root.activeScreen = destination }
         }
@@ -5531,6 +5573,122 @@ BrandWindow {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 64
                     onClicked: root.aboutOpen = false
+                }
+            }
+        }
+    }
+
+    Timer {
+        id: trackArtworkDismissTimer
+        interval: 5000
+        onTriggered: root.trackArtworkOpen = false
+    }
+
+    Loader {
+        anchors.fill: parent
+        z: 198
+        active: root.trackArtworkOpen
+        focus: active
+        onLoaded: item.forceActiveFocus()
+        sourceComponent: FocusScope {
+            objectName: "trackArtworkOverlay"
+            Keys.onEscapePressed: root.trackArtworkOpen = false
+
+            Rectangle {
+                anchors.fill: parent
+                color: BrandTheme.alpha(BrandTheme.colors.background, "ee")
+            }
+            ModalBlocker {}
+
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: 20
+                spacing: 12
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    SessionAttribution {
+                        visible: requiresSpotify
+                        requiresSpotify: root.sessionTrackArtwork && !!sharedSessionScreen.state.playback.requires_spotify_attribution
+                        spotifyURL: requiresSpotify ? sharedSessionScreen.state.playback.source_url || "" : ""
+                    }
+                    Item { Layout.fillWidth: true }
+                    GlassButton {
+                        objectName: "closeTrackArtwork"
+                        iconName: "end"
+                        Accessible.name: root.tr("close")
+                        onClicked: root.trackArtworkOpen = false
+                    }
+                }
+
+                Item {
+                    id: artworkArea
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+
+                    Column {
+                        id: artworkColumn
+                        anchors.centerIn: parent
+                        width: parent.width
+                        spacing: 12
+
+                        GlassSurface {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            width: Math.max(0, Math.min(artworkArea.width,
+                                artworkArea.height - expandedTitle.height - artworkColumn.spacing
+                                - (expandedArtist.visible ? expandedArtist.height + artworkColumn.spacing : 0)))
+                            height: width
+                            radius: 28
+                            elevated: true
+
+                            VinylPlaceholder {
+                                anchors.fill: parent
+                                anchors.margins: 10
+                                radius: 18
+                                visible: expandedArt.status !== Image.Ready
+                            }
+                            Image {
+                                id: expandedArt
+                                objectName: "expandedTrackArtwork"
+                                anchors.fill: parent
+                                anchors.margins: 10
+                                source: root.sessionTrackArtwork ? sharedSessionScreen.trackArtworkSource : djconnect.imageUrl
+                                sourceSize.width: width
+                                sourceSize.height: height
+                                asynchronous: true
+                                retainWhileLoading: false
+                                fillMode: Image.PreserveAspectCrop
+                                clip: true
+                                visible: status === Image.Ready
+                            }
+                        }
+
+                        Text {
+                            id: expandedTitle
+                            objectName: "expandedTrackTitle"
+                            width: parent.width
+                            text: root.sessionTrackArtwork ? sharedSessionScreen.state.playback.title || "" : djconnect.title
+                            textFormat: Text.PlainText
+                            color: BrandTheme.colors.text
+                            font.pixelSize: root.wallProfile ? 42 : 32
+                            font.bold: true
+                            horizontalAlignment: Text.AlignHCenter
+                            elide: Text.ElideRight
+                        }
+
+                        Text {
+                            id: expandedArtist
+                            objectName: "expandedTrackArtist"
+                            width: parent.width
+                            visible: text.length > 0
+                            text: root.sessionTrackArtwork ? sharedSessionScreen.state.playback.artist || "" : djconnect.artist
+                            textFormat: Text.PlainText
+                            color: BrandTheme.colors.muted
+                            font.pixelSize: root.wallProfile ? 30 : 24
+                            horizontalAlignment: Text.AlignHCenter
+                            elide: Text.ElideRight
+                        }
+                    }
                 }
             }
         }

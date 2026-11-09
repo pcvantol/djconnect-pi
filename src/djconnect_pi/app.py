@@ -128,6 +128,7 @@ class DJConnectBackend(QObject):
     titleChanged = Signal()
     artistChanged = Signal()
     imageUrlChanged = Signal()
+    playbackTrackChanged = Signal()
     playingChanged = Signal()
     favoriteChanged = Signal()
     favoriteBusyChanged = Signal()
@@ -438,6 +439,10 @@ class DJConnectBackend(QObject):
     @Property(str, notify=titleChanged)
     def title(self) -> str:
         return self.playback.title or self.tr_key("nothing_playing")
+
+    @Property(bool, notify=titleChanged)
+    def hasTrackTitle(self) -> bool:
+        return bool(self.playback.title)
 
     @Property(str, notify=artistChanged)
     def artist(self) -> str:
@@ -2390,6 +2395,7 @@ class DJConnectBackend(QObject):
 
     def _apply_demo_track(self, track: dict[str, object]) -> None:
         refresh_insight = bool(self._track_insight_title)
+        previous_uri = self.playback.uri
         self.playback.title = str(track["title"])
         self.playback.artist = str(track["subtitle"])
         self.playback.uri = str(track["uri"])
@@ -2406,6 +2412,8 @@ class DJConnectBackend(QObject):
         self.playingChanged.emit()
         self.progressChanged.emit()
         self.djSession.demo_playback_changed()
+        if previous_uri != self.playback.uri:
+            self.playbackTrackChanged.emit()
 
     def _show_demo_track_insight(self) -> None:
         track = next((item for item in demo_queue_items() if item["uri"] == self.playback.uri), None)
@@ -2561,6 +2569,8 @@ class DJConnectBackend(QObject):
         if (track_changed and (playback.title or playback.artist or playback.image_url)) or resumed_playback:
             navigate_now = not suppress_navigation
             self.temporaryWakeRequested.emit(10, navigate_now)
+        if self._playback_track_changed(old, playback):
+            self.playbackTrackChanged.emit()
         self._set_status_text(self.tr_key("connected" if self.paired else "ready_to_pair"))
 
     @Slot(str, object)
@@ -2851,6 +2861,17 @@ class DJConnectBackend(QObject):
         self._track_insight_result_scope = scope
         self._set_backend_available(True)
         self.trackInsightChanged.emit()
+
+    @staticmethod
+    def _playback_track_changed(previous: Playback, current: Playback) -> bool:
+        if not current.title.strip() or (not previous.title.strip() and not current.is_playing):
+            return False
+        if previous.uri.strip() and current.uri.strip():
+            return previous.uri.strip() != current.uri.strip()
+        # A late URI or new artwork does not identify a different track.
+        return (previous.title.strip().casefold(), previous.artist.strip().casefold()) != (
+            current.title.strip().casefold(), current.artist.strip().casefold(),
+        )
 
     @staticmethod
     def _track_insight_subject(playback: Playback) -> tuple[str, ...]:
