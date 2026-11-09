@@ -196,6 +196,42 @@ def test_unavailable_history_cannot_end_or_replace_current_session(controller):
     assert owner.state['session_id'] == 'current-session'
 
 
+@pytest.mark.parametrize("dismiss", ["", "close", "profile", "foreground"])
+def test_retry_saved_open_stays_bound_to_the_failed_read(controller, dismiss):
+    from test_session_history_view import timeline_fixture
+
+    owner, backend = controller
+    enable_search(owner)
+    tail = timeline_fixture()
+    session_id = tail["session"]["session_id"]
+    owner._sessions = [{"session_id": session_id}]
+    owner.transport.timeline = Mock(side_effect=[SessionError("offline"), tail])
+    owner.openSaved(session_id)
+    backend.jobs.pop()()
+    assert owner.state["saved_open_retry"] and not owner.state["timeline"]
+    assert owner.transport.timeline.call_count == 1
+
+    if dismiss == "close":
+        owner.closeSaved()
+    elif dismiss == "profile":
+        backend.cfg.explicit_profile_id = backend.cfg.active_profile_id = "profile-b"
+    elif dismiss == "foreground":
+        owner.setForeground(False)
+    owner.retrySavedOpen()
+
+    if dismiss:
+        assert not backend.jobs
+        assert not owner.state["saved_open_retry"]
+        assert owner.transport.timeline.call_count == 1
+    else:
+        assert len(backend.jobs) == 1
+        backend.jobs.pop()()
+        assert owner.transport.timeline.call_count == 2
+        assert owner.transport.timeline.call_args.args[1] == session_id
+        assert owner.state["timeline"]["session"]["session_id"] == session_id
+        assert not owner.state["saved_open_retry"]
+
+
 def test_timeline_pages_replace_window_and_reject_changed_revision(controller):
     from copy import deepcopy
 

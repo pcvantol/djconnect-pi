@@ -119,6 +119,7 @@ class SessionController(QObject):
         self._timeline = {}
         self._timeline_trail = []
         self._error = ""
+        self._saved_open_retry = None
         self._serial = 0
         self._running = 0
         self._running_action = ""
@@ -237,6 +238,7 @@ class SessionController(QObject):
             "moments": [] if revoked else deepcopy(self._moments), "sessions": [] if revoked else deepcopy(self._sessions),
             "timeline": {} if revoked else deepcopy(self._timeline), "search": {} if revoked else deepcopy(self._search), "error": self._error,
             "profile_confirmation_required": not (bool(session_profile_id(self.backend.cfg)) or bootstrap),
+            "saved_open_retry": not revoked and bool(self._saved_open_target()),
             "history_available": self._history_supported(), "search_available": self._search_supported(),
             "loaded": self._loaded and not revoked, "history_loaded": self._history_loaded and not revoked,
             "has_previous_entries": bool(self._timeline_trail),
@@ -571,6 +573,7 @@ class SessionController(QObject):
         self._history_trail = []
         self._history_reset = False
         self._search = {}
+        self._saved_open_retry = None
         self._view_epoch = getattr(self, "_view_epoch", 0) + 1
         self._error = ""
         if had_scope:
@@ -901,6 +904,7 @@ class SessionController(QObject):
     def _clear_archive(self, *, notify=True):
         had = bool(self._sessions or self._history_loaded or self._history_cursor or self._history_trail)
         self._view_epoch += 1
+        self._saved_open_retry = None
         self._sessions = []
         self._history_loaded = False
         self._history_cursor = ""
@@ -969,6 +973,31 @@ class SessionController(QObject):
         self._view_epoch += 1
         self._search = {}
         self._launch("timeline", session_id)
+
+    def _saved_open_target(self):
+        if (not self._saved_open_retry or not self._foreground or not self._history_supported()
+                or self._error not in {"offline", "unavailable"}):
+            return ""
+        session_id, epoch, _ = self._saved_open_retry
+        if epoch == self._view_epoch and any(row["session_id"] == session_id for row in self._sessions):
+            return session_id
+        return ""
+
+    @Slot()
+    def retrySavedOpen(self):
+        self._expire()
+        session_id = self._saved_open_target()
+        if not session_id or self.busy:
+            return
+        try:
+            current_binding = self.transport.binding()
+        except SessionError:
+            self.invalidate()
+            return
+        if current_binding != self._saved_open_retry[2]:
+            self.invalidate()
+            return
+        self.openSaved(session_id)
 
     @Slot(str)
     def refreshSaved(self, anchor_entry_id=""):
@@ -1063,6 +1092,7 @@ class SessionController(QObject):
     @Slot()
     def closeSaved(self):
         self._view_epoch += 1
+        self._saved_open_retry = None
         self._timeline = {}
         self._timeline_trail = []
         self._search = {}
@@ -1236,6 +1266,7 @@ class SessionController(QObject):
             self._withdraw_question()
             self.contextCleared.emit()
         question_epoch = self._question_epoch
+        self._saved_open_retry = None
         self._error = ""
         if action == "question":
             self._pending_question = {"text": value["text"], "session_id": value["session_id"], "client_message_id": value["client_message_id"]}
@@ -1324,6 +1355,7 @@ class SessionController(QObject):
                 elif action in {"history", "history_more", "history_refresh"}:
                     result["history"] = self._read_history(binding, value, view_epoch)
                 elif action == "timeline":
+                    result["saved_open_session"] = value
                     result["timeline"] = presented_history(history_page(self.transport.timeline(binding, value), session_id=value, now=self._clock.now()))
                 elif action == "timeline_extend":
                     result["timeline"] = self._read_timeline_prefix(binding, value["session_id"], value["pages"], view_epoch, serial)
@@ -1555,6 +1587,8 @@ class SessionController(QObject):
             self._history_trail = []
             self._history_reset = False
         if "error" in result and history_action and result["error"] not in {"denied", "context_changed", "unpaired"}:
+            if result.get("saved_open_session") and result["error"] in {"offline", "unavailable"}:
+                self._saved_open_retry = (result["saved_open_session"], result["view_epoch"], result["binding"])
             self._search = {}
             self._timeline = {}
             self._timeline_trail = []

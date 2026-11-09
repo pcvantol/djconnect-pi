@@ -1404,6 +1404,7 @@ _SESSION_COMPOSER_TRANSLATIONS = {
     "session_archive_reset": ("The archive changed. Showing the most recent sessions.", "Het archief is gewijzigd. Je ziet de nieuwste sessies.", "Das Archiv wurde geändert. Die neuesten Sessions werden angezeigt.", "L’archive a changé. Les sessions les plus récentes sont affichées.", "El archivo ha cambiado. Se muestran las sesiones más recientes."),
     "session_archive_window_empty": ("No available sessions in this window.", "Geen beschikbare sessies in dit venster.", "Keine verfügbaren Sessions in diesem Fenster.", "Aucune session disponible dans cette fenêtre.", "No hay sesiones disponibles en esta ventana."),
     "session_archive_limit": ("More sessions are available on the server. This screen shows at most 100.", "Er staan meer sessies op de server. Dit scherm toont er maximaal 100.", "Weitere Sitzungen sind auf dem Server verfügbar. Dieser Bildschirm zeigt höchstens 100.", "D’autres sessions sont disponibles sur le serveur. Cet écran en affiche au maximum 100.", "Hay más sesiones disponibles en el servidor. Esta pantalla muestra como máximo 100."),
+    "session_saved_reopen": ("Open again", "Opnieuw openen", "Erneut öffnen", "Ouvrir à nouveau", "Volver a abrir"),
     "session_archive_retry": ("Reload", "Opnieuw laden", "Erneut laden", "Recharger", "Volver a cargar"),
     "session_question_sending": ("Sending…", "Wordt verstuurd…", "Wird gesendet…", "Envoi…", "Enviando…"),
     "session_question_accepted": ("Question sent", "Vraag verstuurd", "Frage gesendet", "Question envoyée", "Pregunta enviada"),

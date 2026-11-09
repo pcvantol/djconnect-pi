@@ -697,7 +697,7 @@ Item {
         choices.open()
     }
     Timer { objectName: "sessionRuntimePollTimer"; interval: 3000; running: screen.visible && screen.backend.paired && !screen.historyReadPending && !screen.searchRefreshPending; repeat: true; triggeredOnStart: true; onTriggered: { if (!screen.historical) screen.owner.refresh(); else if (!screen.currentHistory && !screen.state.history_loaded) screen.owner.loadHistory() } }
-    Timer { objectName: "sessionHistoryRevalidationTimer"; interval: 15000; running: screen.visible && screen.historical && screen.backend.paired; repeat: true; onTriggered: screen.refreshHistory() }
+    Timer { objectName: "sessionHistoryRevalidationTimer"; interval: 15000; running: screen.visible && screen.historical && screen.backend.paired; repeat: true; onTriggered: { if (!screen.state.saved_open_retry) screen.refreshHistory() } }
     Timer {
         id: replyRestore
         interval: 32
@@ -1094,8 +1094,12 @@ Item {
                         && ["offline", "unavailable", "conflict"].indexOf(screen.state.error) >= 0
                     enabled: !screen.owner.busy && !screen.historyReadPending
                         && !screen.archiveReadActive && !screen.archiveIntent
-                    iconName: "refresh"; text: screen.tr("session_archive_retry")
-                    onClicked: screen.refreshHistory()
+                    iconName: "refresh"
+                    text: screen.tr(screen.state.saved_open_retry ? "session_saved_reopen" : "session_archive_retry")
+                    onClicked: {
+                        if (screen.state.saved_open_retry) screen.owner.retrySavedOpen()
+                        else screen.refreshHistory()
+                    }
                 }
             }
             Text {
