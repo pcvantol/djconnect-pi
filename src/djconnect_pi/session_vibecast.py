@@ -177,15 +177,21 @@ class VibeCastSender(QObject):
 
         def worker():
             result, status = None, "failed"
+            write_attempted = False
+
+            def mark_write_attempt():
+                nonlocal write_attempted
+                write_attempted = True
+
             try:
                 if current():
-                    result = self.perform(action, code, context, claim, scope, current)
+                    result = self.perform(action, code, context, claim, scope, current, mark_write_attempt)
                     status = {"context": "ready", "resolve": "confirm",
                               "approve": "sharing", "revoke": "stopped"}[action]
                     if action == "context" and result.share is not None:
                         status = "active"
             except SessionError:
-                if action in {"approve", "revoke"}:
+                if write_attempted:
                     status = "uncertain"
                 elif action == "resolve":
                     status = "lookup_failed"
@@ -196,12 +202,14 @@ class VibeCastSender(QObject):
         self.owner.backend._session_executor.submit(worker)
         return True
 
-    def perform(self, action, code, context, claim, scope, current):
+    def perform(self, action, code, context, claim, scope, current, mark_write_attempt):
         binding, session_id, *_ = scope
 
         def call(route, payload):
             if not current():
                 raise SessionError("context_changed")
+            if route in {"approve", "revoke"}:
+                mark_write_attempt()
             data = self.owner.transport.display_owner(binding, route, payload)
             if not current() or data.get("success") is not True or type(data.get("contract_version")) is not int or data["contract_version"] != 1:
                 raise SessionError("context_changed")

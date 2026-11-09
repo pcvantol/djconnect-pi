@@ -1363,7 +1363,7 @@ def test_vibecast_refuses_mutation_when_display_origin_changes(vibecast_sender, 
     backend.jobs.pop()()
     calls = [call.args[1] for call in owner.transport.display_owner.call_args_list]
     assert calls == (["context", "resolve", "context"] if action == "approve" else ["context", "context"])
-    assert owner.state["vibecast"]["status"] == "uncertain"
+    assert owner.state["vibecast"]["status"] == "failed"
 
 
 def test_vibecast_lookup_can_retry_after_rejection_or_expiry(vibecast_sender):
@@ -1388,6 +1388,34 @@ def test_vibecast_lookup_can_retry_after_rejection_or_expiry(vibecast_sender):
     assert [call.args[1] for call in owner.transport.display_owner.call_args_list] == [
         "context", "resolve", "resolve", "resolve",
     ]
+
+
+def test_vibecast_uncertain_revoke_uses_status_read_instead_of_replay(vibecast_sender):
+    owner, backend, responses = vibecast_sender
+    responses["context"].update(share_id="s" * 43, share_generation=1, expires_in=7199)
+    assert owner.openVibeCast()
+    backend.jobs.pop()()
+    dispatch = owner.transport.display_owner.side_effect
+
+    def lost_reply(binding, action, payload):
+        if action == "revoke":
+            for field in ("share_id", "share_generation", "expires_in"):
+                responses["context"].pop(field)
+            raise SessionError("uncertain")
+        return dispatch(binding, action, payload)
+
+    owner.transport.display_owner.side_effect = lost_reply
+    assert owner.stopVibeCast()
+    backend.jobs.pop()()
+    assert owner.state["vibecast"]["status"] == "uncertain"
+    assert not owner.stopVibeCast()
+    owner.refreshVibeCast()
+    backend.jobs.pop()()
+    assert owner.state["vibecast"]["status"] == "ready"
+    assert [call.args[1] for call in owner.transport.display_owner.call_args_list] == [
+        "context", "context", "revoke", "context",
+    ]
+    owner.transport.end.assert_not_called()
 
 
 def test_vibecast_uncertain_approval_uses_status_read_instead_of_replay(vibecast_sender):
