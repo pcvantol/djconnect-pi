@@ -7,6 +7,20 @@ import "ForecastGuidance.js" as ForecastGuidance
 Item {
     id: screen
     objectName: "djSessionScreen"
+    property Item revealedFlowAction: null
+    Item {
+        anchors.fill: parent
+        z: 10
+        visible: !!screen.revealedFlowAction
+        TapHandler {
+            gesturePolicy: TapHandler.DragThreshold
+            onTapped: eventPoint => {
+                const action = screen.revealedFlowAction
+                if (action && !action.contains(action.mapFromItem(screen, eventPoint.position)))
+                    action.dismiss()
+            }
+        }
+    }
     property var backend
     property bool historical: false
     property bool currentHistory: false
@@ -42,6 +56,7 @@ Item {
             id: deleteAction
             objectName: "sessionDeleteLiveMoment"
             card: liveCard
+            dismissalSurface: screen
             allowed: !!screen.contentDeletion.available && liveSources.ready
                 && !screen.owner.busy && !screen.owner.questionBusy && !screen.showForecast
             scope: screen.composerContext + "|" + modelData.moment_id
@@ -1504,6 +1519,7 @@ Item {
                             selectionBusy: screen.owner.busy || screen.owner.questionBusy
                             deletionAvailable: !!screen.contentDeletion.available && !screen.showForecast
                             flowDeletionScope: screen.composerContext + "|" + modelData.entry_id
+                            flowSurface: screen
                             onDeleteEntry: (sessionId, entryId) => screen.deleteContent("entry", sessionId, entryId)
                             onAskAbout: (sessionId, entryId) => { if (screen.owner.selectFlowEntry(sessionId, entryId)) composerPanel.open() }
                         }

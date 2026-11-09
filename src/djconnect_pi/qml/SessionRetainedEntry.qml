@@ -11,6 +11,7 @@ GlassCard {
     property bool selectionBusy: false
     property bool deletionAvailable: false
     property string flowDeletionScope: ""
+    property Item flowSurface: null
     trailingRevealWidth: deleteAction.revealWidth
     signal deleteEntry(string sessionId, string entryId)
     readonly property bool attributionReady: historySources.ready
@@ -57,6 +58,7 @@ GlassCard {
         objectName: "sessionDeleteRetainedEntry"
         card: historyCard
         scope: historyCard.flowDeletionScope
+        dismissalSurface: historyCard.flowSurface
         gesturesOnly: scope.length > 0
         allowed: historyCard.deletionAvailable && !historyCard.sourceWithdrawn
             && ["dj_moment", "conversation_user", "conversation_dj"].includes(entry.kind)

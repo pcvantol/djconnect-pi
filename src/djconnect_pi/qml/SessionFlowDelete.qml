@@ -8,6 +8,7 @@ GlassButton {
     required property bool allowed
     required property string actionLabel
     property bool gesturesOnly: true
+    property Item dismissalSurface: null
     property string scope: ""
     property bool revealed: false
     readonly property real revealWidth: revealed ? width + 8 : 0
@@ -27,6 +28,16 @@ GlassButton {
 
     onCanRevealChanged: if (!canReveal) dismiss()
     onScopeChanged: dismiss()
+    onRevealedChanged: {
+        if (!dismissalSurface) return
+        if (revealed) {
+            if (dismissalSurface.revealedFlowAction)
+                dismissalSurface.revealedFlowAction.dismiss()
+            dismissalSurface.revealedFlowAction = action
+        } else if (dismissalSurface.revealedFlowAction === action) {
+            dismissalSurface.revealedFlowAction = null
+        }
+    }
     onClicked: requestDelete()
 
     function dismiss() {
