@@ -68,8 +68,8 @@ def test_invalidating_profile_discards_already_queued_results(controller):
 
 
 def test_saved_summary_requires_a_current_owner_binding_and_coherent_final_metrics(controller):
-    from copy import deepcopy
     import json
+    from copy import deepcopy
     from pathlib import Path
 
     owner, backend = controller
