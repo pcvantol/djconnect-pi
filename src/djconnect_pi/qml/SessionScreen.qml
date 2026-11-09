@@ -744,7 +744,30 @@ Item {
     }
     Connections {
         target: historyScroll.contentItem
-        function onDraggingChanged() { if (historyScroll.contentItem.dragging) { archivePosition.stop(); screen.archiveReturn = null; screen.followQuestionReply = false; readingRestore.stop(); if (!screen.historical) screen.clearFlowReturn() } }
+        property string flowDragContext: ""
+        property string automaticLoadContext: ""
+        property real flowDragStart: 0
+        function onDraggingChanged() {
+            var flick = historyScroll.contentItem
+            if (!flick.dragging) return
+            flowDragContext = flowLoadOlder.visible && screen.visible ? screen.composerContext : ""
+            flowDragStart = flick.contentY
+            archivePosition.stop()
+            screen.archiveReturn = null
+            screen.followQuestionReply = false
+            readingRestore.stop()
+            if (!screen.historical) screen.clearFlowReturn()
+        }
+        function onMovementEnded() {
+            var dragContext = flowDragContext
+            flowDragContext = ""
+            var flick = historyScroll.contentItem
+            if (!dragContext || dragContext !== screen.composerContext || dragContext === automaticLoadContext
+                    || !screen.visible || !flowLoadOlder.visible || !flowLoadOlder.enabled
+                    || !flick.atYEnd || flick.contentY <= flowDragStart) return
+            automaticLoadContext = dragContext
+            screen.owner.expandFlow(screen.state.session_id)
+        }
     }
     Connections {
         target: screen.owner
@@ -1574,6 +1597,7 @@ Item {
                 }
             }
             GlassButton {
+                id: flowLoadOlder
                 objectName: "sessionFlowLoadOlder"
                 visible: !screen.historical && !!screen.state.flow_more
                 text: screen.tr("session_more"); enabled: !screen.owner.busy && !screen.owner.questionBusy
