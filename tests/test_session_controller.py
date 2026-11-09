@@ -1275,7 +1275,7 @@ def test_vibecast_lookup_approve_and_stop_are_distinct_from_session_end(vibecast
     assert not owner.resolveVibeCastCode("12345")
     assert owner.resolveVibeCastCode("012345")
     backend.jobs.pop()()
-    assert [call.args[1] for call in owner.transport.display_owner.call_args_list] == ["context", "resolve"]
+    assert [call.args[1] for call in owner.transport.display_owner.call_args_list] == ["context", "context", "resolve"]
     assert owner.state["vibecast"]["status"] == "confirm"
     assert "012345" not in str(owner.state["vibecast"])
     assert owner.approveVibeCast()
@@ -1323,7 +1323,7 @@ def test_vibecast_never_dispatches_approval_after_losing_original_scope(vibecast
         elif transition == "capability":
             owner._caps = {}
         approve()
-    assert [call.args[1] for call in owner.transport.display_owner.call_args_list] == ["context", "resolve"]
+    assert [call.args[1] for call in owner.transport.display_owner.call_args_list] == ["context", "context", "resolve"]
 
 
 @pytest.mark.parametrize("pending_confirmation", [False, True])
@@ -1377,6 +1377,29 @@ def test_vibecast_stop_reads_new_share_without_replaying(vibecast_sender, replac
             "revoke", {"session_id": "vibe-session", "share_id": "r" * 43},
         )
     owner.transport.end.assert_not_called()
+
+
+@pytest.mark.parametrize("code_found", [False, True])
+def test_vibecast_lookup_notices_share_started_by_another_sender(vibecast_sender, code_found):
+    owner, backend, responses = vibecast_sender
+    assert owner.openVibeCast()
+    backend.jobs.pop()()
+    assert not owner.state["vibecast"]["has_share"]
+    responses["context"].update(share_id="s" * 43, share_generation=2, expires_in=240)
+    responses["resolve"]["success"] = code_found
+
+    assert owner.resolveVibeCastCode("012345")
+    backend.jobs.pop()()
+    assert owner.state["vibecast"]["has_share"]
+    assert owner.state["vibecast"]["status"] == ("confirm" if code_found else "lookup_failed")
+    assert [call.args[1] for call in owner.transport.display_owner.call_args_list] == ["context", "context", "resolve"]
+    if code_found:
+        responses["approve"].update(share_generation=2, share_expires_in=239)
+        assert owner.approveVibeCast()
+        backend.jobs.pop()()
+        assert owner.transport.display_owner.call_args.args[2]["share"] == {
+            "mode": "existing", "share_id": "s" * 43, "share_generation": 2,
+        }
 
 
 @pytest.mark.parametrize("change", [None, "expired", "generation"])
@@ -1447,7 +1470,7 @@ def test_vibecast_refuses_mutation_when_display_origin_changes(vibecast_sender, 
     responses["context"]["display_entry_url"] = "https://other.djconnect.dev/djconnect/vibecast/display"
     backend.jobs.pop()()
     calls = [call.args[1] for call in owner.transport.display_owner.call_args_list]
-    assert calls == (["context", "resolve", "context"] if action == "approve" else ["context", "context"])
+    assert calls == (["context", "context", "resolve", "context"] if action == "approve" else ["context", "context"])
     assert owner.state["vibecast"]["status"] == "failed"
 
 
@@ -1471,7 +1494,7 @@ def test_vibecast_lookup_can_retry_after_rejection_or_expiry(vibecast_sender):
     backend.jobs.pop()()
     assert owner.state["vibecast"]["status"] == "confirm"
     assert [call.args[1] for call in owner.transport.display_owner.call_args_list] == [
-        "context", "resolve", "resolve", "resolve",
+        "context", "context", "resolve", "context", "resolve", "context", "resolve",
     ]
 
 
@@ -1526,5 +1549,5 @@ def test_vibecast_uncertain_approval_uses_status_read_instead_of_replay(vibecast
     backend.jobs.pop()()
     assert owner.state["vibecast"]["status"] == "active"
     assert [call.args[1] for call in owner.transport.display_owner.call_args_list] == [
-        "context", "resolve", "context", "approve", "context",
+        "context", "context", "resolve", "context", "approve", "context",
     ]

@@ -202,8 +202,6 @@ class VibeCastSender(QObject):
             except SessionError:
                 if write_attempted:
                     status = "uncertain"
-                elif action == "resolve":
-                    status = "lookup_failed"
             with self._lock:
                 if not self.closed:
                     self.ready.emit((epoch, action, status, result))
@@ -239,17 +237,24 @@ class VibeCastSender(QObject):
         if action == "context":
             fresh = fresh_context()
             return ("active" if fresh.share is not None else "ready"), fresh
-        if action == "resolve":
-            start = time.monotonic()
-            data = call("resolve", {"code": code})
-            if opaque(data, "issuer_epoch") != context.issuer_epoch:
-                raise SessionError("context_changed")
-            payload = {"issuer_epoch": context.issuer_epoch, "claim_id": opaque(data, "claim_id"),
-                       "browser_generation": opaque(data, "browser_generation"), "code": code}
-            return "confirm", (payload, start + duration(data, "expires_in", 120))
         fresh = fresh_context()
         if fresh.entry_url != context.entry_url or fresh.issuer_epoch != context.issuer_epoch:
             raise SessionError("context_changed")
+        if action == "resolve":
+            if fresh == context and context.can_disconnect():
+                display_id, deadline = context.display_receipt
+                fresh = replace(fresh, display_receipt=(display_id, min(deadline, fresh.share_deadline)))
+            start = time.monotonic()
+            try:
+                data = call("resolve", {"code": code})
+            except SessionError:
+                return "lookup_failed", (fresh, None)
+            if opaque(data, "issuer_epoch") != fresh.issuer_epoch:
+                raise SessionError("context_changed")
+            payload = {"issuer_epoch": fresh.issuer_epoch, "claim_id": opaque(data, "claim_id"),
+                       "browser_generation": opaque(data, "browser_generation"), "code": code}
+            claim = payload, start + duration(data, "expires_in", 120)
+            return "confirm", (fresh, claim)
         if fresh.share != context.share:
             # Another sender may have ended or replaced the share. A new
             # user action is required for the newly observed state.
@@ -292,18 +297,18 @@ class VibeCastSender(QObject):
         self.sync()
         if self.visible and self.epoch == epoch:
             self.status = status
+            self._receipt_timer.stop()
             if action == "resolve":
-                self.claim = result
-                if result is not None:
-                    remaining = max(0, math.ceil((result[1] - time.monotonic()) * 1000))
+                self.context, self.claim = result if result is not None else (None, None)
+                if self.claim is not None:
+                    remaining = max(0, math.ceil((self.claim[1] - time.monotonic()) * 1000))
                     self._claim_timer.start(remaining)
             else:
-                self._receipt_timer.stop()
                 if action == "context" and result is not None and result == self.context and self.context.can_disconnect():
                     display_id, deadline = self.context.display_receipt
                     result = replace(result, display_receipt=(display_id, min(deadline, result.share_deadline)))
                 self.context = result
-                if result is not None and result.can_disconnect():
-                    remaining = math.ceil((result.display_receipt[1] - time.monotonic()) * 1000)
-                    self._receipt_timer.start(max(0, remaining))
+            if self.context is not None and self.context.can_disconnect():
+                remaining = math.ceil((self.context.display_receipt[1] - time.monotonic()) * 1000)
+                self._receipt_timer.start(max(0, remaining))
         self.owner.changed.emit()
