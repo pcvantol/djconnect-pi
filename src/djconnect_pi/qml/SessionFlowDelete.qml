@@ -56,10 +56,14 @@ GlassButton {
         target: null
         enabled: action.canReveal
         yAxis.enabled: false
-        onActiveTranslationChanged: {
-            if (!active || !action.canReveal) return
-            if (activeTranslation.x <= -48) action.revealed = true
-            if (activeTranslation.x >= 48) action.revealed = false
+        onGrabChanged: (transition, point) => {
+            if (transition !== PointerDevice.UngrabExclusive
+                    || point.state !== EventPoint.Released || !action.canReveal) return
+            const dx = point.scenePosition.x - point.scenePressPosition.x
+            const dy = point.scenePosition.y - point.scenePressPosition.y
+            if (Math.abs(dx) <= 1.5 * Math.abs(dy)) return
+            if (dx < -64) action.revealed = true
+            else if (dx > 32) action.revealed = false
         }
     }
 

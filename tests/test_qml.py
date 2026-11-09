@@ -5,6 +5,7 @@ import subprocess
 import sys
 import tempfile
 from importlib.resources import files
+from pathlib import Path
 
 
 def test_qml_files_are_packaged() -> None:
@@ -874,3 +875,17 @@ def test_qml_offscreen_smoke_loads() -> None:
 
     assert result.returncode == 0
     assert "Error:" not in result.stderr
+
+
+def test_qml_flow_delete_swipe_checks_direction_at_release() -> None:
+    probe = Path(__file__).parent / "probes/flow_delete_swipe_readback.py"
+    for width in (720, 1200):
+        result = subprocess.run(
+            [sys.executable, str(probe), str(width)],
+            env={**os.environ, "QT_QPA_PLATFORM": "offscreen", "QT_QUICK_BACKEND": "software"},
+            text=True,
+            capture_output=True,
+            timeout=15,
+            check=False,
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
