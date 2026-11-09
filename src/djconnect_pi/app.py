@@ -270,7 +270,7 @@ class DJConnectBackend(QObject):
         # Bounded independent lanes: slow text generation cannot occupy Session control.
         self._session_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="djconnect-session")
         self._question_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="djconnect-question")
-        self._session_controller = SessionController(self)
+        self._session_controller = SessionController(self, view_active=False)
         self._shared_settings.owner_context = self._session_controller.scope_context
         self._shared_owner_context = self._shared_settings.context()
         self._session_controller.ownerScopeChanged.connect(self._session_owner_changed)
@@ -306,7 +306,6 @@ class DJConnectBackend(QObject):
         self._shared_settings_timer = QTimer(self)
         self._shared_settings_timer.setInterval(15000)
         self._shared_settings_timer.timeout.connect(self.pollSharedSettings)
-        self._shared_settings_timer.timeout.connect(self._session_controller.refresh)
         self._shared_settings_timer.start()
         # Owned timers cannot outlive this backend or continue after shutdown.
         self._startup_settings_timer = QTimer(self)

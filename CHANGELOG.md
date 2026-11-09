@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 4.0.0-rc.10
+
+- Refresh DJ Session only while its view is open. Ignore refresh replies that arrive after navigation.
+
 ## 4.0.0-rc.9
 
 - Keep Track Insight results with their original Profile, track, backend and speaker.
