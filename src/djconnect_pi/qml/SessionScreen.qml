@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import "BrandTheme.js" as BrandTheme
 import "ForecastGuidance.js" as ForecastGuidance
+import "MoodTheme.js" as MoodTheme
 
 Item {
     id: screen
@@ -1599,21 +1600,28 @@ Item {
                     Layout.fillWidth: true
                     implicitHeight: Math.max(78, contentItem.implicitHeight + topPadding + bottomPadding)
                     objectName: "sessionArchiveRow"
-                    contentItem: ColumnLayout {
-                        spacing: 4
-                        Text {
-                            text: archiveRow.text
-                            font: archiveRow.font
-                            color: archiveRow.foregroundColor
-                            textFormat: Text.PlainText
-                            horizontalAlignment: Text.AlignHCenter
-                            wrapMode: Text.WordWrap
-                            Layout.fillWidth: true
+                    contentItem: RowLayout {
+                        spacing: 12
+                        SavedMoodMark {
+                            objectName: "sessionArchiveMoodMark"
+                            metrics: archiveRow.modelData.summary_metrics || []
                         }
-                        Repeater {
-                            objectName: "sessionArchiveSummary"
-                            model: archiveRow.modelData.summary_metrics || []
-                            SessionSummaryMetric { compactMetric: true }
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 4
+                            Text {
+                                text: archiveRow.text
+                                font: archiveRow.font
+                                color: archiveRow.foregroundColor
+                                textFormat: Text.PlainText
+                                wrapMode: Text.WordWrap
+                                Layout.fillWidth: true
+                            }
+                            Repeater {
+                                objectName: "sessionArchiveSummary"
+                                model: archiveRow.modelData.summary_metrics || []
+                                SessionSummaryMetric { compactMetric: true }
+                            }
                         }
                     }
                     enabled: !screen.owner.busy && !screen.archiveIntent
@@ -1634,10 +1642,23 @@ Item {
                 text: screen.tr("session_history_first"); enabled: !screen.owner.busy
                 onClicked: screen.owner.firstEntries()
             }
-            Repeater {
-                objectName: "sessionSavedSummary"
-                model: screen.historical && !screen.currentHistory ? (screen.state.saved_summary || []) : []
-                SessionSummaryMetric { objectName: "sessionSavedSummaryMetric" }
+            RowLayout {
+                visible: screen.historical && !screen.currentHistory && !!screen.state.timeline.session
+                Layout.fillWidth: true
+                spacing: 12
+                SavedMoodMark {
+                    objectName: "sessionSavedMoodMark"
+                    metrics: screen.state.saved_summary || []
+                }
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 4
+                    Repeater {
+                        objectName: "sessionSavedSummary"
+                        model: screen.state.saved_summary || []
+                        SessionSummaryMetric { objectName: "sessionSavedSummaryMetric" }
+                    }
+                }
             }
             GlassButton {
                 objectName: "sessionDeleteSaved"
@@ -1786,6 +1807,38 @@ Item {
                     onClicked: { composeInput.text = screen.draft; screen.submitQuestion() }
                 }
             }
+        }
+    }
+    component SavedMoodMark: Rectangle {
+        id: moodMark
+        required property var metrics
+        readonly property string moodKey: {
+            const mood = metrics.find(metric => metric.label === "session_summary_mood"
+                                      && metric.coverage === "complete")
+            return MoodTheme.key(mood ? mood.value : "")
+        }
+        implicitWidth: screen.compact ? 42 : 52
+        implicitHeight: implicitWidth
+        Layout.alignment: Qt.AlignVCenter
+        radius: width / 2
+        border.width: 1
+        border.color: moodKey === "default" ? BrandTheme.colors.border : MoodTheme.moodColor(moodKey, "focus")
+        Accessible.ignored: true
+
+        gradient: Gradient {
+            GradientStop {
+                position: 0
+                color: moodMark.moodKey === "default" ? BrandTheme.colors.surfaceRaised
+                    : MoodTheme.mix(BrandTheme.colors.surface, MoodTheme.moodColor(moodMark.moodKey, "gradientStart"), 0.35)
+            }
+            GradientStop { position: 1; color: BrandTheme.colors.surface }
+        }
+        FeatureIcon {
+            objectName: "savedMoodIcon"
+            anchors.centerIn: parent
+            width: parent.width * 0.62
+            height: width
+            iconName: moodMark.moodKey === "default" ? "session" : "mood_" + moodMark.moodKey
         }
     }
     component SessionSummaryMetric: Text {
