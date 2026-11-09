@@ -1293,6 +1293,10 @@ _HISTORY_SEARCH_TRANSLATIONS = {
     "session_search_limit": ("Refine your search to see more results.", "Verfijn je zoekopdracht om meer resultaten te zien.", "Verfeinere deine Suche, um weitere Ergebnisse zu sehen.", "Affinez votre recherche pour voir plus de résultats.", "Refina tu búsqueda para ver más resultados."),
     "session_search_partial": ("More saved entries remain. Load more to continue searching.", "Er zijn nog meer opgeslagen bijdragen. Laad meer om verder te zoeken.", "Weitere gespeicherte Beiträge sind verfügbar. Lade mehr, um weiterzusuchen.", "D’autres contributions enregistrées restent à rechercher. Chargez la suite.", "Quedan más entradas guardadas. Carga más para continuar buscando."),
     "session_search_empty": ("No matches in this session.", "Geen resultaten in deze sessie.", "Keine Treffer in dieser Session.", "Aucun résultat dans cette session.", "No hay resultados en esta sesión."),
+    "session_duration_hours_minutes": ("%1 h %2 min", "%1 u %2 min", "%1 Std. %2 Min.", "%1 h %2 min", "%1 h %2 min"),
+    "session_duration_hours": ("%1 h", "%1 u", "%1 Std.", "%1 h", "%1 h"),
+    "session_duration_minutes": ("%1 min", "%1 min", "%1 Min.", "%1 min", "%1 min"),
+    "session_duration_subminute": ("Less than 1 min", "Minder dan 1 min", "Unter 1 Min.", "Moins de 1 min", "Menos de 1 min"),
     "session_open_entry": ("Open contribution", "Open bijdrage", "Beitrag öffnen", "Ouvrir la contribution", "Abrir contribución"),
 }
 for _key, _values in _HISTORY_SEARCH_TRANSLATIONS.items():

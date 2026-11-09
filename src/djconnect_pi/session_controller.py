@@ -259,6 +259,28 @@ class SessionController(QObject):
         language = self.backend.cfg.language
         return QLocale(locale_for_language(language)).toString(parsed.toLocalTime(), translate(language, "session_datetime_format"))
 
+    @Slot("QVariantMap", result=str)
+    def formatSavedDuration(self, session):
+        status = session.get("lifecycle_status")
+        if status not in ("ENDED", "INTERRUPTED"):
+            return ""
+        start = timestamp(session.get("started_at"))
+        end_stamp = session.get("ended_at")
+        if status == "INTERRUPTED" and not end_stamp:
+            end_stamp = session.get("interrupted_at")
+        end = timestamp(end_stamp)
+        if start is None or end is None or end < start:
+            return ""
+        hours, minutes = divmod(int((end - start) // 60), 60)
+        language = self.backend.cfg.language
+        if hours and minutes:
+            return translate(language, "session_duration_hours_minutes").replace("%1", str(hours)).replace("%2", str(minutes))
+        if hours:
+            return translate(language, "session_duration_hours").replace("%1", str(hours))
+        if minutes:
+            return translate(language, "session_duration_minutes").replace("%1", str(minutes))
+        return translate(language, "session_duration_subminute")
+
     @Property("QVariantMap", notify=playbackArtworkChanged)
     def playbackArtwork(self):
         return self._playback_artwork.snapshot()

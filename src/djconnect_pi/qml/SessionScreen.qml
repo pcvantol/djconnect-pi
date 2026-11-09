@@ -672,6 +672,11 @@ Item {
     signal navigate(string destination)
     function tr(key) { backend.translationVersion; return backend.t(key) }
     function displayDate(value) { backend.translationVersion; return owner.formatTimestamp(value || "") }
+    function savedDurationSuffix(header) {
+        backend.translationVersion
+        var duration = owner.formatSavedDuration(header || ({}))
+        return duration ? " · " + duration : ""
+    }
     function toolbarValue(field) {
         if (backend.demoMode) return owner.demoPreferences[field] || ""
         var shared = backend.sharedSettings
@@ -1599,6 +1604,7 @@ Item {
                     objectName: "sessionArchiveRow"
                     enabled: !screen.owner.busy && !screen.archiveIntent
                     text: screen.tr("session_title") + " · " + screen.displayDate(modelData.started_at || modelData.created_at)
+                        + screen.savedDurationSuffix(modelData)
                         + (modelData.lifecycle_status === "INTERRUPTED" ? "\n" + screen.tr("session_history_interrupted") : "")
                     onClicked: screen.openArchiveSession(modelData.session_id)
                 }
@@ -1609,7 +1615,7 @@ Item {
             }
             Text {
                 visible: screen.historical && !!screen.state.timeline.session
-                text: screen.tr(screen.state.archive_delete.available ? "session_saved_title" : "session_history_view_readonly"); color: BrandTheme.colors.muted; font.pixelSize: 20
+                text: screen.tr(screen.state.archive_delete.available ? "session_saved_title" : "session_history_view_readonly") + screen.savedDurationSuffix(screen.state.timeline.session); color: BrandTheme.colors.muted; font.pixelSize: 20
             }
             Text {
                 objectName: "sessionSavedInterruptedStatus"

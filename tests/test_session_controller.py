@@ -495,6 +495,23 @@ def test_history_dates_are_localized_and_equivalent_offsets_show_same_instant(co
     assert owner.formatTimestamp('not-a-date') == ''
 
 
+@pytest.mark.parametrize(("session", "expected"), [
+    ({"lifecycle_status": "ENDED", "ended_at": "2026-10-18T15:45:59+02:00"}, "1 u 11 min"),
+    ({"lifecycle_status": "ENDED", "ended_at": "2026-10-18T13:34:00Z"}, "1 u"),
+    ({"lifecycle_status": "INTERRUPTED", "interrupted_at": "2026-10-18T12:41:00Z"}, "7 min"),
+    ({"lifecycle_status": "ENDED", "ended_at": "2026-10-18T12:34:59Z"}, "Minder dan 1 min"),
+    ({"lifecycle_status": "ENDED", "ended_at": "2026-10-18T12:33:59Z"}, ""),
+    ({"lifecycle_status": "ENDED", "interrupted_at": "2026-10-18T12:41:00Z"}, ""),
+    ({"lifecycle_status": "ACTIVE", "ended_at": "2026-10-18T13:34:00Z"}, ""),
+    ({"lifecycle_status": "ENDED", "ended_at": "2026-10-18T13:34:00"}, ""),
+    ({"lifecycle_status": "ENDED", "started_at": "", "ended_at": "2026-10-18T13:34:00Z"}, ""),
+])
+def test_saved_duration_uses_confirmed_timestamps(controller, session, expected):
+    owner, backend = controller
+    backend.cfg.language = "nl"
+    assert owner.formatSavedDuration({"started_at": "2026-10-18T12:34:00Z", **session}) == expected
+
+
 def paged_timeline(owner):
     from copy import deepcopy
 
