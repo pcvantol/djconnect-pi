@@ -10,6 +10,9 @@ GlassCard {
     property bool selectionAvailable: false
     property bool selectionBusy: false
     property bool deletionAvailable: false
+    property string flowDeletionScope: ""
+    property Item flowSurface: null
+    trailingRevealWidth: deleteAction.revealWidth
     signal deleteEntry(string sessionId, string entryId)
     readonly property bool attributionReady: historySources.ready
     property alias bodyItem: retainedBody
@@ -50,13 +53,18 @@ GlassCard {
         text: historyCard.translate("session_ask_about"); enabled: !historyCard.selectionBusy
         onClicked: historyCard.askAboutEntry()
     }
-    GlassButton {
+    SessionFlowDelete {
+        id: deleteAction
         objectName: "sessionDeleteRetainedEntry"
-        visible: historyCard.deletionAvailable && !historyCard.sourceWithdrawn
+        card: historyCard
+        scope: historyCard.flowDeletionScope
+        dismissalSurface: historyCard.flowSurface
+        gesturesOnly: scope.length > 0
+        allowed: historyCard.deletionAvailable && !historyCard.sourceWithdrawn
             && ["dj_moment", "conversation_user", "conversation_dj"].includes(entry.kind)
-        iconName: "trash"; Accessible.name: historyCard.translate("session_content_delete_action")
         enabled: !historyCard.selectionBusy
-        onClicked: historyCard.deleteEntry(entry.session_id, entry.entry_id)
+        actionLabel: historyCard.translate("session_content_delete_action")
+        onDeleteRequested: historyCard.deleteEntry(entry.session_id, entry.entry_id)
     }
     Text { objectName: "sessionHistoryEntryDate"; text: historyCard.dateText; color: BrandTheme.colors.muted; font.pixelSize: 16; textFormat: Text.PlainText }
 }
