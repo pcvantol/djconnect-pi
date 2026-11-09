@@ -37,24 +37,6 @@ Item {
     function deleteContent(kind, sessionId, identifier) {
         if (owner.beginContentDelete(kind, sessionId, identifier)) contentDeletePanel.open()
     }
-    component SessionSummaryMetric: Text {
-        required property var modelData
-        property bool compactMetric: false
-        readonly property string valueText: {
-            if (modelData.coverage === "withdrawn") return screen.tr("session_summary_withdrawn")
-            if (modelData.value === null) return screen.tr("session_summary_unknown")
-            if (typeof modelData.value === "string")
-                return screen.tr(modelData.value === "mixed" ? "session_summary_mixed" : "mood_" + modelData.value)
-            const count = Number(modelData.value).toLocaleString(Qt.locale(screen.backend.language), "f", 0)
-            return modelData.coverage === "partial" ? count + " · " + screen.tr("session_summary_partial") : count
-        }
-        text: screen.tr(modelData.label) + ": " + valueText
-        textFormat: Text.PlainText
-        color: BrandTheme.colors.muted
-        font.pixelSize: compactMetric || screen.compact ? 17 : 20
-        Layout.fillWidth: true
-        wrapMode: Text.WordWrap
-    }
     component LiveMomentCard: GlassCard {
         id: liveCard
         objectName: "sessionLiveMomentCard"
@@ -1805,6 +1787,24 @@ Item {
                 }
             }
         }
+    }
+    component SessionSummaryMetric: Text {
+        required property var modelData
+        property bool compactMetric: false
+        readonly property string valueText: {
+            if (modelData.coverage === "withdrawn") return screen.tr("session_summary_withdrawn")
+            if (modelData.value === null) return screen.tr("session_summary_unknown")
+            if (typeof modelData.value === "string")
+                return screen.tr(modelData.value === "mixed" ? "session_summary_mixed" : "mood_" + modelData.value)
+            const count = Number(modelData.value).toLocaleString(Qt.locale(screen.backend.language), "f", 0)
+            return modelData.coverage === "partial" ? count + " · " + screen.tr("session_summary_partial") : count
+        }
+        text: screen.tr(modelData.label) + ": " + valueText
+        textFormat: Text.PlainText
+        color: BrandTheme.colors.muted
+        font.pixelSize: compactMetric || screen.compact ? 17 : 20
+        Layout.fillWidth: true
+        wrapMode: Text.WordWrap
     }
     component SessionPlaybackShortcut: GlassButton {
         signal currentTrackClicked()
