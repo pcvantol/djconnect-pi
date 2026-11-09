@@ -17,9 +17,9 @@ GlassCard {
     readonly property var selection: MoodTheme.sessionSelection(mood)
     readonly property var colors: MoodTheme.sessionWelcome(mood)
     readonly property var settings: backend.sharedSettings
-    readonly property bool ready: !!settings.available && !settings.active && !settings.selection_required &&
+    readonly property bool ready: backend.demoMode || (!!settings.available && !settings.active && !settings.selection_required &&
         !settings.operation_pending && !settings.operation_unknown && !backend.sharedSettingsBusy &&
-        typeof settings.edit_token === "string" && settings.edit_token.length > 0
+        typeof settings.edit_token === "string" && settings.edit_token.length > 0)
     signal startRequested(string mood)
     padding: compact ? 24 : 32 * ipadScale
     spacing: compact ? 18 : 29 * ipadScale
@@ -33,17 +33,27 @@ GlassCard {
         }
     }
     function tr(key) { backend.translationVersion; return backend.t(key) }
-    function choices(field) { return (settings.options || {})[field] || [] }
-    function selected(field) { return (settings.values || {})[field] || "" }
+    function choices(field) {
+        return ((backend.demoMode ? backend.djSession.demoOptions : settings.options) || {})[field] || []
+    }
+    function selected(field) {
+        return ((backend.demoMode ? backend.djSession.demoPreferences : settings.values) || {})[field] || ""
+    }
+    function canChoose(field) {
+        return ready && !busy && (backend.demoMode || (settings.writable || []).indexOf(field) >= 0)
+    }
     function choose(field, value) {
-        if (!ready || busy || choices(field).indexOf(value) < 0 ||
-            (settings.writable || []).indexOf(field) < 0 || selected(field) === value) return
+        if (!canChoose(field) || choices(field).indexOf(value) < 0 || selected(field) === value) return
+        if (backend.demoMode) {
+            backend.djSession.setDemoPreference(field, value)
+            return
+        }
         var patch = {_edit_token: settings.edit_token}
         patch[field] = value
         backend.saveSharedSettings(patch)
     }
-    onVisibleChanged: { if (visible) backend.pollSharedSettings() }
-    Component.onCompleted: { if (visible) backend.pollSharedSettings() }
+    onVisibleChanged: { if (visible && !backend.demoMode) backend.pollSharedSettings() }
+    Component.onCompleted: { if (visible && !backend.demoMode) backend.pollSharedSettings() }
 
     RowLayout {
         Layout.fillWidth: true
@@ -204,7 +214,7 @@ GlassCard {
                                 border.color: choiceButton.checked ? (card.selection.filled ? "#36FFFFFF" : BrandTheme.colors.primaryActionBorder) : "#32FFFFFF"
                                 border.width: choiceButton.activeFocus ? 2 : 1
                             }
-                            enabled: card.ready && !card.busy && (card.settings.writable || []).indexOf(choiceRow.modelData) >= 0
+                            enabled: card.canChoose(choiceRow.modelData)
                             onClicked: card.choose(choiceRow.modelData, modelData)
                         }
                     }
