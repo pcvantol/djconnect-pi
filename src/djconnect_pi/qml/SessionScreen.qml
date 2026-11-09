@@ -183,7 +183,13 @@ Item {
         owner.setMomentArtworkVisible(visible && !historical && !showForecast)
         owner.setPlaybackArtworkVisible(visible && !historical && !showForecast)
     }
-    Component.onCompleted: syncMediaVisibility()
+    function syncSessionVisibility() {
+        if (owner) owner.setViewActive(visible)
+    }
+    Component.onCompleted: {
+        syncSessionVisibility()
+        syncMediaVisibility()
+    }
     onShowForecastChanged: { if (showForecast) { outputsPanel.close(); playbackPanel.close() } if (!showForecast) clearForecastReading(); syncMediaVisibility() }
     onStateChanged: {
         if (contentDeletePanel && contentDeletePanel.opened && state.content_delete
@@ -665,7 +671,7 @@ Item {
         if (contentDeletePanel) contentDeletePanel.close()
         if (owner) owner.clearSearch()
     }
-    onVisibleChanged: { syncMediaVisibility(); if (!visible) { clearForecastReading(); cancelArchiveRead(); if (owner) owner.clearArchive(); clearFlowReturn(); historyRead.stop(); historyReadProfile = ""; historyReadSession = ""; historyReadPending = false; readingRestore.stop(); pendingReadingAnchor = ""; closeTransient() } }
+    onVisibleChanged: { syncSessionVisibility(); syncMediaVisibility(); if (!visible) { clearForecastReading(); cancelArchiveRead(); if (owner) owner.clearArchive(); clearFlowReturn(); historyRead.stop(); historyReadProfile = ""; historyReadSession = ""; historyReadPending = false; readingRestore.stop(); pendingReadingAnchor = ""; closeTransient() } }
     onHistoricalChanged: { if (historical) { outputsPanel.close(); playbackPanel.close() } syncMediaVisibility(); if (!historical) { archiveDetailReturn = null; cancelArchiveRead(); if (owner) owner.clearArchive() } readingRestore.stop(); pendingReadingAnchor = ""; readingOffset = 0; if (!historical && flowReturn) { historyScroll.contentItem.cancelFlick(); flowReturnRestore.restart() } }
     onSearchTargetChanged: { if (searchPanel) searchPanel.close(); if (searchInput) searchInput.clear(); if (owner) owner.clearSearch() }
     signal openVibeScape(real pickerTop)

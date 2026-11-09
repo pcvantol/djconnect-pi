@@ -83,13 +83,14 @@ class SessionController(QObject):
     ownerScopeChanged = Signal()
     _ready = Signal(object)
 
-    def __init__(self, backend):
+    def __init__(self, backend, *, view_active=True):
         super().__init__(backend)
         self.backend = backend
         self._demo_preferences = {"mood": "groove", "presence": "balanced", "persona": "home_dj"}
         self.transport = SessionTransport(lambda: backend.cfg, owner_scope=self._owner_scope)
         self._clock = ExpiryClock()
         self._foreground = True
+        self._view_active = view_active
         self._contribution_wake_scope = None
         self._contribution_wake_at = float("-inf")
         self._session = {}
@@ -577,6 +578,20 @@ class SessionController(QObject):
             self.ownerScopeChanged.emit()
         self.changed.emit()
         self.contextCleared.emit()
+
+    @Slot(bool)
+    def setViewActive(self, active):
+        if self._view_active == active:
+            return
+        self._view_active = active
+        if not active:
+            self._contribution_wake_scope = None
+            if self._running_action == "refresh":
+                # The queued worker checks its ticket. A response already in flight
+                # cannot update the hidden view or block a fresh read on return.
+                self._running = 0
+                self._running_action = ""
+                self.changed.emit()
 
     @Slot(bool)
     def setForeground(self, foreground):
@@ -1181,7 +1196,7 @@ class SessionController(QObject):
         self._launch("open_entry", {"session_id": session_id, "entry_id": entry_id})
 
     def _launch(self, action, value=""):
-        if not self._foreground:
+        if not self._foreground or (action == "refresh" and not self._view_active):
             return
         if (self._artwork_prepare.running or self._playback_control.running or self._archive_delete.running or self._content_delete.running) and action != "end":
             return
@@ -1404,7 +1419,11 @@ class SessionController(QObject):
                     elif action == "end":
                         self.transport.end(binding, value)
                     # A pure current read, never a write replay or optimistic local Session.
+                    if action == "refresh":
+                        check_conversation_read()
                     result["session"] = active_session(self.transport.active(binding))
+                    if action == "refresh":
+                        check_conversation_read()
                     try:
                         result["capabilities"] = self.transport.capabilities(binding)
                     except SessionError:

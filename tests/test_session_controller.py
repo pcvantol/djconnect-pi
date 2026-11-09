@@ -483,6 +483,36 @@ def test_background_clears_authority_and_late_results_resume_with_read_only(cont
     assert owner.state['loaded']
 
 
+@pytest.mark.parametrize("already_in_flight", [False, True])
+def test_hidden_session_stops_runtime_reads_and_drops_late_results(controller, already_in_flight):
+    owner, backend = controller
+    owner.refresh()
+    job = backend.jobs.pop()
+    if already_in_flight:
+        def finish_after_navigation(_binding):
+            owner.setViewActive(False)
+            return {"success": True, "session": None}
+        owner.transport.active.side_effect = finish_after_navigation
+    else:
+        owner.setViewActive(False)
+
+    job()
+    assert owner.transport.active.call_count == int(already_in_flight)
+    owner.transport.capabilities.assert_not_called()
+    assert not owner.state["loaded"]
+    owner.refresh()
+    owner.setForeground(False)
+    owner.setForeground(True)
+    assert not backend.jobs
+
+    owner.transport.active.side_effect = None
+    owner.setViewActive(True)
+    owner.refresh()
+    backend.jobs.pop()()
+    assert owner.state["loaded"]
+    owner.transport.capabilities.assert_called_once()
+
+
 @pytest.mark.parametrize('language', ['en', 'nl', 'de', 'fr', 'es'])
 def test_history_dates_are_localized_and_equivalent_offsets_show_same_instant(controller, language):
     owner, backend = controller
