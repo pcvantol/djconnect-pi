@@ -748,6 +748,15 @@ Item {
     }
     Connections {
         target: screen.owner
+        function onFlowExpansionAboutToChange() {
+            if (!screen.visible || screen.historical || screen.showForecast || screen.followQuestionReply
+                    || historyScroll.contentItem.moving || screen.flowReturn) return
+            screen.rememberFlow()
+            if (screen.flowReturn) {
+                flowReturnRestore.resetIfMissing = false
+                flowReturnRestore.restart()
+            }
+        }
         function onFlowIdleHeaderAboutToChange() {
             if (screen.historical || !jumpCurrent.visible || screen.followQuestionReply || historyScroll.contentItem.moving || screen.flowReturn) return
             screen.rememberArtworkReading()
@@ -1563,6 +1572,12 @@ Item {
                         }
                     }
                 }
+            }
+            GlassButton {
+                objectName: "sessionFlowLoadOlder"
+                visible: !screen.historical && !!screen.state.flow_more
+                text: screen.tr("session_more"); enabled: !screen.owner.busy && !screen.owner.questionBusy
+                onClicked: screen.owner.expandFlow(screen.state.session_id)
             }
             GlassButton {
                 objectName: "sessionReadCurrentHistory"

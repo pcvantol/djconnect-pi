@@ -1613,3 +1613,46 @@ def test_vibecast_uncertain_approval_uses_status_read_instead_of_replay(vibecast
     assert [call.args[1] for call in owner.transport.display_owner.call_args_list] == [
         "context", "context", "resolve", "context", "approve", "context",
     ]
+
+
+def test_flow_loads_a_larger_authorized_tail_without_opening_saved_history(controller):
+    owner, backend = controller
+    session = {"session_id": "s", "runtime_state": "active", "broadcast": {"session": {"session_id": "s"}}}
+    owner.transport.active.return_value = {"success": True, "session": session}
+
+    def tail(binding, sid, *, limit=20):
+        assert sid == "s"
+        return {"success": True, "schema_version": 2, "history_contract_version": 2,
+                "session": {"session_id": sid}, "revision": "r", "next_cursor": None,
+                "window": "tail", "coverage": "bounded_saved_entry_window", "window_limit": limit,
+                "scan_complete": limit >= 30, "entries": [
+                    {"entry_id": f"entry-{i}", "session_id": sid, "order": i, "kind": "dj_silence",
+                     "text": None, "speech_available": False, "historical_view_only": True,
+                     "current_display_allowed": False, "occurred_at": "2026-11-09T00:00:00Z",
+                     "retained_until": "2099-01-01T00:00:00Z"}
+                    for i in range(max(1, 31 - limit), 31)]}
+
+    owner.transport.timeline = Mock(side_effect=tail)
+    owner.refresh()
+    backend.jobs.pop()()
+    assert owner.state["flow_more"] and len(owner.state["flow_rows"]) == 20
+    owner.expandFlow("wrong-session")
+    assert not backend.jobs
+    owner.expandFlow("s")
+    backend.jobs.pop()()
+    assert len(owner.state["flow_rows"]) == 30
+    assert not owner.state["flow_more"] and not owner.state["timeline"]
+    owner.refresh()
+    backend.jobs.pop()()
+    assert owner.transport.timeline.call_args.kwargs == {"limit": 50}
+    assert len(owner.state["flow_rows"]) == 30
+
+    new_session = {"session_id": "new", "runtime_state": "active",
+                   "broadcast": {"session": {"session_id": "new"}}}
+    owner.transport.active.return_value = {"success": True, "session": new_session}
+    owner.transport.timeline.side_effect = None
+    owner.transport.timeline.return_value = {**tail(None, "s"), "session": {"session_id": "new"}, "entries": []}
+    owner.refresh()
+    backend.jobs.pop()()
+    assert owner.transport.timeline.call_args.kwargs == {}
+    assert owner.state["session_id"] == "new" and not owner.state["flow_rows"]
