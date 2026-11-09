@@ -37,25 +37,36 @@ Item {
     function deleteContent(kind, sessionId, identifier) {
         if (owner.beginContentDelete(kind, sessionId, identifier)) contentDeletePanel.open()
     }
-    component SessionStartMetadataCard: GlassCard {
-        id: sessionStartCard
+    component SessionTimingCard: GlassCard {
+        id: timingCard
         required property string startedAt
+        property string endedAt: ""
         readonly property string started: screen.displayDate(startedAt)
-        visible: started.length > 0
+        readonly property string ended: screen.displayDate(endedAt)
+        visible: started.length > 0 || ended.length > 0
         Layout.fillWidth: true
         RowLayout {
             Layout.fillWidth: true
             spacing: 10
             FeatureIcon { iconName: "history"; Layout.preferredWidth: 24; Layout.preferredHeight: 24 }
-            Text {
-                text: screen.tr("session_start_metadata").replace("%1", sessionStartCard.started)
-                textFormat: Text.PlainText
-                color: BrandTheme.colors.muted
-                font.pixelSize: screen.compact ? 17 : 20
-                wrapMode: Text.WordWrap
+            ColumnLayout {
                 Layout.fillWidth: true
+                spacing: 4
+                SessionTimingLine { date: timingCard.started; translationKey: "session_start_metadata" }
+                SessionTimingLine { date: timingCard.ended; translationKey: "session_end_metadata" }
             }
         }
+    }
+    component SessionTimingLine: Text {
+        required property string date
+        required property string translationKey
+        visible: date.length > 0
+        text: screen.tr(translationKey).replace("%1", date)
+        textFormat: Text.PlainText
+        color: BrandTheme.colors.muted
+        font.pixelSize: screen.compact ? 17 : 20
+        wrapMode: Text.WordWrap
+        Layout.fillWidth: true
     }
     component LiveMomentCard: GlassCard {
         id: liveCard
@@ -1584,7 +1595,7 @@ Item {
                     }
                 }
             }
-            SessionStartMetadataCard {
+            SessionTimingCard {
                 objectName: "sessionFlowStartMetadata"
                 startedAt: !screen.historical && screen.state.runtime_state === "active"
                     ? (screen.state.started_at || "") : ""
@@ -1678,11 +1689,14 @@ Item {
                     onAskAbout: (sessionId, entryId) => { if (screen.owner.selectEntry(sessionId, entryId)) { screen.navigate("session"); composerPanel.open() } }
                 }
             }
-            SessionStartMetadataCard {
+            SessionTimingCard {
                 objectName: "sessionSavedStartMetadata"
                 readonly property var header: screen.state.timeline.session || ({})
                 startedAt: screen.historical && header.session_id && typeof header.started_at === "string"
                     ? header.started_at : ""
+                readonly property var endStamp: header.lifecycle_status === "INTERRUPTED" ? header.interrupted_at
+                    : header.lifecycle_status === "ENDED" ? header.ended_at : ""
+                endedAt: screen.historical && header.session_id && typeof endStamp === "string" ? endStamp : ""
             }
             GlassButton {
                 objectName: "sessionHistoryExtend"

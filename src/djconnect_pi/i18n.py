@@ -1283,6 +1283,7 @@ _HISTORY_SEARCH_TRANSLATIONS = {
     "session_history_title": ("Session history", "Sessiegeschiedenis", "Session-Verlauf", "Historique de session", "Historial de sesión"),
     "session_history_view_readonly": ("Session history · read only", "Sessiegeschiedenis · alleen-lezen", "Session-Verlauf · schreibgeschützt", "Historique de session · lecture seule", "Historial de sesión · solo lectura"),
     "session_datetime_format": ("d MMM yyyy · HH:mm", "d MMM yyyy · HH:mm", "d. MMM yyyy · HH:mm", "d MMM yyyy · HH:mm", "d MMM yyyy · HH:mm"),
+    "session_end_metadata": ("Session ended %1", "Sessie geëindigd op %1", "Session beendet am %1", "Session terminée le %1", "Sesión finalizada el %1"),
     "session_start_metadata": ("Session started %1", "Sessie gestart op %1", "Session gestartet am %1", "Session démarrée le %1", "Sesión iniciada el %1"),
     "session_history_first": ("Read from the beginning", "Lees vanaf het begin", "Von Anfang an lesen", "Lire depuis le début", "Leer desde el principio"),
     "session_history_previous": ("Previous contributions", "Vorige bijdragen", "Vorherige Beiträge", "Contributions précédentes", "Contribuciones anteriores"),
