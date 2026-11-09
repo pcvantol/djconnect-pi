@@ -1701,9 +1701,11 @@ Item {
     GlassSurface {
         id: composerDock
         objectName: "sessionComposerDock"
-        visible: screen.state.composer_available
-        anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
-        anchors.leftMargin: 20; anchors.rightMargin: 20; anchors.bottomMargin: 120
+        visible: !screen.historical && !screen.showForecast && !searchPanel.visible
+            && screen.state.composer_available
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: parent.bottom; anchors.bottomMargin: 120
+        width: screen.compact ? parent.width - 40 : Math.min(1000, parent.width - 24) * 0.75
         height: composerColumn.implicitHeight + 16; radius: 30; elevated: true
         ColumnLayout {
             id: composerColumn
@@ -1719,6 +1721,7 @@ Item {
                 Layout.fillWidth: true; spacing: 8
                 GlassButton {
                     objectName: "openSessionComposer"
+                    Accessible.name: screen.tr("session_question_placeholder")
                     Layout.fillWidth: true; enabled: !screen.owner.busy
                     onClicked: composerPanel.open()
                     contentItem: Text { text: screen.draft || screen.tr("session_question_placeholder"); textFormat: Text.PlainText; elide: Text.ElideRight; color: BrandTheme.colors.muted; font.pixelSize: 21; verticalAlignment: Text.AlignVCenter }
