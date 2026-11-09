@@ -1695,3 +1695,58 @@ _VIBESCAPE_COPY = {
 for _key, _values in _VIBESCAPE_COPY.items():
     for _locale, _value in zip(("en", "nl", "de", "fr", "es"), _values, strict=True):
         TRANSLATIONS[_locale][_key] = _value
+
+_DEMO_SESSION_COPY = {
+    "demo_session_welcome": (
+        "Welcome to the demo session. Pick a track or type a question for your DJ.",
+        "Welkom in de demosessie. Kies een nummer of typ een vraag voor je DJ.",
+        "Willkommen in der Demo-Session. Wähle einen Titel oder stelle deinem DJ eine Frage.",
+        "Bienvenue dans la session démo. Choisissez un titre ou posez une question à votre DJ.",
+        "Te damos la bienvenida a la sesión de demostración. Elige un tema o pregunta a tu DJ.",
+    ),
+    "demo_dj_question": (
+        "What should I listen to next?",
+        "Wat zal ik hierna luisteren?",
+        "Was soll ich als Nächstes hören?",
+        "Que puis-je écouter ensuite ?",
+        "¿Qué escucho a continuación?",
+    ),
+    "demo_dj_answer": (
+        "Demo reply: try Sweet Disposition next if you want to keep the energy going.",
+        "Demoantwoord: probeer hierna Sweet Disposition als je de energie wilt vasthouden.",
+        "Demo-Antwort: Hör als Nächstes Sweet Disposition, wenn du die Energie halten willst.",
+        "Réponse démo : essayez ensuite Sweet Disposition pour garder l’énergie.",
+        "Respuesta de demostración: prueba Sweet Disposition para mantener la energía.",
+    ),
+    "demo_dna_summary": (
+        "An example listening profile with synth-pop, indie and electronic tracks.",
+        "Een voorbeeld van een luisterprofiel met synthpop, indie en elektronische muziek.",
+        "Ein Beispiel-Hörprofil mit Synthpop, Indie und elektronischer Musik.",
+        "Un exemple de profil d’écoute avec de la synthpop, de l’indie et de l’électronique.",
+        "Un perfil de escucha de ejemplo con synth-pop, indie y electrónica.",
+    ),
+    "demo_insight_0": (
+        "Demo insight: bright synthesizers and a steady pulse set the mood.",
+        "Demo-inzicht: heldere synthesizers en een vaste puls zetten de sfeer.",
+        "Demo-Einblick: Helle Synthesizer und ein gleichmäßiger Puls prägen die Stimmung.",
+        "Analyse démo : des synthétiseurs lumineux et une pulsation régulière donnent le ton.",
+        "Análisis de demostración: sintetizadores luminosos y un pulso constante marcan el ambiente.",
+    ),
+    "demo_insight_1": (
+        "Demo insight: ringing guitars and a gradual build give the track momentum.",
+        "Demo-inzicht: sprankelende gitaren en een geleidelijke opbouw geven het nummer vaart.",
+        "Demo-Einblick: Klingende Gitarren und ein langsamer Aufbau geben dem Titel Schwung.",
+        "Analyse démo : des guitares cristallines et une montée progressive donnent de l’élan au morceau.",
+        "Análisis de demostración: guitarras brillantes y una subida gradual dan impulso al tema.",
+    ),
+    "demo_insight_2": (
+        "Demo insight: a syncopated bass line and a relaxed groove drive the track.",
+        "Demo-inzicht: een gesyncopeerde baslijn en een ontspannen groove dragen het nummer.",
+        "Demo-Einblick: Eine synkopierte Basslinie und ein entspannter Groove treiben den Titel an.",
+        "Analyse démo : une basse syncopée et un groove détendu portent le morceau.",
+        "Análisis de demostración: un bajo sincopado y un groove relajado impulsan el tema.",
+    ),
+}
+for _key, _values in _DEMO_SESSION_COPY.items():
+    for _locale, _value in zip(SUPPORTED_LANGUAGES, _values, strict=True):
+        TRANSLATIONS[_locale][_key] = _value

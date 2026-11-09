@@ -1916,14 +1916,29 @@ def test_backend_demo_mode_is_local_only(tmp_path: Path) -> None:
     backend.cycleRepeat()
 
     assert backend.demoMode is True
-    assert backend.title == "Around the World"
+    assert backend.title == "Sweet Disposition"
+    backend.openTrackInsight()
+    assert backend.trackInsightTitle == "Sweet Disposition" and backend.trackInsightText
+    backend.playMediaItem("play_context_at", backend.queueItems[2]["uri"])
+    assert backend.title == backend.trackInsightTitle == "Electric Feel"
+    assert backend.trackInsightText
+    assert backend.askDjMessages and backend.musicDiscoveryItems
+    assert backend.musicDnaEnabled and backend.musicDnaSections
     assert backend.volume == 33
     assert [item["title"] for item in backend.queueItems] == ["Midnight City", "Sweet Disposition", "Electric Feel"]
     assert [item["title"] for item in backend.playlistItems] == ["Friday Night", "Dinner Vibes", "DJConnect"]
+    backend.playMediaItem("start_playlist", backend.playlistItems[1]["uri"])
+    assert backend.title == "Sweet Disposition"
+    backend.playMusicDiscoveryItem(backend.musicDiscoveryItems[2]["payload"])
+    assert backend.title == "Electric Feel"
+    backend._tick_demo_playback()
+    assert backend.playback.position_seconds == 1
     assert calls == []
 
     backend.exitDemoMode()
     assert backend.demoMode is False
+    assert not backend.askDjMessages and not backend.musicDiscoveryItems
+    assert not backend.musicDnaEnabled and not backend.trackInsightText
 
 
 def test_backend_wakes_screen_for_previous_next(tmp_path: Path) -> None:

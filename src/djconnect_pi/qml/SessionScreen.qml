@@ -642,6 +642,7 @@ Item {
     function tr(key) { backend.translationVersion; return backend.t(key) }
     function displayDate(value) { backend.translationVersion; return owner.formatTimestamp(value || "") }
     function toolbarValue(field) {
+        if (backend.demoMode) return owner.demoPreferences[field] || ""
         var shared = backend.sharedSettings
         var value = (shared.values || {})[field]
         if (shared.available && !shared.selection_required && typeof value === "string") return value
@@ -1435,6 +1436,23 @@ Item {
                     return moment.current || !moment.flow_bulletin
                 }) : []
                 LiveMomentCard {}
+            }
+            RowLayout {
+                visible: !screen.historical && screen.backend.demoMode && !!screen.state.playback.item_id
+                Layout.alignment: Qt.AlignHCenter
+                GlassButton {
+                    iconName: "previous"; Accessible.name: screen.tr("previous")
+                    onClicked: screen.backend.previous()
+                }
+                GlassButton {
+                    iconName: screen.backend.playing ? "pause" : "play"
+                    Accessible.name: screen.tr(screen.backend.playing ? "pause" : "play")
+                    onClicked: screen.backend.togglePlay()
+                }
+                GlassButton {
+                    iconName: "next"; Accessible.name: screen.tr("next")
+                    onClicked: screen.backend.next()
+                }
             }
             GlassCard {
                 id: pendingQuestionCard
@@ -2366,7 +2384,15 @@ Item {
         property string profileId: ""
         property string field: "mood"
         property string editToken: ""
-        readonly property bool canSubmit: (choices.field !== "voice" || screen.sessionVoiceAvailable) && choices.visible && screen.state.runtime_state === "active" && screen.sessionControlsVisible && choices.sessionId === screen.state.session_id && choices.profileId === screen.scopeProfileId && choices.editToken === (screen.backend.sharedSettings.edit_token || "") && !!screen.backend.sharedSettings.available && !screen.backend.sharedSettingsBusy && !screen.backend.sharedSettings.selection_required && choices.editToken.length > 0 && !screen.backend.sharedSettings.operation_pending
+        readonly property bool canSubmit: choices.visible && screen.state.runtime_state === "active"
+            && screen.sessionControlsVisible && choices.sessionId === screen.state.session_id
+            && choices.profileId === screen.scopeProfileId
+            && (screen.backend.demoMode ? (screen.owner.demoOptions[choices.field] || []).length > 0
+                : ((choices.field !== "voice" || screen.sessionVoiceAvailable)
+                    && choices.editToken === (screen.backend.sharedSettings.edit_token || "")
+                    && !!screen.backend.sharedSettings.available && !screen.backend.sharedSettingsBusy
+                    && !screen.backend.sharedSettings.selection_required && choices.editToken.length > 0
+                    && !screen.backend.sharedSettings.operation_pending))
         y: toolbar.y + toolbar.height + 8; width: Math.min(screen.width - 24, 560); padding: 22
         modal: true; dim: false
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
@@ -2377,7 +2403,7 @@ Item {
             Flow {
                 Layout.fillWidth: true; spacing: 10
                 Repeater {
-                    model: (screen.backend.sharedSettings.options || {})[choices.field] || []
+                    model: (screen.backend.demoMode ? screen.owner.demoOptions : screen.backend.sharedSettings.options || {})[choices.field] || []
                     GlassButton {
                         required property var modelData
                         text: choices.field === "voice" ? (modelData.label_key ? screen.tr(modelData.label_key) : modelData.label || "") : screen.tr("shared_" + choices.field + "_" + modelData)
@@ -2386,9 +2412,13 @@ Item {
                         objectName: "sessionToolbarOption"
                         onClicked: {
                             if (!choices.canSubmit) return
-                            var patch = {_edit_token: choices.editToken}
-                            patch[choices.field] = choices.field === "voice" ? modelData.value : modelData
-                            screen.backend.saveSharedSettings(patch)
+                            if (screen.backend.demoMode) {
+                                screen.owner.setDemoPreference(choices.field, modelData)
+                            } else {
+                                var patch = {_edit_token: choices.editToken}
+                                patch[choices.field] = choices.field === "voice" ? modelData.value : modelData
+                                screen.backend.saveSharedSettings(patch)
+                            }
                             choices.close()
                         }
                     }

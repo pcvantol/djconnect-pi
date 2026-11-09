@@ -446,6 +446,14 @@ Use the Client adres shown on the Pi in the Home Assistant pairing flow, then
 enter the pairing code on the Pi. The client stores config under
 `~/.config/djconnect-pi/config.json` unless `--config` is provided.
 
+## Local demo
+
+The pairing screen offers a local demo. Start a DJ Session, change its mood,
+persona or DJ presence, and submit a typed Ask DJ question to see an example
+reply in Flow. The demo queue, playlists and Discover change the simulated
+track and progress. Track Insight and Music DNA show example content.
+The demo runs without Home Assistant or streaming audio.
+
 ## Unattended Updates
 
 The local Client API, updater, updater progress UI and OS maintenance are

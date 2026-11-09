@@ -103,8 +103,22 @@ def test_demo_session_never_uses_server_or_survives_demo_exit(controller):
     owner, backend = controller
     backend.demoMode = True
     backend.demoModeChanged.emit()
+    assert owner.state["loaded"] and not owner.state["session_id"]
+    owner.setDemoPreference("persona", "festival_dj")
+    owner.setDemoPreference("presence", "occasional")
+    owner.start("chill")
     assert owner.state["session_id"] == "demo-session"
+    assert owner.state["persona"] == "festival_dj"
+    assert owner.state["presence"] == "occasional"
+    owner.setDemoPreference("mood", "energy")
+    assert owner.state["mood"] == "energy"
+    assert owner.sendQuestion("What should I listen to next?")
+    owner._expire()
+    assert [row["contribution"]["kind"] for row in owner.state["flow_rows"]] == [
+        "conversation_dj", "conversation_user", "dj_moment",
+    ]
     owner.end("demo-session")
+    assert not owner.state["flow_rows"] and not owner.sendQuestion("No session")
     assert owner.state["loaded"] and not owner.state["session_id"]
     owner.start("party")
     assert owner.state["mood"] == "party"
