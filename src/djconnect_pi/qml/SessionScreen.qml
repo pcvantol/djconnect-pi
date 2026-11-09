@@ -1087,6 +1087,16 @@ Item {
                     color: BrandTheme.colors.warning; font.pixelSize: 21; wrapMode: Text.WordWrap
                     Layout.fillWidth: true; textFormat: Text.PlainText
                 }
+                GlassButton {
+                    objectName: "sessionArchiveRetry"
+                    visible: screen.historical && !screen.currentHistory && !screen.state.timeline.session
+                        && screen.state.history_available
+                        && ["offline", "unavailable", "conflict"].indexOf(screen.state.error) >= 0
+                    enabled: !screen.owner.busy && !screen.historyReadPending
+                        && !screen.archiveReadActive && !screen.archiveIntent
+                    iconName: "refresh"; text: screen.tr("session_archive_retry")
+                    onClicked: screen.refreshHistory()
+                }
             }
             Text {
                 visible: !screen.historical && !!screen.state.owner_read_only
@@ -1603,7 +1613,9 @@ Item {
                 }
             }
             Text {
-                visible: screen.historical && !screen.owner.busy && screen.state.history_loaded && screen.state.sessions.length === 0 && !screen.state.timeline.session
+                objectName: "sessionArchiveEmpty"
+                visible: screen.historical && !screen.currentHistory && !screen.owner.busy && !screen.state.error
+                    && screen.state.history_loaded && screen.state.sessions.length === 0 && !screen.state.timeline.session
                 text: screen.tr(screen.state.archive_older_window || screen.state.has_more_sessions || screen.state.has_older_sessions ? "session_archive_window_empty" : "session_history_empty"); color: BrandTheme.colors.muted; font.pixelSize: 22
             }
             Text {
