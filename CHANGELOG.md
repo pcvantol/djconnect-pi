@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 4.0.0
+
+- Expand the current track artwork fullscreen on both Pi displays. Track changes wake the display and show the artwork for five seconds.
+
 ## 4.0.0-rc.10
 
 - Refresh DJ Session only while its view is open. Ignore refresh replies that arrive after navigation.
