@@ -165,6 +165,13 @@ Canvas {
             } else if (iconName === "output") {
                 roundRect(4, 5, 24, 17, 2)
                 line(10, 27, 22, 27); line(16, 22, 16, 27)
+            } else if (iconName === "vibecast") {
+                line(4, 5, 26, 5); line(26, 5, 26, 17)
+                line(4, 5, 4, 21); line(4, 21, 15, 21)
+                line(8, 25, 14, 25)
+                ctx.beginPath(); ctx.arc(px(24), py(28), 6 * s / 32, -2.45, -0.69); ctx.stroke()
+                ctx.beginPath(); ctx.arc(px(24), py(28), 3 * s / 32, -2.35, -0.79); ctx.stroke()
+                circle(24, 28, 1, true)
             } else if (iconName === "voice") {
                 line(6, 13, 11, 13); line(11, 13, 17, 8); line(17, 8, 17, 24)
                 line(17, 24, 11, 19); line(11, 19, 6, 19); line(6, 19, 6, 13)

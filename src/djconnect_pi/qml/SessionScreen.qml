@@ -850,7 +850,7 @@ Item {
                     objectName: "sessionToolbarVibeCast"
                     visible: screen.sessionControlsVisible && !screen.showForecast && screen.state.vibecast.available
                     enabled: !screen.state.vibecast.busy
-                    iconName: "output"; Accessible.name: "VibeCast"
+                    iconName: "vibecast"; Accessible.name: "VibeCast"
                     implicitWidth: 52; background: Item {}
                     onClicked: { if (screen.owner.openVibeCast()) vibeCastPanel.open() }
                 }
@@ -2429,9 +2429,18 @@ Item {
         }
         contentItem: ColumnLayout {
             spacing: 8
+            FeatureIcon {
+                objectName: "sessionVibeCastGlyph"
+                iconName: "vibecast"
+                heroGradient: true
+                Layout.alignment: Qt.AlignHCenter
+                Layout.preferredWidth: screen.compact ? 48 : 64
+                Layout.preferredHeight: Layout.preferredWidth
+            }
             Text {
                 text: "VibeCast"; color: BrandTheme.colors.text
                 font.pixelSize: 23; font.bold: true
+                Layout.alignment: Qt.AlignHCenter
             }
             Text {
                 objectName: "sessionVibeCastStatus"

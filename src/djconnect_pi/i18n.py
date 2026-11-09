@@ -1698,11 +1698,11 @@ for _key, _values in _VIBESCAPE_COPY.items():
 
 _VIBECAST_SENDER_TRANSLATIONS = {
     "vibecast_ready": (
-        "Enter the six digits shown on the external display.",
-        "Voer de zes cijfers op het externe scherm in.",
-        "Gib die sechs Ziffern des externen Bildschirms ein.",
-        "Saisissez les six chiffres affichés sur l’écran externe.",
-        "Introduce los seis dígitos que aparecen en la pantalla externa.",
+        "Enter the six digits shown on the external display. Looking up the display does not share anything.",
+        "Voer de zes cijfers op het externe scherm in. Met opzoeken deel je nog niets.",
+        "Gib die sechs Ziffern des externen Bildschirms ein. Bei der Suche wird noch nichts geteilt.",
+        "Saisissez les six chiffres affichés sur l’écran externe. La recherche de l’écran ne partage rien.",
+        "Introduce los seis dígitos que aparecen en la pantalla externa. Buscar la pantalla todavía no comparte nada.",
     ),
     "vibecast_code": ("Six-digit code", "Zescijferige code", "Sechsstelliger Code", "Code à six chiffres", "Código de seis dígitos"),
     "vibecast_lookup": ("Look up display", "Scherm opzoeken", "Bildschirm suchen", "Rechercher l’écran", "Buscar pantalla"),
