@@ -27,7 +27,7 @@ from .session_current_reply import current_reply, moment_reference, reply_valid
 from .session_forecast import ForecastReceiver, forecast_supported
 from .session_forecast_image import ForecastImages
 from .session_history_delete_control import HistoryDeleteControl
-from .session_history_summary import saved_session_summary
+from .session_history_summary import archive_session_summary, saved_session_summary
 from .session_history_view import (
     accepted_question,
     confirmed_question_entry,
@@ -116,6 +116,7 @@ class SessionController(QObject):
         self._question_status = ""
         self._question_receipt = {}
         self._sessions = []
+        self._archive_summary_binding = None
         self._history_dirty = False
         self._history_selection_dirty = False
         self._timeline = {}
@@ -237,7 +238,7 @@ class SessionController(QObject):
             "composer_available": self._composer_supported(), "pending_question": {} if revoked else deepcopy(self._pending_question), "current_reply": {} if revoked else deepcopy(self._current_reply), "conversation": [] if revoked else deepcopy(self._conversation), "retained_flow": [] if revoked else deepcopy(flow),
             "flow_rows": [] if revoked else deepcopy(flow_contributions(flow, self._moments, session.get("session_id", ""))),
             "selection": {} if revoked else deepcopy(self._selection), "question_status": self._question_status,
-            "moments": [] if revoked else deepcopy(self._moments), "sessions": [] if revoked else deepcopy(self._sessions),
+            "moments": [] if revoked else deepcopy(self._moments), "sessions": [] if revoked else self._archive_view(),
             "saved_summary": [] if revoked else self._saved_summary(),
             "timeline": {} if revoked else deepcopy(self._timeline), "search": {} if revoked else deepcopy(self._search), "error": self._error,
             "profile_confirmation_required": not (bool(session_profile_id(self.backend.cfg)) or bootstrap),
@@ -471,6 +472,7 @@ class SessionController(QObject):
         self._conversation = self._without_withdrawn_entries(self._conversation)
         self._timeline = self._filter_withdrawn_history(self._timeline, "entries")
         self._saved_summary_binding = None
+        self._archive_summary_binding = None
         self._search = {}
         self._timeline_trail = []
         self._view_epoch += 1
@@ -564,6 +566,7 @@ class SessionController(QObject):
         self._selection_source = "timeline"
         self._question_status = ""
         self._sessions = []
+        self._archive_summary_binding = None
         self._timeline = {}
         self._saved_summary_binding = None
         self._timeline_trail = []
@@ -879,16 +882,28 @@ class SessionController(QObject):
         version = self._caps["contract_versions"].get("session_history_summary")
         return features.get("session_history_summary") is True and type(version) is int and version == 1
 
-    def _saved_summary(self):
-        if self._timeline.get("_session_deadline") is None or not self._summary_supported():
-            return []
+    def _summary_binding_current(self, expected):
+        if expected is None or not self._summary_supported():
+            return False
         try:
             binding = self.transport.binding()
         except SessionError:
-            return []
-        if binding != self._saved_summary_binding or not private_binding_allowed(binding):
+            return False
+        return binding == expected and private_binding_allowed(binding)
+
+    def _saved_summary(self):
+        if self._timeline.get("_session_deadline") is None or not self._summary_binding_current(self._saved_summary_binding):
             return []
         return saved_session_summary(self._timeline)
+
+    def _archive_view(self):
+        rows = deepcopy(self._sessions)
+        can_show_summary = self._summary_binding_current(self._archive_summary_binding)
+        for row in rows:
+            row.pop("summary_metrics", None)
+            if can_show_summary and row.get("_history_deadline") is not None:
+                row["summary_metrics"] = archive_session_summary(row)
+        return rows
 
     @Slot(str)
     def confirmProfile(self, expected_profile_id):
@@ -928,6 +943,7 @@ class SessionController(QObject):
         had = bool(self._sessions or self._history_loaded or self._history_cursor or self._history_trail)
         self._view_epoch += 1
         self._sessions = []
+        self._archive_summary_binding = None
         self._history_loaded = False
         self._history_cursor = ""
         self._history_pages = 1
@@ -1574,6 +1590,7 @@ class SessionController(QObject):
                 result["error"] = exc.category
         if "error" in result and result["action"] in {"history", "history_more", "history_refresh"}:
             self._sessions = []
+            self._archive_summary_binding = None
             self._history_cursor = ""
             self._history_pages = 1
             self._history_start = ""
@@ -1610,6 +1627,7 @@ class SessionController(QObject):
             self._saved_summary_binding = None
             self._timeline_trail = []
             self._sessions = []
+            self._archive_summary_binding = None
             self._history_cursor = ""
             self._history_pages = 1
             self._history_start = ""
@@ -1662,6 +1680,7 @@ class SessionController(QObject):
                     self._conversation = []
                     self._retained_flow = []
                     self._sessions = []
+                    self._archive_summary_binding = None
                     self._history_cursor = ""
                     self._history_pages = 1
                     self._history_start = ""
@@ -1683,6 +1702,7 @@ class SessionController(QObject):
                     if old is not None:
                         row["_history_deadline"] = min(old, row["_history_deadline"]) if row.get("_history_deadline") is not None else old
                 self._sessions = rows
+                self._archive_summary_binding = result["binding"] if self._summary_supported() else None
                 self._history_pages = result["history"].get("_pages", 1)
                 self._history_start = result["history"].get("_start", "")
                 self._history_scope = result["history"].get("_scope")

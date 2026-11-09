@@ -70,6 +70,7 @@ def test_invalidating_profile_discards_already_queued_results(controller):
 def test_saved_summary_requires_a_current_owner_binding_and_coherent_final_metrics(controller):
     import json
     from copy import deepcopy
+    from datetime import UTC, datetime
     from pathlib import Path
 
     owner, backend = controller
@@ -97,8 +98,24 @@ def test_saved_summary_requires_a_current_owner_binding_and_coherent_final_metri
     owner._timeline = bad
     assert owner.state["saved_summary"] == []
     owner._timeline = {**timeline, "_session_deadline": 4_000_000_000}
+    archive_header = deepcopy(header)
+    archive_header.update(revision=7, ended_at=datetime.now(UTC).isoformat(),
+                          summary_metrics=[{"value": "untrusted"}])
+    archive_summary = archive_header["summary"]
+    archive_summary["session_revision"] = 7
+    for key in ("tracks_observed", "moments_published", "mood"):
+        archive_summary[key]["revision"] = 7
+    owner.transport.history = Mock(return_value={
+        "success": True, "schema_version": 2, "history_contract_version": 2,
+        "retention_days": 90, "retention_revision": 1, "revision": "owner-r1",
+        "next_cursor": None, "sessions": [archive_header],
+    })
+    owner.loadHistory()
+    backend.jobs.pop()()
+    assert owner.state["sessions"][0]["summary_metrics"][0]["value"] == 0
     backend.cfg.active_profile_id = "different-owner"
     assert owner.state["saved_summary"] == []
+    assert "summary_metrics" not in owner.state["sessions"][0]
 
 
 def test_same_context_refresh_marks_empty_only_after_success(controller):

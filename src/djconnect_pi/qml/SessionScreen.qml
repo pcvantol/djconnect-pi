@@ -37,6 +37,24 @@ Item {
     function deleteContent(kind, sessionId, identifier) {
         if (owner.beginContentDelete(kind, sessionId, identifier)) contentDeletePanel.open()
     }
+    component SessionSummaryMetric: Text {
+        required property var modelData
+        property bool compactMetric: false
+        readonly property string valueText: {
+            if (modelData.coverage === "withdrawn") return screen.tr("session_summary_withdrawn")
+            if (modelData.value === null) return screen.tr("session_summary_unknown")
+            if (typeof modelData.value === "string")
+                return screen.tr(modelData.value === "mixed" ? "session_summary_mixed" : "mood_" + modelData.value)
+            const count = Number(modelData.value).toLocaleString(Qt.locale(screen.backend.language), "f", 0)
+            return modelData.coverage === "partial" ? count + " · " + screen.tr("session_summary_partial") : count
+        }
+        text: screen.tr(modelData.label) + ": " + valueText
+        textFormat: Text.PlainText
+        color: BrandTheme.colors.muted
+        font.pixelSize: compactMetric || screen.compact ? 17 : 20
+        Layout.fillWidth: true
+        wrapMode: Text.WordWrap
+    }
     component LiveMomentCard: GlassCard {
         id: liveCard
         objectName: "sessionLiveMomentCard"
@@ -1595,8 +1613,27 @@ Item {
                 model: screen.historical && !screen.state.timeline.session ? screen.state.sessions : []
                 GlassButton {
                     required property var modelData
-                    Layout.fillWidth: true; implicitHeight: 78
+                    id: archiveRow
+                    Layout.fillWidth: true
+                    implicitHeight: Math.max(78, contentItem.implicitHeight + topPadding + bottomPadding)
                     objectName: "sessionArchiveRow"
+                    contentItem: ColumnLayout {
+                        spacing: 4
+                        Text {
+                            text: archiveRow.text
+                            font: archiveRow.font
+                            color: archiveRow.foregroundColor
+                            textFormat: Text.PlainText
+                            horizontalAlignment: Text.AlignHCenter
+                            wrapMode: Text.WordWrap
+                            Layout.fillWidth: true
+                        }
+                        Repeater {
+                            objectName: "sessionArchiveSummary"
+                            model: archiveRow.modelData.summary_metrics || []
+                            SessionSummaryMetric { compactMetric: true }
+                        }
+                    }
                     enabled: !screen.owner.busy && !screen.archiveIntent
                     text: screen.tr("session_title") + " · " + screen.displayDate(modelData.started_at || modelData.created_at)
                     onClicked: screen.openArchiveSession(modelData.session_id)
@@ -1618,24 +1655,7 @@ Item {
             Repeater {
                 objectName: "sessionSavedSummary"
                 model: screen.historical && !screen.currentHistory ? (screen.state.saved_summary || []) : []
-                Text {
-                    required property var modelData
-                    objectName: "sessionSavedSummaryMetric"
-                    readonly property string valueText: {
-                        if (modelData.coverage === "withdrawn") return screen.tr("session_summary_withdrawn")
-                        if (modelData.value === null) return screen.tr("session_summary_unknown")
-                        if (typeof modelData.value === "string")
-                            return screen.tr(modelData.value === "mixed" ? "session_summary_mixed" : "mood_" + modelData.value)
-                        const count = Number(modelData.value).toLocaleString(Qt.locale(screen.backend.language), "f", 0)
-                        return modelData.coverage === "partial" ? count + " · " + screen.tr("session_summary_partial") : count
-                    }
-                    text: screen.tr(modelData.label) + ": " + valueText
-                    textFormat: Text.PlainText
-                    color: BrandTheme.colors.muted
-                    font.pixelSize: screen.compact ? 17 : 20
-                    Layout.fillWidth: true
-                    wrapMode: Text.WordWrap
-                }
+                SessionSummaryMetric { objectName: "sessionSavedSummaryMetric" }
             }
             GlassButton {
                 objectName: "sessionDeleteSaved"
