@@ -1,6 +1,6 @@
 # Bootstrap a DJConnect Raspberry Pi appliance
 
-Release preparation: the rc.9 download examples below become usable only after
+Release preparation: the rc.10 download examples below become usable only after
 separate publication approval and immutable release verification. They are not
 an instruction to install an unpublished candidate or resolve `latest`.
 
@@ -205,9 +205,9 @@ completed:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/download/v4.0.0-rc.9/djconnect-pi-4.0.0-rc.9.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/download/v4.0.0-rc.10/djconnect-pi-4.0.0-rc.10.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-4.0.0-rc.9
+cd djconnect-pi-4.0.0-rc.10
 sudo ./scripts/install.sh
 ```
 
@@ -235,9 +235,9 @@ development checkout:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/download/v4.0.0-rc.9/djconnect-pi-4.0.0-rc.9.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/download/v4.0.0-rc.10/djconnect-pi-4.0.0-rc.10.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-4.0.0-rc.9
+cd djconnect-pi-4.0.0-rc.10
 sudo ./scripts/install.sh
 ```
 
