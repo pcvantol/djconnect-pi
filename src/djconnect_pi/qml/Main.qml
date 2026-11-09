@@ -154,13 +154,21 @@ BrandWindow {
     property bool forceBrightnessFull: false
     property bool suppressNextNowPanelTap: false
     property bool trackArtworkOpen: false
-    readonly property bool sessionTrackArtwork: activeScreen === "session"
-    readonly property bool trackArtworkAvailable: sessionTrackArtwork ? sharedSessionScreen.trackArtworkAvailable
+    property bool sessionTrackArtwork: false
+    readonly property bool trackArtworkAvailable: activeScreen === "session" ? sharedSessionScreen.trackArtworkAvailable
         : (activeScreen === "now" || activeScreen === "control") && djconnect.hasTrackTitle
-    onTrackArtworkAvailableChanged: if (!trackArtworkAvailable) trackArtworkOpen = false
+    readonly property bool overlayTrackAvailable: sessionTrackArtwork ? sharedSessionScreen.trackArtworkAvailable : djconnect.hasTrackTitle
+    onOverlayTrackAvailableChanged: if (!overlayTrackAvailable) trackArtworkOpen = false
+    onTrackArtworkOpenChanged: if (!trackArtworkOpen) trackArtworkDismissTimer.stop()
     onScreenBlankedChanged: if (screenBlanked) trackArtworkOpen = false
+    function showTrackArtwork(fromSession) {
+        sessionTrackArtwork = fromSession
+        trackArtworkOpen = true
+        trackArtworkDismissTimer.restart()
+    }
     function openTrackArtwork() {
-        if (trackArtworkAvailable && !screenBlanked) trackArtworkOpen = true
+        if (trackArtworkAvailable && !screenBlanked)
+            showTrackArtwork(activeScreen === "session")
     }
     property double lastWakeDisplayAt: 0
     property int wakeDisplayDebounceMs: 800
@@ -316,7 +324,6 @@ BrandWindow {
     }
 
     function hideTransientUi() {
-        root.trackArtworkOpen = false
         root.resetPairingConfirmOpen = false
         root.rebootConfirmOpen = false
         root.shutdownConfirmOpen = false
@@ -1182,6 +1189,13 @@ BrandWindow {
         }
         function onTemporaryWakeRequested(seconds) {
             root.temporaryWake(seconds)
+        }
+        function onPlaybackTrackChanged() {
+            if (root.splashVisible || (!djconnect.paired && !djconnect.demoMode) || !djconnect.hasTrackTitle)
+                return
+            djconnect.wakeDisplay()
+            root.temporaryWake(10)
+            root.showTrackArtwork(false)
         }
         function onDjResponseChanged() {
             if (djconnect.djResponseVisible) {
@@ -5564,21 +5578,21 @@ BrandWindow {
         }
     }
 
+    Timer {
+        id: trackArtworkDismissTimer
+        interval: 5000
+        onTriggered: root.trackArtworkOpen = false
+    }
+
     Loader {
         anchors.fill: parent
-        z: 189
+        z: 198
         active: root.trackArtworkOpen
         focus: active
         onLoaded: item.forceActiveFocus()
         sourceComponent: FocusScope {
             objectName: "trackArtworkOverlay"
             Keys.onEscapePressed: root.trackArtworkOpen = false
-
-            Timer {
-                interval: 5000
-                running: true
-                onTriggered: root.trackArtworkOpen = false
-            }
 
             Rectangle {
                 anchors.fill: parent

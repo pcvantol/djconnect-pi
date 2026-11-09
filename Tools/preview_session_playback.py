@@ -636,6 +636,29 @@ def main():
                 assert not popup.property('visible') and not owner.state['playback_control']['available']
                 assert not meter.property('animating')
                 capture('foreground-withdrawn')
+                if language == 'en':
+                    window.setProperty('activeScreen', 'more')
+                    backend.cfg.screen_timeout_seconds = 1
+                    backend.screenTimeoutChanged.emit()
+                    QTest.qWait(1150)
+                    assert window.property('screenBlanked')
+                    with patch('djconnect_pi.app.subprocess.run') as display_command:
+                        backend._apply_playback(Playback(title='Next track', artist='Next artist',
+                                                         uri='fixture:track:2', image_url=art_source, is_playing=True))
+                    assert display_command.call_args_list[-1].args[0] == ['xset', 'dpms', 'force', 'on']
+                    assert window.property('activeScreen') == 'more' and not window.property('screenBlanked')
+                    assert window.property('trackArtworkOpen')
+                    assert visual(window.contentItem(), 'expandedTrackTitle').property('text') == 'Next track'
+                    QTest.qWait(4300)
+                    assert window.property('trackArtworkOpen')
+                    QTest.qWait(850)
+                    assert not window.property('trackArtworkOpen') and window.property('activeScreen') == 'more'
+                    backend._apply_playback(Playback(title='Next track', artist='Next artist',
+                                                     uri='fixture:track:2', image_url='', is_playing=True))
+                    assert not window.property('trackArtworkOpen')
+                    backend.cfg.screen_timeout_seconds = 0
+                    backend.screenTimeoutChanged.emit()
+                    backend._apply_playback(Playback())
                 if width == 720 and language == 'en':
                     backend._apply_playback(Playback(title='Local track', artist='Local artist', image_url=art_source))
                     window.setProperty('activeScreen', 'now')
