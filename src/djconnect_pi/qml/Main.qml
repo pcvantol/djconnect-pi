@@ -5803,12 +5803,18 @@ BrandWindow {
         z: 199
         onPressed: function(mouse) {
             if (root.screenBlanked) {
-                root.wakeDisplay()
                 mouse.accepted = true
                 return
             }
             root.recordActivity()
             mouse.accepted = false
+        }
+        onClicked: function(mouse) {
+            if (root.screenBlanked) {
+                root.wakeDisplay()
+                if (mouse.button === Qt.LeftButton)
+                    root.showTrackArtwork(sharedSessionScreen.trackArtworkAvailable)
+            }
         }
     }
 
@@ -5820,9 +5826,5 @@ BrandWindow {
         z: 200
 
         Behavior on opacity { NumberAnimation { duration: 450 } }
-
-        TapHandler {
-            onTapped: root.wakeDisplay()
-        }
     }
 }
