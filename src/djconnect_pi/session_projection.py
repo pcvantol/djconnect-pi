@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from functools import lru_cache
 from itertools import pairwise
 from urllib.parse import urlsplit
 
@@ -11,12 +12,23 @@ HISTORY_KINDS = {"playback_observed", "dj_moment", "conversation_user", "convers
 ARCHIVE_BASES = {"cc0_normalized_fields_v1", "runtime_authored_direction_v1", "owner_metadata_narration_v1", "public_artist_narration_v1"}
 
 
+def _parse_timestamp(value):
+    result = datetime.fromisoformat(value)
+    if result.tzinfo is None:
+        raise ValueError("Timestamp has no timezone")
+    return result.timestamp()
+
+
+# Cache only short, valid, timezone-aware values. Expiry checks still compare
+# the numeric deadline against the current clock on every read.
+_cached_timestamp = lru_cache(maxsize=256)(_parse_timestamp)
+
+
 def timestamp(value):
     try:
-        result = datetime.fromisoformat(value)
-        if result.tzinfo is None:
-            return None
-        return result.timestamp()
+        if type(value) is str and len(value) <= 64:
+            return _cached_timestamp(value)
+        return _parse_timestamp(value)
     except (AttributeError, ValueError, TypeError):
         return None
 

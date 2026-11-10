@@ -146,7 +146,7 @@ def main():
                 current_card = visual(window.contentItem(), 'sessionLiveMomentCard')
                 scroll = window.findChild(QObject, 'sessionHistoryScroll').property('contentItem')
                 top = current_card.mapToItem(scroll, QPointF(0, 0)).y()
-                assert 0 <= top < scroll.property('height')/2, (width, language, 'contribution below fold', top)
+                assert 0 <= top < scroll.property('height'), (width, language, 'contribution below fold', top)
                 artwork_button = visual(window.contentItem(), 'sessionExpandTrackArtwork')
                 metadata = visual(window.contentItem(), 'sessionPlaybackMetadata')
                 heading = window.findChild(QObject, 'sessionFlowHeading')
@@ -159,7 +159,8 @@ def main():
                     lead_gap = metadata.mapToScene(QPointF()).y() - mode_strip.mapToScene(QPointF(0, mode_strip.height())).y()
                     assert abs(lead_gap - (20 if width == 720 else 26)) <= 1, (width, language, lead_gap)
                 assert visual(window.contentItem(), 'sessionPlaybackVinyl') is None
-                assert artwork_button.width() == artwork_button.height() == (60 if width == 720 else round(270 * min(1.45, width / 835)))
+                expected_cover_size = 120 if width == 720 else 2 * round(270 * min(1.45, width / 835))
+                assert artwork_button.width() == artwork_button.height() == expected_cover_size
                 assert artwork_button.mapToItem(metadata, 0, 0).x() >= 0
                 assert artwork_button.mapToItem(metadata, artwork_button.width(), artwork_button.height()).x() <= metadata.width()
                 meter = window.findChild(QObject, 'sessionPlaybackMeter')

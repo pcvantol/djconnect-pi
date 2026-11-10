@@ -8,7 +8,7 @@ from pathlib import Path
 
 import requests
 
-from .config import DEFAULT_CONFIG_PATH, load_config
+from .config import DEFAULT_CONFIG_PATH, DEFAULT_LOG_LEVEL, load_config
 from .logging_config import setup_logging
 
 _LOGGER = logging.getLogger(__name__)
@@ -44,28 +44,34 @@ def load_failures(path: Path) -> int:
 
 
 def save_failures(path: Path, failures: int) -> None:
+    payload = (json.dumps({"failures": max(0, failures)}, sort_keys=True) + "\n").encode("utf-8")
+    if failures == 0:
+        try:
+            if path.read_bytes() == payload:
+                return
+        except FileNotFoundError:
+            pass
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(f".{path.name}.tmp")
-    tmp.write_text(json.dumps({"failures": max(0, failures)}, sort_keys=True) + "\n", encoding="utf-8")
+    tmp.write_bytes(payload)
     tmp.replace(path)
 
 
 def run_check(
     *,
-    config_path: Path,
+    local_url: str,
     state_file: Path,
     threshold: int,
     timeout: float,
     reboot: bool,
 ) -> str:
-    cfg = load_config(config_path)
     checks = {
         "api": False,
         "api_service": systemd_active("djconnect-api.service"),
         "client_service": systemd_active("djconnect-client.service"),
     }
     try:
-        checks["api"] = api_healthy(cfg.local_url, timeout)
+        checks["api"] = api_healthy(local_url, timeout)
     except Exception as exc:  # noqa: BLE001 - the watchdog records every API probe failure as unhealthy
         _LOGGER.warning("Watchdog API health failed: %s", exc)
 
@@ -97,9 +103,10 @@ def main() -> None:
     args = parser.parse_args()
 
     cfg = load_config(args.config)
-    setup_logging(args.log_file or cfg.log_file, cfg.log_level)
+    level = "WARNING" if cfg.log_level == DEFAULT_LOG_LEVEL and args.log_file else cfg.log_level
+    setup_logging(args.log_file or cfg.log_file, level)
     result = run_check(
-        config_path=args.config,
+        local_url=cfg.local_url,
         state_file=args.state_file,
         threshold=max(1, args.threshold),
         timeout=max(0.5, args.timeout),

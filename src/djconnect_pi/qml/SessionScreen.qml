@@ -33,17 +33,22 @@ Item {
     property bool historical: false
     property bool currentHistory: false
     readonly property bool compact: width < 900
+    readonly property bool lowMemoryProfile: backend.releaseProfile === "pi-zero-2w-arm64"
     readonly property real ipadScale: compact ? 1 : Math.min(1.45, width / 835)
     readonly property bool idleWelcome: !historical && state.loaded && !state.session_id && !state.error
     readonly property bool sessionControlsVisible: !historical && state.session_id.length > 0 && !state.owner_read_only
     property var owner: backend.djSession
-    property var state: owner.state
+    property var state: owner.screenState
+    readonly property var archiveSessions: visible && historical && !currentHistory && !state.timeline.session
+        ? owner.archiveRows : []
     readonly property bool sessionVoiceAvailable: backend.sessionVoiceAvailable
     onSessionVoiceAvailableChanged: if (!sessionVoiceAvailable && choices && choices.field === "voice") choices.close()
+    readonly property var projectedFlow: visible && !historical ? owner.flowRows : []
     property var displayedFlow: []
     property string displayedFlowKey: "[]"
+    onProjectedFlowChanged: syncDisplayedFlow()
     function syncDisplayedFlow() {
-        const rows = state.flow_rows || []
+        const rows = projectedFlow || []
         const key = JSON.stringify(rows)
         if (key !== displayedFlowKey) {
             displayedFlowKey = key
@@ -134,6 +139,7 @@ Item {
                 Image {
                     id: currentMomentArtworkImage
                     objectName: "sessionMomentArtworkImage"
+                    sourceSize: screen.lowMemoryProfile ? Qt.size(192, 192) : Qt.size(0, 0)
                     source: parent.visible ? (screen.owner.momentArtwork.source || "") : ""
                     cache: false; asynchronous: true; retainWhileLoading: false
                     fillMode: Image.PreserveAspectFit
@@ -241,7 +247,6 @@ Item {
     }
     onShowForecastChanged: { if (showForecast) { outputsPanel.close(); playbackPanel.close() } if (!showForecast) clearForecastReading(); syncMediaVisibility() }
     onStateChanged: {
-        syncDisplayedFlow()
         if (contentDeletePanel && contentDeletePanel.opened && state.content_delete
                 && (!state.content_delete.status
                     || (!state.content_delete.available && !state.content_delete.status_available)))
@@ -586,7 +591,7 @@ Item {
     }
     function openArchiveSession(sessionId) {
         if (!visible || !historical || currentHistory || state.timeline.session || owner.busy || archiveIntent) return
-        if (!state.sessions.some(function(row) { return row.session_id === sessionId })) return
+        if (!archiveSessions.some(function(row) { return row.session_id === sessionId })) return
         rememberArchive(); archiveDetailReturn = archiveReturn; archiveReturn = null
         owner.openSaved(sessionId)
     }
@@ -638,7 +643,7 @@ Item {
                 if (card && card.modelData.session_id === saved.id) { target = card; break }
             }
             screen.archivePositionTries++
-            var ready = target && archiveRows.count === screen.state.sessions.length && flick.contentHeight + 1 >= historyContent.implicitHeight
+            var ready = target && archiveRows.count === screen.archiveSessions.length && flick.contentHeight + 1 >= historyContent.implicitHeight
             var mark = ready ? [archiveRows.count, historyContent.implicitHeight, flick.contentHeight, flick.height, target.y, target.height].join("|") : ""
             if (!ready || mark !== screen.archiveLayoutMark) {
                 screen.archiveLayoutMark = mark; screen.archivePositionApplied = false
@@ -1092,6 +1097,7 @@ Item {
                     Image {
                         id: forecastArtworkImage
                         objectName: "sessionForecastArtistImage"
+                        sourceSize: screen.lowMemoryProfile ? Qt.size(720, 360) : Qt.size(0, 0)
                         anchors.fill: parent
                         source: imageAttribution.ready ? (screen.owner.forecastImage.source || "") : ""
                         cache: false; asynchronous: true; retainWhileLoading: false
@@ -1265,7 +1271,7 @@ Item {
                         Layout.row: 0
                         Layout.column: 0
                         Layout.rowSpan: screen.compact ? 1 : 4
-                        Layout.preferredWidth: screen.compact ? 60 : Math.round(270 * screen.ipadScale)
+                        Layout.preferredWidth: screen.compact ? 120 : 2 * Math.round(270 * screen.ipadScale)
                         Layout.preferredHeight: Layout.preferredWidth
                         Layout.alignment: Qt.AlignTop
 
@@ -1298,6 +1304,7 @@ Item {
                                     Image {
                                         id: trackCover
                                         objectName: "sessionTrackArtwork"
+                                        sourceSize: screen.lowMemoryProfile ? Qt.size(128, 128) : Qt.size(0, 0)
                                         anchors.fill: parent
                                         source: coverTile.visible && trackArtworkFrame.admittedCover
                                             ? (screen.owner.playbackArtwork.source || "") : ""
@@ -1373,6 +1380,7 @@ Item {
                                 objectName: "sessionPlaybackMeter"
                                 readonly property bool playing: screen.state.playback.state === "playing"
                                 readonly property bool animating: visible && playing && GlassStyle.motionEnabled
+                                    && screen.backend.releaseProfile !== "pi-zero-2w-arm64"
                                     && Qt.application.state === Qt.ApplicationActive
                                 property real phase: 0
                                 spacing: 2
@@ -1502,7 +1510,7 @@ Item {
             Repeater {
                 id: liveMomentRows
                 objectName: "sessionLiveMomentRows"
-                model: !screen.historical ? screen.state.moments.filter(function(moment) {
+                model: screen.visible && !screen.historical ? screen.state.moments.filter(function(moment) {
                     return moment.current || !moment.flow_bulletin
                 }) : []
                 LiveMomentCard {}
@@ -1646,7 +1654,7 @@ Item {
             Repeater {
                 id: archiveRows
                 objectName: "sessionArchiveRows"
-                model: screen.historical && !screen.state.timeline.session ? screen.state.sessions : []
+                model: screen.archiveSessions
                 GlassButton {
                     required property var modelData
                     id: archiveRow
@@ -1687,7 +1695,7 @@ Item {
             Text {
                 objectName: "sessionArchiveEmpty"
                 visible: screen.historical && !screen.currentHistory && !screen.owner.busy && !screen.state.error
-                    && screen.state.history_loaded && screen.state.sessions.length === 0 && !screen.state.timeline.session
+                    && screen.state.history_loaded && screen.archiveSessions.length === 0 && !screen.state.timeline.session
                 text: screen.tr(screen.state.archive_older_window || screen.state.has_more_sessions || screen.state.has_older_sessions ? "session_archive_window_empty" : "session_history_empty"); color: BrandTheme.colors.muted; font.pixelSize: 22
             }
             Text {

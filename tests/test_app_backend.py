@@ -1803,6 +1803,27 @@ def test_queue_parser_dedupes_repeated_items_but_keeps_real_queue() -> None:
     assert [item["title"] for item in queue] == ["Track One", "Track Two"]
 
 
+@pytest.mark.parametrize("kind", ["queue", "playlists"])
+def test_compact_media_list_publishes_artwork_sources_without_prefetch(tmp_path, kind):
+    ensure_app()
+    path = tmp_path / "config.json"
+    save_config(path, Config(release_profile="pi-zero-2w-arm64"))
+    backend = DJConnectBackend(path)
+    submit = backend._executor.submit = Mock()
+    backend.client.command = Mock(return_value={kind: [{"title": "Track", "uri": "fixture:track",
+                                                        "imageUrl": "https://fixture.invalid/art.jpg"}]})
+    ready = Mock()
+    backend._mediaListReady.connect(ready)
+
+    getattr(backend, f"_load_{kind}_worker")()
+
+    ready.assert_called_once()
+    published_kind, items = ready.call_args.args
+    assert published_kind == kind and items[0]["imageUrl"] == "https://fixture.invalid/art.jpg"
+    submit.assert_not_called()
+    assert not backend._media_artwork_cache_in_flight
+
+
 def test_prepare_media_artwork_caches_urls_before_qml_render(monkeypatch) -> None:
     items = [{"title": "Track", "imageUrl": "https://example.test/art.jpg"}]
 
@@ -2695,7 +2716,7 @@ def test_backend_music_discovery_refresh_shows_toast(tmp_path: Path) -> None:
     assert calls[0][0] == backend.t("music_discovery")
 
 
-def test_backend_sync_config_updates_live_settings(tmp_path: Path) -> None:
+def test_backend_sync_config_updates_live_settings(tmp_path: Path, monkeypatch) -> None:
     ensure_app()
     config_path = tmp_path / "config.json"
     backend = DJConnectBackend(config_path)
@@ -2707,14 +2728,44 @@ def test_backend_sync_config_updates_live_settings(tmp_path: Path) -> None:
     updated.update_channel = "beta"
     save_config(config_path, updated)
 
+    logging_setup = Mock()
+    monkeypatch.setattr("djconnect_pi.app.setup_logging", logging_setup)
     backend._sync_config_from_disk()
 
     assert backend.language == updated.language
     assert backend.translationVersion == 1
+    logging_setup.assert_called_once_with(updated.log_file, "DEBUG")
     assert backend.logLevel == "DEBUG"
     assert backend.screenBrightnessPercent == 42
     assert backend.screenTimeoutSeconds == 300
     assert backend.updateChannel == "beta"
+
+
+def test_switching_logging_off_clears_app_logs_and_hides_the_open_view(tmp_path, monkeypatch):
+    ensure_app()
+    config = tmp_path / "client.json"
+    log_file = tmp_path / "client.log"
+    save_config(config, Config(log_level="INFO", log_file=str(log_file)))
+    log_paths = [log_file, *(tmp_path / f"client.log.{i}" for i in range(1, 4))]
+    for path in log_paths:
+        path.write_text("previous diagnostics")
+    unrelated = tmp_path / "watchdog.log"
+    unrelated.write_text("watchdog")
+    backend = DJConnectBackend(config)
+    logging_setup = Mock(return_value=log_file)
+    monkeypatch.setattr("djconnect_pi.app.setup_logging", logging_setup)
+
+    backend.showLogs()
+    assert backend.logsVisible
+    backend.setLogLevel("OFF")
+
+    logging_setup.assert_called_once_with(str(log_file), "OFF")
+    assert load_config(config).log_level == "OFF"
+    assert not any(path.exists() for path in log_paths)
+    assert unrelated.read_text() == "watchdog"
+    assert not backend.logsVisible
+    backend.showLogs()
+    assert not backend.logsVisible
 
 
 def test_backend_output_device_can_be_cleared_locally(tmp_path: Path) -> None:
@@ -2771,6 +2822,44 @@ def test_backend_cached_output_device_failure_shows_friendly_message(tmp_path: P
 
     assert backend.outputDevice == "Woonkamer"
     assert backend.toastText == backend.tr_key("spotify_cached_output_unavailable")
+
+
+def test_backend_refresh_deduplicates_without_global_busy_or_unchanged_config_signals(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.ha_url = "http://fixture.invalid"
+    save_config(backend.config_path, backend.cfg)
+    original = backend.config_path.stat()
+    submit = backend._executor.submit = Mock()
+    signals = Mock()
+    backend.busyChanged.connect(signals.busy)
+    backend.settingsChanged.connect(signals.settings)
+    backend.controlVolumeChanged.connect(signals.volume)
+    backend.client.command = Mock(return_value={})
+    backend.client.status = Mock(return_value={})
+    backend.client.playback_from_status = Mock(return_value=Playback(
+        output_device="Fixture speaker", output_devices=("Fixture speaker",)))
+    backend.playback = backend.client.playback_from_status.return_value
+
+    backend.refresh()
+    backend.refresh()
+    submit.assert_called_once()
+    submit.call_args.args[0]()
+    assert backend.config_path.stat().st_ino == original.st_ino
+    assert not signals.mock_calls
+
+    def changed_summary(*args, **kwargs):
+        backend.cfg.music_backend_revision = 3
+        return {}
+
+    backend.client.status.side_effect = changed_summary
+    backend.refresh()
+    assert submit.call_count == 2
+    submit.call_args.args[0]()
+    assert load_config(backend.config_path).music_backend_revision == 3
+    signals.settings.assert_called_once()
+    signals.busy.assert_not_called()
 
 
 def test_backend_refresh_loads_output_devices_when_status_omits_them(tmp_path: Path) -> None:

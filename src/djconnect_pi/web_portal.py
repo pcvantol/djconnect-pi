@@ -24,6 +24,7 @@ PORTAL_I18N_KEYS = (
     "settings",
     "language",
     "log_level",
+    "off",
     "brightness",
     "screen_off",
     "check_updates",
@@ -237,7 +238,7 @@ def index_html(version: str) -> bytes:
       <h2 data-i18n="settings">Instellingen</h2>
       <div class="grid">
         <label><span data-i18n="language">Language</span> <select id="language" onchange="saveSettings(t('language_saved'))">{language_options}</select></label>
-        <label><span data-i18n="log_level">Logniveau</span> <select id="logLevel" onchange="saveSettings(t('log_level_saved'))"><option>DEBUG</option><option>INFO</option><option>WARNING</option><option>ERROR</option></select></label>
+        <label><span data-i18n="log_level">Logniveau</span> <select id="logLevel" onchange="saveSettings(t('log_level_saved'))"><option value="OFF" data-i18n="off">uit</option><option>DEBUG</option><option>INFO</option><option>WARNING</option><option>ERROR</option></select></label>
         <label><span data-i18n="brightness">Schermhelderheid</span> <input id="brightness" type="range" min="10" max="100" oninput="saveSettingsDebounced(t('brightness_saved'))" onchange="saveSettings(t('brightness_saved'))"></label>
         <label><span data-i18n="screen_off">Scherm uit na seconden</span> <select id="timeout" onchange="saveSettings(t('screen_timeout_saved'))"><option>30</option><option>60</option><option>90</option><option>120</option><option>180</option><option>240</option><option>300</option><option>600</option></select></label>
         <label><span data-i18n="websocket_fast_path">WebSocket fast path</span> <input id="websocketFastPath" type="checkbox" onchange="saveSettings()"></label>
@@ -255,7 +256,7 @@ def index_html(version: str) -> bytes:
       <h2>Diagnostics</h2>
       <div id="diagnostics" class="diag-list"></div>
     </section>
-    <section class="wide">
+    <section class="wide" id="logSection" hidden>
       <h2>Logs</h2>
       <div class="two" style="margin-bottom:10px"><button class="secondary" onclick="copyLogs()" data-i18n="copy_logs">Logs kopiëren</button><button id="logsRefreshButton" class="secondary" onclick="refreshLogs(true)" data-i18n="refresh_logs">Logs verversen</button></div>
       <pre id="logs">Logs laden...</pre>
@@ -508,28 +509,34 @@ function render(data) {{
   document.getElementById('queue').innerHTML = (data.queue || []).length ? data.queue.map(i => itemHtml(i,'play_context_at')).join('') : `<div class="sub">${{t('empty_queue')}}</div>`;
   document.getElementById('playlists').innerHTML = (data.playlists || []).length ? data.playlists.map(i => itemHtml(i,'start_playlist')).join('') : `<div class="sub">${{t('empty_playlists')}}</div>`;
   document.getElementById('language').value = data.settings?.language || 'en';
-  document.getElementById('logLevel').value = data.settings?.log_level || 'INFO';
+  document.getElementById('logLevel').value = data.settings?.log_level || 'OFF';
   document.getElementById('brightness').value = data.settings?.screen_brightness_percent || 100;
   document.getElementById('timeout').value = String(data.settings?.screen_timeout_seconds ?? 120);
   document.getElementById('websocketFastPath').checked = data.settings?.websocket_fast_path_enabled !== false;
   document.getElementById('about').innerHTML = Object.entries(data.about || {{}}).map(([k,v]) => `<div class="row"><span class="key">${{k}}</span><span class="value">${{v || '-'}}</span></div>`).join('');
   document.getElementById('diagnostics').innerHTML = (data.diagnostics || []).length ? data.diagnostics.map(diagnosticsHtml).join('') : `<div class="sub">${{t('no_diagnostics')}}</div>`;
-  document.getElementById('logs').textContent = data.logs || '';
+  const logsOff = document.getElementById('logLevel').value === 'OFF';
+  document.getElementById('logSection').hidden = logsOff;
+  document.getElementById('logs').textContent = logsOff ? '' : (data.logs || '');
 }}
 async function refreshAll(showBusy=false) {{
   if (showBusy) setBusy('refreshButton', true, t('refreshing'));
   try {{
-    render(await api('/api/portal/state?include=queue,playlists,logs'));
-    scrollLogsToBottom();
+    const include = state.settings?.log_level === 'OFF' ? 'queue,playlists' : 'queue,playlists,logs';
+    render(await api('/api/portal/state?include=' + include));
+    if (!document.getElementById('logSection').hidden) scrollLogsToBottom();
     if (showBusy) toast(t('refreshed'));
   }}
   catch (err) {{ toast(`${{t('status_failed')}}: ${{err.message}}`); }}
   finally {{ if (showBusy) setBusy('refreshButton', false); }}
 }}
 async function refreshLogs(showBusy=false) {{
+  if (state.settings?.log_level === 'OFF') return;
   if (showBusy) setBusy('logsRefreshButton', true, t('refreshing'));
   try {{
-    document.getElementById('logs').textContent = (await api('/api/portal/state?include=logs')).logs || '';
+    const data = await api('/api/portal/state?include=logs');
+    if (state.settings?.log_level === 'OFF' || data.settings?.log_level === 'OFF') return;
+    document.getElementById('logs').textContent = data.logs || '';
     scrollLogsToBottom();
     if (showBusy) toast(t('logs_refreshed'));
   }}
@@ -537,6 +544,7 @@ async function refreshLogs(showBusy=false) {{
   finally {{ if (showBusy) setBusy('logsRefreshButton', false, t('refresh_logs')); }}
 }}
 async function copyLogs() {{
+  if (state.settings?.log_level === 'OFF') return;
   const logs = document.getElementById('logs');
   const text = logs.textContent || '';
   const range = document.createRange();

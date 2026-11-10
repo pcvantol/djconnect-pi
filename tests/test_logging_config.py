@@ -52,3 +52,29 @@ def test_managed_media_path_is_redacted_in_third_party_debug_logs(tmp_path, pref
             handler.close()
         root.handlers[:] = previous_handlers
         root.setLevel(previous_level)
+
+
+def test_logging_defaults_off_and_can_be_enabled_and_disabled(tmp_path: Path, capsys) -> None:
+    root = logging.getLogger()
+    previous_handlers, previous_level, previous_disable = list(root.handlers), root.level, root.manager.disable
+    log_file = tmp_path / "logs" / "client.log"
+    logger = logging.getLogger("test.logging.toggle")
+    try:
+        setup_logging(str(log_file))
+        logger.critical("must not appear")
+        assert not log_file.parent.exists()
+        assert "must not appear" not in capsys.readouterr().err
+
+        setup_logging(str(log_file), "INFO")
+        logger.info("enabled")
+        setup_logging(str(log_file), "OFF")
+        logger.critical("must not appear")
+        assert "enabled" in log_file.read_text()
+        assert "must not appear" not in log_file.read_text()
+        assert "must not appear" not in capsys.readouterr().err
+    finally:
+        for handler in root.handlers:
+            handler.close()
+        root.handlers[:] = previous_handlers
+        root.setLevel(previous_level)
+        logging.disable(previous_disable)

@@ -169,7 +169,7 @@ class ForecastImages(QObject):
         super().__init__(owner)
         self.owner = owner;self.gate = ImageGate();self.visible = False
         self.generation = 0;self.desired = None;self.binding = None
-        self.public = {};self.attempted = '';self.running = False;self.executor = None
+        self.public = {};self.attempted = False;self.running = False;self.executor = None
         self.closed = False;self.dirty = False;self.attempts = 0;self.attempt_session = ''
         self._ready.connect(self._finish)
         self.timer = QTimer(self);self.timer.setInterval(250);self.timer.timeout.connect(self._tick)
@@ -180,12 +180,13 @@ class ForecastImages(QObject):
         if self.public != value:
             self.aboutToChange.emit()
             self.public = value
+            if value and not self.timer.isActive():
+                self.timer.start()
 
     def set_visible(self, visible):
         if self.visible == visible: return
-        self.visible = visible;self.attempted = ''
-        if visible: self.timer.start()
-        else: self.timer.stop()
+        self.visible = visible;self.attempted = False
+        if not visible: self.timer.stop()
         self.sync()
 
     def _valid(self, generation):
@@ -211,7 +212,7 @@ class ForecastImages(QObject):
 
     def _set_lease(self, binding, lease):
         if (binding, lease) != (self.binding, self.desired):
-            self.generation += 1;self.binding = binding;self.desired = lease;self._replace_public({});self.attempted = ''
+            self.generation += 1;self.binding = binding;self.desired = lease;self._replace_public({});self.attempted = False
             self.deadline_timer.stop()
             if lease and lease['deadline'] is not None: self.deadline_timer.start(max(1, ceil((lease['deadline'] - self.owner._clock.now()) * 1000)))
             self.changed.emit()
@@ -227,13 +228,11 @@ class ForecastImages(QObject):
         return self.desired['session_id']
 
     def _start(self):
-        if self.running or not self._valid(self.generation): return
-        key = hashlib.sha256(json.dumps(self.desired, sort_keys=True).encode()).hexdigest()
-        if key == self.attempted: return
+        if self.running or self.attempted or not self._valid(self.generation): return
         bucket = self._attempt_bucket()
         if bucket != self.attempt_session: self.attempt_session = bucket;self.attempts = 0
         if self.attempts >= 32: return
-        self.attempts += 1;self.attempted = key;self.running = True
+        self.attempts += 1;self.attempted = True;self.running = True
         generation, binding, lease = self.generation, self.binding, dict(self.desired)
         if self.executor is None: self.executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix='djconnect-forecast-image')
         def work():
@@ -264,6 +263,7 @@ class ForecastImages(QObject):
     def _tick(self):
         self.snapshot()
         if self.dirty: self.dirty = False;self.changed.emit()
+        if not self.public: self.timer.stop()
 
     def _deadline_tick(self):
         self._tick()

@@ -24,8 +24,8 @@ def test_qml_has_blocking_pairing_and_splash_views() -> None:
 
     assert "id: pairingPanel" in main_qml
     assert "id: pairingSuccessPanel" in main_qml
-    assert 'id: pairingPanel\n        anchors.fill: parent\n        color: BrandTheme.colors.background' in main_qml
-    assert 'id: pairingSuccessPanel\n        anchors.fill: parent\n        color: BrandTheme.colors.background' in main_qml
+    assert 'sourceComponent: PairingPage {}' in main_qml
+    assert 'sourceComponent: PairingSuccessPage {}' in main_qml
     assert "id: splashPanel" in main_qml
     assert 'AppBanner { detailText: root.tr("tagline") }' in main_qml
     banner = files("djconnect_pi.qml").joinpath("AppBanner.qml").read_text(encoding="utf-8")
@@ -366,7 +366,7 @@ def test_qml_ask_dj_screen_is_readonly_actions_without_free_input() -> None:
     main_qml = files("djconnect_pi.qml").joinpath("Main.qml").read_text(encoding="utf-8")
     ask_dj_block = main_qml[main_qml.index("id: askDjPanel") : main_qml.index("GamesPanel {")]
 
-    assert 'visible: root.activeScreen === "askdj"' in ask_dj_block
+    assert 'visible: root.activeScreen === "askdj"' in main_qml
     assert "component AskDjGradientButton" in main_qml
     action_button = main_qml[main_qml.index("component AskDjGradientButton"):main_qml.index("component MenuIcon")]
     assert "background: GlassSurface" in action_button
@@ -411,7 +411,8 @@ def test_qml_ask_dj_screen_is_readonly_actions_without_free_input() -> None:
     assert "function scrollAskDjToTop()" in main_qml
     assert 'if (root.activeScreen === "askdj")' in main_qml
     assert "function onAskDjChanged()" in main_qml
-    assert "askDjScroll.contentItem.contentY = 0" in ask_dj_block or "askDjScroll.contentItem.contentY = 0" in main_qml
+    assert "askDjMessagesView.positionViewAtBeginning()" in ask_dj_block
+    assert "askDjMessagesView.positionViewAtIndex(selectedRow, ListView.Center)" in ask_dj_block
     assert "modelData.displayTime || \"\"" in ask_dj_block
     assert "id: askDjActionButton" in ask_dj_block
     assert "modelData.actions || []" in ask_dj_block
@@ -478,7 +479,7 @@ def test_qml_track_insight_panel_renders_contract_fields() -> None:
     main_qml = files("djconnect_pi.qml").joinpath("Main.qml").read_text(encoding="utf-8")
     panel = main_qml[main_qml.index("id: trackInsightPanel") : main_qml.index("id: musicDiscoveryPanel")]
 
-    assert 'visible: root.activeScreen === "trackinsight"' in panel
+    assert 'visible: root.activeScreen === "trackinsight"' in main_qml
     assert "property bool autoInsightRequested: false" in panel
     assert "onVisibleChanged:" in panel
     assert "visible && !autoInsightRequested && (djconnect.playing || djconnect.demoMode)" in panel

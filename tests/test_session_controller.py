@@ -41,6 +41,93 @@ def controller():
     delete(backend)
 
 
+def test_runtime_header_matches_full_state_and_withdraws_old_owner(controller):
+    owner, backend = controller
+    owner._bootstrap_binding = owner.transport.binding()
+    owner._bootstrap_owner = "profile-a"
+    owner._bootstrap_private = True
+    owner._owner_epoch = 3
+    owner._session = {"session_id": "session-a", "runtime_state": "active", "selected_mood": "chill"}
+
+    header = owner.runtimeHeader
+    assert header["session_id"] == "session-a" and header["mood"] == "chill"
+    assert header["owner_epoch"] == 3
+    assert header == {key: owner.state[key] for key in header}
+
+    backend.cfg.active_profile_id = "profile-b"
+    header = owner.runtimeHeader
+    assert not header["session_id"] and not header["mood"] and not header["owner_epoch"]
+    assert not header["forecast_supported"]
+    assert header == {key: owner.state[key] for key in header}
+
+
+def test_screen_state_omits_flow_projection_but_keeps_fresh_rows_available(controller, monkeypatch):
+    owner, backend = controller
+    backend.demoMode = True
+    owner.start("chill")
+    rows = owner.state["flow_rows"]
+    assert rows
+    project = Mock(wraps=owner._flow_rows)
+    monkeypatch.setattr(owner, "_flow_rows", project)
+
+    assert "flow_rows" not in owner.screenState
+    project.assert_not_called()
+    assert owner.flowRows == rows
+    owner._append_demo_entry("conversation_dj", "New fixture")
+    assert len(owner.flowRows) == len(rows) + 1
+    owner.end("demo-session")
+    assert not owner.flowRows
+
+
+def test_flow_notification_ignores_unchanged_rows_and_withdraws_on_profile_change(controller):
+    owner, backend = controller
+    owner._bootstrap_binding = owner.transport.binding()
+    owner._bootstrap_owner = "profile-a"
+    owner._bootstrap_private = True
+    owner._session = {"session_id": "session-a", "runtime_state": "active"}
+    owner._retained_flow = [{"entry_id": "first", "session_id": "session-a", "kind": "conversation_dj"}]
+    notify = Mock()
+    owner.flowRowsChanged.connect(notify)
+
+    owner.changed.emit()
+    notify.assert_called_once()
+    owner._retained_flow = [dict(row) for row in owner._retained_flow]
+    owner._session["position"] = 5
+    owner.changed.emit()
+    notify.assert_called_once()
+
+    owner._retained_flow = [{**owner._retained_flow[0], "text": "Updated"}]
+    owner.changed.emit()
+    assert notify.call_count == 2
+    assert owner.flowRows[0]["contribution"]["text"] == "Updated"
+
+    backend.cfg.active_profile_id = "profile-b"
+    owner.changed.emit()
+    assert notify.call_count == 3
+    assert not owner.flowRows and owner._flow_notification is None
+
+
+def test_screen_state_omits_archive_and_conversation_but_keeps_separate_scoped_reads(controller, monkeypatch):
+    owner, backend = controller
+    owner._bootstrap_binding = owner.transport.binding()
+    owner._bootstrap_owner = "profile-a"
+    owner._bootstrap_private = True
+    owner._sessions = [{"session_id": "saved-session"}]
+    owner._conversation = [{"text": "Fixture reply"}]
+    project = Mock(wraps=owner._archive_view)
+    monkeypatch.setattr(owner, "_archive_view", project)
+
+    assert "sessions" not in owner.screenState and "conversation" not in owner.screenState
+    project.assert_not_called()
+    assert owner.archiveRows == [{"session_id": "saved-session"}]
+    assert owner.state["sessions"] == owner.archiveRows
+    assert owner.state["conversation"] == [{"text": "Fixture reply"}]
+    calls = project.call_count
+    backend.cfg.active_profile_id = "profile-b"
+    assert not owner.archiveRows
+    assert project.call_count == calls
+
+
 def test_missing_metadata_permits_only_bounded_current_owner_read(controller):
     owner, backend = controller
     backend.cfg.explicit_profile_id = ""

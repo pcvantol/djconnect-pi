@@ -72,6 +72,7 @@ class SessionController(QObject):
     artworkAboutToChange = Signal()
     flowIdleHeaderAboutToChange = Signal()
     flowExpansionAboutToChange = Signal()
+    flowRowsChanged = Signal()
     newCurrentContribution = Signal()
     entryOpened = Signal()
     questionConfirmed = Signal(str)
@@ -111,6 +112,7 @@ class SessionController(QObject):
         self._flow_window = None
         self._incomplete_flow_limit = 0
         self._demo_flow = []
+        self._flow_notification = None
         self._pending_question = {}
         self._pending_question_binding = None
         self._current_reply = {}
@@ -177,6 +179,7 @@ class SessionController(QObject):
         self._withdrawn_moments = set()
         self._withdrawn_entries = {}
         self.changed.connect(self._content_delete.sync)
+        self.changed.connect(self._notify_flow_rows)
         self.contextCleared.connect(self._content_delete.cancel)
         self._ready.connect(self._apply)
         backend.demoModeChanged.connect(self._demo_changed)
@@ -208,8 +211,64 @@ class SessionController(QObject):
             return self._bootstrap_owner, self._bootstrap_private, self._owner_epoch
         return None
 
+    def _runtime_header(self):
+        bootstrap = self._bootstrap_current()
+        revoked = self._bootstrap_binding is not None and not bootstrap
+        session = {} if revoked else self._session
+        return {
+            "session_id": session.get("session_id", ""),
+            "owner_read_only": bootstrap and not self._bootstrap_private,
+            "owner_epoch": self._owner_epoch if bootstrap else 0,
+            "owner_profile_id": self._bootstrap_owner if bootstrap else session_profile_id(self.backend.cfg),
+            "runtime_state": session.get("runtime_state", ""),
+            "forecast_supported": not revoked and forecast_supported(session, self._caps),
+            "mood": session.get("selected_mood", ""),
+            "profile_confirmation_required": not (bool(session_profile_id(self.backend.cfg)) or bootstrap),
+        }, session, revoked
+
+    @Property("QVariantMap", notify=changed)
+    def runtimeHeader(self):
+        return self._runtime_header()[0]
+
     @Property("QVariantMap", notify=changed)
     def state(self):
+        return self._state(full_snapshot=True)
+
+    @Property("QVariantMap", notify=changed)
+    def screenState(self):
+        return self._state(full_snapshot=False)
+
+    @Property("QVariantList", notify=changed)
+    def archiveRows(self):
+        _, _, revoked = self._runtime_header()
+        return [] if revoked else self._archive_view()
+
+    @Property("QVariantList", notify=flowRowsChanged)
+    def flowRows(self):
+        header, _, revoked = self._runtime_header()
+        return self._flow_rows(header["session_id"], revoked)
+
+    def _notify_flow_rows(self):
+        header, _, revoked = self._runtime_header()
+        current = None
+        if not revoked:
+            demo = self.backend.demoMode
+            # Inputs are replaced, never edited in place. Compare the current
+            # references by value so a fresh identical Runtime need not redraw.
+            current = (header["session_id"], header["owner_profile_id"], header["owner_epoch"],
+                       demo, self._demo_flow if demo else self._retained_flow, self._moments)
+        changed = current != self._flow_notification
+        self._flow_notification = current
+        if changed:
+            self.flowRowsChanged.emit()
+
+    def _flow_rows(self, session_id, revoked):
+        if revoked:
+            return []
+        flow = self._demo_flow if self.backend.demoMode else self._retained_flow
+        return deepcopy(flow_contributions(flow, self._moments, session_id))
+
+    def _state(self, *, full_snapshot):
         if self._expire_history_headers(self._clock.now()):
             self._history_dirty = True
         if self._pending_question and not self._pending_question_valid():
@@ -223,16 +282,10 @@ class SessionController(QObject):
             self._question_status = "reference_unavailable"
         if self._forecast.expire(self._clock.now()):
             self._forecast_dirty = True
-        bootstrap = self._bootstrap_current()
-        revoked = self._bootstrap_binding is not None and not bootstrap
-        session = {} if revoked else self._session
+        header, session, revoked = self._runtime_header()
         flow = self._demo_flow if self.backend.demoMode else self._retained_flow
         active_history = session.get("runtime_state") == "active" and self._history_supported()
-        return {"session_id": session.get("session_id", ""),
-            "owner_read_only": bootstrap and not self._bootstrap_private,
-            "owner_epoch": self._owner_epoch if bootstrap else 0,
-            "owner_profile_id": (self._bootstrap_owner if bootstrap else session_profile_id(self.backend.cfg)),
-            "runtime_state": session.get("runtime_state", ""),
+        return {**header,
             "started_at": text(session.get("started_at"), 64),
             "playback": self._demo_playback() if self.backend.demoMode else session_playback(session),
             "current_moment_idle": session_current_idle(session),
@@ -241,20 +294,21 @@ class SessionController(QObject):
             "archive_delete": self._archive_delete.snapshot(),
             "content_delete": self._content_delete.snapshot(),
             "vibecast": self._vibecast.snapshot(),
-            "forecast_supported": not revoked and forecast_supported(session, self._caps),
             "forecast": {"state": "empty", "sections": []} if revoked else self._forecast.snapshot(),
-            "mood": session.get("selected_mood", ""),
             "presence": session.get("selected_presence", ""),
             "persona": session.get("dj_persona", ""),
-            "composer_available": self._composer_supported(), "pending_question": {} if revoked else deepcopy(self._pending_question), "current_reply": {} if revoked else deepcopy(self._current_reply), "conversation": [] if revoked else deepcopy(self._conversation), "retained_flow": [] if revoked else deepcopy(flow),
+            "composer_available": self._composer_supported(), "pending_question": {} if revoked else deepcopy(self._pending_question), "current_reply": {} if revoked else deepcopy(self._current_reply), "retained_flow": [] if revoked else deepcopy(flow),
             "flow_more": active_history and self._incomplete_flow_limit == 20,
             "flow_history_hint": active_history and self._incomplete_flow_limit == 50,
-            "flow_rows": [] if revoked else deepcopy(flow_contributions(flow, self._moments, session.get("session_id", ""))),
+            **({
+                "flow_rows": self._flow_rows(header["session_id"], revoked),
+                "conversation": [] if revoked else deepcopy(self._conversation),
+                "sessions": [] if revoked else self._archive_view(),
+            } if full_snapshot else {}),
             "selection": {} if revoked else deepcopy(self._selection), "question_status": self._question_status,
-            "moments": [] if revoked else deepcopy(self._moments), "sessions": [] if revoked else self._archive_view(),
+            "moments": [] if revoked else deepcopy(self._moments),
             "saved_summary": [] if revoked else self._saved_summary(),
             "timeline": {} if revoked else deepcopy(self._timeline), "search": {} if revoked else deepcopy(self._search), "error": self._error,
-            "profile_confirmation_required": not (bool(session_profile_id(self.backend.cfg)) or bootstrap),
             "saved_open_retry": not revoked and bool(self._saved_open_target()),
             "history_available": self._history_supported(), "search_available": self._search_supported(),
             "loaded": self._loaded and not revoked, "history_loaded": self._history_loaded and not revoked,

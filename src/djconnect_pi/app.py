@@ -42,6 +42,7 @@ from .brand_theme import apply_palette
 from .config import (
     CLIENT_TYPE,
     DEFAULT_CONFIG_PATH,
+    DEFAULT_LOG_LEVEL,
     DEFAULT_LOG_PATH,
     SESSION_REFRESH_CHOICES,
     Config,
@@ -49,6 +50,7 @@ from .config import (
     effective_session_refresh_seconds,
     load_config,
     normalize_dj_announcement_output,
+    normalize_log_level,
     save_config,
 )
 from .ha import (
@@ -64,7 +66,7 @@ from .ha import (
     UnsupportedBackendCapability,
 )
 from .i18n import LANGUAGES, normalize_language, translate
-from .logging_config import setup_logging
+from .logging_config import clear_log_files, setup_logging
 from .navigation_gesture import EdgeBackGesture
 from .session_controller import SessionController
 from .session_playback_control import output_id
@@ -200,6 +202,7 @@ class DJConnectBackend(QObject):
         super().__init__()
         self.config_path = config_path
         self._shutting_down = False
+        self._refresh_pending = False
         self._audio_devices = None
         self._edge_back_gesture = EdgeBackGesture(self)
         self.cfg: Config = load_config(config_path)
@@ -1000,18 +1003,32 @@ class DJConnectBackend(QObject):
 
     @Slot(str)
     def setLogLevel(self, value: str) -> None:
-        level = value.strip().upper()
-        if level not in {"DEBUG", "INFO", "WARNING", "ERROR"}:
-            level = "INFO"
+        level = normalize_log_level(value)
         if self.cfg.log_level == level:
             return
         self.cfg.log_level = level
-        logging.getLogger().setLevel(getattr(logging, level, logging.INFO))
         save_config(self.config_path, self.cfg)
+        applied = self._apply_log_level()
         self.logLevelChanged.emit()
         self.settingsChanged.emit()
-        _LOGGER.info("User changed log level to %s", level)
-        self.showToastForContext(self.tr_key("log_level_saved", level=level), "diagnostics")
+        if applied:
+            _LOGGER.info("User changed log level to %s", level)
+            label = self.tr_key("off") if level == DEFAULT_LOG_LEVEL else level
+            self.showToastForContext(self.tr_key("log_level_saved", level=label), "diagnostics")
+
+    def _apply_log_level(self) -> bool:
+        disabled = self.cfg.log_level == DEFAULT_LOG_LEVEL
+        if disabled:
+            self._logs_text = ""
+            self.hideLogs()
+        try:
+            path = setup_logging(self.cfg.log_file, self.cfg.log_level)
+            if disabled:
+                clear_log_files(path)
+        except OSError as exc:
+            self.showToastForContext(self.tr_key("logs_failed", error=exc), "diagnostics")
+            return False
+        return True
 
     @Slot(bool)
     def setWebSocketFastPathEnabled(self, enabled: bool) -> None:
@@ -1078,7 +1095,7 @@ class DJConnectBackend(QObject):
             return
         if self._demo_mode:
             return
-        if self._busy:
+        if self._busy or self._refresh_pending:
             _LOGGER.debug("Refresh skipped because another task is active")
             return
         if not self.paired:
@@ -1096,7 +1113,11 @@ class DJConnectBackend(QObject):
         if not self.paired and not self.cfg.ha_url:
             self._set_status_text(self.tr_key("ready_to_pair"))
             return
-        self._run(self.tr_key("refreshing"), self._refresh_worker)
+        self._refresh_pending = True
+        self._run(self.tr_key("refreshing"), self._refresh_worker, done=self._finish_refresh, interactive=False)
+
+    def _finish_refresh(self) -> None:
+        self._refresh_pending = False
 
     def _sync_config_from_disk(self) -> None:
         latest = load_config(self.config_path)
@@ -1122,8 +1143,11 @@ class DJConnectBackend(QObject):
             return
         language_changed = latest.language != self.cfg.language
         glass_changed = effective_glass_enabled(latest) != self.glassEnabled
+        log_level_changed = latest.log_level != self.cfg.log_level
         self.cfg = latest
         self.client.cfg = self.cfg
+        if log_level_changed:
+            self._apply_log_level()
         self._invalidate_shared_settings_if_context_changed()
         self.pairedChanged.emit()
         self.settingsChanged.emit()
@@ -1799,6 +1823,8 @@ class DJConnectBackend(QObject):
 
     @Slot()
     def showLogs(self) -> None:
+        if self.cfg.log_level == DEFAULT_LOG_LEVEL:
+            return
         _LOGGER.info("User opened logs view")
         self.showToastForContext(self.tr_key("logs"), "diagnostics")
         path = Path(self.cfg.log_file)
@@ -2353,7 +2379,9 @@ class DJConnectBackend(QObject):
         self._ask_dj_poll_in_flight = False
 
     def _cache_media_artwork_async(self, kind: str, items: list[dict[str, object]]) -> None:
-        if not items:
+        # The compact ListView already loads nearby covers. A second pass would
+        # compete with touch commands on the shared playback worker.
+        if not items or self.cfg.release_profile == "pi-zero-2w-arm64":
             return
         if kind in self._media_artwork_cache_in_flight:
             _LOGGER.debug("%s artwork cache skipped because a cache worker is already active", kind)
@@ -2586,8 +2614,6 @@ class DJConnectBackend(QObject):
         self.playback = playback
         if old_volume_context != self._control_volume_context(playback):
             self.cancelControlVolume()
-        else:
-            self.controlVolumeChanged.emit()
         track_changed = old.title != playback.title or old.artist != playback.artist or old.image_url != playback.image_url or old.uri != playback.uri
         if (self._track_insight_subject(old) != self._track_insight_subject(playback)
                 or self._track_insight_output(old) != self._track_insight_output(playback)):
@@ -3035,10 +3061,10 @@ class DJConnectBackend(QObject):
     def _persist_backend_summary(self) -> None:
         self._invalidate_shared_settings_if_context_changed()
         try:
-            save_config(self.config_path, self.cfg)
-            self.settingsChanged.emit()
-            self.favoriteChanged.emit()
-            self.djAnnouncementChanged.emit()
+            if save_config(self.config_path, self.cfg, skip_unchanged=True):
+                self.settingsChanged.emit()
+                self.favoriteChanged.emit()
+                self.djAnnouncementChanged.emit()
         except Exception as exc:  # noqa: BLE001 - config persistence failures are reported without interrupting renderer state
             _LOGGER.warning("Could not persist music backend summary: %s", exc)
 
@@ -3225,7 +3251,8 @@ def main() -> None:
 
     setup_logging(cfg.log_file, cfg.log_level)
     _LOGGER.info("Starting DJConnect Pi client")
-    log_raspberry_pi_system_info()
+    if _LOGGER.isEnabledFor(logging.INFO):
+        log_raspberry_pi_system_info()
 
     # Select the Pi5 GPU path once at startup so its local toggle can switch
     # material without restarting. Explicit operator backend settings win.
