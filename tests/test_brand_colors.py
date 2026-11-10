@@ -84,5 +84,8 @@ def test_presentation_selection_does_not_use_primary_action_gradient():
     assert 'checked: !modeSwitch.inVibeScape && modeSwitch.showingForecast' in mode_strip
     assert 'checked: modeSwitch.inVibeScape' in mode_strip
     assert 'primary:' not in mode_strip
-    assert 'checked: screen.toolbarValue(choices.field)' in qml
+    toolbar_choices = qml.split("id: choices", 1)[1].split("id: vibeCastPanel", 1)[0]
+    assert 'checked: choices.selectedValue === modelData' in toolbar_choices
+    assert 'checked: choices.selectedValue === modelData.value' in toolbar_choices
+    assert 'primary:' not in toolbar_choices
     assert 'primary: known && observation.liked' not in qml
