@@ -359,14 +359,11 @@ comes from `GET /api/djconnect/v1/music_discovery`, refresh uses
 support. The websocket fast path uses
 `djconnect/music_discovery/feed`, `djconnect/music_discovery/refresh` and
 `djconnect/music_discovery/play`/`feedback` only when advertised.
-Recommendation cards are rendered from HA-provided `sections[].items[]` as one
-large row per item. Section IDs such as `new_for_you` and
-`accepted_recommendations` are treated as opaque backend values, empty sections
-may be omitted by HA and the Pi preserves backend section/item order. Quality,
-reason text and reason sources are shown from backend item fields only; reason
-text opens through an explicit full-screen Waarom details action. Reasons,
-quality scores, artwork/actions, fallback recommendations and recently played
-history are never inferred or reconstructed locally. Play Now websocket/HTTP
+Ontdek renders HA-provided sections as horizontal shelves in backend order.
+Tapping a recommendation opens its detail popover with the backend reason,
+quality factors and sources. Play Now and capability-gated feedback are explicit
+actions in the popover. The client uses opaque section and recommendation IDs
+and does not infer recommendations, reasons or scores locally. Play Now websocket/HTTP
 payloads include Pi identity, `section_id` and `discovery_item_id` so HA can
 record the interaction as a Music DNA signal.
 

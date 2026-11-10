@@ -1321,6 +1321,10 @@ for _key, _values in _HISTORY_SEARCH_TRANSLATIONS.items():
 
 
 _INTRODUCTION_TRANSLATIONS = {
+    "music_discovery_kind_track": ("Track", "Nummer", "Titel", "Morceau", "Canción"),
+    "music_discovery_kind_album": ("Album", "Album", "Album", "Album", "Álbum"),
+    "music_discovery_kind_artist": ("Artist", "Artiest", "Künstler", "Artiste", "Artista"),
+    "music_discovery_kind_playlist": ("Playlist", "Afspeellijst", "Playlist", "Playlist", "Lista de reproducción"),
     "music_discovery_introduction": (
         "Learn from your taste and listening habits to tailor recommendations to your listening profile.",
         "Leer van je smaak en luistergedrag om aanbevelingen af te stemmen op jouw luisterprofiel.",

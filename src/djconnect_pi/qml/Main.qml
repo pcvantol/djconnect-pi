@@ -46,8 +46,8 @@ BrandWindow {
     }
     Connections {
         target: djconnect
-        function onProfileChanged() { root.trackArtworkOpen = false; root.syncVibeScape(); musicDnaOptIn.close() }
-        function onPairedChanged() { root.trackArtworkOpen = false; root.syncVibeScape(); musicDnaOptIn.close() }
+        function onProfileChanged() { root.trackArtworkOpen = false; root.syncVibeScape(); musicDnaOptIn.close(); discoveryDetail.close() }
+        function onPairedChanged() { root.trackArtworkOpen = false; root.syncVibeScape(); musicDnaOptIn.close(); discoveryDetail.close() }
     }
     function openVibeScape(pickerTop) {
         if (!vibeScapeAllowed) return
@@ -147,9 +147,6 @@ BrandWindow {
     property bool askDjClearConfirmOpen: false
     property bool musicDnaDisableConfirmOpen: false
     property bool musicDnaClearConfirmOpen: false
-    property bool discoveryReasonOpen: false
-    property string discoveryReasonTitle: ""
-    property string discoveryReasonText: ""
     property bool forceScreenAwake: false
     property bool forceBrightnessFull: false
     property bool suppressNextNowPanelTap: false
@@ -183,7 +180,7 @@ BrandWindow {
         if (!root.active || root.screenBlanked || root.splashVisible || (!djconnect.paired && !djconnect.demoMode)
                 || root.trackArtworkOpen || vibeScapeLoader.active || musicDnaOptIn.visible || root.resetPairingConfirmOpen || root.rebootConfirmOpen
                 || root.shutdownConfirmOpen || root.clearLogsConfirmOpen || root.askDjClearConfirmOpen
-                || root.musicDnaDisableConfirmOpen || root.musicDnaClearConfirmOpen || root.discoveryReasonOpen)
+                || root.musicDnaDisableConfirmOpen || root.musicDnaClearConfirmOpen || discoveryDetail.visible)
             return ""
         if (djconnect.logsVisible) return "logs"
         if (root.aboutOpen) return "about"
@@ -335,7 +332,7 @@ BrandWindow {
         askDjPanel.closeSearch()
         root.musicDnaDisableConfirmOpen = false
         root.musicDnaClearConfirmOpen = false
-        root.discoveryReasonOpen = false
+        discoveryDetail.close()
         musicDnaOptIn.close()
     }
 
@@ -2904,6 +2901,80 @@ BrandWindow {
         visible: root.activeScreen === "discover"
         z: 17
 
+        readonly property var sections: {
+            const groups = []
+            for (const item of djconnect.musicDiscoveryItems) {
+                const last = groups[groups.length - 1]
+                if (last && last.id === item.sectionId)
+                    last.items.push(item)
+                else
+                    groups.push({id: item.sectionId, title: item.sectionTitle, items: [item]})
+            }
+            return groups
+        }
+
+        function kindLabel(kind) {
+            switch (kind) {
+            case "track": return root.tr("music_discovery_kind_track")
+            case "album": return root.tr("music_discovery_kind_album")
+            case "artist": return root.tr("music_discovery_kind_artist")
+            case "playlist": return root.tr("music_discovery_kind_playlist")
+            default: return ""
+            }
+        }
+
+        onVisibleChanged: if (!visible) discoveryDetail.close()
+
+        component DiscoveryArtwork: GlassArtworkFrame {
+            id: artwork
+            required property var recommendation
+            backend: djconnect
+            imageItem: cover
+            active: visible && !root.screenBlanked
+            leaseKey: djconnect.activeProfileId + "|" + (recommendation.payload || "")
+            radius: 20
+            clip: true
+
+            FeatureIcon {
+                anchors.centerIn: parent
+                width: 42; height: width
+                iconName: "discover"
+                visible: cover.status !== Image.Ready
+            }
+            Image {
+                id: cover
+                anchors.fill: parent
+                source: artwork.recommendation.imageUrl || ""
+                sourceSize: Qt.size(Math.ceil(width), Math.ceil(height))
+                fillMode: Image.PreserveAspectCrop
+                asynchronous: true
+                visible: status === Image.Ready
+            }
+        }
+
+        component DiscoveryChips: RowLayout {
+            id: chips
+            property var values: []
+            spacing: 6
+            Repeater {
+                model: chips.values
+                delegate: GlassSurface {
+                    required property string modelData
+                    radius: 14
+                    implicitWidth: chipText.implicitWidth + 16
+                    implicitHeight: chipText.implicitHeight + 10
+                    Text {
+                        id: chipText
+                        anchors.centerIn: parent
+                        text: parent.modelData.replace(/_/g, " ")
+                        textFormat: Text.PlainText
+                        color: BrandTheme.colors.muted
+                        font.pixelSize: 15
+                    }
+                }
+            }
+        }
+
         AppBackground { sessionCanvas: true }
         ModalBlocker {}
 
@@ -2923,388 +2994,417 @@ BrandWindow {
                 connectionText: djconnect.connectionType
                 Layout.fillWidth: true
 
-                LoadingSpinner {
-                    visible: djconnect.musicDiscoveryBusy
-                    running: visible
-                    Layout.preferredWidth: 38
-                    Layout.preferredHeight: 38
-                }
-
                 RefreshIconButton {
                     id: discoveryRefreshButton
-                    enabled: !djconnect.musicDiscoveryBusy
+                    loading: djconnect.musicDiscoveryBusy
+                    enabled: !loading
                     onClicked: djconnect.refreshMusicDiscovery()
                 }
             }
 
-            IntroductionCard {
-                objectName: "discoveryIntroduction"
-                compact: root.width < 900
-                iconName: "discover"
-                title: root.tr("music_discovery")
-                message: root.tr("music_discovery_introduction")
-            }
-
-            GlassSurface {
-                visible: djconnect.musicDiscoveryConsentRejected
+            ScrollView {
+                id: discoveryScroll
+                objectName: "discoveryFeed"
                 Layout.fillWidth: true
-                Layout.preferredHeight: consentColumn.implicitHeight + 28
-                radius: root.standardButtonRadius
+                Layout.fillHeight: true
+                clip: true
+                ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
 
-                ColumnLayout {
-                    id: consentColumn
-                    anchors.fill: parent
-                    anchors.margins: 14
-                    spacing: 10
-
-                    Text {
-                        text: root.tr("music_discovery_requires_music_dna")
-                        color: BrandTheme.colors.text
-                        font.pixelSize: 21
-                        wrapMode: Text.WordWrap
-                        Layout.fillWidth: true
+                Flickable {
+                    id: discoveryFlick
+                    contentWidth: width
+                    contentHeight: discoveryContent.implicitHeight
+                    boundsBehavior: Flickable.DragOverBounds
+                    flickableDirection: Flickable.VerticalFlick
+                    property bool refreshArmed: false
+                    onDragStarted: refreshArmed = false
+                    onVerticalOvershootChanged: {
+                        if (dragging && verticalOvershoot < -64)
+                            refreshArmed = true
+                    }
+                    onDragEnded: {
+                        if (refreshArmed && !djconnect.musicDiscoveryBusy && djconnect.musicDiscoveryItems.length > 0)
+                            djconnect.refreshMusicDiscovery()
+                        refreshArmed = false
                     }
 
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 10
+                    ColumnLayout {
+                        id: discoveryContent
+                        width: discoveryFlick.width
+                        spacing: root.wallProfile ? 20 : 12
 
-                        PurpleButton {
-                            text: root.tr("music_discovery_enable")
-                            primary: true
-                            enabled: !djconnect.musicDiscoveryBusy
-                            font.pixelSize: 17
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: 48
-                            onClicked: root.openMusicDnaPrompt(true)
+                        IntroductionCard {
+                            objectName: "discoveryIntroduction"
+                            compact: root.width < 900
+                            iconName: "discover"
+                            title: root.tr("music_discovery")
+                            message: root.tr("music_discovery_introduction")
                         }
 
-                        DangerButton {
-                            text: root.tr("cancel")
-                            enabled: !djconnect.musicDiscoveryBusy
-                            font.pixelSize: 17
-                            Layout.preferredWidth: 130
-                            Layout.preferredHeight: 48
-                            onClicked: djconnect.rejectMusicDiscoveryConsent()
+                        GlassSurface {
+                            hero: true
+                            visible: djconnect.musicDiscoveryItems.length === 0
+                                     && djconnect.musicDiscoveryError.length === 0 && !djconnect.musicDiscoveryBusy
+                                     && (!djconnect.musicDnaEnabled || djconnect.musicDiscoveryConsentRejected)
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: discoveryMusicDnaDisabledColumn.implicitHeight + 28
+                            radius: root.standardButtonRadius
+
+                            ColumnLayout {
+                                id: discoveryMusicDnaDisabledColumn
+                                anchors.fill: parent
+                                anchors.margins: 14
+                                spacing: 10
+
+                                Text {
+                                    text: root.tr("music_dna_disabled")
+                                    color: BrandTheme.colors.text
+                                    font.pixelSize: 21
+                                    font.bold: true
+                                    wrapMode: Text.WordWrap
+                                    Layout.fillWidth: true
+                                }
+
+                                Text {
+                                    text: root.tr("music_discovery_requires_music_dna")
+                                    color: BrandTheme.colors.muted
+                                    font.pixelSize: 19
+                                    wrapMode: Text.WordWrap
+                                    Layout.fillWidth: true
+                                }
+
+                                PurpleButton {
+                                    text: root.tr("music_discovery_enable")
+                                    primary: true
+                                    enabled: !djconnect.musicDnaBusy && !djconnect.musicDiscoveryBusy
+                                    font.pixelSize: 19
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 52
+                                    onClicked: root.openMusicDnaPrompt(true)
+                                }
+                            }
+                        }
+
+                        Text {
+                            visible: (djconnect.musicDnaEnabled || djconnect.musicDiscoveryError.length > 0)
+                                     && djconnect.musicDiscoveryItems.length === 0 && !djconnect.musicDiscoveryBusy
+                                     && !djconnect.musicDiscoveryConsentRejected
+                            textFormat: Text.PlainText
+                            text: djconnect.musicDiscoveryError.length > 0 ? djconnect.musicDiscoveryError : (djconnect.musicDiscoveryEmptyText.length > 0 ? djconnect.musicDiscoveryEmptyText : root.tr("music_discovery_empty"))
+                            color: BrandTheme.colors.muted
+                            font.pixelSize: 20
+                            horizontalAlignment: Text.AlignHCenter
+                            wrapMode: Text.WordWrap
+                            Layout.topMargin: root.wallProfile ? 12 : 4
+                            Layout.fillWidth: true
+                        }
+
+                        Repeater {
+                            model: musicDiscoveryPanel.sections
+
+                            delegate: GlassSurface {
+                                id: shelf
+                                required property var modelData
+                                objectName: "discoveryShelf"
+                                Layout.fillWidth: true
+                                implicitHeight: shelfContent.implicitHeight + 2 * inset
+                                radius: root.standardButtonRadius
+                                property int inset: root.wallProfile ? 20 : 12
+
+                                ColumnLayout {
+                                    id: shelfContent
+                                    anchors.fill: parent
+                                    anchors.margins: shelf.inset
+                                    spacing: 10
+
+                                    Text {
+                                        visible: text.length > 0
+                                        text: shelf.modelData.title
+                                        textFormat: Text.PlainText
+                                        color: BrandTheme.colors.text
+                                        font.pixelSize: root.wallProfile ? 24 : 20
+                                        font.bold: true
+                                        wrapMode: Text.WordWrap
+                                        Layout.fillWidth: true
+                                    }
+
+                                    ListView {
+                                        id: shelfItems
+                                        objectName: "discoveryShelfItems"
+                                        readonly property int tileWidth: root.wallProfile ? 192 : 142
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: tileWidth + 108
+                                        orientation: ListView.Horizontal
+                                        boundsBehavior: Flickable.StopAtBounds
+                                        clip: true
+                                        spacing: 12
+                                        model: shelf.modelData.items
+                                        ScrollBar.horizontal: ScrollBar {}
+
+                                        delegate: Button {
+                                            id: recommendationCard
+                                            required property var modelData
+                                            objectName: "discoveryRecommendation"
+                                            width: shelfItems.tileWidth
+                                            height: Math.min(shelfItems.height, recommendationContent.implicitHeight)
+                                            padding: 0
+                                            Accessible.name: modelData.title
+                                            onClicked: discoveryDetail.showRecommendation(modelData)
+                                            background: Item {}
+
+                                            contentItem: ColumnLayout {
+                                                id: recommendationContent
+                                                spacing: 4
+                                                DiscoveryArtwork {
+                                                    recommendation: recommendationCard.modelData
+                                                    Layout.fillWidth: true
+                                                    Layout.preferredHeight: shelfItems.tileWidth
+                                                    LoadingSpinner {
+                                                        anchors.centerIn: parent
+                                                        visible: djconnect.musicDiscoveryPlayingId.length > 0
+                                                            && djconnect.musicDiscoveryPlayingId === recommendationCard.modelData.discoveryItemId
+                                                        running: visible
+                                                    }
+                                                }
+                                                Text {
+                                                    text: recommendationCard.modelData.title
+                                                    textFormat: Text.PlainText
+                                                    color: BrandTheme.colors.text
+                                                    font.pixelSize: 18
+                                                    font.bold: true
+                                                    maximumLineCount: 2
+                                                    wrapMode: Text.Wrap
+                                                    elide: Text.ElideRight
+                                                    Layout.fillWidth: true
+                                                }
+                                                Text {
+                                                    text: recommendationCard.modelData.subtitle
+                                                    visible: text.length > 0 && !(recommendationCard.modelData.kind === "artist"
+                                                        && text.trim().toLowerCase() === "artist")
+                                                    textFormat: Text.PlainText
+                                                    color: BrandTheme.colors.muted
+                                                    font.pixelSize: 15
+                                                    elide: Text.ElideRight
+                                                    Layout.fillWidth: true
+                                                }
+                                                Text {
+                                                    text: recommendationCard.modelData.reason
+                                                    visible: text.length > 0
+                                                    textFormat: Text.PlainText
+                                                    color: BrandTheme.colors.muted
+                                                    font.pixelSize: 15
+                                                    maximumLineCount: 2
+                                                    wrapMode: Text.Wrap
+                                                    elide: Text.ElideRight
+                                                    Layout.fillWidth: true
+                                                }
+                                                Text {
+                                                    text: musicDiscoveryPanel.kindLabel(recommendationCard.modelData.kind)
+                                                    visible: text.length > 0 && recommendationCard.modelData.kind !== "artist"
+                                                        && !(recommendationCard.modelData.sectionId === "rediscover"
+                                                            && recommendationCard.modelData.kind === "track")
+                                                    color: BrandTheme.colors.muted
+                                                    font.pixelSize: 14
+                                                    font.bold: true
+                                                    Layout.fillWidth: true
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
             }
+        }
 
-            GlassSurface {
-                hero: true
-                visible: !djconnect.musicDnaEnabled && djconnect.musicDiscoveryItems.length === 0
-                         && djconnect.musicDiscoveryError.length === 0 && !djconnect.musicDiscoveryBusy
-                         && !djconnect.musicDiscoveryConsentRejected
-                Layout.fillWidth: true
-                Layout.preferredHeight: discoveryMusicDnaDisabledColumn.implicitHeight + 28
-                radius: root.standardButtonRadius
+        GlassPopup {
+            id: discoveryDetail
+            objectName: "discoveryDetail"
+            property var selected: null
+            readonly property var item: selected ? djconnect.musicDiscoveryItems.find(function(candidate) {
+                return candidate.payload === selected.payload && candidate.title === selected.title
+            }) : null
+            readonly property bool actionBusy: djconnect.musicDiscoveryBusy || djconnect.musicDiscoveryPlayingId.length > 0
+            readonly property var qualityChips: {
+                if (!item) return []
+                const chips = []
+                const score = item.qualityScore
+                if (typeof score === "number" && Number.isInteger(score) && score >= 0 && score <= 100)
+                    chips.push(score + "/100")
+                return chips.concat(Array.from(item.qualityFactors || []).filter(function(factor) {
+                    return typeof factor === "string" && factor.length > 0
+                }))
+            }
+            anchors.centerIn: Overlay.overlay
+            width: Math.min(root.width - 40, 520)
+            height: Math.min(root.height - 56, detailContent.implicitHeight + 32)
+            modal: true
+            focus: true
+            padding: 16
+            closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+            background: GlassSurface { popover: true; elevated: true }
+            onItemChanged: if (!item) close()
+            onClosed: selected = null
+
+            function showRecommendation(recommendation) {
+                selected = recommendation
+                if (item) open()
+            }
+
+            Connections {
+                target: djconnect
+                function onDemoModeChanged() { discoveryDetail.close() }
+                function onMusicDiscoveryPlayed(sectionId, itemId) {
+                    const item = discoveryDetail.item
+                    if (item && item.sectionId === sectionId && item.discoveryItemId === itemId)
+                        discoveryDetail.close()
+                }
+            }
+
+            contentItem: ScrollView {
+                id: detailScroll
+                clip: true
+                contentWidth: availableWidth
+                ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
 
                 ColumnLayout {
-                    id: discoveryMusicDnaDisabledColumn
-                    anchors.fill: parent
-                    anchors.margins: 14
-                    spacing: 10
+                    id: detailContent
+                    width: detailScroll.availableWidth
+                    spacing: 12
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 12
+                        DiscoveryArtwork {
+                            recommendation: discoveryDetail.item || ({})
+                            Layout.preferredWidth: 96
+                            Layout.preferredHeight: 96
+                        }
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            Text {
+                                text: discoveryDetail.item ? discoveryDetail.item.title : ""
+                                textFormat: Text.PlainText
+                                color: BrandTheme.colors.text
+                                font.pixelSize: 24
+                                font.bold: true
+                                wrapMode: Text.Wrap
+                                Layout.fillWidth: true
+                            }
+                            Text {
+                                text: discoveryDetail.item ? discoveryDetail.item.subtitle : ""
+                                visible: text.length > 0
+                                textFormat: Text.PlainText
+                                color: BrandTheme.colors.muted
+                                font.pixelSize: 17
+                                wrapMode: Text.Wrap
+                                Layout.fillWidth: true
+                            }
+                            Text {
+                                text: discoveryDetail.item ? musicDiscoveryPanel.kindLabel(discoveryDetail.item.kind) : ""
+                                visible: text.length > 0
+                                color: BrandTheme.colors.muted
+                                font.pixelSize: 16
+                                Layout.fillWidth: true
+                            }
+                        }
+                        GlassButton {
+                            iconName: "end"
+                            Accessible.name: root.tr("close")
+                            Layout.alignment: Qt.AlignTop
+                            onClicked: discoveryDetail.close()
+                        }
+                    }
 
                     Text {
-                        text: djconnect.musicDiscoveryEmptyText.length > 0 ? djconnect.musicDiscoveryEmptyText : root.tr("music_discovery_requires_music_dna")
+                        text: discoveryDetail.item ? discoveryDetail.item.reason : ""
+                        visible: text.length > 0
+                        textFormat: Text.PlainText
                         color: BrandTheme.colors.text
-                        font.pixelSize: 21
-                        font.bold: true
+                        font.pixelSize: 18
                         wrapMode: Text.WordWrap
                         Layout.fillWidth: true
                     }
 
+                    ScrollView {
+                        visible: discoveryDetail.qualityChips.length > 0
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: qualityRow.implicitHeight + 8
+                        contentHeight: qualityRow.implicitHeight
+                        clip: true
+                        ScrollBar.vertical.policy: ScrollBar.AlwaysOff
+                        DiscoveryChips { id: qualityRow; values: discoveryDetail.qualityChips }
+                    }
+
+                    ScrollView {
+                        visible: !!discoveryDetail.item && sourceRow.values.length > 0
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: sourceRow.implicitHeight + 8
+                        contentHeight: sourceRow.implicitHeight
+                        clip: true
+                        ScrollBar.vertical.policy: ScrollBar.AlwaysOff
+                        DiscoveryChips { id: sourceRow; values: discoveryDetail.item ? discoveryDetail.item.reasonSources || [] : [] }
+                    }
+
+                    GlassButton {
+                        objectName: "discoveryDetailPlay"
+                        text: root.tr("play_now")
+                        iconName: "play"
+                        primary: true
+                        visible: !!discoveryDetail.item && discoveryDetail.item.playable
+                        enabled: !discoveryDetail.actionBusy
+                        font.pixelSize: 18
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 52
+                        onClicked: if (discoveryDetail.item) djconnect.playMusicDiscoveryItem(discoveryDetail.item.payload)
+                    }
+
                     Text {
-                        text: root.tr("music_dna_opt_in")
-                        color: BrandTheme.colors.muted
-                        font.pixelSize: 19
+                        visible: djconnect.musicDiscoveryError.length > 0
+                        text: djconnect.musicDiscoveryError
+                        textFormat: Text.PlainText
+                        color: BrandTheme.colors.text
+                        font.pixelSize: 17
                         wrapMode: Text.WordWrap
                         Layout.fillWidth: true
                     }
 
                     PurpleButton {
-                        text: root.tr("music_discovery_enable")
-                        primary: true
-                        enabled: !djconnect.musicDnaBusy && !djconnect.musicDiscoveryBusy
-                        font.pixelSize: 19
+                        objectName: "discoveryDetailFeedback"
+                        text: root.tr("feedback")
+                        visible: djconnect.musicDiscoveryFeedbackSupported
+                        enabled: !discoveryDetail.actionBusy
+                        font.pixelSize: 18
                         Layout.fillWidth: true
-                        Layout.preferredHeight: 52
-                        onClicked: root.openMusicDnaPrompt(false)
-                    }
-                }
-            }
+                        Layout.preferredHeight: 48
+                        onClicked: discoveryFeedbackMenu.open()
 
-            Text {
-                visible: (djconnect.musicDnaEnabled || djconnect.musicDiscoveryError.length > 0)
-                         && djconnect.musicDiscoveryItems.length === 0 && !djconnect.musicDiscoveryBusy
-                         && !djconnect.musicDiscoveryConsentRejected
-                textFormat: Text.PlainText
-                text: djconnect.musicDiscoveryError.length > 0 ? djconnect.musicDiscoveryError : (djconnect.musicDiscoveryEmptyText.length > 0 ? djconnect.musicDiscoveryEmptyText : root.tr("music_discovery_empty"))
-                color: BrandTheme.colors.muted
-                font.pixelSize: 20
-                horizontalAlignment: Text.AlignHCenter
-                wrapMode: Text.WordWrap
-                Layout.topMargin: root.wallProfile ? 12 : 4
-                Layout.fillWidth: true
-            }
-
-            ScrollView {
-                id: discoveryScroll
-                visible: djconnect.musicDiscoveryItems.length > 0
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                clip: true
-                ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-                contentWidth: availableWidth
-
-                GridLayout {
-                    width: Math.max(0, discoveryScroll.availableWidth)
-                    columns: 1
-                    columnSpacing: 10
-                    rowSpacing: 10
-
-                    Repeater {
-                        model: djconnect.musicDiscoveryItems
-
-                        GlassSurface {
-                            Layout.fillWidth: true
-                            property int inset: root.wallProfile ? 24 : 14
-                            Layout.preferredHeight: discoveryResult.implicitHeight + 2 * inset
-                            radius: root.wallProfile ? 34 : 22
-                            clip: true
-                            introduction: true
-                            focused: discoveryTap.activeFocus
-
-                            MouseArea {
-                                id: discoveryTap
-                                anchors.fill: parent
-                                acceptedButtons: Qt.LeftButton
-                                activeFocusOnTab: true
-                                Keys.onReturnPressed: event.accepted = true
-                                Keys.onEnterPressed: event.accepted = true
-                                onClicked: function(mouse) { mouse.accepted = true }
-                                onPressAndHold: {
-                                    if (modelData.hasReason) {
-                                        root.discoveryReasonTitle = modelData.title || root.tr("music_discovery_reason")
-                                        root.discoveryReasonText = modelData.reason || ""
-                                        root.discoveryReasonOpen = true
-                                    }
-                                }
+                        Menu {
+                            id: discoveryFeedbackMenu
+                            y: parent.height
+                            MenuItem {
+                                text: root.tr("music_discovery_not_for_me")
+                                onTriggered: discoveryDetail.sendFeedback("not_for_me")
                             }
-
-                            RowLayout {
-                                id: discoveryResult
-                                anchors.fill: parent
-                                anchors.margins: parent.inset
-                                spacing: 14
-
-                                GlassArtworkFrame {
-                                    objectName: "discoveryArtworkFrame"
-                                    backend: djconnect; imageItem: discoveryArtworkImage
-                                    active: !root.screenBlanked
-                                    leaseKey: djconnect.activeProfileId + "|" + (modelData.id || modelData.title || "")
-                                    visible: !!modelData.imageUrl && modelData.imageUrl.length > 0
-                                    Layout.preferredWidth: 112; Layout.preferredHeight: 112
-                                    radius: 20
-                                    Image {
-                                        id: discoveryArtworkImage
-                                        source: modelData.imageUrl && modelData.imageUrl.length > 0 ? modelData.imageUrl : ""
-                                        visible: source.toString().length > 0
-                                        anchors.fill: parent
-                                        fillMode: Image.PreserveAspectCrop
-                                        smooth: true
-                                    }
-                                }
-
-                                ColumnLayout {
-                                    Layout.fillWidth: true
-                                    Layout.fillHeight: true
-                                    spacing: 4
-
-                                    Text {
-                                        visible: modelData.sectionTitle && modelData.sectionTitle.length > 0
-                                        text: modelData.sectionTitle || ""
-                                        color: BrandTheme.colors.muted
-                                        font.pixelSize: 17
-                                        font.bold: true
-                                        elide: Text.ElideRight
-                                        maximumLineCount: 1
-                                        Layout.fillWidth: true
-                                    }
-
-                                    Text {
-                                        text: modelData.title || ""
-                                        textFormat: Text.PlainText
-                                        color: BrandTheme.colors.text
-                                        font.pixelSize: 25
-                                        font.bold: true
-                                        elide: Text.ElideRight
-                                        maximumLineCount: 1
-                                        Layout.fillWidth: true
-                                    }
-
-                                    Text {
-                                        text: [modelData.kindLabel || "", modelData.subtitle || ""].filter(function(v) { return v && v.length > 0 }).join(" · ")
-                                        color: BrandTheme.colors.muted
-                                        font.pixelSize: 19
-                                        elide: Text.ElideRight
-                                        maximumLineCount: 1
-                                        Layout.fillWidth: true
-                                    }
-
-                                    Text {
-                                        visible: (modelData.qualityBand && modelData.qualityBand.length > 0)
-                                                 || (modelData.qualityScore !== undefined && modelData.qualityScore !== null && String(modelData.qualityScore).length > 0)
-                                        text: [modelData.qualityBand || "",
-                                               (modelData.qualityScore !== undefined && modelData.qualityScore !== null) ? String(modelData.qualityScore) : ""]
-                                              .filter(function(v) { return v && v.length > 0 }).join(" · ")
-                                        color: BrandTheme.colors.muted
-                                        font.pixelSize: 17
-                                        elide: Text.ElideRight
-                                        Layout.fillWidth: true
-                                    }
-
-                                    RowLayout {
-                                        Layout.fillWidth: true
-                                        spacing: 8
-
-                                        PurpleButton {
-                                            text: root.tr("play_now")
-                                            primary: true
-                                            visible: modelData.playable
-                                            enabled: modelData.playable && !djconnect.musicDiscoveryBusy
-                                            font.pixelSize: 19
-                                            Layout.fillWidth: true
-                                            Layout.preferredHeight: 52
-                                            onClicked: djconnect.playMusicDiscoveryItem(modelData.payload || "{}")
-                                        }
-
-                                        PurpleButton {
-                                            visible: modelData.hasReason
-                                            text: root.tr("music_discovery_reason")
-                                            enabled: modelData.hasReason
-                                            font.pixelSize: 18
-                                            Layout.preferredWidth: 132
-                                            Layout.preferredHeight: 52
-                                            onClicked: {
-                                                root.discoveryReasonTitle = modelData.title || root.tr("music_discovery_reason")
-                                                root.discoveryReasonText = modelData.reason || ""
-                                                root.discoveryReasonOpen = true
-                                            }
-                                        }
-                                    }
-
-                                    RowLayout {
-                                        visible: djconnect.musicDiscoveryFeedbackSupported
-                                        Layout.fillWidth: true
-                                        spacing: 8
-
-                                        PurpleButton {
-                                            text: root.tr("music_discovery_not_for_me")
-                                            enabled: !djconnect.musicDiscoveryBusy
-                                            font.pixelSize: 14
-                                            Layout.fillWidth: true
-                                            Layout.preferredHeight: 40
-                                            onClicked: djconnect.sendMusicDiscoveryFeedback(modelData.payload || "{}", "not_for_me")
-                                        }
-
-                                        PurpleButton {
-                                            text: root.tr("music_discovery_less_like_this")
-                                            enabled: !djconnect.musicDiscoveryBusy
-                                            font.pixelSize: 14
-                                            Layout.fillWidth: true
-                                            Layout.preferredHeight: 40
-                                            onClicked: djconnect.sendMusicDiscoveryFeedback(modelData.payload || "{}", "less_like_this")
-                                        }
-
-                                        PurpleButton {
-                                            text: root.tr("music_discovery_hide_artist")
-                                            enabled: !djconnect.musicDiscoveryBusy
-                                            font.pixelSize: 14
-                                            Layout.fillWidth: true
-                                            Layout.preferredHeight: 40
-                                            onClicked: djconnect.sendMusicDiscoveryFeedback(modelData.payload || "{}", "hide_artist")
-                                        }
-                                    }
-                                }
+                            MenuItem {
+                                text: root.tr("music_discovery_less_like_this")
+                                onTriggered: discoveryDetail.sendFeedback("less_like_this")
+                            }
+                            MenuItem {
+                                text: root.tr("music_discovery_hide_artist")
+                                onTriggered: discoveryDetail.sendFeedback("hide_artist")
                             }
                         }
                     }
                 }
             }
 
-            Item {
-                visible: !discoveryScroll.visible
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-            }
-        }
-    }
-
-    Rectangle {
-        id: discoveryReasonPanel
-        anchors.fill: parent
-        color: BrandTheme.alpha(BrandTheme.colors.background, "f2")
-        visible: root.discoveryReasonOpen
-        z: 46
-
-        ModalBlocker {}
-        AppBackground {}
-
-        ColumnLayout {
-            anchors.fill: parent
-            anchors.margins: 22
-            anchors.bottomMargin: root.edge + 126
-            spacing: 16
-
-            RowLayout {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 58
-                spacing: 12
-
-                Text {
-                    text: root.tr("music_discovery_reason")
-                    color: BrandTheme.colors.text
-                    font.pixelSize: 36
-                    font.bold: true
-                    elide: Text.ElideRight
-                    Layout.fillWidth: true
-                }
-
-                PurpleButton {
-                    text: root.tr("close")
-                    font.pixelSize: 18
-                    Layout.preferredWidth: 132
-                    Layout.preferredHeight: 52
-                    onClicked: root.discoveryReasonOpen = false
-                }
-            }
-
-            Text {
-                text: root.discoveryReasonTitle
-                color: BrandTheme.colors.text
-                font.pixelSize: 28
-                font.bold: true
-                wrapMode: Text.WordWrap
-                Layout.fillWidth: true
-                visible: text.length > 0
-            }
-
-            ScrollView {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                clip: true
-                ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-                contentWidth: availableWidth
-
-                Text {
-                    width: Math.max(0, parent.availableWidth)
-                    text: root.discoveryReasonText
-                    color: BrandTheme.colors.muted
-                    font.pixelSize: 24
-                    lineHeight: 1.15
-                    wrapMode: Text.WordWrap
+            function sendFeedback(value) {
+                if (item && !actionBusy && djconnect.musicDiscoveryFeedbackSupported) {
+                    djconnect.sendMusicDiscoveryFeedback(item.payload, value)
+                    close()
                 }
             }
         }
