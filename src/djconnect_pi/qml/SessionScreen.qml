@@ -1002,7 +1002,6 @@ Item {
                 }
                 GlassButton {
                     objectName: "sessionRefresh"
-                    visible: !screen.idleWelcome || screen.compact || screen.owner.refreshing
                     iconName: screen.owner.refreshing ? "" : "refresh"
                     Accessible.name: screen.tr("refresh")
                     implicitWidth: 52; background: Item {}
