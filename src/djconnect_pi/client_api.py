@@ -12,6 +12,7 @@ from urllib.parse import parse_qs, urlparse
 
 from .config import (
     CLIENT_TYPE,
+    LOG_LEVELS,
     Config,
     load_config,
     normalize_dj_announcement_output,
@@ -322,7 +323,7 @@ class ClientAPIHandler(BaseHTTPRequestHandler):
         if language in SUPPORTED_LANGUAGES:
             cfg.language = language
         log_level = str(payload.get("log_level") or cfg.log_level).strip().upper()
-        if log_level in {"DEBUG", "INFO", "WARNING", "ERROR"}:
+        if log_level in LOG_LEVELS:
             cfg.log_level = log_level
         if "screen_brightness_percent" in payload:
             cfg.screen_brightness_percent = max(10, min(100, int(payload["screen_brightness_percent"])))

@@ -674,7 +674,7 @@ payload = {
     "screen_brightness_percent": 100,
     "log_file": "/opt/djconnect/logs/client.log",
     "dj_response_file": "/opt/djconnect/config/dj-response.json",
-    "log_level": "INFO",
+    "log_level": "OFF",
 }
 config.parent.mkdir(parents=True, exist_ok=True)
 config.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")

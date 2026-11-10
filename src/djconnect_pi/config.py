@@ -15,6 +15,8 @@ from .i18n import normalize_language
 CLIENT_TYPE = "raspberry_pi"
 PROTOCOL_VERSION = "4.0.1"
 DEFAULT_CONFIG_PATH = Path.home() / ".config" / "djconnect-pi" / "config.json"
+DEFAULT_LOG_LEVEL = "OFF"
+LOG_LEVELS = frozenset({"OFF", "DEBUG", "INFO", "WARNING", "ERROR"})
 DEFAULT_LOG_PATH = Path.home() / ".local" / "state" / "djconnect-pi" / "client.log"
 
 
@@ -66,7 +68,7 @@ class Config:
     screenshot_event_file: str = str(DEFAULT_LOG_PATH.parent / "screenshot-request.json")
     screenshot_file: str = str(DEFAULT_LOG_PATH.parent / "screenshot.png")
     updater_status_file: str = str(DEFAULT_LOG_PATH.parent / "updater-status.json")
-    log_level: str = "INFO"
+    log_level: str = DEFAULT_LOG_LEVEL
 
 
 def stable_device_id() -> str:
@@ -121,6 +123,7 @@ def load_config(path: Path) -> Config:
     )
     cfg.local_api_port = max(1, min(65535, int(cfg.local_api_port)))
     cfg.language = normalize_language(cfg.language)
+    cfg.log_level = normalize_log_level(cfg.log_level)
     cfg.active_profile_id = str(cfg.active_profile_id or "").strip()
     cfg.active_profile_name = str(cfg.active_profile_name or "").strip()
     cfg.active_profile_type = _normalize_profile_type(cfg.active_profile_type)
@@ -134,6 +137,11 @@ def load_config(path: Path) -> Config:
         cfg.glass_enabled = None
     cfg.dj_announcement_output_user_set = bool(cfg.dj_announcement_output_user_set)
     return cfg
+
+
+def normalize_log_level(value: object) -> str:
+    level = str(value or "").strip().upper()
+    return level if level in LOG_LEVELS else DEFAULT_LOG_LEVEL
 
 
 def _optional_mood(value: object) -> int | None:

@@ -42,6 +42,7 @@ from .brand_theme import apply_palette
 from .config import (
     CLIENT_TYPE,
     DEFAULT_CONFIG_PATH,
+    DEFAULT_LOG_LEVEL,
     DEFAULT_LOG_PATH,
     SESSION_REFRESH_CHOICES,
     Config,
@@ -49,6 +50,7 @@ from .config import (
     effective_session_refresh_seconds,
     load_config,
     normalize_dj_announcement_output,
+    normalize_log_level,
     save_config,
 )
 from .ha import (
@@ -64,7 +66,7 @@ from .ha import (
     UnsupportedBackendCapability,
 )
 from .i18n import LANGUAGES, normalize_language, translate
-from .logging_config import setup_logging
+from .logging_config import clear_log_files, setup_logging
 from .navigation_gesture import EdgeBackGesture
 from .session_controller import SessionController
 from .session_playback_control import output_id
@@ -999,18 +1001,32 @@ class DJConnectBackend(QObject):
 
     @Slot(str)
     def setLogLevel(self, value: str) -> None:
-        level = value.strip().upper()
-        if level not in {"DEBUG", "INFO", "WARNING", "ERROR"}:
-            level = "INFO"
+        level = normalize_log_level(value)
         if self.cfg.log_level == level:
             return
         self.cfg.log_level = level
-        logging.getLogger().setLevel(getattr(logging, level, logging.INFO))
         save_config(self.config_path, self.cfg)
+        applied = self._apply_log_level()
         self.logLevelChanged.emit()
         self.settingsChanged.emit()
-        _LOGGER.info("User changed log level to %s", level)
-        self.showToastForContext(self.tr_key("log_level_saved", level=level), "diagnostics")
+        if applied:
+            _LOGGER.info("User changed log level to %s", level)
+            label = self.tr_key("off") if level == DEFAULT_LOG_LEVEL else level
+            self.showToastForContext(self.tr_key("log_level_saved", level=label), "diagnostics")
+
+    def _apply_log_level(self) -> bool:
+        disabled = self.cfg.log_level == DEFAULT_LOG_LEVEL
+        if disabled:
+            self._logs_text = ""
+            self.hideLogs()
+        try:
+            path = setup_logging(self.cfg.log_file, self.cfg.log_level)
+            if disabled:
+                clear_log_files(path)
+        except OSError as exc:
+            self.showToastForContext(self.tr_key("logs_failed", error=exc), "diagnostics")
+            return False
+        return True
 
     @Slot(bool)
     def setWebSocketFastPathEnabled(self, enabled: bool) -> None:
@@ -1125,8 +1141,11 @@ class DJConnectBackend(QObject):
             return
         language_changed = latest.language != self.cfg.language
         glass_changed = effective_glass_enabled(latest) != self.glassEnabled
+        log_level_changed = latest.log_level != self.cfg.log_level
         self.cfg = latest
         self.client.cfg = self.cfg
+        if log_level_changed:
+            self._apply_log_level()
         self._invalidate_shared_settings_if_context_changed()
         self.pairedChanged.emit()
         self.settingsChanged.emit()
@@ -1801,6 +1820,8 @@ class DJConnectBackend(QObject):
 
     @Slot()
     def showLogs(self) -> None:
+        if self.cfg.log_level == DEFAULT_LOG_LEVEL:
+            return
         _LOGGER.info("User opened logs view")
         self.showToastForContext(self.tr_key("logs"), "diagnostics")
         path = Path(self.cfg.log_file)
@@ -3217,7 +3238,8 @@ def main() -> None:
 
     setup_logging(cfg.log_file, cfg.log_level)
     _LOGGER.info("Starting DJConnect Pi client")
-    log_raspberry_pi_system_info()
+    if _LOGGER.isEnabledFor(logging.INFO):
+        log_raspberry_pi_system_info()
 
     # Select the Pi5 GPU path once at startup so its local toggle can switch
     # material without restarting. Explicit operator backend settings win.

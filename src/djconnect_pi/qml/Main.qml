@@ -2157,15 +2157,16 @@ BrandWindow {
                 BrandComboBox {
                     id: logLevelBox
                     font.pixelSize: 28
-                    model: ["DEBUG", "INFO", "WARNING", "ERROR"]
+                    model: ["OFF", "DEBUG", "INFO", "WARNING", "ERROR"]
                     currentIndex: model.indexOf(djconnect.logLevel)
+                    displayText: currentText === "OFF" ? root.tr("off") : currentText
                     delegate: ItemDelegate {
                         width: logLevelBox.width
-                        text: modelData
+                        text: modelData === "OFF" ? root.tr("off") : modelData
                         font.pixelSize: 30
                     }
                     Layout.fillWidth: true
-                    onActivated: djconnect.setLogLevel(currentText)
+                    onActivated: djconnect.setLogLevel(model[currentIndex])
                 }
             }
 
@@ -2446,6 +2447,8 @@ BrandWindow {
                         onClicked: root.activeScreen = "settings"
                     }
                     MoreMenuButton {
+                        objectName: "openLogsMenuItem"
+                        visible: djconnect.logLevel !== "OFF"
                         text: root.tr("logs"); iconName: "logs"
                         onClicked: djconnect.showLogs()
                     }
@@ -5024,6 +5027,7 @@ BrandWindow {
                 spacing: 12
 
                 PurpleButton {
+                    visible: djconnect.logLevel !== "OFF"
                     text: root.tr("view_logs")
                     font.pixelSize: 18
                     Layout.fillWidth: true

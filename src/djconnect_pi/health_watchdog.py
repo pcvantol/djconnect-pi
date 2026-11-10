@@ -8,7 +8,7 @@ from pathlib import Path
 
 import requests
 
-from .config import DEFAULT_CONFIG_PATH, load_config
+from .config import DEFAULT_CONFIG_PATH, DEFAULT_LOG_LEVEL, load_config
 from .logging_config import setup_logging
 
 _LOGGER = logging.getLogger(__name__)
@@ -103,7 +103,8 @@ def main() -> None:
     args = parser.parse_args()
 
     cfg = load_config(args.config)
-    setup_logging(args.log_file or cfg.log_file, cfg.log_level)
+    level = "WARNING" if cfg.log_level == DEFAULT_LOG_LEVEL and args.log_file else cfg.log_level
+    setup_logging(args.log_file or cfg.log_file, level)
     result = run_check(
         local_url=cfg.local_url,
         state_file=args.state_file,

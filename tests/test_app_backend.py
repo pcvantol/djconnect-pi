@@ -2693,7 +2693,7 @@ def test_backend_music_discovery_refresh_shows_toast(tmp_path: Path) -> None:
     assert calls[0][0] == backend.t("music_discovery")
 
 
-def test_backend_sync_config_updates_live_settings(tmp_path: Path) -> None:
+def test_backend_sync_config_updates_live_settings(tmp_path: Path, monkeypatch) -> None:
     ensure_app()
     config_path = tmp_path / "config.json"
     backend = DJConnectBackend(config_path)
@@ -2705,14 +2705,44 @@ def test_backend_sync_config_updates_live_settings(tmp_path: Path) -> None:
     updated.update_channel = "beta"
     save_config(config_path, updated)
 
+    logging_setup = Mock()
+    monkeypatch.setattr("djconnect_pi.app.setup_logging", logging_setup)
     backend._sync_config_from_disk()
 
     assert backend.language == updated.language
     assert backend.translationVersion == 1
+    logging_setup.assert_called_once_with(updated.log_file, "DEBUG")
     assert backend.logLevel == "DEBUG"
     assert backend.screenBrightnessPercent == 42
     assert backend.screenTimeoutSeconds == 300
     assert backend.updateChannel == "beta"
+
+
+def test_switching_logging_off_clears_app_logs_and_hides_the_open_view(tmp_path, monkeypatch):
+    ensure_app()
+    config = tmp_path / "client.json"
+    log_file = tmp_path / "client.log"
+    save_config(config, Config(log_level="INFO", log_file=str(log_file)))
+    log_paths = [log_file, *(tmp_path / f"client.log.{i}" for i in range(1, 4))]
+    for path in log_paths:
+        path.write_text("previous diagnostics")
+    unrelated = tmp_path / "watchdog.log"
+    unrelated.write_text("watchdog")
+    backend = DJConnectBackend(config)
+    logging_setup = Mock(return_value=log_file)
+    monkeypatch.setattr("djconnect_pi.app.setup_logging", logging_setup)
+
+    backend.showLogs()
+    assert backend.logsVisible
+    backend.setLogLevel("OFF")
+
+    logging_setup.assert_called_once_with(str(log_file), "OFF")
+    assert load_config(config).log_level == "OFF"
+    assert not any(path.exists() for path in log_paths)
+    assert unrelated.read_text() == "watchdog"
+    assert not backend.logsVisible
+    backend.showLogs()
+    assert not backend.logsVisible
 
 
 def test_backend_output_device_can_be_cleared_locally(tmp_path: Path) -> None:

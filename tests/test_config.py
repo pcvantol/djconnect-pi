@@ -21,6 +21,7 @@ def test_default_config_uses_raspberry_pi_client_type(tmp_path: Path) -> None:
     assert cfg.device_id.startswith("djconnect-raspberry-pi-")
     assert len(cfg.pairing_code) == 6
     assert cfg.pairing_code.isdigit()
+    assert cfg.log_level == "OFF"
     assert cfg.screen_timeout_seconds == 120
     assert cfg.return_to_now_seconds == 60
     assert cfg.update_repo == "pcvantol/djconnect-pi-releases"

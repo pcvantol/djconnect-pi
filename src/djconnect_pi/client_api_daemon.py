@@ -304,16 +304,14 @@ def main() -> None:
     args = parser.parse_args()
 
     cfg = load_config(args.config)
-    if args.log_file:
-        cfg.log_file = args.log_file
-        save_config(args.config, cfg)
     if args.log_level:
         cfg.log_level = args.log_level.upper()
         save_config(args.config, cfg)
 
-    setup_logging(cfg.log_file, cfg.log_level)
+    setup_logging(args.log_file or cfg.log_file, cfg.log_level)
     _LOGGER.info("Starting DJConnect Pi Client API daemon")
-    log_raspberry_pi_system_info()
+    if _LOGGER.isEnabledFor(logging.INFO):
+        log_raspberry_pi_system_info()
     daemon = ClientAPIDaemon(args.config)
 
     def handle_stop(signum: int, _frame: object) -> None:
