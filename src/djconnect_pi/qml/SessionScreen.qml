@@ -1195,6 +1195,17 @@ Item {
                 color: BrandTheme.colors.text; font.pixelSize: screen.width > 800 ? 40 : 30; font.bold: true
                 textFormat: Text.PlainText; Layout.fillWidth: true
             }
+            Text {
+                objectName: "sessionInitialLoading"
+                visible: !screen.historical && screen.owner.refreshing && !screen.state.loaded
+                    && !screen.state.session_id && !screen.state.error
+                text: screen.tr("loading")
+                textFormat: Text.PlainText
+                color: BrandTheme.colors.muted
+                font.pixelSize: 21
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
             VinylPlaceholder {
                 objectName: "sessionWaitingVinyl"
                 visible: !screen.historical && screen.state.session_id.length > 0 && screen.state.loaded && !screen.state.playback.item_id &&
