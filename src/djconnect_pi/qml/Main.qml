@@ -103,7 +103,7 @@ BrandWindow {
         var confirmed = settings && settings.available && !settings.selection_required ? (settings.values || {}).mood : ""
         return ["chill", "groove", "energy", "party"].indexOf(confirmed) >= 0 ? confirmed : ""
     }
-    readonly property string visibleArtworkTint: activeScreen === "now" ? nowArtworkPalette.tint :
+    readonly property string visibleArtworkTint: activeScreen === "now" && nowLoader.item ? nowLoader.item.artworkTint :
         activeScreen === "trackinsight" && trackInsightLoader.item ? trackInsightLoader.item.artworkTint :
         activeScreen === "session" ? sharedSessionScreen.artworkTint : ""
     Binding { target: GlassStyle; property: "mood"; value: root.appearanceMood }
@@ -222,13 +222,6 @@ BrandWindow {
     function tr(key) {
         root.trVersion
         return djconnect.t(key)
-    }
-
-    function languageIndex() {
-        for (var i = 0; i < languageBox.model.length; i++) {
-            if (languageBox.model[i].code === djconnect.language) return i
-        }
-        return 0
     }
 
     function djAnnouncementOutputLabel(value) {
@@ -731,7 +724,7 @@ BrandWindow {
         }
         Loader {
             anchors.fill: parent
-            active: appCanvas.sessionCanvas
+            active: appCanvas.sessionCanvas && (!root.lowMemoryProfile || (appCanvas.visible && !root.screenBlanked))
             sourceComponent: SessionMoodCanvas {
                 mood: root.appearanceMood
                 activeSession: root.activeScreen === "games" || (root.activeScreen === "session" && djconnect.djSession.state.runtime_state === "active")
@@ -1310,11 +1303,17 @@ BrandWindow {
         onPressed: function(mouse) { root.recordActivity(); mouse.accepted = false }
     }
 
-    Item {
-        id: nowPanel
-        anchors.fill: parent
+    CompactPageLoader {
+        id: nowLoader
         visible: root.activeScreen === "now"
         z: 5
+        sourceComponent: NowPlayingPage {}
+    }
+
+    component NowPlayingPage: Item {
+        id: nowPanel
+        objectName: "nowPanel"
+        readonly property alias artworkTint: nowArtworkPalette.tint
 
         AppBackground {}
 
@@ -1474,18 +1473,22 @@ BrandWindow {
 
     }
 
-    Rectangle {
-        id: controlPanel
+    CompactPageLoader {
+        visible: root.activeScreen === "control"
+        z: 10
         onVisibleChanged: if (!visible) djconnect.cancelControlVolume()
+        sourceComponent: PlaybackControlPage {}
+    }
+
+    component PlaybackControlPage: Rectangle {
+        id: controlPanel
+        objectName: "controlPanel"
         function adjustVolume(delta) {
             var lease = djconnect.beginControlVolume()
             if (lease > 0)
                 djconnect.commitControlVolume(lease, Math.round(djconnect.volume + delta))
         }
-        anchors.fill: parent
         color: BrandTheme.colors.background
-        visible: root.activeScreen === "control"
-        z: 10
 
         AppBackground {}
         ModalBlocker {}
@@ -1834,16 +1837,27 @@ BrandWindow {
 
         }
 
-        Rectangle {
-        id: settingsPanel
-        anchors.fill: parent
-        color: BrandTheme.colors.background
-        visible: settingsOpen && (djconnect.paired || djconnect.demoMode)
+    CompactPageLoader {
+        visible: root.settingsOpen && (djconnect.paired || djconnect.demoMode)
         z: 10
+        sourceComponent: SettingsPage {}
+    }
+
+    component SettingsPage: Rectangle {
+        id: settingsPanel
+        objectName: "settingsPanel"
+        color: BrandTheme.colors.background
         onVisibleChanged: {
             if (visible && settingsScroll.contentItem) {
                 settingsScroll.contentItem.contentY = 0
             }
+        }
+
+        function languageIndex() {
+            for (var i = 0; i < languageBox.model.length; i++) {
+                if (languageBox.model[i].code === djconnect.language) return i
+            }
+            return 0
         }
 
         AppBackground { sessionCanvas: true }
@@ -2117,7 +2131,7 @@ BrandWindow {
                     ]
                     textRole: "label"
                     valueRole: "code"
-                    currentIndex: root.languageIndex()
+                    currentIndex: settingsPanel.languageIndex()
                     delegate: ItemDelegate {
                         width: languageBox.width
                         text: modelData.label

@@ -1437,6 +1437,7 @@ Item {
                                 objectName: "sessionPlaybackMeter"
                                 readonly property bool playing: screen.state.playback.state === "playing"
                                 readonly property bool animating: visible && playing && GlassStyle.motionEnabled
+                                    && screen.backend.releaseProfile !== "pi-zero-2w-arm64"
                                     && Qt.application.state === Qt.ApplicationActive
                                 property real phase: 0
                                 spacing: 2
