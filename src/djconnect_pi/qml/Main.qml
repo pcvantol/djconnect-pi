@@ -5864,11 +5864,6 @@ BrandWindow {
 
                 RowLayout {
                     Layout.fillWidth: true
-                    SessionAttribution {
-                        visible: requiresSpotify
-                        requiresSpotify: root.sessionTrackArtwork && !!sharedSessionScreen.state.playback.requires_spotify_attribution
-                        spotifyURL: requiresSpotify ? sharedSessionScreen.state.playback.source_url || "" : ""
-                    }
                     Item { Layout.fillWidth: true }
                     GlassButton {
                         objectName: "closeTrackArtwork"
@@ -5893,7 +5888,7 @@ BrandWindow {
                             anchors.horizontalCenter: parent.horizontalCenter
                             width: Math.max(0, Math.min(artworkArea.width,
                                 artworkArea.height - expandedTitle.height - artworkColumn.spacing
-                                - (expandedArtist.visible ? expandedArtist.height + artworkColumn.spacing : 0)))
+                                - (expandedCredits.visible ? expandedCredits.height + artworkColumn.spacing : 0)))
                             height: width
                             radius: 28
                             elevated: true
@@ -5933,7 +5928,8 @@ BrandWindow {
                             }
                             Loader {
                                 anchors.centerIn: parent
-                                width: Math.min(parent.width - 16, 420)
+                                width: parent.width - 20
+                                height: parent.height - 20
                                 active: root.trackArtworkCanControl && root.trackArtworkControlsOpen
                                 sourceComponent: sharedSessionScreen.artworkTransportControls
                             }
@@ -5952,17 +5948,29 @@ BrandWindow {
                             elide: Text.ElideRight
                         }
 
-                        Text {
-                            id: expandedArtist
-                            objectName: "expandedTrackArtist"
+                        RowLayout {
+                            id: expandedCredits
                             width: parent.width
-                            visible: text.length > 0
-                            text: root.sessionTrackArtwork ? sharedSessionScreen.state.playback.artist || "" : djconnect.artist
-                            textFormat: Text.PlainText
-                            color: BrandTheme.colors.muted
-                            font.pixelSize: root.wallProfile ? 30 : 24
-                            horizontalAlignment: Text.AlignHCenter
-                            elide: Text.ElideRight
+                            visible: expandedArtist.text.length > 0 || expandedSource.visible
+                            Item { Layout.preferredWidth: expandedSource.visible ? expandedSource.implicitWidth : 0 }
+                            Text {
+                                id: expandedArtist
+                                objectName: "expandedTrackArtist"
+                                Layout.fillWidth: true
+                                visible: text.length > 0
+                                text: root.sessionTrackArtwork ? sharedSessionScreen.state.playback.artist || "" : djconnect.artist
+                                textFormat: Text.PlainText
+                                color: BrandTheme.colors.muted
+                                font.pixelSize: root.wallProfile ? 30 : 24
+                                horizontalAlignment: Text.AlignHCenter
+                                elide: Text.ElideRight
+                            }
+                            SessionAttribution {
+                                id: expandedSource
+                                visible: requiresSpotify && ready
+                                requiresSpotify: root.sessionTrackArtwork && !!sharedSessionScreen.state.playback.requires_spotify_attribution
+                                spotifyURL: requiresSpotify ? sharedSessionScreen.state.playback.source_url || "" : ""
+                            }
                         }
                     }
                 }

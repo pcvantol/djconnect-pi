@@ -238,6 +238,21 @@ def main():
                 assert shade.property('visible')
                 previous = visual(window.contentItem(), 'sessionPlaybackPrevious')
                 toggle = visual(window.contentItem(), 'sessionPlaybackToggle')
+                controls = visual(overlay, 'trackArtworkTransportControls')
+                for name in ('sessionPlaybackRepeat', 'sessionPlaybackShuffle', 'sessionArtworkFavorite',
+                             'sessionPlaybackPrevious', 'sessionPlaybackToggle', 'sessionPlaybackNext',
+                             'sessionPlaybackSeekBack', 'sessionPlaybackSeekForward'):
+                    button = visual(controls, name)
+                    assert button is not None and button.width() == button.height()
+                    icon = button.property('contentItem').childItems()[0]
+                    scale = 1 if width == 720 else min(1.45, width / 835)
+                    assert icon.width() >= 77 * scale
+                    start = button.mapToItem(card, QPointF())
+                    end = button.mapToItem(card, QPointF(button.width(), button.height()))
+                    assert start.x() >= 0 and start.y() >= 0 and end.x() <= card.width() and end.y() <= card.height()
+                back = visual(controls, 'sessionPlaybackSeekBack')
+                forward = visual(controls, 'sessionPlaybackSeekForward')
+                assert back.y() == forward.y() > previous.y() and back.x() < toggle.x() < forward.x()
                 gap = previous.mapToScene(QPointF(previous.width(), previous.height()/2))
                 gap_x = (gap.x() + toggle.mapToScene(QPointF(0, 0)).x()) / 2
                 QTest.mouseClick(window, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier,

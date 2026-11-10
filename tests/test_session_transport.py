@@ -132,6 +132,20 @@ def test_playback_command_is_one_paired_profile_http_attempt_without_invented_wi
         "command": command, "request_source": "device_command", "app_version": PROTOCOL_VERSION}
 
 
+@pytest.mark.parametrize(("command", "value"), [
+    ("seek_relative", -15000), ("seek_relative", 15000), ("set_shuffle", True), ("set_repeat", "track"),
+])
+def test_overlay_adjustment_uses_one_existing_device_command(transport, command, value):
+    client, _, request, _ = transport
+    client.playback_adjustment(client.binding(), command, value)
+    request.assert_called_once()
+    assert request.call_args.args == ("POST", "http://fixture.invalid/api/djconnect/v1/command")
+    payload = request.call_args.kwargs["json"]
+    assert payload["command"] == command and payload["value"] == value
+    assert type(payload["value"]) is type(value)
+    assert payload["request_source"] == "device_command"
+
+
 def test_playback_timeout_is_uncertain_and_never_replayed(transport):
     client, _, request, _ = transport
     request.side_effect = requests.Timeout()

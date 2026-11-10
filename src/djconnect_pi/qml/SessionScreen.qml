@@ -1986,24 +1986,59 @@ Item {
     }
     readonly property Component artworkTransportControls: Component {
         ColumnLayout {
+            id: artworkControls
             objectName: "trackArtworkTransportControls"
-            spacing: 12
-
-            RowLayout {
+            readonly property real buttonSize: Math.max(0, Math.min(156 * screen.ipadScale,
+                (width - 24) / 3, (height - 88) / 3))
+            spacing: 8
+            Item { Layout.fillHeight: true }
+            GridLayout {
                 Layout.alignment: Qt.AlignHCenter
-                spacing: 16
+                columns: 3
+                rowSpacing: 8
+                columnSpacing: 12
+                SessionTransportButton {
+                    objectName: "sessionPlaybackRepeat"
+                    commandName: "repeat"
+                    buttonSize: artworkControls.buttonSize
+                }
+                SessionTransportButton {
+                    objectName: "sessionPlaybackShuffle"
+                    commandName: "shuffle"
+                    buttonSize: artworkControls.buttonSize
+                }
+                SessionTransportButton {
+                    objectName: "sessionArtworkFavorite"
+                    commandName: "toggle_favorite"
+                    iconName: "heart"
+                    buttonSize: artworkControls.buttonSize
+                }
                 SessionTransportButton {
                     objectName: "sessionPlaybackPrevious"
                     commandName: "previous"
+                    buttonSize: artworkControls.buttonSize
                 }
                 SessionTransportButton {
                     objectName: "sessionPlaybackToggle"
                     commandName: screen.state.playback.state === "playing" ? "pause" : "play"
+                    buttonSize: artworkControls.buttonSize
                     checked: true
                 }
                 SessionTransportButton {
                     objectName: "sessionPlaybackNext"
                     commandName: "next"
+                    buttonSize: artworkControls.buttonSize
+                }
+                SessionTransportButton {
+                    objectName: "sessionPlaybackSeekBack"
+                    commandName: "seek_back_15"
+                    buttonSize: artworkControls.buttonSize
+                }
+                Item {}
+                SessionTransportButton {
+                    objectName: "sessionPlaybackSeekForward"
+                    commandName: "seek_forward_15"
+                    buttonSize: artworkControls.buttonSize
                 }
             }
             Text {
@@ -2026,17 +2061,32 @@ Item {
                 enabled: !screen.owner.busy
                 onClicked: screen.owner.refreshPlayback()
             }
+            Item { Layout.fillHeight: true }
         }
     }
     component SessionTransportButton: GlassButton {
+        id: transportButton
         required property string commandName
+        required property real buttonSize
         property int pressedEpoch: 0
+        readonly property bool basicTransport: ["previous", "play", "pause", "next"].includes(commandName)
         iconName: commandName
         Accessible.name: screen.tr(commandName)
-        implicitWidth: Math.max(52, 52 * screen.ipadScale)
-        implicitHeight: implicitWidth
-        padding: 10
+        implicitWidth: buttonSize
+        implicitHeight: buttonSize
+        padding: 0
+        contentItem: Item {
+            FeatureIcon {
+                anchors.centerIn: parent
+                width: Math.min(78 * screen.ipadScale, transportButton.buttonSize * 0.65)
+                height: width
+                iconName: transportButton.iconName
+                iconColor: transportButton.foregroundColor
+                strokeWidth: width * 0.065
+            }
+        }
         enabled: visible && screen.liveViewOpen && !!screen.state.playback_control.enabled
+            && (basicTransport || (screen.state.playback_control.overlay_commands || []).includes(commandName))
         onPressed: pressedEpoch = screen.state.playback_control.transport_epoch || 0
         onCanceled: pressedEpoch = 0
         onEnabledChanged: if (!enabled) pressedEpoch = 0

@@ -404,6 +404,17 @@ class SessionTransport:
         return self._request(binding, "POST", "command", {
             "command": command, "request_source": "device_command", "app_version": PROTOCOL_VERSION}, isolated=True)
 
+    def playback_adjustment(self, binding, command: str, value: int | bool | str):
+        if not (
+            command == "seek_relative" and type(value) is int and value in (-15000, 15000)
+            or command == "set_shuffle" and type(value) is bool
+            or command == "set_repeat" and isinstance(value, str) and value in ("off", "context", "track")
+        ):
+            raise SessionError("invalid")
+        return self._request(binding, "POST", "command", {
+            "command": command, "value": value,
+            "request_source": "device_command", "app_version": PROTOCOL_VERSION}, isolated=True)
+
     def playback_volume(self, binding, value: int, backend: str):
         if (type(value) is not int or not 0 <= value <= 60
                 or not isinstance(backend, str) or backend not in {"spotify_direct", "music_assistant"}):
