@@ -33,6 +33,7 @@ Item {
     property bool historical: false
     property bool currentHistory: false
     readonly property bool compact: width < 900
+    readonly property bool lowMemoryProfile: backend.releaseProfile === "pi-zero-2w-arm64"
     readonly property real ipadScale: compact ? 1 : Math.min(1.45, width / 835)
     readonly property bool idleWelcome: !historical && state.loaded && !state.session_id && !state.error
     readonly property bool sessionControlsVisible: !historical && state.session_id.length > 0 && !state.owner_read_only
@@ -134,6 +135,7 @@ Item {
                 Image {
                     id: currentMomentArtworkImage
                     objectName: "sessionMomentArtworkImage"
+                    sourceSize: screen.lowMemoryProfile ? Qt.size(192, 192) : Qt.size(0, 0)
                     source: parent.visible ? (screen.owner.momentArtwork.source || "") : ""
                     cache: false; asynchronous: true; retainWhileLoading: false
                     fillMode: Image.PreserveAspectFit
@@ -1092,6 +1094,7 @@ Item {
                     Image {
                         id: forecastArtworkImage
                         objectName: "sessionForecastArtistImage"
+                        sourceSize: screen.lowMemoryProfile ? Qt.size(720, 360) : Qt.size(0, 0)
                         anchors.fill: parent
                         source: imageAttribution.ready ? (screen.owner.forecastImage.source || "") : ""
                         cache: false; asynchronous: true; retainWhileLoading: false
@@ -1287,6 +1290,7 @@ Item {
                                     Image {
                                         id: trackCover
                                         objectName: "sessionTrackArtwork"
+                                        sourceSize: screen.lowMemoryProfile ? Qt.size(128, 128) : Qt.size(0, 0)
                                         anchors.fill: parent
                                         source: coverTile.visible && trackArtworkFrame.admittedCover
                                             ? (screen.owner.playbackArtwork.source || "") : ""

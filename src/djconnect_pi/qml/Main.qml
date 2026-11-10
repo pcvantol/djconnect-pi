@@ -2640,6 +2640,9 @@ BrandWindow {
                                 radius: root.wallProfile ? 32 : 16
                                 Image {
                                     id: trackInsightArtworkImage
+                                    objectName: "trackInsightArtworkImage"
+                                    sourceSize: root.lowMemoryProfile ? Qt.size(192, 192) : Qt.size(0, 0)
+                                    asynchronous: root.lowMemoryProfile
                                     source: djconnect.trackInsightImageUrl
                                     visible: source.toString().length > 0
                                     anchors.fill: parent
@@ -3155,6 +3158,9 @@ BrandWindow {
                                     radius: 20
                                     Image {
                                         id: discoveryArtworkImage
+                                        objectName: "discoveryArtworkImage"
+                                        sourceSize: root.lowMemoryProfile ? Qt.size(224, 224) : Qt.size(0, 0)
+                                        asynchronous: root.lowMemoryProfile
                                         source: modelData.imageUrl && modelData.imageUrl.length > 0 ? modelData.imageUrl : ""
                                         visible: source.toString().length > 0
                                         anchors.fill: parent
