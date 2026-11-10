@@ -411,7 +411,8 @@ def test_qml_ask_dj_screen_is_readonly_actions_without_free_input() -> None:
     assert "function scrollAskDjToTop()" in main_qml
     assert 'if (root.activeScreen === "askdj")' in main_qml
     assert "function onAskDjChanged()" in main_qml
-    assert "askDjScroll.contentItem.contentY = 0" in ask_dj_block or "askDjScroll.contentItem.contentY = 0" in main_qml
+    assert "askDjMessagesView.positionViewAtBeginning()" in ask_dj_block
+    assert "askDjMessagesView.positionViewAtIndex(selectedRow, ListView.Center)" in ask_dj_block
     assert "modelData.displayTime || \"\"" in ask_dj_block
     assert "id: askDjActionButton" in ask_dj_block
     assert "modelData.actions || []" in ask_dj_block

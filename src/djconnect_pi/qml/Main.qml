@@ -3549,11 +3549,11 @@ BrandWindow {
             const previous = selectedMessageId
                 ? matches.findIndex(match => match.messageId === selectedMessageId) : -1
             selectMatch(previous >= 0 ? previous : Math.max(0, Math.min(selectedMatch, matches.length - 1)))
+            Qt.callLater(centerSelectedMatch)
         }
 
         function scrollToTop() {
-            if (askDjScroll.contentItem)
-                askDjScroll.contentItem.contentY = 0
+            askDjMessagesView.positionViewAtBeginning()
         }
 
         function searchText(value) {
@@ -3581,15 +3581,8 @@ BrandWindow {
         }
 
         function centerSelectedMatch() {
-            const bubble = askDjMessagesRepeater.itemAt(selectedRow)
-            const flickable = askDjScroll.contentItem
-            if (!searchOpen || !bubble || !flickable)
-                return
-            const top = flickable.originY
-            const maxY = top + Math.max(0, flickable.contentHeight - flickable.height)
-            const bubbleTop = bubble.mapToItem(flickable.contentItem, 0, 0).y
-            const targetY = bubbleTop - Math.max(0, flickable.height - bubble.height) / 2
-            flickable.contentY = Math.min(maxY, Math.max(top, targetY))
+            if (searchOpen && selectedRow >= 0)
+                askDjMessagesView.positionViewAtIndex(selectedRow, ListView.Center)
         }
 
         function startSearchAtFirstMatch() {
@@ -3751,65 +3744,77 @@ BrandWindow {
                 ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
                 contentWidth: availableWidth
 
-                ColumnLayout {
-                    width: Math.max(0, askDjScroll.availableWidth)
+                ListView {
+                    id: askDjMessagesView
+                    objectName: "askDjMessagesView"
+                    model: djconnect.askDjMessages
                     spacing: 10
+                    cacheBuffer: root.lowMemoryProfile ? 160 : 320
 
-                    IntroductionCard {
-                        objectName: "askDjIntroduction"
-                        compact: root.width < 900
-                        iconName: "chat"
-                        title: root.tr("ask_dj")
-                        message: root.tr("ask_dj_introduction")
+                    header: ColumnLayout {
+                        width: askDjMessagesView.width
+                        spacing: 10
+
+                        IntroductionCard {
+                            objectName: "askDjIntroduction"
+                            compact: root.width < 900
+                            iconName: "chat"
+                            title: root.tr("ask_dj")
+                            message: root.tr("ask_dj_introduction")
+                        }
+
+                        Text {
+                            text: root.tr("ask_dj_empty")
+                            visible: djconnect.askDjMessages.length === 0
+                            color: BrandTheme.colors.muted
+                            font.pixelSize: 24
+                            font.bold: true
+                            horizontalAlignment: Text.AlignHCenter
+                            wrapMode: Text.WordWrap
+                            Layout.fillWidth: true
+                            Layout.topMargin: 36
+                        }
                     }
 
-                    Text {
-                        text: root.tr("ask_dj_empty")
-                        visible: djconnect.askDjMessages.length === 0
-                        color: BrandTheme.colors.muted
-                        font.pixelSize: 24
-                        font.bold: true
-                        horizontalAlignment: Text.AlignHCenter
-                        wrapMode: Text.WordWrap
-                        Layout.fillWidth: true
-                        Layout.topMargin: 36
-                    }
-
-                    Repeater {
-                        id: askDjMessagesRepeater
-                        model: djconnect.askDjMessages
+                    delegate: Item {
+                        required property var modelData
+                        required property int index
+                        width: ListView.view.width
+                        height: bubble.implicitHeight
 
                         GlassSurface {
+                            id: bubble
                             border.color: root.moodColor("focus")
                             focused: askDjPanel.searchOpen && askDjPanel.selectedRow === index
                             property bool userBubble: modelData.role === "user"
                             property bool systemBubble: modelData.role === "system" || modelData.role === "status" || modelData.messageKind === "system" || modelData.messageKind === "status"
 
-                            Layout.preferredWidth: userBubble ? Math.min(askDjScroll.availableWidth * 0.78, 520) : askDjScroll.availableWidth
-                            Layout.alignment: userBubble ? Qt.AlignRight : Qt.AlignLeft
+                            width: bubble.userBubble ? Math.min(parent.width * 0.78, 520) : parent.width
+                            anchors.right: parent.right
+                            height: implicitHeight
                             property int bubblePadding: root.wallProfile ? 24 : 14
-                            implicitHeight: askDjBubbleContent.implicitHeight + 2 * bubblePadding
+                            implicitHeight: askDjBubbleContent.implicitHeight + 2 * bubble.bubblePadding
                             radius: root.wallProfile ? 34 : 22
-                            introduction: !userBubble
+                            introduction: !bubble.userBubble
 
-                            selected: userBubble
+                            selected: bubble.userBubble
 
                             ColumnLayout {
                                 id: askDjBubbleContent
                                 anchors.left: parent.left
                                 anchors.right: parent.right
                                 anchors.top: parent.top
-                                anchors.margins: bubblePadding
+                                anchors.margins: bubble.bubblePadding
                                 spacing: 8
 
                                 Text {
                                     text: modelData.displayTime || ""
                                     visible: modelData.displayTime && modelData.displayTime.length > 0
-                                    color: systemBubble ? BrandTheme.colors.muted : (userBubble ? BrandTheme.colors.muted : BrandTheme.colors.purple)
+                                    color: bubble.systemBubble ? BrandTheme.colors.muted : (bubble.userBubble ? BrandTheme.colors.muted : BrandTheme.colors.purple)
                                     opacity: 0.82
                                     font.pixelSize: 14
                                     font.bold: false
-                                    horizontalAlignment: userBubble ? Text.AlignRight : Text.AlignLeft
+                                    horizontalAlignment: bubble.userBubble ? Text.AlignRight : Text.AlignLeft
                                     Layout.fillWidth: true
                                 }
 
@@ -3817,7 +3822,7 @@ BrandWindow {
                                     text: modelData.text
                                     textFormat: Text.PlainText
                                     color: BrandTheme.colors.text
-                                    font.pixelSize: systemBubble ? 19 : 22
+                                    font.pixelSize: bubble.systemBubble ? 19 : 22
                                     font.weight: Font.Normal
                                     wrapMode: Text.Wrap
                                     Layout.fillWidth: true
