@@ -274,6 +274,10 @@ class SessionTransport:
                     raise SessionError("denied")
                 if 300 <= response.status_code < 400 or (response.status_code >= 500 and not archive_delete):
                     raise SessionError("unavailable" if method == "GET" else "uncertain")
+                # A proxy may return a plain 404 for the current route while HA
+                # reloads. Decode bounded JSON when present to retain explicit absence.
+                if method == "GET" and route == "session/active" and response.status_code == 404:
+                    category = "unavailable"
                 maximum = JSON_CONTROL_BYTES if archive_delete else response_budget(route)
                 declared = response.headers.get("Content-Length")
                 if declared is not None and (not isinstance(declared, str) or not declared.isascii()

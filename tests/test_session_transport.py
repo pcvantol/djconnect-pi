@@ -216,6 +216,24 @@ def test_server_failure_remains_unavailable_or_uncertain_without_replay(transpor
     assert cfg.paired and cfg.device_token == "synthetic-token"
 
 
+@pytest.mark.parametrize("body,code", [
+    (None, ""),
+    ({"success": False, "error": "active_session_not_found"}, "active_session_not_found"),
+])
+def test_current_read_distinguishes_proxy_404_from_explicit_session_absence(transport, body, code):
+    client, _, request, response = transport
+    response.status_code = 404
+    if body is None:
+        response.iter_content.return_value = [b"404: Not Found"]
+        response.iter_content.side_effect = None
+    else:
+        response.json.return_value = body
+    with pytest.raises(SessionError, match="^unavailable$") as failure:
+        client.active(client.binding())
+    assert failure.value.code == code
+    request.assert_called_once()
+
+
 @pytest.mark.parametrize("code", ["device_not_mapped", "profile_required", "invalid_profile", "profile_access_denied"])
 def test_profile_rejection_is_distinct_from_transport_outage_and_never_replayed(transport, code):
     client, cfg, request, response = transport
