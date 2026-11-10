@@ -513,7 +513,7 @@ def test_qml_track_insight_panel_renders_contract_fields() -> None:
     assert "property var visualizerData: djconnect.trackInsightVisualizer" in panel
     assert "Layout.preferredHeight: 164" in panel
     assert "id: trackInsightVisualizerCanvas" in panel
-    assert 'running: trackInsightVisualizer.visible && root.activeScreen === "trackinsight"' in panel
+    assert 'running: root.wallProfile && trackInsightVisualizer.visible && root.activeScreen === "trackinsight"' in panel
     assert "interval: 180" in panel
     assert "data.bars || []" in panel
     assert "data.colors || []" in panel
