@@ -1940,6 +1940,32 @@ BrandWindow {
                 spacing: 14
 
                 Text {
+                    text: root.tr("session_refresh_interval")
+                    color: BrandTheme.colors.muted
+                    font.pixelSize: 22
+                    Layout.preferredWidth: 176
+                    wrapMode: Text.WordWrap
+                }
+
+                BrandComboBox {
+                    objectName: "sessionRefreshInterval"
+                    readonly property var choices: [1, 5, 10, 15, 30, 60]
+                    model: choices.map(function(seconds) {
+                        return root.tr("session_refresh_seconds").replace("%1", seconds)
+                    })
+                    currentIndex: choices.indexOf(djconnect.sessionRefreshSeconds)
+                    Accessible.name: root.tr("session_refresh_interval")
+                    font.pixelSize: 28
+                    Layout.fillWidth: true
+                    onActivated: function(index) { djconnect.setSessionRefreshSeconds(choices[index]) }
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 14
+
+                Text {
                     text: root.tr("screen_off")
                     color: BrandTheme.colors.muted
                     font.pixelSize: 22

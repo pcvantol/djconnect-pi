@@ -8,6 +8,7 @@ from djconnect_pi.config import (
     PROTOCOL_VERSION,
     Config,
     default_language_from_system,
+    effective_session_refresh_seconds,
     generate_pairing_code,
     load_config,
     save_config,
@@ -58,6 +59,17 @@ def test_save_and_load_config_roundtrip(tmp_path: Path) -> None:
     assert loaded.active_profile_privacy_mode == "shared"
     assert len(loaded.pairing_code) == 6
     assert loaded.pairing_code.isdigit()
+
+
+def test_session_refresh_defaults_and_persisted_choice(tmp_path: Path) -> None:
+    path = tmp_path / "config.json"
+    for profile, expected in (("pi-zero-2w-arm64", 15), ("pi5-arm64", 5)):
+        path.write_text(json.dumps({"release_profile": profile}), encoding="utf-8")
+        cfg = load_config(path)
+        assert effective_session_refresh_seconds(cfg) == expected
+        cfg.session_refresh_seconds = 30
+        save_config(path, cfg)
+        assert effective_session_refresh_seconds(load_config(path)) == 30
 
 
 def test_generate_pairing_code_returns_six_digits() -> None:

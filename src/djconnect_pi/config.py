@@ -37,6 +37,7 @@ class Config:
     local_api_host: str = "0.0.0.0"  # nosec B104
     local_api_port: int = 18080
     screen_timeout_seconds: int = 120
+    session_refresh_seconds: int | None = None
     return_to_now_seconds: int = 60
     screen_brightness_percent: int = 100
     language: str = field(default_factory=lambda: default_language_from_system())
@@ -195,6 +196,16 @@ def save_config(path: Path, cfg: Config) -> None:
     tmp_path.chmod(0o600)
     tmp_path.replace(path)
     path.chmod(0o600)
+
+
+SESSION_REFRESH_CHOICES = (1, 5, 10, 15, 30, 60)
+
+
+def effective_session_refresh_seconds(cfg: Config) -> int:
+    value = getattr(cfg, "session_refresh_seconds", None)
+    if type(value) is int and value in SESSION_REFRESH_CHOICES:
+        return value
+    return 15 if getattr(cfg, "release_profile", "") == "pi-zero-2w-arm64" else 5
 
 
 def effective_glass_enabled(cfg: Config) -> bool:

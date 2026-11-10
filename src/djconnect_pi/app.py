@@ -43,8 +43,10 @@ from .config import (
     CLIENT_TYPE,
     DEFAULT_CONFIG_PATH,
     DEFAULT_LOG_PATH,
+    SESSION_REFRESH_CHOICES,
     Config,
     effective_glass_enabled,
+    effective_session_refresh_seconds,
     load_config,
     normalize_dj_announcement_output,
     save_config,
@@ -763,6 +765,10 @@ class DJConnectBackend(QObject):
     def screenshotFile(self) -> str:
         return self.cfg.screenshot_file
 
+    @Property(int, notify=settingsChanged)
+    def sessionRefreshSeconds(self) -> int:
+        return effective_session_refresh_seconds(self.cfg)
+
     @Property(int, notify=screenTimeoutChanged)
     def screenTimeoutSeconds(self) -> int:
         return self.cfg.screen_timeout_seconds
@@ -888,6 +894,14 @@ class DJConnectBackend(QObject):
         _LOGGER.info("User saved Home Assistant URL setting")
         self.showToastForContext(self.tr_key("ha_url_saved"), "connectivity")
         self._set_status_text(self.tr_key("ha_url_saved"))
+
+    @Slot(int)
+    def setSessionRefreshSeconds(self, seconds: int) -> None:
+        if seconds not in SESSION_REFRESH_CHOICES or self.cfg.session_refresh_seconds == seconds:
+            return
+        self.cfg.session_refresh_seconds = seconds
+        save_config(self.config_path, self.cfg)
+        self.settingsChanged.emit()
 
     @Slot(int)
     def setScreenTimeoutSeconds(self, value: int) -> None:
@@ -1073,6 +1087,7 @@ class DJConnectBackend(QObject):
             and latest.language == self.cfg.language
             and latest.log_level == self.cfg.log_level
             and latest.screen_brightness_percent == self.cfg.screen_brightness_percent
+            and latest.session_refresh_seconds == self.cfg.session_refresh_seconds
             and latest.screen_timeout_seconds == self.cfg.screen_timeout_seconds
             and latest.return_to_now_seconds == self.cfg.return_to_now_seconds
             and latest.update_channel == self.cfg.update_channel

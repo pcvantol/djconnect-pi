@@ -127,6 +127,64 @@ def test_same_context_refresh_marks_empty_only_after_success(controller):
     assert owner.state["history_available"] and not owner.state["session_id"]
 
 
+def test_automatic_refresh_keeps_controls_available_and_drops_superseded_read(controller):
+    owner, backend = controller
+    owner.refresh()
+    backend.jobs.pop()()
+    owner.transport.active.reset_mock()
+    owner.transport.start = Mock()
+    owner.poll()
+    background_read = backend.jobs.pop()
+    assert not owner.busy
+    owner.start("chill")
+    assert owner.busy
+    background_read()
+    assert owner.busy
+    owner.transport.active.assert_not_called()
+    backend.jobs.pop()()
+    assert not owner.busy
+    owner.transport.start.assert_called_once()
+
+
+@pytest.mark.parametrize("error", ["offline", "unavailable"])
+def test_temporary_poll_failure_keeps_confirmed_session_until_recovery(controller, error):
+    owner, backend = controller
+    session = {"session_id": "s1", "runtime_state": "active",
+               "broadcast": {"session": {"session_id": "s1"}}}
+    owner.transport.capabilities.return_value = {}
+    owner.transport.active.side_effect = [
+        {"success": True, "session": session}, SessionError(error),
+        {"success": True, "session": None},
+    ]
+    for expected_session in ("s1", "s1", ""):
+        owner.poll()
+        backend.jobs.pop()()
+        assert owner.state["session_id"] == expected_session
+        assert owner.state["error"] == ""
+    assert owner.state["loaded"]
+
+
+@pytest.mark.parametrize(("error", "code", "age"), [
+    ("denied", "", 0), ("unavailable", "active_session_not_found", 0), ("offline", "", 90),
+])
+def test_poll_withdraws_session_on_denial_explicit_absence_or_expired_read(controller, error, code, age):
+    owner, backend = controller
+    owner.transport.capabilities.return_value = {}
+    owner.transport.active.side_effect = [
+        {"success": True, "session": {"session_id": "s1", "runtime_state": "active",
+                                     "broadcast": {"session": {"session_id": "s1"}}}},
+        SessionError(error, code),
+    ]
+    owner.refresh()
+    backend.jobs.pop()()
+    binding, observed_at = owner._last_runtime_read
+    owner._last_runtime_read = binding, observed_at - age
+    owner.poll()
+    backend.jobs.pop()()
+    assert not owner.state["session_id"]
+    assert owner.state["error"] == error
+
+
 def test_uncertain_write_never_replays_or_retains_old_current_cards(controller):
     owner, backend = controller
     owner._session = {"session_id": "s1"}

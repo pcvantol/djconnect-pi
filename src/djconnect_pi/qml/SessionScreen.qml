@@ -742,7 +742,7 @@ Item {
         choices.x = Math.max(12, Math.min(button.mapToItem(screen, 0, 0).x, width - choices.width - 12))
         choices.open()
     }
-    Timer { objectName: "sessionRuntimePollTimer"; interval: 3000; running: screen.visible && screen.backend.paired && !screen.historyReadPending && !screen.searchRefreshPending; repeat: true; triggeredOnStart: true; onTriggered: { if (!screen.historical) screen.owner.refresh(); else if (!screen.currentHistory && !screen.state.history_loaded) screen.owner.loadHistory() } }
+    Timer { objectName: "sessionRuntimePollTimer"; interval: screen.historical ? 3000 : screen.backend.sessionRefreshSeconds * 1000; running: screen.visible && screen.backend.paired && !screen.historyReadPending && !screen.searchRefreshPending; repeat: true; triggeredOnStart: true; onTriggered: { if (!screen.historical) screen.owner.poll(); else if (!screen.currentHistory && !screen.state.history_loaded) screen.owner.loadHistory() } }
     Timer { objectName: "sessionHistoryRevalidationTimer"; interval: 15000; running: screen.visible && screen.historical && screen.backend.paired; repeat: true; onTriggered: { if (!screen.state.saved_open_retry) screen.refreshHistory() } }
     Timer {
         id: replyRestore
