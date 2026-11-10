@@ -1445,6 +1445,7 @@ _SESSION_COMPOSER_TRANSLATIONS = {
     "session_question_failed": ("The question could not be confirmed. Refresh and check the session.", "De vraag kon niet worden bevestigd. Vernieuw en controleer de sessie.", "Die Frage konnte nicht bestätigt werden. Aktualisiere die Session.", "La question n’a pas pu être confirmée. Actualisez la session.", "No se pudo confirmar la pregunta. Actualiza la sesión."),
     "session_you": ("You", "Jij", "Du", "Vous", "Tú"),
     "session_dj": ("DJ", "DJ", "DJ", "DJ", "DJ"),
+    "session_dj_contribution": ("DJ contribution", "DJ-bijdrage", "DJ-Beitrag", "Contribution du DJ", "Contribución del DJ"),
 }
 for _key, _values in _SESSION_COMPOSER_TRANSLATIONS.items():
     for _language, _value in zip(("en", "nl", "de", "fr", "es"), _values):

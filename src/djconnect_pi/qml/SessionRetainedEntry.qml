@@ -7,6 +7,7 @@ GlassCard {
     required property var entry
     required property var translate
     property string dateText: ""
+    property string confirmationMood: ""
     property bool selectionAvailable: false
     property bool selectionBusy: false
     property bool deletionAvailable: false
@@ -22,25 +23,42 @@ GlassCard {
     function askAboutEntry() {
         if (canAsk && !selectionBusy) askAbout(entry.session_id, entry.entry_id)
     }
+    readonly property bool settingsConfirmation: !sourceWithdrawn && entry.kind === "dj_moment"
+        && entry.archive_basis === "runtime_accepted_settings_v1"
     readonly property var played: entry.historical_playback || {}
     Layout.fillWidth: true
+    SessionContributionHeading {
+        visible: historySources.ready && historyCard.settingsConfirmation
+        label: historyCard.translate("session_dj_contribution")
+    }
     Text {
-        visible: historySources.ready
+        visible: historySources.ready && !historyCard.settingsConfirmation
         text: historyCard.sourceWithdrawn ? historyCard.translate("session_unavailable_contribution") : entry.kind === "playback_observed" ? historyCard.translate("session_history_playback") : entry.kind === "conversation_user" ? historyCard.translate("session_you") : entry.kind === "conversation_dj" ? historyCard.translate("session_dj") : entry.kind === "dj_silence" ? historyCard.translate("session_silence") : entry.kind === "dj_publication" ? historyCard.translate("session_unavailable_contribution") : (entry.summary || historyCard.translate("session_title"))
         color: BrandTheme.colors.text; font.pixelSize: 24; font.bold: true; wrapMode: Text.WordWrap; textFormat: Text.PlainText; Layout.fillWidth: true
     }
-    Text {
-        id: retainedBody
-        objectName: "sessionRetainedBody"
-        text: entry.text || ""
-        visible: historySources.ready && text.length > 0 && !historyCard.played.title
-            && !historyCard.played.artist && !historyCard.played.album
-        color: BrandTheme.colors.text; font.pixelSize: 22
-        wrapMode: Text.WordWrap; textFormat: Text.PlainText; Layout.fillWidth: true
-        TapHandler {
-            enabled: historyCard.canAsk && !historyCard.selectionBusy
-                && ["dj_moment", "playback_observed", "conversation_dj"].includes(historyCard.entry.kind)
-            onTapped: historyCard.askAboutEntry()
+    RowLayout {
+        visible: retainedBody.hasBody
+        Layout.fillWidth: true
+        spacing: 12
+        SessionConfirmationAvatar {
+            visible: historyCard.settingsConfirmation
+            mood: historyCard.confirmationMood || entry.mood || ""
+        }
+        Text {
+            id: retainedBody
+            objectName: "sessionRetainedBody"
+            text: entry.text || ""
+            readonly property bool hasBody: historySources.ready && text.length > 0 && !historyCard.played.title
+                && !historyCard.played.artist && !historyCard.played.album
+            visible: hasBody
+            Layout.alignment: Qt.AlignTop
+            color: BrandTheme.colors.text; font.pixelSize: 22
+            wrapMode: Text.WordWrap; textFormat: Text.PlainText; Layout.fillWidth: true
+            TapHandler {
+                enabled: historyCard.canAsk && !historyCard.selectionBusy
+                    && ["dj_moment", "playback_observed", "conversation_dj"].includes(historyCard.entry.kind)
+                onTapped: historyCard.askAboutEntry()
+            }
         }
     }
     Text { visible: historySources.ready && text.length > 0; text: historyCard.played.title || ""; textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 26; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }

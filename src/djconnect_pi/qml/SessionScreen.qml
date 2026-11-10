@@ -149,13 +149,21 @@ Item {
             }
             SessionAttribution { id: artworkSource; requiresSpotify: true; spotifyURL: screen.owner.momentArtwork.source_url || ""; Layout.fillWidth: true }
         }
+        SessionContributionHeading {
+            visible: liveSources.ready && modelData.settings_confirmation === true
+            label: screen.tr("session_dj_contribution")
+        }
         RowLayout {
             visible: liveSources.ready
             Layout.fillWidth: true
             spacing: screen.compact ? 12 : 16
+            SessionConfirmationAvatar {
+                visible: modelData.settings_confirmation === true
+                mood: screen.state.mood || ""
+            }
             DJSessionMenuSymbol {
                 objectName: "sessionCurrentMomentIdentity"
-                visible: modelData.current
+                visible: modelData.current && modelData.settings_confirmation !== true
                 iconColor: BrandTheme.colors.purple
                 Layout.preferredWidth: screen.compact ? 52 : 76
                 Layout.preferredHeight: Layout.preferredWidth
@@ -164,7 +172,7 @@ Item {
             }
             ColumnLayout {
                 Layout.fillWidth: true
-                Text { text: modelData.title; textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 26; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                Text { visible: modelData.settings_confirmation !== true; text: modelData.title; textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 26; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                 Text {
                     id: momentBody
                     objectName: "sessionLiveMomentBody"
@@ -174,6 +182,14 @@ Item {
                     TapHandler { enabled: liveCard.canAsk; onTapped: liveCard.askAbout() }
                 }
             }
+        }
+        Text {
+            objectName: "sessionConfirmationDate"
+            visible: liveSources.ready && modelData.settings_confirmation === true && text.length > 0
+            text: screen.displayDate(modelData.occurred_at)
+            color: BrandTheme.colors.muted
+            font.pixelSize: 16
+            textFormat: Text.PlainText
         }
         GlassButton {
             objectName: "sessionPrepareArtwork"
@@ -1603,6 +1619,7 @@ Item {
                             objectName: "sessionConversationCard"
                             readonly property var modelData: flowRow.modelData.contribution
                             entry: modelData; translate: screen.tr; dateText: screen.displayDate(modelData.occurred_at)
+                            confirmationMood: screen.state.mood || ""
                             selectionAvailable: screen.state.composer_available
                             selectionBusy: screen.owner.busy || screen.owner.questionBusy
                             deletionAvailable: !!screen.contentDeletion.available && !screen.showForecast

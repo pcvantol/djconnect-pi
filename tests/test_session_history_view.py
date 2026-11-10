@@ -8,12 +8,13 @@ import pytest
 from djconnect_pi.session_history_view import (
     conversation_entries,
     flow_contributions,
+    live_presentations,
     opened_entry,
     presented_history,
     search_page,
     sources,
 )
-from djconnect_pi.session_projection import history_page
+from djconnect_pi.session_projection import history_page, timestamp
 from djconnect_pi.session_transport import SessionError
 
 
@@ -31,6 +32,26 @@ def search_fixture():
         'revision': tail['revision'], 'matches': [row], 'returned_count': 1,
         'total_count': 1, 'complete': True, 'next_cursor': None,
         'normalization': 'NFKC-casefold', 'highlight_units': 'utf16'}
+
+
+@pytest.mark.parametrize("version", [1, True, 2, None])
+def test_live_settings_confirmation_uses_core_marker_without_rewriting_prose(version):
+    path = Path(__file__).parent / "fixtures/session_core/native-expressive-snapshots.json"
+    snapshot = json.loads(path.read_text())["formation"]["nl"]["home_dj"][-1]
+    authority = snapshot["native_delivery"]
+    current_id = authority["current_moment_id"]
+    moment = next(row for row in snapshot["dj_moments"] if row["moment_id"] == current_id)
+    grant = next(row for row in authority["admissions"] if row["moment_id"] == current_id)
+    now = timestamp(grant["display_expires_at"]) - 1
+    moment.update(type="session", title="Even afstemmen", settings_confirmation={
+        "schema_version": version, "accepted_at": moment["created_at"],
+    })
+    session = {**snapshot["session"], "broadcast": snapshot}
+    row = next(item for item in live_presentations(session, now=now) if item["moment_id"] == current_id)
+    assert row["title"] == "Even afstemmen" and row["body"] == moment["content"]
+    assert row.get("settings_confirmation", False) is (type(version) is int and version == 1)
+    if type(version) is int and version == 1:
+        assert row["occurred_at"] == moment["created_at"]
 
 
 def test_attribution_keeps_primary_previous_and_revision_urls_without_changing_prose():
