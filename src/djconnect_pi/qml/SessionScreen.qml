@@ -3006,6 +3006,7 @@ Item {
                 Layout.fillWidth: true
                 GlassButton {
                     text: screen.tr("refresh")
+                    visible: vibeCastPanel.sender.status !== "https_required"
                     enabled: !vibeCastPanel.sender.busy
                     Layout.fillWidth: true
                     onClicked: { codeInput.clear(); screen.owner.refreshVibeCast() }

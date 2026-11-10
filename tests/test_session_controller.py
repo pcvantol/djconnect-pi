@@ -1809,6 +1809,18 @@ def test_vibecast_refuses_mutation_when_display_origin_changes(vibecast_sender, 
     assert owner.state["vibecast"]["status"] == "failed"
 
 
+def test_vibecast_explains_missing_https_without_starting_a_share(vibecast_sender):
+    owner, backend, _ = vibecast_sender
+    owner.transport.display_owner.side_effect = SessionError("https_required")
+    assert owner.openVibeCast()
+    backend.jobs.pop()()
+    state = owner.state["vibecast"]
+    assert state["status"] == "https_required"
+    assert state["open"] and not state["has_share"] and not state["has_display"]
+    assert not owner.resolveVibeCastCode("012345")
+    owner.transport.display_owner.assert_called_once()
+
+
 def test_vibecast_lookup_can_retry_after_rejection_or_expiry(vibecast_sender):
     owner, backend, responses = vibecast_sender
     assert owner.openVibeCast()

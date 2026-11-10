@@ -329,12 +329,20 @@ def test_owner_witness_cannot_override_existing_local_choice(transport):
     assert not client.binding().private_authorized
 
 
+def test_display_owner_rejects_local_http_without_sending_bearer(transport):
+    client, _, request, _ = transport
+    with pytest.raises(SessionError, match="https_required"):
+        client.display_owner(client.binding(), "context", {"session_id": "session"})
+    request.assert_not_called()
+
+
 def test_display_owner_uses_closed_device_identity_and_never_retries(transport):
     client, cfg, request, response = transport
+    cfg.ha_url = "https://fixture.invalid"
     response.json.return_value = {"success": True, "contract_version": 1}
     client.display_owner(client.binding(), "resolve", {"code": "012345"})
     args, kwargs = request.call_args
-    assert args == ("POST", "http://fixture.invalid/api/djconnect/v1/display/owner/resolve")
+    assert args == ("POST", "https://fixture.invalid/api/djconnect/v1/display/owner/resolve")
     assert kwargs["json"] == {
         "contract_version": 1,
         "identity": {"device_id": cfg.device_id, "client_type": "raspberry_pi"},

@@ -373,6 +373,8 @@ class SessionTransport:
         return intent.outcome(result)
 
     def display_owner(self, binding, action, payload):
+        if binding.ha_url.startswith("http://"):
+            raise SessionError("https_required")
         return self._request(binding, "POST", "display/owner/" + action, payload, display_owner=True)
 
     def capabilities(self, binding, *, isolated=False):

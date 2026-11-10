@@ -1816,6 +1816,13 @@ _VIBECAST_SENDER_TRANSLATIONS = {
         "Le partage a changé. Choisissez la prochaine action.",
         "El uso compartido ha cambiado. Elige qué hacer ahora.",
     ),
+    "vibecast_https_required": (
+        "Screen sharing requires a trusted local HTTPS address for Home Assistant.",
+        "Scherm delen vereist een vertrouwd lokaal HTTPS-adres voor Home Assistant.",
+        "Zum Teilen des Bildschirms benötigt Home Assistant eine vertrauenswürdige lokale HTTPS-Adresse.",
+        "Le partage d’écran nécessite une adresse HTTPS locale de confiance pour Home Assistant.",
+        "Para compartir la pantalla, Home Assistant necesita una dirección HTTPS local de confianza.",
+    ),
     "vibecast_failed": (
         "Sharing status is unavailable. Refresh to try again.",
         "De deelstatus is niet beschikbaar. Ververs om het opnieuw te proberen.",

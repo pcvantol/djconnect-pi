@@ -199,9 +199,11 @@ class VibeCastSender(QObject):
             try:
                 if current():
                     status, result = self.perform(action, code, context, claim, scope, current, mark_write_attempt)
-            except SessionError:
+            except SessionError as exc:
                 if write_attempted:
                     status = "uncertain"
+                elif exc.category == "https_required":
+                    status = "https_required"
             with self._lock:
                 if not self.closed:
                     self.ready.emit((epoch, action, status, result))
