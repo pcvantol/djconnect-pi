@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 4.0.1
+
+- Refresh DJ Session only while its screen is open and awake. Keep controls and Flow cards available during reads, with a refresh interval configurable on each Pi.
+- Keep Queue and Playlists usable while data loads. Show the Now Playing artwork popover only on DJ Session and return to DJ Session when the display wakes.
+
 ## 4.0.0
 
 - Expand the current track artwork fullscreen on both Pi displays. Track changes wake the display and show the artwork for five seconds.
