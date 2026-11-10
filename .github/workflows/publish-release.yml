@@ -147,12 +147,34 @@ jobs:
       - name: Compile Python
         run: python -m compileall src tests
 
+      - name: Resolve public release repository
+        id: distribution
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.DJCONNECT_PI_RELEASES_TOKEN }}
+        run: |
+          if [[ -z "${GH_TOKEN}" ]]; then
+            echo "Missing DJCONNECT_PI_RELEASES_TOKEN repository secret." >&2
+            exit 4
+          fi
+          repository="$(gh api repositories/1267500969 --jq 'select(.id == 1267500969 and .visibility == "public") | .full_name')"
+          case "${repository}" in
+            pcvantol/djconnect-pi-releases|djconnect-music-dj/djconnect-pi-releases)
+              printf 'repository=%s\n' "${repository}" >> "${GITHUB_OUTPUT}"
+              ;;
+            *)
+              echo "Unexpected DJConnect Pi release repository." >&2
+              exit 1
+              ;;
+          esac
+
       - name: Build release assets
         shell: bash
         env:
           RELEASE_VERSION: ${{ steps.meta.outputs.version }}
           RELEASE_TAG: ${{ steps.meta.outputs.tag }}
           RELEASE_PRERELEASE: ${{ steps.meta.outputs.prerelease }}
+          RELEASE_REPOSITORY: ${{ steps.distribution.outputs.repository }}
         run: |
           version="${RELEASE_VERSION}"
           tag="${RELEASE_TAG}"
@@ -208,12 +230,12 @@ jobs:
             "version": "${version}",
             "tag_name": "${tag}",
             "prerelease": ${prerelease},
-            "bundle": "https://github.com/pcvantol/djconnect-pi-releases/releases/download/${tag}/djconnect-pi-${version}.tar.gz",
-            "checksum": "https://github.com/pcvantol/djconnect-pi-releases/releases/download/${tag}/djconnect-pi-${version}.sha256",
-            "artifact_manifest": "https://github.com/pcvantol/djconnect-pi-releases/releases/download/${tag}/djconnect-pi-${version}-release-manifest.json",
+            "bundle": "https://github.com/${RELEASE_REPOSITORY}/releases/download/${tag}/djconnect-pi-${version}.tar.gz",
+            "checksum": "https://github.com/${RELEASE_REPOSITORY}/releases/download/${tag}/djconnect-pi-${version}.sha256",
+            "artifact_manifest": "https://github.com/${RELEASE_REPOSITORY}/releases/download/${tag}/djconnect-pi-${version}-release-manifest.json",
             "artifacts": {
-              "pi5-arm64": {"bundle": "https://github.com/pcvantol/djconnect-pi-releases/releases/download/${tag}/djconnect-pi-pi5-arm64-${version}.tar.gz", "checksum": "https://github.com/pcvantol/djconnect-pi-releases/releases/download/${tag}/djconnect-pi-pi5-arm64-${version}.sha256"},
-              "pi-zero-2w-arm64": {"bundle": "https://github.com/pcvantol/djconnect-pi-releases/releases/download/${tag}/djconnect-pi-pi-zero-2w-arm64-${version}.tar.gz", "checksum": "https://github.com/pcvantol/djconnect-pi-releases/releases/download/${tag}/djconnect-pi-pi-zero-2w-arm64-${version}.sha256"}
+              "pi5-arm64": {"bundle": "https://github.com/${RELEASE_REPOSITORY}/releases/download/${tag}/djconnect-pi-pi5-arm64-${version}.tar.gz", "checksum": "https://github.com/${RELEASE_REPOSITORY}/releases/download/${tag}/djconnect-pi-pi5-arm64-${version}.sha256"},
+              "pi-zero-2w-arm64": {"bundle": "https://github.com/${RELEASE_REPOSITORY}/releases/download/${tag}/djconnect-pi-pi-zero-2w-arm64-${version}.tar.gz", "checksum": "https://github.com/${RELEASE_REPOSITORY}/releases/download/${tag}/djconnect-pi-pi-zero-2w-arm64-${version}.sha256"}
             }
           }
           EOF
@@ -241,19 +263,15 @@ jobs:
           RELEASE_VERSION: ${{ steps.meta.outputs.version }}
           RELEASE_TAG: ${{ steps.meta.outputs.tag }}
           RELEASE_PRERELEASE: ${{ steps.meta.outputs.prerelease }}
+          RELEASE_REPOSITORY: ${{ steps.distribution.outputs.repository }}
         shell: bash
         run: |
-          if [[ -z "${GH_TOKEN}" ]]; then
-            echo "Missing DJCONNECT_PI_RELEASES_TOKEN repository secret." >&2
-            echo "Create it in pcvantol/djconnect-pi with Contents read/write access to pcvantol/djconnect-pi-releases." >&2
-            exit 4
-          fi
           version="${RELEASE_VERSION}"
           tag="${RELEASE_TAG}"
           prerelease="${RELEASE_PRERELEASE}"
           args=(
             release create "${tag}"
-            --repo pcvantol/djconnect-pi-releases
+            --repo "${RELEASE_REPOSITORY}"
             --title "DJConnect Pi ${tag}"
             --notes-file "dist/djconnect-pi-${version}-release-notes.md"
           )
