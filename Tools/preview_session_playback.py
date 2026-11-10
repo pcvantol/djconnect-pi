@@ -152,8 +152,38 @@ def main():
                 heading = window.findChild(QObject, 'sessionFlowHeading')
                 assert not heading.property('visible')
                 assert 0 <= metadata.mapToItem(scroll, 0, 0).y() < 1
-                gap = top - metadata.mapToItem(scroll, 0, metadata.height()).y()
+                attribution = visual(window.contentItem(), 'sessionPlaybackAttribution')
+                assert attribution.property('visible') and attribution.property('ready')
+                card_bottom = metadata.mapToItem(scroll, 0, metadata.height()).y()
+                assert attribution.mapToItem(scroll, 0, 0).y() >= card_bottom
+                gap = top - attribution.mapToItem(scroll, 0, attribution.height()).y()
                 assert abs(gap - (22 if width == 720 else 26)) <= 1, (width, language, gap)
+                artist = visual(window.contentItem(), 'sessionPlaybackArtist')
+                album = visual(window.contentItem(), 'sessionPlaybackAlbum')
+                assert artist.property('visible') and album.property('visible')
+                assert artist.property('text') == owner.state['playback']['artist']
+                assert album.property('text') == owner.state['playback']['album']
+                assert album.mapToItem(metadata, 0, 0).y() > artist.mapToItem(metadata, 0, artist.height()).y()
+                assert artist.property('font').pixelSize() >= 22 and album.property('font').pixelSize() >= 21
+                scroll_view = window.findChild(QObject, 'sessionHistoryScroll')
+                nav_tab = visual(window.contentItem(), 'appTab-session')
+                composer = visual(window.contentItem(), 'sessionComposerDock')
+                viewport_bottom = scroll_view.mapToScene(QPointF(0, scroll_view.height())).y()
+                assert viewport_bottom > nav_tab.mapToScene(QPointF(0, nav_tab.height())).y()
+                original_caps = owner._caps
+                owner._caps = {
+                    'capabilities': {'session_conversation_history': True, 'ask_dj_contextual_dialogue': True},
+                    'contract_versions': {'session_history_entries': 2, 'ask_dj_contextual_dialogue': 1},
+                }
+                owner.changed.emit()
+                QTest.qWait(60)
+                assert composer.property('visible') and viewport_bottom > composer.mapToScene(QPointF(0, composer.height())).y()
+                assert scroll_view.property('dockClearance') >= viewport_bottom - composer.mapToScene(QPointF()).y()
+                assert abs(scroll.property('contentHeight') - metadata.parentItem().implicitHeight()
+                           - scroll_view.property('dockClearance')) <= 1
+                owner._caps = original_caps
+                owner.changed.emit()
+                QTest.qWait(60)
                 mode_strip = visual(window.contentItem(), 'sessionModeStrip')
                 if mode_strip.property('visible'):
                     lead_gap = metadata.mapToScene(QPointF()).y() - mode_strip.mapToScene(QPointF(0, mode_strip.height())).y()

@@ -1176,12 +1176,14 @@ Item {
         readonly property bool spaciousFlow: !screen.compact && !screen.historical
             && screen.state.loaded && screen.state.runtime_state === "active" && !screen.state.error
         readonly property int flowSpacing: spaciousFlow ? 26 : 22
+        readonly property int dockClearance: composerDock.visible ? composerDock.height + 144 : 132
         anchors.top: screen.idleWelcome && !screen.compact ? parent.top : modeSwitch.visible ? modeSwitch.bottom : toolbar.bottom; anchors.bottom: parent.bottom
         anchors.left: parent.left; anchors.right: parent.right
         anchors.margins: 20
         anchors.topMargin: screen.idleWelcome && !screen.compact ? 44 : spaciousFlow ? flowSpacing : 20
-        anchors.bottomMargin: composerDock.visible ? composerDock.height + 144 : 132
+        anchors.bottomMargin: screen.historical ? dockClearance : 0
         clip: true; contentWidth: availableWidth
+        contentHeight: historyContent.implicitHeight + (screen.historical ? 0 : dockClearance)
         ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
         ColumnLayout {
             id: historyContent
@@ -1270,7 +1272,7 @@ Item {
                         visible: screen.trackArtworkAvailable
                         Layout.row: 0
                         Layout.column: 0
-                        Layout.rowSpan: screen.compact ? 1 : 4
+                        Layout.rowSpan: screen.compact ? 1 : 3
                         Layout.preferredWidth: screen.compact ? 120 : 2 * Math.round(270 * screen.ipadScale)
                         Layout.preferredHeight: Layout.preferredWidth
                         Layout.alignment: Qt.AlignTop
@@ -1335,22 +1337,20 @@ Item {
                             }
                             Text { visible: playbackSources.ready && text.length > 0; text: screen.state.playback.title || ""; textFormat: Text.PlainText; font.pixelSize: screen.compact ? 24 : 30; font.bold: true; color: BrandTheme.colors.text; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                             Text {
-                                visible: screen.compact && playbackSources.ready && text.length > 0
-                                text: [screen.state.playback.artist || "", screen.state.playback.album || ""].filter(function(value) { return value.length > 0 }).join(" · ")
-                                textFormat: Text.PlainText; font.pixelSize: 18; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true
+                                objectName: "sessionPlaybackArtist"
+                                visible: playbackSources.ready && text.length > 0
+                                text: screen.state.playback.artist || ""
+                                textFormat: Text.PlainText; font.pixelSize: screen.compact ? 22 : 26
+                                color: BrandTheme.colors.muted; elide: Text.ElideRight; Layout.fillWidth: true
                             }
-                            Text { visible: !screen.compact && playbackSources.ready && text.length > 0; text: screen.state.playback.artist || ""; textFormat: Text.PlainText; font.pixelSize: 23; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                            Text { visible: !screen.compact && playbackSources.ready && text.length > 0; text: screen.state.playback.album || ""; textFormat: Text.PlainText; font.pixelSize: 19; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                            Text {
+                                objectName: "sessionPlaybackAlbum"
+                                visible: playbackSources.ready && text.length > 0
+                                text: screen.state.playback.album || ""
+                                textFormat: Text.PlainText; font.pixelSize: screen.compact ? 21 : 23
+                                color: BrandTheme.colors.muted; elide: Text.ElideRight; Layout.fillWidth: true
+                            }
                         }
-                    }
-                    SessionAttribution {
-                        id: playbackSources
-                        requiresSpotify: !!screen.state.playback.requires_spotify_attribution
-                        spotifyURL: screen.state.playback.source_url || ""
-                        visible: requiresSpotify
-                        Layout.row: 2
-                        Layout.column: 1
-                        Layout.alignment: Qt.AlignLeft
                     }
                     AbstractButton {
                         id: progressControl
@@ -1425,7 +1425,7 @@ Item {
                     }
                     RowLayout {
                         visible: playbackSources.ready && !!screen.state.playback.target_name
-                        Layout.row: 3
+                        Layout.row: 2
                         Layout.column: screen.compact ? 0 : 1
                         Layout.columnSpan: screen.compact ? 2 : 1
                         Layout.fillWidth: true
@@ -1433,6 +1433,16 @@ Item {
                         Text { text: screen.state.playback.target_name || ""; textFormat: Text.PlainText; font.pixelSize: 19; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true; Accessible.name: screen.tr("output_device") + ": " + text }
                     }
                 }
+            }
+            SessionAttribution {
+                id: playbackSources
+                objectName: "sessionPlaybackAttribution"
+                requiresSpotify: !!screen.state.playback.requires_spotify_attribution
+                spotifyURL: screen.state.playback.source_url || ""
+                visible: playbackMetadata.visible && requiresSpotify && ready
+                Layout.alignment: Qt.AlignLeft
+                Layout.leftMargin: screen.compact ? 16 : 0
+                Layout.topMargin: 4 - historyScroll.flowSpacing
             }
             GlassCard {
                 id: waitingCard
@@ -1849,6 +1859,7 @@ Item {
         anchors.right: historyScroll.right
         anchors.bottom: historyScroll.bottom
         anchors.margins: 8
+        anchors.bottomMargin: 8 + (screen.historical ? 0 : historyScroll.dockClearance)
         width: 52
         height: 52
         iconName: "arrow_up"
