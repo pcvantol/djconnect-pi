@@ -72,6 +72,7 @@ class SessionController(QObject):
     artworkAboutToChange = Signal()
     flowIdleHeaderAboutToChange = Signal()
     flowExpansionAboutToChange = Signal()
+    flowRowsChanged = Signal()
     newCurrentContribution = Signal()
     entryOpened = Signal()
     questionConfirmed = Signal(str)
@@ -111,6 +112,7 @@ class SessionController(QObject):
         self._flow_window = None
         self._incomplete_flow_limit = 0
         self._demo_flow = []
+        self._flow_notification = None
         self._pending_question = {}
         self._pending_question_binding = None
         self._current_reply = {}
@@ -177,6 +179,7 @@ class SessionController(QObject):
         self._withdrawn_moments = set()
         self._withdrawn_entries = {}
         self.changed.connect(self._content_delete.sync)
+        self.changed.connect(self._notify_flow_rows)
         self.contextCleared.connect(self._content_delete.cancel)
         self._ready.connect(self._apply)
         backend.demoModeChanged.connect(self._demo_changed)
@@ -235,10 +238,24 @@ class SessionController(QObject):
     def screenState(self):
         return self._state(include_flow_rows=False)
 
-    @Property("QVariantList", notify=changed)
+    @Property("QVariantList", notify=flowRowsChanged)
     def flowRows(self):
         header, _, revoked = self._runtime_header()
         return self._flow_rows(header["session_id"], revoked)
+
+    def _notify_flow_rows(self):
+        header, _, revoked = self._runtime_header()
+        current = None
+        if not revoked:
+            demo = self.backend.demoMode
+            # Inputs are replaced, never edited in place. Compare the current
+            # references by value so a fresh identical Runtime need not redraw.
+            current = (header["session_id"], header["owner_profile_id"], header["owner_epoch"],
+                       demo, self._demo_flow if demo else self._retained_flow, self._moments)
+        changed = current != self._flow_notification
+        self._flow_notification = current
+        if changed:
+            self.flowRowsChanged.emit()
 
     def _flow_rows(self, session_id, revoked):
         if revoked:

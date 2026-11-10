@@ -79,6 +79,34 @@ def test_screen_state_omits_flow_projection_but_keeps_fresh_rows_available(contr
     assert not owner.flowRows
 
 
+def test_flow_notification_ignores_unchanged_rows_and_withdraws_on_profile_change(controller):
+    owner, backend = controller
+    owner._bootstrap_binding = owner.transport.binding()
+    owner._bootstrap_owner = "profile-a"
+    owner._bootstrap_private = True
+    owner._session = {"session_id": "session-a", "runtime_state": "active"}
+    owner._retained_flow = [{"entry_id": "first", "session_id": "session-a", "kind": "conversation_dj"}]
+    notify = Mock()
+    owner.flowRowsChanged.connect(notify)
+
+    owner.changed.emit()
+    notify.assert_called_once()
+    owner._retained_flow = [dict(row) for row in owner._retained_flow]
+    owner._session["position"] = 5
+    owner.changed.emit()
+    notify.assert_called_once()
+
+    owner._retained_flow = [{**owner._retained_flow[0], "text": "Updated"}]
+    owner.changed.emit()
+    assert notify.call_count == 2
+    assert owner.flowRows[0]["contribution"]["text"] == "Updated"
+
+    backend.cfg.active_profile_id = "profile-b"
+    owner.changed.emit()
+    assert notify.call_count == 3
+    assert not owner.flowRows and owner._flow_notification is None
+
+
 def test_missing_metadata_permits_only_bounded_current_owner_read(controller):
     owner, backend = controller
     backend.cfg.explicit_profile_id = ""
