@@ -2750,6 +2750,44 @@ def test_backend_cached_output_device_failure_shows_friendly_message(tmp_path: P
     assert backend.toastText == backend.tr_key("spotify_cached_output_unavailable")
 
 
+def test_backend_refresh_deduplicates_without_global_busy_or_unchanged_config_signals(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.ha_url = "http://fixture.invalid"
+    save_config(backend.config_path, backend.cfg)
+    original = backend.config_path.stat()
+    submit = backend._executor.submit = Mock()
+    signals = Mock()
+    backend.busyChanged.connect(signals.busy)
+    backend.settingsChanged.connect(signals.settings)
+    backend.controlVolumeChanged.connect(signals.volume)
+    backend.client.command = Mock(return_value={})
+    backend.client.status = Mock(return_value={})
+    backend.client.playback_from_status = Mock(return_value=Playback(
+        output_device="Fixture speaker", output_devices=("Fixture speaker",)))
+    backend.playback = backend.client.playback_from_status.return_value
+
+    backend.refresh()
+    backend.refresh()
+    submit.assert_called_once()
+    submit.call_args.args[0]()
+    assert backend.config_path.stat().st_ino == original.st_ino
+    assert not signals.mock_calls
+
+    def changed_summary(*args, **kwargs):
+        backend.cfg.music_backend_revision = 3
+        return {}
+
+    backend.client.status.side_effect = changed_summary
+    backend.refresh()
+    assert submit.call_count == 2
+    submit.call_args.args[0]()
+    assert load_config(backend.config_path).music_backend_revision == 3
+    signals.settings.assert_called_once()
+    signals.busy.assert_not_called()
+
+
 def test_backend_refresh_loads_output_devices_when_status_omits_them(tmp_path: Path) -> None:
     ensure_app()
     backend = DJConnectBackend(tmp_path / "config.json")

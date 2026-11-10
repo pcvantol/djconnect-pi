@@ -366,7 +366,7 @@ def test_qml_ask_dj_screen_is_readonly_actions_without_free_input() -> None:
     main_qml = files("djconnect_pi.qml").joinpath("Main.qml").read_text(encoding="utf-8")
     ask_dj_block = main_qml[main_qml.index("id: askDjPanel") : main_qml.index("GamesPanel {")]
 
-    assert 'visible: root.activeScreen === "askdj"' in ask_dj_block
+    assert 'visible: root.activeScreen === "askdj"' in main_qml
     assert "component AskDjGradientButton" in main_qml
     action_button = main_qml[main_qml.index("component AskDjGradientButton"):main_qml.index("component MenuIcon")]
     assert "background: GlassSurface" in action_button

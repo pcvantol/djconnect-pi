@@ -198,6 +198,7 @@ class DJConnectBackend(QObject):
         super().__init__()
         self.config_path = config_path
         self._shutting_down = False
+        self._refresh_pending = False
         self._audio_devices = None
         self._edge_back_gesture = EdgeBackGesture(self)
         self.cfg: Config = load_config(config_path)
@@ -1076,7 +1077,7 @@ class DJConnectBackend(QObject):
             return
         if self._demo_mode:
             return
-        if self._busy:
+        if self._busy or self._refresh_pending:
             _LOGGER.debug("Refresh skipped because another task is active")
             return
         if not self.paired:
@@ -1094,7 +1095,11 @@ class DJConnectBackend(QObject):
         if not self.paired and not self.cfg.ha_url:
             self._set_status_text(self.tr_key("ready_to_pair"))
             return
-        self._run(self.tr_key("refreshing"), self._refresh_worker)
+        self._refresh_pending = True
+        self._run(self.tr_key("refreshing"), self._refresh_worker, done=self._finish_refresh, interactive=False)
+
+    def _finish_refresh(self) -> None:
+        self._refresh_pending = False
 
     def _sync_config_from_disk(self) -> None:
         latest = load_config(self.config_path)
@@ -2578,8 +2583,6 @@ class DJConnectBackend(QObject):
         self.playback = playback
         if old_volume_context != self._control_volume_context(playback):
             self.cancelControlVolume()
-        else:
-            self.controlVolumeChanged.emit()
         track_changed = old.title != playback.title or old.artist != playback.artist or old.image_url != playback.image_url or old.uri != playback.uri
         if (self._track_insight_subject(old) != self._track_insight_subject(playback)
                 or self._track_insight_output(old) != self._track_insight_output(playback)):
@@ -3022,10 +3025,10 @@ class DJConnectBackend(QObject):
     def _persist_backend_summary(self) -> None:
         self._invalidate_shared_settings_if_context_changed()
         try:
-            save_config(self.config_path, self.cfg)
-            self.settingsChanged.emit()
-            self.favoriteChanged.emit()
-            self.djAnnouncementChanged.emit()
+            if save_config(self.config_path, self.cfg, skip_unchanged=True):
+                self.settingsChanged.emit()
+                self.favoriteChanged.emit()
+                self.djAnnouncementChanged.emit()
         except Exception as exc:  # noqa: BLE001 - config persistence failures are reported without interrupting renderer state
             _LOGGER.warning("Could not persist music backend summary: %s", exc)
 

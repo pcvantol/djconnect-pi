@@ -86,6 +86,7 @@ BrandWindow {
         }
     }
     property bool wallProfile: djconnect.releaseProfile === "pi5-arm64"
+    readonly property bool lowMemoryProfile: djconnect.releaseProfile === "pi-zero-2w-arm64"
     readonly property bool liquidGlassEnabled: djconnect.glassEnabled
     readonly property string appearanceMood: {
         if (root.activeScreen === "games") return gamesPanel.gameMood
@@ -319,10 +320,8 @@ BrandWindow {
 
     function scrollAskDjToTop() {
         Qt.callLater(function() {
-            if (!askDjScroll || !askDjScroll.contentItem) {
-                return
-            }
-            askDjScroll.contentItem.contentY = 0
+            if (root.activeScreen === "askdj" && askDjLoader.item)
+                askDjLoader.item.scrollToTop()
         })
     }
 
@@ -332,7 +331,7 @@ BrandWindow {
         root.shutdownConfirmOpen = false
         root.clearLogsConfirmOpen = false
         root.askDjClearConfirmOpen = false
-        askDjPanel.closeSearch()
+        if (askDjLoader.item) askDjLoader.item.closeSearch()
         root.musicDnaDisableConfirmOpen = false
         root.musicDnaClearConfirmOpen = false
         root.discoveryReasonOpen = false
@@ -885,6 +884,11 @@ BrandWindow {
                 })
             })
         }
+        function scrollToTop() {
+            if (askDjScroll.contentItem)
+                askDjScroll.contentItem.contentY = 0
+        }
+
         function searchText(value) {
             return String(value).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
         }
@@ -1227,11 +1231,11 @@ BrandWindow {
             }
         }
         function onAskDjChanged() {
-            if (djconnect.askDjMessages.length === 0 && askDjPanel.searchOpen)
-                askDjPanel.closeSearch()
-            if (root.activeScreen === "askdj" && !askDjPanel.searchOpen) {
+            const panel = askDjLoader.item
+            if (panel && djconnect.askDjMessages.length === 0 && panel.searchOpen)
+                panel.closeSearch()
+            if (root.activeScreen === "askdj" && panel && !panel.searchOpen)
                 root.scrollAskDjToTop()
-            }
             if (root.askDjClearConfirmOpen && djconnect.askDjMessages.length === 0) {
                 root.askDjClearConfirmOpen = false
             }
@@ -2897,12 +2901,21 @@ BrandWindow {
         }
     }
 
-    Rectangle {
-        id: musicDiscoveryPanel
+    Loader {
+        id: musicDiscoveryLoader
+        objectName: "musicDiscoveryLoader"
         anchors.fill: parent
-        color: BrandTheme.colors.background
         visible: root.activeScreen === "discover"
+        active: !root.lowMemoryProfile || visible
+        asynchronous: root.lowMemoryProfile
         z: 17
+        sourceComponent: Component { MusicDiscoveryPage {} }
+    }
+
+    component MusicDiscoveryPage: Rectangle {
+        id: musicDiscoveryPanel
+        objectName: "musicDiscoveryPanel"
+        color: BrandTheme.colors.background
 
         AppBackground { sessionCanvas: true }
         ModalBlocker {}
@@ -3454,13 +3467,21 @@ BrandWindow {
         }
     }
 
-    Rectangle {
+    Loader {
+        id: askDjLoader
+        objectName: "askDjLoader"
+        anchors.fill: parent
+        visible: root.activeScreen === "askdj"
+        active: !root.lowMemoryProfile || visible
+        asynchronous: root.lowMemoryProfile
+        z: 17
+        sourceComponent: Component { AskDjPage {} }
+    }
+
+    component AskDjPage: Rectangle {
         id: askDjPanel
         objectName: "askDjPanel"
-        anchors.fill: parent
         color: BrandTheme.colors.background
-        visible: root.activeScreen === "askdj"
-        z: 17
         property bool searchOpen: false
         property bool searchKeyboardOpen: false
         property int selectedMatch: -1

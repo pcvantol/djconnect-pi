@@ -189,13 +189,21 @@ def normalize_dj_announcement_output(value: object, capabilities: dict[str, Any]
     return "text_only"
 
 
-def save_config(path: Path, cfg: Config) -> None:
+def save_config(path: Path, cfg: Config, *, skip_unchanged: bool = False) -> bool:
+    payload = (json.dumps(asdict(cfg), indent=2, sort_keys=True) + "\n").encode("utf-8")
+    if skip_unchanged:
+        try:
+            if path.stat().st_mode & 0o777 == 0o600 and path.read_bytes() == payload:
+                return False
+        except FileNotFoundError:
+            pass
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = path.with_name(f".{path.name}.tmp")
-    tmp_path.write_text(json.dumps(asdict(cfg), indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    tmp_path.write_bytes(payload)
     tmp_path.chmod(0o600)
     tmp_path.replace(path)
     path.chmod(0o600)
+    return True
 
 
 SESSION_REFRESH_CHOICES = (1, 5, 10, 15, 30, 60)

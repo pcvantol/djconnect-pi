@@ -87,6 +87,22 @@ def test_save_config_writes_private_file_permissions(tmp_path: Path) -> None:
     assert stat.S_IMODE(path.stat().st_mode) == 0o600
 
 
+def test_save_config_can_skip_unchanged_private_file(tmp_path: Path) -> None:
+    path = tmp_path / "config.json"
+    cfg = Config()
+    assert save_config(path, cfg, skip_unchanged=True)
+    original = path.stat()
+    assert not save_config(path, cfg, skip_unchanged=True)
+    assert path.stat().st_ino == original.st_ino and path.stat().st_mtime_ns == original.st_mtime_ns
+
+    cfg.music_backend_revision = 2
+    assert save_config(path, cfg, skip_unchanged=True)
+    assert load_config(path).music_backend_revision == 2
+    path.chmod(0o644)
+    assert save_config(path, cfg, skip_unchanged=True)
+    assert stat.S_IMODE(path.stat().st_mode) == 0o600
+
+
 def test_load_config_backfills_missing_device_id(tmp_path: Path) -> None:
     path = tmp_path / "config.json"
     path.write_text(json.dumps({"ha_url": "http://ha"}), encoding="utf-8")
