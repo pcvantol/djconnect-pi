@@ -151,6 +151,14 @@ BrandWindow {
     property bool forceBrightnessFull: false
     property bool suppressNextNowPanelTap: false
     property bool trackArtworkOpen: false
+    property bool trackArtworkControlsOpen: false
+    readonly property bool trackArtworkCanControl: trackArtworkOpen && sessionTrackArtwork
+        && trackArtworkViewOpen && !!sharedSessionScreen.state.playback_control.available
+    onTrackArtworkCanControlChanged: if (!trackArtworkCanControl) trackArtworkControlsOpen = false
+    onTrackArtworkControlsOpenChanged: {
+        if (!trackArtworkControlsOpen && sharedSessionScreen.owner)
+            sharedSessionScreen.owner.cancelPlaybackIntent()
+    }
     property bool sessionTrackArtwork: false
     readonly property bool trackArtworkViewOpen: sharedSessionScreen.liveViewOpen
     onTrackArtworkViewOpenChanged: if (!trackArtworkViewOpen) trackArtworkOpen = false
@@ -158,12 +166,20 @@ BrandWindow {
     onOverlayTrackAvailableChanged: if (!overlayTrackAvailable) trackArtworkOpen = false
     onTrackArtworkOpenChanged: if (!trackArtworkOpen) trackArtworkDismissTimer.stop()
     onScreenBlankedChanged: if (screenBlanked) trackArtworkOpen = false
-    function showTrackArtwork(fromSession) {
-        if (!trackArtworkViewOpen)
+    function showTrackArtwork(fromSession, automatic) {
+        if (!trackArtworkViewOpen || (automatic && trackArtworkOpen && !trackArtworkDismissTimer.running))
             return
         sessionTrackArtwork = fromSession
         trackArtworkOpen = true
-        trackArtworkDismissTimer.restart()
+        trackArtworkControlsOpen = trackArtworkCanControl
+        if (automatic && !trackArtworkControlsOpen) trackArtworkDismissTimer.restart()
+        else trackArtworkDismissTimer.stop()
+    }
+    function toggleTrackArtworkControls() {
+        if (!trackArtworkCanControl)
+            return
+        trackArtworkDismissTimer.stop()
+        trackArtworkControlsOpen = !trackArtworkControlsOpen
     }
     function openTrackArtwork() {
         if (sharedSessionScreen.trackArtworkAvailable)
@@ -1214,7 +1230,7 @@ BrandWindow {
                 return
             djconnect.wakeDisplay()
             root.temporaryWake(10)
-            root.showTrackArtwork(false)
+            root.showTrackArtwork(false, true)
         }
         function onDjResponseChanged() {
             if (djconnect.djResponseVisible) {
@@ -2655,7 +2671,7 @@ BrandWindow {
                         Timer {
                             interval: 180
                             repeat: true
-                            running: trackInsightVisualizer.visible && root.activeScreen === "trackinsight"
+                            running: root.wallProfile && trackInsightVisualizer.visible && root.activeScreen === "trackinsight"
                                      && djconnect.playing && root.active && !root.screenBlanked && !GlassStyle.reduceMotion
                             onTriggered: {
                                 trackInsightVisualizer.phase = (trackInsightVisualizer.phase + 0.08) % 6.28
@@ -5733,13 +5749,18 @@ BrandWindow {
         onLoaded: item.forceActiveFocus()
         sourceComponent: FocusScope {
             objectName: "trackArtworkOverlay"
-            Keys.onEscapePressed: root.trackArtworkOpen = false
+            Keys.onEscapePressed: root.trackArtworkControlsOpen = false
 
             Rectangle {
                 anchors.fill: parent
                 color: BrandTheme.alpha(BrandTheme.colors.background, "ee")
             }
-            ModalBlocker {}
+            ModalBlocker {
+                onClicked: function(mouse) {
+                    if (mouse.button === Qt.LeftButton && root.trackArtworkControlsOpen)
+                        root.toggleTrackArtworkControls()
+                }
+            }
 
             ColumnLayout {
                 anchors.fill: parent
@@ -5801,6 +5822,25 @@ BrandWindow {
                                 fillMode: Image.PreserveAspectCrop
                                 clip: true
                                 visible: status === Image.Ready
+                            }
+                            Rectangle {
+                                objectName: "trackArtworkControlsShade"
+                                anchors.fill: parent
+                                anchors.margins: 10
+                                radius: 18
+                                visible: root.trackArtworkCanControl && root.trackArtworkControlsOpen
+                                color: "#80000000"
+                            }
+                            MouseArea {
+                                anchors.fill: parent
+                                enabled: root.trackArtworkCanControl
+                                onClicked: root.toggleTrackArtworkControls()
+                            }
+                            Loader {
+                                anchors.centerIn: parent
+                                width: Math.min(parent.width - 16, 420)
+                                active: root.trackArtworkCanControl && root.trackArtworkControlsOpen
+                                sourceComponent: sharedSessionScreen.artworkTransportControls
                             }
                         }
 
@@ -5898,12 +5938,18 @@ BrandWindow {
         z: 199
         onPressed: function(mouse) {
             if (root.screenBlanked) {
-                root.wakeDisplay()
                 mouse.accepted = true
                 return
             }
             root.recordActivity()
             mouse.accepted = false
+        }
+        onClicked: function(mouse) {
+            if (root.screenBlanked) {
+                root.wakeDisplay()
+                if (mouse.button === Qt.LeftButton)
+                    root.showTrackArtwork(sharedSessionScreen.trackArtworkAvailable, true)
+            }
         }
     }
 
@@ -5915,9 +5961,5 @@ BrandWindow {
         z: 200
 
         Behavior on opacity { NumberAnimation { duration: 450 } }
-
-        TapHandler {
-            onTapped: root.wakeDisplay()
-        }
     }
 }
