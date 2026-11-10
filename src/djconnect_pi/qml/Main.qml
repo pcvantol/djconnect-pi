@@ -5639,7 +5639,12 @@ BrandWindow {
                 anchors.fill: parent
                 color: BrandTheme.alpha(BrandTheme.colors.background, "ee")
             }
-            ModalBlocker {}
+            ModalBlocker {
+                onClicked: function(mouse) {
+                    if (mouse.button === Qt.LeftButton)
+                        root.trackArtworkOpen = false
+                }
+            }
 
             ColumnLayout {
                 anchors.fill: parent

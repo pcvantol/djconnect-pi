@@ -205,6 +205,16 @@ def main():
                 capture('fullscreen-track-art')
                 click('closeTrackArtwork')
                 assert not window.property('trackArtworkOpen')
+                for target in ('expandedTrackArtwork', 'expandedTrackTitle'):
+                    click('sessionExpandTrackMetadata')
+                    overlay = visual(window.contentItem(), 'trackArtworkOverlay')
+                    item = visual(overlay, target)
+                    point = item.mapToScene(QPointF(item.width() / 2, item.height() / 2))
+                    QTest.mouseClick(window, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier,
+                                     QPoint(round(point.x()), round(point.y())))
+                    QTest.qWait(60)
+                    assert not window.property('trackArtworkOpen') and not intents
+                    assert window.property('activeScreen') == 'session'
                 origin = artwork_button.mapToScene(QPointF(8, 8))
                 QTest.mouseClick(window, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier,
                                  QPoint(round(origin.x()), round(origin.y())))
