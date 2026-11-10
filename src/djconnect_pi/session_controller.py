@@ -133,6 +133,7 @@ class SessionController(QObject):
         self._serial = 0
         self._running = 0
         self._running_action = ""
+        self._background_refresh = False
         self._question_running = 0
         self._question_epoch = 0
         self._last_current_read = 0
@@ -555,16 +556,17 @@ class SessionController(QObject):
 
     @property
     def _interactive_read_or_write(self):
-        return bool(self._running and self._running_action != "poll")
+        return bool(self._running and not self._background_refresh)
 
     @Property(bool, notify=refreshingChanged)
     def refreshing(self):
-        return bool(self._running and self._running_action in {"refresh", "poll"})
+        return bool(self._running and self._running_action == "refresh")
 
-    def _set_running(self, serial=0, action=""):
+    def _set_running(self, serial=0, action="", *, background=False):
         was_refreshing = self.refreshing
         self._running = serial
         self._running_action = action
+        self._background_refresh = background
         if was_refreshing != self.refreshing:
             self.refreshingChanged.emit()
 
@@ -1344,7 +1346,7 @@ class SessionController(QObject):
             return
         # Explicit actions may supersede a poll. A late poll loses its ticket.
         if self._running and (background or (
-                self._running_action != "poll" and (action != "end" or self.lifecycleBusy))):
+                not self._background_refresh and (action != "end" or self.lifecycleBusy))):
             return
         if action == "question" and self._question_running:
             return
@@ -1391,11 +1393,11 @@ class SessionController(QObject):
         self._serial += 1
         serial = self._serial
         if action == "question":
-            if self._running_action == "poll":
+            if self._background_refresh:
                 self._set_running()
             self._question_running = serial
         else:
-            self._set_running(serial, "poll" if background else action)
+            self._set_running(serial, action, background=background)
         if action in {"refresh", "start", "end"}:
             self._last_current_read = serial
         if action == "end":
