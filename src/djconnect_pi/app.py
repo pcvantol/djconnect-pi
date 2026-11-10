@@ -158,6 +158,8 @@ class DJConnectBackend(QObject):
     askDjChanged = Signal()
     musicDnaChanged = Signal()
     musicDiscoveryChanged = Signal()
+    musicDiscoveryItemsChanged = Signal()
+    musicDiscoveryPlayed = Signal(str, str)
     trackInsightChanged = Signal()
     demoModeChanged = Signal()
     glassChanged = Signal()
@@ -508,7 +510,7 @@ class DJConnectBackend(QObject):
     def musicDnaSections(self) -> list[dict[str, object]]:
         return self._music_dna_sections
 
-    @Property("QVariantList", notify=musicDiscoveryChanged)
+    @Property("QVariantList", notify=musicDiscoveryItemsChanged)
     def musicDiscoveryItems(self) -> list[dict[str, object]]:
         return self._music_discovery_items
 
@@ -1598,7 +1600,7 @@ class DJConnectBackend(QObject):
     def playMusicDiscoveryItem(self, payload: str) -> None:
         if not self._demo_mode:
             self._sync_config_from_disk()
-        if (not self._demo_mode and not self.paired) or self._music_discovery_busy:
+        if (not self._demo_mode and not self.paired) or self._music_discovery_busy or self._music_discovery_playing_id:
             return
         try:
             item = json.loads(payload)
@@ -1613,6 +1615,7 @@ class DJConnectBackend(QObject):
         item_id = str(item.get("discovery_item_id") or item.get("id") or "").strip()
         if self._demo_mode:
             self._play_demo_uri(item_id)
+            self.musicDiscoveryPlayed.emit(str(item.get("section_id") or ""), item_id)
             return
         self._music_discovery_playing_id = item_id
         self.musicDiscoveryChanged.emit()
@@ -2270,11 +2273,16 @@ class DJConnectBackend(QObject):
         ticket = self._private_read_context()
         try:
             data = self.client.music_discovery_play(item)
+            if data.get("success") is False:
+                raise DJConnectError("Music Discovery playback rejected")
             if ticket != self._private_read_context():
                 return
             self._apply_profile_context(data)
             ticket = self._private_read_context()
             self._persist_backend_summary()
+            self.musicDiscoveryPlayed.emit(
+                str(item.get("section_id") or ""), str(item.get("discovery_item_id") or item.get("id") or "").strip(),
+            )
             feed = self.client.music_discovery_feed()
             if ticket != self._private_read_context():
                 return
@@ -2486,12 +2494,12 @@ class DJConnectBackend(QObject):
         tracks = demo_queue_items()
         self._music_dna_sections = [{"title": self.tr_key("demo_mode"),
             "lines": [f"{track['title']} · {track['subtitle']}" for track in tracks]}] if enabled else []
-        self._music_discovery_items = parse_music_discovery_feed({"sections": [{
+        self._set_music_discovery_items(parse_music_discovery_feed({"sections": [{
             "id": "demo", "title": self.tr_key("demo_mode"), "items": [
                 {"id": track["uri"], "uri": track["uri"], "title": track["title"],
                  "subtitle": track["subtitle"], "reason": self.tr_key(str(track["insight_key"]))}
                 for track in tracks],
-        }]})["items"] if enabled else []
+        }]})["items"] if enabled else [])
         self.musicDnaChanged.emit()
         self.musicDiscoveryChanged.emit()
 
@@ -2767,7 +2775,7 @@ class DJConnectBackend(QObject):
         self._music_dna_summary = ""
         self._music_dna_error = ""
         self._music_dna_sections = []
-        self._music_discovery_items = []
+        self._set_music_discovery_items([])
         self._music_discovery_empty_text = ""
         self._music_discovery_error = ""
         self._music_discovery_playing_id = ""
@@ -2801,6 +2809,11 @@ class DJConnectBackend(QObject):
             return
         self._favorite_busy = value
         self.favoriteBusyChanged.emit()
+
+    def _set_music_discovery_items(self, items: list[dict[str, object]]) -> None:
+        if items != self._music_discovery_items:
+            self._music_discovery_items = items
+            self.musicDiscoveryItemsChanged.emit()
 
     def _clear_music_discovery_playing(self) -> None:
         self._music_discovery_playing_id = ""
@@ -2843,7 +2856,7 @@ class DJConnectBackend(QObject):
         if data.get("success") is False and error != "music_dna_disabled":
             # Rejected feeds are not content or Profile authority. Never render
             # their machine error/message as user-facing recommendation text.
-            self._music_discovery_items = []
+            self._set_music_discovery_items([])
             self._music_discovery_feedback_supported = False
             self._music_discovery_empty_text = ""
             key = "session_profile_missing" if error in PROFILE_ERROR_CODES | {"music_dna_context_changed"} else "backend_unavailable"
@@ -2853,14 +2866,14 @@ class DJConnectBackend(QObject):
         self._apply_profile_context(data)
         self._music_discovery_consent_rejected = False
         if data.get("enabled") is False or str(data.get("error") or "") == "music_dna_disabled":
-            self._music_discovery_items = []
+            self._set_music_discovery_items([])
             self._music_discovery_feedback_supported = False
             self._music_discovery_error = ""
             self._music_discovery_empty_text = str(data.get("reason") or data.get("empty_text") or data.get("message") or self.tr_key("music_discovery_requires_music_dna"))
             self.musicDiscoveryChanged.emit()
             return
         parsed = parse_music_discovery_feed(data)
-        self._music_discovery_items = parsed["items"]
+        self._set_music_discovery_items(parsed["items"])
         self._music_discovery_empty_text = parsed["empty_text"]
         self._music_discovery_feedback_supported = bool(data.get("_feedback_supported") or data.get("feedback_supported") or data.get("supports_feedback"))
         self._music_discovery_error = ""
