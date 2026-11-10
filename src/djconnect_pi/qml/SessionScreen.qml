@@ -8,6 +8,10 @@ import "MoodTheme.js" as MoodTheme
 Item {
     id: screen
     objectName: "djSessionScreen"
+    property bool pollingAllowed: true
+    readonly property bool liveViewOpen: visible && !historical && pollingAllowed
+    readonly property bool historyViewOpen: visible && historical && pollingAllowed
+    onLiveViewOpenChanged: syncSessionVisibility()
     property Item revealedFlowAction: null
     readonly property bool trackArtworkAvailable: playbackMetadata.visible && playbackSources.ready
     readonly property url trackArtworkSource: trackCover.source
@@ -228,7 +232,7 @@ Item {
         owner.setPlaybackArtworkVisible(visible && !historical && !showForecast)
     }
     function syncSessionVisibility() {
-        if (owner) owner.setViewActive(visible)
+        if (owner) owner.setViewActive(liveViewOpen)
     }
     Component.onCompleted: {
         syncDisplayedFlow()
@@ -717,7 +721,7 @@ Item {
         if (contentDeletePanel) contentDeletePanel.close()
         if (owner) owner.clearSearch()
     }
-    onVisibleChanged: { syncSessionVisibility(); syncMediaVisibility(); if (!visible) { clearForecastReading(); cancelArchiveRead(); if (owner) owner.clearArchive(); clearFlowReturn(); historyRead.stop(); historyReadProfile = ""; historyReadSession = ""; historyReadPending = false; readingRestore.stop(); pendingReadingAnchor = ""; closeTransient() } }
+    onVisibleChanged: { syncMediaVisibility(); if (!visible) { clearForecastReading(); cancelArchiveRead(); if (owner) owner.clearArchive(); clearFlowReturn(); historyRead.stop(); historyReadProfile = ""; historyReadSession = ""; historyReadPending = false; readingRestore.stop(); pendingReadingAnchor = ""; closeTransient() } }
     onHistoricalChanged: { if (historical) { outputsPanel.close(); playbackPanel.close() } syncMediaVisibility(); if (!historical) { archiveDetailReturn = null; cancelArchiveRead(); if (owner) owner.clearArchive() } readingRestore.stop(); pendingReadingAnchor = ""; readingOffset = 0; if (!historical && flowReturn) { historyScroll.contentItem.cancelFlick(); flowReturnRestore.restart() } }
     onSearchTargetChanged: { if (searchPanel) searchPanel.close(); if (searchInput) searchInput.clear(); if (owner) owner.clearSearch() }
     signal openVibeScape(real pickerTop)
@@ -753,8 +757,22 @@ Item {
         choices.x = Math.max(12, Math.min(button.mapToItem(screen, 0, 0).x, width - choices.width - 12))
         choices.open()
     }
-    Timer { objectName: "sessionRuntimePollTimer"; interval: screen.historical ? 3000 : screen.backend.sessionRefreshSeconds * 1000; running: screen.visible && screen.backend.paired && !screen.historyReadPending && !screen.searchRefreshPending; repeat: true; triggeredOnStart: true; onTriggered: { if (!screen.historical) screen.owner.poll(); else if (!screen.currentHistory && !screen.state.history_loaded) screen.owner.loadHistory() } }
-    Timer { objectName: "sessionHistoryRevalidationTimer"; interval: 15000; running: screen.visible && screen.historical && screen.backend.paired; repeat: true; onTriggered: { if (!screen.state.saved_open_retry) screen.refreshHistory() } }
+    Timer {
+        objectName: "sessionRuntimePollTimer"
+        interval: screen.backend.sessionRefreshSeconds * 1000
+        running: screen.liveViewOpen && screen.backend.paired && !screen.searchRefreshPending
+        repeat: true
+        triggeredOnStart: true
+        onTriggered: if (screen.liveViewOpen) screen.owner.poll()
+    }
+    Timer {
+        interval: 3000
+        running: screen.historyViewOpen && screen.backend.paired && !screen.historyReadPending && !screen.searchRefreshPending
+        repeat: true
+        triggeredOnStart: true
+        onTriggered: if (screen.historyViewOpen && !screen.currentHistory && !screen.state.history_loaded) screen.owner.loadHistory()
+    }
+    Timer { objectName: "sessionHistoryRevalidationTimer"; interval: 15000; running: screen.historyViewOpen && screen.backend.paired; repeat: true; onTriggered: { if (!screen.state.saved_open_retry) screen.refreshHistory() } }
     Timer {
         id: replyRestore
         interval: 32

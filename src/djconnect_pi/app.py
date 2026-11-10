@@ -152,6 +152,9 @@ class DJConnectBackend(QObject):
     versionMismatchChanged = Signal()
     logsChanged = Signal()
     mediaListsChanged = Signal()
+    mediaActivityChanged = Signal()
+    _mediaListFinished = Signal(str)
+    _mediaPlaybackFinished = Signal()
     askDjChanged = Signal()
     musicDnaChanged = Signal()
     musicDiscoveryChanged = Signal()
@@ -261,6 +264,7 @@ class DJConnectBackend(QObject):
         self._ask_dj_poll_in_flight = False
         self._suppress_next_playback_navigation = False
         self._media_loads_in_flight: set[str] = set()
+        self._media_playback_busy = False
         self._media_artwork_cache_in_flight: set[str] = set()
         self._pending_output_device = ""
         self._pending_output_until = 0.0
@@ -298,6 +302,8 @@ class DJConnectBackend(QObject):
         self._busyReady.connect(self._set_busy)
         self._versionMismatchReady.connect(self._apply_version_mismatch)
         self._mediaListReady.connect(self._apply_media_list)
+        self._mediaListFinished.connect(self._finish_media_list_load)
+        self._mediaPlaybackFinished.connect(self._finish_media_playback)
         self._outputDeviceRejected.connect(self._apply_output_device_rejection)
         self._backendAvailableReady.connect(self._set_backend_available)
         self._toastReady.connect(self._show_toast)
@@ -461,6 +467,18 @@ class DJConnectBackend(QObject):
     @Property("QVariantList", notify=mediaListsChanged)
     def playlistItems(self) -> list[dict[str, object]]:
         return self._playlist_items
+
+    @Property(bool, notify=mediaActivityChanged)
+    def queueLoading(self) -> bool:
+        return "queue" in self._media_loads_in_flight
+
+    @Property(bool, notify=mediaActivityChanged)
+    def playlistsLoading(self) -> bool:
+        return "playlists" in self._media_loads_in_flight
+
+    @Property(bool, notify=mediaActivityChanged)
+    def mediaPlaybackBusy(self) -> bool:
+        return self._media_playback_busy
 
     @Property("QVariantList", notify=askDjChanged)
     def askDjMessages(self) -> list[dict[str, object]]:
@@ -1752,6 +1770,8 @@ class DJConnectBackend(QObject):
 
     @Slot(str, str)
     def playMediaItem(self, command: str, item: str) -> None:
+        if self._media_playback_busy:
+            return
         command = command.strip()
         payload = media_item_payload(command, item)
         if not command or not payload:
@@ -1765,7 +1785,14 @@ class DJConnectBackend(QObject):
             return
         _LOGGER.info("User requested %s from touch UI", command)
         self.showToastForContext(self.tr_key("play"), "playback")
-        self._run(command, lambda: self._play_media_item_worker(command, payload))
+        self._media_playback_busy = True
+        self.mediaActivityChanged.emit()
+        self._run(command, lambda: self._play_media_item_worker(command, payload), done=self._mediaPlaybackFinished.emit)
+
+    @Slot()
+    def _finish_media_playback(self) -> None:
+        self._media_playback_busy = False
+        self.mediaActivityChanged.emit()
 
     @Slot()
     def showLogs(self) -> None:
@@ -1911,13 +1938,11 @@ class DJConnectBackend(QObject):
 
     @Slot()
     def loadQueue(self) -> None:
-        self.showToastForContext(self.tr_key("refreshing"), "queue")
         if not self._demo_mode:
             self._start_media_list_load("queue", self._load_queue_worker)
 
     @Slot()
     def loadPlaylists(self) -> None:
-        self.showToastForContext(self.tr_key("refreshing"), "playlists")
         if self._demo_mode:
             self._playlist_items = demo_playlist_items()
             self.mediaListsChanged.emit()
@@ -1929,8 +1954,14 @@ class DJConnectBackend(QObject):
         if not self.paired or kind in self._media_loads_in_flight:
             return
         self._media_loads_in_flight.add(kind)
+        self.mediaActivityChanged.emit()
         _LOGGER.info("User requested %s from touch UI", kind)
-        self._run(self.tr_key(kind), worker, done=lambda: self._media_loads_in_flight.discard(kind))
+        self._run(self.tr_key(kind), worker, done=lambda: self._mediaListFinished.emit(kind), interactive=False)
+
+    @Slot(str)
+    def _finish_media_list_load(self, kind: str) -> None:
+        self._media_loads_in_flight.discard(kind)
+        self.mediaActivityChanged.emit()
 
     @Slot(str, result=str)
     def cachedImageUrl(self, url: str) -> str:
@@ -2464,9 +2495,10 @@ class DJConnectBackend(QObject):
         self.musicDnaChanged.emit()
         self.musicDiscoveryChanged.emit()
 
-    def _run(self, label: str, worker, done=None) -> None:
-        self._set_busy(True)
-        self._set_status_text(label)
+    def _run(self, label: str, worker, done=None, *, interactive=True) -> None:
+        if interactive:
+            self._set_busy(True)
+            self._set_status_text(label)
 
         def execute() -> None:
             try:
@@ -2527,7 +2559,8 @@ class DJConnectBackend(QObject):
             finally:
                 if done is not None:
                     done()
-                self._busyReady.emit(False)
+                if interactive:
+                    self._busyReady.emit(False)
 
         self._executor.submit(execute)
 

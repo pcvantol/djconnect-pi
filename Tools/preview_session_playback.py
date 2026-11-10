@@ -646,13 +646,13 @@ def main():
                         backend._apply_playback(Playback(title='Next track', artist='Next artist',
                                                          uri='fixture:track:2', image_url=art_source, is_playing=True))
                     assert display_command.call_args_list[-1].args[0] == ['xset', 'dpms', 'force', 'on']
-                    assert window.property('activeScreen') == 'more' and not window.property('screenBlanked')
+                    assert window.property('activeScreen') == 'session' and not window.property('screenBlanked')
                     assert window.property('trackArtworkOpen')
                     assert visual(window.contentItem(), 'expandedTrackTitle').property('text') == 'Next track'
                     QTest.qWait(4300)
                     assert window.property('trackArtworkOpen')
                     QTest.qWait(850)
-                    assert not window.property('trackArtworkOpen') and window.property('activeScreen') == 'more'
+                    assert not window.property('trackArtworkOpen') and window.property('activeScreen') == 'session'
                     backend._apply_playback(Playback(title='Next track', artist='Next artist',
                                                      uri='fixture:track:2', image_url='', is_playing=True))
                     assert not window.property('trackArtworkOpen')
