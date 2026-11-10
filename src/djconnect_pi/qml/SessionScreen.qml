@@ -1299,21 +1299,6 @@ Item {
                                 }
                             }
                         }
-
-                        SessionTransportButton {
-                            id: vinylButton
-                            objectName: "sessionPlaybackVinyl"
-                            anchors.right: parent.right
-                            anchors.bottom: parent.bottom
-                            width: screen.compact ? 44 : 60
-                            height: width
-                            visible: !!screen.state.playback_control.available
-                            transportSurfaceReady: visible && !playbackPanel.visible && !outputsPanel.visible
-                            commandName: screen.state.playback.state === "playing" ? "pause" : "play"
-                            iconName: commandName
-                            Accessible.name: screen.tr(commandName)
-                            padding: 0
-                        }
                     }
                     RowLayout {
                         id: trackTitleRow
