@@ -1780,6 +1780,27 @@ def test_queue_parser_dedupes_repeated_items_but_keeps_real_queue() -> None:
     assert [item["title"] for item in queue] == ["Track One", "Track Two"]
 
 
+@pytest.mark.parametrize("kind", ["queue", "playlists"])
+def test_compact_media_list_publishes_artwork_sources_without_prefetch(tmp_path, kind):
+    ensure_app()
+    path = tmp_path / "config.json"
+    save_config(path, Config(release_profile="pi-zero-2w-arm64"))
+    backend = DJConnectBackend(path)
+    submit = backend._executor.submit = Mock()
+    backend.client.command = Mock(return_value={kind: [{"title": "Track", "uri": "fixture:track",
+                                                        "imageUrl": "https://fixture.invalid/art.jpg"}]})
+    ready = Mock()
+    backend._mediaListReady.connect(ready)
+
+    getattr(backend, f"_load_{kind}_worker")()
+
+    ready.assert_called_once()
+    published_kind, items = ready.call_args.args
+    assert published_kind == kind and items[0]["imageUrl"] == "https://fixture.invalid/art.jpg"
+    submit.assert_not_called()
+    assert not backend._media_artwork_cache_in_flight
+
+
 def test_prepare_media_artwork_caches_urls_before_qml_render(monkeypatch) -> None:
     items = [{"title": "Track", "imageUrl": "https://example.test/art.jpg"}]
 

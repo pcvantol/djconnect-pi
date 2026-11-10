@@ -2350,7 +2350,9 @@ class DJConnectBackend(QObject):
         self._ask_dj_poll_in_flight = False
 
     def _cache_media_artwork_async(self, kind: str, items: list[dict[str, object]]) -> None:
-        if not items:
+        # The compact ListView already loads nearby covers. A second pass would
+        # compete with touch commands on the shared playback worker.
+        if not items or self.cfg.release_profile == "pi-zero-2w-arm64":
             return
         if kind in self._media_artwork_cache_in_flight:
             _LOGGER.debug("%s artwork cache skipped because a cache worker is already active", kind)
