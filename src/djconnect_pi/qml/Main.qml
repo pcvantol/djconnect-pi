@@ -1206,11 +1206,8 @@ BrandWindow {
     Connections {
         target: djconnect
         function onWakeScreenRequested() {
-            root.forceScreenAwake = true
-            root.forceBrightnessFull = false
+            root.temporaryWake(10, false)
             root.restartIdleTimer()
-            forcedWakeTimer.interval = 10000
-            forcedWakeTimer.restart()
         }
         function onTemporaryWakeRequested(seconds) {
             root.temporaryWake(seconds)
@@ -1240,11 +1237,8 @@ BrandWindow {
             }
         }
         function onScreenshotRequested() {
-            root.forceScreenAwake = true
-            root.forceBrightnessFull = false
+            root.temporaryWake(10, false)
             root.restartIdleTimer()
-            forcedWakeTimer.interval = 10000
-            forcedWakeTimer.restart()
             root.wakeDisplay()
             Qt.callLater(function() {
                 djconnect.saveWindowScreenshot(root)
