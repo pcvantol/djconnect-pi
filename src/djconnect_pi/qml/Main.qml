@@ -155,20 +155,22 @@ BrandWindow {
     property bool suppressNextNowPanelTap: false
     property bool trackArtworkOpen: false
     property bool sessionTrackArtwork: false
-    readonly property bool trackArtworkAvailable: activeScreen === "session" ? sharedSessionScreen.trackArtworkAvailable
-        : (activeScreen === "now" || activeScreen === "control") && djconnect.hasTrackTitle
+    readonly property bool trackArtworkViewOpen: sharedSessionScreen.liveViewOpen
+    onTrackArtworkViewOpenChanged: if (!trackArtworkViewOpen) trackArtworkOpen = false
     readonly property bool overlayTrackAvailable: sessionTrackArtwork ? sharedSessionScreen.trackArtworkAvailable : djconnect.hasTrackTitle
     onOverlayTrackAvailableChanged: if (!overlayTrackAvailable) trackArtworkOpen = false
     onTrackArtworkOpenChanged: if (!trackArtworkOpen) trackArtworkDismissTimer.stop()
     onScreenBlankedChanged: if (screenBlanked) trackArtworkOpen = false
     function showTrackArtwork(fromSession) {
+        if (!trackArtworkViewOpen)
+            return
         sessionTrackArtwork = fromSession
         trackArtworkOpen = true
         trackArtworkDismissTimer.restart()
     }
     function openTrackArtwork() {
-        if (trackArtworkAvailable && !screenBlanked)
-            showTrackArtwork(activeScreen === "session")
+        if (sharedSessionScreen.trackArtworkAvailable)
+            showTrackArtwork(true)
     }
     property double lastWakeDisplayAt: 0
     property int wakeDisplayDebounceMs: 800
@@ -1350,7 +1352,7 @@ BrandWindow {
 
             Item {
                 id: artShell
-                objectName: "nowExpandTrackArtwork"
+                objectName: "nowTrackArtwork"
                 Layout.fillWidth: true
                 Layout.fillHeight: true
 
@@ -1459,10 +1461,7 @@ BrandWindow {
                             root.suppressNextNowPanelTap = false
                             return
                         }
-                        if (root.trackArtworkAvailable)
-                            root.openTrackArtwork()
-                        else
-                            root.activeScreen = "control"
+                        root.activeScreen = "control"
                     }
                 }
             }
@@ -1516,14 +1515,9 @@ BrandWindow {
 
             ColumnLayout {
                 Layout.fillWidth: true
-                objectName: "controlExpandTrackMetadata"
+                objectName: "controlTrackMetadata"
                 Layout.preferredHeight: 72
                 spacing: 2
-
-                TapHandler {
-                    enabled: root.trackArtworkAvailable
-                    onTapped: root.openTrackArtwork()
-                }
 
                 Text {
                     text: djconnect.title
@@ -5640,7 +5634,7 @@ BrandWindow {
     Loader {
         anchors.fill: parent
         z: 198
-        active: root.trackArtworkOpen
+        active: root.trackArtworkOpen && root.trackArtworkViewOpen
         focus: active
         onLoaded: item.forceActiveFocus()
         sourceComponent: FocusScope {

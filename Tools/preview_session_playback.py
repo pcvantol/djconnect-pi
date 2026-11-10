@@ -659,18 +659,24 @@ def main():
                     backend.cfg.screen_timeout_seconds = 0
                     backend.screenTimeoutChanged.emit()
                     backend._apply_playback(Playback())
-                if width == 720 and language == 'en':
-                    backend._apply_playback(Playback(title='Local track', artist='Local artist', image_url=art_source))
-                    window.setProperty('activeScreen', 'now')
-                    QTest.qWait(80)
-                    click('nowExpandTrackArtwork')
-                    assert visual(window.contentItem(), 'expandedTrackTitle').property('text') == 'Local track'
-                    click('closeTrackArtwork')
-                    window.setProperty('activeScreen', 'control')
-                    QTest.qWait(80)
-                    click('controlExpandTrackMetadata')
+                if language == 'en':
+                    for destination in ('queue', 'playlists', 'more'):
+                        window.setProperty('activeScreen', destination)
+                        backend._apply_playback(Playback(title=destination, uri='fixture:' + destination,
+                                                         image_url=art_source))
+                        assert window.property('activeScreen') == destination
+                        assert not window.property('trackArtworkOpen')
+                    window.setProperty('activeScreen', 'session')
+                    backend._apply_playback(Playback(title='New track', uri='fixture:session', image_url=art_source))
                     assert window.property('trackArtworkOpen')
+                    window.setProperty('activeScreen', 'more')
+                    assert not window.property('trackArtworkOpen')
+                if width == 720 and language == 'en':
                     window.setProperty('activeScreen', 'now')
+                    QTest.qWait(80)
+                    click('nowTrackArtwork')
+                    assert window.property('activeScreen') == 'control' and not window.property('trackArtworkOpen')
+                    click('controlTrackMetadata')
                     assert not window.property('trackArtworkOpen')
                 backend.shutdown(); delete(window); delete(engine); delete(backend)
                 app.processEvents()
