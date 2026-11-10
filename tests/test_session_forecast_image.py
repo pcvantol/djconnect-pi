@@ -305,3 +305,26 @@ def test_position_notice_precedes_pixel_publication_and_atomic_withdrawal(contro
     assert before == [False, True] and after[-1] is False and not images.public
     images.sync()
     assert before == [False, True]
+
+def test_empty_image_stays_idle_and_visible_pixels_still_get_revoked(controller, monkeypatch):
+    owner, backend = controller
+    _, jobs = ready(owner)
+    images = owner._forecast_images
+    monkeypatch.setattr(images, "fetch", Mock(return_value=DATA))
+
+    owner.setForecastImagesVisible(True)
+    assert len(jobs) == 1 and not images.timer.isActive()
+    jobs.pop()()
+    assert owner.forecastImage and images.timer.isActive()
+    assert images.deadline_timer.isActive()
+    owner.changed.emit()
+    assert not jobs
+    backend.cfg.active_profile_id = "another-profile"
+    assert not owner.forecastImage
+
+    withdrawn = Mock()
+    images.changed.connect(withdrawn)
+    images._tick()
+    withdrawn.assert_called_once()
+    assert not images.timer.isActive()
+    assert not owner.forecastImage
