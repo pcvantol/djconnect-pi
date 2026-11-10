@@ -259,6 +259,29 @@ def test_music_discovery_play_ignores_items_without_backend_id(tmp_path: Path) -
     backend.client.music_discovery_play.assert_not_called()
 
 
+@pytest.mark.parametrize("accepted", [True, False])
+def test_discovery_play_closes_only_on_acknowledged_playback(tmp_path: Path, accepted: bool) -> None:
+    ensure_app()
+    config_path = tmp_path / "config.json"
+    save_config(config_path, Config(paired=True, device_token="fixture", ha_url="http://fixture.invalid"))
+    backend = DJConnectBackend(config_path)
+    backend.client.music_discovery_play = Mock(return_value={"success": accepted})
+    backend.client.music_discovery_feed = Mock(side_effect=BackendUnavailable("fixture read error"))
+    backend._executor.submit = Mock()
+    completions = []
+    backend.musicDiscoveryPlayed.connect(lambda section, item: completions.append((section, item)))
+    payload = json.dumps({"section_id": "rediscover", "discovery_item_id": "recommendation"})
+
+    backend.playMusicDiscoveryItem(payload)
+    backend.playMusicDiscoveryItem(payload)
+    backend._executor.submit.assert_called_once()
+    backend._executor.submit.call_args.args[0]()
+
+    assert completions == ([("rediscover", "recommendation")] if accepted else [])
+    assert backend.musicDiscoveryPlayingId == ""
+    assert backend.client.music_discovery_feed.call_count == int(accepted)
+
+
 def test_log_display_uses_compact_touch_prefix() -> None:
     text = _format_logs_for_display(
         "2026-06-13 17:53:49,528 INFO djconnect_pi.app: Started\n"

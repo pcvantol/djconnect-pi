@@ -514,7 +514,7 @@ def test_qml_track_insight_panel_renders_contract_fields() -> None:
     assert "property var visualizerData: djconnect.trackInsightVisualizer" in panel
     assert "Layout.preferredHeight: 164" in panel
     assert "id: trackInsightVisualizerCanvas" in panel
-    assert 'running: trackInsightVisualizer.visible && root.activeScreen === "trackinsight"' in panel
+    assert 'running: root.wallProfile && trackInsightVisualizer.visible && root.activeScreen === "trackinsight"' in panel
     assert "interval: 180" in panel
     assert "data.bars || []" in panel
     assert "data.colors || []" in panel
@@ -540,49 +540,29 @@ def test_qml_music_discovery_nav_and_panel() -> None:
     assert "djconnect.loadMusicDiscovery()" in main_qml
     assert 'root.tr("music_discovery_requires_music_dna")' in discover_block
     assert "root.openMusicDnaPrompt(true)" in discover_block
-    assert "djconnect.rejectMusicDiscoveryConsent()" in discover_block
     assert 'objectName: "discoveryIntroduction"' in discover_block
     assert 'message: root.tr("music_discovery_introduction")' in discover_block
     assert "id: discoveryRefreshButton" in discover_block
     assert "RefreshIconButton" in discover_block
-    assert "enabled: !djconnect.musicDiscoveryBusy" in discover_block
+    assert "loading: djconnect.musicDiscoveryBusy" in discover_block
     assert "djconnect.refreshMusicDiscovery()" in discover_block
     assert "id: discoveryMusicDnaDisabledColumn" in discover_block
-    assert "visible: !djconnect.musicDnaEnabled && djconnect.musicDiscoveryItems.length === 0" in discover_block
+    assert "(!djconnect.musicDnaEnabled || djconnect.musicDiscoveryConsentRejected)" in discover_block
     assert "&& djconnect.musicDiscoveryError.length === 0 && !djconnect.musicDiscoveryBusy" in discover_block
-    assert 'root.tr("music_dna_opt_in")' in discover_block
+    assert 'root.tr("music_dna_disabled")' in discover_block
     assert 'text: root.tr("music_discovery_enable")' in discover_block
-    assert "enabled: !djconnect.musicDnaBusy && !djconnect.musicDiscoveryBusy" in discover_block
-    assert "root.openMusicDnaPrompt(false)" in discover_block
-    assert "columns: 1" in discover_block
-    assert "columns: width >= 640 ? 2 : 1" not in discover_block
-    assert "Layout.preferredHeight: discoveryResult.implicitHeight + 2 * inset" in discover_block
-    assert "Layout.preferredWidth: 132" in discover_block
-    assert "visible: !discoveryScroll.visible" in discover_block
-    assert "visible: djconnect.musicDiscoveryItems.length > 0" in discover_block
-    assert "visible: (djconnect.musicDnaEnabled || djconnect.musicDiscoveryError.length > 0)" in discover_block
-    assert "Layout.fillHeight: true" in discover_block
-    assert "id: discoveryReasonPanel" in discover_block
-    assert "visible: root.discoveryReasonOpen" in discover_block
-    assert "root.discoveryReasonTitle = modelData.title || root.tr(\"music_discovery_reason\")" in discover_block
-    assert "root.discoveryReasonText = modelData.reason || \"\"" in discover_block
-    assert "root.discoveryReasonOpen = true" in discover_block
-    assert "root.discoveryReasonOpen = false" in discover_block
-    assert "djconnect.playMusicDiscoveryItem(modelData.payload || \"{}\")" in discover_block
-    assert discover_block.count("djconnect.playMusicDiscoveryItem(modelData.payload || \"{}\")") == 1
-    assert "modelData.sectionTitle" in discover_block
-    assert "modelData.qualityBand" in discover_block
-    assert "modelData.qualityScore" in discover_block
-    assert "djconnect.musicDiscoveryFeedbackSupported" in discover_block
-    assert 'djconnect.sendMusicDiscoveryFeedback(modelData.payload || "{}", "not_for_me")' in discover_block
-    assert 'djconnect.sendMusicDiscoveryFeedback(modelData.payload || "{}", "less_like_this")' in discover_block
-    assert 'djconnect.sendMusicDiscoveryFeedback(modelData.payload || "{}", "hide_artist")' in discover_block
+    assert "orientation: ListView.Horizontal" in discover_block
+    assert "model: shelf.modelData.items" in discover_block
+    assert "onClicked: discoveryDetail.showRecommendation(modelData)" in discover_block
+    detail = discover_block[discover_block.index("id: discoveryDetail"):]
+    assert "djconnect.playMusicDiscoveryItem" not in discover_block[:discover_block.index("id: discoveryDetail")]
+    assert "djconnect.playMusicDiscoveryItem(discoveryDetail.item.payload)" in detail
+    assert "discoveryDetail.item.playable" in detail
+    assert "djconnect.musicDiscoveryFeedbackSupported" in detail
+    assert "djconnect.sendMusicDiscoveryFeedback(item.payload, value)" in detail
+    assert "discoveryDetail.item.reasonSources" in detail
+    assert "item.qualityScore" in detail
     assert "modelData.relevance" not in discover_block
-    assert "visible: modelData.playable" in discover_block
-    assert "if (modelData.playable)" not in discover_block
-    assert "onClicked: function(mouse) { mouse.accepted = true }" in discover_block
-    assert "visible: modelData.hasReason" in discover_block
-    assert "djconnect.showToastForContext(modelData.reason || \"\", \"discover\")" not in discover_block
 
 
 def test_qml_music_dna_enable_is_available_in_disabled_screen() -> None:
@@ -638,7 +618,6 @@ def test_qml_screen_blanking_wakes_on_tap() -> None:
     assert "property int wakeDisplayDebounceMs: 800" in main_qml
     assert "property bool screenBlanked: djconnect.screenTimeoutSeconds > 0 && !idleTimer.running && !root.forceScreenAwake" in main_qml
     assert "root.screenBlanked || root.forceBrightnessFull" in main_qml
-    assert "onTapped: root.wakeDisplay()" in main_qml
     assert "id: forcedWakeTimer" in main_qml
     assert "returnToNowTimer" not in main_qml
     assert "interval: 10000" in main_qml
@@ -693,7 +672,9 @@ def test_qml_screen_blanking_wakes_on_tap() -> None:
     activity_catcher = main_qml[main_qml.rindex("MouseArea {") : main_qml.index("Rectangle {\n        anchors.fill: parent\n        color: \"#000000\"")]
     assert "z: 199" in activity_catcher
     assert "if (root.screenBlanked)" in activity_catcher
-    assert "root.wakeDisplay()" in activity_catcher
+    wake_tap = activity_catcher[activity_catcher.index("onClicked: function(mouse)"):]
+    assert "root.wakeDisplay()" in wake_tap
+    assert "root.showTrackArtwork(sharedSessionScreen.trackArtworkAvailable, true)" in wake_tap
     assert "mouse.accepted = true" in activity_catcher
     assert "root.recordActivity()" in activity_catcher
     assert "mouse.accepted = false" in activity_catcher
