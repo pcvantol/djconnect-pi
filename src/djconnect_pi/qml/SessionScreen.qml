@@ -38,13 +38,15 @@ Item {
     readonly property bool idleWelcome: !historical && state.loaded && !state.session_id && !state.error
     readonly property bool sessionControlsVisible: !historical && state.session_id.length > 0 && !state.owner_read_only
     property var owner: backend.djSession
-    property var state: owner.state
+    property var state: owner.screenState
     readonly property bool sessionVoiceAvailable: backend.sessionVoiceAvailable
     onSessionVoiceAvailableChanged: if (!sessionVoiceAvailable && choices && choices.field === "voice") choices.close()
+    readonly property var projectedFlow: visible && !historical ? owner.flowRows : []
     property var displayedFlow: []
     property string displayedFlowKey: "[]"
+    onProjectedFlowChanged: syncDisplayedFlow()
     function syncDisplayedFlow() {
-        const rows = state.flow_rows || []
+        const rows = projectedFlow || []
         const key = JSON.stringify(rows)
         if (key !== displayedFlowKey) {
             displayedFlowKey = key
@@ -243,7 +245,6 @@ Item {
     }
     onShowForecastChanged: { if (showForecast) { outputsPanel.close(); playbackPanel.close() } if (!showForecast) clearForecastReading(); syncMediaVisibility() }
     onStateChanged: {
-        syncDisplayedFlow()
         if (contentDeletePanel && contentDeletePanel.opened && state.content_delete
                 && (!state.content_delete.status
                     || (!state.content_delete.available && !state.content_delete.status_available)))
@@ -1607,7 +1608,7 @@ Item {
             Repeater {
                 id: liveMomentRows
                 objectName: "sessionLiveMomentRows"
-                model: !screen.historical ? screen.state.moments.filter(function(moment) {
+                model: screen.visible && !screen.historical ? screen.state.moments.filter(function(moment) {
                     return moment.current || !moment.flow_bulletin
                 }) : []
                 LiveMomentCard {}

@@ -229,6 +229,24 @@ class SessionController(QObject):
 
     @Property("QVariantMap", notify=changed)
     def state(self):
+        return self._state(include_flow_rows=True)
+
+    @Property("QVariantMap", notify=changed)
+    def screenState(self):
+        return self._state(include_flow_rows=False)
+
+    @Property("QVariantList", notify=changed)
+    def flowRows(self):
+        header, _, revoked = self._runtime_header()
+        return self._flow_rows(header["session_id"], revoked)
+
+    def _flow_rows(self, session_id, revoked):
+        if revoked:
+            return []
+        flow = self._demo_flow if self.backend.demoMode else self._retained_flow
+        return deepcopy(flow_contributions(flow, self._moments, session_id))
+
+    def _state(self, *, include_flow_rows):
         if self._expire_history_headers(self._clock.now()):
             self._history_dirty = True
         if self._pending_question and not self._pending_question_valid():
@@ -260,7 +278,7 @@ class SessionController(QObject):
             "composer_available": self._composer_supported(), "pending_question": {} if revoked else deepcopy(self._pending_question), "current_reply": {} if revoked else deepcopy(self._current_reply), "conversation": [] if revoked else deepcopy(self._conversation), "retained_flow": [] if revoked else deepcopy(flow),
             "flow_more": active_history and self._incomplete_flow_limit == 20,
             "flow_history_hint": active_history and self._incomplete_flow_limit == 50,
-            "flow_rows": [] if revoked else deepcopy(flow_contributions(flow, self._moments, session.get("session_id", ""))),
+            **({"flow_rows": self._flow_rows(header["session_id"], revoked)} if include_flow_rows else {}),
             "selection": {} if revoked else deepcopy(self._selection), "question_status": self._question_status,
             "moments": [] if revoked else deepcopy(self._moments), "sessions": [] if revoked else self._archive_view(),
             "saved_summary": [] if revoked else self._saved_summary(),

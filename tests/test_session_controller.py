@@ -61,6 +61,24 @@ def test_runtime_header_matches_full_state_and_withdraws_old_owner(controller):
     assert header == {key: owner.state[key] for key in header}
 
 
+def test_screen_state_omits_flow_projection_but_keeps_fresh_rows_available(controller, monkeypatch):
+    owner, backend = controller
+    backend.demoMode = True
+    owner.start("chill")
+    rows = owner.state["flow_rows"]
+    assert rows
+    project = Mock(wraps=owner._flow_rows)
+    monkeypatch.setattr(owner, "_flow_rows", project)
+
+    assert "flow_rows" not in owner.screenState
+    project.assert_not_called()
+    assert owner.flowRows == rows
+    owner._append_demo_entry("conversation_dj", "New fixture")
+    assert len(owner.flowRows) == len(rows) + 1
+    owner.end("demo-session")
+    assert not owner.flowRows
+
+
 def test_missing_metadata_permits_only_bounded_current_owner_read(controller):
     owner, backend = controller
     backend.cfg.explicit_profile_id = ""
