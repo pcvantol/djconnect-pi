@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 4.0.2
+
+- Enlarge the current track artwork in DJ Flow and put playback controls on the fullscreen artwork.
+- Bring Discover shelves and track details closer to the iPad experience.
+- Keep the active session visible during transient proxy errors.
+- Reduce background refresh and artwork memory use. Use a static Track Insight visualization on the 4-inch Pi.
+- Default diagnostic logging to off and clear the app log when logging is turned off.
+
 ## 4.0.1
 
 - Refresh DJ Session only while its screen is open and awake. Keep controls and Flow cards available during reads, with a refresh interval configurable on each Pi.
