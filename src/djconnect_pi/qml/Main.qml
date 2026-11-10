@@ -4531,12 +4531,17 @@ BrandWindow {
         }
     }
 
-    Rectangle {
-        id: pairingPanel
-        anchors.fill: parent
-        color: BrandTheme.colors.background
+    CompactPageLoader {
         visible: !root.splashVisible && !djconnect.paired && !djconnect.demoMode
+        asynchronous: false
         z: 30
+        sourceComponent: PairingPage {}
+    }
+
+    component PairingPage: Rectangle {
+        id: pairingPanel
+        objectName: "pairingPanel"
+        color: BrandTheme.colors.background
 
         AppBackground {}
         ModalBlocker {}
@@ -4746,12 +4751,17 @@ BrandWindow {
         }
     }
 
-    Rectangle {
-        id: pairingSuccessPanel
-        anchors.fill: parent
-        color: BrandTheme.colors.background
+    CompactPageLoader {
         visible: !root.splashVisible && djconnect.pairingSuccessVisible
+        asynchronous: false
         z: 34
+        sourceComponent: PairingSuccessPage {}
+    }
+
+    component PairingSuccessPage: Rectangle {
+        id: pairingSuccessPanel
+        objectName: "pairingSuccessPanel"
+        color: BrandTheme.colors.background
 
         AppBackground {}
         ModalBlocker {}

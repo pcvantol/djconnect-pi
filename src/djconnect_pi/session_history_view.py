@@ -96,11 +96,14 @@ def retained_flow_presentation(entries, admitted_moments, session_id):
     Omit same-Session native prose duplicates and the publication receipt
     for an admitted live Bulletin. Keep original ordering for equal dates.
     """
+    return sorted(_visible_retained_flow(entries, admitted_moments, session_id), key=_flow_time, reverse=True)
+
+
+def _visible_retained_flow(entries, admitted_moments, session_id):
     moment_ids = {row["moment_id"] for row in admitted_moments
                   if isinstance(row.get("moment_id"), str) and row["moment_id"]}
     bulletin_ids = {row.get("moment_id") for row in admitted_moments
                     if row.get("flow_bulletin") and isinstance(row.get("moment_id"), str)}
-    visible = []
     for row in reversed(entries):
         moment_id = row.get("moment_id")
         same_session = isinstance(session_id, str) and session_id and row.get("session_id") == session_id
@@ -111,9 +114,7 @@ def retained_flow_presentation(entries, admitted_moments, session_id):
                     and row.get("moment_type") == "dj_bulletin" and row.get("content_state") == "unavailable"
                     and row.get("unavailable_reason") == "source_retention_not_qualified"):
                 continue
-        visible.append(row)
-
-    return sorted(visible, key=_flow_time, reverse=True)
+        yield row
 
 
 def _flow_time(row):
@@ -124,7 +125,7 @@ def _flow_time(row):
 def flow_contributions(entries, admitted_moments, session_id):
     """Join already admitted live Bulletins to saved rows for display only."""
     rows = [{"bulletin": False, "contribution": row}
-            for row in retained_flow_presentation(entries, admitted_moments, session_id)]
+            for row in _visible_retained_flow(entries, admitted_moments, session_id)]
     rows.extend({"bulletin": True, "contribution": row} for row in admitted_moments
                 if row.get("flow_bulletin") and not row["current"])
     return sorted(rows, key=lambda row: _flow_time(row["contribution"]), reverse=True)

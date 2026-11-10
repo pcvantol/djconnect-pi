@@ -24,8 +24,8 @@ def test_qml_has_blocking_pairing_and_splash_views() -> None:
 
     assert "id: pairingPanel" in main_qml
     assert "id: pairingSuccessPanel" in main_qml
-    assert 'id: pairingPanel\n        anchors.fill: parent\n        color: BrandTheme.colors.background' in main_qml
-    assert 'id: pairingSuccessPanel\n        anchors.fill: parent\n        color: BrandTheme.colors.background' in main_qml
+    assert 'sourceComponent: PairingPage {}' in main_qml
+    assert 'sourceComponent: PairingSuccessPage {}' in main_qml
     assert "id: splashPanel" in main_qml
     assert 'AppBanner { detailText: root.tr("tagline") }' in main_qml
     banner = files("djconnect_pi.qml").joinpath("AppBanner.qml").read_text(encoding="utf-8")
