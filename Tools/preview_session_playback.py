@@ -646,31 +646,37 @@ def main():
                         backend._apply_playback(Playback(title='Next track', artist='Next artist',
                                                          uri='fixture:track:2', image_url=art_source, is_playing=True))
                     assert display_command.call_args_list[-1].args[0] == ['xset', 'dpms', 'force', 'on']
-                    assert window.property('activeScreen') == 'more' and not window.property('screenBlanked')
+                    assert window.property('activeScreen') == 'session' and not window.property('screenBlanked')
                     assert window.property('trackArtworkOpen')
                     assert visual(window.contentItem(), 'expandedTrackTitle').property('text') == 'Next track'
                     QTest.qWait(4300)
                     assert window.property('trackArtworkOpen')
                     QTest.qWait(850)
-                    assert not window.property('trackArtworkOpen') and window.property('activeScreen') == 'more'
+                    assert not window.property('trackArtworkOpen') and window.property('activeScreen') == 'session'
                     backend._apply_playback(Playback(title='Next track', artist='Next artist',
                                                      uri='fixture:track:2', image_url='', is_playing=True))
                     assert not window.property('trackArtworkOpen')
                     backend.cfg.screen_timeout_seconds = 0
                     backend.screenTimeoutChanged.emit()
                     backend._apply_playback(Playback())
-                if width == 720 and language == 'en':
-                    backend._apply_playback(Playback(title='Local track', artist='Local artist', image_url=art_source))
-                    window.setProperty('activeScreen', 'now')
-                    QTest.qWait(80)
-                    click('nowExpandTrackArtwork')
-                    assert visual(window.contentItem(), 'expandedTrackTitle').property('text') == 'Local track'
-                    click('closeTrackArtwork')
-                    window.setProperty('activeScreen', 'control')
-                    QTest.qWait(80)
-                    click('controlExpandTrackMetadata')
+                if language == 'en':
+                    for destination in ('queue', 'playlists', 'more'):
+                        window.setProperty('activeScreen', destination)
+                        backend._apply_playback(Playback(title=destination, uri='fixture:' + destination,
+                                                         image_url=art_source))
+                        assert window.property('activeScreen') == destination
+                        assert not window.property('trackArtworkOpen')
+                    window.setProperty('activeScreen', 'session')
+                    backend._apply_playback(Playback(title='New track', uri='fixture:session', image_url=art_source))
                     assert window.property('trackArtworkOpen')
+                    window.setProperty('activeScreen', 'more')
+                    assert not window.property('trackArtworkOpen')
+                if width == 720 and language == 'en':
                     window.setProperty('activeScreen', 'now')
+                    QTest.qWait(80)
+                    click('nowTrackArtwork')
+                    assert window.property('activeScreen') == 'control' and not window.property('trackArtworkOpen')
+                    click('controlTrackMetadata')
                     assert not window.property('trackArtworkOpen')
                 backend.shutdown(); delete(window); delete(engine); delete(backend)
                 app.processEvents()

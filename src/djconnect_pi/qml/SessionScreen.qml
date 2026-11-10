@@ -8,6 +8,10 @@ import "MoodTheme.js" as MoodTheme
 Item {
     id: screen
     objectName: "djSessionScreen"
+    property bool pollingAllowed: true
+    readonly property bool liveViewOpen: visible && !historical && pollingAllowed
+    readonly property bool historyViewOpen: visible && historical && pollingAllowed
+    onLiveViewOpenChanged: syncSessionVisibility()
     property Item revealedFlowAction: null
     readonly property bool trackArtworkAvailable: playbackMetadata.visible && playbackSources.ready
     readonly property url trackArtworkSource: trackCover.source
@@ -36,7 +40,16 @@ Item {
     property var state: owner.state
     readonly property bool sessionVoiceAvailable: backend.sessionVoiceAvailable
     onSessionVoiceAvailableChanged: if (!sessionVoiceAvailable && choices && choices.field === "voice") choices.close()
-    readonly property var displayedFlow: state.flow_rows || []
+    property var displayedFlow: []
+    property string displayedFlowKey: "[]"
+    function syncDisplayedFlow() {
+        const rows = state.flow_rows || []
+        const key = JSON.stringify(rows)
+        if (key !== displayedFlowKey) {
+            displayedFlowKey = key
+            displayedFlow = rows
+        }
+    }
     readonly property var contentDeletion: state.content_delete || ({})
     function deleteContent(kind, sessionId, identifier) {
         if (owner.beginContentDelete(kind, sessionId, identifier)) contentDeletePanel.open()
@@ -219,14 +232,16 @@ Item {
         owner.setPlaybackArtworkVisible(visible && !historical && !showForecast)
     }
     function syncSessionVisibility() {
-        if (owner) owner.setViewActive(visible)
+        if (owner) owner.setViewActive(liveViewOpen)
     }
     Component.onCompleted: {
+        syncDisplayedFlow()
         syncSessionVisibility()
         syncMediaVisibility()
     }
     onShowForecastChanged: { if (showForecast) { outputsPanel.close(); playbackPanel.close() } if (!showForecast) clearForecastReading(); syncMediaVisibility() }
     onStateChanged: {
+        syncDisplayedFlow()
         if (contentDeletePanel && contentDeletePanel.opened && state.content_delete
                 && (!state.content_delete.status
                     || (!state.content_delete.available && !state.content_delete.status_available)))
@@ -706,7 +721,7 @@ Item {
         if (contentDeletePanel) contentDeletePanel.close()
         if (owner) owner.clearSearch()
     }
-    onVisibleChanged: { syncSessionVisibility(); syncMediaVisibility(); if (!visible) { clearForecastReading(); cancelArchiveRead(); if (owner) owner.clearArchive(); clearFlowReturn(); historyRead.stop(); historyReadProfile = ""; historyReadSession = ""; historyReadPending = false; readingRestore.stop(); pendingReadingAnchor = ""; closeTransient() } }
+    onVisibleChanged: { syncMediaVisibility(); if (!visible) { clearForecastReading(); cancelArchiveRead(); if (owner) owner.clearArchive(); clearFlowReturn(); historyRead.stop(); historyReadProfile = ""; historyReadSession = ""; historyReadPending = false; readingRestore.stop(); pendingReadingAnchor = ""; closeTransient() } }
     onHistoricalChanged: { if (historical) { outputsPanel.close(); playbackPanel.close() } syncMediaVisibility(); if (!historical) { archiveDetailReturn = null; cancelArchiveRead(); if (owner) owner.clearArchive() } readingRestore.stop(); pendingReadingAnchor = ""; readingOffset = 0; if (!historical && flowReturn) { historyScroll.contentItem.cancelFlick(); flowReturnRestore.restart() } }
     onSearchTargetChanged: { if (searchPanel) searchPanel.close(); if (searchInput) searchInput.clear(); if (owner) owner.clearSearch() }
     signal openVibeScape(real pickerTop)
@@ -742,8 +757,22 @@ Item {
         choices.x = Math.max(12, Math.min(button.mapToItem(screen, 0, 0).x, width - choices.width - 12))
         choices.open()
     }
-    Timer { objectName: "sessionRuntimePollTimer"; interval: 3000; running: screen.visible && screen.backend.paired && !screen.historyReadPending && !screen.searchRefreshPending; repeat: true; triggeredOnStart: true; onTriggered: { if (!screen.historical) screen.owner.refresh(); else if (!screen.currentHistory && !screen.state.history_loaded) screen.owner.loadHistory() } }
-    Timer { objectName: "sessionHistoryRevalidationTimer"; interval: 15000; running: screen.visible && screen.historical && screen.backend.paired; repeat: true; onTriggered: { if (!screen.state.saved_open_retry) screen.refreshHistory() } }
+    Timer {
+        objectName: "sessionRuntimePollTimer"
+        interval: screen.backend.sessionRefreshSeconds * 1000
+        running: screen.liveViewOpen && screen.backend.paired && !screen.searchRefreshPending
+        repeat: true
+        triggeredOnStart: true
+        onTriggered: if (screen.liveViewOpen) screen.owner.poll()
+    }
+    Timer {
+        interval: 3000
+        running: screen.historyViewOpen && screen.backend.paired && !screen.historyReadPending && !screen.searchRefreshPending
+        repeat: true
+        triggeredOnStart: true
+        onTriggered: if (screen.historyViewOpen && !screen.currentHistory && !screen.state.history_loaded) screen.owner.loadHistory()
+    }
+    Timer { objectName: "sessionHistoryRevalidationTimer"; interval: 15000; running: screen.historyViewOpen && screen.backend.paired; repeat: true; onTriggered: { if (!screen.state.saved_open_retry) screen.refreshHistory() } }
     Timer {
         id: replyRestore
         interval: 32
@@ -991,11 +1020,23 @@ Item {
                 }
                 GlassButton {
                     objectName: "sessionRefresh"
-                    visible: !screen.idleWelcome || screen.compact
-                    iconName: "refresh"; Accessible.name: screen.tr("refresh")
+                    iconName: screen.owner.refreshing ? "" : "refresh"
+                    Accessible.name: screen.tr("refresh")
                     implicitWidth: 52; background: Item {}
-                    enabled: !screen.owner.busy
-                    onClicked: { if (screen.historical) screen.refreshHistory(); else screen.owner.refresh(); screen.backend.pollSharedSettings() }
+                    enabled: !screen.owner.busy || screen.owner.refreshing
+                    onClicked: {
+                        if (screen.owner.refreshing) return
+                        if (screen.historical) screen.refreshHistory(); else screen.owner.refresh()
+                        screen.backend.pollSharedSettings()
+                    }
+                    BusyIndicator {
+                        objectName: "sessionRefreshSpinner"
+                        anchors.centerIn: parent
+                        width: 28
+                        height: width
+                        visible: screen.owner.refreshing
+                        running: visible
+                    }
                 }
             }
         }
@@ -1874,7 +1915,7 @@ Item {
                 GlassButton { objectName: "sessionArchiveOlder"; text: screen.tr("session_archive_older"); visible: screen.state.has_older_sessions; enabled: !screen.owner.busy && !screen.archiveIntent; onClicked: screen.changeArchiveWindow("older") }
                 GlassButton { objectName: "sessionArchiveNewest"; text: screen.tr("session_archive_newest"); visible: screen.state.archive_older_window; enabled: !screen.owner.busy && !screen.archiveIntent; onClicked: screen.changeArchiveWindow("newest") }
             }
-            BusyIndicator { visible: screen.owner.busy; running: visible; Layout.alignment: Qt.AlignHCenter }
+            BusyIndicator { visible: screen.owner.busy && !screen.owner.refreshing; running: visible; Layout.alignment: Qt.AlignHCenter }
         }
     }
     GlassButton {

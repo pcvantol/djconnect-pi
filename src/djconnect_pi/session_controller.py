@@ -17,7 +17,7 @@ from PySide6.QtCore import (
     Slot,
 )
 
-from .config import save_config
+from .config import effective_session_refresh_seconds, save_config
 from .expiry_clock import ExpiryClock
 from .i18n import locale_for_language, translate
 from .session_artwork import MomentImages
@@ -64,6 +64,7 @@ from .shared_settings import CHOICES
 
 class SessionController(QObject):
     changed = Signal()
+    refreshingChanged = Signal()
     playbackArtworkChanged = Signal()
     forecastImageChanged = Signal()
     forecastImageAboutToChange = Signal()
@@ -132,9 +133,11 @@ class SessionController(QObject):
         self._serial = 0
         self._running = 0
         self._running_action = ""
+        self._background_refresh = False
         self._question_running = 0
         self._question_epoch = 0
         self._last_current_read = 0
+        self._last_runtime_read = None
         self._reconcile_question = False
         self._caps = {}
         self._loaded = False
@@ -549,7 +552,23 @@ class SessionController(QObject):
 
     @Property(bool, notify=changed)
     def busy(self):
-        return bool(self._running or self._artwork_prepare.running or self._playback_control.running or self._archive_delete.running or self._content_delete.running)
+        return bool(self._interactive_read_or_write or self._artwork_prepare.running or self._playback_control.running or self._archive_delete.running or self._content_delete.running)
+
+    @property
+    def _interactive_read_or_write(self):
+        return bool(self._running and not self._background_refresh)
+
+    @Property(bool, notify=refreshingChanged)
+    def refreshing(self):
+        return bool(self._running and self._running_action == "refresh")
+
+    def _set_running(self, serial=0, action="", *, background=False):
+        was_refreshing = self.refreshing
+        self._running = serial
+        self._running_action = action
+        self._background_refresh = background
+        if was_refreshing != self.refreshing:
+            self.refreshingChanged.emit()
 
     @Property(bool, notify=changed)
     def lifecycleBusy(self):
@@ -574,6 +593,7 @@ class SessionController(QObject):
         self._reconcile_question = False
 
     def invalidate(self):
+        self._last_runtime_read = None
         had_scope = self._bootstrap_binding is not None
         self._contribution_wake_scope = None
         self._owner_epoch += 1
@@ -586,8 +606,7 @@ class SessionController(QObject):
         self._forecast.reset()
         self._forecast_dirty = False
         self._serial += 1
-        self._running = 0
-        self._running_action = ""
+        self._set_running()
         self._question_running = 0
         self._withdraw_question()
         self._session = {}
@@ -631,11 +650,10 @@ class SessionController(QObject):
         self._view_active = active
         if not active:
             self._contribution_wake_scope = None
-            if self._running_action == "refresh":
+            if self.refreshing:
                 # The queued worker checks its ticket. A response already in flight
                 # cannot update the hidden view or block a fresh read on return.
-                self._running = 0
-                self._running_action = ""
+                self._set_running()
                 self.changed.emit()
 
     @Slot(bool)
@@ -875,7 +893,7 @@ class SessionController(QObject):
     @Slot(str, str, result=bool)
     def selectFlowEntry(self, session_id, entry_id):
         # A Flow click cannot borrow authority from a separately retained detail page.
-        if not self._foreground or self._running or self._question_running or not self._composer_supported():
+        if not self._foreground or self._interactive_read_or_write or self._question_running or not self._composer_supported():
             return False
         selected = {"kind": "selected_entry", "session_id": session_id, "entry_id": entry_id}
         if not self._entry_selection_valid(selected, "flow"):
@@ -972,7 +990,12 @@ class SessionController(QObject):
 
     @Slot()
     def refresh(self):
-        self._launch("refresh")
+        self._launch("refresh", background=self._loaded or bool(self._error))
+
+    @Slot()
+    def poll(self):
+        if not self._question_running:
+            self.refresh()
 
     @Slot(str)
     def expandFlow(self, session_id):
@@ -1057,7 +1080,7 @@ class SessionController(QObject):
     @Slot()
     def readCurrentHistory(self):
         sid = self._session.get("session_id")
-        if not sid or self._running:
+        if not sid or self._interactive_read_or_write:
             return
         self._view_epoch += 1
         self._search = {}
@@ -1065,7 +1088,7 @@ class SessionController(QObject):
 
     @Slot(str)
     def openSaved(self, session_id):
-        if self._running:
+        if self._interactive_read_or_write:
             return
         self._view_epoch += 1
         self._search = {}
@@ -1214,7 +1237,7 @@ class SessionController(QObject):
 
     @Slot(str, str)
     def search(self, session_id, query):
-        if self._running:
+        if self._interactive_read_or_write:
             return
         query = query.strip()
         if not session_id or not 1 <= len(query) <= 200:
@@ -1311,18 +1334,19 @@ class SessionController(QObject):
 
     @Slot(str, str)
     def openEntry(self, session_id, entry_id):
-        if self._running:
+        if self._interactive_read_or_write:
             return
         self._view_epoch += 1
         self._launch("open_entry", {"session_id": session_id, "entry_id": entry_id})
 
-    def _launch(self, action, value=""):
+    def _launch(self, action, value="", *, background=False):
         if not self._foreground or (action == "refresh" and not self._view_active):
             return
         if (self._artwork_prepare.running or self._playback_control.running or self._archive_delete.running or self._content_delete.running) and action != "end":
             return
-        # End supersedes reads, but never another lifecycle write. Late read results lose their ticket.
-        if self._running and (action != "end" or self._running_action in {"start", "end"}):
+        # Explicit actions may supersede a poll. A late poll loses its ticket.
+        if self._running and (background or (
+                not self._background_refresh and (action != "end" or self.lifecycleBusy))):
             return
         if action == "question" and self._question_running:
             return
@@ -1369,18 +1393,21 @@ class SessionController(QObject):
         self._serial += 1
         serial = self._serial
         if action == "question":
+            if self._background_refresh:
+                self._set_running()
             self._question_running = serial
         else:
-            self._running = serial
-            self._running_action = action
+            self._set_running(serial, action, background=background)
         if action in {"refresh", "start", "end"}:
             self._last_current_read = serial
         if action == "end":
             self._withdraw_question()
             self.contextCleared.emit()
         question_epoch = self._question_epoch
-        self._saved_open_retry = None
-        self._error = ""
+        if not background:
+            self._saved_open_retry = None
+        if action != "refresh":
+            self._error = ""
         if action == "question":
             self._pending_question = {"text": value["text"], "session_id": value["session_id"], "client_message_id": value["client_message_id"]}
             self._pending_question_binding = binding
@@ -1389,7 +1416,8 @@ class SessionController(QObject):
             self._current_reply_binding = None
             self._question_receipt = {}
             self._question_status = "sending"
-        self.changed.emit()
+        if not background:
+            self.changed.emit()
         if action == "question":
             self.pendingQuestionReady.emit()
 
@@ -1560,7 +1588,9 @@ class SessionController(QObject):
                         check_conversation_read()
                     try:
                         result["capabilities"] = self.transport.capabilities(binding)
-                    except SessionError:
+                    except SessionError as exc:
+                        if exc.category in {"denied", "unpaired", "context_changed"}:
+                            raise
                         result["capabilities"] = {}
                     caps = result["capabilities"]
                     sid = result["session"].get("session_id")
@@ -1574,6 +1604,7 @@ class SessionController(QObject):
                             result["conversation"] = []
             except SessionError as exc:
                 result["error"] = exc.category
+                result["error_code"] = exc.code
             except (AttributeError, KeyError, OverflowError, TypeError, ValueError):
                 result["error"] = "invalid"
             self._ready.emit(result)
@@ -1621,8 +1652,7 @@ class SessionController(QObject):
                 self.changed.emit()
                 return
         else:
-            self._running = 0
-            self._running_action = ""
+            self._set_running()
         try:
             if result["binding"] != self.transport.binding():
                 self.invalidate()
@@ -1728,7 +1758,19 @@ class SessionController(QObject):
             self._error = result["error"]
             self.changed.emit()
             return
+        if (result["action"] == "refresh" and result.get("error") in {"offline", "unavailable"}
+                and not result.get("error_code") and "session" not in result
+                and self._session.get("runtime_state") == "active" and self._last_runtime_read is not None):
+            previous_binding, observed_at = self._last_runtime_read
+            grace_seconds = max(45, effective_session_refresh_seconds(self.backend.cfg) + 20)
+            if previous_binding == result["raw_binding"] and self._clock.now() - observed_at < grace_seconds:
+                # Keep the confirmed view briefly without extending any content grant.
+                self._expire()
+                self.changed.emit()
+                self._reconcile_if_idle()
+                return
         if "error" in result:
+            self._last_runtime_read = None
             scope_changed = self._bootstrap_binding is not None
             self._owner_epoch += 1
             self._bootstrap_binding = None
@@ -1764,6 +1806,8 @@ class SessionController(QObject):
             self._error = result["error"]
         else:
             if "session" in result:
+                self._error = ""
+                self._last_runtime_read = (result["raw_binding"], self._clock.now())
                 new_owner = result.get("bootstrap_owner", "")
                 old_scope = (self._bootstrap_owner, self._bootstrap_private)
                 self._bootstrap_binding = result["raw_binding"] if new_owner else None

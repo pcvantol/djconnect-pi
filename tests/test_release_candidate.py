@@ -13,6 +13,8 @@ candidate = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(candidate)
 SHA = "a" * 40
 VERSION = candidate.literal_assignment(ROOT / "src/djconnect_pi/__init__.py", "__version__")
+MAJOR, MINOR, PATCH = VERSION.split("-", 1)[0].split(".")
+NEXT_PATCH = f"{MAJOR}.{MINOR}.{int(PATCH) + 1}"
 
 
 def qualified() -> dict:
@@ -44,7 +46,7 @@ def test_source_evidence_fails_closed(mutation: str) -> None:
         candidate.validate_source_status(data, SHA)
 
 
-@pytest.mark.parametrize("version", ["4.0.0-rc.5", "4.0.1", "4.0.0rc7", "4.0.0-rc.7\n"])
+@pytest.mark.parametrize("version", [NEXT_PATCH, f"{NEXT_PATCH}-rc.1", "4.0.0rc7", "4.0.0-rc.7\n"])
 def test_wrong_requested_version(version: str) -> None:
     with pytest.raises(ValueError):
         candidate.validate_versions(ROOT, version)

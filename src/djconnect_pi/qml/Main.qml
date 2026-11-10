@@ -155,20 +155,22 @@ BrandWindow {
     property bool suppressNextNowPanelTap: false
     property bool trackArtworkOpen: false
     property bool sessionTrackArtwork: false
-    readonly property bool trackArtworkAvailable: activeScreen === "session" ? sharedSessionScreen.trackArtworkAvailable
-        : (activeScreen === "now" || activeScreen === "control") && djconnect.hasTrackTitle
+    readonly property bool trackArtworkViewOpen: sharedSessionScreen.liveViewOpen
+    onTrackArtworkViewOpenChanged: if (!trackArtworkViewOpen) trackArtworkOpen = false
     readonly property bool overlayTrackAvailable: sessionTrackArtwork ? sharedSessionScreen.trackArtworkAvailable : djconnect.hasTrackTitle
     onOverlayTrackAvailableChanged: if (!overlayTrackAvailable) trackArtworkOpen = false
     onTrackArtworkOpenChanged: if (!trackArtworkOpen) trackArtworkDismissTimer.stop()
     onScreenBlankedChanged: if (screenBlanked) trackArtworkOpen = false
     function showTrackArtwork(fromSession) {
+        if (!trackArtworkViewOpen)
+            return
         sessionTrackArtwork = fromSession
         trackArtworkOpen = true
         trackArtworkDismissTimer.restart()
     }
     function openTrackArtwork() {
-        if (trackArtworkAvailable && !screenBlanked)
-            showTrackArtwork(activeScreen === "session")
+        if (sharedSessionScreen.trackArtworkAvailable)
+            showTrackArtwork(true)
     }
     property double lastWakeDisplayAt: 0
     property int wakeDisplayDebounceMs: 800
@@ -266,6 +268,7 @@ BrandWindow {
 
     function recordActivity() {
         var wasBlanked = root.screenBlanked
+        root.restoreSessionFromSleep()
         root.forceBrightnessFull = false
         root.restartIdleTimer()
         if (root.forceScreenAwake && forcedWakeTimer.running) {
@@ -336,7 +339,13 @@ BrandWindow {
         musicDnaOptIn.close()
     }
 
+    function restoreSessionFromSleep() {
+        if (root.screenBlanked && (djconnect.paired || djconnect.demoMode))
+            root.activeScreen = "session"
+    }
+
     function temporaryWake(seconds, fullBrightness = true) {
+        root.restoreSessionFromSleep()
         root.forceScreenAwake = true
         root.forceBrightnessFull = fullBrightness
         forcedWakeTimer.interval = Math.max(1000, seconds * 1000)
@@ -435,6 +444,7 @@ BrandWindow {
 
     component RefreshIconButton: PurpleButton {
         id: refreshControl
+        property bool loading: false
 
         text: root.tr("refresh")
         ToolTip.visible: hovered
@@ -444,13 +454,23 @@ BrandWindow {
         Layout.preferredWidth: 48
         Layout.preferredHeight: 48
         background: GlassSurface { tertiary: true; interactive: true; pressed: refreshControl.down; focused: refreshControl.activeFocus }
-        contentItem: MenuIcon {
-            iconName: "refresh"
-            iconColor: refreshControl.enabled ? BrandTheme.colors.text : BrandTheme.colors.disabledText
-            strokeWidth: 2.8
-            anchors.centerIn: parent
-            width: 28
-            height: 28
+        contentItem: Item {
+            MenuIcon {
+                iconName: "refresh"
+                iconColor: refreshControl.enabled ? BrandTheme.colors.text : BrandTheme.colors.disabledText
+                strokeWidth: 2.8
+                anchors.centerIn: parent
+                width: 28
+                height: 28
+                visible: !refreshControl.loading
+            }
+            BusyIndicator {
+                anchors.centerIn: parent
+                width: 28
+                height: width
+                visible: refreshControl.loading
+                running: visible
+            }
         }
     }
 
@@ -848,6 +868,7 @@ BrandWindow {
         property string searchLabel: ""
         property string iconName: "queue"
         property string playCommand: "play_context_at"
+        property bool loading: false
         property var items: []
         property bool searching: false
         property bool keyboardOpen: false
@@ -954,7 +975,11 @@ BrandWindow {
                         }
                     }
                 }
-                RefreshIconButton { enabled: !djconnect.busy; onClicked: panel.refreshRequested() }
+                RefreshIconButton {
+                    objectName: "mediaRefresh"
+                    loading: panel.loading
+                    onClicked: if (!loading) panel.refreshRequested()
+                }
             }
             Control {
                 visible: panel.searching
@@ -1026,7 +1051,7 @@ BrandWindow {
                         rightPadding: leftPadding
                         text: modelData.title || ""
                         Accessible.name: text
-                        enabled: !!modelData.uri && !djconnect.busy
+                        enabled: !!modelData.uri && !djconnect.mediaPlaybackBusy
                         opacity: enabled ? 1 : 0.58
                         onClicked: djconnect.playMediaItem(panel.playCommand, panel.itemPayload(modelData))
                         background: GlassSurface {
@@ -1181,11 +1206,8 @@ BrandWindow {
     Connections {
         target: djconnect
         function onWakeScreenRequested() {
-            root.forceScreenAwake = true
-            root.forceBrightnessFull = false
+            root.temporaryWake(10, false)
             root.restartIdleTimer()
-            forcedWakeTimer.interval = 10000
-            forcedWakeTimer.restart()
         }
         function onTemporaryWakeRequested(seconds) {
             root.temporaryWake(seconds)
@@ -1215,11 +1237,8 @@ BrandWindow {
             }
         }
         function onScreenshotRequested() {
-            root.forceScreenAwake = true
-            root.forceBrightnessFull = false
+            root.temporaryWake(10, false)
             root.restartIdleTimer()
-            forcedWakeTimer.interval = 10000
-            forcedWakeTimer.restart()
             root.wakeDisplay()
             Qt.callLater(function() {
                 djconnect.saveWindowScreenshot(root)
@@ -1327,7 +1346,7 @@ BrandWindow {
 
             Item {
                 id: artShell
-                objectName: "nowExpandTrackArtwork"
+                objectName: "nowTrackArtwork"
                 Layout.fillWidth: true
                 Layout.fillHeight: true
 
@@ -1436,10 +1455,7 @@ BrandWindow {
                             root.suppressNextNowPanelTap = false
                             return
                         }
-                        if (root.trackArtworkAvailable)
-                            root.openTrackArtwork()
-                        else
-                            root.activeScreen = "control"
+                        root.activeScreen = "control"
                     }
                 }
             }
@@ -1493,14 +1509,9 @@ BrandWindow {
 
             ColumnLayout {
                 Layout.fillWidth: true
-                objectName: "controlExpandTrackMetadata"
+                objectName: "controlTrackMetadata"
                 Layout.preferredHeight: 72
                 spacing: 2
-
-                TapHandler {
-                    enabled: root.trackArtworkAvailable
-                    onTapped: root.openTrackArtwork()
-                }
 
                 Text {
                     text: djconnect.title
@@ -1940,6 +1951,32 @@ BrandWindow {
                 spacing: 14
 
                 Text {
+                    text: root.tr("session_refresh_interval")
+                    color: BrandTheme.colors.muted
+                    font.pixelSize: 22
+                    Layout.preferredWidth: 176
+                    wrapMode: Text.WordWrap
+                }
+
+                BrandComboBox {
+                    objectName: "sessionRefreshInterval"
+                    readonly property var choices: [1, 5, 10, 15, 30, 60]
+                    model: choices.map(function(seconds) {
+                        return root.tr("session_refresh_seconds").replace("%1", seconds)
+                    })
+                    currentIndex: choices.indexOf(djconnect.sessionRefreshSeconds)
+                    Accessible.name: root.tr("session_refresh_interval")
+                    font.pixelSize: 28
+                    Layout.fillWidth: true
+                    onActivated: function(index) { djconnect.setSessionRefreshSeconds(choices[index]) }
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 14
+
+                Text {
                     text: root.tr("screen_off")
                     color: BrandTheme.colors.muted
                     font.pixelSize: 22
@@ -2300,6 +2337,7 @@ BrandWindow {
         searchLabel: root.tr("media_search_queue")
         playCommand: "play_context_at"
         items: djconnect.queueItems
+        loading: djconnect.queueLoading
         onRefreshRequested: djconnect.loadQueue()
     }
 
@@ -2312,6 +2350,7 @@ BrandWindow {
         iconName: "playlists"
         playCommand: "start_playlist"
         items: djconnect.playlistItems
+        loading: djconnect.playlistsLoading
         onRefreshRequested: djconnect.loadPlaylists()
     }
 
@@ -4353,6 +4392,8 @@ BrandWindow {
             id: sharedSessionScreen
             anchors.fill: parent
             backend: djconnect
+            pollingAllowed: root.active && !root.screenBlanked && !root.splashVisible && !vibeScapeLoader.active
+                && !djconnect.logsVisible && !djconnect.versionMismatchVisible
             historical: root.activeScreen === "history" || root.activeScreen === "session-history"
             currentHistory: root.activeScreen === "session-history"
             onExpandTrackArtwork: root.openTrackArtwork()
@@ -5587,7 +5628,7 @@ BrandWindow {
     Loader {
         anchors.fill: parent
         z: 198
-        active: root.trackArtworkOpen
+        active: root.trackArtworkOpen && root.trackArtworkViewOpen
         focus: active
         onLoaded: item.forceActiveFocus()
         sourceComponent: FocusScope {

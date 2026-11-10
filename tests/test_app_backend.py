@@ -3161,7 +3161,8 @@ def test_backend_skips_duplicate_media_loads_while_in_flight(tmp_path: Path) -> 
     backend.cfg.device_token = "token"
     calls: list[tuple[str, object, object]] = []
 
-    def fake_run(label: str, worker, done=None) -> None:
+    def fake_run(label: str, worker, done=None, *, interactive=True) -> None:
+        assert not interactive
         calls.append((label, worker, done))
 
     backend._run = fake_run  # type: ignore[method-assign]
@@ -3173,15 +3174,35 @@ def test_backend_skips_duplicate_media_loads_while_in_flight(tmp_path: Path) -> 
     backend.loadPlaylists()
 
     assert len(calls) == 2
-    assert backend.toastText == backend.t("refreshing")
+    assert not backend.toastVisible
+    assert backend.queueLoading and backend.playlistsLoading
     assert calls[0][0] == backend.t("queue")
     assert calls[1][0] == backend.t("playlists")
 
     assert calls[0][2] is not None
     calls[0][2]()  # type: ignore[operator]
+    assert not backend.queueLoading and backend.playlistsLoading
     backend.loadQueue()
 
     assert len(calls) == 3
+
+
+def test_media_play_during_unrelated_busy_state_dispatches_once(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend._executor.submit = Mock()
+    backend._play_media_item_worker = Mock(side_effect=DJConnectError("fixture failure"))
+    item = json.dumps({"uri": "spotify:track:fixture"})
+
+    backend._set_busy(True)
+    backend.playMediaItem("play_context_at", item)
+    backend.playMediaItem("play_context_at", item)
+    assert backend.mediaPlaybackBusy
+    backend._executor.submit.assert_called_once()
+
+    backend._executor.submit.call_args.args[0]()
+    assert not backend.mediaPlaybackBusy
+    backend._play_media_item_worker.assert_called_once()
 
 
 def test_backend_shuffle_and_repeat_dispatch_commands(tmp_path: Path) -> None:
