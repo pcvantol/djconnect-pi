@@ -46,7 +46,6 @@ Item {
             displayedFlow = rows
         }
     }
-    onStateChanged: syncDisplayedFlow()
     readonly property var contentDeletion: state.content_delete || ({})
     function deleteContent(kind, sessionId, identifier) {
         if (owner.beginContentDelete(kind, sessionId, identifier)) contentDeletePanel.open()
@@ -238,6 +237,7 @@ Item {
     }
     onShowForecastChanged: { if (showForecast) { outputsPanel.close(); playbackPanel.close() } if (!showForecast) clearForecastReading(); syncMediaVisibility() }
     onStateChanged: {
+        syncDisplayedFlow()
         if (contentDeletePanel && contentDeletePanel.opened && state.content_delete
                 && (!state.content_delete.status
                     || (!state.content_delete.available && !state.content_delete.status_available)))
