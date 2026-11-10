@@ -233,17 +233,20 @@ def test_automatic_refresh_keeps_controls_available_and_drops_superseded_read(co
     owner.transport.start.assert_called_once()
 
 
-@pytest.mark.parametrize("error", ["offline", "unavailable"])
-def test_temporary_poll_failure_keeps_confirmed_session_until_recovery(controller, error):
+@pytest.mark.parametrize("failed_read", [
+    SessionError("offline"), SessionError("unavailable"), SessionError("invalid"),
+    {"success": True}, {"success": True, "session": []},
+])
+def test_temporary_poll_failure_keeps_confirmed_session_until_recovery(controller, failed_read):
     owner, backend = controller
     session = {"session_id": "s1", "runtime_state": "active",
                "broadcast": {"session": {"session_id": "s1"}}}
     owner.transport.capabilities.return_value = {}
     owner.transport.active.side_effect = [
-        {"success": True, "session": session}, SessionError(error),
-        {"success": True, "session": None},
+        {"success": True, "session": session}, failed_read,
+        {"success": True, "session": session}, {"success": True, "session": None},
     ]
-    for expected_session in ("s1", "s1", ""):
+    for expected_session in ("s1", "s1", "s1", ""):
         owner.poll()
         backend.jobs.pop()()
         assert owner.state["session_id"] == expected_session
@@ -253,6 +256,7 @@ def test_temporary_poll_failure_keeps_confirmed_session_until_recovery(controlle
 
 @pytest.mark.parametrize(("error", "code", "age"), [
     ("denied", "", 0), ("unavailable", "active_session_not_found", 0), ("offline", "", 90),
+    ("invalid", "", 90),
 ])
 def test_poll_withdraws_session_on_denial_explicit_absence_or_expired_read(controller, error, code, age):
     owner, backend = controller

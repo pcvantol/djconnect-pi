@@ -1483,6 +1483,15 @@ class SessionController(QObject):
 
         def worker():
             result = {"serial": serial, "binding": binding, "action": action, "view_epoch": view_epoch, "question_epoch": question_epoch, "raw_binding": raw_binding}
+            def read_active(*, isolated=False):
+                try:
+                    response = self.transport.active(binding, isolated=True) if isolated else self.transport.active(binding)
+                    return active_session(response)
+                except SessionError as exc:
+                    if exc.category == "invalid":
+                        result["invalid_active_read"] = True
+                    raise
+
             if action == "timeline":
                 result["saved_read_target"] = value
             elif action == "timeline_refresh" or (action == "timeline_extend" and value.get("revalidation")):
@@ -1493,7 +1502,7 @@ class SessionController(QObject):
                     # Current owner and personal-read permission are independent.
                     # Match the existing Apple route; do not invent Profile metadata.
                     check_conversation_read()
-                    current = active_session(self.transport.active(binding, isolated=True))
+                    current = read_active(isolated=True)
                     check_conversation_read()
                     owner = identifier(current.get("owner_profile_id")) if current else ""
                     if owner and (owner != owner.strip() or any(ord(c) == 127 for c in owner)):
@@ -1637,7 +1646,7 @@ class SessionController(QObject):
                     # A pure current read, never a write replay or optimistic local Session.
                     if action == "refresh":
                         check_conversation_read()
-                    result["session"] = active_session(self.transport.active(binding))
+                    result["session"] = read_active()
                     if action == "refresh":
                         check_conversation_read()
                     try:
@@ -1812,7 +1821,8 @@ class SessionController(QObject):
             self._error = result["error"]
             self.changed.emit()
             return
-        if (result["action"] == "refresh" and result.get("error") in {"offline", "unavailable"}
+        if (result["action"] == "refresh"
+                and (result.get("error") in {"offline", "unavailable"} or result.get("invalid_active_read"))
                 and not result.get("error_code") and "session" not in result
                 and self._session.get("runtime_state") == "active" and self._last_runtime_read is not None):
             previous_binding, observed_at = self._last_runtime_read
