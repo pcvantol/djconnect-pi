@@ -478,7 +478,7 @@ def test_qml_track_insight_panel_renders_contract_fields() -> None:
     main_qml = files("djconnect_pi.qml").joinpath("Main.qml").read_text(encoding="utf-8")
     panel = main_qml[main_qml.index("id: trackInsightPanel") : main_qml.index("id: musicDiscoveryPanel")]
 
-    assert 'visible: root.activeScreen === "trackinsight"' in panel
+    assert 'visible: root.activeScreen === "trackinsight"' in main_qml
     assert "property bool autoInsightRequested: false" in panel
     assert "onVisibleChanged:" in panel
     assert "visible && !autoInsightRequested && (djconnect.playing || djconnect.demoMode)" in panel
