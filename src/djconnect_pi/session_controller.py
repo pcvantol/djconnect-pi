@@ -232,11 +232,16 @@ class SessionController(QObject):
 
     @Property("QVariantMap", notify=changed)
     def state(self):
-        return self._state(include_flow_rows=True)
+        return self._state(full_snapshot=True)
 
     @Property("QVariantMap", notify=changed)
     def screenState(self):
-        return self._state(include_flow_rows=False)
+        return self._state(full_snapshot=False)
+
+    @Property("QVariantList", notify=changed)
+    def archiveRows(self):
+        _, _, revoked = self._runtime_header()
+        return [] if revoked else self._archive_view()
 
     @Property("QVariantList", notify=flowRowsChanged)
     def flowRows(self):
@@ -263,7 +268,7 @@ class SessionController(QObject):
         flow = self._demo_flow if self.backend.demoMode else self._retained_flow
         return deepcopy(flow_contributions(flow, self._moments, session_id))
 
-    def _state(self, *, include_flow_rows):
+    def _state(self, *, full_snapshot):
         if self._expire_history_headers(self._clock.now()):
             self._history_dirty = True
         if self._pending_question and not self._pending_question_valid():
@@ -292,12 +297,16 @@ class SessionController(QObject):
             "forecast": {"state": "empty", "sections": []} if revoked else self._forecast.snapshot(),
             "presence": session.get("selected_presence", ""),
             "persona": session.get("dj_persona", ""),
-            "composer_available": self._composer_supported(), "pending_question": {} if revoked else deepcopy(self._pending_question), "current_reply": {} if revoked else deepcopy(self._current_reply), "conversation": [] if revoked else deepcopy(self._conversation), "retained_flow": [] if revoked else deepcopy(flow),
+            "composer_available": self._composer_supported(), "pending_question": {} if revoked else deepcopy(self._pending_question), "current_reply": {} if revoked else deepcopy(self._current_reply), "retained_flow": [] if revoked else deepcopy(flow),
             "flow_more": active_history and self._incomplete_flow_limit == 20,
             "flow_history_hint": active_history and self._incomplete_flow_limit == 50,
-            **({"flow_rows": self._flow_rows(header["session_id"], revoked)} if include_flow_rows else {}),
+            **({
+                "flow_rows": self._flow_rows(header["session_id"], revoked),
+                "conversation": [] if revoked else deepcopy(self._conversation),
+                "sessions": [] if revoked else self._archive_view(),
+            } if full_snapshot else {}),
             "selection": {} if revoked else deepcopy(self._selection), "question_status": self._question_status,
-            "moments": [] if revoked else deepcopy(self._moments), "sessions": [] if revoked else self._archive_view(),
+            "moments": [] if revoked else deepcopy(self._moments),
             "saved_summary": [] if revoked else self._saved_summary(),
             "timeline": {} if revoked else deepcopy(self._timeline), "search": {} if revoked else deepcopy(self._search), "error": self._error,
             "saved_open_retry": not revoked and bool(self._saved_open_target()),

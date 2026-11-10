@@ -39,6 +39,8 @@ Item {
     readonly property bool sessionControlsVisible: !historical && state.session_id.length > 0 && !state.owner_read_only
     property var owner: backend.djSession
     property var state: owner.screenState
+    readonly property var archiveSessions: visible && historical && !currentHistory && !state.timeline.session
+        ? owner.archiveRows : []
     readonly property bool sessionVoiceAvailable: backend.sessionVoiceAvailable
     onSessionVoiceAvailableChanged: if (!sessionVoiceAvailable && choices && choices.field === "voice") choices.close()
     readonly property var projectedFlow: visible && !historical ? owner.flowRows : []
@@ -589,7 +591,7 @@ Item {
     }
     function openArchiveSession(sessionId) {
         if (!visible || !historical || currentHistory || state.timeline.session || owner.busy || archiveIntent) return
-        if (!state.sessions.some(function(row) { return row.session_id === sessionId })) return
+        if (!archiveSessions.some(function(row) { return row.session_id === sessionId })) return
         rememberArchive(); archiveDetailReturn = archiveReturn; archiveReturn = null
         owner.openSaved(sessionId)
     }
@@ -641,7 +643,7 @@ Item {
                 if (card && card.modelData.session_id === saved.id) { target = card; break }
             }
             screen.archivePositionTries++
-            var ready = target && archiveRows.count === screen.state.sessions.length && flick.contentHeight + 1 >= historyContent.implicitHeight
+            var ready = target && archiveRows.count === screen.archiveSessions.length && flick.contentHeight + 1 >= historyContent.implicitHeight
             var mark = ready ? [archiveRows.count, historyContent.implicitHeight, flick.contentHeight, flick.height, target.y, target.height].join("|") : ""
             if (!ready || mark !== screen.archiveLayoutMark) {
                 screen.archiveLayoutMark = mark; screen.archivePositionApplied = false
@@ -1752,7 +1754,7 @@ Item {
             Repeater {
                 id: archiveRows
                 objectName: "sessionArchiveRows"
-                model: screen.historical && !screen.state.timeline.session ? screen.state.sessions : []
+                model: screen.archiveSessions
                 GlassButton {
                     required property var modelData
                     id: archiveRow
@@ -1793,7 +1795,7 @@ Item {
             Text {
                 objectName: "sessionArchiveEmpty"
                 visible: screen.historical && !screen.currentHistory && !screen.owner.busy && !screen.state.error
-                    && screen.state.history_loaded && screen.state.sessions.length === 0 && !screen.state.timeline.session
+                    && screen.state.history_loaded && screen.archiveSessions.length === 0 && !screen.state.timeline.session
                 text: screen.tr(screen.state.archive_older_window || screen.state.has_more_sessions || screen.state.has_older_sessions ? "session_archive_window_empty" : "session_history_empty"); color: BrandTheme.colors.muted; font.pixelSize: 22
             }
             Text {

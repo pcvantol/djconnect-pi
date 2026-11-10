@@ -107,6 +107,27 @@ def test_flow_notification_ignores_unchanged_rows_and_withdraws_on_profile_chang
     assert not owner.flowRows and owner._flow_notification is None
 
 
+def test_screen_state_omits_archive_and_conversation_but_keeps_separate_scoped_reads(controller, monkeypatch):
+    owner, backend = controller
+    owner._bootstrap_binding = owner.transport.binding()
+    owner._bootstrap_owner = "profile-a"
+    owner._bootstrap_private = True
+    owner._sessions = [{"session_id": "saved-session"}]
+    owner._conversation = [{"text": "Fixture reply"}]
+    project = Mock(wraps=owner._archive_view)
+    monkeypatch.setattr(owner, "_archive_view", project)
+
+    assert "sessions" not in owner.screenState and "conversation" not in owner.screenState
+    project.assert_not_called()
+    assert owner.archiveRows == [{"session_id": "saved-session"}]
+    assert owner.state["sessions"] == owner.archiveRows
+    assert owner.state["conversation"] == [{"text": "Fixture reply"}]
+    calls = project.call_count
+    backend.cfg.active_profile_id = "profile-b"
+    assert not owner.archiveRows
+    assert project.call_count == calls
+
+
 def test_missing_metadata_permits_only_bounded_current_owner_read(controller):
     owner, backend = controller
     backend.cfg.explicit_profile_id = ""
