@@ -2674,7 +2674,7 @@ BrandWindow {
                         Timer {
                             interval: 180
                             repeat: true
-                            running: trackInsightVisualizer.visible && root.activeScreen === "trackinsight"
+                            running: root.wallProfile && trackInsightVisualizer.visible && root.activeScreen === "trackinsight"
                                      && djconnect.playing && root.active && !root.screenBlanked && !GlassStyle.reduceMotion
                             onTriggered: {
                                 trackInsightVisualizer.phase = (trackInsightVisualizer.phase + 0.08) % 6.28
