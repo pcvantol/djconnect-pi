@@ -995,6 +995,12 @@ _SHARED_SETTINGS_TRANSLATIONS = {
         'Préférence de voix',
         'Preferencia de voz',
     ),
+    'session_choice_your_mood': (
+        'Your mood', 'Jouw stemming', 'Deine Stimmung', 'Votre ambiance', 'Tu estado de ánimo',
+    ),
+    'session_choice_dj_character': (
+        'DJ character', 'DJ karakter', 'DJ-Charakter', 'Caractère du DJ', 'Carácter del DJ',
+    ),
     'shared_field_mood': (
         'Mood',
         'Stemming',

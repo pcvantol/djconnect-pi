@@ -775,7 +775,8 @@ Item {
         choices.profileId = scopeProfileId
         choices.field = field
         choices.editToken = backend.sharedSettings.edit_token || ""
-        choices.x = Math.max(12, Math.min(button.mapToItem(screen, 0, 0).x, width - choices.width - 12))
+        const anchor = button.mapToItem(screen, button.width / 2, 0).x
+        choices.x = Math.max(12, Math.min(anchor - choices.width / 2, width - choices.width - 12))
         choices.open()
     }
     Timer {
@@ -2714,6 +2715,26 @@ Item {
         property string profileId: ""
         property string field: "mood"
         property string editToken: ""
+        readonly property bool iconPicker: field === "mood" || field === "persona" || field === "presence"
+        readonly property var options: (screen.backend.demoMode
+            ? screen.owner.demoOptions : screen.backend.sharedSettings.options || {})[field] || []
+        readonly property string selectedValue: screen.toolbarValue(field)
+        readonly property color selectionColor: MoodTheme.moodColor(screen.toolbarValue("mood"), "gradientStart")
+        readonly property color selectedForeground: selectionColor.r * 0.21 + selectionColor.g * 0.72 + selectionColor.b * 0.07 > 0.55
+            ? "#101433" : BrandTheme.colors.text
+
+        function submit(value) {
+            if (!canSubmit) return
+            if (screen.backend.demoMode) {
+                screen.owner.setDemoPreference(field, value)
+            } else {
+                var patch = {_edit_token: editToken}
+                patch[field] = value
+                screen.backend.saveSharedSettings(patch)
+            }
+            close()
+        }
+
         readonly property bool canSubmit: choices.visible && screen.state.runtime_state === "active"
             && screen.sessionControlsVisible && choices.sessionId === screen.state.session_id
             && choices.profileId === screen.scopeProfileId
@@ -2728,33 +2749,86 @@ Item {
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
         background: GlassSurface { radius: 28; elevated: true }
         contentItem: ColumnLayout {
-            spacing: 18
-            Text { text: screen.tr("shared_field_" + choices.field); color: BrandTheme.colors.text; font.pixelSize: 26; font.bold: true }
-            Flow {
-                Layout.fillWidth: true; spacing: 10
-                Repeater {
-                    model: (screen.backend.demoMode ? screen.owner.demoOptions : screen.backend.sharedSettings.options || {})[choices.field] || []
-                    GlassButton {
-                        required property var modelData
-                        text: choices.field === "voice" ? (modelData.label_key ? screen.tr(modelData.label_key) : modelData.label || "") : screen.tr("shared_" + choices.field + "_" + modelData)
-                        checked: screen.toolbarValue(choices.field) === (choices.field === "voice" ? modelData.value : modelData)
-                        enabled: choices.canSubmit
-                        objectName: "sessionToolbarOption"
-                        onClicked: {
-                            if (!choices.canSubmit) return
-                            if (screen.backend.demoMode) {
-                                screen.owner.setDemoPreference(choices.field, modelData)
-                            } else {
-                                var patch = {_edit_token: choices.editToken}
-                                patch[choices.field] = choices.field === "voice" ? modelData.value : modelData
-                                screen.backend.saveSharedSettings(patch)
+            spacing: 16
+            Text {
+                text: screen.tr(choices.field === "mood" ? "session_choice_your_mood"
+                    : choices.field === "persona" ? "session_choice_dj_character" : "shared_field_" + choices.field)
+                color: BrandTheme.colors.text
+                font.pixelSize: 26
+                font.bold: true
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+            GlassSurface {
+                visible: choices.iconPicker && choices.options.length > 0
+                objectName: "sessionToolbarIconChoices"
+                Layout.fillWidth: true
+                implicitHeight: iconChoices.implicitHeight + 16
+                radius: height / 2
+                RowLayout {
+                    id: iconChoices
+                    anchors.fill: parent
+                    anchors.margins: 8
+                    spacing: 6
+                    Repeater {
+                        model: choices.iconPicker ? choices.options : []
+                        GlassButton {
+                            id: option
+                            required property string modelData
+                            objectName: "sessionToolbarOption"
+                            iconName: choices.field + "_" + modelData
+                            checked: choices.selectedValue === modelData
+                            enabled: choices.canSubmit
+                            Layout.fillWidth: true
+                            Layout.preferredWidth: 1
+                            Layout.preferredHeight: screen.compact ? 60 : 70
+                            padding: 0
+                            selectionFill: choices.selectionColor
+                            foregroundColor: checked ? choices.selectedForeground : BrandTheme.colors.text
+                            Accessible.name: screen.tr("shared_" + choices.field + "_" + modelData)
+                            contentItem: Item {
+                                FeatureIcon {
+                                    anchors.centerIn: parent
+                                    width: screen.compact ? 30 : 36
+                                    height: width
+                                    iconName: option.iconName
+                                    iconColor: option.foregroundColor
+                                    Accessible.ignored: true
+                                }
                             }
-                            choices.close()
+                            onClicked: choices.submit(modelData)
                         }
                     }
                 }
             }
-            GlassButton { text: screen.tr("shared_title"); onClicked: { choices.close(); screen.navigate("settings") } }
+            Text {
+                objectName: "sessionToolbarSelectedLabel"
+                visible: choices.iconPicker && choices.options.includes(choices.selectedValue)
+                text: visible ? screen.tr("shared_" + choices.field + "_" + choices.selectedValue) : ""
+                textFormat: Text.PlainText
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.WordWrap
+                font.pixelSize: 22
+                font.bold: true
+                color: BrandTheme.colors.text
+                Layout.fillWidth: true
+            }
+            Flow {
+                visible: !choices.iconPicker
+                Layout.fillWidth: true
+                spacing: 10
+                Repeater {
+                    model: choices.iconPicker ? [] : choices.options
+                    GlassButton {
+                        required property var modelData
+                        text: modelData.label_key ? screen.tr(modelData.label_key) : modelData.label || ""
+                        checked: choices.selectedValue === modelData.value
+                        enabled: choices.canSubmit
+                        objectName: "sessionToolbarOption"
+                        onClicked: choices.submit(modelData.value)
+                    }
+                }
+            }
         }
     }
     GlassPopup {
