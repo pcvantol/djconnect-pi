@@ -36,7 +36,17 @@ Item {
     property var state: owner.state
     readonly property bool sessionVoiceAvailable: backend.sessionVoiceAvailable
     onSessionVoiceAvailableChanged: if (!sessionVoiceAvailable && choices && choices.field === "voice") choices.close()
-    readonly property var displayedFlow: state.flow_rows || []
+    property var displayedFlow: []
+    property string displayedFlowKey: "[]"
+    function syncDisplayedFlow() {
+        const rows = state.flow_rows || []
+        const key = JSON.stringify(rows)
+        if (key !== displayedFlowKey) {
+            displayedFlowKey = key
+            displayedFlow = rows
+        }
+    }
+    onStateChanged: syncDisplayedFlow()
     readonly property var contentDeletion: state.content_delete || ({})
     function deleteContent(kind, sessionId, identifier) {
         if (owner.beginContentDelete(kind, sessionId, identifier)) contentDeletePanel.open()
@@ -222,6 +232,7 @@ Item {
         if (owner) owner.setViewActive(visible)
     }
     Component.onCompleted: {
+        syncDisplayedFlow()
         syncSessionVisibility()
         syncMediaVisibility()
     }
@@ -991,11 +1002,24 @@ Item {
                 }
                 GlassButton {
                     objectName: "sessionRefresh"
-                    visible: !screen.idleWelcome || screen.compact
-                    iconName: "refresh"; Accessible.name: screen.tr("refresh")
+                    visible: !screen.idleWelcome || screen.compact || screen.owner.refreshing
+                    iconName: screen.owner.refreshing ? "" : "refresh"
+                    Accessible.name: screen.tr("refresh")
                     implicitWidth: 52; background: Item {}
-                    enabled: !screen.owner.busy
-                    onClicked: { if (screen.historical) screen.refreshHistory(); else screen.owner.refresh(); screen.backend.pollSharedSettings() }
+                    enabled: !screen.owner.busy || screen.owner.refreshing
+                    onClicked: {
+                        if (screen.owner.refreshing) return
+                        if (screen.historical) screen.refreshHistory(); else screen.owner.refresh()
+                        screen.backend.pollSharedSettings()
+                    }
+                    BusyIndicator {
+                        objectName: "sessionRefreshSpinner"
+                        anchors.centerIn: parent
+                        width: 28
+                        height: width
+                        visible: screen.owner.refreshing
+                        running: visible
+                    }
                 }
             }
         }
@@ -1874,7 +1898,7 @@ Item {
                 GlassButton { objectName: "sessionArchiveOlder"; text: screen.tr("session_archive_older"); visible: screen.state.has_older_sessions; enabled: !screen.owner.busy && !screen.archiveIntent; onClicked: screen.changeArchiveWindow("older") }
                 GlassButton { objectName: "sessionArchiveNewest"; text: screen.tr("session_archive_newest"); visible: screen.state.archive_older_window; enabled: !screen.owner.busy && !screen.archiveIntent; onClicked: screen.changeArchiveWindow("newest") }
             }
-            BusyIndicator { visible: screen.owner.busy; running: visible; Layout.alignment: Qt.AlignHCenter }
+            BusyIndicator { visible: screen.owner.busy && !screen.owner.refreshing; running: visible; Layout.alignment: Qt.AlignHCenter }
         }
     }
     GlassButton {

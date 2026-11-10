@@ -64,6 +64,7 @@ from .shared_settings import CHOICES
 
 class SessionController(QObject):
     changed = Signal()
+    refreshingChanged = Signal()
     playbackArtworkChanged = Signal()
     forecastImageChanged = Signal()
     forecastImageAboutToChange = Signal()
@@ -556,6 +557,17 @@ class SessionController(QObject):
     def _interactive_read_or_write(self):
         return bool(self._running and self._running_action != "poll")
 
+    @Property(bool, notify=refreshingChanged)
+    def refreshing(self):
+        return bool(self._running and self._running_action in {"refresh", "poll"})
+
+    def _set_running(self, serial=0, action=""):
+        was_refreshing = self.refreshing
+        self._running = serial
+        self._running_action = action
+        if was_refreshing != self.refreshing:
+            self.refreshingChanged.emit()
+
     @Property(bool, notify=changed)
     def lifecycleBusy(self):
         return bool(self._running and self._running_action in {"start", "end"})
@@ -592,8 +604,7 @@ class SessionController(QObject):
         self._forecast.reset()
         self._forecast_dirty = False
         self._serial += 1
-        self._running = 0
-        self._running_action = ""
+        self._set_running()
         self._question_running = 0
         self._withdraw_question()
         self._session = {}
@@ -637,11 +648,10 @@ class SessionController(QObject):
         self._view_active = active
         if not active:
             self._contribution_wake_scope = None
-            if self._running_action in {"refresh", "poll"}:
+            if self.refreshing:
                 # The queued worker checks its ticket. A response already in flight
                 # cannot update the hidden view or block a fresh read on return.
-                self._running = 0
-                self._running_action = ""
+                self._set_running()
                 self.changed.emit()
 
     @Slot(bool)
@@ -978,12 +988,12 @@ class SessionController(QObject):
 
     @Slot()
     def refresh(self):
-        self._launch("refresh")
+        self._launch("refresh", background=self._loaded or bool(self._error))
 
     @Slot()
     def poll(self):
         if not self._question_running:
-            self._launch("refresh", background=self._loaded or bool(self._error))
+            self.refresh()
 
     @Slot(str)
     def expandFlow(self, session_id):
@@ -1382,12 +1392,10 @@ class SessionController(QObject):
         serial = self._serial
         if action == "question":
             if self._running_action == "poll":
-                self._running = 0
-                self._running_action = ""
+                self._set_running()
             self._question_running = serial
         else:
-            self._running = serial
-            self._running_action = "poll" if background else action
+            self._set_running(serial, "poll" if background else action)
         if action in {"refresh", "start", "end"}:
             self._last_current_read = serial
         if action == "end":
@@ -1642,8 +1650,7 @@ class SessionController(QObject):
                 self.changed.emit()
                 return
         else:
-            self._running = 0
-            self._running_action = ""
+            self._set_running()
         try:
             if result["binding"] != self.transport.binding():
                 self.invalidate()
