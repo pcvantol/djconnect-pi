@@ -1260,7 +1260,7 @@ Item {
                         Layout.row: 0
                         Layout.column: 0
                         Layout.rowSpan: screen.compact ? 1 : 4
-                        Layout.preferredWidth: screen.compact ? 60 : Math.round(270 * screen.ipadScale)
+                        Layout.preferredWidth: screen.compact ? 120 : 2 * Math.round(270 * screen.ipadScale)
                         Layout.preferredHeight: Layout.preferredWidth
                         Layout.alignment: Qt.AlignTop
 
