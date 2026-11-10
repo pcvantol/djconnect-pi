@@ -208,6 +208,25 @@ class SessionController(QObject):
             return self._bootstrap_owner, self._bootstrap_private, self._owner_epoch
         return None
 
+    def _runtime_header(self):
+        bootstrap = self._bootstrap_current()
+        revoked = self._bootstrap_binding is not None and not bootstrap
+        session = {} if revoked else self._session
+        return {
+            "session_id": session.get("session_id", ""),
+            "owner_read_only": bootstrap and not self._bootstrap_private,
+            "owner_epoch": self._owner_epoch if bootstrap else 0,
+            "owner_profile_id": self._bootstrap_owner if bootstrap else session_profile_id(self.backend.cfg),
+            "runtime_state": session.get("runtime_state", ""),
+            "forecast_supported": not revoked and forecast_supported(session, self._caps),
+            "mood": session.get("selected_mood", ""),
+            "profile_confirmation_required": not (bool(session_profile_id(self.backend.cfg)) or bootstrap),
+        }, session, revoked
+
+    @Property("QVariantMap", notify=changed)
+    def runtimeHeader(self):
+        return self._runtime_header()[0]
+
     @Property("QVariantMap", notify=changed)
     def state(self):
         if self._expire_history_headers(self._clock.now()):
@@ -223,16 +242,10 @@ class SessionController(QObject):
             self._question_status = "reference_unavailable"
         if self._forecast.expire(self._clock.now()):
             self._forecast_dirty = True
-        bootstrap = self._bootstrap_current()
-        revoked = self._bootstrap_binding is not None and not bootstrap
-        session = {} if revoked else self._session
+        header, session, revoked = self._runtime_header()
         flow = self._demo_flow if self.backend.demoMode else self._retained_flow
         active_history = session.get("runtime_state") == "active" and self._history_supported()
-        return {"session_id": session.get("session_id", ""),
-            "owner_read_only": bootstrap and not self._bootstrap_private,
-            "owner_epoch": self._owner_epoch if bootstrap else 0,
-            "owner_profile_id": (self._bootstrap_owner if bootstrap else session_profile_id(self.backend.cfg)),
-            "runtime_state": session.get("runtime_state", ""),
+        return {**header,
             "started_at": text(session.get("started_at"), 64),
             "playback": self._demo_playback() if self.backend.demoMode else session_playback(session),
             "current_moment_idle": session_current_idle(session),
@@ -241,9 +254,7 @@ class SessionController(QObject):
             "archive_delete": self._archive_delete.snapshot(),
             "content_delete": self._content_delete.snapshot(),
             "vibecast": self._vibecast.snapshot(),
-            "forecast_supported": not revoked and forecast_supported(session, self._caps),
             "forecast": {"state": "empty", "sections": []} if revoked else self._forecast.snapshot(),
-            "mood": session.get("selected_mood", ""),
             "presence": session.get("selected_presence", ""),
             "persona": session.get("dj_persona", ""),
             "composer_available": self._composer_supported(), "pending_question": {} if revoked else deepcopy(self._pending_question), "current_reply": {} if revoked else deepcopy(self._current_reply), "conversation": [] if revoked else deepcopy(self._conversation), "retained_flow": [] if revoked else deepcopy(flow),
@@ -254,7 +265,6 @@ class SessionController(QObject):
             "moments": [] if revoked else deepcopy(self._moments), "sessions": [] if revoked else self._archive_view(),
             "saved_summary": [] if revoked else self._saved_summary(),
             "timeline": {} if revoked else deepcopy(self._timeline), "search": {} if revoked else deepcopy(self._search), "error": self._error,
-            "profile_confirmation_required": not (bool(session_profile_id(self.backend.cfg)) or bootstrap),
             "saved_open_retry": not revoked and bool(self._saved_open_target()),
             "history_available": self._history_supported(), "search_available": self._search_supported(),
             "loaded": self._loaded and not revoked, "history_loaded": self._history_loaded and not revoked,

@@ -14,8 +14,10 @@ BrandWindow {
     title: "DJConnect"
     visibility: startWindowed ? Window.Windowed : Window.FullScreen
 
-    readonly property string vibeScapeCurrentOwner: djconnect.djSession.state.owner_profile_id || djconnect.activeProfileId
-    readonly property int vibeScapeCurrentEpoch: djconnect.djSession.state.owner_epoch || 0
+    readonly property var sessionHeader: djconnect.djSession.runtimeHeader
+    onSessionHeaderChanged: syncVibeScape()
+    readonly property string vibeScapeCurrentOwner: root.sessionHeader.owner_profile_id || djconnect.activeProfileId
+    readonly property int vibeScapeCurrentEpoch: root.sessionHeader.owner_epoch || 0
     property int vibeScapeVisitEpoch: 0
     onVibeScapeCurrentOwnerChanged: syncVibeScape()
     onVibeScapeCurrentEpochChanged: syncVibeScape()
@@ -25,18 +27,17 @@ BrandWindow {
     property real vibeScapePickerTop: 64
     readonly property bool vibeScapeAllowed: wallProfile && visible && active && activeScreen === "session" &&
         djconnect.paired && !djconnect.demoMode && vibeScapeCurrentOwner.length > 0 &&
-        !djconnect.djSession.state.profile_confirmation_required && !djconnect.djSession.state.owner_read_only && djconnect.djSession.state.runtime_state === "active" &&
-        djconnect.djSession.state.session_id.length > 0
+        !root.sessionHeader.profile_confirmation_required && !root.sessionHeader.owner_read_only && root.sessionHeader.runtime_state === "active" &&
+        root.sessionHeader.session_id.length > 0
     onVibeScapeAllowedChanged: if (!vibeScapeAllowed) closeVibeScape()
     function closeVibeScape() { vibeScapeLoader.active = false }
     function syncVibeScape() {
         if (vibeScapeLoader.active && (!vibeScapeAllowed || !djconnect.paired ||
                 vibeScapeOwner !== vibeScapeCurrentOwner || vibeScapeVisitEpoch !== vibeScapeCurrentEpoch ||
-                vibeScapeSession !== djconnect.djSession.state.session_id)) closeVibeScape()
+                vibeScapeSession !== root.sessionHeader.session_id)) closeVibeScape()
     }
     Connections {
         target: djconnect.djSession
-        function onChanged() { root.syncVibeScape() }
         function onNewCurrentContribution() {
             if (!root.screenBlanked || !root.active || root.splashVisible || !djconnect.paired)
                 return
@@ -53,7 +54,7 @@ BrandWindow {
         if (!vibeScapeAllowed) return
         vibeScapeOwner = vibeScapeCurrentOwner
         vibeScapeVisitEpoch = vibeScapeCurrentEpoch
-        vibeScapeSession = djconnect.djSession.state.session_id
+        vibeScapeSession = root.sessionHeader.session_id
         vibeScapePickerTop = Number.isFinite(pickerTop) ? vibeScapeLoader.mapFromItem(null, 0, pickerTop).y : 64
         vibeScapeRequested = true
         vibeScapeLoader.active = true
@@ -79,7 +80,7 @@ BrandWindow {
             backend: djconnect; admitted: root.vibeScapeAllowed
             mood: root.appearanceMood
             pickerTop: root.vibeScapePickerTop
-            forecastAvailable: djconnect.djSession.state.forecast_supported
+            forecastAvailable: root.sessionHeader.forecast_supported
             onCloseRequested: root.closeVibeScape()
             onFlowRequested: { root.closeVibeScape(); sharedSessionScreen.forecastMode = false }
             onForecastRequested: { root.closeVibeScape(); sharedSessionScreen.forecastMode = true }
@@ -89,7 +90,7 @@ BrandWindow {
     readonly property bool lowMemoryProfile: djconnect.releaseProfile === "pi-zero-2w-arm64"
     property string trackInsightVisualMood: "groove"
     readonly property bool trackInsightHasLiveSession: {
-        const session = djconnect.djSession.state
+        const session = root.sessionHeader
         return !!session.session_id && ["opening", "active", "ending"].includes(session.runtime_state)
     }
     readonly property bool liquidGlassEnabled: djconnect.glassEnabled
@@ -97,7 +98,7 @@ BrandWindow {
         if (root.activeScreen === "games") return gamesPanel.gameMood
         if (root.activeScreen === "trackinsight" && !root.trackInsightHasLiveSession)
             return root.trackInsightVisualMood
-        var session = djconnect.djSession.state
+        var session = root.sessionHeader
         if (session.session_id && ["chill", "groove", "energy", "party"].indexOf(session.mood) >= 0) return session.mood
         var settings = djconnect.sharedSettings
         var confirmed = settings && settings.available && !settings.selection_required ? (settings.values || {}).mood : ""
@@ -195,7 +196,7 @@ BrandWindow {
         if (root.aboutOpen) return "about"
         if (root.activeScreen === "history" || root.activeScreen === "session-history") {
             if (sharedSessionScreen.historyNavigationBlocked) return ""
-            var state = djconnect.djSession.state
+            var state = sharedSessionScreen.state
             return JSON.stringify([root.activeScreen, state.owner_profile_id || "", state.owner_epoch || 0,
                 state.session_id || "", (state.timeline.session || {}).session_id || ""])
         }
@@ -727,7 +728,7 @@ BrandWindow {
             active: appCanvas.sessionCanvas && (!root.lowMemoryProfile || (appCanvas.visible && !root.screenBlanked))
             sourceComponent: SessionMoodCanvas {
                 mood: root.appearanceMood
-                activeSession: root.activeScreen === "games" || (root.activeScreen === "session" && djconnect.djSession.state.runtime_state === "active")
+                activeSession: root.activeScreen === "games" || (root.activeScreen === "session" && root.sessionHeader.runtime_state === "active")
             }
         }
     }
