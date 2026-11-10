@@ -693,7 +693,7 @@ def test_qml_screen_blanking_wakes_on_tap() -> None:
     assert "if (root.screenBlanked)" in activity_catcher
     wake_tap = activity_catcher[activity_catcher.index("onClicked: function(mouse)"):]
     assert "root.wakeDisplay()" in wake_tap
-    assert "root.showTrackArtwork(sharedSessionScreen.trackArtworkAvailable)" in wake_tap
+    assert "root.showTrackArtwork(sharedSessionScreen.trackArtworkAvailable, true)" in wake_tap
     assert "mouse.accepted = true" in activity_catcher
     assert "root.recordActivity()" in activity_catcher
     assert "mouse.accepted = false" in activity_catcher

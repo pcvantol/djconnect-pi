@@ -1324,81 +1324,21 @@ Item {
                             Text { visible: !screen.compact && playbackSources.ready && text.length > 0; text: screen.state.playback.artist || ""; textFormat: Text.PlainText; font.pixelSize: 23; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                             Text { visible: !screen.compact && playbackSources.ready && text.length > 0; text: screen.state.playback.album || ""; textFormat: Text.PlainText; font.pixelSize: 19; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                         }
-                        SessionPlaybackShortcut {
-                            id: currentOutputButton
-                            Layout.column: screen.compact ? -1 : 0
-                            parent: screen.compact ? trackTitleRow : trackOutputRow
-                            objectName: "sessionCurrentOutput"
-                            readonly property bool offered: playbackSources.ready && !!screen.state.playback_control.available
-                                && !!screen.state.playback_control.outputs_supported
-                            visible: offered
-                            enabled: !!screen.state.playback_control.enabled
-                            iconName: "voice"
-                            text: screen.compact ? "" : (screen.state.playback.target_name || "")
-                            Accessible.name: screen.tr("session_output_title")
-                            Accessible.description: screen.state.playback.target_name || ""
-                            Layout.preferredWidth: text.length ? Math.min(220 * screen.ipadScale, implicitWidth) : 48 * screen.ipadScale
-                            Layout.preferredHeight: 48 * screen.ipadScale
-                            Layout.alignment: Qt.AlignTop
-                            onCurrentTrackClicked: outputsPanel.openForCurrentItem(currentOutputButton)
-                        }
-                        SessionPlaybackShortcut {
-                            id: currentVolumeButton
-                            Layout.column: screen.compact ? -1 : 2
-                            parent: screen.compact ? trackTitleRow : trackOutputRow
-                            objectName: "sessionCurrentVolume"
-                            visible: playbackSources.ready && !!screen.state.playback_control.available
-                                && !!screen.state.playback_control.volume_supported
-                            enabled: !!screen.state.playback_control.enabled
-                            iconName: "voice"
-                            Accessible.name: screen.tr("volume")
-                            Layout.preferredWidth: 48 * screen.ipadScale; Layout.preferredHeight: 48 * screen.ipadScale; Layout.alignment: Qt.AlignTop
-                            onCurrentTrackClicked: {
-                                if (screen.owner.readPlaybackVolume(screen.state.session_id, screen.state.playback.item_id)) {
-                                    playbackPanel.openFrom(currentVolumeButton, "volume")
-                                }
-                            }
-                        }
-                        SessionPlaybackShortcut {
-                            id: currentFavoriteButton
-                            Layout.column: screen.compact ? -1 : 0
-                            parent: screen.compact ? trackTitleRow : trackFavoriteRow
-                            objectName: "sessionCurrentFavorite"
-                            visible: playbackSources.ready && !!screen.state.playback_control.available
-                                && !!screen.state.playback_control.favorite
-                            enabled: !!screen.state.playback_control.enabled
-                            iconName: "heart"
-                            Accessible.name: screen.tr("session_favorite_read")
-                            Layout.preferredWidth: 48 * screen.ipadScale; Layout.preferredHeight: 48 * screen.ipadScale; Layout.alignment: Qt.AlignTop
-                            onCurrentTrackClicked: {
-                                if (screen.owner.readPlaybackFavorite(screen.state.session_id, screen.state.playback.item_id)) {
-                                    playbackPanel.openFrom(currentFavoriteButton, "favorite")
-                                }
-                            }
-                        }
-                        GlassButton {
-                            id: playbackMoreButton
-                            Layout.column: screen.compact ? -1 : 1
-                            parent: screen.compact ? trackTitleRow : trackFavoriteRow
-                            objectName: "sessionPlaybackOpen"
-                            visible: playbackSources.ready && !!screen.state.playback_control.available
-                                && (screen.compact || !progressControl.visible)
-                            iconName: "more"; Accessible.name: screen.tr("session_playback_controls")
-                            Layout.preferredWidth: 48 * screen.ipadScale; Layout.preferredHeight: 48 * screen.ipadScale; Layout.alignment: Qt.AlignTop
-                            onClicked: playbackPanel.openFrom(playbackMoreButton, "all")
-                        }
-                        SessionAttribution {
-                            id: playbackSources
-                            requiresSpotify: !!screen.state.playback.requires_spotify_attribution
-                            spotifyURL: screen.state.playback.source_url || ""
-                            visible: requiresSpotify
-                            Layout.preferredWidth: 90; Layout.alignment: Qt.AlignTop
-                        }
+                    }
+                    SessionAttribution {
+                        id: playbackSources
+                        requiresSpotify: !!screen.state.playback.requires_spotify_attribution
+                        spotifyURL: screen.state.playback.source_url || ""
+                        visible: requiresSpotify
+                        Layout.row: 2
+                        Layout.column: 1
+                        Layout.alignment: Qt.AlignLeft
                     }
                     AbstractButton {
                         id: progressControl
                         objectName: "sessionPlaybackProgress"
-                        visible: playbackSources.ready && screen.state.playback.time_label !== undefined
+                        visible: playbackSources.ready && (screen.state.playback.time_label !== undefined
+                            || !!screen.state.playback_control.available)
                         enabled: !!screen.state.playback_control.available
                         implicitHeight: enabled ? Math.max(44, contentItem.implicitHeight) : contentItem.implicitHeight
                         Layout.row: 1
@@ -1461,50 +1401,14 @@ Item {
                                     Rectangle { width: playbackProgress.visualPosition * parent.width; height: parent.height; radius: 3; color: BrandTheme.colors.text }
                                 }
                             }
-                            Text { visible: screen.compact || !trackFavoriteRow.visible; text: screen.state.playback.time_label || ""; textFormat: Text.PlainText; font.pixelSize: screen.compact ? 16 : 18; color: BrandTheme.colors.muted }
+                            Text { text: screen.state.playback.time_label || ""; textFormat: Text.PlainText; font.pixelSize: screen.compact ? 16 : 18; color: BrandTheme.colors.muted }
                         }
-                    }
-                    GridLayout {
-                        id: trackFavoriteRow
-                        columns: 4
-                        visible: !screen.compact && playbackSources.ready && (screen.state.playback.time_label !== undefined
-                            || !!screen.state.playback_control.available)
-                        Layout.row: 2
-                        Layout.column: 1
-                        Layout.fillWidth: true
-                        Item { Layout.column: 2; Layout.fillWidth: true; Layout.preferredHeight: 1 }
-                        Text {
-                            Layout.column: 3
-                            text: screen.state.playback.time_label || ""
-                            textFormat: Text.PlainText
-                            color: BrandTheme.colors.muted
-                            font.pixelSize: 18
-                        }
-                    }
-                    GridLayout {
-                        id: trackOutputRow
-                        columns: 3
-                        visible: !screen.compact && playbackSources.ready && (!!screen.state.playback.target_name
-                            || (!!screen.state.playback_control.available
-                                && (!!screen.state.playback_control.outputs_supported || !!screen.state.playback_control.volume_supported)))
-                        Layout.row: 3
-                        Layout.column: 1
-                        Layout.fillWidth: true
-                        Text {
-                            Layout.column: 0
-                            visible: !currentOutputButton.offered && text.length > 0
-                            text: screen.state.playback.target_name || ""
-                            textFormat: Text.PlainText
-                            color: BrandTheme.colors.muted
-                            font.pixelSize: 18
-                        }
-                        Item { Layout.column: 1; Layout.fillWidth: true; Layout.preferredHeight: 1 }
                     }
                     RowLayout {
-                        visible: screen.compact && playbackSources.ready && !!screen.state.playback.target_name
-                        Layout.row: 2
-                        Layout.column: 0
-                        Layout.columnSpan: 2
+                        visible: playbackSources.ready && !!screen.state.playback.target_name
+                        Layout.row: 3
+                        Layout.column: screen.compact ? 0 : 1
+                        Layout.columnSpan: screen.compact ? 2 : 1
                         Layout.fillWidth: true
                         FeatureIcon { iconName: "music"; Layout.preferredWidth: 22; Layout.preferredHeight: 22 }
                         Text { text: screen.state.playback.target_name || ""; textFormat: Text.PlainText; font.pixelSize: 19; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true; Accessible.name: screen.tr("output_device") + ": " + text }
@@ -2050,23 +1954,66 @@ Item {
             if (epoch && epoch === transportEpoch) currentTrackClicked()
         }
     }
+    readonly property Component artworkTransportControls: Component {
+        ColumnLayout {
+            objectName: "trackArtworkTransportControls"
+            spacing: 12
+
+            RowLayout {
+                Layout.alignment: Qt.AlignHCenter
+                spacing: 16
+                SessionTransportButton {
+                    objectName: "sessionPlaybackPrevious"
+                    commandName: "previous"
+                }
+                SessionTransportButton {
+                    objectName: "sessionPlaybackToggle"
+                    commandName: screen.state.playback.state === "playing" ? "pause" : "play"
+                    checked: true
+                }
+                SessionTransportButton {
+                    objectName: "sessionPlaybackNext"
+                    commandName: "next"
+                }
+            }
+            Text {
+                readonly property string status: screen.state.playback_control.status || ""
+                visible: status.length > 0
+                Layout.fillWidth: true
+                text: screen.tr(status === "sending" ? "session_question_sending"
+                    : status === "accepted" ? "session_playback_sent" : "session_uncertain")
+                textFormat: Text.PlainText
+                color: BrandTheme.colors.text
+                font.pixelSize: 18
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.WordWrap
+            }
+            GlassButton {
+                objectName: "trackArtworkPlaybackRefresh"
+                visible: screen.state.playback_control.status === "uncertain"
+                Layout.alignment: Qt.AlignHCenter
+                text: screen.tr("refresh")
+                enabled: !screen.owner.busy
+                onClicked: screen.owner.refreshPlayback()
+            }
+        }
+    }
     component SessionTransportButton: GlassButton {
         required property string commandName
         property int pressedEpoch: 0
-        property bool transportSurfaceReady: playbackPanel.opened
-        property bool round: false
-        Layout.fillWidth: !round
-        implicitWidth: round ? 46 * screen.ipadScale : Math.max(56, contentItem.implicitWidth + 36)
-        implicitHeight: round ? 46 * screen.ipadScale : 56
-        padding: round ? 10 : 14
-        enabled: transportSurfaceReady && !!screen.state.playback_control.enabled
+        iconName: commandName
+        Accessible.name: screen.tr(commandName)
+        implicitWidth: Math.max(52, 52 * screen.ipadScale)
+        implicitHeight: implicitWidth
+        padding: 10
+        enabled: visible && screen.liveViewOpen && !!screen.state.playback_control.enabled
         onPressed: pressedEpoch = screen.state.playback_control.transport_epoch || 0
         onCanceled: pressedEpoch = 0
-        onTransportSurfaceReadyChanged: if (!transportSurfaceReady) pressedEpoch = 0
+        onEnabledChanged: if (!enabled) pressedEpoch = 0
         onClicked: {
             var epoch = pressedEpoch
             pressedEpoch = 0
-            if (epoch && transportSurfaceReady)
+            if (epoch && enabled)
                 screen.owner.playbackCommand(screen.state.session_id, screen.state.playback.item_id, commandName, epoch)
         }
     }
@@ -2145,32 +2092,6 @@ Item {
                             visible: text.length > 0
                             textFormat: Text.PlainText; font.pixelSize: 20; color: BrandTheme.colors.muted
                             Layout.fillWidth: true; wrapMode: Text.WordWrap
-                        }
-                        RowLayout {
-                            visible: playbackPanel.controlView === "all"
-                            Layout.fillWidth: screen.compact
-                            Layout.alignment: Qt.AlignHCenter
-                            spacing: 14
-                            SessionTransportButton {
-                                objectName: "sessionPlaybackPrevious"
-                                round: !screen.compact
-                                commandName: "previous"; iconName: "previous"
-                                Accessible.name: screen.tr("previous")
-                            }
-                            SessionTransportButton {
-                                objectName: "sessionPlaybackToggle"
-                                round: !screen.compact
-                                checked: round
-                                commandName: screen.state.playback.state === "playing" ? "pause" : "play"
-                                iconName: commandName
-                                Accessible.name: screen.tr(commandName)
-                            }
-                            SessionTransportButton {
-                                objectName: "sessionPlaybackNext"
-                                round: !screen.compact
-                                commandName: "next"; iconName: "next"
-                                Accessible.name: screen.tr("next")
-                            }
                         }
                         GlassButton {
                             objectName: "sessionPlaybackFavorite"
