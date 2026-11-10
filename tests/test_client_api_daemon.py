@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import subprocess
 from pathlib import Path
+from unittest.mock import Mock
 
 from djconnect_pi import client_api_daemon
 from djconnect_pi.client_api_daemon import ClientAPIDaemon, _systemd_unit_status
@@ -126,6 +127,25 @@ def test_client_api_daemon_requests_debug_screenshot(tmp_path: Path, monkeypatch
     assert result["error"] == "screenshot_timeout"
     assert result["path"] == str(screenshot_file)
     assert json.loads(event_file.read_text(encoding="utf-8"))["target"] == str(screenshot_file)
+
+
+def test_portal_logs_do_not_read_disk_when_logging_is_off(tmp_path: Path, monkeypatch) -> None:
+    config_path = tmp_path / "config.json"
+    log_file = tmp_path / "client.log"
+    cfg = Config(local_url="http://127.0.0.1:18080", log_file=str(log_file))
+    save_config(config_path, cfg)
+    daemon = ClientAPIDaemon(config_path)
+    read = Mock(return_value="fixture diagnostics")
+    monkeypatch.setattr(client_api_daemon, "_read_tail_text", read)
+    monkeypatch.setattr(daemon, "_diagnostics", lambda **_: [])
+
+    assert daemon._portal_state({"logs"})["logs"] == ""
+    read.assert_not_called()
+
+    cfg.log_level = "INFO"
+    save_config(config_path, cfg)
+    assert daemon._portal_state({"logs"})["logs"] == "fixture diagnostics"
+    read.assert_called_once_with(log_file, 48_000)
 
 
 def test_client_api_daemon_portal_state_includes_diagnostics(tmp_path: Path, monkeypatch) -> None:

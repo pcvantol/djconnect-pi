@@ -515,23 +515,28 @@ function render(data) {{
   document.getElementById('websocketFastPath').checked = data.settings?.websocket_fast_path_enabled !== false;
   document.getElementById('about').innerHTML = Object.entries(data.about || {{}}).map(([k,v]) => `<div class="row"><span class="key">${{k}}</span><span class="value">${{v || '-'}}</span></div>`).join('');
   document.getElementById('diagnostics').innerHTML = (data.diagnostics || []).length ? data.diagnostics.map(diagnosticsHtml).join('') : `<div class="sub">${{t('no_diagnostics')}}</div>`;
-  document.getElementById('logSection').hidden = document.getElementById('logLevel').value === 'OFF';
-  document.getElementById('logs').textContent = data.logs || '';
+  const logsOff = document.getElementById('logLevel').value === 'OFF';
+  document.getElementById('logSection').hidden = logsOff;
+  document.getElementById('logs').textContent = logsOff ? '' : (data.logs || '');
 }}
 async function refreshAll(showBusy=false) {{
   if (showBusy) setBusy('refreshButton', true, t('refreshing'));
   try {{
-    render(await api('/api/portal/state?include=queue,playlists,logs'));
-    scrollLogsToBottom();
+    const include = state.settings?.log_level === 'OFF' ? 'queue,playlists' : 'queue,playlists,logs';
+    render(await api('/api/portal/state?include=' + include));
+    if (!document.getElementById('logSection').hidden) scrollLogsToBottom();
     if (showBusy) toast(t('refreshed'));
   }}
   catch (err) {{ toast(`${{t('status_failed')}}: ${{err.message}}`); }}
   finally {{ if (showBusy) setBusy('refreshButton', false); }}
 }}
 async function refreshLogs(showBusy=false) {{
+  if (state.settings?.log_level === 'OFF') return;
   if (showBusy) setBusy('logsRefreshButton', true, t('refreshing'));
   try {{
-    document.getElementById('logs').textContent = (await api('/api/portal/state?include=logs')).logs || '';
+    const data = await api('/api/portal/state?include=logs');
+    if (state.settings?.log_level === 'OFF' || data.settings?.log_level === 'OFF') return;
+    document.getElementById('logs').textContent = data.logs || '';
     scrollLogsToBottom();
     if (showBusy) toast(t('logs_refreshed'));
   }}
@@ -539,6 +544,7 @@ async function refreshLogs(showBusy=false) {{
   finally {{ if (showBusy) setBusy('logsRefreshButton', false, t('refresh_logs')); }}
 }}
 async function copyLogs() {{
+  if (state.settings?.log_level === 'OFF') return;
   const logs = document.getElementById('logs');
   const text = logs.textContent || '';
   const range = document.createRange();

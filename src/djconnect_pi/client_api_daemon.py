@@ -13,6 +13,7 @@ from pathlib import Path
 from .client_api import ClientAPI, ClientAPIState
 from .config import (
     DEFAULT_CONFIG_PATH,
+    DEFAULT_LOG_LEVEL,
     Config,
     generate_pairing_code,
     load_config,
@@ -128,7 +129,7 @@ class ClientAPIDaemon:
                 _LOGGER.warning("Portal state refresh failed: %s", exc)
             finally:
                 fast_path_diagnostics = client.diagnostics()
-        if "logs" in include:
+        if "logs" in include and self.cfg.log_level != DEFAULT_LOG_LEVEL:
             logs = _read_tail_text(Path(self.cfg.log_file), 48_000)
         return {
             "success": True,
