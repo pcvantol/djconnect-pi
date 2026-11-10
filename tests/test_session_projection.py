@@ -161,3 +161,24 @@ def test_current_idle_requires_confirmed_native_scope(field, value):
     assert not session_current_idle(session)
     native_delivery.pop(field)
     assert not session_current_idle(session)
+
+
+def test_timestamp_reuses_valid_deadlines_without_caching_invalid_input():
+    from djconnect_pi.session_projection import _cached_timestamp, timestamp
+
+    _cached_timestamp.cache_clear()
+    try:
+        value = "2026-11-10T01:00:00+01:00"
+        deadline = timestamp(value)
+        assert deadline == timestamp("2026-11-10T00:00:00Z")
+        assert timestamp(value) == deadline
+        assert _cached_timestamp.cache_info().hits == 1
+        assert timestamp("2026-11-10T01:00:00") is None
+        assert timestamp("not a timestamp") is None
+        assert timestamp([]) is None
+        assert _cached_timestamp.cache_info().currsize == 2
+        for seconds in range(1000):
+            timestamp(f"2026-11-10T00:{seconds // 60:02d}:{seconds % 60:02d}Z")
+        assert _cached_timestamp.cache_info().currsize == 256
+    finally:
+        _cached_timestamp.cache_clear()
