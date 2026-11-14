@@ -238,11 +238,6 @@ BrandWindow {
         return djconnect.t(key)
     }
 
-    function djAnnouncementOutputLabel(value) {
-        if (value === "ha_speaker") return root.tr("dj_announcement_output_ha_speaker")
-        return root.tr("dj_announcement_output_text_only")
-    }
-
     function trackInsightLabel(value) {
         var key = String(value || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "")
         var labels = {
@@ -325,8 +320,6 @@ BrandWindow {
             djconnect.loadMusicDna()
         } else if (root.activeScreen === "discover") {
             djconnect.loadMusicDiscovery()
-        } else if (root.activeScreen === "settings") {
-            djconnect.pollSharedSettings()
         }
     }
 
@@ -2181,71 +2174,6 @@ BrandWindow {
                     Layout.fillWidth: true
                     onActivated: djconnect.setLogLevel(model[currentIndex])
                 }
-            }
-
-            SharedSettingsPanel {
-                backend: djconnect
-                visible: djconnect.paired
-                Layout.fillWidth: true
-            }
-
-            Text {
-                visible: !djconnect.sharedSettingsManaged
-                text: root.tr("dj_announcement_settings_title")
-                color: BrandTheme.colors.text
-                font.pixelSize: 26
-                font.bold: true
-                Layout.fillWidth: true
-                Layout.topMargin: 8
-            }
-
-            RowLayout {
-                visible: !djconnect.sharedSettingsManaged
-                Layout.fillWidth: true
-                spacing: 14
-
-                Text {
-                    text: root.tr("dj_announcement_output")
-                    color: BrandTheme.colors.muted
-                    font.pixelSize: 22
-                    Layout.preferredWidth: 176
-                    wrapMode: Text.WordWrap
-                }
-
-                BrandComboBox {
-                    id: djAnnouncementOutputBox
-                    visible: !djconnect.sharedSettingsManaged
-                    property var outputChoices: djconnect.djAnnouncementSpeakerAvailable ? ["text_only", "ha_speaker"] : ["text_only"]
-                    font.pixelSize: 24
-                    model: outputChoices
-                    currentIndex: Math.max(0, outputChoices.indexOf(djconnect.djAnnouncementOutput))
-                    displayText: root.djAnnouncementOutputLabel(djconnect.djAnnouncementOutput)
-                    delegate: ItemDelegate {
-                        width: djAnnouncementOutputBox.width
-                        text: root.djAnnouncementOutputLabel(modelData)
-                        font.pixelSize: 26
-                    }
-                    Layout.fillWidth: true
-                    onActivated: function(index) { djconnect.setDjAnnouncementOutput(outputChoices[index]) }
-                }
-            }
-
-            Text {
-                visible: !djconnect.sharedSettingsManaged && !djconnect.djAnnouncementSpeakerAvailable
-                text: root.tr("dj_announcement_speaker_unavailable")
-                color: BrandTheme.colors.muted
-                font.pixelSize: 18
-                wrapMode: Text.WordWrap
-                Layout.fillWidth: true
-            }
-
-            Text {
-                visible: !djconnect.sharedSettingsManaged && djconnect.djAnnouncementSpeakerAvailable && djconnect.djAnnouncementSpeakerName.length > 0
-                text: root.tr("dj_announcement_speaker_configured") + " " + djconnect.djAnnouncementSpeakerName
-                color: BrandTheme.colors.muted
-                font.pixelSize: 18
-                wrapMode: Text.WordWrap
-                Layout.fillWidth: true
             }
 
             Text {

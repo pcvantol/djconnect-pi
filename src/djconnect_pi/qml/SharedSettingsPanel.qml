@@ -11,7 +11,9 @@ ColumnLayout {
     property bool dirty: false
     property var changedFields: ({})
     property bool saving: false
-    property var fields: ["persona", "voice", "gender", "mood", "presence", "announcement_output"]
+    readonly property var allFields: ["persona", "voice", "gender", "mood", "presence", "announcement_output"]
+    property var fields: allFields
+    readonly property var displayedFields: backend.sharedSettings.selection_required ? allFields : fields
     spacing: 12
 
     function tr(key) { backend.translationVersion; return backend.t(key) }
@@ -117,7 +119,7 @@ ColumnLayout {
         wrapMode: Text.WordWrap
     }
     Repeater {
-        model: editor.backend.sharedSettings.values ? editor.fields : []
+        model: editor.backend.sharedSettings.values ? editor.displayedFields : []
         delegate: ColumnLayout {
             id: fieldRow
             required property string modelData
@@ -201,7 +203,7 @@ ColumnLayout {
                      (editor.dirty || editor.backend.sharedSettings.selection_required)
             onClicked: {
                 var patch = {}
-                var fields = editor.backend.sharedSettings.selection_required ? editor.fields : Object.keys(editor.changedFields)
+                var fields = editor.backend.sharedSettings.selection_required ? editor.allFields : Object.keys(editor.changedFields)
                 for (var i = 0; i < fields.length; ++i) patch[fields[i]] = editor.draft[fields[i]]
                 patch._edit_token = editor.editToken
                 editor.saving = true

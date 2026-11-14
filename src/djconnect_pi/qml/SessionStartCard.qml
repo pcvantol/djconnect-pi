@@ -11,6 +11,7 @@ GlassCard {
     implicitWidth: 640
     property var backend
     property bool busy: false
+    property bool advancedSettingsOpen: false
     readonly property bool compact: width < 850
     readonly property real ipadScale: compact ? 1 : Math.min(1.45, width / 800)
     readonly property string mood: MoodTheme.key(selected("mood")) === "default" ? "chill" : selected("mood")
@@ -52,7 +53,10 @@ GlassCard {
         patch[field] = value
         backend.saveSharedSettings(patch)
     }
-    onVisibleChanged: { if (visible && !backend.demoMode) backend.pollSharedSettings() }
+    onVisibleChanged: {
+        if (visible && !backend.demoMode) backend.pollSharedSettings()
+        if (!visible) advancedSettingsOpen = false
+    }
     Component.onCompleted: { if (visible && !backend.demoMode) backend.pollSharedSettings() }
 
     RowLayout {
@@ -225,6 +229,25 @@ GlassCard {
                 textFormat: Text.PlainText; color: BrandTheme.colors.muted; font.pixelSize: card.compact ? 17 : 15 * card.ipadScale
                 horizontalAlignment: Text.AlignHCenter; wrapMode: Text.WordWrap; Layout.fillWidth: true
             }
+        }
+    }
+    GlassButton {
+        objectName: "sessionStartDjSettings"
+        visible: !card.backend.demoMode && card.backend.paired && !card.settings.active
+        text: card.tr("shared_title")
+        iconName: "settings"
+        checked: card.advancedSettingsOpen
+        Layout.fillWidth: true
+        onClicked: card.advancedSettingsOpen = !card.advancedSettingsOpen
+    }
+    Loader {
+        active: card.visible && card.advancedSettingsOpen && !card.backend.demoMode
+            && card.backend.paired && !card.settings.active
+        visible: active
+        Layout.fillWidth: true
+        sourceComponent: SharedSettingsPanel {
+            backend: card.backend
+            fields: ["voice", "gender", "announcement_output"]
         }
     }
     Text {

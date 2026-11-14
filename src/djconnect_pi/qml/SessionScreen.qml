@@ -733,6 +733,7 @@ Item {
         if (searchPanel) searchPanel.close()
         if (searchInput) searchInput.clear()
         if (choices) choices.close()
+        if (sessionDjSettings) sessionDjSettings.close()
         if (moreChoices) moreChoices.close()
         if (connectionInfo) connectionInfo.close()
         if (endConfirmation) endConfirmation.close()
@@ -937,7 +938,6 @@ Item {
                 id: toolbarButtons
                 anchors.centerIn: parent; spacing: 2
                 GlassButton {
-                    id: moreButton
                     objectName: "sessionToolbarMore"
                     visible: screen.compact && screen.sessionControlsVisible
                     iconName: "more"; Accessible.name: screen.tr("more")
@@ -977,10 +977,19 @@ Item {
                 GlassButton {
                     id: voiceButton
                     objectName: "sessionToolbarVoice"
-                    visible: !screen.compact && screen.sessionControlsVisible && screen.sessionVoiceAvailable
+                    visible: screen.sessionControlsVisible && screen.sessionVoiceAvailable
                     iconName: "voice"; Accessible.name: screen.tr("shared_field_voice")
                     implicitWidth: 52; background: Item {}
                     onClicked: screen.openChoice("voice", voiceButton)
+                }
+                GlassButton {
+                    objectName: "sessionToolbarDjSettings"
+                    visible: screen.sessionControlsVisible && screen.state.runtime_state === "active"
+                        && !screen.backend.demoMode && !!screen.backend.sharedSettings.active
+                    iconName: "settings"; Accessible.name: screen.tr("shared_title")
+                    implicitWidth: 52; background: Item {}
+                    onVisibleChanged: if (!visible && sessionDjSettings) sessionDjSettings.close()
+                    onClicked: sessionDjSettings.open()
                 }
                 GlassButton {
                     objectName: "sessionToolbarVibeCast"
@@ -2577,6 +2586,29 @@ Item {
         }
     }
     GlassPopup {
+        id: sessionDjSettings
+        objectName: "sessionDjSettings"
+        anchors.centerIn: parent
+        width: Math.min(screen.width - 32, 560)
+        height: Math.min(screen.height - 32, djSettingsEditor.implicitHeight + topPadding + bottomPadding)
+        padding: 20; modal: true; dim: false
+        background: GlassSurface { elevated: true }
+        contentItem: ScrollView {
+            id: djSettingsScroll
+            clip: true; contentWidth: availableWidth; contentHeight: djSettingsEditor.implicitHeight
+            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+            Loader {
+                id: djSettingsEditor
+                active: sessionDjSettings.visible
+                width: djSettingsScroll.availableWidth
+                sourceComponent: SharedSettingsPanel {
+                    backend: screen.backend
+                    fields: ["gender", "announcement_output"]
+                }
+            }
+        }
+    }
+    GlassPopup {
         id: moreChoices
         x: 20; y: toolbar.y + toolbar.height + 8
         width: Math.min(screen.width - 40, 420); padding: 16
@@ -2589,12 +2621,6 @@ Item {
                 text: screen.tr("session_search"); iconName: "search"
                 Layout.fillWidth: true
                 onClicked: { moreChoices.close(); screen.showSearch() }
-            }
-            GlassButton {
-                visible: screen.sessionVoiceAvailable
-                text: screen.tr("shared_field_voice")
-                Layout.fillWidth: true
-                onClicked: { moreChoices.close(); screen.openChoice("voice", moreButton) }
             }
             GlassButton {
                 text: screen.tr("session_history"); Layout.fillWidth: true

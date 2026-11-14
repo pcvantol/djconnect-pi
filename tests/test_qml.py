@@ -209,11 +209,10 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert 'root.tr("about")' not in settings_block
     assert "djconnect.showLogs()" not in settings_block
     assert "root.aboutOpen = true" not in settings_block
-    assert 'root.tr("dj_announcement_settings_title")' in settings_block
-    assert 'root.tr("dj_announcement_output")' in settings_block
-    assert "djconnect.djAnnouncementSpeakerAvailable ? [\"text_only\", \"ha_speaker\"] : [\"text_only\"]" in settings_block
-    assert "djconnect.setDjAnnouncementOutput(outputChoices[index])" in settings_block
-    assert 'root.tr("dj_announcement_speaker_unavailable")' in settings_block
+    assert "SharedSettingsPanel {" not in settings_block
+    assert "setDjAnnouncementOutput" not in settings_block
+    start_card = files("djconnect_pi.qml").joinpath("SessionStartCard.qml").read_text(encoding="utf-8")
+    assert "SharedSettingsPanel {" in start_card
     assert "speaker_entity_id" not in settings_block
     assert 'root.tr("save")' not in main_qml
     assert 'text: root.tr("no_voice")' not in main_qml
