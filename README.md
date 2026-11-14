@@ -417,7 +417,7 @@ not a private source clone:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/download/v4.0.2/djconnect-pi-4.0.2.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/djconnect-music-dj/djconnect-pi-releases/releases/download/v4.0.2/djconnect-pi-4.0.2.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
 cd djconnect-pi-4.0.2
 sudo ./scripts/install.sh
@@ -461,9 +461,10 @@ separate processes from the UI app. The Client API runs as
 `djconnect-api.service`; the touch UI runs as `djconnect-client.service`; the
 temporary update progress screen runs as `djconnect-update-ui.service`.
 
-The updater checks GitHub Releases in the public distribution repository
-`pcvantol/djconnect-pi-releases`,
-downloads a tarball asset and optional `.sha256`, installs into:
+The updater fetches release assets from the public distribution repository
+[`djconnect-music-dj/djconnect-pi-releases`](https://github.com/djconnect-music-dj/djconnect-pi-releases/releases).
+GitHub redirects the previous repository address used by existing installations.
+The updater downloads a tarball and optional `.sha256` file and installs into:
 
 ```text
 /opt/djconnect/releases/<version>
@@ -483,10 +484,9 @@ or `beta` to allow GitHub prereleases. The systemd updater reads
 unattended update channel.
 
 The `.github/workflows/publish-release.yml` workflow publishes tagged releases
-to public distribution repository ID `1267500969`. While the repository belongs
-to `pcvantol`, publication uses `DJCONNECT_PI_RELEASES_TOKEN`. Under
-`djconnect-music-dj`, publication uses a dedicated GitHub App installed only on
-`djconnect-pi-releases`. Configure `DJCONNECT_PI_PUBLISHER_CLIENT_ID` as a source
+to [`djconnect-music-dj/djconnect-pi-releases`](https://github.com/djconnect-music-dj/djconnect-pi-releases),
+resolved by repository ID `1267500969`. Publication uses a dedicated GitHub App
+installed only on that repository. Configure `DJCONNECT_PI_PUBLISHER_CLIENT_ID` as a source
 repository variable and `DJCONNECT_PI_PUBLISHER_PRIVATE_KEY` as a source
 repository secret. Run **Verify Pi publication access** on source `main` to
 check the active credential without publishing.
@@ -572,7 +572,7 @@ installer:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/pcvantol/djconnect-pi-releases/releases/download/v4.0.2/djconnect-pi-4.0.2.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/djconnect-music-dj/djconnect-pi-releases/releases/download/v4.0.2/djconnect-pi-4.0.2.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
 cd djconnect-pi-4.0.2
 sudo ./scripts/install.sh
