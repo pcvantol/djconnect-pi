@@ -15,9 +15,9 @@ def _project_version() -> str:
     return str(data["project"]["version"])
 
 
-def _public_release_version() -> str:
-    package = ROOT.joinpath("src", "djconnect_pi", "__init__.py").read_text(encoding="utf-8")
-    match = re.search(r'^__version__ = "(?P<version>[^"]+)"$', package, re.MULTILINE)
+def _stable_release_version() -> str:
+    changelog = ROOT.joinpath("CHANGELOG.md").read_text(encoding="utf-8")
+    match = re.search(r"^## (?P<version>[0-9]+\.[0-9]+\.[0-9]+)$", changelog, re.MULTILINE)
     assert match is not None
     return match["version"]
 
@@ -572,10 +572,10 @@ def test_install_script_outputs_resources_and_extra_prerequisite_checks() -> Non
     assert "Cannot reach DJConnect Pi release asset" in script
 
 
-def test_bootstrap_release_download_matches_project_version() -> None:
+def test_bootstrap_release_download_matches_stable_version() -> None:
     bootstrap = ROOT.joinpath("docs/BOOTSTRAP.md").read_text(encoding="utf-8")
     readme = ROOT.joinpath("README.md").read_text(encoding="utf-8")
-    version = _public_release_version()
+    version = _stable_release_version()
 
     assert f"djconnect-pi-{version}.tar.gz" in bootstrap
     assert f"cd djconnect-pi-{version}" in bootstrap
