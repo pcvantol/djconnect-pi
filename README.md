@@ -482,10 +482,14 @@ or `beta` to allow GitHub prereleases. The systemd updater reads
 `/opt/djconnect/config/client.json`, so the touchscreen setting controls the
 unattended update channel.
 
-Release assets are published from this source repository to
-`pcvantol/djconnect-pi-releases` by `.github/workflows/publish-release.yml` on
-`vX.Y.Z` tags. Configure the source repo secret `DJCONNECT_PI_RELEASES_TOKEN` with
-permission to create releases in the public distribution repo.
+The `.github/workflows/publish-release.yml` workflow publishes tagged releases
+to public distribution repository ID `1267500969`. While the repository belongs
+to `pcvantol`, publication uses `DJCONNECT_PI_RELEASES_TOKEN`. Under
+`djconnect-music-dj`, publication uses a dedicated GitHub App installed only on
+`djconnect-pi-releases`. Configure `DJCONNECT_PI_PUBLISHER_CLIENT_ID` as a source
+repository variable and `DJCONNECT_PI_PUBLISHER_PRIVATE_KEY` as a source
+repository secret. Run **Verify Pi publication access** on source `main` to
+check the active credential without publishing.
 
 Internal Pi deployment uses `.github/workflows/deploy-latest-pi-release.yml`
 with canonical target `rbpi-djconnect`. Its post-deployment validation is the
