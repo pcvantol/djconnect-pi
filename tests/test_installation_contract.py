@@ -149,9 +149,18 @@ def test_updater_service_reads_touchscreen_config() -> None:
 
 def test_release_workflow_publishes_to_public_distribution_repo() -> None:
     workflow = ROOT.joinpath(".github/workflows/publish-release.yml").read_text(encoding="utf-8")
+    verifier = ROOT.joinpath(".github/workflows/pi-publication-access.yml").read_text(encoding="utf-8")
 
     assert "pcvantol/djconnect-pi-releases" in workflow
     assert "DJCONNECT_PI_RELEASES_TOKEN" in workflow
+    for entrypoint in (workflow, verifier):
+        assert "bash scripts/resolve_pi_release_repo.sh" in entrypoint
+        assert "owner: djconnect-music-dj" in entrypoint
+        assert "repositories: djconnect-pi-releases" in entrypoint
+        assert "permission-contents: write" in entrypoint
+    assert 'djconnect-music-dj/djconnect-pi-releases) export GH_TOKEN="$ORGANIZATION_TOKEN"' in workflow
+    assert ".repositories[0].id == 1267500969" in verifier
+    assert "gh release create" not in verifier
     assert 'tags:' in workflow
     assert '"v*.*.*"' in workflow
 

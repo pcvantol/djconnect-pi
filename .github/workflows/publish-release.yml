@@ -151,22 +151,10 @@ jobs:
         id: distribution
         shell: bash
         env:
-          GH_TOKEN: ${{ secrets.DJCONNECT_PI_RELEASES_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          if [[ -z "${GH_TOKEN}" ]]; then
-            echo "Missing DJCONNECT_PI_RELEASES_TOKEN repository secret." >&2
-            exit 4
-          fi
-          repository="$(gh api repositories/1267500969 --jq 'select(.id == 1267500969 and .visibility == "public") | .full_name')"
-          case "${repository}" in
-            pcvantol/djconnect-pi-releases|djconnect-music-dj/djconnect-pi-releases)
-              printf 'repository=%s\n' "${repository}" >> "${GITHUB_OUTPUT}"
-              ;;
-            *)
-              echo "Unexpected DJConnect Pi release repository." >&2
-              exit 1
-              ;;
-          esac
+          repository="$(bash scripts/resolve_pi_release_repo.sh)"
+          printf 'repository=%s\n' "$repository" >> "$GITHUB_OUTPUT"
 
       - name: Build release assets
         shell: bash
@@ -257,15 +245,36 @@ jobs:
           )
           PY
 
+      - name: Create organization Pi publication token
+        if: steps.distribution.outputs.repository == 'djconnect-music-dj/djconnect-pi-releases'
+        id: publisher
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.DJCONNECT_PI_PUBLISHER_CLIENT_ID }}
+          private-key: ${{ secrets.DJCONNECT_PI_PUBLISHER_PRIVATE_KEY }}
+          owner: djconnect-music-dj
+          repositories: djconnect-pi-releases
+          permission-contents: write
+
       - name: Publish to public release repository
         env:
-          GH_TOKEN: ${{ secrets.DJCONNECT_PI_RELEASES_TOKEN }}
+          PERSONAL_TOKEN: ${{ secrets.DJCONNECT_PI_RELEASES_TOKEN }}
+          ORGANIZATION_TOKEN: ${{ steps.publisher.outputs.token }}
           RELEASE_VERSION: ${{ steps.meta.outputs.version }}
           RELEASE_TAG: ${{ steps.meta.outputs.tag }}
           RELEASE_PRERELEASE: ${{ steps.meta.outputs.prerelease }}
           RELEASE_REPOSITORY: ${{ steps.distribution.outputs.repository }}
         shell: bash
         run: |
+          case "$RELEASE_REPOSITORY" in
+            pcvantol/djconnect-pi-releases) export GH_TOKEN="$PERSONAL_TOKEN" ;;
+            djconnect-music-dj/djconnect-pi-releases) export GH_TOKEN="$ORGANIZATION_TOKEN" ;;
+            *) exit 1 ;;
+          esac
+          if [[ -z "$GH_TOKEN" ]]; then
+            echo "Missing publication credential for $RELEASE_REPOSITORY." >&2
+            exit 4
+          fi
           version="${RELEASE_VERSION}"
           tag="${RELEASE_TAG}"
           prerelease="${RELEASE_PRERELEASE}"
