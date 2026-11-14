@@ -262,6 +262,14 @@ def main():
                                  QPoint(round(gap_x), round(gap.y())))
                 QTest.qWait(60)
                 assert not shade.property('visible') and window.property('trackArtworkOpen') and not intents
+                image = window.grabWindow()
+                scale = image.devicePixelRatio()
+                for x, y in ((3, 3), (expanded.width() - 3, 3),
+                             (3, expanded.height() - 3), (expanded.width() - 3, expanded.height() - 3)):
+                    corner = expanded.mapToScene(QPointF(x, y))
+                    assert image.pixelColor(round(corner.x() * scale), round(corner.y() * scale)).name() != '#00ffff'
+                center = expanded.mapToScene(QPointF(expanded.width() / 2, expanded.height() / 2))
+                assert image.pixelColor(round(center.x() * scale), round(center.y() * scale)).name() == '#00ffff'
                 click('expandedTrackArtwork')
                 assert shade.property('visible')
                 click('closeTrackArtwork')

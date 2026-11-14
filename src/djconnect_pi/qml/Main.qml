@@ -6101,6 +6101,9 @@ BrandWindow {
                         spacing: 12
 
                         GlassSurface {
+                            id: expandedArtworkCard
+                            readonly property int artworkInset: 10
+                            readonly property real artworkRadius: radius - artworkInset
                             anchors.horizontalCenter: parent.horizontalCenter
                             width: Math.max(0, Math.min(artworkArea.width,
                                 artworkArea.height - expandedTitle.height - artworkColumn.spacing
@@ -6111,29 +6114,62 @@ BrandWindow {
 
                             VinylPlaceholder {
                                 anchors.fill: parent
-                                anchors.margins: 10
-                                radius: 18
+                                anchors.margins: expandedArtworkCard.artworkInset
+                                radius: expandedArtworkCard.artworkRadius
                                 visible: expandedArt.status !== Image.Ready
                             }
                             Image {
                                 id: expandedArt
                                 objectName: "expandedTrackArtwork"
                                 anchors.fill: parent
-                                anchors.margins: 10
+                                anchors.margins: expandedArtworkCard.artworkInset
                                 source: root.sessionTrackArtwork ? sharedSessionScreen.trackArtworkSource : djconnect.imageUrl
                                 sourceSize.width: width
                                 sourceSize.height: height
                                 asynchronous: true
                                 retainWhileLoading: false
                                 fillMode: Image.PreserveAspectCrop
-                                clip: true
+                                opacity: 0
                                 visible: status === Image.Ready
+                            }
+                            Canvas {
+                                id: roundedArtwork
+                                anchors.fill: expandedArt
+                                visible: expandedArt.visible
+                                property url artworkSource: expandedArt.source
+                                property url loadedSource
+                                function loadArtwork() {
+                                    if (!available) return
+                                    if (loadedSource.toString().length) unloadImage(loadedSource)
+                                    loadedSource = artworkSource
+                                    if (loadedSource.toString().length) loadImage(loadedSource, Qt.size(width, height))
+                                    requestPaint()
+                                }
+                                onAvailableChanged: loadArtwork()
+                                onArtworkSourceChanged: loadArtwork()
+                                onImageLoaded: requestPaint()
+                                onVisibleChanged: if (visible) requestPaint()
+                                onPaint: {
+                                    const ctx = getContext("2d")
+                                    ctx.clearRect(0, 0, width, height)
+                                    if (!expandedArt.visible || !isImageLoaded(loadedSource)) return
+                                    const radius = Math.min(expandedArtworkCard.artworkRadius, width / 2, height / 2)
+                                    ctx.save()
+                                    ctx.beginPath()
+                                    ctx.roundedRect(0, 0, width, height, radius, radius)
+                                    ctx.clip()
+                                    const artWidth = expandedArt.paintedWidth
+                                    const artHeight = expandedArt.paintedHeight
+                                    ctx.drawImage(loadedSource, (width - artWidth) / 2, (height - artHeight) / 2,
+                                                  artWidth, artHeight)
+                                    ctx.restore()
+                                }
                             }
                             Rectangle {
                                 objectName: "trackArtworkControlsShade"
                                 anchors.fill: parent
-                                anchors.margins: 10
-                                radius: 18
+                                anchors.margins: expandedArtworkCard.artworkInset
+                                radius: expandedArtworkCard.artworkRadius
                                 visible: root.trackArtworkCanControl && root.trackArtworkControlsOpen
                                 color: "#80000000"
                             }
