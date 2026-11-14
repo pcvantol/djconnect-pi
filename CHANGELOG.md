@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 4.0.3-rc.1
+
+- Refine Now Playing and allow DJ Flow to scroll behind the docks.
+- Publish Pi release artifacts through the organization-owned distribution
+  repository and verify its publication access separately.
+
 ## 4.0.2
 
 - Enlarge the current track artwork in DJ Flow and put playback controls on the fullscreen artwork.

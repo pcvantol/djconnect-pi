@@ -2,7 +2,7 @@
 set -euo pipefail
 export PYTHONDONTWRITEBYTECODE=1
 
-DJCONNECT_VERSION="${DJCONNECT_VERSION:-4.0.2}"
+DJCONNECT_VERSION="${DJCONNECT_VERSION:-4.0.3-rc.1}"
 DJCONNECT_REPO="${DJCONNECT_REPO:-pcvantol/djconnect-pi-releases}"
 DJCONNECT_HA_URL="${DJCONNECT_HA_URL:-http://homeassistant.local:8123}"
 DJCONNECT_RUNTIME_USER="${DJCONNECT_RUNTIME_USER:-djconnect}"
@@ -650,7 +650,7 @@ PY
 
   log "Writing initial DJConnect config"
   print_resources "before config write"
-  python3 - "$config" "$DJCONNECT_HA_URL" "$(release_profile)" <<'PY'
+  python3 - "$config" "$DJCONNECT_HA_URL" "$(release_profile)" "$(version)" <<'PY'
 from pathlib import Path
 import json
 import sys
@@ -666,7 +666,7 @@ payload = {
     "device_name": "DJConnect Pi",
     "device_token": "",
     "paired": False,
-    "version": "4.0.2",
+    "version": sys.argv[4],
     "update_repo": "pcvantol/djconnect-pi-releases",
     "update_channel": "stable",
     "release_profile": release_profile,

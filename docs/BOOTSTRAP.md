@@ -1,8 +1,7 @@
 # Bootstrap a DJConnect Raspberry Pi appliance
 
-Release preparation: the 4.0.2 download examples below become usable only after
-separate publication approval and immutable release verification. They are not
-an instruction to install an unpublished candidate or resolve `latest`.
+The download examples below use the published stable release 4.0.2. The
+source tree also supports release qualification for 4.0.3-rc.1.
 
 Use this guide for both supported native DJConnect appliances: the 10-inch Pi
 5 wall display and the 4-inch Pi Zero 2 W HyperPixel display. Both use the

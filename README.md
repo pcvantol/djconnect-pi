@@ -5,7 +5,7 @@
   <img src="https://raw.githubusercontent.com/pcvantol/djconnect/7e14e5970b3f68d33d243ae6bab2b281fad59bb2/assets/djconnect/brand-v2/wordmark-primary-light.png" alt="DJConnect" width="640">
 </picture>
 
-Version: `4.0.2`
+Source version: `4.0.3-rc.1`. Stable downloads below use `4.0.2`.
 
 One shared Qt Quick/QML application with a PySide6 backend serves the compact
 4-inch Pi and the portrait Pi10. The selected product target is the full
