@@ -116,6 +116,38 @@ Item {
             actionLabel: screen.tr("session_content_delete_action")
             onDeleteRequested: screen.deleteContent("moment", screen.state.session_id, modelData.moment_id)
         }
+        RowLayout {
+            visible: liveSources.ready
+            Layout.fillWidth: true
+            spacing: 8
+            SessionContributionHeading {
+                visible: modelData.settings_confirmation === true
+                label: screen.tr("session_dj_contribution")
+            }
+            Text {
+                visible: modelData.settings_confirmation !== true
+                text: modelData.title
+                textFormat: Text.PlainText
+                color: BrandTheme.colors.text
+                font.pixelSize: 26; font.bold: true
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+            GlassButton {
+                objectName: "sessionLiveAskAbout"
+                visible: screen.state.composer_available
+                enabled: liveCard.canAsk
+                iconName: "chat"
+                tertiary: true
+                padding: 0
+                Layout.preferredWidth: 44; Layout.preferredHeight: 44
+                Layout.alignment: Qt.AlignTop
+                Accessible.name: screen.tr("session_ask_about")
+                ToolTip.text: Accessible.name
+                ToolTip.visible: hovered
+                onClicked: liveCard.askAbout()
+            }
+        }
         ColumnLayout {
             objectName: "sessionMomentArtworkCard"
             visible: liveSources.ready && !!screen.owner.momentArtwork.source && modelData.current && screen.owner.momentArtwork.moment_id === modelData.moment_id && artworkSource.ready
@@ -149,10 +181,6 @@ Item {
             }
             SessionAttribution { id: artworkSource; requiresSpotify: true; spotifyURL: screen.owner.momentArtwork.source_url || ""; Layout.fillWidth: true }
         }
-        SessionContributionHeading {
-            visible: liveSources.ready && modelData.settings_confirmation === true
-            label: screen.tr("session_dj_contribution")
-        }
         RowLayout {
             visible: liveSources.ready
             Layout.fillWidth: true
@@ -172,7 +200,6 @@ Item {
             }
             ColumnLayout {
                 Layout.fillWidth: true
-                Text { visible: modelData.settings_confirmation !== true; text: modelData.title; textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 26; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                 Text {
                     id: momentBody
                     objectName: "sessionLiveMomentBody"
@@ -203,11 +230,6 @@ Item {
             visible: modelData.current && liveSources.ready && (screen.state.artwork_prepare.status === "unavailable" || screen.state.artwork_prepare.status === "uncertain")
             text: screen.tr(screen.state.artwork_prepare.status === "uncertain" ? "session_artwork_uncertain" : "session_artwork_unavailable")
             textFormat: Text.PlainText; color: BrandTheme.colors.muted; font.pixelSize: 20; wrapMode: Text.WordWrap; Layout.fillWidth: true
-        }
-        GlassButton {
-            visible: screen.state.composer_available && liveSources.ready
-            text: screen.tr("session_ask_about"); enabled: liveCard.canAsk
-            onClicked: liveCard.askAbout()
         }
         SessionAttribution {
             id: liveSources
