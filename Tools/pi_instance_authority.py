@@ -29,6 +29,7 @@ from Tools.validate_pi_release_candidate import validate_source_status
 CORE = "pcvantol/djconnect"
 PI = "pcvantol/djconnect-pi"
 PUBLICATION = "pcvantol/djconnect-pi-releases"
+PUBLICATION_EVIDENCE_PATH = "docs/release/PI_4_0_3_RC1_PUBLICATION_EVIDENCE.json"
 
 PI_ORG = "djconnect-music-dj/djconnect-pi"
 PI_ID = 1267248532
@@ -130,7 +131,8 @@ class GitHubRead:
 
 
 def github_file(client, repository: str, path: str, revision: str) -> tuple[bytes, str]:
-    require(repository == CORE and path == OPERATIONAL_PATH and (exact_hex(revision, 40) or revision == "main"), "PRODUCER_REFERENCE_INVALID")
+    require(repository == CORE and path in {OPERATIONAL_PATH, PUBLICATION_EVIDENCE_PATH}
+            and (exact_hex(revision, 40) or (path == OPERATIONAL_PATH and revision == "main")), "PRODUCER_REFERENCE_INVALID")
     data = client.json("repos/"+repository+"/contents/"+path+"?ref="+revision)
     require(data.get("type") == "file" and data.get("path") == path and data.get("encoding") == "base64"
             and isinstance(data.get("content"), str) and len(data["content"]) <= 360000, "PRODUCER_FILE_INVALID")
