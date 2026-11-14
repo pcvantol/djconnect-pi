@@ -1464,7 +1464,7 @@ _SESSION_COMPOSER_TRANSLATIONS = {
     "session_clear_reference": ("Clear contribution reference", "Verwijzing naar bijdrage wissen", "Beitragsverweis entfernen", "Retirer la référence à la contribution", "Quitar la referencia a la contribución"),
     "session_question_reference_unavailable": ("The selected contribution is no longer available. Select a contribution again.", "De geselecteerde bijdrage is niet meer beschikbaar. Kies opnieuw een bijdrage.", "Der ausgewählte Beitrag ist nicht mehr verfügbar. Wähle erneut einen Beitrag.", "La contribution sélectionnée n’est plus disponible. Sélectionnez une contribution à nouveau.", "La contribución seleccionada ya no está disponible. Vuelve a elegir una contribución."),
     "session_question_title": ("Talk to your DJ", "Praat met je DJ", "Sprich mit deinem DJ", "Parlez à votre DJ", "Habla con tu DJ"),
-    "session_question_placeholder": ("Chat with the DJ…", "Chat met de DJ…", "Mit dem DJ chatten…", "Discutez avec le DJ…", "Habla con el DJ…"),
+    "session_question_placeholder": ("Talk to your DJ…", "Praat met je DJ...", "Sprich mit deinem DJ…", "Parlez à votre DJ…", "Habla con tu DJ…"),
     "session_send": ("Send", "Versturen", "Senden", "Envoyer", "Enviar"),
     "session_ask_about": ("Ask about this", "Vraag hierover", "Hierzu fragen", "Poser une question", "Preguntar sobre esto"),
     "session_question_selected": ("About the selected contribution", "Over de geselecteerde bijdrage", "Über den ausgewählten Beitrag", "À propos de la contribution sélectionnée", "Sobre la contribución seleccionada"),
