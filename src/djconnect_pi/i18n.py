@@ -1010,7 +1010,7 @@ _SHARED_SETTINGS_TRANSLATIONS = {
     ),
     'shared_field_presence': (
         'DJ presence',
-        'DJ-aanwezigheid',
+        'DJ aanwezigheid',
         'DJ-Präsenz',
         'Présence du DJ',
         'Presencia del DJ',

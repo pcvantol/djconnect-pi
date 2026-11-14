@@ -753,6 +753,11 @@ Item {
         var duration = owner.formatSavedDuration(header || ({}))
         return duration ? " · " + duration : ""
     }
+    function toolbarChoiceLabel(field) {
+        if (field === "mood") return tr("session_choice_your_mood")
+        if (field === "persona") return tr("session_choice_dj_character")
+        return tr("shared_field_" + field)
+    }
     function toolbarValue(field) {
         if (backend.demoMode) return owner.demoPreferences[field] || ""
         var shared = backend.sharedSettings
@@ -963,7 +968,7 @@ Item {
                     id: moodButton
                     objectName: "sessionToolbarMood"
                     visible: screen.sessionControlsVisible
-                    iconName: screen.toolbarIcon("mood"); Accessible.name: screen.tr("mood_select")
+                    iconName: screen.toolbarIcon("mood"); Accessible.name: screen.toolbarChoiceLabel("mood")
                     implicitWidth: 52; background: Item {}
                     onClicked: screen.openChoice("mood", moodButton)
                 }
@@ -971,7 +976,7 @@ Item {
                     id: presenceButton
                     objectName: "sessionToolbarPresence"
                     visible: screen.sessionControlsVisible
-                    iconName: screen.toolbarIcon("presence"); Accessible.name: screen.tr("shared_field_presence")
+                    iconName: screen.toolbarIcon("presence"); Accessible.name: screen.toolbarChoiceLabel("presence")
                     implicitWidth: 52; background: Item {}
                     onClicked: screen.openChoice("presence", presenceButton)
                 }
@@ -979,7 +984,7 @@ Item {
                     id: personaButton
                     objectName: "sessionToolbarPersona"
                     visible: screen.sessionControlsVisible
-                    iconName: screen.toolbarIcon("persona"); Accessible.name: screen.tr("shared_field_persona")
+                    iconName: screen.toolbarIcon("persona"); Accessible.name: screen.toolbarChoiceLabel("persona")
                     implicitWidth: 52; background: Item {}
                     onClicked: screen.openChoice("persona", personaButton)
                 }
@@ -2697,8 +2702,7 @@ Item {
         contentItem: ColumnLayout {
             spacing: 16
             Text {
-                text: screen.tr(choices.field === "mood" ? "session_choice_your_mood"
-                    : choices.field === "persona" ? "session_choice_dj_character" : "shared_field_" + choices.field)
+                text: screen.toolbarChoiceLabel(choices.field)
                 color: BrandTheme.colors.text
                 font.pixelSize: 26
                 font.bold: true
