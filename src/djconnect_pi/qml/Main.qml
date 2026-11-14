@@ -3790,6 +3790,28 @@ BrandWindow {
         id: askDjPanel
         objectName: "askDjPanel"
         color: BrandTheme.colors.background
+        property bool chatKeyboardOpen: false
+
+        function clearChatDraft() {
+            chatKeyboardOpen = false
+            askDjChatInput.clear()
+            askDjChatInput.focus = false
+        }
+
+        function sendQuestion() {
+            if (askDjSend.enabled && djconnect.sendAskDjQuestion(askDjChatInput.text)) {
+                clearChatDraft()
+                Qt.callLater(scrollToTop)
+            }
+        }
+
+        Connections {
+            target: djconnect
+            function onProfileChanged() { askDjPanel.clearChatDraft() }
+            function onPairedChanged() { askDjPanel.clearChatDraft() }
+            function onDemoModeChanged() { askDjPanel.clearChatDraft() }
+        }
+
         property bool searchOpen: false
         property bool searchKeyboardOpen: false
         property int selectedMatch: -1
@@ -3808,7 +3830,7 @@ BrandWindow {
         }
         readonly property int selectedRow: matches[selectedMatch] ? matches[selectedMatch].row : -1
 
-        onVisibleChanged: if (!visible) closeSearch()
+        onVisibleChanged: if (!visible) { closeSearch(); clearChatDraft() }
         onMatchesChanged: {
             if (!searchOpen)
                 return
@@ -3827,6 +3849,7 @@ BrandWindow {
         }
 
         function openSearch() {
+            chatKeyboardOpen = false
             searchOpen = true
             searchKeyboardOpen = true
             askDjSearchInput.forceActiveFocus()
@@ -4706,6 +4729,52 @@ BrandWindow {
                         }
                     }
                 }
+            }
+
+            GlassSurface {
+                objectName: "askDjChatBar"
+                visible: !askDjPanel.searchOpen
+                Layout.fillWidth: true
+                Layout.preferredHeight: 66
+                radius: 30; elevated: true
+
+                RowLayout {
+                    anchors.fill: parent; anchors.margins: 8
+                    spacing: 8
+                    TextField {
+                        id: askDjChatInput
+                        objectName: "askDjChatInput"
+                        Layout.fillWidth: true; Layout.fillHeight: true
+                        enabled: (djconnect.paired || djconnect.demoMode) && !djconnect.askDjBusy
+                        maximumLength: 4000
+                        placeholderText: root.tr("session_question_placeholder")
+                        Accessible.name: placeholderText
+                        font.pixelSize: 21
+                        selectByMouse: true
+                        background: GlassSurface { radius: 24; interactive: true; focused: askDjChatInput.activeFocus }
+                        TapHandler { onTapped: askDjPanel.chatKeyboardOpen = true }
+                        onAccepted: askDjPanel.sendQuestion()
+                    }
+                    GlassButton {
+                        id: askDjSend
+                        objectName: "askDjSend"
+                        iconName: "send"; Accessible.name: root.tr("session_send")
+                        primary: true
+                        Layout.preferredWidth: 52; Layout.fillHeight: true
+                        enabled: askDjChatInput.enabled && askDjChatInput.text.trim().length > 0
+                        onClicked: askDjPanel.sendQuestion()
+                    }
+                }
+            }
+
+            SearchKeyboardDock {
+                visible: !askDjPanel.searchOpen && askDjPanel.chatKeyboardOpen
+                Layout.fillWidth: true
+                backend: djconnect
+                target: askDjChatInput
+                keyboardName: "askDjChatKeyboard"
+                onSubmitted: askDjPanel.sendQuestion()
+                onDismissed: askDjPanel.chatKeyboardOpen = false
             }
 
             SearchKeyboardDock {

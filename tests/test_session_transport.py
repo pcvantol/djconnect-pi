@@ -103,6 +103,25 @@ def test_question_is_single_profile_bound_text_only_request_with_exact_context(t
     request.assert_called_once()
 
 
+def test_standalone_question_checks_receipt_and_sends_text_once(transport):
+    client, _, request, response = transport
+    response.json.return_value = {"success": True, "owner_profile_id": "owner", "client_message_id": "turn"}
+    client.standalone_question(client.binding(), "  Tell me about this artist  ", "turn", "owner")
+    assert request.call_args.args[0] == "POST"
+    assert request.call_args.args[1].endswith("/ask_dj/message")
+    payload = request.call_args.kwargs["json"]
+    assert payload["text"] == "Tell me about this artist"
+    assert payload["conversation_context"] == {}
+    assert payload["profile_id"] == "owner"
+    assert payload["audio_response"] == "never"
+    request.assert_called_once()
+
+    request.reset_mock()
+    with pytest.raises(SessionError, match="uncertain"):
+        client.standalone_question(client.binding(), "Question", "another-turn", "owner")
+    request.assert_called_once()
+
+
 def test_question_timeout_is_uncertain_with_no_write_replay(transport):
     client, _, request, _ = transport
     request.side_effect = requests.Timeout()

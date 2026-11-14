@@ -562,6 +562,25 @@ class SessionTransport:
         route = "session/history/" + quote(identifier(session_id), safe="") + "/search"
         return self._request(binding, "GET", route, {**self._page(cursor, limit), "q": query})
 
+    def standalone_history(self, binding, owner: str):
+        result = self._request(binding, "GET", "ask_dj/history", {
+            "conversation_scope": "profile", "profile_id": identifier(owner),
+        }, isolated=True)
+        if result.get("owner_profile_id") != owner or result.get("history_scope") != "profile":
+            raise SessionError("context_changed")
+        return result
+
+    def standalone_question(self, binding, text: str, message_id: str, owner: str):
+        if not isinstance(text, str) or not text.strip() or len(text) > 4000:
+            raise SessionError("invalid")
+        result = self._request(binding, "POST", "ask_dj/message", {
+            "text": text.strip(), "client_message_id": identifier(message_id),
+            "conversation_context": {}, "conversation_scope": "profile", "profile_id": identifier(owner),
+            "language": locale_for_language(binding.language), "audio_response": "never",
+        }, timeout=(8, 120), isolated=True)
+        if result.get("owner_profile_id") != owner or result.get("client_message_id") != message_id:
+            raise SessionError("uncertain")
+
     def question(self, binding, request):
         body = request["text"].strip() if isinstance(request.get("text"), str) else ""
         if not body or len(body) > 4000:

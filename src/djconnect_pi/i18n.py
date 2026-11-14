@@ -1380,11 +1380,11 @@ _INTRODUCTION_TRANSLATIONS = {
         "Aprende de tus gustos y hábitos de escucha para adaptar las recomendaciones a tu perfil.",
     ),
     "ask_dj_introduction": (
-        "Ask your DJ about music and artists during an active session.",
-        "Vraag je DJ tijdens een actieve sessie naar muziek en artiesten.",
-        "Frag deinen DJ während einer aktiven Session nach Musik und Künstlern.",
-        "Interrogez votre DJ sur la musique et les artistes pendant une session active.",
-        "Pregunta a tu DJ sobre música y artistas durante una sesión activa.",
+        "Ask your DJ about music, artists, and more.",
+        "Vraag je DJ over muziek, artiesten en meer.",
+        "Frag deinen DJ nach Musik, Künstlern und mehr.",
+        "Posez vos questions à votre DJ sur la musique, les artistes et plus encore.",
+        "Pregunta a tu DJ sobre música, artistas y más.",
     ),
 }
 for _key, _values in _INTRODUCTION_TRANSLATIONS.items():

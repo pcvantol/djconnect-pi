@@ -15,7 +15,7 @@ Responsibilities:
 - send periodic status
 - send playback commands
 - poll Ask DJ history/status as a read-only conversation feed
-- send only structured HA-provided Ask DJ action responses from touch buttons
+- send text questions and structured HA-provided Ask DJ actions from the touch UI
 - execute HA initiated playback commands received through the local
   command-event queue
 - render now-playing and connection state
@@ -293,8 +293,9 @@ The owner-selected full Pi app adds a gated active-Session text composer on the
 existing Profile-authorized Ask DJ route. Text mode is advertised; voice/audio
 remain false. Exact references, unique client-message IDs and receipt owner/context
 checks precede fresh history readback. No raw media/action response is executed.
-The separate legacy Ask DJ history/actions page polls Home Assistant history/status, renders backend responses as
-authoritative and sends only HA-provided structured action payloads. It does
+The separate Ask DJ page sends text questions without a Session ID and reads
+confirmed replies from Profile history. Its touch buttons send structured
+action payloads supplied by Home Assistant. It does
 not expose local-only history clear, voice/PTT, local TTS or
 local audio playback. Chat clear is a confirmed server-side operation through
 `djconnect/ask_dj/history/clear` or

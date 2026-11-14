@@ -16,6 +16,7 @@ from datetime import datetime
 from importlib.resources import files
 from pathlib import Path
 from urllib.parse import urlencode, urlparse, urlsplit
+from uuid import uuid4
 
 import requests
 from PySide6.QtCore import (
@@ -1543,6 +1544,62 @@ class DJConnectBackend(QObject):
             self.showToastForContext(self.tr_key("refreshing"), "askdj")
         self._set_ask_dj_busy(True)
         self._run(self.tr_key("ask_dj"), self._load_ask_dj_history_worker, done=lambda: self._set_ask_dj_busy(False))
+
+    @Slot(str, result=bool)
+    def sendAskDjQuestion(self, text: str) -> bool:
+        text = text.strip()
+        if not text or len(text) > 4000 or self._ask_dj_busy or not self._application_foreground or self._shutting_down:
+            return False
+        message_id = uuid4().hex
+        if self._demo_mode:
+            self._merge_ask_dj_messages(parse_ask_dj_messages({"messages": [
+                {"id": message_id, "role": "user", "text": text},
+                {"id": message_id + "-demo", "role": "assistant", "text": self.tr_key("demo_dj_answer")},
+            ]}))
+            return True
+        self._sync_config_from_disk()
+        if not self.paired or self.cfg.private_session:
+            return False
+        transport = self._session_controller.transport
+        try:
+            binding = transport.binding()
+        except SessionError:
+            return False
+        ticket = self._private_read_context()
+
+        def current():
+            return (not self._shutting_down and self._application_foreground and not self._demo_mode
+                    and ticket == self._private_read_context() and binding == transport.binding())
+
+        def send():
+            try:
+                if not current():
+                    return
+                owner = transport.private_scope_owner(binding)
+                if not current():
+                    return
+                if not owner:
+                    self._toastReady.emit(self.tr_key("session_profile_missing"), 5000, "askdj")
+                    return
+                transport.standalone_question(binding, text, message_id, owner)
+                if not current():
+                    return
+                history = transport.standalone_history(binding, owner)
+                if current():
+                    self._askDjReady.emit(self._profile_read_result(history, ticket))
+            except SessionError:
+                if ticket == self._private_read_context() and self._application_foreground:
+                    self._toastReady.emit(self.tr_key("session_uncertain"), 5000, "askdj")
+
+        def execute():
+            try:
+                send()
+            finally:
+                self._set_ask_dj_busy(False)
+
+        self._set_ask_dj_busy(True)
+        self._question_executor.submit(execute)
+        return True
 
     @Slot(str)
     def sendAskDjAction(self, action_payload: str) -> None:
