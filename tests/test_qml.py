@@ -209,11 +209,10 @@ def test_qml_has_touch_readable_glass_controls_and_scrollable_settings() -> None
     assert 'root.tr("about")' not in settings_block
     assert "djconnect.showLogs()" not in settings_block
     assert "root.aboutOpen = true" not in settings_block
-    assert 'root.tr("dj_announcement_settings_title")' in settings_block
-    assert 'root.tr("dj_announcement_output")' in settings_block
-    assert "djconnect.djAnnouncementSpeakerAvailable ? [\"text_only\", \"ha_speaker\"] : [\"text_only\"]" in settings_block
-    assert "djconnect.setDjAnnouncementOutput(outputChoices[index])" in settings_block
-    assert 'root.tr("dj_announcement_speaker_unavailable")' in settings_block
+    assert "SharedSettingsPanel {" not in settings_block
+    assert "setDjAnnouncementOutput" not in settings_block
+    start_card = files("djconnect_pi.qml").joinpath("SessionStartCard.qml").read_text(encoding="utf-8")
+    assert "SharedSettingsPanel {" in start_card
     assert "speaker_entity_id" not in settings_block
     assert 'root.tr("save")' not in main_qml
     assert 'text: root.tr("no_voice")' not in main_qml
@@ -362,7 +361,7 @@ def test_qml_has_bottom_navigation_bar() -> None:
     assert "djconnect.loadAskDjHistory()" in more and "sharedSessionScreen.openArchive()" in more
 
 
-def test_qml_ask_dj_screen_is_readonly_actions_without_free_input() -> None:
+def test_qml_ask_dj_screen_keeps_history_actions_and_text_composer() -> None:
     main_qml = files("djconnect_pi.qml").joinpath("Main.qml").read_text(encoding="utf-8")
     ask_dj_block = main_qml[main_qml.index("id: askDjPanel") : main_qml.index("GamesPanel {")]
 
@@ -390,7 +389,9 @@ def test_qml_ask_dj_screen_is_readonly_actions_without_free_input() -> None:
     assert "root.askDjClearConfirmOpen && djconnect.askDjMessages.length === 0" in main_qml
     assert 'root.tr("ask_dj_readonly_hint")' not in ask_dj_block
     assert "djconnect.sendAskDjAction(modelData.payload" in ask_dj_block
-    assert ask_dj_block.count("TextField {") == 1
+    assert 'objectName: "askDjChatBar"' in ask_dj_block
+    assert "djconnect.sendAskDjQuestion(askDjChatInput.text)" in ask_dj_block
+    assert 'keyboardName: "askDjChatKeyboard"' in ask_dj_block
     assert 'objectName: "askDjSearchInput"' in ask_dj_block
     assert 'root.tr("ask_dj_input_placeholder")' not in ask_dj_block
     assert 'root.tr("send")' not in ask_dj_block

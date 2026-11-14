@@ -6,6 +6,7 @@ import argparse
 import json
 from copy import deepcopy
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from PySide6.QtCore import QObject, Qt, QTimer, qInstallMessageHandler
@@ -115,6 +116,8 @@ def main():
                 patch.object(backend._question_executor, "submit"),
             ):
                 owner = backend.djSession
+                image_jobs = []
+                owner._forecast_images.executor = SimpleNamespace(submit=image_jobs.append, shutdown=lambda **kwargs: None)
                 engine = QQmlApplicationEngine()
                 engine.rootContext().setContextProperty("djconnect", backend)
                 engine.rootContext().setContextProperty("startWindowed", True)
@@ -141,7 +144,7 @@ def main():
                     sample = next(f for f in fixtures if f["language"] == language and f["persona"] == "home_dj")
                     snapshot = deepcopy(sample["reconnect"]["snapshot"])
                     forecast = deepcopy(sample["owner_read"]["forecast"])
-                    forecast["imagery"] = []
+                    assert forecast["imagery"]  # The Pi should not fetch an offered image lease.
                     snapshot["session_forecast"] = forecast
                     guidance = next(section for section in forecast["sections"] if section["id"] == "guidance")
                     prose = guidance["text"]
@@ -158,6 +161,21 @@ def main():
                             ", ".join(selected_tracks[:-1]) + f" {conjunction} " + selected_tracks[-1]
                         )
                         section = show(owner, session, caps, stamp, guidance, f"{intro} {joined}. {note}", mood, window, screen, horizon, flow)
+                        banner = one(screen, "sessionHorizonBanner")
+                        assert banner.property("source").fileName() == f"horizon-hero-{mood}.png"
+                        assert QQmlExpression(engine.rootContext(), banner, "status === 1").evaluate()[0]  # Image.Ready
+                        assert not list(visual_items(screen, "sessionForecastArtistCard"))
+                        assert not owner.forecastImage and not image_jobs
+                        assert not window.property("trackArtworkViewOpen")
+                        expression = QQmlExpression(engine.rootContext(), window, "showTrackArtwork(false, true)")
+                        expression.evaluate()
+                        assert not expression.hasError() and not window.property("trackArtworkOpen")
+                        notice = one(screen, "sessionForecastNotice")
+                        assert banner.mapToItem(notice, 0, banner.height()).y() < 0
+                        if language == "nl":
+                            assert notice.property("text") == (
+                                "Een richting voor de komende minuten. Muziek en bijdragen kunnen veranderen."
+                            )
                         rows = list(visual_items(section, "sessionForecastQueueTrack"))
                         assert [item.property("text") for item in rows] == selected_tracks
                         for item in rows:
@@ -186,11 +204,16 @@ def main():
                             assert len(labels) == 1 and not labels[0].property("truncated")
                         assert max(button.width() for button in buttons) - min(button.width() for button in buttons) <= 1
                         scroll = window.findChild(QObject, "sessionForecastScroll").property("contentItem")
+                        if language == "nl":
+                            scroll.setProperty("contentY", 0)
+                            QTest.qWait(60)
+                            capture(window, output, captures, f"horizon-banner-{mood}")
                         scroll.setProperty("contentY", scroll.property("contentY") + section.mapToItem(scroll, 0, 0).y())
                         QTest.qWait(60)
                         capture(window, output, captures, f"horizon-{language}-{mood}")
                         click(window, flow)
                         assert not screen.property("showForecast") and flow.property("checked")
+                        assert window.property("trackArtworkViewOpen") and banner.property("source").isEmpty()
 
                     # Ordinary prose and a malformed six-track lookalike stay verbatim.
                     for fallback in (prose, f"{intro} {', '.join([track_names[0]] * 6)}. {note}"):

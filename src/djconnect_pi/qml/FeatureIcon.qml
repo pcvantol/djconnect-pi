@@ -114,6 +114,41 @@ Canvas {
             } else if (iconName === "next") {
                 transportTriangle(1, 0.05); transportTriangle(1, -0.17)
                 ctx.fillRect(px(16) + s * 0.23, py(16) - s * 0.24, s * 0.07, s * 0.48)
+            } else if (iconName === "repeat") {
+                line(6, 10, 26, 10)
+                line(22, 6, 26, 10)
+                line(22, 14, 26, 10)
+                line(26, 22, 6, 22)
+                line(10, 18, 6, 22)
+                line(10, 26, 6, 22)
+            } else if (iconName === "shuffle") {
+                line(5, 9, 10, 9)
+                line(10, 9, 23, 23)
+                line(23, 23, 27, 23)
+                line(23, 19, 27, 23)
+                line(23, 27, 27, 23)
+                line(5, 23, 10, 23)
+                line(10, 23, 23, 9)
+                line(23, 9, 27, 9)
+                line(23, 5, 27, 9)
+                line(23, 13, 27, 9)
+            } else if (iconName === "seek_back_15" || iconName === "seek_forward_15") {
+                var backward = iconName === "seek_back_15"
+                ctx.save()
+                if (backward) {
+                    ctx.translate(px(32) + px(0), 0)
+                    ctx.scale(-1, 1)
+                }
+                ctx.beginPath()
+                ctx.arc(px(16), py(17), s * 0.34, -0.42 * Math.PI, 1.35 * Math.PI)
+                ctx.stroke()
+                line(24, 3, 24, 9)
+                line(19, 9, 24, 9)
+                ctx.restore()
+                ctx.font = "bold " + Math.round(s * 0.33) + "px sans-serif"
+                ctx.textAlign = "center"
+                ctx.textBaseline = "middle"
+                ctx.fillText("15", px(16), py(17))
             } else if (iconName === "waveform" || iconName === "mood_groove" || iconName === "presence_talkative") {
                 waveform()
             } else if (iconName === "mood_chill") {

@@ -117,7 +117,30 @@ BrandWindow {
     Binding { target: GlassStyle; property: "enabled"; value: root.liquidGlassEnabled }
     Binding { target: GlassStyle; property: "hardware"; value: root.wallProfile && root.GraphicsInfo.api === GraphicsInfo.OpenGL }
     Binding { target: GlassStyle; property: "awake"; value: root.visible && !root.screenBlanked }
-    Binding { target: GlassStyle; property: "backdrop"; value: glassUnderlay }
+    readonly property bool usesPageBackdrop: ["session", "queue", "playlists", "trackinsight", "discover",
+        "more", "settings", "musicdna", "askdj", "legal", "privacy", "feedback"].includes(activeScreen)
+    readonly property bool showsSessionBackdrop: activeScreen === "session" && sessionHeader.runtime_state === "active"
+
+    // Keep the backdrop outside the page loaders so a slow page never exposes a different surface.
+    Item {
+        id: pageBackdrop
+        objectName: "persistentPageBackdrop"
+        anchors.fill: parent
+        z: -999
+        visible: root.usesPageBackdrop
+        SessionMoodCanvas {
+            anchors.fill: parent
+            mood: root.appearanceMood
+            activeSession: root.sessionHeader.runtime_state === "active"
+        }
+        SessionMoodCanvas {
+            anchors.fill: parent
+            visible: !root.showsSessionBackdrop
+            mood: "chill"
+            activeSession: false
+        }
+    }
+    Binding { target: GlassStyle; property: "backdrop"; value: root.usesPageBackdrop ? pageBackdrop : glassUnderlay }
     Binding { target: GlassStyle; property: "texture"; value: sharedGlassCapture.item ? sharedGlassCapture.item.texture : null }
     // Never captures private content or the material itself; no recursive feedback.
     AppBackground {
@@ -130,7 +153,7 @@ BrandWindow {
         objectName: "sharedGlassCapture"
         active: GlassStyle.enabled && GlassStyle.hardware && GlassStyle.awake
         anchors.fill: parent; visible: false
-        sourceComponent: GlassBackdrop { sourceItem: glassUnderlay }
+        sourceComponent: GlassBackdrop { sourceItem: root.usesPageBackdrop ? pageBackdrop : glassUnderlay }
     }
     FrameAnimation {
         objectName: "glassGeometryAnimation"
@@ -167,7 +190,7 @@ BrandWindow {
             sharedSessionScreen.owner.cancelPlaybackIntent()
     }
     property bool sessionTrackArtwork: false
-    readonly property bool trackArtworkViewOpen: sharedSessionScreen.liveViewOpen
+    readonly property bool trackArtworkViewOpen: sharedSessionScreen.liveViewOpen && !sharedSessionScreen.showForecast
     onTrackArtworkViewOpenChanged: if (!trackArtworkViewOpen) trackArtworkOpen = false
     readonly property bool overlayTrackAvailable: sessionTrackArtwork ? sharedSessionScreen.trackArtworkAvailable : djconnect.hasTrackTitle
     onOverlayTrackAvailableChanged: if (!overlayTrackAvailable) trackArtworkOpen = false
@@ -236,11 +259,6 @@ BrandWindow {
     function tr(key) {
         root.trVersion
         return djconnect.t(key)
-    }
-
-    function djAnnouncementOutputLabel(value) {
-        if (value === "ha_speaker") return root.tr("dj_announcement_output_ha_speaker")
-        return root.tr("dj_announcement_output_text_only")
     }
 
     function trackInsightLabel(value) {
@@ -325,8 +343,6 @@ BrandWindow {
             djconnect.loadMusicDna()
         } else if (root.activeScreen === "discover") {
             djconnect.loadMusicDiscovery()
-        } else if (root.activeScreen === "settings") {
-            djconnect.pollSharedSettings()
         }
     }
 
@@ -933,7 +949,7 @@ BrandWindow {
         }
 
         anchors.fill: parent
-        color: BrandTheme.colors.background
+        color: "transparent"
         z: 16
         onVisibleChanged: {
             if (visible) mediaRows.positionViewAtBeginning()
@@ -954,7 +970,6 @@ BrandWindow {
             function onScreenBlankedChanged() { if (root.screenBlanked) panel.closeSearch() }
         }
 
-        AppBackground { sessionCanvas: true }
         ModalBlocker {}
 
         ColumnLayout {
@@ -1860,7 +1875,7 @@ BrandWindow {
     component SettingsPage: Rectangle {
         id: settingsPanel
         objectName: "settingsPanel"
-        color: BrandTheme.colors.background
+        color: "transparent"
         onVisibleChanged: {
             if (visible && settingsScroll.contentItem) {
                 settingsScroll.contentItem.contentY = 0
@@ -1874,7 +1889,6 @@ BrandWindow {
             return 0
         }
 
-        AppBackground { sessionCanvas: true }
 
         PageToolbar {
             id: settingsToolbar
@@ -2183,71 +2197,6 @@ BrandWindow {
                 }
             }
 
-            SharedSettingsPanel {
-                backend: djconnect
-                visible: djconnect.paired
-                Layout.fillWidth: true
-            }
-
-            Text {
-                visible: !djconnect.sharedSettingsManaged
-                text: root.tr("dj_announcement_settings_title")
-                color: BrandTheme.colors.text
-                font.pixelSize: 26
-                font.bold: true
-                Layout.fillWidth: true
-                Layout.topMargin: 8
-            }
-
-            RowLayout {
-                visible: !djconnect.sharedSettingsManaged
-                Layout.fillWidth: true
-                spacing: 14
-
-                Text {
-                    text: root.tr("dj_announcement_output")
-                    color: BrandTheme.colors.muted
-                    font.pixelSize: 22
-                    Layout.preferredWidth: 176
-                    wrapMode: Text.WordWrap
-                }
-
-                BrandComboBox {
-                    id: djAnnouncementOutputBox
-                    visible: !djconnect.sharedSettingsManaged
-                    property var outputChoices: djconnect.djAnnouncementSpeakerAvailable ? ["text_only", "ha_speaker"] : ["text_only"]
-                    font.pixelSize: 24
-                    model: outputChoices
-                    currentIndex: Math.max(0, outputChoices.indexOf(djconnect.djAnnouncementOutput))
-                    displayText: root.djAnnouncementOutputLabel(djconnect.djAnnouncementOutput)
-                    delegate: ItemDelegate {
-                        width: djAnnouncementOutputBox.width
-                        text: root.djAnnouncementOutputLabel(modelData)
-                        font.pixelSize: 26
-                    }
-                    Layout.fillWidth: true
-                    onActivated: function(index) { djconnect.setDjAnnouncementOutput(outputChoices[index]) }
-                }
-            }
-
-            Text {
-                visible: !djconnect.sharedSettingsManaged && !djconnect.djAnnouncementSpeakerAvailable
-                text: root.tr("dj_announcement_speaker_unavailable")
-                color: BrandTheme.colors.muted
-                font.pixelSize: 18
-                wrapMode: Text.WordWrap
-                Layout.fillWidth: true
-            }
-
-            Text {
-                visible: !djconnect.sharedSettingsManaged && djconnect.djAnnouncementSpeakerAvailable && djconnect.djAnnouncementSpeakerName.length > 0
-                text: root.tr("dj_announcement_speaker_configured") + " " + djconnect.djAnnouncementSpeakerName
-                color: BrandTheme.colors.muted
-                font.pixelSize: 18
-                wrapMode: Text.WordWrap
-                Layout.fillWidth: true
-            }
-
             Text {
                 text: root.tr("music_dna")
                 color: BrandTheme.colors.text
@@ -2406,11 +2355,10 @@ BrandWindow {
     Rectangle {
         id: morePanel
         anchors.fill: parent
-        color: BrandTheme.colors.background
+        color: "transparent"
         visible: root.activeScreen === "more"
         z: 16
 
-        AppBackground { sessionCanvas: true }
         ModalBlocker {}
 
         ColumnLayout {
@@ -2492,9 +2440,8 @@ BrandWindow {
     Rectangle {
         anchors.fill: parent
         visible: root.activeScreen === "legal" || root.activeScreen === "privacy" || root.activeScreen === "feedback"
-        color: BrandTheme.colors.background
+        color: "transparent"
         z: 17
-        AppBackground { sessionCanvas: true }
         ModalBlocker {}
         InformationPage {
             objectName: "informationPage"
@@ -2524,7 +2471,7 @@ BrandWindow {
         readonly property bool canChooseVisualMood: visible && root.active && !root.screenBlanked && !hasLiveSession
         onCanChooseVisualMoodChanged: if (!canChooseVisualMood) trackInsightMoodPopup.close()
         property bool autoInsightRequested: false
-        color: BrandTheme.colors.background
+        color: "transparent"
         Component.onCompleted: requestInsightIfVisible()
         onVisibleChanged: requestInsightIfVisible()
 
@@ -2537,7 +2484,6 @@ BrandWindow {
             }
         }
 
-        AppBackground { sessionCanvas: true }
         ModalBlocker {}
 
         ColumnLayout {
@@ -2962,28 +2908,55 @@ BrandWindow {
         required property var recommendation
         backend: djconnect
         imageItem: cover
-        active: visible && !root.screenBlanked
+        active: visible && (root.activeScreen === "discover" || root.activeScreen === "musicdna") && !root.screenBlanked
         leaseKey: djconnect.activeProfileId + "|" + (recommendation.payload || "")
+        property string displayIcon: "discover"
+        readonly property real expiresAt: recommendation.imageExpiresAt || 0
+        property bool expired: false
+        function checkImageExpiry() {
+            expiryTimer.stop()
+            expired = expiresAt > 0 && expiresAt <= Date.now()
+            if (active && expiresAt > 0 && !expired) {
+                expiryTimer.interval = Math.max(1, Math.ceil(expiresAt - Date.now()))
+                expiryTimer.start()
+            }
+        }
+        onExpiresAtChanged: checkImageExpiry()
+        onActiveChanged: checkImageExpiry()
+        Component.onCompleted: checkImageExpiry()
+        Timer { id: expiryTimer; onTriggered: artwork.checkImageExpiry() }
         radius: 20
         clip: true
 
         FeatureIcon {
             anchors.centerIn: parent
-            width: 42; height: width
-            iconName: "discover"
+            width: Math.min(42, parent.width * 0.7); height: width
+            iconName: artwork.displayIcon
             visible: cover.status !== Image.Ready
         }
         Image {
             id: cover
             objectName: "discoveryArtworkImage"
             anchors.fill: parent
-            source: artwork.recommendation.imageUrl || ""
+            source: artwork.active && !artwork.expired ? artwork.recommendation.imageUrl || "" : ""
+            cache: false
             sourceSize: root.lowMemoryProfile
                 ? Qt.size(Math.min(224, Math.ceil(width)), Math.min(224, Math.ceil(height)))
                 : Qt.size(Math.ceil(width), Math.ceil(height))
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
             visible: status === Image.Ready
+        }
+        Image {
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            anchors.margins: 4
+            width: Math.min(56, parent.width * 0.8); height: width * 0.54
+            fillMode: Image.PreserveAspectFit
+            source: "spotify-attribution.png"
+            visible: cover.visible && !!artwork.recommendation.imageSourceUrl
+            Accessible.name: "Spotify"
+            TapHandler { onTapped: Qt.openUrlExternally(artwork.recommendation.imageSourceUrl) }
         }
     }
 
@@ -3027,7 +3000,7 @@ BrandWindow {
         objectName: "musicDiscoveryPanel"
         readonly property alias detailVisible: discoveryDetail.visible
         function closeDetail() { discoveryDetail.close() }
-        color: BrandTheme.colors.background
+        color: "transparent"
 
         readonly property var sections: {
             const groups = []
@@ -3053,7 +3026,6 @@ BrandWindow {
 
         onVisibleChanged: if (!visible) discoveryDetail.close()
 
-        AppBackground { sessionCanvas: true }
         ModalBlocker {}
 
         ColumnLayout {
@@ -3496,12 +3468,86 @@ BrandWindow {
         sourceComponent: MusicDnaPage {}
     }
 
+    component MusicDnaMeter: ColumnLayout {
+        id: meter
+        required property real value
+        property string label: ""
+        spacing: 5
+        RowLayout {
+            Layout.fillWidth: true
+            Text {
+                text: meter.label
+                textFormat: Text.PlainText
+                color: BrandTheme.colors.muted
+                font.pixelSize: 16
+                Layout.fillWidth: true
+                wrapMode: Text.Wrap
+            }
+            Text { text: Number(meter.value.toFixed(1)).toLocaleString(Qt.locale(djconnect.language)) + "%"; color: BrandTheme.colors.text; font.bold: true; font.pixelSize: 17 }
+        }
+        Rectangle {
+            Layout.fillWidth: true
+            implicitHeight: 7; radius: 4
+            color: "#30FFFFFF"
+            Rectangle { width: parent.width * meter.value / 100; height: parent.height; radius: 4; color: BrandTheme.colors.actionAccent }
+        }
+    }
+
+    component MusicDnaRow: RowLayout {
+        id: dnaRow
+        required property var entry
+        readonly property string title: entry.labelKey ? root.tr(entry.labelKey) : entry.title || ""
+        readonly property string value: entry.valueKey ? root.tr(entry.valueKey)
+            : entry.value || (typeof entry.count === "number"
+                ? root.tr("music_dna_card_plays").replace("%1", entry.count) : "")
+        readonly property bool percentage: typeof entry.percent === "number"
+        Layout.fillWidth: true
+        spacing: 10
+        DiscoveryArtwork {
+            visible: !!dnaRow.entry.imageUrl
+            recommendation: dnaRow.entry
+            displayIcon: "music"
+            padding: 0; radius: 12
+            Layout.preferredWidth: 52; Layout.preferredHeight: 52
+        }
+        MusicDnaMeter {
+            visible: dnaRow.percentage
+            Layout.fillWidth: true
+            value: dnaRow.percentage ? dnaRow.entry.percent : 0
+            label: dnaRow.title
+        }
+        ColumnLayout {
+            visible: !dnaRow.percentage
+            Layout.fillWidth: true
+            spacing: 3
+            Text {
+                visible: text.length > 0
+                text: dnaRow.title || dnaRow.value
+                textFormat: Text.PlainText
+                color: BrandTheme.colors.text; font.pixelSize: 17; font.bold: true
+                Layout.fillWidth: true; wrapMode: Text.Wrap
+            }
+            Text {
+                visible: text.length > 0
+                text: dnaRow.entry.labelKey ? dnaRow.entry.title || dnaRow.value : dnaRow.entry.subtitle || ""
+                textFormat: Text.PlainText
+                color: BrandTheme.colors.muted; font.pixelSize: 15
+                Layout.fillWidth: true; wrapMode: Text.Wrap
+            }
+        }
+        Text {
+            visible: !dnaRow.percentage && !dnaRow.entry.labelKey && !!dnaRow.title && !!dnaRow.value
+            text: dnaRow.value
+            textFormat: Text.PlainText
+            color: BrandTheme.colors.muted; font.pixelSize: 15
+        }
+    }
+
     component MusicDnaPage: Rectangle {
         id: musicDnaPanel
         objectName: "musicDnaPanel"
-        color: BrandTheme.colors.background
+        color: "transparent"
 
-        AppBackground { sessionCanvas: true }
         ModalBlocker {}
 
         ColumnLayout {
@@ -3568,23 +3614,6 @@ BrandWindow {
                 }
             }
 
-            GlassCard {
-                objectName: "musicDnaSummaryHero"
-                hero: true; padding: root.wallProfile ? 32 : 18
-                visible: djconnect.musicDnaError.length === 0 && djconnect.musicDnaEnabled && djconnect.musicDnaSummary.length > 0
-                Layout.fillWidth: true
-                Layout.maximumHeight: implicitHeight
-                Text {
-                    visible: djconnect.musicDnaError.length === 0 && djconnect.musicDnaEnabled && djconnect.musicDnaSummary.length > 0
-                    text: djconnect.musicDnaSummary
-                    textFormat: Text.PlainText
-                    color: BrandTheme.colors.text
-                    font.pixelSize: 22
-                    wrapMode: Text.WordWrap
-                    Layout.fillWidth: true
-                }
-            }
-
             ScrollView {
                 id: musicDnaScroll
                 visible: djconnect.musicDnaError.length === 0 && djconnect.musicDnaEnabled
@@ -3594,37 +3623,164 @@ BrandWindow {
                 ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
                 contentWidth: availableWidth
 
-                ColumnLayout {
+                GridLayout {
                     width: Math.max(0, musicDnaScroll.availableWidth)
-                    spacing: 10
+                    columns: Math.max(1, Math.floor((width + columnSpacing) / (310 + columnSpacing)))
+                    columnSpacing: 14
+                    rowSpacing: 14
 
                     Repeater {
-                        model: djconnect.musicDnaSections
+                        model: djconnect.musicDnaSections.length ? djconnect.musicDnaSections
+                            : djconnect.musicDnaSummary ? [{
+                                key: "music_dna_card_summary", icon: "waveform", value: djconnect.musicDnaSummary
+                            }] : []
 
                         GlassCard {
+                            id: dnaCard
+                            required property var modelData
+                            objectName: modelData.key
                             Layout.fillWidth: true
-                            padding: root.wallProfile ? 30 : 18
-                            spacing: 8
+                            Layout.preferredWidth: 1
+                            Layout.alignment: Qt.AlignTop
+                            padding: 18
+                            spacing: 12
 
+                            RowLayout {
+                                Layout.fillWidth: true
+                                FeatureIcon {
+                                    iconName: dnaCard.modelData.icon
+                                    iconColor: BrandTheme.colors.actionAccent
+                                    Layout.preferredWidth: 22; Layout.preferredHeight: 22
+                                }
+                                Text {
+                                    text: root.tr(dnaCard.modelData.key)
+                                    textFormat: Text.PlainText
+                                    color: BrandTheme.colors.muted
+                                    font.pixelSize: 18; font.bold: true
+                                    Layout.fillWidth: true
+                                    wrapMode: Text.Wrap
+                                }
+                            }
                             Text {
-                                text: modelData.title || ""
+                                visible: text.length > 0
+                                text: dnaCard.modelData.value || ""
                                 textFormat: Text.PlainText
                                 color: BrandTheme.colors.text
-                                font.pixelSize: 19
-                                font.weight: Font.DemiBold
-                                wrapMode: Text.Wrap
+                                font.pixelSize: 23; font.bold: true
                                 Layout.fillWidth: true
+                                wrapMode: Text.Wrap
                             }
-
-                            Repeater {
-                                model: modelData.lines || []
+                            RowLayout {
+                                visible: typeof dnaCard.modelData.metric === "number"
+                                Layout.fillWidth: true
+                                spacing: 14
+                                Item {
+                                    Layout.preferredWidth: 92
+                                    Layout.preferredHeight: 92
+                                    Canvas {
+                                        id: energyRing
+                                        anchors.fill: parent
+                                        readonly property real fraction: (dnaCard.modelData.metric || 0) / 100
+                                        readonly property color accent: BrandTheme.colors.actionAccent
+                                        onFractionChanged: requestPaint()
+                                        onAccentChanged: requestPaint()
+                                        onPaint: {
+                                            const context = getContext("2d")
+                                            context.clearRect(0, 0, width, height)
+                                            context.lineWidth = 9
+                                            context.lineCap = "round"
+                                            context.strokeStyle = "#30FFFFFF"
+                                            context.beginPath()
+                                            context.arc(width / 2, height / 2, width / 2 - 7, 0, 2 * Math.PI)
+                                            context.stroke()
+                                            if (fraction <= 0) return
+                                            context.strokeStyle = accent
+                                            context.beginPath()
+                                            context.arc(width / 2, height / 2, width / 2 - 7,
+                                                        -Math.PI / 2, (fraction * 2 - 0.5) * Math.PI)
+                                            context.stroke()
+                                        }
+                                    }
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: (dnaCard.modelData.metric || 0) + "%"
+                                        color: BrandTheme.colors.text
+                                        font.pixelSize: 23; font.bold: true
+                                    }
+                                }
                                 Text {
-                                    text: modelData
+                                    visible: typeof dnaCard.modelData.count === "number"
+                                    text: visible ? root.tr("music_dna_card_signals").replace("%1", dnaCard.modelData.count) : ""
                                     textFormat: Text.PlainText
                                     color: BrandTheme.colors.muted
                                     font.pixelSize: 17
-                                    wrapMode: Text.Wrap
                                     Layout.fillWidth: true
+                                    wrapMode: Text.Wrap
+                                }
+                            }
+                            Text {
+                                visible: typeof dnaCard.modelData.average === "number"
+                                text: visible ? root.tr("music_dna_card_average").replace("%1", dnaCard.modelData.average) : ""
+                                textFormat: Text.PlainText
+                                color: BrandTheme.colors.muted
+                                font.pixelSize: 17
+                                Layout.fillWidth: true
+                                wrapMode: Text.Wrap
+                            }
+                            Repeater {
+                                model: dnaCard.modelData.rows || []
+                                MusicDnaRow { entry: modelData }
+                            }
+                            Repeater {
+                                model: dnaCard.modelData.groups || []
+                                ColumnLayout {
+                                    id: dnaGroup
+                                    required property var modelData
+                                    Layout.fillWidth: true
+                                    spacing: 8
+                                    Text {
+                                        visible: dnaGroup.modelData.key !== "music_dna_card_"
+                                        text: visible ? root.tr(dnaGroup.modelData.key) : ""
+                                        color: BrandTheme.colors.muted
+                                        font.pixelSize: 17; font.bold: true
+                                        Layout.fillWidth: true
+                                        wrapMode: Text.Wrap
+                                    }
+                                    ListView {
+                                        visible: dnaGroup.modelData.shelf
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 118
+                                        orientation: ListView.Horizontal
+                                        clip: true; spacing: 12
+                                        model: visible ? dnaGroup.modelData.rows : []
+                                        boundsBehavior: Flickable.StopAtBounds
+                                        ScrollBar.horizontal: ScrollBar {}
+                                        delegate: ColumnLayout {
+                                            id: artistTile
+                                            required property var modelData
+                                            width: 96
+                                            DiscoveryArtwork {
+                                                recommendation: artistTile.modelData
+                                                displayIcon: "session_persona"
+                                                padding: 0
+                                                radius: 34
+                                                Layout.alignment: Qt.AlignHCenter
+                                                Layout.preferredWidth: 68; Layout.preferredHeight: 68
+                                            }
+                                            Text {
+                                                text: artistTile.modelData.title
+                                                textFormat: Text.PlainText
+                                                color: BrandTheme.colors.text
+                                                font.pixelSize: 15; font.bold: true
+                                                horizontalAlignment: Text.AlignHCenter
+                                                elide: Text.ElideRight; Layout.fillWidth: true
+                                            }
+                                        }
+                                    }
+                                    Repeater {
+                                        model: dnaGroup.modelData.shelf ? [] : dnaGroup.modelData.rows
+                                        MusicDnaRow { entry: modelData }
+                                    }
                                 }
                             }
                         }
@@ -3649,7 +3805,29 @@ BrandWindow {
     component AskDjPage: Rectangle {
         id: askDjPanel
         objectName: "askDjPanel"
-        color: BrandTheme.colors.background
+        color: "transparent"
+        property bool chatKeyboardOpen: false
+
+        function clearChatDraft() {
+            chatKeyboardOpen = false
+            askDjChatInput.clear()
+            askDjChatInput.focus = false
+        }
+
+        function sendQuestion() {
+            if (askDjSend.enabled && djconnect.sendAskDjQuestion(askDjChatInput.text)) {
+                clearChatDraft()
+                Qt.callLater(scrollToTop)
+            }
+        }
+
+        Connections {
+            target: djconnect
+            function onProfileChanged() { askDjPanel.clearChatDraft() }
+            function onPairedChanged() { askDjPanel.clearChatDraft() }
+            function onDemoModeChanged() { askDjPanel.clearChatDraft() }
+        }
+
         property bool searchOpen: false
         property bool searchKeyboardOpen: false
         property int selectedMatch: -1
@@ -3668,7 +3846,7 @@ BrandWindow {
         }
         readonly property int selectedRow: matches[selectedMatch] ? matches[selectedMatch].row : -1
 
-        onVisibleChanged: if (!visible) closeSearch()
+        onVisibleChanged: if (!visible) { closeSearch(); clearChatDraft() }
         onMatchesChanged: {
             if (!searchOpen)
                 return
@@ -3687,6 +3865,7 @@ BrandWindow {
         }
 
         function openSearch() {
+            chatKeyboardOpen = false
             searchOpen = true
             searchKeyboardOpen = true
             askDjSearchInput.forceActiveFocus()
@@ -3728,7 +3907,6 @@ BrandWindow {
             centerSelectedMatch()
         }
 
-        AppBackground { sessionCanvas: true }
         ModalBlocker {}
 
         ColumnLayout {
@@ -4568,6 +4746,52 @@ BrandWindow {
                 }
             }
 
+            GlassSurface {
+                objectName: "askDjChatBar"
+                visible: !askDjPanel.searchOpen
+                Layout.fillWidth: true
+                Layout.preferredHeight: 66
+                radius: 30; elevated: true
+
+                RowLayout {
+                    anchors.fill: parent; anchors.margins: 8
+                    spacing: 8
+                    TextField {
+                        id: askDjChatInput
+                        objectName: "askDjChatInput"
+                        Layout.fillWidth: true; Layout.fillHeight: true
+                        enabled: (djconnect.paired || djconnect.demoMode) && !djconnect.askDjBusy
+                        maximumLength: 4000
+                        placeholderText: root.tr("session_question_placeholder")
+                        Accessible.name: placeholderText
+                        font.pixelSize: 21
+                        selectByMouse: true
+                        background: GlassSurface { radius: 24; interactive: true; focused: askDjChatInput.activeFocus }
+                        TapHandler { onTapped: askDjPanel.chatKeyboardOpen = true }
+                        onAccepted: askDjPanel.sendQuestion()
+                    }
+                    GlassButton {
+                        id: askDjSend
+                        objectName: "askDjSend"
+                        iconName: "send"; Accessible.name: root.tr("session_send")
+                        primary: true
+                        Layout.preferredWidth: 52; Layout.fillHeight: true
+                        enabled: askDjChatInput.enabled && askDjChatInput.text.trim().length > 0
+                        onClicked: askDjPanel.sendQuestion()
+                    }
+                }
+            }
+
+            SearchKeyboardDock {
+                visible: !askDjPanel.searchOpen && askDjPanel.chatKeyboardOpen
+                Layout.fillWidth: true
+                backend: djconnect
+                target: askDjChatInput
+                keyboardName: "askDjChatKeyboard"
+                onSubmitted: askDjPanel.sendQuestion()
+                onDismissed: askDjPanel.chatKeyboardOpen = false
+            }
+
             SearchKeyboardDock {
                 visible: askDjPanel.searchOpen && askDjPanel.searchKeyboardOpen
                 Layout.fillWidth: true
@@ -4586,7 +4810,7 @@ BrandWindow {
         anchors.fill: parent
         visible: root.activeScreen === "session" || root.activeScreen === "history" || root.activeScreen === "session-history"
         z: 17
-        AppBackground { sessionCanvas: root.activeScreen === "session" }
+        AppBackground { visible: !root.usesPageBackdrop }
         SessionScreen {
             id: sharedSessionScreen
             anchors.fill: parent
@@ -5818,14 +6042,6 @@ BrandWindow {
                     Text { text: "2026 Peter van Tol"; color: BrandTheme.colors.text; font.pixelSize: 20; Layout.fillWidth: true }
                 }
                 }
-
-                PurpleButton {
-                    text: root.tr("close")
-                    font.pixelSize: 26
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 64
-                    onClicked: root.aboutOpen = false
-                }
             }
         }
     }
@@ -5864,11 +6080,6 @@ BrandWindow {
 
                 RowLayout {
                     Layout.fillWidth: true
-                    SessionAttribution {
-                        visible: requiresSpotify
-                        requiresSpotify: root.sessionTrackArtwork && !!sharedSessionScreen.state.playback.requires_spotify_attribution
-                        spotifyURL: requiresSpotify ? sharedSessionScreen.state.playback.source_url || "" : ""
-                    }
                     Item { Layout.fillWidth: true }
                     GlassButton {
                         objectName: "closeTrackArtwork"
@@ -5890,39 +6101,75 @@ BrandWindow {
                         spacing: 12
 
                         GlassSurface {
+                            id: expandedArtworkCard
+                            readonly property int artworkInset: 10
+                            readonly property real artworkRadius: radius - artworkInset
                             anchors.horizontalCenter: parent.horizontalCenter
                             width: Math.max(0, Math.min(artworkArea.width,
                                 artworkArea.height - expandedTitle.height - artworkColumn.spacing
-                                - (expandedArtist.visible ? expandedArtist.height + artworkColumn.spacing : 0)))
+                                - (expandedCredits.visible ? expandedCredits.height + artworkColumn.spacing : 0)))
                             height: width
                             radius: 28
                             elevated: true
 
                             VinylPlaceholder {
                                 anchors.fill: parent
-                                anchors.margins: 10
-                                radius: 18
+                                anchors.margins: expandedArtworkCard.artworkInset
+                                radius: expandedArtworkCard.artworkRadius
                                 visible: expandedArt.status !== Image.Ready
                             }
                             Image {
                                 id: expandedArt
                                 objectName: "expandedTrackArtwork"
                                 anchors.fill: parent
-                                anchors.margins: 10
+                                anchors.margins: expandedArtworkCard.artworkInset
                                 source: root.sessionTrackArtwork ? sharedSessionScreen.trackArtworkSource : djconnect.imageUrl
                                 sourceSize.width: width
                                 sourceSize.height: height
                                 asynchronous: true
                                 retainWhileLoading: false
                                 fillMode: Image.PreserveAspectCrop
-                                clip: true
+                                opacity: 0
                                 visible: status === Image.Ready
+                            }
+                            Canvas {
+                                id: roundedArtwork
+                                anchors.fill: expandedArt
+                                visible: expandedArt.visible
+                                property url artworkSource: expandedArt.source
+                                property url loadedSource
+                                function loadArtwork() {
+                                    if (!available) return
+                                    if (loadedSource.toString().length) unloadImage(loadedSource)
+                                    loadedSource = artworkSource
+                                    if (loadedSource.toString().length) loadImage(loadedSource, Qt.size(width, height))
+                                    requestPaint()
+                                }
+                                onAvailableChanged: loadArtwork()
+                                onArtworkSourceChanged: loadArtwork()
+                                onImageLoaded: requestPaint()
+                                onVisibleChanged: if (visible) requestPaint()
+                                onPaint: {
+                                    const ctx = getContext("2d")
+                                    ctx.clearRect(0, 0, width, height)
+                                    if (!expandedArt.visible || !isImageLoaded(loadedSource)) return
+                                    const radius = Math.min(expandedArtworkCard.artworkRadius, width / 2, height / 2)
+                                    ctx.save()
+                                    ctx.beginPath()
+                                    ctx.roundedRect(0, 0, width, height, radius, radius)
+                                    ctx.clip()
+                                    const artWidth = expandedArt.paintedWidth
+                                    const artHeight = expandedArt.paintedHeight
+                                    ctx.drawImage(loadedSource, (width - artWidth) / 2, (height - artHeight) / 2,
+                                                  artWidth, artHeight)
+                                    ctx.restore()
+                                }
                             }
                             Rectangle {
                                 objectName: "trackArtworkControlsShade"
                                 anchors.fill: parent
-                                anchors.margins: 10
-                                radius: 18
+                                anchors.margins: expandedArtworkCard.artworkInset
+                                radius: expandedArtworkCard.artworkRadius
                                 visible: root.trackArtworkCanControl && root.trackArtworkControlsOpen
                                 color: "#80000000"
                             }
@@ -5933,7 +6180,8 @@ BrandWindow {
                             }
                             Loader {
                                 anchors.centerIn: parent
-                                width: Math.min(parent.width - 16, 420)
+                                width: parent.width - 20
+                                height: parent.height - 20
                                 active: root.trackArtworkCanControl && root.trackArtworkControlsOpen
                                 sourceComponent: sharedSessionScreen.artworkTransportControls
                             }
@@ -5952,17 +6200,29 @@ BrandWindow {
                             elide: Text.ElideRight
                         }
 
-                        Text {
-                            id: expandedArtist
-                            objectName: "expandedTrackArtist"
+                        RowLayout {
+                            id: expandedCredits
                             width: parent.width
-                            visible: text.length > 0
-                            text: root.sessionTrackArtwork ? sharedSessionScreen.state.playback.artist || "" : djconnect.artist
-                            textFormat: Text.PlainText
-                            color: BrandTheme.colors.muted
-                            font.pixelSize: root.wallProfile ? 30 : 24
-                            horizontalAlignment: Text.AlignHCenter
-                            elide: Text.ElideRight
+                            visible: expandedArtist.text.length > 0 || expandedSource.visible
+                            Item { Layout.preferredWidth: expandedSource.visible ? expandedSource.implicitWidth : 0 }
+                            Text {
+                                id: expandedArtist
+                                objectName: "expandedTrackArtist"
+                                Layout.fillWidth: true
+                                visible: text.length > 0
+                                text: root.sessionTrackArtwork ? sharedSessionScreen.state.playback.artist || "" : djconnect.artist
+                                textFormat: Text.PlainText
+                                color: BrandTheme.colors.muted
+                                font.pixelSize: root.wallProfile ? 30 : 24
+                                horizontalAlignment: Text.AlignHCenter
+                                elide: Text.ElideRight
+                            }
+                            SessionAttribution {
+                                id: expandedSource
+                                visible: requiresSpotify && ready
+                                requiresSpotify: root.sessionTrackArtwork && !!sharedSessionScreen.state.playback.requires_spotify_attribution
+                                spotifyURL: requiresSpotify ? sharedSessionScreen.state.playback.source_url || "" : ""
+                            }
                         }
                     }
                 }

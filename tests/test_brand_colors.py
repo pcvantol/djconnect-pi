@@ -77,12 +77,16 @@ def test_ipad_primary_button_palette_has_normal_text_contrast():
 
 def test_presentation_selection_does_not_use_primary_action_gradient():
     qml = files("djconnect_pi.qml").joinpath("SessionScreen.qml").read_text()
-    assert 'checked: known && observation.liked' in qml
     mode_strip = files("djconnect_pi.qml").joinpath("SessionModeStrip.qml").read_text()
     assert 'showingForecast: screen.showForecast' in qml
     assert 'checked: !modeSwitch.inVibeScape && !modeSwitch.showingForecast' in mode_strip
     assert 'checked: !modeSwitch.inVibeScape && modeSwitch.showingForecast' in mode_strip
     assert 'checked: modeSwitch.inVibeScape' in mode_strip
     assert 'primary:' not in mode_strip
-    assert 'checked: screen.toolbarValue(choices.field)' in qml
-    assert 'primary: known && observation.liked' not in qml
+    toolbar_choices = qml.split("id: choices", 1)[1].split("id: vibeCastPanel", 1)[0]
+    assert 'checked: choices.selectedValue === modelData' in toolbar_choices
+    assert 'checked: choices.selectedValue === modelData.value' in toolbar_choices
+    assert 'primary:' not in toolbar_choices
+    outputs = qml.split('id: outputsPanel', 1)[1].split('id: composerPanel', 1)[0]
+    assert 'checked: modelData.active' in outputs
+    assert 'primary:' not in outputs

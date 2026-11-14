@@ -5,9 +5,11 @@ import QtQuick
 Canvas {
     id: symbol
     property color iconColor: "white"
+    property var gradientColors: []
     implicitWidth: 32
     implicitHeight: 32
     onIconColorChanged: requestPaint()
+    onGradientColorsChanged: requestPaint()
     onWidthChanged: requestPaint()
     onHeightChanged: requestPaint()
     onPaint: {
@@ -20,6 +22,13 @@ Canvas {
         ctx.scale(side / 100, side / 100)
         ctx.strokeStyle = iconColor
         ctx.fillStyle = iconColor
+        if (gradientColors.length > 1) {
+            var gradient = ctx.createLinearGradient(0, 0, 100, 100)
+            for (var i = 0; i < gradientColors.length; ++i)
+                gradient.addColorStop(i / (gradientColors.length - 1), gradientColors[i])
+            ctx.strokeStyle = gradient
+            ctx.fillStyle = gradient
+        }
         ctx.lineCap = "round"
         ctx.lineJoin = "round"
         ctx.lineWidth = 4.5

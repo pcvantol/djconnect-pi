@@ -116,6 +116,38 @@ Item {
             actionLabel: screen.tr("session_content_delete_action")
             onDeleteRequested: screen.deleteContent("moment", screen.state.session_id, modelData.moment_id)
         }
+        RowLayout {
+            visible: liveSources.ready
+            Layout.fillWidth: true
+            spacing: 8
+            SessionContributionHeading {
+                visible: modelData.settings_confirmation === true
+                label: screen.tr("session_dj_contribution")
+            }
+            Text {
+                visible: modelData.settings_confirmation !== true
+                text: modelData.title
+                textFormat: Text.PlainText
+                color: BrandTheme.colors.text
+                font.pixelSize: 26; font.bold: true
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+            GlassButton {
+                objectName: "sessionLiveAskAbout"
+                visible: screen.state.composer_available
+                enabled: liveCard.canAsk
+                iconName: "chat"
+                tertiary: true
+                padding: 0
+                Layout.preferredWidth: 44; Layout.preferredHeight: 44
+                Layout.alignment: Qt.AlignTop
+                Accessible.name: screen.tr("session_ask_about")
+                ToolTip.text: Accessible.name
+                ToolTip.visible: hovered
+                onClicked: liveCard.askAbout()
+            }
+        }
         ColumnLayout {
             objectName: "sessionMomentArtworkCard"
             visible: liveSources.ready && !!screen.owner.momentArtwork.source && modelData.current && screen.owner.momentArtwork.moment_id === modelData.moment_id && artworkSource.ready
@@ -153,10 +185,14 @@ Item {
             visible: liveSources.ready
             Layout.fillWidth: true
             spacing: screen.compact ? 12 : 16
-            DJSessionMenuSymbol {
+            SessionConfirmationAvatar {
+                visible: modelData.settings_confirmation === true
+                mood: screen.state.mood || ""
+            }
+            SessionConfirmationAvatar {
                 objectName: "sessionCurrentMomentIdentity"
-                visible: modelData.current
-                iconColor: BrandTheme.colors.purple
+                visible: modelData.current && modelData.settings_confirmation !== true
+                mood: screen.state.mood || ""
                 Layout.preferredWidth: screen.compact ? 52 : 76
                 Layout.preferredHeight: Layout.preferredWidth
                 Layout.alignment: Qt.AlignTop
@@ -164,7 +200,6 @@ Item {
             }
             ColumnLayout {
                 Layout.fillWidth: true
-                Text { text: modelData.title; textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 26; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                 Text {
                     id: momentBody
                     objectName: "sessionLiveMomentBody"
@@ -174,6 +209,14 @@ Item {
                     TapHandler { enabled: liveCard.canAsk; onTapped: liveCard.askAbout() }
                 }
             }
+        }
+        Text {
+            objectName: "sessionConfirmationDate"
+            visible: liveSources.ready && modelData.settings_confirmation === true && text.length > 0
+            text: screen.displayDate(modelData.occurred_at)
+            color: BrandTheme.colors.muted
+            font.pixelSize: 16
+            textFormat: Text.PlainText
         }
         GlassButton {
             objectName: "sessionPrepareArtwork"
@@ -188,11 +231,6 @@ Item {
             text: screen.tr(screen.state.artwork_prepare.status === "uncertain" ? "session_artwork_uncertain" : "session_artwork_unavailable")
             textFormat: Text.PlainText; color: BrandTheme.colors.muted; font.pixelSize: 20; wrapMode: Text.WordWrap; Layout.fillWidth: true
         }
-        GlassButton {
-            visible: screen.state.composer_available && liveSources.ready
-            text: screen.tr("session_ask_about"); enabled: liveCard.canAsk
-            onClicked: liveCard.askAbout()
-        }
         SessionAttribution {
             id: liveSources
             bulletinSources: modelData.bulletin_sources || []
@@ -205,8 +243,7 @@ Item {
     }
     readonly property string scopeProfileId: state.owner_profile_id || backend.activeProfileId
     readonly property string artworkTint: {
-        if (!visible || historical) return ""
-        if (showForecast) return forecastArtworkFrame.artworkTint
+        if (!visible || historical || showForecast) return ""
         if (trackArtworkFrame.artworkTint) return trackArtworkFrame.artworkTint
         if (!liveMomentRows) return ""
         for (var i = 0; i < liveMomentRows.count; i++) {
@@ -223,7 +260,7 @@ Item {
         state.playback.item_id || "", state.playback.source_url || "", state.playback.target_name || ""
     ])
     onPlaybackMenuScopeChanged: {
-        if (playbackPanel && playbackPanel.visible) playbackPanel.close()
+        if (volumePanel && volumePanel.visible) volumePanel.close()
         if (outputsPanel && outputsPanel.visible) outputsPanel.close()
     }
     property bool forecastMode: false
@@ -233,7 +270,6 @@ Item {
         owner.setContentDeleteVisible(visible && !showForecast)
         owner.setArchiveDeleteVisible(visible && historical && !currentHistory)
         owner.setPlaybackControlsVisible(visible && !historical && !showForecast)
-        owner.setForecastImagesVisible(showForecast && visible)
         owner.setMomentArtworkVisible(visible && !historical && !showForecast)
         owner.setPlaybackArtworkVisible(visible && !historical && !showForecast)
     }
@@ -245,7 +281,7 @@ Item {
         syncSessionVisibility()
         syncMediaVisibility()
     }
-    onShowForecastChanged: { if (showForecast) { outputsPanel.close(); playbackPanel.close() } if (!showForecast) clearForecastReading(); syncMediaVisibility() }
+    onShowForecastChanged: { if (showForecast) { outputsPanel.close(); volumePanel.close() } syncMediaVisibility() }
     onStateChanged: {
         if (contentDeletePanel && contentDeletePanel.opened && state.content_delete
                 && (!state.content_delete.status
@@ -255,12 +291,10 @@ Item {
                 && !state.archive_delete.status && !state.archive_delete.running) archiveDeletePanel.close()
         var control = state.playback_control
         if (!control) return
-        if (playbackPanel && (!control.available
-                || (playbackPanel.controlView === "volume" && !control.volume_supported)
-                || (playbackPanel.controlView === "favorite" && !control.favorite))) playbackPanel.close()
+        if (volumePanel && (!control.available || !control.volume_supported)) volumePanel.close()
         if (outputsPanel && (!control.available || !control.outputs_supported)) outputsPanel.close()
     }
-    onComposerContextChanged: { clearForecastReading(); clearFlowReturn(); forecastMode = false; closeTransient(); if (historyReadPending && historyReadKind === "current") { historyRead.stop(); historyReadPending = false; navigate("session") } }
+    onComposerContextChanged: { clearFlowReturn(); forecastMode = false; closeTransient(); if (historyReadPending && historyReadKind === "current") { historyRead.stop(); historyReadPending = false; navigate("session") } }
     function clearComposer() { followQuestionReply = false; pendingReplyId = ""; draft = ""; if (composeInput) composeInput.clear(); if (composerPanel) composerPanel.close(); if (owner) owner.clearSelection() }
     function submitQuestion() {
         // A local demo answer can arrive before sendQuestion returns.
@@ -274,65 +308,6 @@ Item {
         draft = ""
         composeInput.clear()
         composerPanel.close()
-    }
-    // A position descriptor grants no image or text retention.
-    property var forecastReading: null
-    property int forecastReadingTries: 0
-    property bool forecastReadingApplied: false
-    property string forecastLayoutMark: ""
-    function clearForecastReading() { forecastReadingRestore.stop(); forecastReading = null }
-    function rememberForecastReading() {
-        clearForecastReading()
-        var flick = forecastScroll.contentItem
-        if (!visible || !showForecast || flick.dragging || flick.moving || state.forecast.revision === undefined) return
-        for (var i = 0; i < forecastRows.count; i++) {
-            var card = forecastRows.itemAt(i)
-            if (!card) continue
-            var y = card.mapToItem(flick, 0, 0).y
-            if (y <= 0 && y + card.height > 0 && isFinite(y) && Math.abs(y) <= 1000000) {
-                forecastReading = {session: state.session_id, profile: scopeProfileId,
-                    revision: state.forecast.revision, id: card.modelData.id, offset: y}
-                forecastReadingTries = 0; forecastReadingApplied = false; forecastLayoutMark = ""
-                return
-            }
-        }
-    }
-    Timer {
-        id: forecastReadingRestore
-        objectName: "sessionForecastReadingRestore"
-        interval: 32
-        onTriggered: {
-            var saved = screen.forecastReading
-            var flick = forecastScroll.contentItem
-            if (!saved || !screen.visible || !screen.showForecast || flick.dragging || flick.moving ||
-                saved.session !== screen.state.session_id || saved.profile !== screen.scopeProfileId ||
-                saved.revision !== screen.state.forecast.revision) { screen.clearForecastReading(); return }
-            forecastContent.ensurePolished()
-            var target = null
-            for (var i = 0; i < forecastRows.count; i++) {
-                var card = forecastRows.itemAt(i)
-                if (card && card.modelData.id === saved.id) { target = card; break }
-            }
-            screen.forecastReadingTries++
-            if (!target) { screen.clearForecastReading(); return }
-            var mark = [forecastContent.implicitHeight, flick.contentHeight, flick.height, target.y, target.height].join("|")
-            if (mark !== screen.forecastLayoutMark) {
-                screen.forecastLayoutMark = mark; screen.forecastReadingApplied = false
-                if (screen.forecastReadingTries < 8) forecastReadingRestore.restart()
-                else screen.clearForecastReading()
-                return
-            }
-            var destination = Math.max(0, Math.min(flick.contentY + target.mapToItem(flick, 0, 0).y - saved.offset, Math.max(0, flick.contentHeight - flick.height)))
-            if (screen.forecastReadingApplied && Math.abs(flick.contentY - destination) < 1) { screen.clearForecastReading(); return }
-            flick.contentY = destination; screen.forecastReadingApplied = true
-            if (screen.forecastReadingTries < 8) forecastReadingRestore.restart()
-            else screen.clearForecastReading()
-        }
-    }
-    Connections {
-        target: forecastScroll.contentItem
-        function onMovementStarted() { screen.clearForecastReading() }
-        function onDraggingChanged() { if (forecastScroll.contentItem.dragging) screen.clearForecastReading() }
     }
     property string proposedMood: "groove"
     readonly property string searchTarget: historical ? ((state.timeline.session || {}).session_id || "") : state.session_id
@@ -715,10 +690,11 @@ Item {
         cancelSearchRead()
         clearComposer()
         if (outputsPanel) outputsPanel.close()
-        if (playbackPanel) playbackPanel.close()
+        if (volumePanel) volumePanel.close()
         if (searchPanel) searchPanel.close()
         if (searchInput) searchInput.clear()
         if (choices) choices.close()
+        if (sessionDjSettings) sessionDjSettings.close()
         if (moreChoices) moreChoices.close()
         if (connectionInfo) connectionInfo.close()
         if (endConfirmation) endConfirmation.close()
@@ -726,8 +702,8 @@ Item {
         if (contentDeletePanel) contentDeletePanel.close()
         if (owner) owner.clearSearch()
     }
-    onVisibleChanged: { syncMediaVisibility(); if (!visible) { clearForecastReading(); cancelArchiveRead(); if (owner) owner.clearArchive(); clearFlowReturn(); historyRead.stop(); historyReadProfile = ""; historyReadSession = ""; historyReadPending = false; readingRestore.stop(); pendingReadingAnchor = ""; closeTransient() } }
-    onHistoricalChanged: { if (historical) { outputsPanel.close(); playbackPanel.close() } syncMediaVisibility(); if (!historical) { archiveDetailReturn = null; cancelArchiveRead(); if (owner) owner.clearArchive() } readingRestore.stop(); pendingReadingAnchor = ""; readingOffset = 0; if (!historical && flowReturn) { historyScroll.contentItem.cancelFlick(); flowReturnRestore.restart() } }
+    onVisibleChanged: { syncMediaVisibility(); if (!visible) { cancelArchiveRead(); if (owner) owner.clearArchive(); clearFlowReturn(); historyRead.stop(); historyReadProfile = ""; historyReadSession = ""; historyReadPending = false; readingRestore.stop(); pendingReadingAnchor = ""; closeTransient() } }
+    onHistoricalChanged: { if (historical) { outputsPanel.close(); volumePanel.close() } syncMediaVisibility(); if (!historical) { archiveDetailReturn = null; cancelArchiveRead(); if (owner) owner.clearArchive() } readingRestore.stop(); pendingReadingAnchor = ""; readingOffset = 0; if (!historical && flowReturn) { historyScroll.contentItem.cancelFlick(); flowReturnRestore.restart() } }
     onSearchTargetChanged: { if (searchPanel) searchPanel.close(); if (searchInput) searchInput.clear(); if (owner) owner.clearSearch() }
     signal openVibeScape(real pickerTop)
     signal navigate(string destination)
@@ -737,6 +713,11 @@ Item {
         backend.translationVersion
         var duration = owner.formatSavedDuration(header || ({}))
         return duration ? " · " + duration : ""
+    }
+    function toolbarChoiceLabel(field) {
+        if (field === "mood") return tr("session_choice_your_mood")
+        if (field === "persona") return tr("session_choice_dj_character")
+        return tr("shared_field_" + field)
     }
     function toolbarValue(field) {
         if (backend.demoMode) return owner.demoPreferences[field] || ""
@@ -759,7 +740,8 @@ Item {
         choices.profileId = scopeProfileId
         choices.field = field
         choices.editToken = backend.sharedSettings.edit_token || ""
-        choices.x = Math.max(12, Math.min(button.mapToItem(screen, 0, 0).x, width - choices.width - 12))
+        const anchor = button.mapToItem(screen, button.width / 2, 0).x
+        choices.x = Math.max(12, Math.min(anchor - choices.width / 2, width - choices.width - 12))
         choices.open()
     }
     Timer {
@@ -870,8 +852,6 @@ Item {
         }
         function onArtworkAboutToChange() { if (screen.visible && !screen.historical && !screen.showForecast && !screen.followQuestionReply && !historyScroll.contentItem.moving && !screen.flowReturn) screen.rememberArtworkReading() }
         function onArtworkChanged() { if (screen.visible && !screen.historical && !screen.showForecast && !screen.followQuestionReply && !historyScroll.contentItem.moving && screen.flowReturn) { flowReturnRestore.artworkTries = 0; flowReturnRestore.artworkLayout = ""; flowReturnRestore.restart() } }
-        function onForecastImageAboutToChange() { screen.rememberForecastReading() }
-        function onForecastImageChanged() { if (screen.forecastReading) forecastReadingRestore.restart() }
         function onPendingQuestionReady() { pendingQuestionPosition.messageId = screen.state.pending_question.client_message_id || ""; pendingQuestionPosition.tries = 0; pendingQuestionPosition.layoutMark = ""; pendingQuestionPosition.restart() }
         function onCurrentReplyReady() { currentReplyPosition.restart() }
         function onQuestionConfirmed(entryId) { if (screen.followQuestionReply) { screen.pendingReplyId = entryId; replyRestore.restart() } }
@@ -892,7 +872,7 @@ Item {
         }
         function onChanged() { if (!screen.owner.busy) screen.archiveReadActive = false; if (!screen.historical || screen.currentHistory || screen.state.timeline.session) screen.cancelArchiveRead(); if (screen.archiveIntent && !screen.owner.busy) archiveRead.restart(); if (!screen.state.search.query) screen.cancelSearchRead(); if (screen.historyReadPending && !screen.owner.busy) historyRead.restart(); if (screen.searchRefreshPending && !screen.owner.busy) searchRead.restart() }
         function onSearchUpdated() { searchPosition.restart() }
-        function onContextCleared() { screen.clearForecastReading(); screen.cancelArchiveRead(); screen.clearFlowReturn(); historyRead.stop(); screen.historyReadProfile = ""; screen.historyReadSession = ""; readingRestore.stop(); screen.pendingReadingAnchor = ""; screen.readingOffset = 0; screen.closeTransient(); if (screen.historical) screen.navigate(screen.currentHistory ? "session" : "more"); screen.historyReadPending = false }
+        function onContextCleared() { screen.cancelArchiveRead(); screen.clearFlowReturn(); historyRead.stop(); screen.historyReadProfile = ""; screen.historyReadSession = ""; readingRestore.stop(); screen.pendingReadingAnchor = ""; screen.readingOffset = 0; screen.closeTransient(); if (screen.historical) screen.navigate(screen.currentHistory ? "session" : "more"); screen.historyReadPending = false }
         function onEntryOpened() {
             if (!screen.historical) screen.rememberFlow()
             searchPanel.close()
@@ -913,6 +893,15 @@ Item {
         anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top
         anchors.margins: 20; height: 58; spacing: 10
         z: screen.idleWelcome && !screen.compact ? 2 : 0
+        GlassButton {
+            objectName: "sessionHistoryBack"
+            visible: screen.historical
+            iconName: "back"
+            tertiary: true
+            implicitWidth: 52
+            Accessible.name: screen.tr(screen.currentHistory ? "session_back" : screen.state.timeline.session ? "session_history" : "more")
+            onClicked: screen.navigateBackFromHistory()
+        }
         GlassSurface {
             visible: screen.sessionControlsVisible || (screen.state.search_available && screen.searchTarget.length > 0)
             Layout.preferredWidth: toolbarButtons.implicitWidth + 18
@@ -922,7 +911,6 @@ Item {
                 id: toolbarButtons
                 anchors.centerIn: parent; spacing: 2
                 GlassButton {
-                    id: moreButton
                     objectName: "sessionToolbarMore"
                     visible: screen.compact && screen.sessionControlsVisible
                     iconName: "more"; Accessible.name: screen.tr("more")
@@ -939,7 +927,7 @@ Item {
                     id: moodButton
                     objectName: "sessionToolbarMood"
                     visible: screen.sessionControlsVisible
-                    iconName: screen.toolbarIcon("mood"); Accessible.name: screen.tr("mood_select")
+                    iconName: screen.toolbarIcon("mood"); Accessible.name: screen.toolbarChoiceLabel("mood")
                     implicitWidth: 52; background: Item {}
                     onClicked: screen.openChoice("mood", moodButton)
                 }
@@ -947,7 +935,7 @@ Item {
                     id: presenceButton
                     objectName: "sessionToolbarPresence"
                     visible: screen.sessionControlsVisible
-                    iconName: screen.toolbarIcon("presence"); Accessible.name: screen.tr("shared_field_presence")
+                    iconName: screen.toolbarIcon("presence"); Accessible.name: screen.toolbarChoiceLabel("presence")
                     implicitWidth: 52; background: Item {}
                     onClicked: screen.openChoice("presence", presenceButton)
                 }
@@ -955,40 +943,26 @@ Item {
                     id: personaButton
                     objectName: "sessionToolbarPersona"
                     visible: screen.sessionControlsVisible
-                    iconName: screen.toolbarIcon("persona"); Accessible.name: screen.tr("shared_field_persona")
+                    iconName: screen.toolbarIcon("persona"); Accessible.name: screen.toolbarChoiceLabel("persona")
                     implicitWidth: 52; background: Item {}
                     onClicked: screen.openChoice("persona", personaButton)
                 }
                 GlassButton {
                     id: voiceButton
                     objectName: "sessionToolbarVoice"
-                    visible: !screen.compact && screen.sessionControlsVisible && screen.sessionVoiceAvailable
+                    visible: screen.sessionControlsVisible && screen.sessionVoiceAvailable
                     iconName: "voice"; Accessible.name: screen.tr("shared_field_voice")
                     implicitWidth: 52; background: Item {}
                     onClicked: screen.openChoice("voice", voiceButton)
                 }
-                SessionPlaybackShortcut {
-                    id: toolbarVolume
-                    objectName: "sessionToolbarVolume"
-                    visible: !screen.compact && screen.sessionControlsVisible && !screen.showForecast
-                        && !!screen.state.playback_control.available && !!screen.state.playback_control.volume_supported
-                    enabled: !!screen.state.playback_control.enabled
-                    iconName: "voice"; Accessible.name: screen.tr("volume")
+                GlassButton {
+                    objectName: "sessionToolbarDjSettings"
+                    visible: screen.sessionControlsVisible && screen.state.runtime_state === "active"
+                        && !screen.backend.demoMode && !!screen.backend.sharedSettings.active
+                    iconName: "settings"; Accessible.name: screen.tr("shared_title")
                     implicitWidth: 52; background: Item {}
-                    onCurrentTrackClicked: {
-                        if (screen.owner.readPlaybackVolume(screen.state.session_id, screen.state.playback.item_id))
-                            playbackPanel.openFrom(toolbarVolume, "volume")
-                    }
-                }
-                SessionPlaybackShortcut {
-                    id: toolbarOutput
-                    objectName: "sessionToolbarOutput"
-                    visible: !screen.compact && screen.sessionControlsVisible && !screen.showForecast
-                        && !!screen.state.playback_control.available && !!screen.state.playback_control.outputs_supported
-                    enabled: !!screen.state.playback_control.enabled
-                    iconName: "output"; Accessible.name: screen.tr("session_output_title")
-                    implicitWidth: 52; background: Item {}
-                    onCurrentTrackClicked: outputsPanel.openForCurrentItem(toolbarOutput)
+                    onVisibleChanged: if (!visible && sessionDjSettings) sessionDjSettings.close()
+                    onClicked: sessionDjSettings.open()
                 }
                 GlassButton {
                     objectName: "sessionToolbarVibeCast"
@@ -1073,48 +1047,44 @@ Item {
         clip: true; contentWidth: availableWidth
         ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
         ColumnLayout {
-            id: forecastContent
-            width: parent.width; spacing: 20
-            Text { text: screen.tr("session_forecast"); textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: screen.compact ? 30 : 40; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-            Text { visible: !!screen.state.forecast.source_url; text: screen.tr("session_forecast_source"); textFormat: Text.PlainText; color: BrandTheme.colors.muted; font.pixelSize: 18 }
-            SessionAttribution { id: forecastSource; requiresSpotify: !!screen.state.forecast.source_url; spotifyURL: screen.state.forecast.source_url || ""; Layout.fillWidth: true }
-            GlassCard {
-                objectName: "sessionForecastArtistCard"
-                artworkTint: forecastArtworkFrame.artworkTint
-                visible: !!screen.owner.forecastImage.source && imageAttribution.ready
+            width: parent.width; spacing: 16
+            Rectangle {
+                id: horizonBanner
+                // Bundled Apple HorizonHero with its luminosity palettes pre-rendered for Pi.
+                readonly property string mood: MoodTheme.key(screen.state.mood)
                 Layout.fillWidth: true
-                GlassArtworkFrame {
-                    Connections {
-                        target: screen.owner
-                        function onForecastImageAboutToChange() { forecastArtworkFrame.invalidatePalette() }
-                    }
-                    id: forecastArtworkFrame
-                    objectName: "sessionForecastArtworkFrame"
-                    backend: screen.backend; imageItem: forecastArtworkImage
-                    leaseKey: screen.scopeProfileId + "|" + screen.state.session_id + "|" + (screen.owner.forecastImage.source_url || "")
-                    admissionCheck: function() { return screen.showForecast && imageAttribution.ready && !!screen.owner.forecastImage.source }
-                    Layout.fillWidth: true; Layout.preferredHeight: screen.compact ? 300 : 440
-                    Image {
-                        id: forecastArtworkImage
-                        objectName: "sessionForecastArtistImage"
-                        sourceSize: screen.lowMemoryProfile ? Qt.size(720, 360) : Qt.size(0, 0)
-                        anchors.fill: parent
-                        source: imageAttribution.ready ? (screen.owner.forecastImage.source || "") : ""
-                        cache: false; asynchronous: true; retainWhileLoading: false
-                        fillMode: Image.PreserveAspectFit
-                        Accessible.name: screen.tr("session_forecast_artist_image") + ": " + (screen.owner.forecastImage.artist || "")
-                    }
+                Layout.preferredHeight: Math.max(96, Math.min(148, width * 0.155))
+                radius: 22
+                color: MoodTheme.mix(BrandTheme.colors.background,
+                                     MoodTheme.moodColor(mood, "gradientEnd"), 0.42)
+                border.color: "#55ffffff"
+                Accessible.ignored: true
+                Image {
+                    objectName: "sessionHorizonBanner"
+                    anchors.fill: parent; anchors.margins: 8
+                    source: forecastScroll.visible ? "horizon-hero-" + horizonBanner.mood + ".png" : ""
+                    Accessible.ignored: true
                 }
-                Text { text: screen.owner.forecastImage.artist || ""; textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 23; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                SessionAttribution { id: imageAttribution; requiresSpotify: true; spotifyURL: screen.owner.forecastImage.source_url || ""; Layout.fillWidth: true }
+            }
+            Text {
+                text: screen.tr("session_forecast"); textFormat: Text.PlainText
+                color: BrandTheme.colors.text; font.pixelSize: screen.compact ? 28 : 36
+                font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true
+                Accessible.role: Accessible.Heading
+            }
+            Text {
+                objectName: "sessionForecastNotice"
+                text: screen.tr("session_forecast_notice"); textFormat: Text.PlainText
+                color: BrandTheme.colors.muted; font.pixelSize: 19
+                wrapMode: Text.WordWrap; Layout.fillWidth: true
             }
             Repeater {
-                id: forecastRows
                 objectName: "sessionForecastRows"
-                model: forecastSource.ready ? screen.state.forecast.sections : []
+                model: screen.state.forecast.sections
                 GlassCard {
                     required property var modelData
                     objectName: "sessionForecastSection-" + modelData.id
+                    visible: forecastSource.ready
                     Layout.fillWidth: true
                     RowLayout {
                         spacing: 10; Layout.fillWidth: true
@@ -1164,6 +1134,13 @@ Item {
                         textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 23
                         wrapMode: Text.Wrap; Layout.fillWidth: true
                     }
+                    SessionAttribution {
+                        id: forecastSource
+                        spotifyURL: modelData.id === "current" ? (screen.state.forecast.source_url || "") : ""
+                        requiresSpotify: spotifyURL.length > 0
+                        visible: requiresSpotify
+                        Layout.fillWidth: true
+                    }
                 }
             }
             Text { visible: screen.state.forecast.sections.length === 0; text: screen.tr("session_forecast_empty"); textFormat: Text.PlainText; color: BrandTheme.colors.muted; font.pixelSize: 23; wrapMode: Text.WordWrap; Layout.fillWidth: true }
@@ -1176,12 +1153,14 @@ Item {
         readonly property bool spaciousFlow: !screen.compact && !screen.historical
             && screen.state.loaded && screen.state.runtime_state === "active" && !screen.state.error
         readonly property int flowSpacing: spaciousFlow ? 26 : 22
+        readonly property int dockClearance: composerDock.visible ? composerDock.height + 144 : 132
         anchors.top: screen.idleWelcome && !screen.compact ? parent.top : modeSwitch.visible ? modeSwitch.bottom : toolbar.bottom; anchors.bottom: parent.bottom
         anchors.left: parent.left; anchors.right: parent.right
         anchors.margins: 20
         anchors.topMargin: screen.idleWelcome && !screen.compact ? 44 : spaciousFlow ? flowSpacing : 20
-        anchors.bottomMargin: composerDock.visible ? composerDock.height + 144 : 132
+        anchors.bottomMargin: screen.historical ? dockClearance : 0
         clip: true; contentWidth: availableWidth
+        contentHeight: historyContent.implicitHeight + (screen.historical ? 0 : dockClearance)
         ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
         ColumnLayout {
             id: historyContent
@@ -1270,7 +1249,7 @@ Item {
                         visible: screen.trackArtworkAvailable
                         Layout.row: 0
                         Layout.column: 0
-                        Layout.rowSpan: screen.compact ? 1 : 4
+                        Layout.rowSpan: screen.compact ? 1 : 3
                         Layout.preferredWidth: screen.compact ? 120 : 2 * Math.round(270 * screen.ipadScale)
                         Layout.preferredHeight: Layout.preferredWidth
                         Layout.alignment: Qt.AlignTop
@@ -1335,104 +1314,122 @@ Item {
                             }
                             Text { visible: playbackSources.ready && text.length > 0; text: screen.state.playback.title || ""; textFormat: Text.PlainText; font.pixelSize: screen.compact ? 24 : 30; font.bold: true; color: BrandTheme.colors.text; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                             Text {
-                                visible: screen.compact && playbackSources.ready && text.length > 0
-                                text: [screen.state.playback.artist || "", screen.state.playback.album || ""].filter(function(value) { return value.length > 0 }).join(" · ")
-                                textFormat: Text.PlainText; font.pixelSize: 18; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true
+                                objectName: "sessionPlaybackArtist"
+                                visible: playbackSources.ready && text.length > 0
+                                text: screen.state.playback.artist || ""
+                                textFormat: Text.PlainText; font.pixelSize: screen.compact ? 22 : 26
+                                color: BrandTheme.colors.muted; elide: Text.ElideRight; Layout.fillWidth: true
                             }
-                            Text { visible: !screen.compact && playbackSources.ready && text.length > 0; text: screen.state.playback.artist || ""; textFormat: Text.PlainText; font.pixelSize: 23; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                            Text { visible: !screen.compact && playbackSources.ready && text.length > 0; text: screen.state.playback.album || ""; textFormat: Text.PlainText; font.pixelSize: 19; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                            Text {
+                                objectName: "sessionPlaybackAlbum"
+                                visible: playbackSources.ready && text.length > 0
+                                text: screen.state.playback.album || ""
+                                textFormat: Text.PlainText; font.pixelSize: screen.compact ? 21 : 23
+                                color: BrandTheme.colors.muted; elide: Text.ElideRight; Layout.fillWidth: true
+                            }
                         }
                     }
-                    SessionAttribution {
-                        id: playbackSources
-                        requiresSpotify: !!screen.state.playback.requires_spotify_attribution
-                        spotifyURL: screen.state.playback.source_url || ""
-                        visible: requiresSpotify
-                        Layout.row: 2
-                        Layout.column: 1
-                        Layout.alignment: Qt.AlignLeft
-                    }
-                    AbstractButton {
-                        id: progressControl
+                    RowLayout {
                         objectName: "sessionPlaybackProgress"
-                        visible: playbackSources.ready && (screen.state.playback.time_label !== undefined
-                            || !!screen.state.playback_control.available)
-                        enabled: !!screen.state.playback_control.available
-                        implicitHeight: enabled ? Math.max(44, contentItem.implicitHeight) : contentItem.implicitHeight
+                        visible: playbackSources.ready && screen.state.playback.time_label !== undefined
                         Layout.row: 1
                         Layout.column: screen.compact ? 0 : 1
                         Layout.columnSpan: screen.compact ? 2 : 1
                         Layout.fillWidth: true
-                        Accessible.name: screen.tr("session_playback_controls")
-                        Accessible.description: screen.state.playback.time_label || ""
-                        Accessible.ignored: !enabled
-                        onClicked: playbackPanel.openFrom(progressControl, "all")
-                        background: GlassSurface {
-                            visible: progressControl.down || (progressControl.visualFocus && !playbackPanel.visible)
-                            radius: height / 2
-                            interactive: true
-                            pressed: progressControl.down
-                            focused: progressControl.visualFocus
-                        }
-                        contentItem: RowLayout {
-                            Row {
-                                id: playbackMeter
-                                objectName: "sessionPlaybackMeter"
-                                readonly property bool playing: screen.state.playback.state === "playing"
-                                readonly property bool animating: visible && playing && GlassStyle.motionEnabled
-                                    && screen.backend.releaseProfile !== "pi-zero-2w-arm64"
-                                    && Qt.application.state === Qt.ApplicationActive
-                                property real phase: 0
-                                spacing: 2
-                                Layout.preferredWidth: 18
-                                Layout.preferredHeight: 20
-                                Accessible.ignored: true
-                                Timer {
-                                    interval: 80
-                                    repeat: true
-                                    running: playbackMeter.animating
-                                    onTriggered: playbackMeter.phase = (playbackMeter.phase + 0.32) % (2 * Math.PI)
-                                }
-                                Repeater {
-                                    model: [0.85, 0.35, 0.62, 0.25]
-                                    Rectangle {
-                                        required property int index
-                                        required property real modelData
-                                        readonly property real level: playbackMeter.animating
-                                            ? 0.18 + 0.82 * (0.5 + 0.5 * Math.sin(playbackMeter.phase + index * 1.7))
-                                            : playbackMeter.playing ? modelData : 0.16
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        width: 3
-                                        height: Math.max(3, playbackMeter.height * level)
-                                        radius: 1
-                                        color: BrandTheme.colors.text
-                                    }
+                        Row {
+                            id: playbackMeter
+                            objectName: "sessionPlaybackMeter"
+                            readonly property bool playing: screen.state.playback.state === "playing"
+                            readonly property bool animating: visible && playing && GlassStyle.motionEnabled
+                                && screen.backend.releaseProfile !== "pi-zero-2w-arm64"
+                                && Qt.application.state === Qt.ApplicationActive
+                            property real phase: 0
+                            spacing: 2
+                            Layout.preferredWidth: 18
+                            Layout.preferredHeight: 20
+                            Accessible.ignored: true
+                            Timer {
+                                interval: 80
+                                repeat: true
+                                running: playbackMeter.animating
+                                onTriggered: playbackMeter.phase = (playbackMeter.phase + 0.32) % (2 * Math.PI)
+                            }
+                            Repeater {
+                                model: [0.85, 0.35, 0.62, 0.25]
+                                Rectangle {
+                                    required property int index
+                                    required property real modelData
+                                    readonly property real level: playbackMeter.animating
+                                        ? 0.18 + 0.82 * (0.5 + 0.5 * Math.sin(playbackMeter.phase + index * 1.7))
+                                        : playbackMeter.playing ? modelData : 0.16
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: 3
+                                    height: Math.max(3, playbackMeter.height * level)
+                                    radius: 1
+                                    color: BrandTheme.colors.text
                                 }
                             }
-                            ProgressBar {
-                                id: playbackProgress
-                                value: screen.state.playback.progress || 0; Layout.fillWidth: true
-                                Accessible.name: screen.tr("now_playing")
-                                Accessible.ignored: progressControl.enabled
-                                background: Rectangle { implicitHeight: 6; radius: 3; color: BrandTheme.colors.text; opacity: 0.18 }
-                                contentItem: Item {
-                                    implicitHeight: 6
-                                    Rectangle { width: playbackProgress.visualPosition * parent.width; height: parent.height; radius: 3; color: BrandTheme.colors.text }
-                                }
-                            }
-                            Text { text: screen.state.playback.time_label || ""; textFormat: Text.PlainText; font.pixelSize: screen.compact ? 16 : 18; color: BrandTheme.colors.muted }
                         }
+                        ProgressBar {
+                            id: playbackProgress
+                            value: screen.state.playback.progress || 0; Layout.fillWidth: true
+                            Accessible.name: screen.tr("now_playing")
+                            background: Rectangle { implicitHeight: 6; radius: 3; color: BrandTheme.colors.text; opacity: 0.18 }
+                            contentItem: Item {
+                                implicitHeight: 6
+                                Rectangle { width: playbackProgress.visualPosition * parent.width; height: parent.height; radius: 3; color: BrandTheme.colors.text }
+                            }
+                        }
+                        Text { text: screen.state.playback.time_label || ""; textFormat: Text.PlainText; font.pixelSize: screen.compact ? 16 : 18; color: BrandTheme.colors.muted }
                     }
                     RowLayout {
-                        visible: playbackSources.ready && !!screen.state.playback.target_name
-                        Layout.row: 3
+                        visible: playbackSources.ready && (!!screen.state.playback.target_name || volumeShortcut.visible)
+                        Layout.row: 2
                         Layout.column: screen.compact ? 0 : 1
                         Layout.columnSpan: screen.compact ? 2 : 1
                         Layout.fillWidth: true
-                        FeatureIcon { iconName: "music"; Layout.preferredWidth: 22; Layout.preferredHeight: 22 }
-                        Text { text: screen.state.playback.target_name || ""; textFormat: Text.PlainText; font.pixelSize: 19; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true; Accessible.name: screen.tr("output_device") + ": " + text }
+                        SessionPlaybackShortcut {
+                            id: outputShortcut
+                            objectName: "sessionCurrentOutput"
+                            visible: !!text
+                            enabled: !!screen.state.playback_control.enabled && !!screen.state.playback_control.outputs_supported
+                            iconName: "output"
+                            text: screen.state.playback.target_name || ""
+                            Accessible.name: screen.tr("output_device") + ": " + text
+                            Layout.fillWidth: true
+                            Layout.minimumWidth: 0
+                            opacity: 1
+                            padding: 4
+                            implicitHeight: 44
+                            background: Item {}
+                            onCurrentTrackClicked: outputsPanel.openForCurrentItem(outputShortcut)
+                        }
+                        SessionPlaybackShortcut {
+                            id: volumeShortcut
+                            objectName: "sessionCurrentVolume"
+                            readonly property var observation: screen.state.playback_control.volume || ({})
+                            visible: !!screen.state.playback_control.available && !!screen.state.playback_control.volume_supported
+                            enabled: !!screen.state.playback_control.enabled
+                            iconName: "voice"
+                            text: typeof observation.percent === "number" ? observation.percent + "%" : screen.tr("volume")
+                            Accessible.name: screen.tr("volume") + (typeof observation.percent === "number" ? " " + text : "")
+                            padding: 4
+                            implicitHeight: 44
+                            background: Item {}
+                            onCurrentTrackClicked: volumePanel.openForCurrentItem(volumeShortcut)
+                        }
                     }
                 }
+            }
+            SessionAttribution {
+                id: playbackSources
+                objectName: "sessionPlaybackAttribution"
+                requiresSpotify: !!screen.state.playback.requires_spotify_attribution
+                spotifyURL: screen.state.playback.source_url || ""
+                visible: playbackMetadata.visible && requiresSpotify && ready
+                Layout.alignment: Qt.AlignLeft
+                Layout.leftMargin: screen.compact ? 16 : 0
+                Layout.topMargin: 4 - historyScroll.flowSpacing
             }
             GlassCard {
                 id: waitingCard
@@ -1452,13 +1449,14 @@ Item {
                 padding: compactIdle ? 14 : 22
                 RowLayout {
                     Layout.fillWidth: true; spacing: 18
-                    DJSessionMenuSymbol {
-                        iconColor: BrandTheme.colors.purple
+                    SessionConfirmationAvatar {
+                        objectName: "sessionWaitingAvatar"
+                        mood: screen.state.mood || ""
+                        Accessible.ignored: !waitingCard.compactIdle
                         Layout.preferredWidth: 64
                         Layout.preferredHeight: 64
                         Accessible.role: Accessible.StaticText
                         Accessible.name: screen.tr("session_listening")
-                        Accessible.ignored: !waitingCard.compactIdle
                     }
                     ColumnLayout {
                         visible: !waitingCard.compactIdle
@@ -1593,6 +1591,7 @@ Item {
                             objectName: "sessionConversationCard"
                             readonly property var modelData: flowRow.modelData.contribution
                             entry: modelData; translate: screen.tr; dateText: screen.displayDate(modelData.occurred_at)
+                            confirmationMood: screen.state.mood || ""
                             selectionAvailable: screen.state.composer_available
                             selectionBusy: screen.owner.busy || screen.owner.questionBusy
                             deletionAvailable: !!screen.contentDeletion.available && !screen.showForecast
@@ -1631,12 +1630,6 @@ Item {
                 visible: !screen.historical && screen.state.history_available && screen.state.session_id.length > 0
                 text: screen.tr("session_history_first"); enabled: !screen.owner.busy
                 onClicked: screen.openCurrentHistory()
-            }
-            GlassButton {
-                visible: screen.historical
-                objectName: "sessionHistoryBack"
-                text: screen.tr(screen.currentHistory ? "session_back" : screen.state.timeline.session ? "session_history" : "more")
-                onClicked: screen.navigateBackFromHistory()
             }
             GlassButton {
                 objectName: "sessionDeleteAllSaved"
@@ -1849,6 +1842,7 @@ Item {
         anchors.right: historyScroll.right
         anchors.bottom: historyScroll.bottom
         anchors.margins: 8
+        anchors.bottomMargin: 8 + (screen.historical ? 0 : historyScroll.dockClearance)
         width: 52
         height: 52
         iconName: "arrow_up"
@@ -1975,24 +1969,59 @@ Item {
     }
     readonly property Component artworkTransportControls: Component {
         ColumnLayout {
+            id: artworkControls
             objectName: "trackArtworkTransportControls"
-            spacing: 12
-
-            RowLayout {
+            readonly property real buttonSize: Math.max(0, Math.min(156 * screen.ipadScale,
+                (width - 24) / 3, (height - 88) / 3))
+            spacing: 8
+            Item { Layout.fillHeight: true }
+            GridLayout {
                 Layout.alignment: Qt.AlignHCenter
-                spacing: 16
+                columns: 3
+                rowSpacing: 8
+                columnSpacing: 12
+                SessionTransportButton {
+                    objectName: "sessionPlaybackRepeat"
+                    commandName: "repeat"
+                    buttonSize: artworkControls.buttonSize
+                }
+                SessionTransportButton {
+                    objectName: "sessionPlaybackShuffle"
+                    commandName: "shuffle"
+                    buttonSize: artworkControls.buttonSize
+                }
+                SessionTransportButton {
+                    objectName: "sessionArtworkFavorite"
+                    commandName: "toggle_favorite"
+                    iconName: "heart"
+                    buttonSize: artworkControls.buttonSize
+                }
                 SessionTransportButton {
                     objectName: "sessionPlaybackPrevious"
                     commandName: "previous"
+                    buttonSize: artworkControls.buttonSize
                 }
                 SessionTransportButton {
                     objectName: "sessionPlaybackToggle"
                     commandName: screen.state.playback.state === "playing" ? "pause" : "play"
+                    buttonSize: artworkControls.buttonSize
                     checked: true
                 }
                 SessionTransportButton {
                     objectName: "sessionPlaybackNext"
                     commandName: "next"
+                    buttonSize: artworkControls.buttonSize
+                }
+                SessionTransportButton {
+                    objectName: "sessionPlaybackSeekBack"
+                    commandName: "seek_back_15"
+                    buttonSize: artworkControls.buttonSize
+                }
+                Item {}
+                SessionTransportButton {
+                    objectName: "sessionPlaybackSeekForward"
+                    commandName: "seek_forward_15"
+                    buttonSize: artworkControls.buttonSize
                 }
             }
             Text {
@@ -2015,17 +2044,32 @@ Item {
                 enabled: !screen.owner.busy
                 onClicked: screen.owner.refreshPlayback()
             }
+            Item { Layout.fillHeight: true }
         }
     }
     component SessionTransportButton: GlassButton {
+        id: transportButton
         required property string commandName
+        required property real buttonSize
         property int pressedEpoch: 0
+        readonly property bool basicTransport: ["previous", "play", "pause", "next"].includes(commandName)
         iconName: commandName
         Accessible.name: screen.tr(commandName)
-        implicitWidth: Math.max(52, 52 * screen.ipadScale)
-        implicitHeight: implicitWidth
-        padding: 10
+        implicitWidth: buttonSize
+        implicitHeight: buttonSize
+        padding: 0
+        contentItem: Item {
+            FeatureIcon {
+                anchors.centerIn: parent
+                width: Math.min(78 * screen.ipadScale, transportButton.buttonSize * 0.65)
+                height: width
+                iconName: transportButton.iconName
+                iconColor: transportButton.foregroundColor
+                strokeWidth: width * 0.065
+            }
+        }
         enabled: visible && screen.liveViewOpen && !!screen.state.playback_control.enabled
+            && (basicTransport || (screen.state.playback_control.overlay_commands || []).includes(commandName))
         onPressed: pressedEpoch = screen.state.playback_control.transport_epoch || 0
         onCanceled: pressedEpoch = 0
         onEnabledChanged: if (!enabled) pressedEpoch = 0
@@ -2062,199 +2106,131 @@ Item {
         padding: 20; modal: true; dim: false
     }
     AnchoredPlaybackPopup {
-        id: playbackPanel
-        objectName: "sessionPlaybackPanel"
-        property string controlView: "all"
-        function openFrom(source, view) {
+        id: volumePanel
+        objectName: "sessionVolumePanel"
+        wideWidth: 320
+        function openForCurrentItem(source) {
             captureSource(source)
-            controlView = view
-            open()
+            if (screen.owner.readPlaybackVolume(screen.state.session_id, screen.state.playback.item_id)) open()
         }
-        wideWidth: volumeOnly ? 320 : favoriteOnly ? 360 : 380
-        readonly property bool volumeOnly: controlView === "volume"
-        readonly property bool favoriteOnly: controlView === "favorite"
-        onAboutToHide: { outputsPanel.close(); if (screen.owner) screen.owner.cancelPlaybackIntent() }
-        height: Math.min(implicitHeight, Math.max(0, screen.height - 2 * edgeMargin),
-                         !screen.compact && controlView === "all" ? 460 * screen.ipadScale : screen.height)
-        onOpened: playbackScroll.contentItem.contentY = 0
+        onAboutToHide: if (screen.owner) screen.owner.cancelPlaybackIntent()
         background: GlassSurface { elevated: true; popover: !screen.compact }
         contentItem: ColumnLayout {
             spacing: 12
-            ScrollView {
-                id: playbackScroll
-                objectName: "sessionPlaybackScroll"
-                clip: true
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                Layout.minimumHeight: 0
-                implicitHeight: playbackOptions.implicitHeight
-                ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-                contentItem: Flickable {
-                    contentWidth: width
-                    contentHeight: playbackOptions.implicitHeight
-                    flickableDirection: Flickable.VerticalFlick
-                    boundsBehavior: Flickable.StopAtBounds
-                    interactive: contentHeight > height
-                    ColumnLayout {
-                        id: playbackOptions
-                        width: playbackScroll.availableWidth
-                        spacing: 16
-                        Text {
-                            text: !screen.compact && playbackPanel.controlView === "all" ? screen.state.playback.title || screen.tr("session_playback_controls")
-                                : screen.tr(playbackPanel.volumeOnly ? "volume" : playbackPanel.favoriteOnly ? "add_to_favorites" : "session_playback_controls")
-                            textFormat: Text.PlainText; font.pixelSize: 25; font.bold: true
-                            color: BrandTheme.colors.text; Layout.fillWidth: true; wrapMode: Text.WordWrap
-                        }
-                        Text {
-                            text: playbackPanel.volumeOnly ? screen.state.playback.target_name || ""
-                                : !screen.compact && playbackPanel.controlView === "all" ? screen.state.playback.artist || "" : screen.state.playback.title || ""
-                            visible: text.length > 0
-                            textFormat: Text.PlainText; font.pixelSize: 20; color: BrandTheme.colors.muted
-                            Layout.fillWidth: true; wrapMode: Text.WordWrap
-                        }
-                        GlassButton {
-                            objectName: "sessionPlaybackFavorite"
-                            readonly property var observation: screen.state.playback_control.favorite_observation || ({})
-                            readonly property bool known: typeof observation.liked === "boolean"
-                            readonly property int currentLease: known ? observation.lease : 0
-                            property int pressedEpoch: 0
-                            property int pressedLease: 0
-                            visible: !playbackPanel.volumeOnly && !!screen.state.playback_control.favorite
-                            text: screen.tr(!known ? "session_favorite_read" : observation.liked ? "session_favorite_remove" : "session_favorite_add")
-                            iconName: "heart"; checked: known && observation.liked
-                            Layout.fillWidth: true; enabled: !!screen.state.playback_control.enabled
-                            onPressed: {
-                                pressedEpoch = screen.state.playback_control.transport_epoch || 0
-                                pressedLease = currentLease
-                            }
-                            onCanceled: pressedEpoch = 0
-                            onClicked: {
-                                var epoch = pressedEpoch
-                                pressedEpoch = 0
-                                if (!playbackPanel.opened || !epoch || epoch !== screen.state.playback_control.transport_epoch
-                                        || pressedLease !== currentLease) return
-                                if (known) screen.owner.setPlaybackFavorite(screen.state.session_id, screen.state.playback.item_id, pressedLease, !observation.liked)
-                                else screen.owner.readPlaybackFavorite(screen.state.session_id, screen.state.playback.item_id)
-                            }
-                        }
-                        Text {
-                            visible: !playbackPanel.volumeOnly && screen.state.playback_control.favorite_status === "unavailable"
-                            text: screen.tr("session_favorite_unavailable"); textFormat: Text.PlainText
-                            font.pixelSize: 18; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true
-                        }
-                        ColumnLayout {
-                            objectName: "sessionVolumeControls"
-                            visible: !playbackPanel.favoriteOnly && !!screen.state.playback_control.volume_supported
-                            Layout.fillWidth: true; spacing: 8
-                            readonly property var observation: screen.state.playback_control.volume || ({})
-                            readonly property bool known: typeof observation.percent === "number"
-                            Text {
-                                objectName: "sessionVolumeObserved"
-                                text: parent.known ? screen.tr("volume") + ": " + parent.observation.percent + "%" : screen.tr(screen.state.playback_control.volume_status === "unavailable" ? "session_volume_unavailable" : "session_volume_unknown")
-                                textFormat: Text.PlainText; color: BrandTheme.colors.text
-                                font.pixelSize: 19; Layout.fillWidth: true; wrapMode: Text.WordWrap
-                            }
-                            Text {
-                                text: parent.observation.output_name || ""
-                                visible: text.length > 0; textFormat: Text.PlainText
-                                color: BrandTheme.colors.muted; font.pixelSize: 16; Layout.fillWidth: true; wrapMode: Text.WordWrap
-                            }
-                            Text {
-                                text: screen.tr("session_volume_limit"); textFormat: Text.PlainText
-                                color: BrandTheme.colors.muted; font.pixelSize: 16; Layout.fillWidth: true; wrapMode: Text.WordWrap
-                            }
-                            Slider {
-                                id: sessionVolumeSlider
-                                objectName: "sessionVolumeSlider"
-                                from: 0; to: 60; stepSize: 1; Layout.fillWidth: true
-                                implicitHeight: 44
-                                visible: parent.known && parent.observation.percent <= 60
-                                enabled: !!screen.state.playback_control.enabled && parent.known
-                                Accessible.name: screen.tr("volume")
-                                readonly property int observationLease: parent.known ? parent.observation.lease : -1
-                                onObservationLeaseChanged: volumePointer.intentLease = -1
-                                onMoved: {
-                                    if (!volumePointer.pressed && observationLease >= 0)
-                                        screen.owner.setPlaybackVolume(screen.state.session_id, screen.state.playback.item_id, observationLease, Math.round(value))
-                                }
-                                MouseArea {
-                                    id: volumePointer
-                                    objectName: "sessionVolumePointer"
-                                    anchors.fill: parent
-                                    acceptedButtons: Qt.LeftButton
-                                    property int intentLease: -1
-                                    property int draft: 0
+            Text {
+                text: screen.tr("volume")
+                font.pixelSize: 25; font.bold: true; color: BrandTheme.colors.text
+                Layout.fillWidth: true; wrapMode: Text.WordWrap
+            }
+            ColumnLayout {
+                objectName: "sessionVolumeControls"
+                Layout.fillWidth: true; spacing: 8
+                readonly property var observation: screen.state.playback_control.volume || ({})
+                readonly property bool known: typeof observation.percent === "number"
+                Text {
+                    objectName: "sessionVolumeObserved"
+                    text: parent.known ? screen.tr("volume") + ": " + parent.observation.percent + "%" : screen.tr(screen.state.playback_control.volume_status === "unavailable" ? "session_volume_unavailable" : "session_volume_unknown")
+                    textFormat: Text.PlainText; color: BrandTheme.colors.text
+                    font.pixelSize: 19; Layout.fillWidth: true; wrapMode: Text.WordWrap
+                }
+                Text {
+                    text: parent.observation.output_name || screen.state.playback.target_name || ""
+                    visible: text.length > 0; textFormat: Text.PlainText
+                    color: BrandTheme.colors.muted; font.pixelSize: 16; Layout.fillWidth: true; wrapMode: Text.WordWrap
+                }
+                Text {
+                    visible: parent.known
+                    text: screen.tr("session_volume_limit"); textFormat: Text.PlainText
+                    color: BrandTheme.colors.muted; font.pixelSize: 16; Layout.fillWidth: true; wrapMode: Text.WordWrap
+                }
+                Slider {
+                    id: sessionVolumeSlider
+                    objectName: "sessionVolumeSlider"
+                    from: 0; to: 60; stepSize: 1; Layout.fillWidth: true
+                    implicitHeight: 44
+                    visible: parent.known && parent.observation.percent <= 60
+                    enabled: !!screen.state.playback_control.enabled && parent.known
+                    Accessible.name: screen.tr("volume")
+                    readonly property int observationLease: parent.known ? parent.observation.lease : -1
+                    onObservationLeaseChanged: volumePointer.intentLease = -1
+                    onMoved: {
+                        if (!volumePointer.pressed && observationLease >= 0)
+                            screen.owner.setPlaybackVolume(screen.state.session_id, screen.state.playback.item_id, observationLease, Math.round(value))
+                    }
+                    MouseArea {
+                        id: volumePointer
+                        objectName: "sessionVolumePointer"
+                        anchors.fill: parent
+                        acceptedButtons: Qt.LeftButton
+                        property int intentLease: -1
+                        property int draft: 0
 
-                                    function valueAt(x) {
-                                        var slider = sessionVolumeSlider
-                                        var halfHandle = slider.handle ? slider.handle.width / 2 : 0
-                                        var travel = Math.max(1, slider.availableWidth - 2 * halfHandle)
-                                        var position = Math.max(0, Math.min(1, (x - slider.leftPadding - halfHandle) / travel))
-                                        return Math.round(slider.valueAt(slider.mirrored ? 1 - position : position))
-                                    }
-
-                                    onPressed: function(mouse) {
-                                        sessionVolumeSlider.forceActiveFocus(Qt.MouseFocusReason)
-                                        intentLease = sessionVolumeSlider.observationLease
-                                        draft = valueAt(mouse.x)
-                                    }
-                                    onPositionChanged: function(mouse) {
-                                        if (pressed && intentLease >= 0) draft = valueAt(mouse.x)
-                                    }
-                                    onReleased: function(mouse) {
-                                        var lease = intentLease
-                                        intentLease = -1
-                                        if (lease >= 0 && lease === sessionVolumeSlider.observationLease
-                                                && sessionVolumeSlider.enabled && sessionVolumeSlider.visible && playbackPanel.opened)
-                                            screen.owner.setPlaybackVolume(screen.state.session_id, screen.state.playback.item_id, lease, valueAt(mouse.x))
-                                    }
-                                    // Losing the grab is not a user release.
-                                    onCanceled: intentLease = -1
-                                }
-                                Binding {
-                                    target: sessionVolumeSlider; property: "value"
-                                    value: volumePointer.intentLease >= 0 ? volumePointer.draft
-                                        : (sessionVolumeSlider.parent.known ? sessionVolumeSlider.parent.observation.percent : 0)
-                                    restoreMode: Binding.RestoreNone
-                                }
-                            }
-                            GlassButton {
-                                objectName: "sessionVolumeReduce"
-                                visible: parent.known && parent.observation.percent > 60
-                                text: screen.tr("session_volume_reduce"); Layout.fillWidth: true
-                                enabled: !!screen.state.playback_control.enabled
-                                onClicked: screen.owner.setPlaybackVolume(screen.state.session_id, screen.state.playback.item_id, screen.state.playback_control.volume.lease, 60)
-                            }
-                            GlassButton {
-                                objectName: "sessionVolumeRead"
-                                text: screen.tr("session_volume_read"); Layout.fillWidth: true
-                                enabled: !!screen.state.playback_control.enabled
-                                onClicked: screen.owner.readPlaybackVolume(screen.state.session_id, screen.state.playback.item_id)
-                            }
-                        }
-                        GlassButton {
-                            id: menuOutputButton
-                            objectName: "sessionOutputOpen"
-                            visible: playbackPanel.controlView === "all" && !!screen.state.playback_control.outputs_supported
-                            text: screen.tr("session_output_title"); Layout.fillWidth: true
-                            enabled: !!screen.state.playback_control.enabled
-                            onClicked: outputsPanel.openForCurrentItem(menuOutputButton)
-                        }
-                        Text {
-                            objectName: "sessionPlaybackStatus"
-                            visible: !!screen.state.playback_control.status
-                            text: screen.tr((screen.state.playback_control.reading_volume || screen.state.playback_control.reading_favorite || screen.state.playback_control.reading_outputs) ? "loading" : screen.state.playback_control.status === "sending" ? "session_question_sending" : screen.state.playback_control.status === "accepted" ? "session_playback_sent" : "session_uncertain")
-                            textFormat: Text.PlainText; font.pixelSize: 18; color: BrandTheme.colors.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true
+                        function valueAt(x) {
+                            var slider = sessionVolumeSlider
+                            var halfHandle = slider.handle ? slider.handle.width / 2 : 0
+                            var travel = Math.max(1, slider.availableWidth - 2 * halfHandle)
+                            var position = Math.max(0, Math.min(1, (x - slider.leftPadding - halfHandle) / travel))
+                            return Math.round(slider.valueAt(slider.mirrored ? 1 - position : position))
                         }
 
+                        onPressed: function(mouse) {
+                            sessionVolumeSlider.forceActiveFocus(Qt.MouseFocusReason)
+                            intentLease = sessionVolumeSlider.observationLease
+                            draft = valueAt(mouse.x)
+                        }
+                        onPositionChanged: function(mouse) {
+                            if (pressed && intentLease >= 0) draft = valueAt(mouse.x)
+                        }
+                        onReleased: function(mouse) {
+                            var lease = intentLease
+                            intentLease = -1
+                            if (lease >= 0 && lease === sessionVolumeSlider.observationLease
+                                    && sessionVolumeSlider.enabled && sessionVolumeSlider.visible && volumePanel.opened)
+                                screen.owner.setPlaybackVolume(screen.state.session_id, screen.state.playback.item_id, lease, valueAt(mouse.x))
+                        }
+                        // Losing the grab is not a user release.
+                        onCanceled: intentLease = -1
+                    }
+                    Binding {
+                        target: sessionVolumeSlider; property: "value"
+                        value: volumePointer.intentLease >= 0 ? volumePointer.draft
+                            : (sessionVolumeSlider.parent.known ? sessionVolumeSlider.parent.observation.percent : 0)
+                        restoreMode: Binding.RestoreNone
+                    }
+                }
+                GlassButton {
+                    objectName: "sessionVolumeReduce"
+                    visible: parent.known && parent.observation.percent > 60
+                    text: screen.tr("session_volume_reduce"); Layout.fillWidth: true
+                    enabled: !!screen.state.playback_control.enabled
+                    onClicked: screen.owner.setPlaybackVolume(screen.state.session_id, screen.state.playback.item_id, screen.state.playback_control.volume.lease, 60)
+                }
+                GlassButton {
+                    objectName: "sessionVolumeRead"
+                    visible: !parent.known && !screen.state.playback_control.reading_volume
+                    text: screen.tr("refresh"); Layout.fillWidth: true
+                    enabled: !screen.owner.busy && !screen.state.playback_control.running
+                    onClicked: {
+                        if (screen.state.playback_control.status === "uncertain") screen.owner.refreshPlayback()
+                        else screen.owner.readPlaybackVolume(screen.state.session_id, screen.state.playback.item_id)
                     }
                 }
             }
-            RowLayout {
-                Layout.fillWidth: true
-                GlassButton { objectName: "sessionPlaybackRefresh"; text: screen.tr("refresh"); enabled: !screen.owner.busy; onClicked: screen.owner.refreshPlayback() }
-                Item { Layout.fillWidth: true }
-                GlassButton { objectName: "sessionPlaybackClose"; text: screen.tr("close"); onClicked: playbackPanel.close() }
+            Text {
+                readonly property var control: screen.state.playback_control
+                visible: text.length > 0
+                text: control.reading_volume ? screen.tr("loading")
+                    : control.status === "sending" ? screen.tr("session_question_sending")
+                    : control.status === "accepted" ? screen.tr("session_playback_sent")
+                    : control.status === "uncertain" ? screen.tr("session_uncertain") : ""
+                textFormat: Text.PlainText; font.pixelSize: 18; color: BrandTheme.colors.muted
+                Layout.fillWidth: true; wrapMode: Text.WordWrap
+            }
+            GlassButton {
+                objectName: "sessionVolumeClose"
+                text: screen.tr("close")
+                Layout.alignment: Qt.AlignRight
+                onClicked: volumePanel.close()
             }
         }
     }
@@ -2276,7 +2252,7 @@ Item {
             RowLayout {
                 id: outputHeader
                 Layout.fillWidth: true
-                Text { text: screen.tr("session_output_title"); textFormat: Text.PlainText; font.pixelSize: 25; font.bold: true; color: BrandTheme.colors.text; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+                Text { text: screen.tr("output_device"); textFormat: Text.PlainText; font.pixelSize: 25; font.bold: true; color: BrandTheme.colors.text; Layout.fillWidth: true; wrapMode: Text.WordWrap }
             }
             ListView {
                 id: outputChoices
@@ -2295,7 +2271,7 @@ Item {
                     text: modelData.name + (screen.compact && modelData.active ? " · " + screen.tr("session_output_current") : "")
                     Accessible.name: modelData.name + (modelData.active ? " · " + screen.tr("session_output_current") : "")
                     Accessible.description: volumeKnown ? screen.tr("volume") + " " + volumeLabel : ""
-                    checked: modelData.active && !screen.compact
+                    checked: modelData.active
                     opacity: modelData.active ? 1 : (enabled ? 1 : 0.4)
                     enabled: !!screen.state.playback_control.enabled && !modelData.active
                     implicitHeight: Math.max(56, outputChoiceLabels.implicitHeight + 28)
@@ -2326,7 +2302,7 @@ Item {
                             }
                         }
                         Text {
-                            visible: !screen.compact && outputChoice.modelData.active
+                            visible: outputChoice.modelData.active
                             text: "✓"; color: BrandTheme.colors.text; font.pixelSize: 20
                             Accessible.ignored: true
                         }
@@ -2581,6 +2557,29 @@ Item {
         }
     }
     GlassPopup {
+        id: sessionDjSettings
+        objectName: "sessionDjSettings"
+        anchors.centerIn: parent
+        width: Math.min(screen.width - 32, 560)
+        height: Math.min(screen.height - 32, djSettingsEditor.implicitHeight + topPadding + bottomPadding)
+        padding: 20; modal: true; dim: false
+        background: GlassSurface { elevated: true }
+        contentItem: ScrollView {
+            id: djSettingsScroll
+            clip: true; contentWidth: availableWidth; contentHeight: djSettingsEditor.implicitHeight
+            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+            Loader {
+                id: djSettingsEditor
+                active: sessionDjSettings.visible
+                width: djSettingsScroll.availableWidth
+                sourceComponent: SharedSettingsPanel {
+                    backend: screen.backend
+                    fields: ["gender", "announcement_output"]
+                }
+            }
+        }
+    }
+    GlassPopup {
         id: moreChoices
         x: 20; y: toolbar.y + toolbar.height + 8
         width: Math.min(screen.width - 40, 420); padding: 16
@@ -2593,12 +2592,6 @@ Item {
                 text: screen.tr("session_search"); iconName: "search"
                 Layout.fillWidth: true
                 onClicked: { moreChoices.close(); screen.showSearch() }
-            }
-            GlassButton {
-                visible: screen.sessionVoiceAvailable
-                text: screen.tr("shared_field_voice")
-                Layout.fillWidth: true
-                onClicked: { moreChoices.close(); screen.openChoice("voice", moreButton) }
             }
             GlassButton {
                 text: screen.tr("session_history"); Layout.fillWidth: true
@@ -2636,6 +2629,26 @@ Item {
         property string profileId: ""
         property string field: "mood"
         property string editToken: ""
+        readonly property bool iconPicker: field === "mood" || field === "persona" || field === "presence"
+        readonly property var options: (screen.backend.demoMode
+            ? screen.owner.demoOptions : screen.backend.sharedSettings.options || {})[field] || []
+        readonly property string selectedValue: screen.toolbarValue(field)
+        readonly property color selectionColor: MoodTheme.moodColor(screen.toolbarValue("mood"), "gradientStart")
+        readonly property color selectedForeground: selectionColor.r * 0.21 + selectionColor.g * 0.72 + selectionColor.b * 0.07 > 0.55
+            ? "#101433" : BrandTheme.colors.text
+
+        function submit(value) {
+            if (!canSubmit) return
+            if (screen.backend.demoMode) {
+                screen.owner.setDemoPreference(field, value)
+            } else {
+                var patch = {_edit_token: editToken}
+                patch[field] = value
+                screen.backend.saveSharedSettings(patch)
+            }
+            close()
+        }
+
         readonly property bool canSubmit: choices.visible && screen.state.runtime_state === "active"
             && screen.sessionControlsVisible && choices.sessionId === screen.state.session_id
             && choices.profileId === screen.scopeProfileId
@@ -2650,33 +2663,85 @@ Item {
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
         background: GlassSurface { radius: 28; elevated: true }
         contentItem: ColumnLayout {
-            spacing: 18
-            Text { text: screen.tr("shared_field_" + choices.field); color: BrandTheme.colors.text; font.pixelSize: 26; font.bold: true }
-            Flow {
-                Layout.fillWidth: true; spacing: 10
-                Repeater {
-                    model: (screen.backend.demoMode ? screen.owner.demoOptions : screen.backend.sharedSettings.options || {})[choices.field] || []
-                    GlassButton {
-                        required property var modelData
-                        text: choices.field === "voice" ? (modelData.label_key ? screen.tr(modelData.label_key) : modelData.label || "") : screen.tr("shared_" + choices.field + "_" + modelData)
-                        checked: screen.toolbarValue(choices.field) === (choices.field === "voice" ? modelData.value : modelData)
-                        enabled: choices.canSubmit
-                        objectName: "sessionToolbarOption"
-                        onClicked: {
-                            if (!choices.canSubmit) return
-                            if (screen.backend.demoMode) {
-                                screen.owner.setDemoPreference(choices.field, modelData)
-                            } else {
-                                var patch = {_edit_token: choices.editToken}
-                                patch[choices.field] = choices.field === "voice" ? modelData.value : modelData
-                                screen.backend.saveSharedSettings(patch)
+            spacing: 16
+            Text {
+                text: screen.toolbarChoiceLabel(choices.field)
+                color: BrandTheme.colors.text
+                font.pixelSize: 26
+                font.bold: true
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+            GlassSurface {
+                visible: choices.iconPicker && choices.options.length > 0
+                objectName: "sessionToolbarIconChoices"
+                Layout.fillWidth: true
+                implicitHeight: iconChoices.implicitHeight + 16
+                radius: height / 2
+                RowLayout {
+                    id: iconChoices
+                    anchors.fill: parent
+                    anchors.margins: 8
+                    spacing: 6
+                    Repeater {
+                        model: choices.iconPicker ? choices.options : []
+                        GlassButton {
+                            id: option
+                            required property string modelData
+                            objectName: "sessionToolbarOption"
+                            iconName: choices.field + "_" + modelData
+                            checked: choices.selectedValue === modelData
+                            enabled: choices.canSubmit
+                            Layout.fillWidth: true
+                            Layout.preferredWidth: 1
+                            Layout.preferredHeight: screen.compact ? 60 : 70
+                            padding: 0
+                            selectionFill: choices.selectionColor
+                            foregroundColor: checked ? choices.selectedForeground : BrandTheme.colors.text
+                            Accessible.name: screen.tr("shared_" + choices.field + "_" + modelData)
+                            contentItem: Item {
+                                FeatureIcon {
+                                    anchors.centerIn: parent
+                                    width: screen.compact ? 30 : 36
+                                    height: width
+                                    iconName: option.iconName
+                                    iconColor: option.foregroundColor
+                                    Accessible.ignored: true
+                                }
                             }
-                            choices.close()
+                            onClicked: choices.submit(modelData)
                         }
                     }
                 }
             }
-            GlassButton { text: screen.tr("shared_title"); onClicked: { choices.close(); screen.navigate("settings") } }
+            Text {
+                objectName: "sessionToolbarSelectedLabel"
+                visible: choices.iconPicker && choices.options.includes(choices.selectedValue)
+                text: visible ? screen.tr("shared_" + choices.field + "_" + choices.selectedValue) : ""
+                textFormat: Text.PlainText
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.WordWrap
+                font.pixelSize: 22
+                font.bold: true
+                color: BrandTheme.colors.text
+                Layout.fillWidth: true
+            }
+            Flow {
+                visible: !choices.iconPicker
+                Layout.fillWidth: true
+                spacing: 10
+                Repeater {
+                    model: choices.iconPicker ? [] : choices.options
+                    GlassButton {
+                        required property var modelData
+                        text: modelData.label_key ? screen.tr(modelData.label_key) : modelData.label || ""
+                        checked: choices.selectedValue === modelData.value
+                        enabled: choices.canSubmit
+                        objectName: "sessionToolbarOption"
+                        onClicked: choices.submit(modelData.value)
+                    }
+                }
+            }
         }
     }
     GlassPopup {
@@ -2854,6 +2919,7 @@ Item {
                 Layout.fillWidth: true
                 GlassButton {
                     text: screen.tr("refresh")
+                    visible: vibeCastPanel.sender.status !== "https_required"
                     enabled: !vibeCastPanel.sender.busy
                     Layout.fillWidth: true
                     onClicked: { codeInput.clear(); screen.owner.refreshVibeCast() }

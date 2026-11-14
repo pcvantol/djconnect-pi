@@ -233,17 +233,20 @@ def test_automatic_refresh_keeps_controls_available_and_drops_superseded_read(co
     owner.transport.start.assert_called_once()
 
 
-@pytest.mark.parametrize("error", ["offline", "unavailable"])
-def test_temporary_poll_failure_keeps_confirmed_session_until_recovery(controller, error):
+@pytest.mark.parametrize("failed_read", [
+    SessionError("offline"), SessionError("unavailable"), SessionError("invalid"),
+    {"success": True}, {"success": True, "session": []},
+])
+def test_temporary_poll_failure_keeps_confirmed_session_until_recovery(controller, failed_read):
     owner, backend = controller
     session = {"session_id": "s1", "runtime_state": "active",
                "broadcast": {"session": {"session_id": "s1"}}}
     owner.transport.capabilities.return_value = {}
     owner.transport.active.side_effect = [
-        {"success": True, "session": session}, SessionError(error),
-        {"success": True, "session": None},
+        {"success": True, "session": session}, failed_read,
+        {"success": True, "session": session}, {"success": True, "session": None},
     ]
-    for expected_session in ("s1", "s1", ""):
+    for expected_session in ("s1", "s1", "s1", ""):
         owner.poll()
         backend.jobs.pop()()
         assert owner.state["session_id"] == expected_session
@@ -253,6 +256,7 @@ def test_temporary_poll_failure_keeps_confirmed_session_until_recovery(controlle
 
 @pytest.mark.parametrize(("error", "code", "age"), [
     ("denied", "", 0), ("unavailable", "active_session_not_found", 0), ("offline", "", 90),
+    ("invalid", "", 90),
 ])
 def test_poll_withdraws_session_on_denial_explicit_absence_or_expired_read(controller, error, code, age):
     owner, backend = controller
@@ -1320,6 +1324,42 @@ def _personal_owner(owner, backend):
         "contract_versions": {"session_history_entries": 2, "ask_dj_contextual_dialogue": 1}}
 
 
+@pytest.mark.parametrize("mapped_locally", [False, True])
+def test_archive_opens_without_first_loading_live_session(controller, mapped_locally):
+    owner, backend = controller
+    if not mapped_locally:
+        _personal_owner(owner, backend)
+    original_config = vars(backend.cfg).copy()
+    owner.setViewActive(False)
+    owner.transport.history = Mock(return_value={
+        "success": True, "schema_version": 2, "history_contract_version": 2,
+        "sessions": [], "next_cursor": None,
+    })
+    owner.loadHistory()
+    if not mapped_locally:
+        backend.jobs.pop(0)()
+        owner.transport.private_scope_owner.assert_called_once()
+        owner.transport.history.assert_not_called()
+    backend.jobs.pop(0)()
+    assert owner.state["history_loaded"]
+    assert owner.state["error"] == ""
+    binding = owner.transport.history.call_args.args[0]
+    assert binding.resolved_profile_id == ("profile-a" if mapped_locally else "profile-server")
+    owner.transport.active.assert_not_called()
+    assert vars(backend.cfg) == original_config
+
+
+def test_cold_archive_without_private_admission_does_not_read_history(controller):
+    owner, backend = controller
+    _missing_metadata(owner, backend)
+    owner.transport.history = Mock()
+    owner.loadHistory()
+    backend.jobs.pop()()
+    assert owner.state["error"] == "profile_required"
+    assert not owner.state["history_loaded"]
+    owner.transport.history.assert_not_called()
+
+
 def test_personal_scope_enables_existing_private_functions_without_fake_config(controller):
     from djconnect_pi.session_transport import (
         private_binding_allowed,
@@ -1807,6 +1847,18 @@ def test_vibecast_refuses_mutation_when_display_origin_changes(vibecast_sender, 
     calls = [call.args[1] for call in owner.transport.display_owner.call_args_list]
     assert calls == (["context", "context", "resolve", "context"] if action == "approve" else ["context", "context"])
     assert owner.state["vibecast"]["status"] == "failed"
+
+
+def test_vibecast_explains_missing_https_without_starting_a_share(vibecast_sender):
+    owner, backend, _ = vibecast_sender
+    owner.transport.display_owner.side_effect = SessionError("https_required")
+    assert owner.openVibeCast()
+    backend.jobs.pop()()
+    state = owner.state["vibecast"]
+    assert state["status"] == "https_required"
+    assert state["open"] and not state["has_share"] and not state["has_display"]
+    assert not owner.resolveVibeCastCode("012345")
+    owner.transport.display_owner.assert_called_once()
 
 
 def test_vibecast_lookup_can_retry_after_rejection_or_expiry(vibecast_sender):

@@ -95,7 +95,7 @@ def test_profile_context_fixtures_define_pi_as_shared_ambient_client() -> None:
     assert {"profile_required", "invalid_request_context", "profile_access_denied"}.issubset(guest_safe_errors)
 
 
-def test_music_dna_profile_fixtures_render_backend_privacy_dashboard_only() -> None:
+def test_music_dna_profile_fixtures_render_only_dashboard_cards() -> None:
     disabled = parse_music_dna_profile(_fixture("music_dna.profile.disabled"))
     empty = parse_music_dna_profile(_fixture("music_dna.profile.empty"))
     rich = parse_music_dna_profile(_fixture("music_dna.profile.rich"))
@@ -103,24 +103,16 @@ def test_music_dna_profile_fixtures_render_backend_privacy_dashboard_only() -> N
     assert disabled == {"enabled": False, "summary": "", "sections": []}
     assert empty["enabled"] is True
     assert empty["summary"] == "Music DNA staat aan, maar er is nog niet genoeg luistercontext."
-    empty_privacy = next(section for section in empty["sections"] if section["title"] == "Privacy dashboard")
-    assert any("Recent tracks" in line for line in empty_privacy["lines"])
-    assert any("Stores Raw Audio: False" in line for line in empty_privacy["lines"])
-    assert any("Stores Oauth Tokens: False" in line for line in empty_privacy["lines"])
-    assert any("Stores Full Prompts: False" in line for line in empty_privacy["lines"])
+    assert not empty["sections"]
 
     assert rich["enabled"] is True
-    assert rich["summary"] == "Je Music DNA leunt naar indie, ambient en artiesten als The xx."
-    privacy = next(section for section in rich["sections"] if section["title"] == "Privacy dashboard")
-    lines = "\n".join(privacy["lines"])
-    assert "Spotify recent/top profile snapshots" in lines
-    assert "Recommendation feedback" in lines
-    assert "Negative feedback" in lines
-    assert "Clear Supported: True" in lines
-    assert "Stores Raw Audio: False" in lines
-    assert "Stores Oauth Tokens: False" in lines
-    assert "Stores Full Prompts: False" in lines
-    assert "secret" not in lines.lower()
+    cards = {card["key"]: card for card in rich["sections"]}
+    assert set(cards) == {"music_dna_card_summary", "music_dna_card_favorite_genres",
+                         "music_dna_card_recent_tracks", "music_dna_card_top_tracks",
+                         "music_dna_card_top_artists", "music_dna_card_feedback"}
+    assert cards["music_dna_card_recent_tracks"]["rows"][0]["title"] == "Intro"
+    assert cards["music_dna_card_top_artists"]["groups"][0]["shelf"] is True
+    assert "raw_audio" not in repr(cards)
 
 
 def test_music_discovery_fixture_renders_backend_sections_items_and_actions() -> None:
@@ -145,6 +137,34 @@ def test_music_discovery_fixture_renders_backend_sections_items_and_actions() ->
     assert action_payload == {"section_id": "new_for_you", "discovery_item_id": raw["id"]}
     assert "uri" not in action_payload
     assert "title" not in action_payload
+
+
+def test_music_discovery_resolves_only_valid_scoped_artwork_against_ha() -> None:
+    import time
+
+    payload = _fixture("music_discovery.feed")
+    raw = payload["sections"][0]["items"][0]
+    path = "/api/djconnect/v1/image_proxy/disc-" + "a" * 32
+    spotify_url = "https://open.spotify.com/album/" + "b" * 22
+    raw.update(image_url=path, image_expires_at=time.time() + 120, image_attribution={
+        "provider": "spotify", "media_uri": "spotify:album:" + "b" * 22, "source_url": spotify_url,
+    })
+    origin = "http://ha.local:8123"
+    item = parse_music_discovery_feed(payload, ha_url=origin)["items"][0]
+    assert item["imageUrl"] == origin + path
+    assert item["imageExpiresAt"] == raw["image_expires_at"] * 1000
+    assert item["imageSourceUrl"] == spotify_url
+
+    legacy_path = path.replace("/v1/", "/")
+    for rejected in (legacy_path, origin + legacy_path, origin + path):
+        raw["image_url"] = rejected
+        assert parse_music_discovery_feed(payload, ha_url=origin)["items"][0]["imageUrl"] == ""
+
+    raw["image_url"] = path
+    raw["image_expires_at"] = time.time() - 1
+    assert parse_music_discovery_feed(payload, ha_url=origin)["items"][0]["imageUrl"] == ""
+    raw["image_url"] = "//other.test" + path
+    assert parse_music_discovery_feed(payload, ha_url=origin)["items"][0]["imageUrl"] == ""
 
 
 def test_music_discovery_play_and_feedback_use_fixture_backend_ids_only() -> None:
