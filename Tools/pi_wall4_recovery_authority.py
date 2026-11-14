@@ -8,11 +8,11 @@ from types import MappingProxyType
 
 from Tools import pi_json_equivalence
 from Tools.pi_instance_authority import (
-    pi_run_repository_matches,
     CORE,
     PI,
     PUBLICATION,
     Authority,
+    pi_run_repository_matches,
     qualified,
     release_asset,
 )

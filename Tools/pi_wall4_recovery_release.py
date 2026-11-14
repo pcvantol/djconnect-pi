@@ -17,7 +17,11 @@ from Tools import pi_rc6_recovery as component
 from Tools import pi_wall4_recovery_authority as authority_module
 from Tools.pi_instance_artifact import inspect_artifact
 from Tools.pi_instance_authority import (
-    PI, GitHubRead, pi_repository_matches, pi_run_repository_matches, verified_artifact,
+    PI,
+    GitHubRead,
+    pi_repository_matches,
+    pi_run_repository_matches,
+    verified_artifact,
 )
 from Tools.pi_instance_contract import BindingError, require, strict_json, timestamp
 from Tools.pi_instance_release import FIELDS, PhaseFailure

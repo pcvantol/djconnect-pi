@@ -14,13 +14,13 @@ from pathlib import Path
 from Tools.pi_instance_aggregate import aggregate
 from Tools.pi_instance_artifact import inspect_artifact
 from Tools.pi_instance_authority import (
-    pi_run_repository_matches,
-    pi_repository_matches,
     CORE,
     OPERATIONAL_PATH,
     PI,
     GitHubRead,
     github_file,
+    pi_repository_matches,
+    pi_run_repository_matches,
     resolve,
     verified_artifact,
 )
