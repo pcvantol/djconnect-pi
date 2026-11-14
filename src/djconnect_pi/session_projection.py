@@ -50,7 +50,9 @@ def text(value, maximum=32768):
 def active_session(response):
     if not isinstance(response, dict) or response.get("success") is not True:
         raise SessionError("invalid")
-    session = response.get("session")
+    if "session" not in response:
+        raise SessionError("invalid")
+    session = response["session"]
     if session is None:
         return {}
     if not isinstance(session, dict):

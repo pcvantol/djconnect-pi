@@ -373,6 +373,8 @@ class SessionTransport:
         return intent.outcome(result)
 
     def display_owner(self, binding, action, payload):
+        if binding.ha_url.startswith("http://"):
+            raise SessionError("https_required")
         return self._request(binding, "POST", "display/owner/" + action, payload, display_owner=True)
 
     def capabilities(self, binding, *, isolated=False):
@@ -403,6 +405,17 @@ class SessionTransport:
             raise SessionError("invalid")
         return self._request(binding, "POST", "command", {
             "command": command, "request_source": "device_command", "app_version": PROTOCOL_VERSION}, isolated=True)
+
+    def playback_adjustment(self, binding, command: str, value: int | bool | str):
+        if not (
+            command == "seek_relative" and type(value) is int and value in (-15000, 15000)
+            or command == "set_shuffle" and type(value) is bool
+            or command == "set_repeat" and isinstance(value, str) and value in ("off", "context", "track")
+        ):
+            raise SessionError("invalid")
+        return self._request(binding, "POST", "command", {
+            "command": command, "value": value,
+            "request_source": "device_command", "app_version": PROTOCOL_VERSION}, isolated=True)
 
     def playback_volume(self, binding, value: int, backend: str):
         if (type(value) is not int or not 0 <= value <= 60
@@ -548,6 +561,25 @@ class SessionTransport:
             raise SessionError("invalid")
         route = "session/history/" + quote(identifier(session_id), safe="") + "/search"
         return self._request(binding, "GET", route, {**self._page(cursor, limit), "q": query})
+
+    def standalone_history(self, binding, owner: str):
+        result = self._request(binding, "GET", "ask_dj/history", {
+            "conversation_scope": "profile", "profile_id": identifier(owner),
+        }, isolated=True)
+        if result.get("owner_profile_id") != owner or result.get("history_scope") != "profile":
+            raise SessionError("context_changed")
+        return result
+
+    def standalone_question(self, binding, text: str, message_id: str, owner: str):
+        if not isinstance(text, str) or not text.strip() or len(text) > 4000:
+            raise SessionError("invalid")
+        result = self._request(binding, "POST", "ask_dj/message", {
+            "text": text.strip(), "client_message_id": identifier(message_id),
+            "conversation_context": {}, "conversation_scope": "profile", "profile_id": identifier(owner),
+            "language": locale_for_language(binding.language), "audio_response": "never",
+        }, timeout=(8, 120), isolated=True)
+        if result.get("owner_profile_id") != owner or result.get("client_message_id") != message_id:
+            raise SessionError("uncertain")
 
     def question(self, binding, request):
         body = request["text"].strip() if isinstance(request.get("text"), str) else ""

@@ -103,6 +103,25 @@ def test_question_is_single_profile_bound_text_only_request_with_exact_context(t
     request.assert_called_once()
 
 
+def test_standalone_question_checks_receipt_and_sends_text_once(transport):
+    client, _, request, response = transport
+    response.json.return_value = {"success": True, "owner_profile_id": "owner", "client_message_id": "turn"}
+    client.standalone_question(client.binding(), "  Tell me about this artist  ", "turn", "owner")
+    assert request.call_args.args[0] == "POST"
+    assert request.call_args.args[1].endswith("/ask_dj/message")
+    payload = request.call_args.kwargs["json"]
+    assert payload["text"] == "Tell me about this artist"
+    assert payload["conversation_context"] == {}
+    assert payload["profile_id"] == "owner"
+    assert payload["audio_response"] == "never"
+    request.assert_called_once()
+
+    request.reset_mock()
+    with pytest.raises(SessionError, match="uncertain"):
+        client.standalone_question(client.binding(), "Question", "another-turn", "owner")
+    request.assert_called_once()
+
+
 def test_question_timeout_is_uncertain_with_no_write_replay(transport):
     client, _, request, _ = transport
     request.side_effect = requests.Timeout()
@@ -130,6 +149,20 @@ def test_playback_command_is_one_paired_profile_http_attempt_without_invented_wi
     assert kwargs["headers"]["Authorization"] == "Bearer synthetic-token"
     assert kwargs["json"] == {"device_id": cfg.device_id, "client_type": "raspberry_pi", "profile_id": cfg.explicit_profile_id,
         "command": command, "request_source": "device_command", "app_version": PROTOCOL_VERSION}
+
+
+@pytest.mark.parametrize(("command", "value"), [
+    ("seek_relative", -15000), ("seek_relative", 15000), ("set_shuffle", True), ("set_repeat", "track"),
+])
+def test_overlay_adjustment_uses_one_existing_device_command(transport, command, value):
+    client, _, request, _ = transport
+    client.playback_adjustment(client.binding(), command, value)
+    request.assert_called_once()
+    assert request.call_args.args == ("POST", "http://fixture.invalid/api/djconnect/v1/command")
+    payload = request.call_args.kwargs["json"]
+    assert payload["command"] == command and payload["value"] == value
+    assert type(payload["value"]) is type(value)
+    assert payload["request_source"] == "device_command"
 
 
 def test_playback_timeout_is_uncertain_and_never_replayed(transport):
@@ -315,12 +348,20 @@ def test_owner_witness_cannot_override_existing_local_choice(transport):
     assert not client.binding().private_authorized
 
 
+def test_display_owner_rejects_local_http_without_sending_bearer(transport):
+    client, _, request, _ = transport
+    with pytest.raises(SessionError, match="https_required"):
+        client.display_owner(client.binding(), "context", {"session_id": "session"})
+    request.assert_not_called()
+
+
 def test_display_owner_uses_closed_device_identity_and_never_retries(transport):
     client, cfg, request, response = transport
+    cfg.ha_url = "https://fixture.invalid"
     response.json.return_value = {"success": True, "contract_version": 1}
     client.display_owner(client.binding(), "resolve", {"code": "012345"})
     args, kwargs = request.call_args
-    assert args == ("POST", "http://fixture.invalid/api/djconnect/v1/display/owner/resolve")
+    assert args == ("POST", "https://fixture.invalid/api/djconnect/v1/display/owner/resolve")
     assert kwargs["json"] == {
         "contract_version": 1,
         "identity": {"device_id": cfg.device_id, "client_type": "raspberry_pi"},

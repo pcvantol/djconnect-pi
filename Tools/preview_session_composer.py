@@ -157,6 +157,11 @@ def main():
             backend.sharedSettingsChanged.emit()
             assert not choice.property('opened') and not voice_button.property('visible')
 
+        def visual_items(item):
+            yield item
+            for child in item.childItems():
+                yield from visual_items(child)
+
         for setting,button in [('mood',mood_button),('presence',presence_button),('persona',persona_button)]:
             for value in shared['options'][setting]:
                 shared['values'][setting]=value
@@ -166,6 +171,22 @@ def main():
             QMetaObject.invokeMethod(button,'clicked')
             capture('toolbar-'+setting+'-popover')
             assert choice.property('opened') and choice.property('canSubmit')
+            icon_row = choice.findChild(QObject, 'sessionToolbarIconChoices')
+            selected_label = choice.findChild(QObject, 'sessionToolbarSelectedLabel')
+            assert icon_row.property('visible') and selected_label.property('visible')
+            assert selected_label.property('text') == backend.t('shared_' + setting + '_' + value)
+            options = sorted((option for option in visual_items(icon_row)
+                              if option.objectName() == 'sessionToolbarOption' and option.property('visible')),
+                             key=lambda option: option.x())
+            assert len(options) == len(shared['options'][setting])
+            assert [option.property('iconName') for option in options] == [
+                setting + '_' + choice_value for choice_value in shared['options'][setting]]
+            assert sum(bool(option.property('checked')) for option in options) == 1
+            assert all(option.property('selectionFill') == choice.property('selectionColor') for option in options)
+            assert max(option.width() for option in options) - min(option.width() for option in options) <= 1
+            assert icon_row.mapToScene(QPointF(0, icon_row.height())).y() < selected_label.mapToScene(QPointF()).y()
+            assert not any(item.property('text') == backend.t('shared_title') and item.property('visible')
+                           for item in visual_items(choice.property('contentItem')))
             QMetaObject.invokeMethod(choice,'close')
         QTest.qWait(200)
         # A queued old click cannot write after Session/context or server edit-token replacement.

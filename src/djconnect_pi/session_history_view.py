@@ -213,6 +213,12 @@ def live_presentations(session, *, now=None):
             card["spotify_source_url"] = spotify_source({**raw, "requires_spotify_attribution": card["requires_spotify_attribution"]})
         except SessionError:
             continue
+        confirmation = raw.get("settings_confirmation")
+        if (raw.get("type") == "session" and isinstance(confirmation, dict)
+                and type(confirmation.get("schema_version")) is int and confirmation["schema_version"] == 1
+                and timestamp(confirmation.get("accepted_at")) is not None
+                and confirmation["accepted_at"] == raw.get("created_at")):
+            card.update(settings_confirmation=True, occurred_at=raw["created_at"])
         if raw.get("type") == "dj_bulletin":
             if not _valid_bulletin(raw, card):
                 continue

@@ -8,6 +8,15 @@ from PySide6.QtCore import QObject, Signal, Slot
 from .session_projection import active_session, session_playback, volume_observation
 from .session_transport import SessionError, private_scope_allowed
 
+OVERLAY_CAPABILITIES = {
+    "seek_back_15": "supports_seek",
+    "seek_forward_15": "supports_seek",
+    "shuffle": "supports_shuffle",
+    "repeat": "supports_repeat",
+    "toggle_favorite": "supports_favorites",
+}
+REPEAT_NEXT = {"off": "context", "context": "track", "track": "off"}
+
 COMMANDS = frozenset({"play", "pause", "previous", "next", "save_current_track"})
 
 
@@ -98,7 +107,7 @@ def reference(owner):
             or not playback):
         return None
     return (owner._session["session_id"], playback["item_id"], playback["state"], playback["source_url"],
-            cfg.music_backend, getattr(cfg, "music_backend_revision", 0))
+            cfg.music_backend, getattr(cfg, "music_backend_revision", 0), playback["target_name"])
 
 
 class PlaybackControl(QObject):
@@ -137,9 +146,18 @@ class PlaybackControl(QObject):
                     and (request["command"] != "save_current_track" or self.favorite_supported())
                     and (request["command"] not in VOLUME_COMMANDS or self.volume_supported())
                     and (request["command"] not in FAVORITE_COMMANDS or self.favorite_read_supported())
-                    and (request["command"] not in OUTPUT_COMMANDS or self.outputs_supported()))
+                    and (request["command"] not in OUTPUT_COMMANDS or self.outputs_supported())
+                    and (request["command"] not in OVERLAY_CAPABILITIES
+                         or request["command"] in self.overlay_commands()))
         except (SessionError, AttributeError, KeyError, TypeError, ValueError, RuntimeError):
             return False
+
+    def overlay_commands(self):
+        cfg = self.owner.backend.cfg
+        caps = getattr(cfg, "music_backend_capabilities", {})
+        if getattr(cfg, "music_backend", None) != "spotify_direct" or not isinstance(caps, dict):
+            return []
+        return [command for command, capability in OVERLAY_CAPABILITIES.items() if caps.get(capability) is True]
 
     def favorite_supported(self):
         caps = getattr(self.owner.backend.cfg, "music_backend_capabilities", {})
@@ -233,6 +251,7 @@ class PlaybackControl(QObject):
                     or getattr(getattr(self.owner, "_archive_delete", None), "running", False))
         return {"available": available, "enabled": available and not busy and not self.blocked,
                 "transport_epoch": self._transport_epoch if available else 0,
+                "overlay_commands": self.overlay_commands() if available and current[6] else [],
                 "favorite": self.favorite_read_supported(), "running": self.running,
                 "favorite_observation": {"liked": self.favorite_state["liked"], "lease": self.favorite_state["serial"]} if self.favorite_valid() else {},
                 "favorite_status": self.favorite_status,
@@ -248,7 +267,7 @@ class PlaybackControl(QObject):
                 "status": "sending" if self.running and self.valid() else "uncertain" if self.blocked else self.status}
 
     def start(self, session_id, item_id, command, *, transport_epoch=None):
-        if not isinstance(command, str) or command not in COMMANDS:
+        if not isinstance(command, str) or (command not in COMMANDS and command not in OVERLAY_CAPABILITIES):
             return False
         return self._start(session_id, item_id, command, transport_epoch=transport_epoch)
 
@@ -296,6 +315,7 @@ class PlaybackControl(QObject):
             return False
         current = reference(self.owner)
         if (current is None or current[:2] != (session_id, item_id)
+                or command in OVERLAY_CAPABILITIES and command not in state["overlay_commands"]
                 or command == "save_current_track" and not self.favorite_supported()
                 or command == "play" and current[2] != "paused"
                 or command == "pause" and current[2] != "playing"):
@@ -357,7 +377,9 @@ class PlaybackControl(QObject):
                         or command == "save_current_track" and (not isinstance(caps, dict) or caps.get("supports_favorites") is not True)):
                     raise SessionError("unavailable")
                 # Existing global command semantics: no invented Session/item/output CAS fields.
-                if command in OUTPUT_COMMANDS:
+                if command in OVERLAY_CAPABILITIES:
+                    self._run_overlay_adjustment(binding, request, playback, status, observed)
+                elif command in OUTPUT_COMMANDS:
                     origin = output_origin(status, request["reference"][4])
                     if command == "set_output" and origin != request["origin"]:
                         raise SessionError("context_changed")
@@ -406,6 +428,39 @@ class PlaybackControl(QObject):
             self.executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="djconnect-playback-intent")
         self.executor.submit(worker)
         return True
+
+    def _run_overlay_adjustment(self, binding, request, playback, status, observed):
+        command = request["command"]
+        backend = request["reference"][4]
+        target = request["reference"][6]
+        caps = status.get("music_backend_capabilities")
+        device = observed.get("device")
+        if (not isinstance(caps, dict) or caps.get(OVERLAY_CAPABILITIES[command]) is not True
+                or not target or playback.get("target_name") != target
+                or not isinstance(device, dict) or not output_id(device.get("id"))
+                or device.get("name") != target
+                or device.get("active") is not True or device.get("is_restricted") is not False):
+            raise SessionError("unavailable")
+        if command == "toggle_favorite":
+            wire_command, value = "set_current_track_favorite", not favorite_observation(status, backend)
+        elif command == "shuffle":
+            shuffle = observed.get("shuffle")
+            if type(shuffle) is not bool:
+                raise SessionError("unavailable")
+            wire_command, value = "set_shuffle", not shuffle
+        elif command == "repeat":
+            repeat = observed.get("repeat_state")
+            if not isinstance(repeat, str) or repeat not in REPEAT_NEXT:
+                raise SessionError("unavailable")
+            wire_command, value = "set_repeat", REPEAT_NEXT[repeat]
+        else:
+            wire_command, value = "seek_relative", -15000 if command == "seek_back_15" else 15000
+        if not self.valid() or self.request != request:
+            raise SessionError("context_changed")
+        if command == "toggle_favorite":
+            self.owner.transport.playback_favorite(binding, value)
+        else:
+            self.owner.transport.playback_adjustment(binding, wire_command, value)
 
     @Slot(object)
     def finish(self, result):

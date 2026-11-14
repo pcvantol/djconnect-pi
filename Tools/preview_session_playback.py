@@ -12,7 +12,6 @@ from unittest.mock import Mock, patch
 from PySide6.QtCore import (
     QBuffer,
     QIODevice,
-    QMetaObject,
     QObject,
     QPoint,
     QPointF,
@@ -20,7 +19,7 @@ from PySide6.QtCore import (
     QTimer,
     qInstallMessageHandler,
 )
-from PySide6.QtGui import QGuiApplication, QImage, QWheelEvent
+from PySide6.QtGui import QGuiApplication, QImage
 from PySide6.QtQml import QQmlApplicationEngine, QQmlExpression
 from PySide6.QtQuickControls2 import QQuickStyle
 from PySide6.QtTest import QTest
@@ -82,6 +81,7 @@ def main():
                 owner = backend.djSession
                 owner._playback_control.executor = SimpleNamespace(submit=intents.append, shutdown=lambda **kw: None)
                 snapshot = deepcopy(original['formation'][language]['home_dj'][-1])
+                snapshot['playback']['target_name'] = 'Synthetic loudspeaker'
                 grant = next(row for row in snapshot['native_delivery']['admissions'] if row['moment_id'] == snapshot['native_delivery']['current_moment_id'])
                 owner._clock = ExpiryClock(lambda: timestamp(grant['display_expires_at'])-1, lambda: 0)
                 session = {**snapshot['session'], 'broadcast': snapshot}
@@ -93,6 +93,10 @@ def main():
                     'music_backend_revision': 4, 'music_backend_available': True, 'backend_available': True,
                     'music_backend_capabilities': {'supports_favorites': True},
                     'playback': {'uri': 'spotify:track:'+snapshot['playback']['source_url'].rsplit('/',1)[-1], 'has_playback': True, 'is_playing': True, 'favorite_status': False, 'is_liked': False}})
+                owner.transport.playback_status.return_value['playback']['device'] = {
+                    'id': 'synthetic-output', 'name': 'Synthetic loudspeaker',
+                    'active': True, 'is_restricted': False, 'supports_volume': True,
+                }
                 owner.transport.playback_command = Mock(return_value={'success': True, 'playback': {'title': 'Never import command response'}})
                 owner.transport.playback_favorite = Mock(return_value={'success': True})
                 engine = QQmlApplicationEngine()
@@ -121,8 +125,7 @@ def main():
                 QTest.qWait(700)  # Let the existing startup fade complete before real mouse input.
                 backend._toast_visible = False; backend.toastChanged.emit()
                 screen = window.findChild(QObject, 'djSessionScreen')
-                popup = window.findChild(QObject, 'sessionPlaybackPanel')
-                transport_opener = 'sessionPlaybackProgress'
+                popup = window.findChild(QObject, 'sessionVolumePanel')
                 def click(name):
                     button = window.findChild(QObject, name)
                     assert button is not None and button.property('visible') and button.property('enabled'), name
@@ -152,8 +155,38 @@ def main():
                 heading = window.findChild(QObject, 'sessionFlowHeading')
                 assert not heading.property('visible')
                 assert 0 <= metadata.mapToItem(scroll, 0, 0).y() < 1
-                gap = top - metadata.mapToItem(scroll, 0, metadata.height()).y()
+                attribution = visual(window.contentItem(), 'sessionPlaybackAttribution')
+                assert attribution.property('visible') and attribution.property('ready')
+                card_bottom = metadata.mapToItem(scroll, 0, metadata.height()).y()
+                assert attribution.mapToItem(scroll, 0, 0).y() >= card_bottom
+                gap = top - attribution.mapToItem(scroll, 0, attribution.height()).y()
                 assert abs(gap - (22 if width == 720 else 26)) <= 1, (width, language, gap)
+                artist = visual(window.contentItem(), 'sessionPlaybackArtist')
+                album = visual(window.contentItem(), 'sessionPlaybackAlbum')
+                assert artist.property('visible') and album.property('visible')
+                assert artist.property('text') == owner.state['playback']['artist']
+                assert album.property('text') == owner.state['playback']['album']
+                assert album.mapToItem(metadata, 0, 0).y() > artist.mapToItem(metadata, 0, artist.height()).y()
+                assert artist.property('font').pixelSize() >= 22 and album.property('font').pixelSize() >= 21
+                scroll_view = window.findChild(QObject, 'sessionHistoryScroll')
+                nav_tab = visual(window.contentItem(), 'appTab-session')
+                composer = visual(window.contentItem(), 'sessionComposerDock')
+                viewport_bottom = scroll_view.mapToScene(QPointF(0, scroll_view.height())).y()
+                assert viewport_bottom > nav_tab.mapToScene(QPointF(0, nav_tab.height())).y()
+                original_caps = owner._caps
+                owner._caps = {
+                    'capabilities': {'session_conversation_history': True, 'ask_dj_contextual_dialogue': True},
+                    'contract_versions': {'session_history_entries': 2, 'ask_dj_contextual_dialogue': 1},
+                }
+                owner.changed.emit()
+                QTest.qWait(60)
+                assert composer.property('visible') and viewport_bottom > composer.mapToScene(QPointF(0, composer.height())).y()
+                assert scroll_view.property('dockClearance') >= viewport_bottom - composer.mapToScene(QPointF()).y()
+                assert abs(scroll.property('contentHeight') - metadata.parentItem().implicitHeight()
+                           - scroll_view.property('dockClearance')) <= 1
+                owner._caps = original_caps
+                owner.changed.emit()
+                QTest.qWait(60)
                 mode_strip = visual(window.contentItem(), 'sessionModeStrip')
                 if mode_strip.property('visible'):
                     lead_gap = metadata.mapToScene(QPointF()).y() - mode_strip.mapToScene(QPointF(0, mode_strip.height())).y()
@@ -208,12 +241,35 @@ def main():
                 assert shade.property('visible')
                 previous = visual(window.contentItem(), 'sessionPlaybackPrevious')
                 toggle = visual(window.contentItem(), 'sessionPlaybackToggle')
+                controls = visual(overlay, 'trackArtworkTransportControls')
+                for name in ('sessionPlaybackRepeat', 'sessionPlaybackShuffle', 'sessionArtworkFavorite',
+                             'sessionPlaybackPrevious', 'sessionPlaybackToggle', 'sessionPlaybackNext',
+                             'sessionPlaybackSeekBack', 'sessionPlaybackSeekForward'):
+                    button = visual(controls, name)
+                    assert button is not None and button.width() == button.height()
+                    icon = button.property('contentItem').childItems()[0]
+                    scale = 1 if width == 720 else min(1.45, width / 835)
+                    assert icon.width() >= 77 * scale
+                    start = button.mapToItem(card, QPointF())
+                    end = button.mapToItem(card, QPointF(button.width(), button.height()))
+                    assert start.x() >= 0 and start.y() >= 0 and end.x() <= card.width() and end.y() <= card.height()
+                back = visual(controls, 'sessionPlaybackSeekBack')
+                forward = visual(controls, 'sessionPlaybackSeekForward')
+                assert back.y() == forward.y() > previous.y() and back.x() < toggle.x() < forward.x()
                 gap = previous.mapToScene(QPointF(previous.width(), previous.height()/2))
                 gap_x = (gap.x() + toggle.mapToScene(QPointF(0, 0)).x()) / 2
                 QTest.mouseClick(window, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier,
                                  QPoint(round(gap_x), round(gap.y())))
                 QTest.qWait(60)
                 assert not shade.property('visible') and window.property('trackArtworkOpen') and not intents
+                image = window.grabWindow()
+                scale = image.devicePixelRatio()
+                for x, y in ((3, 3), (expanded.width() - 3, 3),
+                             (3, expanded.height() - 3), (expanded.width() - 3, expanded.height() - 3)):
+                    corner = expanded.mapToScene(QPointF(x, y))
+                    assert image.pixelColor(round(corner.x() * scale), round(corner.y() * scale)).name() != '#00ffff'
+                center = expanded.mapToScene(QPointF(expanded.width() / 2, expanded.height() / 2))
+                assert image.pixelColor(round(center.x() * scale), round(center.y() * scale)).name() == '#00ffff'
                 click('expandedTrackArtwork')
                 assert shade.property('visible')
                 click('closeTrackArtwork')
@@ -306,7 +362,7 @@ def main():
                 owner.transport.playback_status.return_value['playback']['is_playing'] = True
                 owner.refresh(); drain()
                 progress = window.findChild(QObject, 'sessionPlaybackProgress')
-                assert progress.height() >= 44
+                assert progress.height() > 0
                 artwork_right = artwork_button.mapToItem(metadata, artwork_button.width(), 0).x()
                 progress_origin = progress.mapToItem(metadata, 0, 0)
                 if width == 720:
@@ -316,12 +372,13 @@ def main():
                     assert progress_origin.x() > artwork_right
                     assert progress_origin.y() < artwork_button.mapToItem(metadata, 0, artwork_button.height()).y()
                 capture('progress-layout')
-                command_count = owner.transport.playback_command.call_count
-                click('sessionPlaybackProgress'); assert popup.property('opened'), warnings
-                assert popup.property('controlView') == 'all'
-                assert not intents and not reads
-                assert owner.transport.playback_command.call_count == command_count
-                def assert_popup_anchor(trigger, panel=popup):
+                output_panel = window.findChild(QObject, 'sessionOutputPanel')
+                point = progress.mapToScene(QPointF(progress.width()/2, progress.height()/2))
+                QTest.mouseClick(window, Qt.MouseButton.LeftButton, modifiers, QPoint(round(point.x()), round(point.y())))
+                QTest.qWait(60)
+                assert not popup.property('opened') and not output_panel.property('opened') and not intents
+
+                def assert_popup_anchor(trigger, panel):
                     top = trigger.mapToItem(screen, 0, 0)
                     bottom = trigger.mapToItem(screen, trigger.width(), trigger.height())
                     popup_width = panel.property('width')
@@ -333,128 +390,70 @@ def main():
                     assert 15 <= y and y + popup_height <= height - 15
                     if bottom.y() + 8 + popup_height <= height - 16:
                         assert abs(y - (bottom.y() + 8)) < 2
-                assert_popup_anchor(progress)
-                assert popup.property('width') == (520 if width == 720 else round(380 * min(1.45, width / 835)))
-                capture('progress-opens-playback-controls')
-                QMetaObject.invokeMethod(popup, 'close')
-                QTest.qWait(160)
+
                 initial_caps = backend.cfg.music_backend_capabilities
                 backend.cfg.music_backend_capabilities = {
                     **initial_caps, 'supports_volume': True, 'supports_outputs': True,
                     'supports_transfer_or_output_selection': True,
                 }
-                owner.changed.emit()
-                QTest.qWait(80)
-                output_panel = window.findChild(QObject, 'sessionOutputPanel')
                 original_session = owner._session
                 owner._session = deepcopy(original_session)
-                owner._session['broadcast']['playback']['title'] = (
-                    'A long synthetic track title with no audio or provider effect ' * 4
-                ).strip()
                 original_status = owner.transport.playback_status.return_value
-                volume_status = deepcopy(original_status)
-                volume_status['music_backend_capabilities'].update(supports_volume=True)
-                volume_status['playback'].update(volume_percent=85, device={
+                observed = deepcopy(original_status)
+                observed['music_backend_capabilities'].update(
+                    supports_volume=True, supports_outputs=True, supports_transfer_or_output_selection=True)
+                observed['playback'].update(volume_percent=11, device={
                     'id': 'synthetic-output', 'name': 'Synthetic loudspeaker', 'active': True,
                     'is_restricted': False, 'supports_volume': True,
                 })
-                owner.transport.playback_status.return_value = volume_status
+                owner.transport.playback_status.return_value = observed
+                owner.transport.playback_outputs = Mock(return_value={**observed, 'devices': [
+                    {'id': 'synthetic-output', 'name': 'Synthetic loudspeaker', 'active': True, 'cached': False, 'is_restricted': False},
+                    {'id': 'synthetic-alternative', 'name': 'Synthetic second speaker', 'active': False, 'cached': False, 'is_restricted': False},
+                ]})
                 owner.changed.emit()
-                assert owner.readPlaybackVolume(owner.state['session_id'], owner.state['playback']['item_id'])
+                QTest.qWait(80)
+                click('sessionCurrentOutput')
+                assert output_panel.property('opened') and not popup.property('opened') and len(intents) == 1
                 intents.pop()()
-                assert owner.state['playback_control']['volume']['percent'] == 85
-                owner._playback_control.blocked = True
-                owner.changed.emit()
                 QTest.qWait(80)
-                click(transport_opener)
-                assert popup.property('opened')
-                assert popup.property('height') <= height - 32, (width, language, popup.property('height'))
-                menu_scroll = window.findChild(QObject, 'sessionPlaybackScroll')
-                menu_flick = menu_scroll.property('contentItem')
-                assert abs(menu_flick.property('contentY')) < 1
-                if menu_flick.property('contentHeight') > menu_flick.height():
-                    point = menu_scroll.mapToScene(QPointF(menu_scroll.width()/2, menu_scroll.height()/2))
-                    event = QWheelEvent(point, point, QPoint(), QPoint(0, -720),
-                                        Qt.MouseButton.NoButton, modifiers, Qt.ScrollPhase.NoScrollPhase, False)
-                    app.sendEvent(window, event)
-                    for _ in range(20):
-                        QTest.qWait(50)
-                        if not menu_flick.property('moving'):
-                            break
-                    assert menu_flick.property('contentY') > 0
-                    assert not menu_flick.property('moving')
-                capture('long-playback-menu-close-accessible')
-                click('sessionPlaybackClose')
-                assert not popup.property('opened')
-                owner._playback_control.blocked = False
-                owner.transport.playback_status.return_value = original_status
-                owner._session = original_session
-                owner.changed.emit()
-                QTest.qWait(180)
-                if width == 1200:
-                    observed = deepcopy(volume_status)
-                    observed['music_backend_capabilities'].update(supports_outputs=True, supports_transfer_or_output_selection=True)
-                    observed['playback']['volume_percent'] = 11
-                    owner.transport.playback_status.return_value = observed
-                    owner.transport.playback_outputs = Mock(return_value={**observed, 'devices': [
-                        {'id': 'synthetic-output', 'name': 'Synthetic loudspeaker', 'active': True, 'cached': False, 'is_restricted': False},
-                        {'id': 'synthetic-alternative', 'name': 'Synthetic second speaker', 'active': False, 'cached': False, 'is_restricted': False},
-                    ]})
-                    click('sessionToolbarOutput')
-                    assert output_panel.property('opened') and len(intents) == 1
-                    intents.pop()()
-                    QTest.qWait(80)
-                    assert output_panel.property('width') == round(360 * min(1.45, width / 835))
-                    selected_output = visual(window.contentItem(), 'sessionOutputChoice-synthetic-output')
-                    assert selected_output.property('checked') and not selected_output.property('enabled')
-                    capture('ipad-output-inventory')
-                    click('sessionOutputClose')
-                    QTest.qWait(80)
-                    click('sessionToolbarVolume')
-                    assert popup.property('opened') and len(intents) == 1
-                    intents.pop()()
-                    QTest.qWait(80)
-                    slider = window.findChild(QObject, 'sessionVolumeSlider')
-                    assert slider.property('visible') and slider.property('value') == 11
-                    assert popup.property('width') == round(320 * min(1.45, width / 835))
-                    capture('ipad-volume-observed')
-                    click('sessionPlaybackClose')
-                    QTest.qWait(80)
-                    owner.transport.playback_status.return_value = original_status
-                backend.cfg.music_backend_capabilities = initial_caps
-                owner.changed.emit()
+                assert_popup_anchor(window.findChild(QObject, 'sessionCurrentOutput'), output_panel)
+                selected_output = visual(window.contentItem(), 'sessionOutputChoice-synthetic-output')
+                assert selected_output.property('checked') and not selected_output.property('enabled')
+                capture('direct-output-inventory')
+                click('sessionOutputClose')
+                QTest.qWait(120)
+                click('sessionCurrentVolume')
+                assert popup.property('opened') and not output_panel.property('opened') and len(intents) == 1
+                intents.pop()()
                 QTest.qWait(80)
-                click(transport_opener); assert popup.property('visible'), warnings
-                assert_popup_anchor(window.findChild(QObject, transport_opener))
+                slider = window.findChild(QObject, 'sessionVolumeSlider')
+                assert slider.property('visible') and slider.property('value') == 11
+                assert window.findChild(QObject, 'sessionCurrentVolume').property('text') == '11%'
+                assert_popup_anchor(window.findChild(QObject, 'sessionCurrentVolume'), popup)
+                capture('direct-volume-observed')
                 popup_position = (popup.property('x'), popup.property('y'))
-                capture('ready')
-                original_session = owner._session
-                owner._session = deepcopy(original_session)
                 owner._session['broadcast']['playback']['position_ms'] += 750
                 owner.changed.emit()
                 QTest.qWait(60)
                 assert popup.property('opened') and not intents
                 assert (popup.property('x'), popup.property('y')) == popup_position
-                capture('open-playback-menu-survives-position')
                 owner._session['broadcast']['playback']['item_id'] = 'synthetic-new-track'
                 owner.changed.emit()
                 assert not popup.property('opened') and not intents
-                QTest.qWait(180)
-                capture('playback-menu-closes-on-track-change')
+                QTest.qWait(160)
+                owner.transport.playback_status.return_value = original_status
                 owner._session = original_session
+                backend.cfg.music_backend_capabilities = initial_caps
                 owner.changed.emit()
-                QTest.qWait(60)
-                click(transport_opener)
-                assert visual(window.contentItem(), 'sessionPlaybackToggle') is None
-                click('sessionPlaybackFavorite'); intents.pop()()
-                owner.transport.playback_favorite.assert_not_called()
-                QTest.qWait(60)
-                click('sessionPlaybackFavorite'); intents.pop()()
+                QTest.qWait(80)
+                click('sessionExpandTrackArtwork')
+                click('sessionArtworkFavorite')
+                assert len(intents) == 1
+                intents.pop()()
                 owner.transport.playback_favorite.assert_called_once()
                 assert owner.transport.playback_favorite.call_args.args[1] is True
-                capture('favorite-sent'); drain()
-                click('sessionPlaybackClose')
-                click('sessionExpandTrackArtwork')
+                drain()
                 image = window.grabWindow()
                 for name in ['sessionPlaybackPrevious', 'sessionPlaybackToggle', 'sessionPlaybackNext']:
                     button = window.findChild(QObject, name)
@@ -500,12 +499,10 @@ def main():
                 assert heading.property('text') == TRANSLATIONS[language]['session_history']
                 capture('heading-session-archive')
                 screen.setProperty('historical', False); drain()
-                click(transport_opener)
-                backend.cfg.music_backend_capabilities = {'supports_favorites': False}; owner.changed.emit(); QTest.qWait(60)
-                assert not window.findChild(QObject, 'sessionPlaybackFavorite').property('visible')
-                capture('favorite-unsupported')
-                click('sessionPlaybackClose')
                 click('sessionExpandTrackArtwork')
+                backend.cfg.music_backend_capabilities = {'supports_favorites': False}; owner.changed.emit(); QTest.qWait(60)
+                assert not window.findChild(QObject, 'sessionArtworkFavorite').property('enabled')
+                capture('favorite-unsupported')
                 # Exercise real streamed command transport under existing real Qt controls.
                 owner.transport.playback_command = SessionTransport.playback_command.__get__(owner.transport, SessionTransport)
                 for mode in ('declared-oversize', 'streamed-oversize', 'exact-boundary'):

@@ -291,7 +291,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "local_only": "Alleen lokaal",
         "local_websocket_fast_path": "Lokale WebSocket snelle route",
         "websocket_fast_path": "Home Assistant WebSocket snelle route",
-        "local_http_fallback": "Lokale HTTP fallback",
+        "local_http_fallback": "Lokale HTTP-verbinding",
         "current_version": "Huidige versie",
         "target_version": "Updaten naar",
         "progress_percent": "Voortgang: {progress}%",
@@ -582,7 +582,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "local_only": "Local only",
         "local_websocket_fast_path": "Local WebSocket fast path",
         "websocket_fast_path": "Home Assistant WebSocket fast path",
-        "local_http_fallback": "Local HTTP fallback",
+        "local_http_fallback": "Local HTTP connection",
         "current_version": "Current version",
         "target_version": "Updating to",
         "progress_percent": "Progress: {progress}%",
@@ -707,7 +707,7 @@ _EXTRA_TRANSLATIONS: dict[str, dict[str, str]] = {
         "reboot_confirm": "Gerät neu starten?", "shutdown_confirm": "Gerät ausschalten?",
         "play_now": "Jetzt abspielen", "yes": "Ja", "no": "Nein", "favorite_action": "Zu Favoriten hinzufügen",
         "unknown": "Unbekannt", "local_only": "Nur lokal", "local_websocket_fast_path": "Lokaler WebSocket-Schnellpfad", "websocket_fast_path": "Home Assistant WebSocket-Schnellpfad",
-        "local_http_fallback": "Lokale HTTP fallback", "current_version": "Aktuelle Version", "target_version": "Update auf",
+        "local_http_fallback": "Lokale HTTP-Verbindung", "current_version": "Aktuelle Version", "target_version": "Update auf",
         "progress_percent": "Fortschritt: {progress}%", "remote_viewing": "Remote-Anzeige",
         "vnc_instruction": "Öffne deinen VNC-Client zu localhost:5901", "app_update_title": "DJConnect wird aktualisiert...",
         "app_update_message": "DJConnect installiert eine neue Version. Lass den Pi eingeschaltet.",
@@ -820,7 +820,7 @@ _EXTRA_TRANSLATIONS: dict[str, dict[str, str]] = {
         "reboot_confirm": "Redémarrer l'appareil ?", "shutdown_confirm": "Éteindre l'appareil ?",
         "play_now": "Lire maintenant", "yes": "Oui", "no": "Non", "favorite_action": "Ajouter aux favoris",
         "unknown": "Inconnu", "local_only": "Local uniquement", "local_websocket_fast_path": "Chemin rapide WebSocket local", "websocket_fast_path": "Chemin rapide WebSocket Home Assistant",
-        "local_http_fallback": "Repli HTTP local", "current_version": "Version actuelle", "target_version": "Mise à jour vers",
+        "local_http_fallback": "Connexion HTTP locale", "current_version": "Version actuelle", "target_version": "Mise à jour vers",
         "progress_percent": "Progression: {progress}%", "remote_viewing": "Affichage distant",
         "vnc_instruction": "Ouvrez votre client VNC vers localhost:5901", "app_update_title": "Mise à jour de DJConnect...",
         "app_update_message": "DJConnect installe une nouvelle version. Gardez le Pi allumé.",
@@ -933,7 +933,7 @@ _EXTRA_TRANSLATIONS: dict[str, dict[str, str]] = {
         "reboot_confirm": "¿Reiniciar dispositivo?", "shutdown_confirm": "¿Apagar dispositivo?",
         "play_now": "Reproducir ahora", "yes": "Sí", "no": "No", "favorite_action": "Añadir a favoritos",
         "unknown": "Desconocido", "local_only": "Solo local", "local_websocket_fast_path": "Ruta rápida WebSocket local", "websocket_fast_path": "Ruta rápida WebSocket de Home Assistant",
-        "local_http_fallback": "Reserva HTTP local", "current_version": "Versión actual", "target_version": "Actualizar a",
+        "local_http_fallback": "Conexión HTTP local", "current_version": "Versión actual", "target_version": "Actualizar a",
         "progress_percent": "Progreso: {progress}%", "remote_viewing": "Vista remota",
         "vnc_instruction": "Abre tu cliente VNC en localhost:5901", "app_update_title": "DJConnect se está actualizando...",
         "app_update_message": "DJConnect está instalando una nueva versión. Mantén el Pi encendido.",
@@ -995,6 +995,12 @@ _SHARED_SETTINGS_TRANSLATIONS = {
         'Préférence de voix',
         'Preferencia de voz',
     ),
+    'session_choice_your_mood': (
+        'Your mood', 'Jouw stemming', 'Deine Stimmung', 'Votre ambiance', 'Tu estado de ánimo',
+    ),
+    'session_choice_dj_character': (
+        'DJ character', 'DJ karakter', 'DJ-Charakter', 'Caractère du DJ', 'Carácter del DJ',
+    ),
     'shared_field_mood': (
         'Mood',
         'Stemming',
@@ -1004,7 +1010,7 @@ _SHARED_SETTINGS_TRANSLATIONS = {
     ),
     'shared_field_presence': (
         'DJ presence',
-        'DJ-aanwezigheid',
+        'DJ aanwezigheid',
         'DJ-Präsenz',
         'Présence du DJ',
         'Presencia del DJ',
@@ -1241,7 +1247,48 @@ _SHARED_SETTINGS_TRANSLATIONS = {
         'No se pudieron confirmar las opciones. Actualiza y revisa las opciones disponibles.',
     ),
 }
-for _key, _values in _SHARED_SETTINGS_TRANSLATIONS.items():
+_MUSIC_DNA_CARD_TRANSLATIONS = {
+    "music_dna_card_summary": ('Summary', 'Samenvatting', 'Zusammenfassung', 'Résumé', 'Resumen'),
+    "music_dna_card_favorite_genres": ('Favorite genres', 'Favoriete genres', 'Lieblingsgenres', 'Genres favoris', 'Géneros favoritos'),
+    "music_dna_card_favorite_artists": ('Favorite artists', 'Favoriete artiesten', 'Lieblingskünstler', 'Artistes favoris', 'Artistas favoritos'),
+    "music_dna_card_artists": ('Artists', 'Artiesten', 'Künstler', 'Artistes', 'Artistas'),
+    "music_dna_card_energy": ('Taste profile', 'Smaakrichting', 'Geschmacksprofil', 'Profil musical', 'Perfil musical'),
+    "music_dna_card_rhythm": ('Listening rhythm', 'Luisterritme', 'Hörrhythmus', 'Rythme d’écoute', 'Ritmo de escucha'),
+    "music_dna_card_mood_mix": ('Mood mix', 'Mood mix', 'Stimmungsmix', 'Mélange d’ambiances', 'Mezcla de ambientes'),
+    "music_dna_card_playtime": ('Listening time', 'Luistertijd', 'Hörzeit', 'Temps d’écoute', 'Tiempo de escucha'),
+    "music_dna_card_repeat": ('On repeat', 'Blijft terugkomen', 'Immer wieder gehört', 'En boucle', 'En repetición'),
+    "music_dna_card_positives": ('Favorites and discoveries', 'Favorieten en ontdekkingen', 'Favoriten und Entdeckungen', 'Favoris et découvertes', 'Favoritos y descubrimientos'),
+    "music_dna_card_anchors": ('Taste anchors', 'Smaakankers', 'Musikalische Anker', 'Repères musicaux', 'Referentes musicales'),
+    "music_dna_card_recent_tracks": ('Recent tracks', 'Recente tracks', 'Letzte Titel', 'Titres récents', 'Pistas recientes'),
+    "music_dna_card_recent_favorites": ('Recent favorites', 'Recente favorieten', 'Letzte Favoriten', 'Favoris récents', 'Favoritos recientes'),
+    "music_dna_card_top_tracks": ('Top tracks by period', 'Toptracks per periode', 'Toptitel nach Zeitraum', 'Titres préférés par période', 'Pistas favoritas por período'),
+    "music_dna_card_top_artists": ('Top artists by period', 'Topartiesten per periode', 'Topkünstler nach Zeitraum', 'Artistes préférés par période', 'Artistas favoritos por período'),
+    "music_dna_card_feedback": ('Discover feedback', 'Ontdek-feedback', 'Feedback zu Entdecken', 'Avis sur les découvertes', 'Opiniones sobre descubrimientos'),
+    "music_dna_card_feedback_hidden": ('Hidden in Discover', 'Verborgen in Ontdek', 'In Entdecken ausgeblendet', 'Masqués dans Découvrir', 'Ocultos en Descubrir'),
+    "music_dna_card_accepted": ('Accepted recommendations', 'Geaccepteerde aanbevelingen', 'Angenommene Empfehlungen', 'Recommandations acceptées', 'Recomendaciones aceptadas'),
+    "music_dna_card_artists_by_time": ('Top artists by listening time', 'Topartiesten op luistertijd', 'Topkünstler nach Hörzeit', 'Artistes les plus écoutés', 'Artistas más escuchados'),
+    "music_dna_card_albums_by_time": ('Top albums by listening time', 'Topalbums op luistertijd', 'Topalben nach Hörzeit', 'Albums les plus écoutés', 'Álbumes más escuchados'),
+    "music_dna_card_short_term": ('Short term', 'Korte termijn', 'Kurzfristig', 'Court terme', 'Corto plazo'),
+    "music_dna_card_medium_term": ('Medium term', 'Middellange termijn', 'Mittelfristig', 'Moyen terme', 'Medio plazo'),
+    "music_dna_card_long_term": ('Long term', 'Lange termijn', 'Langfristig', 'Long terme', 'Largo plazo'),
+    "music_dna_card_weekdays": ('Days of the week', 'Dagen van de week', 'Wochentage', 'Jours de la semaine', 'Días de la semana'),
+    "music_dna_card_morning": ('Morning', 'Ochtend', 'Morgen', 'Matin', 'Mañana'),
+    "music_dna_card_afternoon": ('Afternoon', 'Middag', 'Nachmittag', 'Après-midi', 'Tarde'),
+    "music_dna_card_evening": ('Evening', 'Avond', 'Abend', 'Soir', 'Atardecer'),
+    "music_dna_card_night": ('Night', 'Nacht', 'Nacht', 'Nuit', 'Noche'),
+    "music_dna_card_monday": ('Monday', 'Maandag', 'Montag', 'Lundi', 'Lunes'),
+    "music_dna_card_tuesday": ('Tuesday', 'Dinsdag', 'Dienstag', 'Mardi', 'Martes'),
+    "music_dna_card_wednesday": ('Wednesday', 'Woensdag', 'Mittwoch', 'Mercredi', 'Miércoles'),
+    "music_dna_card_thursday": ('Thursday', 'Donderdag', 'Donnerstag', 'Jeudi', 'Jueves'),
+    "music_dna_card_friday": ('Friday', 'Vrijdag', 'Freitag', 'Vendredi', 'Viernes'),
+    "music_dna_card_saturday": ('Saturday', 'Zaterdag', 'Samstag', 'Samedi', 'Sábado'),
+    "music_dna_card_sunday": ('Sunday', 'Zondag', 'Sonntag', 'Dimanche', 'Domingo'),
+    "music_dna_card_average": ('Average %1/100', 'Gemiddeld %1/100', 'Durchschnitt %1/100', 'Moyenne %1/100', 'Media %1/100'),
+    "music_dna_card_signals": ('%1 signals', '%1 signalen', '%1 Signale', '%1 signaux', '%1 señales'),
+    "music_dna_card_plays": ('%1 plays', '%1 keer', '%1 Wiedergaben', '%1 écoutes', '%1 reproducciones'),
+}
+
+for _key, _values in (_SHARED_SETTINGS_TRANSLATIONS | _MUSIC_DNA_CARD_TRANSLATIONS).items():
     for _language, _value in zip(SUPPORTED_LANGUAGES, _values, strict=True):
         TRANSLATIONS[_language][_key] = _value
 
@@ -1333,11 +1380,11 @@ _INTRODUCTION_TRANSLATIONS = {
         "Aprende de tus gustos y hábitos de escucha para adaptar las recomendaciones a tu perfil.",
     ),
     "ask_dj_introduction": (
-        "Ask your DJ about music and artists during an active session.",
-        "Vraag je DJ tijdens een actieve sessie naar muziek en artiesten.",
-        "Frag deinen DJ während einer aktiven Session nach Musik und Künstlern.",
-        "Interrogez votre DJ sur la musique et les artistes pendant une session active.",
-        "Pregunta a tu DJ sobre música y artistas durante una sesión activa.",
+        "Ask your DJ about music, artists, and more.",
+        "Vraag je DJ over muziek, artiesten en meer.",
+        "Frag deinen DJ nach Musik, Künstlern und mehr.",
+        "Posez vos questions à votre DJ sur la musique, les artistes et plus encore.",
+        "Pregunta a tu DJ sobre música, artistas y más.",
     ),
 }
 for _key, _values in _INTRODUCTION_TRANSLATIONS.items():
@@ -1417,7 +1464,7 @@ _SESSION_COMPOSER_TRANSLATIONS = {
     "session_clear_reference": ("Clear contribution reference", "Verwijzing naar bijdrage wissen", "Beitragsverweis entfernen", "Retirer la référence à la contribution", "Quitar la referencia a la contribución"),
     "session_question_reference_unavailable": ("The selected contribution is no longer available. Select a contribution again.", "De geselecteerde bijdrage is niet meer beschikbaar. Kies opnieuw een bijdrage.", "Der ausgewählte Beitrag ist nicht mehr verfügbar. Wähle erneut einen Beitrag.", "La contribution sélectionnée n’est plus disponible. Sélectionnez une contribution à nouveau.", "La contribución seleccionada ya no está disponible. Vuelve a elegir una contribución."),
     "session_question_title": ("Talk to your DJ", "Praat met je DJ", "Sprich mit deinem DJ", "Parlez à votre DJ", "Habla con tu DJ"),
-    "session_question_placeholder": ("Chat with the DJ…", "Chat met de DJ…", "Mit dem DJ chatten…", "Discutez avec le DJ…", "Habla con el DJ…"),
+    "session_question_placeholder": ("Talk to your DJ…", "Praat met je DJ...", "Sprich mit deinem DJ…", "Parlez à votre DJ…", "Habla con tu DJ…"),
     "session_send": ("Send", "Versturen", "Senden", "Envoyer", "Enviar"),
     "session_ask_about": ("Ask about this", "Vraag hierover", "Hierzu fragen", "Poser une question", "Preguntar sobre esto"),
     "session_question_selected": ("About the selected contribution", "Over de geselecteerde bijdrage", "Über den ausgewählten Beitrag", "À propos de la contribution sélectionnée", "Sobre la contribución seleccionada"),
@@ -1445,6 +1492,7 @@ _SESSION_COMPOSER_TRANSLATIONS = {
     "session_question_failed": ("The question could not be confirmed. Refresh and check the session.", "De vraag kon niet worden bevestigd. Vernieuw en controleer de sessie.", "Die Frage konnte nicht bestätigt werden. Aktualisiere die Session.", "La question n’a pas pu être confirmée. Actualisez la session.", "No se pudo confirmar la pregunta. Actualiza la sesión."),
     "session_you": ("You", "Jij", "Du", "Vous", "Tú"),
     "session_dj": ("DJ", "DJ", "DJ", "DJ", "DJ"),
+    "session_dj_contribution": ("DJ contribution", "DJ-bijdrage", "DJ-Beitrag", "Contribution du DJ", "Contribución del DJ"),
 }
 for _key, _values in _SESSION_COMPOSER_TRANSLATIONS.items():
     for _language, _value in zip(("en", "nl", "de", "fr", "es"), _values):
@@ -1454,13 +1502,19 @@ _SESSION_FORECAST_TRANSLATIONS = {
     "session_flow": ("Flow", "Flow", "Flow", "Fil", "Flujo"),
     "session_forecast_tab": ("Horizon", "Horizon", "Horizon", "Horizon", "Horizon"),
     "session_forecast": ("Horizon · about 15 min", "Horizon · ±15 min", "Horizon · ca. 15 Min.", "Horizon · env. 15 min", "Horizon · unos 15 min"),
+    "session_forecast_notice": (
+        "A direction for the coming minutes. Music and contributions may change.",
+        "Een richting voor de komende minuten. Muziek en bijdragen kunnen veranderen.",
+        "Eine Richtung für die kommenden Minuten. Musik und Beiträge können sich ändern.",
+        "Une direction pour les prochaines minutes. La musique et les interventions peuvent changer.",
+        "Una orientación para los próximos minutos. La música y las intervenciones pueden cambiar.",
+    ),
     "session_owner_read_only": ("Following the active session. Personal functions require personal Profile access.", "Je volgt de actieve sessie. Privéfuncties vereisen toegang tot een persoonlijk profiel.", "Die aktive Session wird angezeigt. Private Funktionen erfordern Zugriff auf ein persönliches Profil.", "La session active est affichée. Les fonctions privées nécessitent un accès à un profil personnel.", "Se muestra la sesión activa. Las funciones privadas requieren acceso a un perfil personal."),
-    "session_forecast_current": ("Current", "Huidig", "Aktuell", "Actuel", "Actual"),
+    "session_forecast_current": ("Playing now", "Speelt nu", "Läuft gerade", "En cours", "Sonando ahora"),
     "session_forecast_intention": ("Intention", "Voornemen", "Absicht", "Intention", "Intención"),
     "session_forecast_conditional_target": ("Possible direction", "Mogelijke richting", "Mögliche Richtung", "Direction possible", "Dirección posible"),
     "session_forecast_empty": ("Horizon is currently unavailable.", "Horizon is nu niet beschikbaar.", "Horizon ist derzeit nicht verfügbar.", "Horizon est actuellement indisponible.", "Horizon no está disponible actualmente."),
     "session_attribution_source": ("Source", "Bron", "Quelle", "Source", "Fuente"),
-    "session_forecast_source": ("Current music source", "Bron van de huidige muziek", "Quelle der aktuellen Musik", "Source de la musique actuelle", "Fuente de la música actual"),
 }
 for _key, _values in _SESSION_FORECAST_TRANSLATIONS.items():
     for _language, _value in zip(("en", "nl", "de", "fr", "es"), _values):
@@ -1487,9 +1541,6 @@ for _key, _values in _CURRENT_RESPONSE_TRANSLATIONS.items():
 
 for _language, _value in zip(SUPPORTED_LANGUAGES, ("More contributions remain available through Next contributions.", "Meer bijdragen blijven beschikbaar via Volgende bijdragen.", "Weitere Beiträge sind über Nächste Beiträge verfügbar.", "Les autres contributions restent accessibles via Contributions suivantes.", "Las demás contribuciones siguen disponibles en Contribuciones siguientes.")):
     TRANSLATIONS[_language]["session_history_window_limit"] = _value
-
-for _language, _value in zip(SUPPORTED_LANGUAGES, ("Artist image", "Artiestafbeelding", "Künstlerbild", "Image de l’artiste", "Imagen del artista")):
-    TRANSLATIONS[_language]["session_forecast_artist_image"] = _value
 
 _FEEDBACK_TRANSLATIONS = {
     'feedback': (
@@ -1586,6 +1637,9 @@ _PLAYBACK_CONTROL_TRANSLATIONS = {
     "session_output_current": ("Current", "Huidig", "Aktuell", "Actuelle", "Actual"),
     "session_output_unavailable": ("Available outputs could not be confirmed.", "De beschikbare uitvoer kon niet worden bevestigd.", "Verfügbare Ausgaben konnten nicht bestätigt werden.", "Les sorties disponibles n’ont pas pu être confirmées.", "No se pudieron confirmar las salidas disponibles."),
     "session_output_empty": ("No other outputs are available.", "Er zijn geen andere uitvoerapparaten beschikbaar.", "Keine weiteren Ausgaben verfügbar.", "Aucune autre sortie disponible.", "No hay otras salidas disponibles."),
+    "seek_back_15": ("Back 15 seconds", "15 seconden terug", "15 Sekunden zurück", "Reculer de 15 secondes", "Retroceder 15 segundos"),
+    "seek_forward_15": ("Forward 15 seconds", "15 seconden vooruit", "15 Sekunden vor", "Avancer de 15 secondes", "Avanzar 15 segundos"),
+    "toggle_favorite": ("Toggle favorite", "Favoriet aan of uit", "Favorit umschalten", "Basculer le favori", "Cambiar favorito"),
     "session_favorite_read": ("Check favorite status", "Favorietenstatus lezen", "Favoritenstatus prüfen", "Vérifier le favori", "Consultar favorito"),
     "session_favorite_add": ("Add to favorites", "Toevoegen aan favorieten", "Zu Favoriten hinzufügen", "Ajouter aux favoris", "Añadir a favoritos"),
     "session_favorite_remove": ("Remove from favorites", "Verwijderen uit favorieten", "Aus Favoriten entfernen", "Retirer des favoris", "Quitar de favoritos"),
@@ -1805,6 +1859,13 @@ _VIBECAST_SENDER_TRANSLATIONS = {
         "Die Freigabe hat sich geändert. Wähle den nächsten Schritt.",
         "Le partage a changé. Choisissez la prochaine action.",
         "El uso compartido ha cambiado. Elige qué hacer ahora.",
+    ),
+    "vibecast_https_required": (
+        "Screen sharing requires a trusted local HTTPS address for Home Assistant.",
+        "Scherm delen vereist een vertrouwd lokaal HTTPS-adres voor Home Assistant.",
+        "Zum Teilen des Bildschirms benötigt Home Assistant eine vertrauenswürdige lokale HTTPS-Adresse.",
+        "Le partage d’écran nécessite une adresse HTTPS locale de confiance pour Home Assistant.",
+        "Para compartir la pantalla, Home Assistant necesita una dirección HTTPS local de confianza.",
     ),
     "vibecast_failed": (
         "Sharing status is unavailable. Refresh to try again.",

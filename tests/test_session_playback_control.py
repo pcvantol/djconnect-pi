@@ -51,6 +51,43 @@ def test_explicit_command_once_then_independent_owner_read_without_optimism(cont
     assert len(backend.jobs) == 1 and owner._running_action == "refresh"
 
 
+@pytest.mark.parametrize(("command", "wire", "value"), [
+    ("seek_back_15", "seek_relative", -15000),
+    ("seek_forward_15", "seek_relative", 15000),
+    ("shuffle", "set_shuffle", False),
+    ("repeat", "set_repeat", "track"),
+    ("toggle_favorite", "set_current_track_favorite", True),
+])
+@pytest.mark.parametrize("changed_output", [False, True])
+def test_overlay_intent_rechecks_output_and_sends_only_one_explicit_adjustment(
+    controller, command, wire, value, changed_output,
+):
+    owner, backend = setup(controller)
+    caps = {"supports_favorites": True, "supports_seek": True, "supports_shuffle": True, "supports_repeat": True}
+    backend.cfg.music_backend_capabilities = caps
+    owner._session["broadcast"]["playback"]["target_name"] = "Speaker"
+    status = owner.transport.playback_status.return_value
+    status["music_backend_capabilities"] = caps
+    status["playback"].update(shuffle=True, repeat_state="context", favorite_status=False, device={
+        "id": "speaker-id", "name": "Another speaker" if changed_output else "Speaker",
+        "active": True, "is_restricted": False,
+    })
+    owner.transport.playback_adjustment = Mock()
+    owner.transport.playback_favorite = Mock()
+    epoch = owner.state["playback_control"]["transport_epoch"]
+    assert owner.playbackCommand("synthetic-session", ITEM_ID, command, epoch)
+    backend.jobs.pop()()
+    owner.transport.playback_command.assert_not_called()
+    if changed_output:
+        owner.transport.playback_adjustment.assert_not_called()
+        owner.transport.playback_favorite.assert_not_called()
+        assert not backend.jobs
+    elif command == "toggle_favorite":
+        owner.transport.playback_favorite.assert_called_once_with(owner.transport.binding(), value)
+    else:
+        owner.transport.playback_adjustment.assert_called_once_with(owner.transport.binding(), wire, value)
+
+
 @pytest.mark.parametrize("changed", ["item", "state", "profile", "backend_revision", "credential", "hidden"])
 def test_transport_press_cannot_target_new_context_at_release(controller, changed):
     owner, backend = setup(controller)

@@ -336,8 +336,8 @@ def test_music_dna_parser_renders_optional_blocks_and_hides_empty_cards() -> Non
                 "favorite_genres": ["house", "indie"],
                 "recent_favorite_tracks": [{"title": "Strobe", "artist": "deadmau5"}],
                 "playtime": {"total_seconds": 3661, "formatted_total": "1h 1m", "top_artists": [{"name": "Robyn"}], "top_albums": ["Body Talk"]},
-                "listening_rhythm": {"sample_count": 3, "top_daypart": "evening", "top_weekday": "Friday", "distribution": {"evening": 3}},
-                "mood_mix": {"sample_count": 1, "chill": 1, "groove": 2, "energy": 3, "party": 4},
+                "listening_rhythm": {"sample_count": 3, "dayparts": [{"daypart": "avond", "percent": 100}]},
+                "mood_mix": {"sample_count": 4, "average": 45, "zones": [{"zone": "groove", "percent": 25}]},
                 "repeat_magnets": {"eligible": True, "items": [{"title": "Ever Again"}]},
                 "explicit_positives": {"eligible": True, "items": ["Saved favorites"]},
                 "taste_anchors": {"eligible": True, "items": ["Nordic pop"]},
@@ -350,24 +350,17 @@ def test_music_dna_parser_renders_optional_blocks_and_hides_empty_cards() -> Non
         }
     )
 
-    titles = [section["title"] for section in parsed["sections"]]
-    assert "Favorite genres" in titles
-    assert "Recent favorites" in titles
-    assert "Playtime" in titles
-    assert "Listening rhythm" in titles
-    assert "Mood mix" in titles
-    assert "Repeat magnets" in titles
-    assert "Accepted signals" in titles
-    assert "Taste anchors" in titles
-    assert "Top tracks" in titles
-    assert "Snapshot history" in titles
-    assert "Discovery feedback" in titles
-    assert "Privacy dashboard" in titles
-    assert "Recommendation signals" not in titles
-    assert all(section["lines"] for section in parsed["sections"])
-    privacy = next(section for section in parsed["sections"] if section["title"] == "Privacy dashboard")
-    assert any("Stores Raw Audio: False" in line for line in privacy["lines"])
-    assert not any("secret" in line for line in privacy["lines"])
+    cards = {card["key"].removeprefix("music_dna_card_"): card for card in parsed["sections"]}
+    assert set(cards) == {
+        "summary", "favorite_genres", "recent_favorites", "playtime", "repeat",
+        "positives", "anchors", "top_tracks", "feedback", "rhythm", "mood_mix",
+    }
+    assert cards["playtime"]["value"] == "1h 1m"
+    assert cards["rhythm"]["rows"][0]["labelKey"] == "music_dna_card_evening"
+    assert cards["mood_mix"]["rows"][0]["percent"] == 25
+    assert cards["top_tracks"]["groups"][0]["key"] == "music_dna_card_short_term"
+    assert cards["top_tracks"]["groups"][0]["rows"][0]["subtitle"] == "B"
+    assert "secret" not in repr(cards)
 
 
 def test_music_dna_parser_hides_ineligible_blocks() -> None:
