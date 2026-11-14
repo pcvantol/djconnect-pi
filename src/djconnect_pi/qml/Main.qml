@@ -5772,14 +5772,6 @@ BrandWindow {
                     Text { text: "2026 Peter van Tol"; color: BrandTheme.colors.text; font.pixelSize: 20; Layout.fillWidth: true }
                 }
                 }
-
-                PurpleButton {
-                    text: root.tr("close")
-                    font.pixelSize: 26
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 64
-                    onClicked: root.aboutOpen = false
-                }
             }
         }
     }
