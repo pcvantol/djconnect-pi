@@ -161,10 +161,10 @@ Item {
                 visible: modelData.settings_confirmation === true
                 mood: screen.state.mood || ""
             }
-            DJSessionMenuSymbol {
+            SessionConfirmationAvatar {
                 objectName: "sessionCurrentMomentIdentity"
                 visible: modelData.current && modelData.settings_confirmation !== true
-                iconColor: BrandTheme.colors.purple
+                mood: screen.state.mood || ""
                 Layout.preferredWidth: screen.compact ? 52 : 76
                 Layout.preferredHeight: Layout.preferredWidth
                 Layout.alignment: Qt.AlignTop
@@ -1487,13 +1487,14 @@ Item {
                 padding: compactIdle ? 14 : 22
                 RowLayout {
                     Layout.fillWidth: true; spacing: 18
-                    DJSessionMenuSymbol {
-                        iconColor: BrandTheme.colors.purple
+                    SessionConfirmationAvatar {
+                        objectName: "sessionWaitingAvatar"
+                        mood: screen.state.mood || ""
+                        Accessible.ignored: !waitingCard.compactIdle
                         Layout.preferredWidth: 64
                         Layout.preferredHeight: 64
                         Accessible.role: Accessible.StaticText
                         Accessible.name: screen.tr("session_listening")
-                        Accessible.ignored: !waitingCard.compactIdle
                     }
                     ColumnLayout {
                         visible: !waitingCard.compactIdle
