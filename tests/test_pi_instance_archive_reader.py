@@ -38,7 +38,7 @@ def test_actions_zip_accepts_rest_negotiation_before_anonymous_download(host):
             calls.append(request)
             if len(calls) == 1:
                 assert request.full_url == (
-                    "https://api.github.com/repos/pcvantol/djconnect-pi/actions/artifacts/123/zip")
+                    "https://api.github.com/repositories/1267248532/actions/artifacts/123/zip")
                 # Reproduce GitHub's observed HTTP415 for octet-stream on this REST endpoint.
                 if request.get_header("Accept") != "application/vnd.github+json":
                     raise HTTPError(request.full_url, 415, "synthetic", {}, io.BytesIO())

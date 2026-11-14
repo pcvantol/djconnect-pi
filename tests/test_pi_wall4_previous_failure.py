@@ -167,4 +167,4 @@ def test_real_http_edge_allows_only_exact_fixed_v2_ancestor_route(suffix):
         assert not calls
     else:
         assert reader.get(path) == b"{}"
-        assert calls == ["https://api.github.com/"+path]
+        assert calls == ["https://api.github.com/repositories/1267248532/"+path.split("/", 3)[3]]

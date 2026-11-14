@@ -8,6 +8,7 @@ from types import MappingProxyType
 
 from Tools import pi_json_equivalence
 from Tools.pi_instance_authority import (
+    pi_run_repository_matches,
     CORE,
     PI,
     PUBLICATION,
@@ -145,7 +146,7 @@ def resolve(client, request, consumer_sha, configuration):
     run = client.json("repos/"+PI+"/actions/runs/39658681213")
     require(run.get("head_sha") == SOURCE and run.get("status") == "completed" and run.get("conclusion") == "success"
             and run.get("path") in {".github/workflows/publish-release.yml", ".github/workflows/publish-release.yml@main"}
-            and run.get("repository", {}).get("full_name") == PI, "RECOVERY_PUBLICATION_RUN_MISMATCH")
+            and pi_run_repository_matches(run), "RECOVERY_PUBLICATION_RUN_MISMATCH")
     artifact = release_asset(release, request["artifact_id"].rsplit(":", 1)[-1], 33554432)
     return RecoveryAuthority(binding, pair[0], pair[1], artifact["id"], artifact["size"])
 

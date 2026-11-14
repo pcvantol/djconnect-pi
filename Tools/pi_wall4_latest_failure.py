@@ -7,7 +7,7 @@ import hashlib
 import io
 import zipfile
 
-from Tools.pi_instance_authority import PI, qualified
+from Tools.pi_instance_authority import PI, pi_run_repository_matches, qualified
 from Tools.pi_instance_contract import BindingError, require, strict_json
 from Tools.pi_json_equivalence import exact_json
 
@@ -121,7 +121,7 @@ def latest_failure(client):
         and type(run.get("run_attempt")) is int
         and run["run_attempt"] == expected["run_attempt"]
         and run.get("actor", {}).get("login") == expected["actor"]
-        and run.get("repository", {}).get("full_name") == PI
+        and pi_run_repository_matches(run)
         and run.get("display_title")
         == "Pi recovery / wall-4inch / " + expected["manifest_id"],
         "PREVIOUS_FAILED_RUN_INVALID",
