@@ -147,6 +147,28 @@ def test_music_discovery_fixture_renders_backend_sections_items_and_actions() ->
     assert "title" not in action_payload
 
 
+def test_music_discovery_resolves_only_valid_scoped_artwork_against_ha() -> None:
+    import time
+
+    payload = _fixture("music_discovery.feed")
+    raw = payload["sections"][0]["items"][0]
+    path = "/api/djconnect/v1/image_proxy/disc-" + "a" * 32
+    spotify_url = "https://open.spotify.com/album/" + "b" * 22
+    raw.update(image_url=path, image_expires_at=time.time() + 120, image_attribution={
+        "provider": "spotify", "media_uri": "spotify:album:" + "b" * 22, "source_url": spotify_url,
+    })
+    origin = "http://ha.local:8123"
+    item = parse_music_discovery_feed(payload, ha_url=origin)["items"][0]
+    assert item["imageUrl"] == origin + path
+    assert item["imageExpiresAt"] == raw["image_expires_at"] * 1000
+    assert item["imageSourceUrl"] == spotify_url
+
+    raw["image_expires_at"] = time.time() - 1
+    assert parse_music_discovery_feed(payload, ha_url=origin)["items"][0]["imageUrl"] == ""
+    raw["image_url"] = "//other.test" + path
+    assert parse_music_discovery_feed(payload, ha_url=origin)["items"][0]["imageUrl"] == ""
+
+
 def test_music_discovery_play_and_feedback_use_fixture_backend_ids_only() -> None:
     cfg = Config(ha_url="http://ha.local:8123", device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="token-1", websocket_fast_path_enabled=False)
     client = HAClient(cfg)

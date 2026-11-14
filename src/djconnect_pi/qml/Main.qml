@@ -2890,8 +2890,22 @@ BrandWindow {
         required property var recommendation
         backend: djconnect
         imageItem: cover
-        active: visible && !root.screenBlanked
+        active: visible && root.activeScreen === "discover" && !root.screenBlanked
         leaseKey: djconnect.activeProfileId + "|" + (recommendation.payload || "")
+        readonly property real expiresAt: recommendation.imageExpiresAt || 0
+        property bool expired: false
+        function checkImageExpiry() {
+            expiryTimer.stop()
+            expired = expiresAt > 0 && expiresAt <= Date.now()
+            if (active && expiresAt > 0 && !expired) {
+                expiryTimer.interval = Math.max(1, Math.ceil(expiresAt - Date.now()))
+                expiryTimer.start()
+            }
+        }
+        onExpiresAtChanged: checkImageExpiry()
+        onActiveChanged: checkImageExpiry()
+        Component.onCompleted: checkImageExpiry()
+        Timer { id: expiryTimer; onTriggered: artwork.checkImageExpiry() }
         radius: 20
         clip: true
 
@@ -2905,13 +2919,25 @@ BrandWindow {
             id: cover
             objectName: "discoveryArtworkImage"
             anchors.fill: parent
-            source: artwork.recommendation.imageUrl || ""
+            source: artwork.active && !artwork.expired ? artwork.recommendation.imageUrl || "" : ""
+            cache: false
             sourceSize: root.lowMemoryProfile
                 ? Qt.size(Math.min(224, Math.ceil(width)), Math.min(224, Math.ceil(height)))
                 : Qt.size(Math.ceil(width), Math.ceil(height))
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
             visible: status === Image.Ready
+        }
+        Image {
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            anchors.margins: 4
+            width: 56; height: 30
+            fillMode: Image.PreserveAspectFit
+            source: "spotify-attribution.png"
+            visible: cover.visible && !!artwork.recommendation.imageSourceUrl
+            Accessible.name: "Spotify"
+            TapHandler { onTapped: Qt.openUrlExternally(artwork.recommendation.imageSourceUrl) }
         }
     }
 

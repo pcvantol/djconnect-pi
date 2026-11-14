@@ -15,7 +15,7 @@ from copy import deepcopy
 from datetime import datetime
 from importlib.resources import files
 from pathlib import Path
-from urllib.parse import urlencode, urlparse
+from urllib.parse import urlencode, urlparse, urlsplit
 
 import requests
 from PySide6.QtCore import (
@@ -2898,7 +2898,7 @@ class DJConnectBackend(QObject):
             self._music_discovery_empty_text = str(data.get("reason") or data.get("empty_text") or data.get("message") or self.tr_key("music_discovery_requires_music_dna"))
             self.musicDiscoveryChanged.emit()
             return
-        parsed = parse_music_discovery_feed(data)
+        parsed = parse_music_discovery_feed(data, ha_url=self.cfg.ha_url)
         self._set_music_discovery_items(parsed["items"])
         self._music_discovery_empty_text = parsed["empty_text"]
         self._music_discovery_feedback_supported = bool(data.get("_feedback_supported") or data.get("feedback_supported") or data.get("supports_feedback"))
@@ -4556,7 +4556,7 @@ def parse_music_dna_profile(data: dict[str, object]) -> dict[str, object]:
     return {"enabled": enabled, "summary": summary, "sections": sections}
 
 
-def parse_music_discovery_feed(data: dict[str, object]) -> dict[str, object]:
+def parse_music_discovery_feed(data: dict[str, object], *, ha_url: str = "") -> dict[str, object]:
     items: list[dict[str, object]] = []
     sections_source = data.get("sections")
     if isinstance(sections_source, list):
@@ -4571,7 +4571,7 @@ def parse_music_discovery_feed(data: dict[str, object]) -> dict[str, object]:
             for raw in raw_items:
                 if not isinstance(raw, dict):
                     continue
-                item = _music_discovery_item(raw, section_id=section_id, section_title=section_title)
+                item = _music_discovery_item(raw, section_id=section_id, section_title=section_title, ha_url=ha_url)
                 if not item:
                     continue
                 items.append(item)
@@ -4579,7 +4579,52 @@ def parse_music_discovery_feed(data: dict[str, object]) -> dict[str, object]:
     return {"items": items, "empty_text": empty_text}
 
 
-def _music_discovery_item(raw: dict[str, object], *, section_id: str, section_title: str) -> dict[str, object] | None:
+def _discovery_artwork(raw: dict[str, object], ha_url: str) -> dict[str, object]:
+    empty = {"imageUrl": "", "imageExpiresAt": 0, "imageSourceUrl": ""}
+    source = raw.get("image_url")
+    if not isinstance(source, str) or not source or any(c.isspace() or ord(c) < 32 for c in source):
+        return empty
+    try:
+        url = urlsplit(source)
+        if url.scheme:
+            if url.scheme not in {"http", "https"} or not url.hostname or url.username or url.password:
+                return empty
+            if re.match(r"^/api/djconnect/(?:v1/)?image_proxy/disc-", url.path):
+                # Scoped grants are issued as relative paths on the configured HA.
+                return empty
+            return {**empty, "imageUrl": source}
+        if not re.fullmatch(r"/api/djconnect/(?:v1/)?image_proxy/(?:disc-[A-Za-z0-9_-]{32}|(?!disc-)[A-Za-z0-9_-]{1,128})", source):
+            return empty
+        if ha_url:
+            origin = urlsplit(ha_url)
+            if (origin.scheme not in {"http", "https"} or not origin.hostname or origin.username
+                    or origin.password or origin.query or origin.fragment or origin.path not in {"", "/"}):
+                return empty
+            source = f"{origin.scheme}://{origin.netloc}{source}"
+    except ValueError:
+        return empty
+    if not url.path.rsplit("/", 1)[-1].startswith("disc-"):
+        return {**empty, "imageUrl": source}
+
+    if not ha_url:
+        return empty
+    expires = raw.get("image_expires_at")
+    now = time.time()
+    attribution = raw.get("image_attribution")
+    if (type(expires) not in (int, float) or not now < expires <= now + 900
+            or not isinstance(attribution, dict)
+            or attribution.get("provider") != "spotify"):
+        return empty
+    media = attribution.get("media_uri")
+    if not isinstance(media, str) or not re.fullmatch(r"spotify:(?:track|album|artist):[A-Za-z0-9]{22}", media):
+        return empty
+    spotify_url = "https://open.spotify.com/" + media.removeprefix("spotify:").replace(":", "/")
+    if attribution.get("source_url") != spotify_url:
+        return empty
+    return {"imageUrl": source, "imageExpiresAt": expires * 1000, "imageSourceUrl": spotify_url}
+
+
+def _music_discovery_item(raw: dict[str, object], *, section_id: str, section_title: str, ha_url: str) -> dict[str, object] | None:
     kind = str(raw.get("kind") or "").strip().lower()
     title = str(raw.get("title") or "").strip()
     if not title:
@@ -4607,7 +4652,7 @@ def _music_discovery_item(raw: dict[str, object], *, section_id: str, section_ti
         "subtitle": subtitle,
         "kind": kind,
         "kindLabel": kind.title(),
-        "imageUrl": str(raw.get("image_url") or ""),
+        **_discovery_artwork(raw, ha_url),
         "qualityScore": quality_score,
         "qualityBand": quality_band,
         "qualityFactors": quality_factors,
