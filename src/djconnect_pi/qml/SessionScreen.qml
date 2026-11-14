@@ -929,6 +929,15 @@ Item {
         anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top
         anchors.margins: 20; height: 58; spacing: 10
         z: screen.idleWelcome && !screen.compact ? 2 : 0
+        GlassButton {
+            objectName: "sessionHistoryBack"
+            visible: screen.historical
+            iconName: "back"
+            tertiary: true
+            implicitWidth: 52
+            Accessible.name: screen.tr(screen.currentHistory ? "session_back" : screen.state.timeline.session ? "session_history" : "more")
+            onClicked: screen.navigateBackFromHistory()
+        }
         GlassSurface {
             visible: screen.sessionControlsVisible || (screen.state.search_available && screen.searchTarget.length > 0)
             Layout.preferredWidth: toolbarButtons.implicitWidth + 18
@@ -1653,12 +1662,6 @@ Item {
                 visible: !screen.historical && screen.state.history_available && screen.state.session_id.length > 0
                 text: screen.tr("session_history_first"); enabled: !screen.owner.busy
                 onClicked: screen.openCurrentHistory()
-            }
-            GlassButton {
-                visible: screen.historical
-                objectName: "sessionHistoryBack"
-                text: screen.tr(screen.currentHistory ? "session_back" : screen.state.timeline.session ? "session_history" : "more")
-                onClicked: screen.navigateBackFromHistory()
             }
             GlassButton {
                 objectName: "sessionDeleteAllSaved"

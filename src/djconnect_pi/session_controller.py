@@ -991,8 +991,12 @@ class SessionController(QObject):
     def _history_supported(self):
         if self._bootstrap_binding is not None and not private_scope_allowed(self):
             return False
-        features = self._caps.get("capabilities", {})
-        versions = self._caps.get("contract_versions", {})
+        return self._supports_history(self._caps)
+
+    @staticmethod
+    def _supports_history(caps):
+        features = caps.get("capabilities", {})
+        versions = caps.get("contract_versions", {})
         return (isinstance(features, dict) and isinstance(versions, dict)
                 and features.get("session_conversation_history") is True
                 and type(versions.get("session_history_entries")) is int
@@ -1410,7 +1414,12 @@ class SessionController(QObject):
         cfg = self.backend.cfg
         bootstrap = (action == "refresh" and cfg.active_profile_id == ""
             and cfg.explicit_profile_id == "")
-        if not session_profile_id(cfg) and not (self._bootstrap_current() and self._bootstrap_private) and not bootstrap:
+        owner_known = self._bootstrap_current()
+        private_owner_known = owner_known and self._bootstrap_private
+        archive_bootstrap = (action == "history" and not owner_known and not cfg.private_session
+            and cfg.active_profile_id == "" and cfg.explicit_profile_id == "")
+        read_archive_capabilities = action == "history" and not self._caps
+        if not (session_profile_id(cfg) or private_owner_known or bootstrap or archive_bootstrap):
             self._error = "profile_required"
             self.changed.emit()
             return
@@ -1424,7 +1433,7 @@ class SessionController(QObject):
             return
         if bootstrap and self._bootstrap_binding != raw_binding:
             self.invalidate()
-        if action in {"history", "history_more", "history_refresh", "timeline", "timeline_refresh", "timeline_page", "timeline_previous", "timeline_extend", "open_entry", "search", "search_more", "search_refresh"} and not self._history_supported():
+        if action in {"history", "history_more", "history_refresh", "timeline", "timeline_refresh", "timeline_page", "timeline_previous", "timeline_extend", "open_entry", "search", "search_more", "search_refresh"} and not (archive_bootstrap or read_archive_capabilities or self._history_supported()):
             self._error = "unsupported"
             self.changed.emit()
             return
@@ -1498,7 +1507,14 @@ class SessionController(QObject):
                 result["saved_read_target"] = value["session_id"]
                 result["saved_read_value"] = value
             try:
-                if bootstrap:
+                if archive_bootstrap:
+                    if not self._foreground or self._view_epoch != view_epoch:
+                        raise SessionError("context_changed")
+                    personal = self.transport.private_scope_owner(binding)
+                    if not personal:
+                        raise SessionError("profile_required")
+                    result["archive_owner"] = personal
+                elif bootstrap:
                     # Current owner and personal-read permission are independent.
                     # Match the existing Apple route; do not invent Profile metadata.
                     check_conversation_read()
@@ -1562,6 +1578,12 @@ class SessionController(QObject):
                     else:
                         result.update(read_flow(value["session_id"], result["question_receipt"]))
                 elif action in {"history", "history_more", "history_refresh"}:
+                    if read_archive_capabilities:
+                        if not self._foreground or self._view_epoch != view_epoch:
+                            raise SessionError("context_changed")
+                        result["archive_capabilities"] = self.transport.capabilities(binding, isolated=True)
+                        if not self._supports_history(result["archive_capabilities"]):
+                            raise SessionError("unsupported")
                     result["history"] = self._read_history(binding, value, view_epoch)
                 elif action == "timeline":
                     result["timeline"] = presented_history(history_page(self.transport.timeline(binding, value), session_id=value, now=self._clock.now()))
@@ -1786,6 +1808,22 @@ class SessionController(QObject):
         if history_action and result.get("view_epoch") != self._view_epoch:
             self.changed.emit()
             return
+        if result.get("archive_owner") and "error" not in result:
+            owner = result["archive_owner"]
+            if (self.backend.cfg.private_session or (self._bootstrap_current() and self._bootstrap_owner != owner)):
+                result["error"] = "context_changed"
+            else:
+                self._bootstrap_binding = result["raw_binding"]
+                self._bootstrap_owner = owner
+                self._bootstrap_private = True
+                self._owner_epoch += 1
+                self._caps = {}
+                self.ownerScopeChanged.emit()
+                if self._view_epoch == result["view_epoch"]:
+                    self._launch("history", {"pages": 1, "window_change": True})
+                return
+        if "archive_capabilities" in result and "error" not in result:
+            self._caps = result["archive_capabilities"]
         if "history" in result and "error" not in result:
             try:
                 page = result["history"]
