@@ -123,65 +123,33 @@ jobs:
         run: |
           set -euo pipefail
 
-          current_workflow_name="$(
-            gh api "repos/${GH_REPO}/actions/runs/${CURRENT_RUN_ID}" \
-              --jq '.name'
-          )"
           protected_run_ids=()
           pr_head_sha="$(gh api -H 'Accept: application/vnd.github+json' "repos/${GH_REPO}/commits/${GITHUB_SHA}/pulls" --jq '[.[] | select(.merged_at and .base.ref == "main" and .merge_commit_sha == env.GITHUB_SHA)] | if length == 1 then .[0].head.sha else empty end' || true)"
           if [[ -n "${pr_head_sha}" ]]; then
             mapfile -t protected_run_ids < <(gh api "repos/${GH_REPO}/actions/runs?head_sha=${pr_head_sha}&per_page=100" --paginate --jq '.workflow_runs[] | .id')
           fi
-          runs_json="$(
-            gh api --paginate --slurp \
-              "repos/${GH_REPO}/actions/runs?status=completed&per_page=100"
-          )"
-
-          mapfile -t workflow_names < <(
-            jq -r '[.[].workflow_runs[]?.name] | unique[]' <<< "${runs_json}"
+          # Retain publication, qualification and deployment workflow history.
+          # This maintenance job owns only pull-request Validate runs.
+          mapfile -t run_ids < <(
+            gh api --paginate "repos/${GH_REPO}/actions/workflows/validate.yml/runs?event=pull_request&status=completed&per_page=100" \
+              --jq '.workflow_runs[] | .id'
           )
 
-          for workflow_name in "${workflow_names[@]}"; do
-            if [[ -z "${workflow_name}" ]]; then
+          deleted_runs=0
+          for index in "${!run_ids[@]}"; do
+            run_id="${run_ids[$index]}"
+            if [[ "${run_id}" == "${CURRENT_RUN_ID}" || " ${protected_run_ids[*]} " == *" ${run_id} "* ]]; then
               continue
             fi
 
-            keep_limit="${KEEP_RUNS}"
-            if [[ "${workflow_name}" == "${current_workflow_name}" ]]; then
-              keep_limit=$((KEEP_RUNS - 1))
-            fi
-
-            mapfile -t run_ids < <(
-              jq -r --arg workflow_name "${workflow_name}" '
-                [.[].workflow_runs[]? | select(.name == $workflow_name)]
-                | sort_by(.created_at)
-                | reverse
-                | .[].id
-              ' <<< "${runs_json}"
-            )
-
-            if ((${#run_ids[@]} <= keep_limit)); then
-              echo "Deleted 0 old completed run(s) for ${workflow_name}."
+            if ((index < KEEP_RUNS)); then
               continue
             fi
 
-            deleted_runs=0
-            for index in "${!run_ids[@]}"; do
-              run_id="${run_ids[$index]}"
-              if [[ "${run_id}" == "${CURRENT_RUN_ID}" || " ${protected_run_ids[*]} " == *" ${run_id} "* ]]; then
-                continue
-              fi
-
-              if ((index < keep_limit)); then
-                continue
-              fi
-
-              if gh api --method DELETE "repos/${GH_REPO}/actions/runs/${run_id}" >/dev/null; then
-                deleted_runs=$((deleted_runs + 1))
-              else
-                echo "Run ${run_id} was already unavailable; continuing." >&2
-              fi
-            done
-
-            echo "Deleted ${deleted_runs} old completed run(s) for ${workflow_name}."
+            if gh api --method DELETE "repos/${GH_REPO}/actions/runs/${run_id}" >/dev/null; then
+              deleted_runs=$((deleted_runs + 1))
+            else
+              echo "Run ${run_id} was already unavailable; continuing." >&2
+            fi
           done
+          echo "Deleted ${deleted_runs} old completed pull-request Validate run(s)."
