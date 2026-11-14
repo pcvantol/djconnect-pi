@@ -2520,8 +2520,9 @@ class DJConnectBackend(QObject):
         self._music_discovery_consent_rejected = False
         self._music_dna_summary = self.tr_key("demo_dna_summary") if enabled else ""
         tracks = demo_queue_items()
-        self._music_dna_sections = [{"title": self.tr_key("demo_mode"),
-            "lines": [f"{track['title']} · {track['subtitle']}" for track in tracks]}] if enabled else []
+        self._music_dna_sections = _music_dna_cards({
+            "recent_tracks": [{"title": track["title"], "artist": track["subtitle"]} for track in tracks],
+        }, "") if enabled else []
         self._set_music_discovery_items(parse_music_discovery_feed({"sections": [{
             "id": "demo", "title": self.tr_key("demo_mode"), "items": [
                 {"id": track["uri"], "uri": track["uri"], "title": track["title"],
@@ -2863,7 +2864,7 @@ class DJConnectBackend(QObject):
             return
         self._music_dna_error = ""
         self._apply_profile_context(data)
-        parsed = parse_music_dna_profile(data)
+        parsed = parse_music_dna_profile(data, ha_url=self.cfg.ha_url)
         self._music_dna_enabled = bool(parsed["enabled"])
         self._music_dna_summary = str(parsed["summary"])
         self._music_dna_sections = list(parsed["sections"])
@@ -4543,17 +4544,126 @@ def _first_dict(*values: object) -> dict[str, object]:
     return {}
 
 
-def parse_music_dna_profile(data: dict[str, object]) -> dict[str, object]:
+def parse_music_dna_profile(data: dict[str, object], *, ha_url: str = "") -> dict[str, object]:
     profile = data.get("profile")
     if not isinstance(profile, dict):
         profile = {}
     enabled = bool(data.get("enabled"))
     summary = str(profile.get("summary") or data.get("summary") or "").strip() if enabled else ""
-    sections: list[dict[str, object]] = []
-    if enabled:
-        for key, title in _MUSIC_DNA_RENDER_BLOCKS:
-            sections.extend(_music_dna_backend_section(profile, key, title))
-    return {"enabled": enabled, "summary": summary, "sections": sections}
+    return {"enabled": enabled, "summary": summary,
+            "sections": _music_dna_cards(profile, ha_url) if enabled else []}
+
+
+def _music_dna_cards(profile: dict[str, object], ha_url: str) -> list[dict[str, object]]:
+    cards = []
+
+    def block(key):
+        value = profile.get(key)
+        return value if isinstance(value, dict) and value.get("eligible") is not False else {}
+
+    def rows(items, *, artwork=False, limit=5):
+        result = []
+        for item in items[:limit] if isinstance(items, list) else []:
+            if isinstance(item, str) and item.strip():
+                result.append({"title": item.strip()})
+                continue
+            if not isinstance(item, dict):
+                continue
+            title = next((item[key].strip() for key in ("title", "name", "track_name")
+                          if isinstance(item.get(key), str) and item[key].strip()), "")
+            if not title:
+                continue
+            subtitle = " · ".join(value for value in (item.get("artist") or item.get("artist_name"),
+                                                       item.get("album") or item.get("album_name"))
+                                  if isinstance(value, str) and value.strip())
+            count = item.get("play_count", item.get("count"))
+            row = {"title": title, "subtitle": subtitle, "value": item.get("formatted") or "",
+                   "count": count if type(count) is int and count >= 0 else None}
+            if artwork and item.get("image_subject_uri") == item.get("uri") and item.get("image_subject_uri"):
+                row.update(_discovery_artwork(item, ha_url))
+            result.append(row)
+        return result
+
+    def card(key, icon, *, entries=None, groups=None, value="", metric=None, average=None, count=None):
+        if entries or groups or value or metric is not None or average is not None:
+            cards.append({"key": "music_dna_card_" + key, "icon": icon, "rows": entries or [],
+                          "groups": groups or [], "value": value, "metric": metric,
+                          "average": average, "count": count})
+
+    def grouped(title, entries, *, shelf=False):
+        return [{"key": "music_dna_card_" + title, "rows": entries, "shelf": shelf}] if entries else []
+
+    def percentages(items, field, labels):
+        return [{"labelKey": labels.get(str(item[field]).lower(), ""), "title": str(item[field]),
+                 "percent": item["percent"]}
+                for item in items[:7] if isinstance(item, dict) and isinstance(item.get(field), str)
+                and type(item.get("percent")) in (int, float) and 0 <= item["percent"] <= 100] if isinstance(items, list) else []
+
+    zones = {zone: "mood_" + zone for zone in ("chill", "groove", "energy", "party")}
+    dayparts = {value: "music_dna_card_" + key for key, value in
+                (("morning", "ochtend"), ("afternoon", "middag"), ("evening", "avond"), ("night", "nacht"))}
+    dayparts.update({key.removeprefix("music_dna_card_"): key for key in tuple(dayparts.values())})
+    weekdays = {day: "music_dna_card_" + day for day in
+                ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")}
+    weekdays.update({nl: weekdays[en] for nl, en in zip(
+        ("maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag", "zondag"),
+        tuple(weekdays), strict=True)})
+
+    playtime = block("playtime")
+    duration = playtime.get("formatted_total")
+    if not isinstance(duration, str) or not duration:
+        seconds = playtime.get("total_seconds")
+        duration = f"{seconds // 3600}h {seconds // 60 % 60}m" if type(seconds) is int and seconds > 0 else ""
+    genres = ", ".join(entry["title"] for entry in rows(profile.get("favorite_genres"), limit=10))
+    tracks = profile.get("recent_tracks")
+    artists = profile.get("favorite_artists")
+    mood = block("mood")
+    summary = [{"labelKey": "music_dna_card_" + key, "title": str(value)}
+               for key, value in (("playtime", duration),
+                                  ("recent_tracks", len(tracks) if isinstance(tracks, list) else None),
+                                  ("artists", len(artists) if isinstance(artists, list) else None),
+                                  ("favorite_genres", genres)) if value is not None and value != ""]
+    zone = mood.get("zone") or mood.get("average_zone")
+    if isinstance(zone, str) and zone.lower() in zones:
+        summary.append({"labelKey": "music_dna_card_energy", "valueKey": zones[zone.lower()]})
+    card("summary", "waveform", entries=summary)
+    card("favorite_genres", "music", value=genres)
+    card("favorite_artists", "session_persona", groups=grouped("", rows(artists, artwork=True, limit=12), shelf=True))
+    energy = block("energy_profile")
+    percent = energy.get("energy_percent")
+    energy_zone = energy.get("zone")
+    if type(percent) in (int, float) and 0 <= percent <= 100:
+        card("energy", "waveform", metric=percent, count=energy.get("sample_count"),
+             entries=[{"valueKey": zones[energy_zone.lower()]}]
+             if isinstance(energy_zone, str) and energy_zone.lower() in zones else [])
+    rhythm = block("listening_rhythm")
+    card("rhythm", "history", entries=percentages(rhythm.get("dayparts"), "daypart", dayparts),
+         groups=grouped("weekdays", percentages(rhythm.get("weekdays"), "weekday", weekdays)))
+    mix = block("mood_mix")
+    average = mix.get("average")
+    card("mood_mix", "mood_chill", entries=percentages(mix.get("zones"), "zone", zones),
+         average=average if type(average) in (int, float) and 0 <= average <= 100 else None)
+    card("playtime", "history", value=duration,
+         groups=grouped("artists_by_time", rows(playtime.get("top_artists"), limit=3))
+         + grouped("albums_by_time", rows(playtime.get("top_albums"), limit=3)))
+    card("repeat", "repeat", entries=rows(block("repeat_magnets").get("items")))
+    positives = block("explicit_positives")
+    card("positives", "heart", groups=grouped("recent_favorites", rows(positives.get("favorite_tracks")))
+         + grouped("accepted", rows(positives.get("accepted_recommendations"))),
+         entries=rows(positives.get("items")))
+    card("anchors", "sparkles", entries=rows(block("taste_anchors").get("items")))
+    card("recent_tracks", "history", entries=rows(tracks, artwork=True, limit=3))
+    card("recent_favorites", "heart", entries=rows(profile.get("recent_favorite_tracks"), artwork=True, limit=3))
+    for key, icon, shelf in (("top_tracks", "music", False), ("top_artists", "session_persona", True)):
+        ranges = block(key + "_by_range")
+        terms = ("long_term", "medium_term", "short_term") if shelf else ("short_term", "medium_term", "long_term")
+        groups = [group for term in terms
+                  for group in grouped(term, rows(ranges.get(term), artwork=True, limit=12 if shelf else 3), shelf=shelf)]
+        card(key, icon, groups=groups)
+    feedback = block("discovery_feedback")
+    card("feedback", "sparkles", groups=grouped("accepted", rows(feedback.get("accepted_items") or feedback.get("accepted")))
+         + grouped("feedback_hidden", rows(feedback.get("blocked_artists")) + rows(feedback.get("blocked_items"))))
+    return cards
 
 
 def parse_music_discovery_feed(data: dict[str, object], *, ha_url: str = "") -> dict[str, object]:
@@ -4662,110 +4772,6 @@ def _music_discovery_item(raw: dict[str, object], *, section_id: str, section_ti
         "playable": playable,
         "payload": json.dumps(payload, ensure_ascii=True),
     }
-
-
-def _music_dna_section(title: str, lines: list[str]) -> list[dict[str, object]]:
-    clean = [line for line in (line.strip() for line in lines) if line]
-    if not clean:
-        return []
-    return [{"title": title, "lines": clean}]
-
-
-_MUSIC_DNA_RENDER_BLOCKS: tuple[tuple[str, str], ...] = (
-    ("favorite_genres", "Favorite genres"),
-    ("favorite_artists", "Favorite artists"),
-    ("energy_profile", "Energy profile"),
-    ("playtime", "Playtime"),
-    ("listening_rhythm", "Listening rhythm"),
-    ("mood_mix", "Mood mix"),
-    ("repeat_magnets", "Repeat magnets"),
-    ("explicit_positives", "Accepted signals"),
-    ("taste_anchors", "Taste anchors"),
-    ("recent_tracks", "Recent signals"),
-    ("recent_favorite_tracks", "Recent favorites"),
-    ("top_tracks_by_range", "Top tracks"),
-    ("top_artists_by_range", "Top artists"),
-    ("snapshot_history", "Snapshot history"),
-    ("discovery_feedback", "Discovery feedback"),
-    ("privacy_dashboard", "Privacy dashboard"),
-    ("last_profile_refresh", "Last refresh"),
-    ("consent_updated_at", "Consent updated"),
-)
-
-_MUSIC_DNA_SENSITIVE_KEY_PARTS = (
-    "token",
-    "bearer",
-    "oauth",
-    "prompt",
-    "raw_audio",
-    "audio",
-    "full_history",
-)
-
-
-def _music_dna_backend_section(profile: dict[str, object], key: str, title: str) -> list[dict[str, object]]:
-    if key not in profile:
-        return []
-    value = profile.get(key)
-    if isinstance(value, dict) and value.get("eligible") is False:
-        reason = str(value.get("reason") or "").strip()
-        return _music_dna_section(title, [reason] if reason and key in {"privacy_dashboard"} else [])
-    return _music_dna_section(title, _music_dna_compact_lines(value, depth=0))
-
-
-def _music_dna_compact_lines(value: object, *, depth: int) -> list[str]:
-    if depth > 3:
-        return []
-    if value in (None, "", [], {}):
-        return []
-    if isinstance(value, (str, int, float, bool)):
-        return [str(value)]
-    if isinstance(value, list):
-        lines: list[str] = []
-        for item in value[:8]:
-            lines.extend(_music_dna_compact_lines(item, depth=depth + 1))
-        return lines
-    if isinstance(value, dict):
-        if value.get("eligible") is False:
-            return []
-        item_lines = _music_dna_named_item_lines(value)
-        if item_lines:
-            return item_lines
-        lines = []
-        for key, item in value.items():
-            key_text = str(key)
-            if _music_dna_is_sensitive_key(key_text):
-                continue
-            if key_text in {"eligible", "items", "values", "tracks", "artists", "genres", "signals"}:
-                nested = _music_dna_compact_lines(item, depth=depth + 1)
-                lines.extend(nested)
-                continue
-            nested_lines = _music_dna_compact_lines(item, depth=depth + 1)
-            if len(nested_lines) == 1:
-                lines.append(f"{key_text.replace('_', ' ').title()}: {nested_lines[0]}")
-            elif nested_lines:
-                lines.append(f"{key_text.replace('_', ' ').title()}: {', '.join(nested_lines[:4])}")
-        return lines[:10]
-    return [str(value)]
-
-
-def _music_dna_named_item_lines(value: dict[str, object]) -> list[str]:
-    title = str(value.get("title") or value.get("name") or value.get("label") or value.get("track") or "").strip()
-    subtitle = str(value.get("subtitle") or value.get("artist") or value.get("artist_name") or value.get("range") or "").strip()
-    if not title:
-        return []
-    score = value.get("percent") if value.get("percent") is not None else value.get("score")
-    text = f"{title} - {subtitle}" if subtitle else title
-    if score not in (None, ""):
-        text = f"{text} ({score})"
-    return [text]
-
-
-def _music_dna_is_sensitive_key(key: str) -> bool:
-    normalized = key.lower()
-    if normalized.startswith("stores_"):
-        return False
-    return any(part in normalized for part in _MUSIC_DNA_SENSITIVE_KEY_PARTS)
 
 
 if __name__ == "__main__":

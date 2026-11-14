@@ -1247,7 +1247,48 @@ _SHARED_SETTINGS_TRANSLATIONS = {
         'No se pudieron confirmar las opciones. Actualiza y revisa las opciones disponibles.',
     ),
 }
-for _key, _values in _SHARED_SETTINGS_TRANSLATIONS.items():
+_MUSIC_DNA_CARD_TRANSLATIONS = {
+    "music_dna_card_summary": ('Summary', 'Samenvatting', 'Zusammenfassung', 'Résumé', 'Resumen'),
+    "music_dna_card_favorite_genres": ('Favorite genres', 'Favoriete genres', 'Lieblingsgenres', 'Genres favoris', 'Géneros favoritos'),
+    "music_dna_card_favorite_artists": ('Favorite artists', 'Favoriete artiesten', 'Lieblingskünstler', 'Artistes favoris', 'Artistas favoritos'),
+    "music_dna_card_artists": ('Artists', 'Artiesten', 'Künstler', 'Artistes', 'Artistas'),
+    "music_dna_card_energy": ('Taste profile', 'Smaakrichting', 'Geschmacksprofil', 'Profil musical', 'Perfil musical'),
+    "music_dna_card_rhythm": ('Listening rhythm', 'Luisterritme', 'Hörrhythmus', 'Rythme d’écoute', 'Ritmo de escucha'),
+    "music_dna_card_mood_mix": ('Mood mix', 'Mood mix', 'Stimmungsmix', 'Mélange d’ambiances', 'Mezcla de ambientes'),
+    "music_dna_card_playtime": ('Listening time', 'Luistertijd', 'Hörzeit', 'Temps d’écoute', 'Tiempo de escucha'),
+    "music_dna_card_repeat": ('On repeat', 'Blijft terugkomen', 'Immer wieder gehört', 'En boucle', 'En repetición'),
+    "music_dna_card_positives": ('Favorites and discoveries', 'Favorieten en ontdekkingen', 'Favoriten und Entdeckungen', 'Favoris et découvertes', 'Favoritos y descubrimientos'),
+    "music_dna_card_anchors": ('Taste anchors', 'Smaakankers', 'Musikalische Anker', 'Repères musicaux', 'Referentes musicales'),
+    "music_dna_card_recent_tracks": ('Recent tracks', 'Recente tracks', 'Letzte Titel', 'Titres récents', 'Pistas recientes'),
+    "music_dna_card_recent_favorites": ('Recent favorites', 'Recente favorieten', 'Letzte Favoriten', 'Favoris récents', 'Favoritos recientes'),
+    "music_dna_card_top_tracks": ('Top tracks by period', 'Toptracks per periode', 'Toptitel nach Zeitraum', 'Titres préférés par période', 'Pistas favoritas por período'),
+    "music_dna_card_top_artists": ('Top artists by period', 'Topartiesten per periode', 'Topkünstler nach Zeitraum', 'Artistes préférés par période', 'Artistas favoritos por período'),
+    "music_dna_card_feedback": ('Discover feedback', 'Ontdek-feedback', 'Feedback zu Entdecken', 'Avis sur les découvertes', 'Opiniones sobre descubrimientos'),
+    "music_dna_card_feedback_hidden": ('Hidden in Discover', 'Verborgen in Ontdek', 'In Entdecken ausgeblendet', 'Masqués dans Découvrir', 'Ocultos en Descubrir'),
+    "music_dna_card_accepted": ('Accepted recommendations', 'Geaccepteerde aanbevelingen', 'Angenommene Empfehlungen', 'Recommandations acceptées', 'Recomendaciones aceptadas'),
+    "music_dna_card_artists_by_time": ('Top artists by listening time', 'Topartiesten op luistertijd', 'Topkünstler nach Hörzeit', 'Artistes les plus écoutés', 'Artistas más escuchados'),
+    "music_dna_card_albums_by_time": ('Top albums by listening time', 'Topalbums op luistertijd', 'Topalben nach Hörzeit', 'Albums les plus écoutés', 'Álbumes más escuchados'),
+    "music_dna_card_short_term": ('Short term', 'Korte termijn', 'Kurzfristig', 'Court terme', 'Corto plazo'),
+    "music_dna_card_medium_term": ('Medium term', 'Middellange termijn', 'Mittelfristig', 'Moyen terme', 'Medio plazo'),
+    "music_dna_card_long_term": ('Long term', 'Lange termijn', 'Langfristig', 'Long terme', 'Largo plazo'),
+    "music_dna_card_weekdays": ('Days of the week', 'Dagen van de week', 'Wochentage', 'Jours de la semaine', 'Días de la semana'),
+    "music_dna_card_morning": ('Morning', 'Ochtend', 'Morgen', 'Matin', 'Mañana'),
+    "music_dna_card_afternoon": ('Afternoon', 'Middag', 'Nachmittag', 'Après-midi', 'Tarde'),
+    "music_dna_card_evening": ('Evening', 'Avond', 'Abend', 'Soir', 'Atardecer'),
+    "music_dna_card_night": ('Night', 'Nacht', 'Nacht', 'Nuit', 'Noche'),
+    "music_dna_card_monday": ('Monday', 'Maandag', 'Montag', 'Lundi', 'Lunes'),
+    "music_dna_card_tuesday": ('Tuesday', 'Dinsdag', 'Dienstag', 'Mardi', 'Martes'),
+    "music_dna_card_wednesday": ('Wednesday', 'Woensdag', 'Mittwoch', 'Mercredi', 'Miércoles'),
+    "music_dna_card_thursday": ('Thursday', 'Donderdag', 'Donnerstag', 'Jeudi', 'Jueves'),
+    "music_dna_card_friday": ('Friday', 'Vrijdag', 'Freitag', 'Vendredi', 'Viernes'),
+    "music_dna_card_saturday": ('Saturday', 'Zaterdag', 'Samstag', 'Samedi', 'Sábado'),
+    "music_dna_card_sunday": ('Sunday', 'Zondag', 'Sonntag', 'Dimanche', 'Domingo'),
+    "music_dna_card_average": ('Average %1/100', 'Gemiddeld %1/100', 'Durchschnitt %1/100', 'Moyenne %1/100', 'Media %1/100'),
+    "music_dna_card_signals": ('%1 signals', '%1 signalen', '%1 Signale', '%1 signaux', '%1 señales'),
+    "music_dna_card_plays": ('%1 plays', '%1 keer', '%1 Wiedergaben', '%1 écoutes', '%1 reproducciones'),
+}
+
+for _key, _values in (_SHARED_SETTINGS_TRANSLATIONS | _MUSIC_DNA_CARD_TRANSLATIONS).items():
     for _language, _value in zip(SUPPORTED_LANGUAGES, _values, strict=True):
         TRANSLATIONS[_language][_key] = _value
 

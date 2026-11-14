@@ -2890,8 +2890,9 @@ BrandWindow {
         required property var recommendation
         backend: djconnect
         imageItem: cover
-        active: visible && root.activeScreen === "discover" && !root.screenBlanked
+        active: visible && (root.activeScreen === "discover" || root.activeScreen === "musicdna") && !root.screenBlanked
         leaseKey: djconnect.activeProfileId + "|" + (recommendation.payload || "")
+        property string displayIcon: "discover"
         readonly property real expiresAt: recommendation.imageExpiresAt || 0
         property bool expired: false
         function checkImageExpiry() {
@@ -2911,8 +2912,8 @@ BrandWindow {
 
         FeatureIcon {
             anchors.centerIn: parent
-            width: 42; height: width
-            iconName: "discover"
+            width: Math.min(42, parent.width * 0.7); height: width
+            iconName: artwork.displayIcon
             visible: cover.status !== Image.Ready
         }
         Image {
@@ -2932,7 +2933,7 @@ BrandWindow {
             anchors.right: parent.right
             anchors.bottom: parent.bottom
             anchors.margins: 4
-            width: 56; height: 30
+            width: Math.min(56, parent.width * 0.8); height: width * 0.54
             fillMode: Image.PreserveAspectFit
             source: "spotify-attribution.png"
             visible: cover.visible && !!artwork.recommendation.imageSourceUrl
@@ -3450,6 +3451,81 @@ BrandWindow {
         sourceComponent: MusicDnaPage {}
     }
 
+    component MusicDnaMeter: ColumnLayout {
+        id: meter
+        required property real value
+        property string label: ""
+        spacing: 5
+        RowLayout {
+            Layout.fillWidth: true
+            Text {
+                text: meter.label
+                textFormat: Text.PlainText
+                color: BrandTheme.colors.muted
+                font.pixelSize: 16
+                Layout.fillWidth: true
+                wrapMode: Text.Wrap
+            }
+            Text { text: Number(meter.value.toFixed(1)).toLocaleString(Qt.locale(djconnect.language)) + "%"; color: BrandTheme.colors.text; font.bold: true; font.pixelSize: 17 }
+        }
+        Rectangle {
+            Layout.fillWidth: true
+            implicitHeight: 7; radius: 4
+            color: "#30FFFFFF"
+            Rectangle { width: parent.width * meter.value / 100; height: parent.height; radius: 4; color: BrandTheme.colors.actionAccent }
+        }
+    }
+
+    component MusicDnaRow: RowLayout {
+        id: dnaRow
+        required property var entry
+        readonly property string title: entry.labelKey ? root.tr(entry.labelKey) : entry.title || ""
+        readonly property string value: entry.valueKey ? root.tr(entry.valueKey)
+            : entry.value || (typeof entry.count === "number"
+                ? root.tr("music_dna_card_plays").replace("%1", entry.count) : "")
+        readonly property bool percentage: typeof entry.percent === "number"
+        Layout.fillWidth: true
+        spacing: 10
+        DiscoveryArtwork {
+            visible: !!dnaRow.entry.imageUrl
+            recommendation: dnaRow.entry
+            displayIcon: "music"
+            padding: 0; radius: 12
+            Layout.preferredWidth: 52; Layout.preferredHeight: 52
+        }
+        MusicDnaMeter {
+            visible: dnaRow.percentage
+            Layout.fillWidth: true
+            value: dnaRow.percentage ? dnaRow.entry.percent : 0
+            label: dnaRow.title
+        }
+        ColumnLayout {
+            visible: !dnaRow.percentage
+            Layout.fillWidth: true
+            spacing: 3
+            Text {
+                visible: text.length > 0
+                text: dnaRow.title || dnaRow.value
+                textFormat: Text.PlainText
+                color: BrandTheme.colors.text; font.pixelSize: 17; font.bold: true
+                Layout.fillWidth: true; wrapMode: Text.Wrap
+            }
+            Text {
+                visible: text.length > 0
+                text: dnaRow.entry.labelKey ? dnaRow.entry.title || dnaRow.value : dnaRow.entry.subtitle || ""
+                textFormat: Text.PlainText
+                color: BrandTheme.colors.muted; font.pixelSize: 15
+                Layout.fillWidth: true; wrapMode: Text.Wrap
+            }
+        }
+        Text {
+            visible: !dnaRow.percentage && !dnaRow.entry.labelKey && !!dnaRow.title && !!dnaRow.value
+            text: dnaRow.value
+            textFormat: Text.PlainText
+            color: BrandTheme.colors.muted; font.pixelSize: 15
+        }
+    }
+
     component MusicDnaPage: Rectangle {
         id: musicDnaPanel
         objectName: "musicDnaPanel"
@@ -3522,23 +3598,6 @@ BrandWindow {
                 }
             }
 
-            GlassCard {
-                objectName: "musicDnaSummaryHero"
-                hero: true; padding: root.wallProfile ? 32 : 18
-                visible: djconnect.musicDnaError.length === 0 && djconnect.musicDnaEnabled && djconnect.musicDnaSummary.length > 0
-                Layout.fillWidth: true
-                Layout.maximumHeight: implicitHeight
-                Text {
-                    visible: djconnect.musicDnaError.length === 0 && djconnect.musicDnaEnabled && djconnect.musicDnaSummary.length > 0
-                    text: djconnect.musicDnaSummary
-                    textFormat: Text.PlainText
-                    color: BrandTheme.colors.text
-                    font.pixelSize: 22
-                    wrapMode: Text.WordWrap
-                    Layout.fillWidth: true
-                }
-            }
-
             ScrollView {
                 id: musicDnaScroll
                 visible: djconnect.musicDnaError.length === 0 && djconnect.musicDnaEnabled
@@ -3548,37 +3607,164 @@ BrandWindow {
                 ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
                 contentWidth: availableWidth
 
-                ColumnLayout {
+                GridLayout {
                     width: Math.max(0, musicDnaScroll.availableWidth)
-                    spacing: 10
+                    columns: Math.max(1, Math.floor((width + columnSpacing) / (310 + columnSpacing)))
+                    columnSpacing: 14
+                    rowSpacing: 14
 
                     Repeater {
-                        model: djconnect.musicDnaSections
+                        model: djconnect.musicDnaSections.length ? djconnect.musicDnaSections
+                            : djconnect.musicDnaSummary ? [{
+                                key: "music_dna_card_summary", icon: "waveform", value: djconnect.musicDnaSummary
+                            }] : []
 
                         GlassCard {
+                            id: dnaCard
+                            required property var modelData
+                            objectName: modelData.key
                             Layout.fillWidth: true
-                            padding: root.wallProfile ? 30 : 18
-                            spacing: 8
+                            Layout.preferredWidth: 1
+                            Layout.alignment: Qt.AlignTop
+                            padding: 18
+                            spacing: 12
 
+                            RowLayout {
+                                Layout.fillWidth: true
+                                FeatureIcon {
+                                    iconName: dnaCard.modelData.icon
+                                    iconColor: BrandTheme.colors.actionAccent
+                                    Layout.preferredWidth: 22; Layout.preferredHeight: 22
+                                }
+                                Text {
+                                    text: root.tr(dnaCard.modelData.key)
+                                    textFormat: Text.PlainText
+                                    color: BrandTheme.colors.muted
+                                    font.pixelSize: 18; font.bold: true
+                                    Layout.fillWidth: true
+                                    wrapMode: Text.Wrap
+                                }
+                            }
                             Text {
-                                text: modelData.title || ""
+                                visible: text.length > 0
+                                text: dnaCard.modelData.value || ""
                                 textFormat: Text.PlainText
                                 color: BrandTheme.colors.text
-                                font.pixelSize: 19
-                                font.weight: Font.DemiBold
-                                wrapMode: Text.Wrap
+                                font.pixelSize: 23; font.bold: true
                                 Layout.fillWidth: true
+                                wrapMode: Text.Wrap
                             }
-
-                            Repeater {
-                                model: modelData.lines || []
+                            RowLayout {
+                                visible: typeof dnaCard.modelData.metric === "number"
+                                Layout.fillWidth: true
+                                spacing: 14
+                                Item {
+                                    Layout.preferredWidth: 92
+                                    Layout.preferredHeight: 92
+                                    Canvas {
+                                        id: energyRing
+                                        anchors.fill: parent
+                                        readonly property real fraction: (dnaCard.modelData.metric || 0) / 100
+                                        readonly property color accent: BrandTheme.colors.actionAccent
+                                        onFractionChanged: requestPaint()
+                                        onAccentChanged: requestPaint()
+                                        onPaint: {
+                                            const context = getContext("2d")
+                                            context.clearRect(0, 0, width, height)
+                                            context.lineWidth = 9
+                                            context.lineCap = "round"
+                                            context.strokeStyle = "#30FFFFFF"
+                                            context.beginPath()
+                                            context.arc(width / 2, height / 2, width / 2 - 7, 0, 2 * Math.PI)
+                                            context.stroke()
+                                            if (fraction <= 0) return
+                                            context.strokeStyle = accent
+                                            context.beginPath()
+                                            context.arc(width / 2, height / 2, width / 2 - 7,
+                                                        -Math.PI / 2, (fraction * 2 - 0.5) * Math.PI)
+                                            context.stroke()
+                                        }
+                                    }
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: (dnaCard.modelData.metric || 0) + "%"
+                                        color: BrandTheme.colors.text
+                                        font.pixelSize: 23; font.bold: true
+                                    }
+                                }
                                 Text {
-                                    text: modelData
+                                    visible: typeof dnaCard.modelData.count === "number"
+                                    text: visible ? root.tr("music_dna_card_signals").replace("%1", dnaCard.modelData.count) : ""
                                     textFormat: Text.PlainText
                                     color: BrandTheme.colors.muted
                                     font.pixelSize: 17
-                                    wrapMode: Text.Wrap
                                     Layout.fillWidth: true
+                                    wrapMode: Text.Wrap
+                                }
+                            }
+                            Text {
+                                visible: typeof dnaCard.modelData.average === "number"
+                                text: visible ? root.tr("music_dna_card_average").replace("%1", dnaCard.modelData.average) : ""
+                                textFormat: Text.PlainText
+                                color: BrandTheme.colors.muted
+                                font.pixelSize: 17
+                                Layout.fillWidth: true
+                                wrapMode: Text.Wrap
+                            }
+                            Repeater {
+                                model: dnaCard.modelData.rows || []
+                                MusicDnaRow { entry: modelData }
+                            }
+                            Repeater {
+                                model: dnaCard.modelData.groups || []
+                                ColumnLayout {
+                                    id: dnaGroup
+                                    required property var modelData
+                                    Layout.fillWidth: true
+                                    spacing: 8
+                                    Text {
+                                        visible: dnaGroup.modelData.key !== "music_dna_card_"
+                                        text: visible ? root.tr(dnaGroup.modelData.key) : ""
+                                        color: BrandTheme.colors.muted
+                                        font.pixelSize: 17; font.bold: true
+                                        Layout.fillWidth: true
+                                        wrapMode: Text.Wrap
+                                    }
+                                    ListView {
+                                        visible: dnaGroup.modelData.shelf
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 118
+                                        orientation: ListView.Horizontal
+                                        clip: true; spacing: 12
+                                        model: visible ? dnaGroup.modelData.rows : []
+                                        boundsBehavior: Flickable.StopAtBounds
+                                        ScrollBar.horizontal: ScrollBar {}
+                                        delegate: ColumnLayout {
+                                            id: artistTile
+                                            required property var modelData
+                                            width: 96
+                                            DiscoveryArtwork {
+                                                recommendation: artistTile.modelData
+                                                displayIcon: "session_persona"
+                                                padding: 0
+                                                radius: 34
+                                                Layout.alignment: Qt.AlignHCenter
+                                                Layout.preferredWidth: 68; Layout.preferredHeight: 68
+                                            }
+                                            Text {
+                                                text: artistTile.modelData.title
+                                                textFormat: Text.PlainText
+                                                color: BrandTheme.colors.text
+                                                font.pixelSize: 15; font.bold: true
+                                                horizontalAlignment: Text.AlignHCenter
+                                                elide: Text.ElideRight; Layout.fillWidth: true
+                                            }
+                                        }
+                                    }
+                                    Repeater {
+                                        model: dnaGroup.modelData.shelf ? [] : dnaGroup.modelData.rows
+                                        MusicDnaRow { entry: modelData }
+                                    }
                                 }
                             }
                         }
