@@ -1,0 +1,40 @@
+name: Verify Pi publication access
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  verify:
+    if: github.repository_id == '1267248532' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check existing publisher access without writing
+        env:
+          GH_TOKEN: ${{ secrets.DJCONNECT_PI_RELEASES_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$GH_TOKEN"
+
+          repository="$(gh api repositories/1267500969 | jq -er '
+            select(.id == 1267500969 and .visibility == "public" and
+                   .permissions.push == true) | .full_name
+          ')"
+          case "$repository" in
+            pcvantol/djconnect-pi-releases)
+              # Access to Pico proves organization access only, not future Pi release access.
+              gh api repositories/1315212123 | jq -e '
+                .id == 1315212123 and .visibility == "public" and
+                .full_name == "djconnect-music-dj/djconnect-pico" and
+                .permissions.push == true
+              '
+              echo "Pre-transfer: publisher has write access to Pi Releases at source and to Pico in the destination organization."
+              ;;
+            djconnect-music-dj/djconnect-pi-releases)
+              echo "Post-transfer: publisher has write access to Pi Releases in the destination organization."
+              ;;
+            *) exit 1 ;;
+          esac
