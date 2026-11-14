@@ -117,7 +117,30 @@ BrandWindow {
     Binding { target: GlassStyle; property: "enabled"; value: root.liquidGlassEnabled }
     Binding { target: GlassStyle; property: "hardware"; value: root.wallProfile && root.GraphicsInfo.api === GraphicsInfo.OpenGL }
     Binding { target: GlassStyle; property: "awake"; value: root.visible && !root.screenBlanked }
-    Binding { target: GlassStyle; property: "backdrop"; value: glassUnderlay }
+    readonly property bool usesPageBackdrop: ["session", "queue", "playlists", "trackinsight", "discover",
+        "more", "settings", "musicdna", "askdj", "legal", "privacy", "feedback"].includes(activeScreen)
+    readonly property bool showsSessionBackdrop: activeScreen === "session" && sessionHeader.runtime_state === "active"
+
+    // Keep the backdrop outside the page loaders so a slow page never exposes a different surface.
+    Item {
+        id: pageBackdrop
+        objectName: "persistentPageBackdrop"
+        anchors.fill: parent
+        z: -999
+        visible: root.usesPageBackdrop
+        SessionMoodCanvas {
+            anchors.fill: parent
+            mood: root.appearanceMood
+            activeSession: root.sessionHeader.runtime_state === "active"
+        }
+        SessionMoodCanvas {
+            anchors.fill: parent
+            visible: !root.showsSessionBackdrop
+            mood: "chill"
+            activeSession: false
+        }
+    }
+    Binding { target: GlassStyle; property: "backdrop"; value: root.usesPageBackdrop ? pageBackdrop : glassUnderlay }
     Binding { target: GlassStyle; property: "texture"; value: sharedGlassCapture.item ? sharedGlassCapture.item.texture : null }
     // Never captures private content or the material itself; no recursive feedback.
     AppBackground {
@@ -130,7 +153,7 @@ BrandWindow {
         objectName: "sharedGlassCapture"
         active: GlassStyle.enabled && GlassStyle.hardware && GlassStyle.awake
         anchors.fill: parent; visible: false
-        sourceComponent: GlassBackdrop { sourceItem: glassUnderlay }
+        sourceComponent: GlassBackdrop { sourceItem: root.usesPageBackdrop ? pageBackdrop : glassUnderlay }
     }
     FrameAnimation {
         objectName: "glassGeometryAnimation"
@@ -926,7 +949,7 @@ BrandWindow {
         }
 
         anchors.fill: parent
-        color: BrandTheme.colors.background
+        color: "transparent"
         z: 16
         onVisibleChanged: {
             if (visible) mediaRows.positionViewAtBeginning()
@@ -947,7 +970,6 @@ BrandWindow {
             function onScreenBlankedChanged() { if (root.screenBlanked) panel.closeSearch() }
         }
 
-        AppBackground { sessionCanvas: true }
         ModalBlocker {}
 
         ColumnLayout {
@@ -1853,7 +1875,7 @@ BrandWindow {
     component SettingsPage: Rectangle {
         id: settingsPanel
         objectName: "settingsPanel"
-        color: BrandTheme.colors.background
+        color: "transparent"
         onVisibleChanged: {
             if (visible && settingsScroll.contentItem) {
                 settingsScroll.contentItem.contentY = 0
@@ -1867,7 +1889,6 @@ BrandWindow {
             return 0
         }
 
-        AppBackground { sessionCanvas: true }
 
         PageToolbar {
             id: settingsToolbar
@@ -2334,11 +2355,10 @@ BrandWindow {
     Rectangle {
         id: morePanel
         anchors.fill: parent
-        color: BrandTheme.colors.background
+        color: "transparent"
         visible: root.activeScreen === "more"
         z: 16
 
-        AppBackground { sessionCanvas: true }
         ModalBlocker {}
 
         ColumnLayout {
@@ -2420,9 +2440,8 @@ BrandWindow {
     Rectangle {
         anchors.fill: parent
         visible: root.activeScreen === "legal" || root.activeScreen === "privacy" || root.activeScreen === "feedback"
-        color: BrandTheme.colors.background
+        color: "transparent"
         z: 17
-        AppBackground { sessionCanvas: true }
         ModalBlocker {}
         InformationPage {
             objectName: "informationPage"
@@ -2452,7 +2471,7 @@ BrandWindow {
         readonly property bool canChooseVisualMood: visible && root.active && !root.screenBlanked && !hasLiveSession
         onCanChooseVisualMoodChanged: if (!canChooseVisualMood) trackInsightMoodPopup.close()
         property bool autoInsightRequested: false
-        color: BrandTheme.colors.background
+        color: "transparent"
         Component.onCompleted: requestInsightIfVisible()
         onVisibleChanged: requestInsightIfVisible()
 
@@ -2465,7 +2484,6 @@ BrandWindow {
             }
         }
 
-        AppBackground { sessionCanvas: true }
         ModalBlocker {}
 
         ColumnLayout {
@@ -2982,7 +3000,7 @@ BrandWindow {
         objectName: "musicDiscoveryPanel"
         readonly property alias detailVisible: discoveryDetail.visible
         function closeDetail() { discoveryDetail.close() }
-        color: BrandTheme.colors.background
+        color: "transparent"
 
         readonly property var sections: {
             const groups = []
@@ -3008,7 +3026,6 @@ BrandWindow {
 
         onVisibleChanged: if (!visible) discoveryDetail.close()
 
-        AppBackground { sessionCanvas: true }
         ModalBlocker {}
 
         ColumnLayout {
@@ -3529,9 +3546,8 @@ BrandWindow {
     component MusicDnaPage: Rectangle {
         id: musicDnaPanel
         objectName: "musicDnaPanel"
-        color: BrandTheme.colors.background
+        color: "transparent"
 
-        AppBackground { sessionCanvas: true }
         ModalBlocker {}
 
         ColumnLayout {
@@ -3789,7 +3805,7 @@ BrandWindow {
     component AskDjPage: Rectangle {
         id: askDjPanel
         objectName: "askDjPanel"
-        color: BrandTheme.colors.background
+        color: "transparent"
         property bool chatKeyboardOpen: false
 
         function clearChatDraft() {
@@ -3891,7 +3907,6 @@ BrandWindow {
             centerSelectedMatch()
         }
 
-        AppBackground { sessionCanvas: true }
         ModalBlocker {}
 
         ColumnLayout {
@@ -4795,7 +4810,7 @@ BrandWindow {
         anchors.fill: parent
         visible: root.activeScreen === "session" || root.activeScreen === "history" || root.activeScreen === "session-history"
         z: 17
-        AppBackground { sessionCanvas: root.activeScreen === "session" }
+        AppBackground { visible: !root.usesPageBackdrop }
         SessionScreen {
             id: sharedSessionScreen
             anchors.fill: parent
