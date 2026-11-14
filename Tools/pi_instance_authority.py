@@ -30,6 +30,22 @@ CORE = "pcvantol/djconnect"
 PI = "pcvantol/djconnect-pi"
 PUBLICATION = "pcvantol/djconnect-pi-releases"
 
+PI_ORG = "djconnect-music-dj/djconnect-pi"
+PI_ID = 1267248532
+PUBLICATION_ID = 1267500969
+
+
+def pi_repository_matches(name: object, repository_id: object) -> bool:
+    if name == PI and repository_id is None:
+        return True
+    return name in (PI, PI_ORG) and str(repository_id) == str(PI_ID)
+
+
+def pi_run_repository_matches(run: dict) -> bool:
+    repository = run.get("repository", {})
+    return isinstance(repository, dict) and pi_repository_matches(repository.get("full_name"), repository.get("id"))
+
+
 
 class NoRedirect(HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
@@ -73,6 +89,12 @@ class GitHubRead:
         # Release assets keep their separate octet-stream download contract.
         accept = "application/octet-stream" if binary and not workflow_archive else "application/vnd.github+json"
         headers = {"Authorization": "Bearer "+self.token, "Accept": accept, "User-Agent": "DJConnect-Pi-Qualified-Consumer"}
+        # Keep proof references unchanged and address the actual repos by stable ID.
+        for repository, repository_id in ((PI, PI_ID), (PUBLICATION, PUBLICATION_ID)):
+            prefix = "repos/"+repository+"/"
+            if path.startswith(prefix):
+                path = f"repositories/{repository_id}/"+path[len(prefix):]
+                break
         request = Request("https://api.github.com/"+path, headers=headers)
         try:
             try:
@@ -192,7 +214,7 @@ def resolve(client, request: dict, consumer_sha: str, configuration: dict) -> Au
     run = client.json("repos/"+PI+"/actions/runs/"+binding.publication_run)
     require(run.get("head_sha") == request["candidate_sha"] and run.get("status") == "completed"
             and run.get("conclusion") == "success" and run.get("path") in {".github/workflows/publish-release.yml", ".github/workflows/publish-release.yml@main", ".github/workflows/publish-release.yml@v"+VERSION}
-            and run.get("repository", {}).get("full_name") == PI, "PUBLICATION_RUN_MISMATCH")
+            and pi_run_repository_matches(run), "PUBLICATION_RUN_MISMATCH")
     asset = release_asset(release, request["artifact_id"].rsplit(":", 1)[-1], 33554432)
     return Authority(binding, pair[0], pair[1], asset["id"], asset["size"])
 

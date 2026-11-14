@@ -54,6 +54,25 @@ def test_wrong_workflow_context_cannot_dispatch(context, field, value):
     with pytest.raises(wire.BindingError):wire.workflow_context(client, "deploy", environment)
 
 
+@pytest.mark.parametrize("env_id,run_id,allowed", [
+    ("1267248532", 1267248532, True),
+    ("1", 1267248532, False),
+    ("1267248532", 1, False),
+    (None, 1267248532, False),
+    ("1267248532", None, False),
+])
+def test_transferred_workflow_requires_stable_repository_id(context, env_id, run_id, allowed):
+    environment, run, client = context
+    name = "djconnect-music-dj/djconnect-pi"
+    environment.update(GITHUB_REPOSITORY=name, GITHUB_REPOSITORY_ID=env_id)
+    run["repository"] = {"full_name": name, "id": run_id}
+    if allowed:
+        assert wire.workflow_context(client, "deploy", environment) == (CONSUMER, "456")
+    else:
+        with pytest.raises(wire.BindingError, match="QUALIFIED_WORKFLOW_REQUIRED"):
+            wire.workflow_context(client, "deploy", environment)
+
+
 def test_automatic_or_manual_rerun_requires_actual_state_review(context):
     environment, _run, client = context;environment["GITHUB_RUN_ATTEMPT"] = "2"
     with pytest.raises(wire.BindingError, match="RERUN_REQUIRES_ACTUAL_STATE_REVIEW"):wire.workflow_context(client, "deploy", environment)

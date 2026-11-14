@@ -19,6 +19,8 @@ from Tools.pi_instance_authority import (
     PI,
     GitHubRead,
     github_file,
+    pi_repository_matches,
+    pi_run_repository_matches,
     resolve,
     verified_artifact,
 )
@@ -48,7 +50,8 @@ def selected_request(inputs: dict, operation: str) -> tuple[dict, str]:
 
 def workflow_context(client, operation: str, environment: dict) -> tuple[str, str]:
     require(operation in WORKFLOWS, "ORDINARY_OPERATION_REQUIRED")
-    require(environment.get("GITHUB_ACTIONS") == "true" and environment.get("GITHUB_REPOSITORY") == PI, "QUALIFIED_WORKFLOW_REQUIRED")
+    require(environment.get("GITHUB_ACTIONS") == "true" and pi_repository_matches(environment.get("GITHUB_REPOSITORY"),
+                                      environment.get("GITHUB_REPOSITORY_ID")), "QUALIFIED_WORKFLOW_REQUIRED")
     source = environment.get("GITHUB_SHA", "");run_id = environment.get("GITHUB_RUN_ID", "")
     require(re.fullmatch("[0-9a-f]{40}", source) is not None and re.fullmatch("[1-9][0-9]*", run_id) is not None, "WORKFLOW_IDENTITY_INVALID")
     head = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True).stdout.strip()
@@ -57,7 +60,7 @@ def workflow_context(client, operation: str, environment: dict) -> tuple[str, st
     require(run.get("head_sha") == source and run.get("head_branch") == "main"
             and run.get("path") in {WORKFLOWS[operation], WORKFLOWS[operation]+"@main"} and run.get("event") == "workflow_dispatch"
             and run.get("status") == "in_progress" and run.get("actor", {}).get("login") == "pcvantol"
-            and run.get("repository", {}).get("full_name") == PI, "QUALIFIED_WORKFLOW_REQUIRED")
+            and pi_run_repository_matches(run), "QUALIFIED_WORKFLOW_REQUIRED")
     if operation in {"deploy", "recover"}:require(environment.get("GITHUB_RUN_ATTEMPT") == "1", "RERUN_REQUIRES_ACTUAL_STATE_REVIEW")
     return source, run_id
 

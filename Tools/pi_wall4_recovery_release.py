@@ -16,7 +16,13 @@ from pathlib import Path
 from Tools import pi_rc6_recovery as component
 from Tools import pi_wall4_recovery_authority as authority_module
 from Tools.pi_instance_artifact import inspect_artifact
-from Tools.pi_instance_authority import PI, GitHubRead, verified_artifact
+from Tools.pi_instance_authority import (
+    PI,
+    GitHubRead,
+    pi_repository_matches,
+    pi_run_repository_matches,
+    verified_artifact,
+)
 from Tools.pi_instance_contract import BindingError, require, strict_json, timestamp
 from Tools.pi_instance_release import FIELDS, PhaseFailure
 from Tools.pi_instance_ssh import Channel, validate_result
@@ -44,7 +50,8 @@ def selected_request(inputs, operation):
 
 def workflow_context(client, operation, env):
     require(operation in WORKFLOWS and env.get("GITHUB_ACTIONS") == "true"
-            and env.get("GITHUB_REPOSITORY") == PI and env.get("GITHUB_RUN_ATTEMPT") == "1", "RECOVERY_TRUSTED_WORKFLOW_REQUIRED")
+            and pi_repository_matches(env.get("GITHUB_REPOSITORY"),
+                                      env.get("GITHUB_REPOSITORY_ID")) and env.get("GITHUB_RUN_ATTEMPT") == "1", "RECOVERY_TRUSTED_WORKFLOW_REQUIRED")
     source = env.get("GITHUB_SHA", "");run_id = env.get("GITHUB_RUN_ID", "")
     require(re.fullmatch("[0-9a-f]{40}", source) and re.fullmatch("[1-9][0-9]*", run_id), "RECOVERY_WORKFLOW_IDENTITY_INVALID")
     head = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True).stdout.strip()
@@ -54,7 +61,7 @@ def workflow_context(client, operation, env):
             and row.get("path") in {WORKFLOWS[operation], WORKFLOWS[operation]+"@main"}
             and row.get("event") == "workflow_dispatch" and row.get("status") == "in_progress"
             and type(row.get("run_attempt")) is int and row["run_attempt"] == 1
-            and row.get("actor", {}).get("login") == "pcvantol" and row.get("repository", {}).get("full_name") == PI,
+            and row.get("actor", {}).get("login") == "pcvantol" and pi_run_repository_matches(row),
             "RECOVERY_TRUSTED_WORKFLOW_REQUIRED")
     return source, run_id
 
@@ -102,7 +109,7 @@ def recovery_record(client, authority, run_id, record):
             and run.get("path") in {WORKFLOWS["recover"], WORKFLOWS["recover"]+"@main"}
             and run.get("status") == "completed" and run.get("conclusion") == "success"
             and type(run.get("run_attempt")) is int and run["run_attempt"] == 1
-            and run.get("actor", {}).get("login") == "pcvantol" and run.get("repository", {}).get("full_name") == PI,
+            and run.get("actor", {}).get("login") == "pcvantol" and pi_run_repository_matches(run),
             "SUCCESSFUL_CLOSED_RECOVERY_REQUIRED")
     expected = authority.receipt()
     require(isinstance(record, dict) and all(authority_module.exact_json(record.get(k), v) for k, v in expected.items() if k != "classification")

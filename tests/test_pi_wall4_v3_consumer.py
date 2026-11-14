@@ -238,7 +238,7 @@ def test_http_admits_only_the_fixed_latest_v2_ancestor_route(suffix):
         assert not calls
     else:
         assert reader.get(path)==b'{}'
-        assert calls==['https://api.github.com/'+path]
+        assert calls==['https://api.github.com/repositories/1267248532/'+path.split('/', 3)[3]]
 
 
 def test_both_actual_workflows_use_only_closed_v3_pair_and_smoke():

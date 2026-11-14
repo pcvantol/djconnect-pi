@@ -161,6 +161,7 @@ def test_github_token_is_not_forwarded_to_signed_artifact_host():
             return Response(b"asset")
     client.opener = Opener()
     assert client.asset(1, 100) == b"asset"
+    assert calls[0].full_url == f"https://api.github.com/repositories/{wire.PUBLICATION_ID}/releases/assets/1"
     assert calls[0].get_header("Authorization") == "Bearer synthetic-not-a-credential"
     assert calls[1].get_header("Authorization") is None
 
@@ -178,15 +179,16 @@ def test_declared_and_actual_github_metadata_are_bounded():
 def test_real_github_reader_accepts_only_generated_ancestor_comparison(repository, status):
     client = wire.GitHubRead("synthetic-not-a-credential");calls = []
     sha = "a"*40
+    route = f"repositories/{wire.PI_ID}" if repository == wire.PI else "repos/"+repository
     class Opener:
         def open(self, request, timeout):
             calls.append(request)
             path = request.full_url.removeprefix("https://api.github.com/")
-            if path == "repos/"+repository+"/branches/main":
+            if path == route+"/branches/main":
                 data = {"protected": True}
-            elif path == "repos/"+repository+"/compare/"+sha+"...main?per_page=1&page=2":
+            elif path == route+"/compare/"+sha+"...main?per_page=1&page=2":
                 data = {"status": status, "merge_base_commit": {"sha": sha}}
-            elif path == "repos/"+repository+"/commits/"+sha+"/status":
+            elif path == route+"/commits/"+sha+"/status":
                 data = {"sha": sha, "statuses": [{"context": "Post-Merge Release Evidence / Reconcile release evidence",
                     "state": "success", "description": "POST_MERGE_RELEASE_EVIDENCE_QUALIFIED"}]}
             else:
@@ -195,7 +197,7 @@ def test_real_github_reader_accepts_only_generated_ancestor_comparison(repositor
     client.opener = Opener()
     wire.qualified(client, repository, sha)
     assert len(calls) == 3
-    assert calls[1].full_url == "https://api.github.com/repos/"+repository+"/compare/"+sha+"...main?per_page=1&page=2"
+    assert calls[1].full_url == "https://api.github.com/"+route+"/compare/"+sha+"...main?per_page=1&page=2"
     assert all(call.get_header("Authorization") == "Bearer synthetic-not-a-credential" for call in calls)
 
 
