@@ -1502,13 +1502,19 @@ _SESSION_FORECAST_TRANSLATIONS = {
     "session_flow": ("Flow", "Flow", "Flow", "Fil", "Flujo"),
     "session_forecast_tab": ("Horizon", "Horizon", "Horizon", "Horizon", "Horizon"),
     "session_forecast": ("Horizon · about 15 min", "Horizon · ±15 min", "Horizon · ca. 15 Min.", "Horizon · env. 15 min", "Horizon · unos 15 min"),
+    "session_forecast_notice": (
+        "A direction for the coming minutes. Music and contributions may change.",
+        "Een richting voor de komende minuten. Muziek en bijdragen kunnen veranderen.",
+        "Eine Richtung für die kommenden Minuten. Musik und Beiträge können sich ändern.",
+        "Une direction pour les prochaines minutes. La musique et les interventions peuvent changer.",
+        "Una orientación para los próximos minutos. La música y las intervenciones pueden cambiar.",
+    ),
     "session_owner_read_only": ("Following the active session. Personal functions require personal Profile access.", "Je volgt de actieve sessie. Privéfuncties vereisen toegang tot een persoonlijk profiel.", "Die aktive Session wird angezeigt. Private Funktionen erfordern Zugriff auf ein persönliches Profil.", "La session active est affichée. Les fonctions privées nécessitent un accès à un profil personnel.", "Se muestra la sesión activa. Las funciones privadas requieren acceso a un perfil personal."),
-    "session_forecast_current": ("Current", "Huidig", "Aktuell", "Actuel", "Actual"),
+    "session_forecast_current": ("Playing now", "Speelt nu", "Läuft gerade", "En cours", "Sonando ahora"),
     "session_forecast_intention": ("Intention", "Voornemen", "Absicht", "Intention", "Intención"),
     "session_forecast_conditional_target": ("Possible direction", "Mogelijke richting", "Mögliche Richtung", "Direction possible", "Dirección posible"),
     "session_forecast_empty": ("Horizon is currently unavailable.", "Horizon is nu niet beschikbaar.", "Horizon ist derzeit nicht verfügbar.", "Horizon est actuellement indisponible.", "Horizon no está disponible actualmente."),
     "session_attribution_source": ("Source", "Bron", "Quelle", "Source", "Fuente"),
-    "session_forecast_source": ("Current music source", "Bron van de huidige muziek", "Quelle der aktuellen Musik", "Source de la musique actuelle", "Fuente de la música actual"),
 }
 for _key, _values in _SESSION_FORECAST_TRANSLATIONS.items():
     for _language, _value in zip(("en", "nl", "de", "fr", "es"), _values):
@@ -1535,9 +1541,6 @@ for _key, _values in _CURRENT_RESPONSE_TRANSLATIONS.items():
 
 for _language, _value in zip(SUPPORTED_LANGUAGES, ("More contributions remain available through Next contributions.", "Meer bijdragen blijven beschikbaar via Volgende bijdragen.", "Weitere Beiträge sind über Nächste Beiträge verfügbar.", "Les autres contributions restent accessibles via Contributions suivantes.", "Las demás contribuciones siguen disponibles en Contribuciones siguientes.")):
     TRANSLATIONS[_language]["session_history_window_limit"] = _value
-
-for _language, _value in zip(SUPPORTED_LANGUAGES, ("Artist image", "Artiestafbeelding", "Künstlerbild", "Image de l’artiste", "Imagen del artista")):
-    TRANSLATIONS[_language]["session_forecast_artist_image"] = _value
 
 _FEEDBACK_TRANSLATIONS = {
     'feedback': (

@@ -243,8 +243,7 @@ Item {
     }
     readonly property string scopeProfileId: state.owner_profile_id || backend.activeProfileId
     readonly property string artworkTint: {
-        if (!visible || historical) return ""
-        if (showForecast) return forecastArtworkFrame.artworkTint
+        if (!visible || historical || showForecast) return ""
         if (trackArtworkFrame.artworkTint) return trackArtworkFrame.artworkTint
         if (!liveMomentRows) return ""
         for (var i = 0; i < liveMomentRows.count; i++) {
@@ -271,7 +270,6 @@ Item {
         owner.setContentDeleteVisible(visible && !showForecast)
         owner.setArchiveDeleteVisible(visible && historical && !currentHistory)
         owner.setPlaybackControlsVisible(visible && !historical && !showForecast)
-        owner.setForecastImagesVisible(showForecast && visible)
         owner.setMomentArtworkVisible(visible && !historical && !showForecast)
         owner.setPlaybackArtworkVisible(visible && !historical && !showForecast)
     }
@@ -283,7 +281,7 @@ Item {
         syncSessionVisibility()
         syncMediaVisibility()
     }
-    onShowForecastChanged: { if (showForecast) { outputsPanel.close(); volumePanel.close() } if (!showForecast) clearForecastReading(); syncMediaVisibility() }
+    onShowForecastChanged: { if (showForecast) { outputsPanel.close(); volumePanel.close() } syncMediaVisibility() }
     onStateChanged: {
         if (contentDeletePanel && contentDeletePanel.opened && state.content_delete
                 && (!state.content_delete.status
@@ -296,7 +294,7 @@ Item {
         if (volumePanel && (!control.available || !control.volume_supported)) volumePanel.close()
         if (outputsPanel && (!control.available || !control.outputs_supported)) outputsPanel.close()
     }
-    onComposerContextChanged: { clearForecastReading(); clearFlowReturn(); forecastMode = false; closeTransient(); if (historyReadPending && historyReadKind === "current") { historyRead.stop(); historyReadPending = false; navigate("session") } }
+    onComposerContextChanged: { clearFlowReturn(); forecastMode = false; closeTransient(); if (historyReadPending && historyReadKind === "current") { historyRead.stop(); historyReadPending = false; navigate("session") } }
     function clearComposer() { followQuestionReply = false; pendingReplyId = ""; draft = ""; if (composeInput) composeInput.clear(); if (composerPanel) composerPanel.close(); if (owner) owner.clearSelection() }
     function submitQuestion() {
         // A local demo answer can arrive before sendQuestion returns.
@@ -310,65 +308,6 @@ Item {
         draft = ""
         composeInput.clear()
         composerPanel.close()
-    }
-    // A position descriptor grants no image or text retention.
-    property var forecastReading: null
-    property int forecastReadingTries: 0
-    property bool forecastReadingApplied: false
-    property string forecastLayoutMark: ""
-    function clearForecastReading() { forecastReadingRestore.stop(); forecastReading = null }
-    function rememberForecastReading() {
-        clearForecastReading()
-        var flick = forecastScroll.contentItem
-        if (!visible || !showForecast || flick.dragging || flick.moving || state.forecast.revision === undefined) return
-        for (var i = 0; i < forecastRows.count; i++) {
-            var card = forecastRows.itemAt(i)
-            if (!card) continue
-            var y = card.mapToItem(flick, 0, 0).y
-            if (y <= 0 && y + card.height > 0 && isFinite(y) && Math.abs(y) <= 1000000) {
-                forecastReading = {session: state.session_id, profile: scopeProfileId,
-                    revision: state.forecast.revision, id: card.modelData.id, offset: y}
-                forecastReadingTries = 0; forecastReadingApplied = false; forecastLayoutMark = ""
-                return
-            }
-        }
-    }
-    Timer {
-        id: forecastReadingRestore
-        objectName: "sessionForecastReadingRestore"
-        interval: 32
-        onTriggered: {
-            var saved = screen.forecastReading
-            var flick = forecastScroll.contentItem
-            if (!saved || !screen.visible || !screen.showForecast || flick.dragging || flick.moving ||
-                saved.session !== screen.state.session_id || saved.profile !== screen.scopeProfileId ||
-                saved.revision !== screen.state.forecast.revision) { screen.clearForecastReading(); return }
-            forecastContent.ensurePolished()
-            var target = null
-            for (var i = 0; i < forecastRows.count; i++) {
-                var card = forecastRows.itemAt(i)
-                if (card && card.modelData.id === saved.id) { target = card; break }
-            }
-            screen.forecastReadingTries++
-            if (!target) { screen.clearForecastReading(); return }
-            var mark = [forecastContent.implicitHeight, flick.contentHeight, flick.height, target.y, target.height].join("|")
-            if (mark !== screen.forecastLayoutMark) {
-                screen.forecastLayoutMark = mark; screen.forecastReadingApplied = false
-                if (screen.forecastReadingTries < 8) forecastReadingRestore.restart()
-                else screen.clearForecastReading()
-                return
-            }
-            var destination = Math.max(0, Math.min(flick.contentY + target.mapToItem(flick, 0, 0).y - saved.offset, Math.max(0, flick.contentHeight - flick.height)))
-            if (screen.forecastReadingApplied && Math.abs(flick.contentY - destination) < 1) { screen.clearForecastReading(); return }
-            flick.contentY = destination; screen.forecastReadingApplied = true
-            if (screen.forecastReadingTries < 8) forecastReadingRestore.restart()
-            else screen.clearForecastReading()
-        }
-    }
-    Connections {
-        target: forecastScroll.contentItem
-        function onMovementStarted() { screen.clearForecastReading() }
-        function onDraggingChanged() { if (forecastScroll.contentItem.dragging) screen.clearForecastReading() }
     }
     property string proposedMood: "groove"
     readonly property string searchTarget: historical ? ((state.timeline.session || {}).session_id || "") : state.session_id
@@ -763,7 +702,7 @@ Item {
         if (contentDeletePanel) contentDeletePanel.close()
         if (owner) owner.clearSearch()
     }
-    onVisibleChanged: { syncMediaVisibility(); if (!visible) { clearForecastReading(); cancelArchiveRead(); if (owner) owner.clearArchive(); clearFlowReturn(); historyRead.stop(); historyReadProfile = ""; historyReadSession = ""; historyReadPending = false; readingRestore.stop(); pendingReadingAnchor = ""; closeTransient() } }
+    onVisibleChanged: { syncMediaVisibility(); if (!visible) { cancelArchiveRead(); if (owner) owner.clearArchive(); clearFlowReturn(); historyRead.stop(); historyReadProfile = ""; historyReadSession = ""; historyReadPending = false; readingRestore.stop(); pendingReadingAnchor = ""; closeTransient() } }
     onHistoricalChanged: { if (historical) { outputsPanel.close(); volumePanel.close() } syncMediaVisibility(); if (!historical) { archiveDetailReturn = null; cancelArchiveRead(); if (owner) owner.clearArchive() } readingRestore.stop(); pendingReadingAnchor = ""; readingOffset = 0; if (!historical && flowReturn) { historyScroll.contentItem.cancelFlick(); flowReturnRestore.restart() } }
     onSearchTargetChanged: { if (searchPanel) searchPanel.close(); if (searchInput) searchInput.clear(); if (owner) owner.clearSearch() }
     signal openVibeScape(real pickerTop)
@@ -913,8 +852,6 @@ Item {
         }
         function onArtworkAboutToChange() { if (screen.visible && !screen.historical && !screen.showForecast && !screen.followQuestionReply && !historyScroll.contentItem.moving && !screen.flowReturn) screen.rememberArtworkReading() }
         function onArtworkChanged() { if (screen.visible && !screen.historical && !screen.showForecast && !screen.followQuestionReply && !historyScroll.contentItem.moving && screen.flowReturn) { flowReturnRestore.artworkTries = 0; flowReturnRestore.artworkLayout = ""; flowReturnRestore.restart() } }
-        function onForecastImageAboutToChange() { screen.rememberForecastReading() }
-        function onForecastImageChanged() { if (screen.forecastReading) forecastReadingRestore.restart() }
         function onPendingQuestionReady() { pendingQuestionPosition.messageId = screen.state.pending_question.client_message_id || ""; pendingQuestionPosition.tries = 0; pendingQuestionPosition.layoutMark = ""; pendingQuestionPosition.restart() }
         function onCurrentReplyReady() { currentReplyPosition.restart() }
         function onQuestionConfirmed(entryId) { if (screen.followQuestionReply) { screen.pendingReplyId = entryId; replyRestore.restart() } }
@@ -935,7 +872,7 @@ Item {
         }
         function onChanged() { if (!screen.owner.busy) screen.archiveReadActive = false; if (!screen.historical || screen.currentHistory || screen.state.timeline.session) screen.cancelArchiveRead(); if (screen.archiveIntent && !screen.owner.busy) archiveRead.restart(); if (!screen.state.search.query) screen.cancelSearchRead(); if (screen.historyReadPending && !screen.owner.busy) historyRead.restart(); if (screen.searchRefreshPending && !screen.owner.busy) searchRead.restart() }
         function onSearchUpdated() { searchPosition.restart() }
-        function onContextCleared() { screen.clearForecastReading(); screen.cancelArchiveRead(); screen.clearFlowReturn(); historyRead.stop(); screen.historyReadProfile = ""; screen.historyReadSession = ""; readingRestore.stop(); screen.pendingReadingAnchor = ""; screen.readingOffset = 0; screen.closeTransient(); if (screen.historical) screen.navigate(screen.currentHistory ? "session" : "more"); screen.historyReadPending = false }
+        function onContextCleared() { screen.cancelArchiveRead(); screen.clearFlowReturn(); historyRead.stop(); screen.historyReadProfile = ""; screen.historyReadSession = ""; readingRestore.stop(); screen.pendingReadingAnchor = ""; screen.readingOffset = 0; screen.closeTransient(); if (screen.historical) screen.navigate(screen.currentHistory ? "session" : "more"); screen.historyReadPending = false }
         function onEntryOpened() {
             if (!screen.historical) screen.rememberFlow()
             searchPanel.close()
@@ -1110,48 +1047,44 @@ Item {
         clip: true; contentWidth: availableWidth
         ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
         ColumnLayout {
-            id: forecastContent
-            width: parent.width; spacing: 20
-            Text { text: screen.tr("session_forecast"); textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: screen.compact ? 30 : 40; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-            Text { visible: !!screen.state.forecast.source_url; text: screen.tr("session_forecast_source"); textFormat: Text.PlainText; color: BrandTheme.colors.muted; font.pixelSize: 18 }
-            SessionAttribution { id: forecastSource; requiresSpotify: !!screen.state.forecast.source_url; spotifyURL: screen.state.forecast.source_url || ""; Layout.fillWidth: true }
-            GlassCard {
-                objectName: "sessionForecastArtistCard"
-                artworkTint: forecastArtworkFrame.artworkTint
-                visible: !!screen.owner.forecastImage.source && imageAttribution.ready
+            width: parent.width; spacing: 16
+            Rectangle {
+                id: horizonBanner
+                // Bundled Apple HorizonHero with its luminosity palettes pre-rendered for Pi.
+                readonly property string mood: MoodTheme.key(screen.state.mood)
                 Layout.fillWidth: true
-                GlassArtworkFrame {
-                    Connections {
-                        target: screen.owner
-                        function onForecastImageAboutToChange() { forecastArtworkFrame.invalidatePalette() }
-                    }
-                    id: forecastArtworkFrame
-                    objectName: "sessionForecastArtworkFrame"
-                    backend: screen.backend; imageItem: forecastArtworkImage
-                    leaseKey: screen.scopeProfileId + "|" + screen.state.session_id + "|" + (screen.owner.forecastImage.source_url || "")
-                    admissionCheck: function() { return screen.showForecast && imageAttribution.ready && !!screen.owner.forecastImage.source }
-                    Layout.fillWidth: true; Layout.preferredHeight: screen.compact ? 300 : 440
-                    Image {
-                        id: forecastArtworkImage
-                        objectName: "sessionForecastArtistImage"
-                        sourceSize: screen.lowMemoryProfile ? Qt.size(720, 360) : Qt.size(0, 0)
-                        anchors.fill: parent
-                        source: imageAttribution.ready ? (screen.owner.forecastImage.source || "") : ""
-                        cache: false; asynchronous: true; retainWhileLoading: false
-                        fillMode: Image.PreserveAspectFit
-                        Accessible.name: screen.tr("session_forecast_artist_image") + ": " + (screen.owner.forecastImage.artist || "")
-                    }
+                Layout.preferredHeight: Math.max(96, Math.min(148, width * 0.155))
+                radius: 22
+                color: MoodTheme.mix(BrandTheme.colors.background,
+                                     MoodTheme.moodColor(mood, "gradientEnd"), 0.42)
+                border.color: "#55ffffff"
+                Accessible.ignored: true
+                Image {
+                    objectName: "sessionHorizonBanner"
+                    anchors.fill: parent; anchors.margins: 8
+                    source: forecastScroll.visible ? "horizon-hero-" + horizonBanner.mood + ".png" : ""
+                    Accessible.ignored: true
                 }
-                Text { text: screen.owner.forecastImage.artist || ""; textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 23; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                SessionAttribution { id: imageAttribution; requiresSpotify: true; spotifyURL: screen.owner.forecastImage.source_url || ""; Layout.fillWidth: true }
+            }
+            Text {
+                text: screen.tr("session_forecast"); textFormat: Text.PlainText
+                color: BrandTheme.colors.text; font.pixelSize: screen.compact ? 28 : 36
+                font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true
+                Accessible.role: Accessible.Heading
+            }
+            Text {
+                objectName: "sessionForecastNotice"
+                text: screen.tr("session_forecast_notice"); textFormat: Text.PlainText
+                color: BrandTheme.colors.muted; font.pixelSize: 19
+                wrapMode: Text.WordWrap; Layout.fillWidth: true
             }
             Repeater {
-                id: forecastRows
                 objectName: "sessionForecastRows"
-                model: forecastSource.ready ? screen.state.forecast.sections : []
+                model: screen.state.forecast.sections
                 GlassCard {
                     required property var modelData
                     objectName: "sessionForecastSection-" + modelData.id
+                    visible: forecastSource.ready
                     Layout.fillWidth: true
                     RowLayout {
                         spacing: 10; Layout.fillWidth: true
@@ -1200,6 +1133,13 @@ Item {
                         text: guidance ? guidance.note : ""
                         textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 23
                         wrapMode: Text.Wrap; Layout.fillWidth: true
+                    }
+                    SessionAttribution {
+                        id: forecastSource
+                        spotifyURL: modelData.id === "current" ? (screen.state.forecast.source_url || "") : ""
+                        requiresSpotify: spotifyURL.length > 0
+                        visible: requiresSpotify
+                        Layout.fillWidth: true
                     }
                 }
             }

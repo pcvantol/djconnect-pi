@@ -190,7 +190,7 @@ BrandWindow {
             sharedSessionScreen.owner.cancelPlaybackIntent()
     }
     property bool sessionTrackArtwork: false
-    readonly property bool trackArtworkViewOpen: sharedSessionScreen.liveViewOpen
+    readonly property bool trackArtworkViewOpen: sharedSessionScreen.liveViewOpen && !sharedSessionScreen.showForecast
     onTrackArtworkViewOpenChanged: if (!trackArtworkViewOpen) trackArtworkOpen = false
     readonly property bool overlayTrackAvailable: sessionTrackArtwork ? sharedSessionScreen.trackArtworkAvailable : djconnect.hasTrackTitle
     onOverlayTrackAvailableChanged: if (!overlayTrackAvailable) trackArtworkOpen = false
