@@ -55,6 +55,7 @@ from .config import (
     save_config,
 )
 from .ha import (
+    DJCONNECT_API_PREFIX,
     PROFILE_ERROR_CODES,
     AuthenticationError,
     BackendUnavailable,
@@ -4753,14 +4754,18 @@ def _discovery_artwork(raw: dict[str, object], ha_url: str) -> dict[str, object]
         return empty
     try:
         url = urlsplit(source)
+        proxy_prefix = f"{DJCONNECT_API_PREFIX}/image_proxy/"
+        legacy_proxy_prefix = f"{DJCONNECT_API_PREFIX.removesuffix('/v1')}/image_proxy/"
         if url.scheme:
             if url.scheme not in {"http", "https"} or not url.hostname or url.username or url.password:
                 return empty
-            if re.match(r"^/api/djconnect/(?:v1/)?image_proxy/disc-", url.path):
+            if url.path.startswith((proxy_prefix + "disc-", legacy_proxy_prefix + "disc-")):
                 # Scoped grants are issued as relative paths on the configured HA.
                 return empty
             return {**empty, "imageUrl": source}
-        if not re.fullmatch(r"/api/djconnect/(?:v1/)?image_proxy/(?:disc-[A-Za-z0-9_-]{32}|(?!disc-)[A-Za-z0-9_-]{1,128})", source):
+        if not source.startswith(proxy_prefix) or not re.fullmatch(
+            r"disc-[A-Za-z0-9_-]{32}|(?!disc-)[A-Za-z0-9_-]{1,128}", source[len(proxy_prefix):]
+        ):
             return empty
         if ha_url:
             origin = urlsplit(ha_url)

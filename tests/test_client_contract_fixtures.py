@@ -155,6 +155,12 @@ def test_music_discovery_resolves_only_valid_scoped_artwork_against_ha() -> None
     assert item["imageExpiresAt"] == raw["image_expires_at"] * 1000
     assert item["imageSourceUrl"] == spotify_url
 
+    legacy_path = path.replace("/v1/", "/")
+    for rejected in (legacy_path, origin + legacy_path, origin + path):
+        raw["image_url"] = rejected
+        assert parse_music_discovery_feed(payload, ha_url=origin)["items"][0]["imageUrl"] == ""
+
+    raw["image_url"] = path
     raw["image_expires_at"] = time.time() - 1
     assert parse_music_discovery_feed(payload, ha_url=origin)["items"][0]["imageUrl"] == ""
     raw["image_url"] = "//other.test" + path
