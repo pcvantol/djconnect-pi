@@ -13,7 +13,7 @@ jobs:
     uses: pcvantol/djconnect/.github/workflows/software-assurance-governance.yml@dd02d6470f061e6e755e6fb47ae5331c34f89875
     with:
       execution_profile: balanced
-      owner: pcvantol/djconnect-pi
+      owner: ${{ github.repository }}
   contract:
     needs: software-assurance-governance
     runs-on: ubuntu-latest
