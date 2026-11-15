@@ -16,6 +16,7 @@ CLIENT_TYPE = "raspberry_pi"
 PROTOCOL_VERSION = "4.0.3-rc.1"
 DEFAULT_CONFIG_PATH = Path.home() / ".config" / "djconnect-pi" / "config.json"
 DEFAULT_LOG_LEVEL = "OFF"
+DEFAULT_UPDATE_REPO = "djconnect-music-dj/djconnect-pi-releases"
 LOG_LEVELS = frozenset({"OFF", "DEBUG", "INFO", "WARNING", "ERROR"})
 DEFAULT_LOG_PATH = Path.home() / ".local" / "state" / "djconnect-pi" / "client.log"
 
@@ -29,7 +30,7 @@ class Config:
     paired: bool = False
     pairing_code: str = field(default_factory=lambda: generate_pairing_code())
     version: str = PROTOCOL_VERSION
-    update_repo: str = "pcvantol/djconnect-pi-releases"
+    update_repo: str = DEFAULT_UPDATE_REPO
     update_channel: str = "stable"
     release_profile: str = ""
     # None keeps the hardware-profile default until an explicit local choice.
@@ -130,6 +131,8 @@ def load_config(path: Path) -> Config:
     cfg.active_profile_privacy_mode = _normalize_profile_privacy_mode(cfg.active_profile_privacy_mode)
     cfg.explicit_profile_id = str(cfg.explicit_profile_id or "").strip()
     cfg.private_session = bool(cfg.private_session)
+    if cfg.update_repo == "pcvantol/djconnect-pi-releases":
+        cfg.update_repo = DEFAULT_UPDATE_REPO
     if cfg.update_channel not in {"stable", "beta"}:
         cfg.update_channel = "stable"
     cfg.release_profile = str(cfg.release_profile or "").strip()

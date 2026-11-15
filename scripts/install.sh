@@ -3,7 +3,7 @@ set -euo pipefail
 export PYTHONDONTWRITEBYTECODE=1
 
 DJCONNECT_VERSION="${DJCONNECT_VERSION:-4.0.3-rc.1}"
-DJCONNECT_REPO="${DJCONNECT_REPO:-pcvantol/djconnect-pi-releases}"
+DJCONNECT_REPO="${DJCONNECT_REPO:-djconnect-music-dj/djconnect-pi-releases}"
 DJCONNECT_HA_URL="${DJCONNECT_HA_URL:-http://homeassistant.local:8123}"
 DJCONNECT_RUNTIME_USER="${DJCONNECT_RUNTIME_USER:-djconnect}"
 DJCONNECT_INSTALL_USER="${DJCONNECT_INSTALL_USER:-${SUDO_USER:-pi}}"
@@ -38,7 +38,7 @@ Version:
 
 Environment:
   DJCONNECT_VERSION=${DJCONNECT_VERSION}
-  DJCONNECT_REPO=pcvantol/djconnect-pi-releases
+  DJCONNECT_REPO=djconnect-music-dj/djconnect-pi-releases
   DJCONNECT_HA_URL=http://homeassistant.local:8123
   DJCONNECT_RUNTIME_USER=djconnect
   DJCONNECT_INSTALL_USER=${DJCONNECT_INSTALL_USER}
@@ -667,7 +667,7 @@ payload = {
     "device_token": "",
     "paired": False,
     "version": sys.argv[4],
-    "update_repo": "pcvantol/djconnect-pi-releases",
+    "update_repo": "djconnect-music-dj/djconnect-pi-releases",
     "update_channel": "stable",
     "release_profile": release_profile,
     "screen_timeout_seconds": 120,

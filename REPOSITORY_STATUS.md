@@ -58,4 +58,4 @@ future work scoped to this repository's ownership boundary.
 
 ## Notes
 
-Pi release artifacts are distributed separately through pcvantol/djconnect-pi-releases.
+Pi release artifacts are distributed separately through djconnect-music-dj/djconnect-pi-releases.

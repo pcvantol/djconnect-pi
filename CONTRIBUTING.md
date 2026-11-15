@@ -138,7 +138,7 @@ tarball, writes a checksum, commits, tags, pushes `main`, pushes the tag and
 creates the source GitHub release.
 
 The source repository publishes public distribution artifacts to
-`pcvantol/djconnect-pi-releases` through `.github/workflows/publish-release.yml`.
+`djconnect-music-dj/djconnect-pi-releases` through `.github/workflows/publish-release.yml`.
 The public release contains the Pi install tarball, checksum and
 `djconnect-pi-latest.json` manifest used by the stable updater.
 
