@@ -24,7 +24,7 @@ def test_default_config_uses_raspberry_pi_client_type(tmp_path: Path) -> None:
     assert cfg.log_level == "OFF"
     assert cfg.screen_timeout_seconds == 120
     assert cfg.return_to_now_seconds == 60
-    assert cfg.update_repo == "pcvantol/djconnect-pi-releases"
+    assert cfg.update_repo == "djconnect-music-dj/djconnect-pi-releases"
     assert cfg.device_name == "DJConnect"
     assert cfg.websocket_fast_path_enabled is True
     assert cfg.ha_websocket_token == ""
@@ -32,6 +32,16 @@ def test_default_config_uses_raspberry_pi_client_type(tmp_path: Path) -> None:
     assert cfg.active_profile_privacy_mode == "shared"
     assert cfg.explicit_profile_id == ""
     assert cfg.private_session is False
+
+
+def test_load_config_migrates_only_the_old_official_update_repo(tmp_path: Path) -> None:
+    path = tmp_path / "config.json"
+    for configured, expected in (
+        ("pcvantol/djconnect-pi-releases", "djconnect-music-dj/djconnect-pi-releases"),
+        ("example/custom-pi", "example/custom-pi"),
+    ):
+        path.write_text(json.dumps({"update_repo": configured}), encoding="utf-8")
+        assert load_config(path).update_repo == expected
 
 
 def test_save_and_load_config_roundtrip(tmp_path: Path) -> None:

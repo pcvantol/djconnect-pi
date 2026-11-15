@@ -129,7 +129,7 @@ Responsibilities:
 ## Updater
 
 `djconnect-pi-updater` checks GitHub Releases for the configured distribution
-repo, default `pcvantol/djconnect-pi-releases`.
+repo, default `djconnect-music-dj/djconnect-pi-releases`.
 It downloads a `.tar.gz` release asset and matching `.sha256`, verifies the
 checksum and installs the release under `/opt/djconnect/releases/<version>`.
 
