@@ -100,14 +100,8 @@ jobs:
       - python
       - ha-contract-fixture
       - post-merge-coverage
-    if: >-
-      ${{
-        always() &&
-        needs.python.result == 'success' &&
-        needs.ha-contract-fixture.result == 'success' &&
-        github.event_name != 'pull_request' &&
-        (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main')
-      }}
+    # Preserve workflow runs as migration and release evidence.
+    if: ${{ false }}
     runs-on: ubuntu-latest
     permissions:
       actions: write

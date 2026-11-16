@@ -236,7 +236,7 @@ def test_cleanup_script_removes_completed_actions_runs_for_deleted_tags() -> Non
 
     assert "--skip-actions" in script
     assert "--public" in script
-    assert "pcvantol/djconnect-pi-releases" in script
+    assert "djconnect-music-dj/djconnect-pi-releases" in script
     assert 'gh run list' in script
     assert '--branch "$tag"' in script
     assert "--status completed" in script
