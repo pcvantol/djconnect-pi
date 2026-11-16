@@ -13,7 +13,7 @@ Examples:
 By default this is a dry-run. It keeps the newest semantic-version tags/releases
 and deletes older matching vX.Y.Z GitHub releases, remote tags, local tags and
 completed GitHub Actions runs for those tags only when --execute is passed.
-Use --public to also clean pcvantol/djconnect-pi-releases releases/tags.
+Use --public to also clean djconnect-music-dj/djconnect-pi-releases releases/tags.
 EOF
 }
 
@@ -21,7 +21,7 @@ KEEP=1
 EXECUTE=false
 CLEAN_ACTIONS=true
 CLEAN_PUBLIC=false
-PUBLIC_REPO="pcvantol/djconnect-pi-releases"
+PUBLIC_REPO="djconnect-music-dj/djconnect-pi-releases"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
