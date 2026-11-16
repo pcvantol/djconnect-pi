@@ -31,7 +31,7 @@ Before product, protocol, UX, release, CI or cross-repo contract changes, consul
 
 Repo-local Pi rules below remain authoritative for Pi-specific behavior.
 
-- This is the Raspberry Pi client repo: `pcvantol/djconnect-pi`.
+- This is the Raspberry Pi client repo: `djconnect-music-dj/djconnect-pi`.
 - Treat the Pi as an app-like DJConnect client, not ESP firmware.
 - Canonical `client_type` is `raspberry_pi`.
 - Device IDs use `djconnect-raspberry-pi-XXXXXXXXXXXX`.

@@ -1,0 +1,19 @@
+name: Pi migration runner check
+on:
+  pull_request:
+    paths:
+      - .github/workflows/pi-migration-runner-check.yml
+permissions:
+  contents: read
+jobs:
+  check:
+    if: github.repository_id == '1267248532' && github.event.pull_request.head.repo.id == 1267248532 && github.event.pull_request.head.ref == 'codex/pi-migration-identity'
+    runs-on: [self-hosted, macOS, ARM64, internal-release, private-network-deployment]
+    timeout-minutes: 5
+    steps:
+      - name: Check runner identity without credentials
+        run: |
+          test "$RUNNER_OS" = macOS
+          test "$RUNNER_ARCH" = ARM64
+          test "$GITHUB_REPOSITORY" = djconnect-music-dj/djconnect-pi
+          echo 'Transferred repository runner is available.'

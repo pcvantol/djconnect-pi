@@ -112,7 +112,7 @@ def main():
                         browser.assert_called_once()
                         from urllib.parse import parse_qs, urlsplit
                         url=browser.call_args.args[0].toString();parsed=urlsplit(url)
-                        assert parsed.netloc=='github.com' and parsed.path=='/pcvantol/djconnect-pi/issues/new'
+                        assert parsed.netloc=='github.com' and parsed.path=='/djconnect-music-dj/djconnect-pi/issues/new'
                         assert parse_qs(parsed.query)=={'title':[backend.t('feedback_issue_title')],'body':[backend.t('feedback_issue_template')]}
                         assert not window.findChild(QObject,'feedbackOpenError').property('visible')
                     capture('feedback-open-draft-only-'+language)
