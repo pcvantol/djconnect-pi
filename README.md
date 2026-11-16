@@ -405,7 +405,7 @@ if [ -d "$HOME/djconnect-pi/.git" ]; then
   cd "$HOME/djconnect-pi"
   git pull --ff-only
 else
-  git clone https://github.com/pcvantol/djconnect-pi.git "$HOME/djconnect-pi"
+  git clone https://github.com/djconnect-music-dj/djconnect-pi.git "$HOME/djconnect-pi"
   cd "$HOME/djconnect-pi"
 fi
 sudo ./scripts/bootstrap_raspberry_pi_os.sh

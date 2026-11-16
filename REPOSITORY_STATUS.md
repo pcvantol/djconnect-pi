@@ -4,7 +4,7 @@ Status: Active engineering repository
 
 ## Repository
 
-`pcvantol/djconnect-pi`
+`djconnect-music-dj/djconnect-pi`
 
 ## Role
 

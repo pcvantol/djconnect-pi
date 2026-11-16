@@ -901,7 +901,7 @@ class DJConnectBackend(QObject):
         # User click opens a draft only; no private app state or automatic submit.
         query = urlencode({"title": translate(self.cfg.language, "feedback_issue_title"),
                            "body": translate(self.cfg.language, "feedback_issue_template")})
-        return QDesktopServices.openUrl(QUrl("https://github.com/pcvantol/djconnect-pi/issues/new?" + query))
+        return QDesktopServices.openUrl(QUrl("https://github.com/djconnect-music-dj/djconnect-pi/issues/new?" + query))
 
     @Slot(str, result=str)
     def t(self, key: str) -> str:
