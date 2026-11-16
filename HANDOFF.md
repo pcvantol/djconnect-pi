@@ -319,8 +319,8 @@ Not implemented by design:
   bootstrap so it can create and activate `/swapfile`, then rerun the same
   release installer command.
 - Keep source and distribution repos separate unless the product decision
-  changes: source is `pcvantol/djconnect-pi`, public release assets are in
-  `pcvantol/djconnect-pi-releases`.
+  changes: source is `djconnect-music-dj/djconnect-pi`, public release assets are in
+  `djconnect-music-dj/djconnect-pi-releases`.
 - Keep the Client API app-like. Do not add ESP OTA routes.
 - Do not expose a Pi-local `/api/device/dj_response` endpoint. DJ response text
   may still be displayed when it arrives through normal Home Assistant command
