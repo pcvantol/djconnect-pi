@@ -58,7 +58,7 @@ Item {
                     Layout.fillWidth: true
                     Text { text: page.tr("legal_oss"); textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 26; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                     Text { text: page.tr("legal_oss_body"); textFormat: Text.PlainText; color: BrandTheme.colors.text; font.pixelSize: 22; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                    GlassButton { text: page.tr("legal_license"); onClicked: Qt.openUrlExternally("https://github.com/pcvantol/djconnect-pi/blob/main/LICENSE") }
+                    GlassButton { text: page.tr("legal_license"); onClicked: Qt.openUrlExternally("https://github.com/djconnect-music-dj/djconnect-pi/blob/main/LICENSE") }
                 }
             }
         }
