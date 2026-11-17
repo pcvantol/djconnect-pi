@@ -32,6 +32,7 @@ PUBLICATION = "pcvantol/djconnect-pi-releases"
 PUBLICATION_EVIDENCE_PATH = "docs/release/PI_4_0_3_RC1_PUBLICATION_EVIDENCE.json"
 
 PI_ORG = "djconnect-music-dj/djconnect-pi"
+CORE_ID = 1258575431
 PI_ID = 1267248532
 PUBLICATION_ID = 1267500969
 
@@ -91,7 +92,7 @@ class GitHubRead:
         accept = "application/octet-stream" if binary and not workflow_archive else "application/vnd.github+json"
         headers = {"Authorization": "Bearer "+self.token, "Accept": accept, "User-Agent": "DJConnect-Pi-Qualified-Consumer"}
         # Keep proof references unchanged and address the actual repos by stable ID.
-        for repository, repository_id in ((PI, PI_ID), (PUBLICATION, PUBLICATION_ID)):
+        for repository, repository_id in ((CORE, CORE_ID), (PI, PI_ID), (PUBLICATION, PUBLICATION_ID)):
             prefix = "repos/"+repository+"/"
             if path.startswith(prefix):
                 path = f"repositories/{repository_id}/"+path[len(prefix):]
