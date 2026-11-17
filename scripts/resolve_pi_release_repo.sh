@@ -3,7 +3,7 @@ set -euo pipefail
 
 repository="$(gh api repositories/1267500969 --jq 'select(.id == 1267500969 and .visibility == "public") | .full_name')"
 case "$repository" in
-  pcvantol/djconnect-pi-releases|djconnect-music-dj/djconnect-pi-releases)
+  djconnect-music-dj/djconnect-pi-releases)
     printf '%s\n' "$repository"
     ;;
   *)

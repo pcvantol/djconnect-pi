@@ -258,7 +258,6 @@ jobs:
 
       - name: Publish to public release repository
         env:
-          PERSONAL_TOKEN: ${{ secrets.DJCONNECT_PI_RELEASES_TOKEN }}
           ORGANIZATION_TOKEN: ${{ steps.publisher.outputs.token }}
           RELEASE_VERSION: ${{ steps.meta.outputs.version }}
           RELEASE_TAG: ${{ steps.meta.outputs.tag }}
@@ -267,7 +266,6 @@ jobs:
         shell: bash
         run: |
           case "$RELEASE_REPOSITORY" in
-            pcvantol/djconnect-pi-releases) export GH_TOKEN="$PERSONAL_TOKEN" ;;
             djconnect-music-dj/djconnect-pi-releases) export GH_TOKEN="$ORGANIZATION_TOKEN" ;;
             *) exit 1 ;;
           esac

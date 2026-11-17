@@ -173,10 +173,10 @@ after a successful install or UI validation.
 
 The source repo publishes release assets to the public distribution repo through
 `.github/workflows/publish-release.yml` on `vX.Y.Z` tags. The workflow resolves
-the destination by GitHub repository ID `1267500969`. The personal route uses
-`DJCONNECT_PI_RELEASES_TOKEN`. The organization route requests a short-lived
-GitHub App installation token with Contents write access to the Pi distribution
-repository. The repository ID also scopes the publication access check.
+the destination by GitHub repository ID `1267500969` and requires its current
+organization identity. A short-lived GitHub App installation token provides
+Contents write access to the Pi distribution repository. The repository ID also
+scopes the publication access check.
 The public release also includes `djconnect-pi-latest.json`, a small stable
 release manifest downloaded through GitHub's public release asset URLs. The
 updater uses that manifest for the stable channel so normal wall-device updates
