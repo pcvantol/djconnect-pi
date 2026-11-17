@@ -182,8 +182,19 @@ def test_qualified_pi_deployment_workflows_use_closed_rc6_v3_bindings() -> None:
             assert "      "+field+":" in workflow
         assert "PI_RC6_OPERATIONAL_CORE_SHA: ${{ vars.PI_RC6_OPERATIONAL_CORE_SHA }}" in workflow
         assert "PI_RC6_OPERATIONAL_MANIFEST_SHA256: ${{ vars.PI_RC6_OPERATIONAL_MANIFEST_SHA256 }}" in workflow
-        canonical = "pcvantol/djconnect/.github/actions/deployment-readiness-preflight@802619ac1ab3ec11eace7a8609167018193bb98e"
+        canonical = "uses: ./.canonical-core-preflight/.github/actions/deployment-readiness-preflight"
         assert canonical in workflow and "smoke_contract: pi-rc6-instance-readback-v1" in workflow
+        assert "repository_id: expectedId" in workflow and "const expectedId = 1258575431" in workflow
+        assert "['pcvantol/djconnect', 'djconnect-music-dj/djconnect']" in workflow
+        assert "repo.private !== false" in workflow and "repo.id !== expectedId" in workflow
+        assert "ref: 802619ac1ab3ec11eace7a8609167018193bb98e" in workflow
+        assert "8af709b8a6ddf29843562d4f1b09de0747204feb086eeebbb485d16f5423fd37" in workflow
+        assert "test ! -e .canonical-core-preflight" in workflow and "test ! -L .canonical-core-preflight" in workflow
+        assert "persist-credentials: false" in workflow
+        assert workflow.index("--prepare") < workflow.index("Require an unused canonical preflight checkout path")
+        assert workflow.index("Require an unused canonical preflight checkout path") < workflow.index("Resolve canonical Core by immutable repository ID")
+        assert workflow.index("Resolve canonical Core by immutable repository ID") < workflow.index("Checkout exact canonical preflight")
+        assert workflow.index("Checkout exact canonical preflight") < workflow.index("Verify exact canonical preflight bytes") < workflow.index(canonical)
         prepare = "python -m Tools.pi_instance_release --operation "+operation+" --prepare"
         execute = "python -m Tools.pi_instance_release --operation "+operation
         assert workflow.index(prepare) < workflow.index(canonical) < workflow.rindex(execute)
@@ -198,6 +209,36 @@ def test_qualified_pi_deployment_workflows_use_closed_rc6_v3_bindings() -> None:
     transport = ROOT.joinpath("Tools/pi_instance_ssh.py").read_text(encoding="utf-8")
     assert "StrictHostKeyChecking=yes" in transport and "HostKeyAlgorithms=ssh-ed25519" in transport
     assert "INTENT_ALREADY_SENT" in transport and "validate_identity(binding, observed, self.challenge)" in transport
+
+
+def test_all_pi_preflight_checkouts_are_identity_bound_and_fail_closed() -> None:
+    names = (
+        "deploy-latest-pi-release.yml", "pi-deployment-readiness.yml",
+        "recover-rc6-wall4.yml", "smoke-rbpi-djconnect.yml",
+        "smoke-rc6-wall4-recovery.yml",
+    )
+    for name in names:
+        workflow = ROOT.joinpath(".github/workflows", name).read_text(encoding="utf-8")
+        guard = "Require an unused canonical preflight checkout path"
+        resolve = "Resolve canonical Core by immutable repository ID"
+        checkout = "Checkout exact canonical preflight"
+        verify = "Verify exact canonical preflight bytes"
+        preflight = "uses: ./.canonical-core-preflight/.github/actions/deployment-readiness-preflight"
+        approved = "PI_CANONICAL_PREFLIGHT_PASSED=true"
+        assert workflow.count(preflight) == 1
+        assert workflow.index("--prepare") < workflow.index(guard) < workflow.index(resolve)
+        assert workflow.index(resolve) < workflow.index(checkout) < workflow.index(verify)
+        assert workflow.index(verify) < workflow.index(preflight) < workflow.index(approved)
+        assert "test ! -e .canonical-core-preflight" in workflow
+        assert "test ! -L .canonical-core-preflight" in workflow
+        assert "const expectedId = 1258575431" in workflow
+        assert "repo.id !== expectedId" in workflow and "repo.private !== false" in workflow
+        assert "['pcvantol/djconnect', 'djconnect-music-dj/djconnect']" in workflow
+        assert "ref: 802619ac1ab3ec11eace7a8609167018193bb98e" in workflow
+        assert "test \"$(git -C .canonical-core-preflight rev-parse HEAD)\" = 802619ac1ab3ec11eace7a8609167018193bb98e" in workflow
+        assert "8af709b8a6ddf29843562d4f1b09de0747204feb086eeebbb485d16f5423fd37" in workflow
+        assert "persist-credentials: false" in workflow
+        assert "continue-on-error: true" not in workflow
 
 
 def test_pi_release_manifest_binds_the_artifact_and_target() -> None:
