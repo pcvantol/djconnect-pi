@@ -179,7 +179,7 @@ def test_declared_and_actual_github_metadata_are_bounded():
 def test_real_github_reader_accepts_only_generated_ancestor_comparison(repository, status):
     client = wire.GitHubRead("synthetic-not-a-credential");calls = []
     sha = "a"*40
-    route = f"repositories/{wire.PI_ID}" if repository == wire.PI else "repos/"+repository
+    route = f"repositories/{wire.PI_ID if repository == wire.PI else wire.CORE_ID}"
     class Opener:
         def open(self, request, timeout):
             calls.append(request)
@@ -199,6 +199,18 @@ def test_real_github_reader_accepts_only_generated_ancestor_comparison(repositor
     assert len(calls) == 3
     assert calls[1].full_url == "https://api.github.com/"+route+"/compare/"+sha+"...main?per_page=1&page=2"
     assert all(call.get_header("Authorization") == "Bearer synthetic-not-a-credential" for call in calls)
+
+
+def test_core_historical_content_reference_uses_stable_repository_id():
+    client = wire.GitHubRead("synthetic-not-a-credential"); calls = []
+    class Opener:
+        def open(self, request, timeout):
+            calls.append(request)
+            return Response(b"{}")
+    client.opener = Opener()
+    assert client.get("repos/"+wire.CORE+"/contents/example?ref="+"a"*40) == b"{}"
+    assert calls[0].full_url == f"https://api.github.com/repositories/{wire.CORE_ID}/contents/example?ref="+"a"*40
+    assert wire.CORE == "pcvantol/djconnect"
 
 
 @pytest.mark.parametrize("path", [
