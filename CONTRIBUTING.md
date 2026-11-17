@@ -72,10 +72,10 @@ project.
 
 Coordinate with:
 
-- `pcvantol/djconnect` for the Home Assistant integration.
+- `djconnect-music-dj/djconnect` for the Home Assistant integration.
 - Relevant DJConnect client or firmware repositories.
-- `SYNC_PROMPTS.md` in `pcvantol/djconnect` when the shared contract changes.
-- `PRODUCT_ROADMAP.md` in `pcvantol/djconnect` when roadmap or product intent
+- `SYNC_PROMPTS.md` in `djconnect-music-dj/djconnect` when the shared contract changes.
+- `PRODUCT_ROADMAP.md` in `djconnect-music-dj/djconnect` when roadmap or product intent
   changes.
 
 Do not add local copies of `SYNC_PROMPTS.md` or `PRODUCT_ROADMAP.md` in this
@@ -119,7 +119,7 @@ Before opening a PR:
 5. Note any impact on other DJConnect repositories.
 6. For release or Ask DJ/status behavior changes, review this repo against the
    `DJ Announcement Output Sync` section in
-   `pcvantol/djconnect/SYNC_PROMPTS.md`. For Raspberry Pi, confirm only
+   `djconnect-music-dj/djconnect/SYNC_PROMPTS.md`. For Raspberry Pi, confirm only
    `text_only` and, when HA reports a configured speaker, `ha_speaker` are
    exposed, and never add local TTS/audio playback.
 

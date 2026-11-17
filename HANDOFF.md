@@ -218,8 +218,8 @@ Implemented:
   not mix screenshots from multiple app versions.
 - Product-level ideas, killer features, production must-haves and premium
   candidates are tracked only in canonical
-  `pcvantol/djconnect/PRODUCT_ROADMAP.md`. Do not add a local copy in this
-  repo; make a follow-up change/commit in `pcvantol/djconnect` when roadmap
+  `djconnect-music-dj/djconnect/PRODUCT_ROADMAP.md`. Do not add a local copy in this
+  repo; make a follow-up change/commit in `djconnect-music-dj/djconnect` when roadmap
   changes start from the Pi repo.
 - Install script targets a prepared Raspberry Pi OS 64-bit image, creates the
   runtime user, downloads the public release, installs the bundled wheel and
@@ -352,11 +352,11 @@ Not implemented by design:
   before render, and media-list artwork pre-cache remains bounded to the first
   visible batch.
 - When changing protocol behavior, update canonical
-  `pcvantol/djconnect/SYNC_PROMPTS.md`. Do not add a local copy in this repo;
-  make a follow-up change/commit in `pcvantol/djconnect` when the change starts
+  `djconnect-music-dj/djconnect/SYNC_PROMPTS.md`. Do not add a local copy in this repo;
+  make a follow-up change/commit in `djconnect-music-dj/djconnect` when the change starts
   from the Pi repo.
 - When changing product roadmap scope, update canonical
-  `pcvantol/djconnect/PRODUCT_ROADMAP.md`. Do not add a local copy in this
+  `djconnect-music-dj/djconnect/PRODUCT_ROADMAP.md`. Do not add a local copy in this
   repo.
 
 ## Verification So Far
