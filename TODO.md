@@ -13,8 +13,8 @@
   the screen is blanked.
 - Cap the on-screen log viewer to the newest lines while keeping full persisted
   file logging on disk.
-- Implement full HA-side Raspberry Pi mDNS autodiscovery in `pcvantol/djconnect`
-  according to canonical `pcvantol/djconnect/SYNC_PROMPTS.md`.
+- Implement full HA-side Raspberry Pi mDNS autodiscovery in `djconnect-music-dj/djconnect`
+  according to canonical `djconnect-music-dj/djconnect/SYNC_PROMPTS.md`.
 - Validate the separate API daemon command-event queue, output-device selector,
   HA `devices` fallback and DJ-response toast bridge on real Pi hardware with
   Home Assistant.

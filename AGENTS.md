@@ -7,13 +7,13 @@ For a clean Codex/AI-agent session in this repository, start here:
 `BOOTSTRAP_CODEX_SESSION.md`
 
 That local bootstrap points back to the canonical platform foundation in
-`pcvantol/djconnect` and then returns to the repository-specific rules in
+`djconnect-music-dj/djconnect` and then returns to the repository-specific rules in
 this file. This repository extends the DJConnect Platform Foundation. It
 does not redefine it.
 
 ## DJConnect Platform Foundation
 
-This repository follows the canonical DJConnect design foundation in `pcvantol/djconnect`.
+This repository follows the canonical DJConnect design foundation in `djconnect-music-dj/djconnect`.
 
 Before product, protocol, UX, release, CI or cross-repo contract changes, consult:
 
@@ -39,11 +39,11 @@ Repo-local Pi rules below remain authoritative for Pi-specific behavior.
   `/api/device/dj_response` unless the product decision changes.
 - Keep app updates, OS maintenance and the touch UI as separate processes.
 - Do not keep a local `SYNC_PROMPTS.md` in this repo. The canonical cross-repo
-  contract source is `pcvantol/djconnect/SYNC_PROMPTS.md`.
+  contract source is `djconnect-music-dj/djconnect/SYNC_PROMPTS.md`.
 - Do not keep a local `PRODUCT_ROADMAP.md` in this repo. The canonical product
-  roadmap source is `pcvantol/djconnect/PRODUCT_ROADMAP.md`.
+  roadmap source is `djconnect-music-dj/djconnect/PRODUCT_ROADMAP.md`.
 - For cross-repo contract changes originating here, make a follow-up
-  change/commit in `pcvantol/djconnect`.
+  change/commit in `djconnect-music-dj/djconnect`.
 - User-facing touch UI, web portal, updater UI, setup/status/toast/API-display
   strings must use stable keys in `src/djconnect_pi/i18n.py` and be present for
   every supported locale: `en`, `nl`, `de`, `fr`, `es`. Keep protocol values,

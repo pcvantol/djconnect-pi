@@ -702,7 +702,7 @@ def test_syncprompt_and_roadmap_policy_use_canonical_home_assistant_repo_only() 
 
     agent_notes = ROOT.joinpath("AGENTS.md").read_text(encoding="utf-8")
     handoff = ROOT.joinpath("HANDOFF.md").read_text(encoding="utf-8")
-    assert "pcvantol/djconnect/SYNC_PROMPTS.md" in agent_notes
-    assert "pcvantol/djconnect/SYNC_PROMPTS.md" in handoff
-    assert "pcvantol/djconnect/PRODUCT_ROADMAP.md" in handoff
+    assert "djconnect-music-dj/djconnect/SYNC_PROMPTS.md" in agent_notes
+    assert "djconnect-music-dj/djconnect/SYNC_PROMPTS.md" in handoff
+    assert "djconnect-music-dj/djconnect/PRODUCT_ROADMAP.md" in handoff
     assert "byte-for-byte across" not in agent_notes

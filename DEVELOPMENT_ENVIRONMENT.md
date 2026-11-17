@@ -252,9 +252,9 @@ from the latest release, validation status and expected next action.
 ## Cross-Repo Coordination
 
 Do not keep local copies of `SYNC_PROMPTS.md` or `PRODUCT_ROADMAP.md` in this
-repository. The canonical files live in `pcvantol/djconnect`.
+repository. The canonical files live in `djconnect-music-dj/djconnect`.
 
-Coordinate with `pcvantol/djconnect` when changing:
+Coordinate with `djconnect-music-dj/djconnect` when changing:
 
 - Home Assistant endpoints or payload contracts.
 - Pairing, device identity or mDNS behavior.
@@ -263,7 +263,7 @@ Coordinate with `pcvantol/djconnect` when changing:
 - Assist/STT/TTS expectations.
 
 For cross-repo contract changes originating here, make the follow-up
-change/commit in `pcvantol/djconnect`.
+change/commit in `djconnect-music-dj/djconnect`.
 
 ## Hygiene Checklist
 

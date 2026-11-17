@@ -1,8 +1,8 @@
 # DJConnect Pi
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/pcvantol/djconnect/7e14e5970b3f68d33d243ae6bab2b281fad59bb2/assets/djconnect/brand-v2/wordmark-primary-dark.png">
-  <img src="https://raw.githubusercontent.com/pcvantol/djconnect/7e14e5970b3f68d33d243ae6bab2b281fad59bb2/assets/djconnect/brand-v2/wordmark-primary-light.png" alt="DJConnect" width="640">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/djconnect-music-dj/djconnect/7e14e5970b3f68d33d243ae6bab2b281fad59bb2/assets/djconnect/brand-v2/wordmark-primary-dark.png">
+  <img src="https://raw.githubusercontent.com/djconnect-music-dj/djconnect/7e14e5970b3f68d33d243ae6bab2b281fad59bb2/assets/djconnect/brand-v2/wordmark-primary-light.png" alt="DJConnect" width="640">
 </picture>
 
 Source version: `4.0.3-rc.1`. Stable downloads below use `4.0.2`.
@@ -239,7 +239,7 @@ authorized Universal Receiver session/Broadcast smoke scenario.
   - `node Tools/http_e2e_contract.js`
   - `node Tools/websocket_e2e_contract.js`
   - `node Tools/validate_ha_contract_fixture_security.js`
-  - Source-of-truth files are the Home Assistant `pcvantol/djconnect`
+  - Source-of-truth files are the Home Assistant `djconnect-music-dj/djconnect`
     contract files: `custom_components/djconnect/const.py`,
     `custom_components/djconnect/http.py`,
     `custom_components/djconnect/api_handlers.py`,
@@ -518,8 +518,8 @@ private source repo. Repo-only OS bootstrap helpers, including
 design.
 
 Cross-repo contract changes are documented only in canonical
-`pcvantol/djconnect/SYNC_PROMPTS.md`. Product roadmap changes are tracked only
-in canonical `pcvantol/djconnect/PRODUCT_ROADMAP.md`. This Raspberry Pi repo
+`djconnect-music-dj/djconnect/SYNC_PROMPTS.md`. Product roadmap changes are tracked only
+in canonical `djconnect-music-dj/djconnect/PRODUCT_ROADMAP.md`. This Raspberry Pi repo
 must not keep local copies of either file; changes that start here need a
 follow-up commit in the Home Assistant integration repo.
 
@@ -610,11 +610,9 @@ available.
 
 ## Continuous Integration
 
-This repo uses the shared DJConnect CI baseline from
-`pcvantol/djconnect/.github/workflows/`: `validate.yml` calls the reusable
-Python workflow with `source-path: src`, `test-path: tests` and
-`test-command: python -m pytest`; `codeql.yml` runs shared CodeQL for Python;
-`semgrep.yml` runs the shared DJConnect Semgrep rules as an advisory check.
+This repo uses reusable workflows from `djconnect-music-dj/djconnect-shared-workflows`
+for software assurance governance and Python validation. `codeql.yml` runs
+CodeQL for Python, and `semgrep.yml` runs Semgrep as an advisory check.
 
 ## Documentation
 
