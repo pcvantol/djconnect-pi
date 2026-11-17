@@ -25,18 +25,6 @@ jobs:
           repository="$(bash scripts/resolve_pi_release_repo.sh)"
           printf 'repository=%s\n' "$repository" >> "$GITHUB_OUTPUT"
 
-      - name: Check current personal publication access
-        if: steps.distribution.outputs.repository == 'pcvantol/djconnect-pi-releases'
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.DJCONNECT_PI_RELEASES_TOKEN }}
-        run: |
-          test -n "$GH_TOKEN"
-          gh api repositories/1267500969 | jq -e '
-            .id == 1267500969 and .visibility == "public" and
-            .full_name == "pcvantol/djconnect-pi-releases" and .permissions.push == true
-          '
-
       - name: Create organization Pi publication token
         if: steps.distribution.outputs.repository == 'djconnect-music-dj/djconnect-pi-releases'
         id: publisher

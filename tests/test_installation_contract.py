@@ -152,8 +152,9 @@ def test_release_workflow_publishes_to_public_distribution_repo() -> None:
     workflow = ROOT.joinpath(".github/workflows/publish-release.yml").read_text(encoding="utf-8")
     verifier = ROOT.joinpath(".github/workflows/pi-publication-access.yml").read_text(encoding="utf-8")
 
-    assert "pcvantol/djconnect-pi-releases" in workflow
-    assert "DJCONNECT_PI_RELEASES_TOKEN" in workflow
+    for text in (workflow, verifier):
+        assert "pcvantol/djconnect-pi-releases" not in text
+        assert "DJCONNECT_PI_RELEASES_TOKEN" not in text
     for entrypoint in (workflow, verifier):
         assert "bash scripts/resolve_pi_release_repo.sh" in entrypoint
         assert "owner: djconnect-music-dj" in entrypoint
@@ -164,6 +165,42 @@ def test_release_workflow_publishes_to_public_distribution_repo() -> None:
     assert "gh release create" not in verifier
     assert 'tags:' in workflow
     assert '"v*.*.*"' in workflow
+
+
+def test_pi_release_resolver_accepts_only_organization_identity(tmp_path, monkeypatch) -> None:
+    gh = tmp_path / "gh"
+    gh.write_text(
+        '#!/bin/sh\n'
+        '[ "$#" -eq 4 ] && [ "$1" = api ] && '
+        '[ "$2" = repositories/1267500969 ] && [ "$3" = --jq ] || exit 87\n'
+        '[ "${FAKE_API_FAIL:-0}" = 0 ] || exit 1\n'
+        'printf "%s\\n" "$FAKE_RESPONSE" | jq -r "$4"\n',
+        encoding="utf-8",
+    )
+    gh.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{tmp_path}:{os.environ.get('PATH', '')}")
+    resolver = ROOT / "scripts/resolve_pi_release_repo.sh"
+    canonical = "djconnect-music-dj/djconnect-pi-releases"
+    for repository_id, visibility, name, expected_success in (
+        (1267500969, "public", canonical, True),
+        (1267500968, "public", canonical, False),
+        (1267500969, "private", canonical, False),
+        (1267500969, "public", "pcvantol/djconnect-pi-releases", False),
+        (1267500969, "public", "djconnect-music-dj/unexpected", False),
+    ):
+        monkeypatch.setenv("FAKE_RESPONSE", json.dumps({
+            "id": repository_id, "visibility": visibility, "full_name": name,
+        }))
+        result = subprocess.run(["bash", str(resolver)], capture_output=True, text=True, check=False)
+        assert (result.returncode == 0) is expected_success
+        if expected_success:
+            assert result.stdout.strip() == canonical
+        else:
+            assert result.stdout == ""
+    monkeypatch.setenv("FAKE_API_FAIL", "1")
+    result = subprocess.run(["bash", str(resolver)], capture_output=True, text=True, check=False)
+    assert result.returncode != 0
+    assert result.stdout == ""
 
 
 def test_qualified_pi_deployment_workflows_use_closed_rc6_v3_bindings() -> None:
