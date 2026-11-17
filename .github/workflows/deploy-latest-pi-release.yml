@@ -85,8 +85,39 @@ jobs:
       - name: Require approved operational manifest source
         run: |
           python -m Tools.pi_instance_release --operation deploy --prepare
+      - name: Require an unused canonical preflight checkout path
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e .canonical-core-preflight
+          test ! -L .canonical-core-preflight
+      - id: canonical_preflight_source
+        name: Resolve canonical Core by immutable repository ID
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        with:
+          script: |
+            const expectedId = 1258575431;
+            const response = await github.request('GET /repositories/{repository_id}', {repository_id: expectedId});
+            const repo = response.data;
+            if (repo.id !== expectedId || repo.private !== false || !['pcvantol/djconnect', 'djconnect-music-dj/djconnect'].includes(repo.full_name)) {
+              throw new Error('Canonical Core identity is not authorized');
+            }
+            core.setOutput('repository', repo.full_name);
+      - name: Checkout exact canonical preflight
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: ${{ steps.canonical_preflight_source.outputs.repository }}
+          ref: 802619ac1ab3ec11eace7a8609167018193bb98e
+          path: .canonical-core-preflight
+          persist-credentials: false
+      - name: Verify exact canonical preflight bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C .canonical-core-preflight rev-parse HEAD)" = 802619ac1ab3ec11eace7a8609167018193bb98e
+          printf '%s  %s\n' 8af709b8a6ddf29843562d4f1b09de0747204feb086eeebbb485d16f5423fd37 .canonical-core-preflight/.github/actions/deployment-readiness-preflight/action.yml | shasum -a 256 --check
       - name: Canonical deployment readiness preflight
-        uses: pcvantol/djconnect/.github/actions/deployment-readiness-preflight@802619ac1ab3ec11eace7a8609167018193bb98e
+        uses: ./.canonical-core-preflight/.github/actions/deployment-readiness-preflight
         with:
           target: ${{ inputs.target }}
           manifest_id: ${{ inputs.manifest_id }}
