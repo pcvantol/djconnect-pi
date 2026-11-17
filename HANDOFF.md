@@ -191,7 +191,7 @@ Implemented:
   traffic.
 - Stable/beta client update channel setting
 - App updates default to the public distribution repo
-  `pcvantol/djconnect-pi-releases`.
+  `djconnect-music-dj/djconnect-pi-releases`.
 - GitHub Actions workflow publishes tagged release assets from this source repo
   to the public distribution repo. It requires the source repo secret
   `DJCONNECT_PI_RELEASES_TOKEN`.
