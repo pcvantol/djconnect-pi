@@ -19,7 +19,7 @@ jobs:
       owner: ${{ github.repository }}
 
   python:
-    uses: pcvantol/djconnect/.github/workflows/djconnect-python-ci.yml@5f12a591647942c50b59162264529fef6896e5e3
+    uses: djconnect-music-dj/djconnect-shared-workflows/.github/workflows/djconnect-python-5f12.yml@4bd9731a6fe7bb50c932e36635eb3ff5c5372687
     with:
       python-version: "3.14.10"
       source-path: src
