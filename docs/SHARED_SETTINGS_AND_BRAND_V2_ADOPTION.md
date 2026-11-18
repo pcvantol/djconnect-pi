@@ -1,7 +1,7 @@
 # Pi shared settings and Brand V2 consumer candidate
 
-Owning work: [Pi settings #104](https://github.com/pcvantol/djconnect-pi/issues/104)
-and [Pi Brand V2 #108](https://github.com/pcvantol/djconnect-pi/issues/108).
+Owning work: [Pi settings #104](https://github.com/djconnect-music-dj/djconnect-pi/issues/104)
+and [Pi Brand V2 #108](https://github.com/djconnect-music-dj/djconnect-pi/issues/108).
 This is consumer source work, not release, installed-HA, audible, physical Pi or
 joint cross-client acceptance.
 
