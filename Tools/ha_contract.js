@@ -119,7 +119,7 @@ const FEATURES = {
 };
 
 const CONTRACT_SOURCE = {
-  repo: "pcvantol/djconnect",
+  repo: "djconnect-music-dj/djconnect",
   files: [
     "custom_components/djconnect/const.py",
     "custom_components/djconnect/http.py",

@@ -48,7 +48,7 @@ node Tools/websocket_e2e_contract.js
 node Tools/validate_ha_contract_fixture_security.js
 ```
 
-The fixture is based on the Home Assistant `pcvantol/djconnect` contract files:
+The fixture is based on the Home Assistant `djconnect-music-dj/djconnect` contract files:
 `custom_components/djconnect/const.py`, `custom_components/djconnect/http.py`,
 `custom_components/djconnect/api_handlers.py`,
 `custom_components/djconnect/websocket_api.py` and the relevant HA tests. It
