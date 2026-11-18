@@ -100,7 +100,7 @@ node Tools/validate_ha_contract_fixture_security.js
 The fixture starts an in-process Node.js server on `127.0.0.1` with a dynamic
 port, then shuts it down after each script. It does not need ngrok, a local Home
 Assistant instance, Central API, Spotify or Music Assistant. Its contract
-snapshot is derived from the Home Assistant `pcvantol/djconnect` files
+snapshot is derived from the Home Assistant `djconnect-music-dj/djconnect` files
 `custom_components/djconnect/const.py`, `custom_components/djconnect/http.py`,
 `custom_components/djconnect/api_handlers.py`,
 `custom_components/djconnect/websocket_api.py` and the relevant HA tests. In

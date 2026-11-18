@@ -1,7 +1,7 @@
 # Pi Governance Adoption
 
 This repository adopts AI-Native Engineering Operating System **2.2** from
-`pcvantol/djconnect/docs/governance/PLATFORM_ARCHITECT_SYSTEM_INSTRUCTIONS.md`.
+`djconnect-music-dj/djconnect/docs/governance/PLATFORM_ARCHITECT_SYSTEM_INSTRUCTIONS.md`.
 There are no local exceptions.
 
 Definition of Done requires synchronized clean main, implementation-reality
