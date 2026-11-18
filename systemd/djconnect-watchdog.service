@@ -1,0 +1,8 @@
+[Unit]
+Description=DJConnect Raspberry Pi health watchdog
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+ExecStart=/opt/djconnect/current/bin/djconnect-pi-watchdog --config /opt/djconnect/config/client.json --log-file /opt/djconnect/logs/watchdog.log --threshold 5 --timeout 4

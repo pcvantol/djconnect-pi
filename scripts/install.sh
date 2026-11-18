@@ -1,0 +1,820 @@
+#!/usr/bin/env bash
+set -euo pipefail
+export PYTHONDONTWRITEBYTECODE=1
+
+SCRIPT_DIRECTORY="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -z "${DJCONNECT_VERSION:-}" && ( -e "${SCRIPT_DIRECTORY}/../VERSION" || -L "${SCRIPT_DIRECTORY}/../VERSION" ) ]]; then
+  [[ -f "${SCRIPT_DIRECTORY}/../VERSION" && ! -L "${SCRIPT_DIRECTORY}/../VERSION" ]] || { echo "Invalid release VERSION file" >&2; exit 64; }
+  DJCONNECT_VERSION="$(cat "${SCRIPT_DIRECTORY}/../VERSION")"
+  [[ "$DJCONNECT_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$ ]] || { echo "Invalid release VERSION value" >&2; exit 64; }
+fi
+# A source checkout without a packaged VERSION uses the latest published stable release.
+DJCONNECT_VERSION="${DJCONNECT_VERSION:-4.0.2}"
+DJCONNECT_REPO="${DJCONNECT_REPO:-djconnect-music-dj/djconnect-pi-releases}"
+DJCONNECT_HA_URL="${DJCONNECT_HA_URL:-http://homeassistant.local:8123}"
+DJCONNECT_RUNTIME_USER="${DJCONNECT_RUNTIME_USER:-djconnect}"
+DJCONNECT_INSTALL_USER="${DJCONNECT_INSTALL_USER:-${SUDO_USER:-pi}}"
+DJCONNECT_ROOT="${DJCONNECT_ROOT:-/opt/djconnect}"
+DJCONNECT_PYTHON="/opt/djconnect-python/cpython-3.14.10/bin/python3.14"
+DJCONNECT_INSTALL_STATE="${DJCONNECT_INSTALL_STATE:-${DJCONNECT_ROOT}/install-state}"
+DJCONNECT_PIP_CACHE="${DJCONNECT_PIP_CACHE:-/var/cache/djconnect-pip}"
+DJCONNECT_UPGRADE_PIP="${DJCONNECT_UPGRADE_PIP:-0}"
+DJCONNECT_MIN_FREE_MB="${DJCONNECT_MIN_FREE_MB:-3000}"
+DJCONNECT_MIN_SWAP_MB="${DJCONNECT_MIN_SWAP_MB:-1000}"
+DJCONNECT_RELEASE_PROFILE="${DJCONNECT_RELEASE_PROFILE:-}"
+APPROVED_ARTIFACT=""
+APPROVED_ARTIFACT_SHA256=""
+APPROVED_SOURCE_SHA=""
+APPROVED_SEAL_DIR=""
+
+if [[ -f /etc/default/locale ]]; then
+  # shellcheck disable=SC1091
+  . /etc/default/locale
+fi
+export LANG="${LANG:-C.UTF-8}"
+export LC_CTYPE="${LC_CTYPE:-${LANG}}"
+
+usage() {
+  cat <<EOF
+Usage:
+  sudo ./scripts/install.sh
+
+Version:
+  DJConnect Pi installer for client ${DJCONNECT_VERSION}
+
+Environment:
+  DJCONNECT_VERSION=${DJCONNECT_VERSION}
+  DJCONNECT_REPO=djconnect-music-dj/djconnect-pi-releases
+  DJCONNECT_HA_URL=http://homeassistant.local:8123
+  DJCONNECT_RUNTIME_USER=djconnect
+  DJCONNECT_INSTALL_USER=${DJCONNECT_INSTALL_USER}
+  DJCONNECT_ROOT=/opt/djconnect
+  App Python: /opt/djconnect-python/cpython-3.14.10/bin/python3.14 (hash-pinned side-by-side runtime)
+  DJCONNECT_INSTALL_STATE=/opt/djconnect/install-state
+  DJCONNECT_PIP_CACHE=/var/cache/djconnect-pip
+  DJCONNECT_UPGRADE_PIP=0
+  DJCONNECT_MIN_FREE_MB=3000
+  DJCONNECT_MIN_SWAP_MB=1000
+  DJCONNECT_RELEASE_PROFILE=pi5-arm64
+
+This installs or updates the DJConnect Pi application only:
+- creates/updates the dedicated runtime user and /opt/djconnect layout
+- downloads and verifies the selected public DJConnect Pi release
+- resumes completed install steps after an interrupted run or reboot
+- checks disk and swap requirements before large PySide6 downloads
+- preserves existing pairing/configuration
+- installs/refreshes the local Client API, frontend, updater, maintenance and
+  night screen schedule systemd units
+- restarts the DJConnect API and touch UI services
+
+General Raspberry Pi OS bootstrap tasks, such as timezone, SSH, apt full-upgrade,
+Raspberry Pi Connect and HyperPixel display setup, are intentionally
+handled by scripts/bootstrap_raspberry_pi_os.sh from a source checkout. That
+bootstrap script is not shipped in release tarballs.
+EOF
+}
+
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+  usage
+  exit 0
+fi
+
+if [[ "$(id -u)" -ne 0 ]]; then
+  echo "Run as root: sudo $0" >&2
+  exit 1
+fi
+
+log() {
+  printf '\n==> %s\n' "$*"
+}
+
+print_resources() {
+  local label="$1"
+  local mem_available_mb
+  local mem_total_mb
+  local swap_free_mb
+  local swap_total_mb
+
+  mem_available_mb="$(awk '/^MemAvailable:/ {printf "%d", $2 / 1024}' /proc/meminfo 2>/dev/null || true)"
+  mem_total_mb="$(awk '/^MemTotal:/ {printf "%d", $2 / 1024}' /proc/meminfo 2>/dev/null || true)"
+  swap_free_mb="$(awk '/^SwapFree:/ {printf "%d", $2 / 1024}' /proc/meminfo 2>/dev/null || true)"
+  swap_total_mb="$(awk '/^SwapTotal:/ {printf "%d", $2 / 1024}' /proc/meminfo 2>/dev/null || true)"
+  mem_available_mb="${mem_available_mb:-0}"
+  mem_total_mb="${mem_total_mb:-0}"
+  swap_free_mb="${swap_free_mb:-0}"
+  swap_total_mb="${swap_total_mb:-0}"
+
+  printf '\n-- Resources: %s --\n' "$label"
+  printf 'Memory: %s MB available / %s MB total\n' "$mem_available_mb" "$mem_total_mb"
+  printf 'Swap:   %s MB free / %s MB total\n' "$swap_free_mb" "$swap_total_mb"
+  df -h / "$DJCONNECT_ROOT" "$(dirname "$DJCONNECT_PIP_CACHE")" 2>/dev/null | awk 'NR==1 || !seen[$1]++' || true
+  df -ih / "$DJCONNECT_ROOT" "$(dirname "$DJCONNECT_PIP_CACHE")" 2>/dev/null | awk 'NR==1 || !seen[$1]++' || true
+}
+
+print_thermal_status() {
+  if ! command -v vcgencmd >/dev/null 2>&1; then
+    return 0
+  fi
+
+  local temp
+  local throttled
+  temp="$(vcgencmd measure_temp 2>/dev/null || true)"
+  throttled="$(vcgencmd get_throttled 2>/dev/null || true)"
+  if [[ -n "$temp" ]]; then
+    echo "Thermal: ${temp}"
+  fi
+  if [[ -n "$throttled" ]]; then
+    echo "Throttle: ${throttled}"
+    if [[ "$throttled" != "throttled=0x0" ]]; then
+      echo "Warning: Raspberry Pi reports throttling/undervoltage history; cool the Pi and check power before heavy installs." >&2
+    fi
+  fi
+}
+
+stop_running_client_early() {
+  log "Stopping running DJConnect touch UI before install"
+
+  if command -v systemctl >/dev/null 2>&1; then
+    systemctl disable --now djconnect-client.service >/dev/null 2>&1 || true
+    systemctl stop djconnect-client.service >/dev/null 2>&1 || true
+  fi
+
+  if command -v pkill >/dev/null 2>&1; then
+    pkill -TERM -f 'djconnect-pi-client|djconnect_pi\.app' >/dev/null 2>&1 || true
+    sleep 1
+    pkill -KILL -f 'djconnect-pi-client|djconnect_pi\.app' >/dev/null 2>&1 || true
+  fi
+}
+
+stop_running_updater_early() {
+  log "Stopping running DJConnect updater before install"
+
+  if command -v systemctl >/dev/null 2>&1; then
+    systemctl disable --now djconnect-updater.timer >/dev/null 2>&1 || true
+    systemctl stop djconnect-updater.timer >/dev/null 2>&1 || true
+    systemctl stop djconnect-updater.service >/dev/null 2>&1 || true
+  fi
+}
+
+version() {
+  printf '%s\n' "${DJCONNECT_VERSION#v}"
+}
+
+release_profile() {
+  local profile="$DJCONNECT_RELEASE_PROFILE"
+  if [[ -z "$profile" && -r /etc/djconnect-pi/device-profile ]]; then
+    profile="$(tr -d '[:space:]' </etc/djconnect-pi/device-profile)"
+  fi
+  case "$profile" in
+    pi5-arm64|pi-zero-2w-arm64) printf '%s\n' "$profile" ;;
+    *)
+      echo "Missing or invalid DJConnect hardware profile. Run scripts/bootstrap_raspberry_pi_os.sh or set DJCONNECT_RELEASE_PROFILE." >&2
+      exit 1
+      ;;
+  esac
+}
+
+release_id() {
+  printf '%s-%s\n' "$(version)" "$(release_profile)"
+}
+
+release_asset() {
+  printf 'djconnect-pi-%s-%s' "$(release_profile)" "$(version)"
+}
+
+
+parse_approved_input() {
+  while [[ "$#" -gt 0 ]]; do
+    [[ "$#" -ge 2 ]] || { echo APPROVED_INPUT_INVALID >&2; return 64; }
+    case "$1" in
+      --approved-artifact) [[ -z "$APPROVED_ARTIFACT" ]] || return 64; APPROVED_ARTIFACT="$2" ;;
+      --artifact-sha256) [[ -z "$APPROVED_ARTIFACT_SHA256" ]] || return 64; APPROVED_ARTIFACT_SHA256="$2" ;;
+      --source-sha) [[ -z "$APPROVED_SOURCE_SHA" ]] || return 64; APPROVED_SOURCE_SHA="$2" ;;
+      *) echo APPROVED_INPUT_INVALID >&2; return 64 ;;
+    esac
+    shift 2
+  done
+  if [[ -n "$APPROVED_ARTIFACT$APPROVED_ARTIFACT_SHA256$APPROVED_SOURCE_SHA" ]]; then
+    [[ -f "$APPROVED_ARTIFACT" && ! -L "$APPROVED_ARTIFACT" && "$APPROVED_ARTIFACT_SHA256" =~ ^[0-9a-f]{64}$ && "$APPROVED_SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo APPROVED_INPUT_INVALID >&2; return 64; }
+  fi
+}
+
+verify_approved_release() {
+  [[ -n "$APPROVED_ARTIFACT" ]] || return 0
+  local profile prefix release_dir
+  [[ -f "${DJCONNECT_ROOT}/config/client.json" && ! -L "${DJCONNECT_ROOT}/config/client.json" ]] || { echo APPROVED_CONFIG_MISSING >&2; return 65; }
+  profile="$(release_profile)"
+  prefix="$(release_asset)"
+  release_dir="${DJCONNECT_ROOT}/releases/$(release_id)"
+  if [[ -e "$release_dir" || -L "$release_dir" ]]; then
+    [[ ! -L "$release_dir" && -f "$(state_dir)/approved-artifact.sha256" && "$(cat "$(state_dir)/approved-artifact.sha256")" == "$APPROVED_ARTIFACT_SHA256" && -f "${release_dir}/SOURCE_COMMIT" && "$(cat "${release_dir}/SOURCE_COMMIT")" == "$APPROVED_SOURCE_SHA" ]] || { echo APPROVED_RELEASE_CONFLICT >&2; return 65; }
+  fi
+  # Seal into this process's root-private scratch before any service/installer effects.
+  # Verify the sealed bytes, not a later mutable caller path. Never use a remote checksum.
+  APPROVED_SEAL_DIR="$(mktemp -d)"
+  trap '[[ -z "$APPROVED_SEAL_DIR" ]] || rm -rf -- "$APPROVED_SEAL_DIR"' EXIT
+  cp -- "$APPROVED_ARTIFACT" "${APPROVED_SEAL_DIR}/artifact.tar.gz"
+  APPROVED_ARTIFACT="${APPROVED_SEAL_DIR}/artifact.tar.gz"
+  python3 - "$APPROVED_ARTIFACT" "$APPROVED_ARTIFACT_SHA256" "$APPROVED_SOURCE_SHA" "$(version)" "$profile" "$prefix" <<'PYVERIFY'
+import hashlib
+from pathlib import Path, PurePosixPath
+import sys
+import tarfile
+
+path, expected_hash, source, version, profile, prefix = sys.argv[1:]
+def need(condition):
+    if not condition:
+        raise ValueError('APPROVED_ARTIFACT_INVALID')
+try:
+    artifact = Path(path)
+    need(artifact.stat().st_size <= 33554432)
+    with artifact.open('rb') as stream:
+        need(hashlib.file_digest(stream, 'sha256').hexdigest() == expected_hash)
+    with tarfile.open(artifact, 'r:gz') as archive:
+        seen = set()
+        size = 0
+        for member in archive:
+            name = PurePosixPath(member.name)
+            need(not name.is_absolute() and '..' not in name.parts and '\\' not in member.name)
+            need(len(member.name.encode('utf-8')) <= 4096 and all(ord(c) >= 32 for c in member.name))
+            need(bool(name.parts) and name.parts[0] == prefix and name.as_posix() not in seen)
+            need(member.name == name.as_posix() or (member.isdir() and member.name == name.as_posix()+'/'))
+            need(member.isfile() or member.isdir())
+            seen.add(name.as_posix())
+            size += member.size
+            need(size <= 67108864 and len(seen) <= 4096)
+        for name, expected in [('VERSION', version), ('SOURCE_COMMIT', source), ('RELEASE_PROFILE', profile)]:
+            member = archive.getmember(prefix+'/'+name)
+            need(member.isfile() and member.size <= 128)
+            value = archive.extractfile(member).read(129).decode('ascii')
+            need(value == expected+'\n')
+except (AssertionError, OSError, ValueError, KeyError, tarfile.TarError, UnicodeError, EOFError):
+    raise SystemExit('APPROVED_ARTIFACT_INVALID') from None
+PYVERIFY
+}
+
+
+approved_config_digest() {
+  python3 - "${DJCONNECT_ROOT}/config/client.json" <<'PYCONFIG'
+import hashlib
+import json
+from pathlib import Path
+import sys
+try:
+    with Path(sys.argv[1]).open('rb') as stream:
+        raw = stream.read(2097153)
+    if len(raw) > 2097152:
+        raise ValueError
+    def pairs(items):
+        result = {}
+        for key, value in items:
+            if key in result:
+                raise ValueError
+            result[key] = value
+        return result
+    def nonfinite(_value):
+        raise ValueError
+    cfg = json.loads(raw, object_pairs_hook=pairs, parse_constant=nonfinite)
+    if not isinstance(cfg, dict):
+        raise ValueError
+    cfg.pop('release_profile', None)
+    print(hashlib.sha256(json.dumps(cfg, ensure_ascii=True, sort_keys=True, separators=(',', ':')).encode()).hexdigest())
+except (OSError, ValueError, TypeError, RecursionError):
+    raise SystemExit('APPROVED_CONFIG_INVALID') from None
+PYCONFIG
+}
+
+state_dir() {
+  printf '%s\n' "${DJCONNECT_INSTALL_STATE}/$(release_id)"
+}
+
+marker_done() {
+  [[ -f "$(state_dir)/$1.done" ]]
+}
+
+mark_done() {
+  install -d "$(state_dir)"
+  touch "$(state_dir)/$1.done"
+}
+
+check_release_not_active() {
+  local release_dir
+  release_dir="${DJCONNECT_ROOT}/releases/$(release_id)"
+  if [[ -e "${DJCONNECT_ROOT}/current" || -L "${DJCONNECT_ROOT}/current" ]]; then
+    [[ "$(readlink -f "${DJCONNECT_ROOT}/current")" != "$(readlink -m "$release_dir")" ]] || {
+      echo PYTHON_MIGRATION_REQUIRES_DISTINCT_RELEASE >&2
+      return 65
+    }
+  fi
+}
+
+
+provision_application_python() {
+  # Read and authenticate helper bytes once, then execute that same buffer.
+  # No mutable helper path is executed after a separate hash-check window.
+  python3 -I - "$SCRIPT_DIRECTORY/provision_app_python.py" "e204b4bf25cc939464b1e78a778576ab68a6aaf668db41b09b9f4029dfb3d482" <<'PYPROVISION'
+import hashlib
+import os
+import stat
+import sys
+path, expected = sys.argv[1:]
+fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+with os.fdopen(fd, "rb") as source:
+    info = os.fstat(source.fileno())
+    if not stat.S_ISREG(info.st_mode) or info.st_size > 65536:
+        raise SystemExit("PYTHON_PROVISIONER_INVALID")
+    code = source.read(65537)
+if len(code) > 65536 or hashlib.sha256(code).hexdigest() != expected:
+    raise SystemExit("PYTHON_PROVISIONER_INVALID")
+sys.argv = [path]
+exec(compile(code, path, "exec"), {"__name__": "__main__", "__file__": path})
+PYPROVISION
+}
+
+check_runtime_dependencies() {
+  log "Checking DJConnect installer dependencies"
+  print_resources "before dependency check"
+  print_thermal_status
+  local missing=()
+  for command_name in curl find shasum tar python3 systemctl useradd install; do
+    if ! command -v "$command_name" >/dev/null 2>&1; then
+      missing+=("$command_name")
+    fi
+  done
+
+  if ! "$DJCONNECT_PYTHON" -I -B -m venv --help >/dev/null 2>&1; then
+    missing+=("Python 3.14 venv")
+  fi
+
+  if [[ "${#missing[@]}" -gt 0 ]]; then
+    echo "Missing required installer dependency/dependencies: ${missing[*]}" >&2
+    echo "Prepare Raspberry Pi OS first with scripts/bootstrap_raspberry_pi_os.sh from a source checkout, or install the missing packages manually." >&2
+    exit 1
+  fi
+}
+
+check_cpu_architecture() {
+  log "Checking CPU architecture"
+  print_resources "before architecture check"
+  local machine
+  machine="$(uname -m)"
+  case "$machine" in
+    aarch64|arm64)
+      ;;
+    *)
+      echo "Unsupported CPU architecture: ${machine}. DJConnect Pi requires Raspberry Pi OS Lite 64-bit on arm64/aarch64." >&2
+      exit 1
+      ;;
+  esac
+}
+
+check_python_version() {
+  log "Checking Python version"
+  print_resources "before Python version check"
+  "$DJCONNECT_PYTHON" -I -B - <<'PY'
+import sys
+import sysconfig
+if sys.version_info[:2] != (3, 14) or sys.version_info < (3, 14, 10):
+    raise SystemExit(f"Python 3.14.10 or newer in 3.14 is required, found {sys.version.split()[0]}")
+if sysconfig.get_config_var("Py_GIL_DISABLED"):
+    raise SystemExit("Standard GIL-enabled Python 3.14 is required for Qt")
+PY
+}
+
+
+check_existing_python_environment() {
+  local release_dir="${DJCONNECT_ROOT}/releases/$(release_id)"
+  if marker_done "venv_ready" || [[ -f "${release_dir}/.install-state/venv_created" ]]; then
+    # Inspect with the selected new interpreter, never execute an old venv as root.
+    "$DJCONNECT_PYTHON" -I -B - "${release_dir}/.venv" <<'PYEXISTING'
+import re
+import sys
+from pathlib import Path
+venv = Path(sys.argv[1])
+try:
+    cfg = venv / "pyvenv.cfg"
+    if venv.is_symlink() or cfg.is_symlink() or cfg.stat().st_size > 16384:
+        raise ValueError
+    values = dict(line.split("=", 1) for line in cfg.read_text().splitlines() if "=" in line)
+    values = {key.strip(): value.strip() for key, value in values.items()}
+    match = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)", values.get("version", ""))
+    version = tuple(map(int, match.groups())) if match else ()
+    if version[:2] != (3, 14) or version < (3, 14, 10):
+        raise ValueError
+    if values.get("include-system-site-packages") != "false":
+        raise ValueError
+    if (venv / "bin/python").resolve(strict=True) != Path(sys._base_executable).resolve(strict=True):
+        raise ValueError
+except (OSError, ValueError, RuntimeError):
+    raise SystemExit("EXISTING_PYTHON_ENVIRONMENT_INCOMPATIBLE") from None
+PYEXISTING
+  fi
+}
+
+check_writable_paths() {
+  log "Checking writable install paths"
+  print_resources "before writable path check"
+  local path
+  for path in "$DJCONNECT_ROOT" "$DJCONNECT_INSTALL_STATE" "$DJCONNECT_PIP_CACHE"; do
+    install -d "$path"
+    if [[ ! -w "$path" ]]; then
+      echo "Install path is not writable: ${path}" >&2
+      exit 1
+    fi
+  done
+}
+
+check_github_reachable() {
+  [[ -z "$APPROVED_ARTIFACT" ]] || return 0
+  log "Checking GitHub release access"
+  print_resources "before GitHub access check"
+  local tag="v${DJCONNECT_VERSION#v}"
+  local version="${DJCONNECT_VERSION#v}"
+  local url="https://github.com/${DJCONNECT_REPO}/releases/download/${tag}/$(release_asset).sha256"
+
+  if ! curl -fsSIL --connect-timeout 15 --max-time 30 "$url" >/dev/null; then
+    echo "Cannot reach DJConnect Pi release asset: ${url}" >&2
+    echo "Check network/DNS from the Pi and verify that release ${tag} exists in ${DJCONNECT_REPO}." >&2
+    exit 1
+  fi
+}
+
+check_free_space() {
+  log "Checking free disk space"
+  print_resources "before disk check"
+  local required="$DJCONNECT_MIN_FREE_MB"
+  local opt_free
+  local cache_parent
+  local cache_free
+
+  opt_free="$(df -Pm "$DJCONNECT_ROOT" 2>/dev/null | awk 'NR==2 {print $4}')"
+  cache_parent="$(dirname "$DJCONNECT_PIP_CACHE")"
+  install -d "$cache_parent"
+  cache_free="$(df -Pm "$cache_parent" 2>/dev/null | awk 'NR==2 {print $4}')"
+
+  if [[ -n "$opt_free" && "$opt_free" -lt "$required" ]]; then
+    echo "Not enough free disk space for DJConnect install on ${DJCONNECT_ROOT}: ${opt_free} MB available, ${required} MB required." >&2
+    echo "Run the repo bootstrap to expand the root filesystem, reboot if requested, then rerun this installer." >&2
+    exit 1
+  fi
+
+  if [[ -n "$cache_free" && "$cache_free" -lt "$required" ]]; then
+    echo "Not enough free disk space for pip cache at ${DJCONNECT_PIP_CACHE}: ${cache_free} MB available, ${required} MB required." >&2
+    echo "Run the repo bootstrap to expand the root filesystem, reboot if requested, then rerun this installer." >&2
+    exit 1
+  fi
+}
+
+check_swap() {
+  log "Checking active swap"
+  print_resources "before swap check"
+  local required_kb=$((DJCONNECT_MIN_SWAP_MB * 1024))
+  local swap_total_kb
+  swap_total_kb="$(awk '/^SwapTotal:/ {print $2}' /proc/meminfo)"
+
+  if [[ -z "$swap_total_kb" || "$swap_total_kb" -lt "$required_kb" ]]; then
+    echo "Not enough active swap for DJConnect install: $((swap_total_kb / 1024)) MB available, ${DJCONNECT_MIN_SWAP_MB} MB required." >&2
+    echo "Run the repo bootstrap to configure the 1GB swapfile, reboot if requested, then rerun this installer." >&2
+    exit 1
+  fi
+}
+
+check_os_baseline() {
+  log "Checking Raspberry Pi OS 64-bit baseline"
+  print_resources "before OS baseline check"
+  if [[ "$(getconf LONG_BIT)" != "64" ]]; then
+    echo "This client is intended for Raspberry Pi OS Lite 64-bit or another Raspberry Pi OS 64-bit image." >&2
+    exit 1
+  fi
+
+  if [[ ! -f /etc/rpi-issue ]] || ! grep -qi "Raspberry Pi" /etc/rpi-issue; then
+    echo "Warning: /etc/rpi-issue does not look like Raspberry Pi OS; continuing anyway." >&2
+  fi
+}
+
+create_runtime_user() {
+  log "Creating runtime user ${DJCONNECT_RUNTIME_USER}"
+  print_resources "before runtime user setup"
+  if ! id "$DJCONNECT_RUNTIME_USER" >/dev/null 2>&1; then
+    useradd --system --create-home --groups video,input,render,netdev "$DJCONNECT_RUNTIME_USER"
+  fi
+  install -d -o "$DJCONNECT_RUNTIME_USER" -g "$DJCONNECT_RUNTIME_USER" \
+    "$DJCONNECT_ROOT/config" \
+    "$DJCONNECT_ROOT/releases" \
+    "$DJCONNECT_INSTALL_STATE"
+  install -d -o root -g root "$DJCONNECT_PIP_CACHE"
+}
+
+download_release() {
+  local tag="v${DJCONNECT_VERSION#v}"
+  local version
+  local tmp
+  local release_dir
+  local package_version
+  version="$(version)"
+  release_dir="${DJCONNECT_ROOT}/releases/$(release_id)"
+
+  if marker_done "release_unpacked" && [[ -d "$release_dir" ]]; then
+    log "Release ${tag} already unpacked; resuming"
+    print_resources "release already unpacked"
+    return
+  fi
+
+  tmp="$(mktemp -d)"
+
+  log "Downloading DJConnect Pi ${tag}"
+  print_resources "before release download"
+  if [[ -n "$APPROVED_ARTIFACT" ]]; then
+    cp -- "$APPROVED_ARTIFACT" "${tmp}/release.tar.gz"
+    printf '%s\n' "$APPROVED_ARTIFACT_SHA256" > "${tmp}/release.sha256"
+  else
+    curl -fsSL "https://github.com/${DJCONNECT_REPO}/releases/download/${tag}/$(release_asset).tar.gz" -o "${tmp}/release.tar.gz"
+    curl -fsSL "https://github.com/${DJCONNECT_REPO}/releases/download/${tag}/$(release_asset).sha256" -o "${tmp}/release.sha256"
+  fi
+  print_resources "after release download"
+  local expected_hash
+  local actual_hash
+  expected_hash="$(awk '{print $1; exit}' "${tmp}/release.sha256")"
+  actual_hash="$(shasum -a 256 "${tmp}/release.tar.gz" | awk '{print $1; exit}')"
+  if [[ -z "$expected_hash" || "$actual_hash" != "$expected_hash" ]]; then
+    echo "Release checksum mismatch for ${tag}" >&2
+    echo "Expected: ${expected_hash:-<empty>}" >&2
+    echo "Actual:   ${actual_hash}" >&2
+    exit 1
+  fi
+
+  rm -rf "$release_dir" "${DJCONNECT_ROOT}/releases/.$(release_id).tmp"
+  mkdir -p "${DJCONNECT_ROOT}/releases/.$(release_id).tmp"
+  print_resources "before release unpack"
+  tar -xzf "${tmp}/release.tar.gz" -C "${DJCONNECT_ROOT}/releases/.$(release_id).tmp" --strip-components=1
+  mv "${DJCONNECT_ROOT}/releases/.$(release_id).tmp" "$release_dir"
+  mark_done "release_unpacked"
+  if [[ -n "$APPROVED_ARTIFACT" ]]; then
+    printf '%s\n' "$APPROVED_ARTIFACT_SHA256" > "$(state_dir)/approved-artifact.sha256"
+  fi
+  print_resources "after release unpack"
+}
+
+install_python_dependencies() {
+  local version
+  local release_dir
+  local wheel_path
+  local requirements_path
+  local pip_tmp
+  local release_state_dir
+  version="$(version)"
+  package_version="${version/-rc./rc}"
+  release_dir="${DJCONNECT_ROOT}/releases/$(release_id)"
+  wheel_path="$(find "$release_dir/wheels" -maxdepth 1 -type f -name "djconnect_pi-${package_version}-*.whl" 2>/dev/null | head -n 1 || true)"
+  requirements_path="${release_dir}/requirements.lock"
+  pip_tmp="${DJCONNECT_PIP_CACHE}/tmp"
+  release_state_dir="${release_dir}/.install-state"
+
+  if marker_done "venv_ready" \
+    && [[ -x "${release_dir}/.venv/bin/djconnect-pi-client" ]] \
+    && [[ -x "${release_dir}/.venv/bin/djconnect-pi-api" ]] \
+    && [[ -x "${release_dir}/.venv/bin/djconnect-pi-updater" ]] \
+    && [[ -x "${release_dir}/.venv/bin/djconnect-pi-maintenance" ]]; then
+    log "DJConnect Python dependencies already installed; resuming"
+    print_resources "dependencies already installed"
+    return
+  fi
+
+  if [[ -z "$wheel_path" || ! -f "$wheel_path" ]]; then
+    echo "DJConnect Pi wheel not found in release bundle: ${release_dir}/wheels/djconnect_pi-${package_version}-*.whl" >&2
+    exit 1
+  fi
+  if [[ ! -f "$requirements_path" ]]; then
+    echo "DJConnect Pi dependency lock not found in release bundle: ${requirements_path}" >&2
+    exit 1
+  fi
+
+  log "Installing DJConnect Python dependencies"
+  install -d "$release_state_dir"
+  install -d -o root -g root "$DJCONNECT_PIP_CACHE" "$pip_tmp"
+  check_free_space
+  print_resources "before Python dependency install"
+
+  if [[ ! -f "${release_state_dir}/venv_created" ]]; then
+    if [[ -d "${release_dir}/.venv" ]]; then
+      echo "Removing incomplete Python virtualenv before retry: ${release_dir}/.venv"
+      rm -rf "${release_dir}/.venv" "${release_dir}/bin"
+    fi
+    "$DJCONNECT_PYTHON" -I -B -m venv "${release_dir}/.venv"
+    printf 'ok\n' >"${release_state_dir}/venv_created"
+  fi
+
+  if [[ "$DJCONNECT_UPGRADE_PIP" == "1" && ! -f "${release_state_dir}/pip_upgraded" ]]; then
+    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -I -B -m pip install "pip==26.2.2"
+    printf 'ok\n' >"${release_state_dir}/pip_upgraded"
+  elif [[ "$DJCONNECT_UPGRADE_PIP" != "1" && ! -f "${release_state_dir}/pip_checked" ]]; then
+    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -I -B -m pip --version
+    echo "Skipping pip self-upgrade; set DJCONNECT_UPGRADE_PIP=1 to force it."
+    printf 'ok\n' >"${release_state_dir}/pip_checked"
+  fi
+  if [[ ! -f "${release_state_dir}/locked_dependencies_installed" ]]; then
+    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -I -B -m pip install --only-binary=:all: --requirement "$requirements_path"
+    printf 'ok\n' >"${release_state_dir}/locked_dependencies_installed"
+  fi
+  if [[ ! -f "${release_state_dir}/wheel_installed" ]]; then
+    TMPDIR="$pip_tmp" PIP_CACHE_DIR="$DJCONNECT_PIP_CACHE" "${release_dir}/.venv/bin/python" -I -B -m pip install --no-deps --only-binary=:all: "$wheel_path"
+    printf 'ok\n' >"${release_state_dir}/wheel_installed"
+  fi
+  ln -sfn ".venv/bin" "${release_dir}/bin"
+  mark_done "venv_ready"
+  print_resources "after Python dependency install"
+}
+
+activate_release() {
+  local version
+  version="$(version)"
+  log "Activating DJConnect Pi v${version}"
+  print_resources "before release activation"
+  ln -sfn "${DJCONNECT_ROOT}/releases/$(release_id)" "${DJCONNECT_ROOT}/current"
+  chown -R "$DJCONNECT_RUNTIME_USER:$DJCONNECT_RUNTIME_USER" "$DJCONNECT_ROOT"
+  print_resources "after release activation"
+}
+
+write_initial_config() {
+  local config="${DJCONNECT_ROOT}/config/client.json"
+  if [[ -f "$config" ]]; then
+    log "Keeping existing DJConnect config at ${config}"
+    python3 - "$config" "$(release_profile)" <<'PY'
+from pathlib import Path
+import json
+import sys
+
+path = Path(sys.argv[1])
+profile = sys.argv[2]
+payload = json.loads(path.read_text(encoding="utf-8"))
+payload["release_profile"] = profile
+path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+PY
+    print_resources "config already present"
+    return
+  fi
+
+  log "Writing initial DJConnect config"
+  print_resources "before config write"
+  python3 - "$config" "$DJCONNECT_HA_URL" "$(release_profile)" "$(version)" <<'PY'
+from pathlib import Path
+import json
+import sys
+import uuid
+
+config = Path(sys.argv[1])
+ha_url = sys.argv[2]
+release_profile = sys.argv[3]
+suffix = uuid.getnode().to_bytes(6, "big").hex().upper()[:12]
+payload = {
+    "ha_url": ha_url,
+    "device_id": f"djconnect-raspberry-pi-{suffix}",
+    "device_name": "DJConnect Pi",
+    "device_token": "",
+    "paired": False,
+    "version": sys.argv[4],
+    "update_repo": "djconnect-music-dj/djconnect-pi-releases",
+    "update_channel": "stable",
+    "release_profile": release_profile,
+    "screen_timeout_seconds": 120,
+    "screen_brightness_percent": 100,
+    "log_file": "/opt/djconnect/logs/client.log",
+    "dj_response_file": "/opt/djconnect/config/dj-response.json",
+    "log_level": "OFF",
+}
+config.parent.mkdir(parents=True, exist_ok=True)
+config.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+PY
+  install -d -o "$DJCONNECT_RUNTIME_USER" -g "$DJCONNECT_RUNTIME_USER" "$DJCONNECT_ROOT/logs"
+  chown "$DJCONNECT_RUNTIME_USER:$DJCONNECT_RUNTIME_USER" "$config"
+  print_resources "after config write"
+}
+
+install_systemd_units() {
+  log "Installing systemd units"
+  print_resources "before systemd install"
+  configure_xwrapper
+  configure_reboot_sudoers
+  configure_installer_sudoers
+  cp "${DJCONNECT_ROOT}/current/systemd/"*.service /etc/systemd/system/
+  cp "${DJCONNECT_ROOT}/current/systemd/"*.timer /etc/systemd/system/
+  systemctl daemon-reload
+  systemctl enable djconnect-api.service
+  systemctl enable djconnect-client.service
+  systemctl restart djconnect-api.service
+  systemctl restart djconnect-client.service
+  systemctl enable --now djconnect-updater.timer
+  systemctl enable --now djconnect-maintenance.timer
+  systemctl enable --now djconnect-screen-off.timer
+  systemctl enable --now djconnect-screen-on.timer
+  systemctl enable --now djconnect-watchdog.timer
+  systemctl enable --now djconnect-nightly-reboot.timer
+  print_resources "after systemd install"
+}
+
+configure_reboot_sudoers() {
+  local sudoers_dir="/etc/sudoers.d"
+  local sudoers_file="${sudoers_dir}/djconnect-reboot"
+
+  if [[ ! -d "$sudoers_dir" ]]; then
+    echo "Warning: ${sudoers_dir} does not exist; reboot button may require system policy configuration." >&2
+    return
+  fi
+
+  cat >"$sudoers_file" <<EOF
+${DJCONNECT_RUNTIME_USER} ALL=(ALL) NOPASSWD: /usr/bin/systemctl reboot, /bin/systemctl reboot, /usr/bin/systemctl reboot -i, /bin/systemctl reboot -i, /usr/bin/systemctl poweroff, /bin/systemctl poweroff, /usr/bin/systemctl poweroff -i, /bin/systemctl poweroff -i, /usr/bin/systemctl start djconnect-updater.service, /bin/systemctl start djconnect-updater.service
+EOF
+  chmod 0440 "$sudoers_file"
+  if command -v visudo >/dev/null 2>&1; then
+    visudo -cf "$sudoers_file" >/dev/null
+  fi
+}
+
+configure_installer_sudoers() {
+  local sudoers_dir="/etc/sudoers.d"
+  local sudoers_file="${sudoers_dir}/djconnect-installer"
+
+  if [[ -z "$DJCONNECT_INSTALL_USER" ]] || ! id "$DJCONNECT_INSTALL_USER" >/dev/null 2>&1; then
+    echo "Warning: install user ${DJCONNECT_INSTALL_USER:-<empty>} does not exist; skipping installer sudoers." >&2
+    return
+  fi
+  if [[ ! -d "$sudoers_dir" ]]; then
+    echo "Warning: ${sudoers_dir} does not exist; skipping installer sudoers." >&2
+    return
+  fi
+
+  cat >"$sudoers_file" <<EOF
+${DJCONNECT_INSTALL_USER} ALL=(root) NOPASSWD: /home/${DJCONNECT_INSTALL_USER}/djconnect-install/djconnect-pi-*/scripts/install.sh, /home/${DJCONNECT_INSTALL_USER}/djconnect-pi/scripts/install.sh
+EOF
+  chmod 0440 "$sudoers_file"
+  if command -v visudo >/dev/null 2>&1; then
+    visudo -cf "$sudoers_file" >/dev/null
+  fi
+}
+
+configure_xwrapper() {
+  local config="/etc/X11/Xwrapper.config"
+
+  if [[ ! -d "/etc/X11" ]]; then
+    echo "Warning: /etc/X11 does not exist yet; skipping Xwrapper configuration." >&2
+    return
+  fi
+
+  if [[ -f "$config" ]] && grep -q '^allowed_users=' "$config"; then
+    sed -i 's/^allowed_users=.*/allowed_users=anybody/' "$config"
+  else
+    printf 'allowed_users=anybody\n' >> "$config"
+  fi
+
+  if grep -q '^needs_root_rights=' "$config"; then
+    sed -i 's/^needs_root_rights=.*/needs_root_rights=yes/' "$config"
+  else
+    printf 'needs_root_rights=yes\n' >> "$config"
+  fi
+}
+
+main() {
+  parse_approved_input "$@"
+  verify_approved_release
+  if [[ -n "$APPROVED_ARTIFACT" ]]; then approved_config_digest >/dev/null; fi
+  log "DJConnect Pi installer ${DJCONNECT_VERSION}"
+  check_cpu_architecture
+  provision_application_python
+  check_runtime_dependencies
+  check_python_version
+  check_existing_python_environment
+  check_release_not_active
+  stop_running_updater_early
+  print_resources "installer start"
+  print_thermal_status
+  check_os_baseline
+  create_runtime_user
+  check_writable_paths
+  check_free_space
+  check_swap
+  check_github_reachable
+  download_release
+  install_python_dependencies
+  stop_running_client_early
+  if [[ -n "$APPROVED_ARTIFACT" ]]; then
+    local config_before config_after
+    config_before="$(approved_config_digest)"
+    write_initial_config
+    config_after="$(approved_config_digest)"
+    [[ "$config_before" == "$config_after" ]] || { echo APPROVED_CONFIG_CHANGED >&2; return 65; }
+    activate_release
+  else
+    activate_release
+    write_initial_config
+  fi
+  install_systemd_units
+
+  log "DJConnect Pi installation complete"
+  print_resources "installer complete"
+  print_thermal_status
+  echo "Local Client API starts automatically via djconnect-api.service."
+  echo "DJConnect frontend starts automatically after boot via djconnect-client.service."
+  echo "Night screen schedule: off at 23:00, on at 07:00"
+}
+
+main "$@"

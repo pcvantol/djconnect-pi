@@ -1,0 +1,7 @@
+{
+  "producer": "pcvantol/djconnect",
+  "protected_source": "8b221d07fe2215d9516d18fe92c832332c7a16ab",
+  "path": "examples/client_contracts/expressive_context_variation_v1/snapshots.json",
+  "sha256": "d6dae495c0ba1540ff4803ff33d84f789062bb2fcdc433147f245af89622dc64",
+  "proof": "Immutable producer Runtime snapshots from synthetic source-shaped inputs; no live HA, provider, ARM or physical acceptance"
+}

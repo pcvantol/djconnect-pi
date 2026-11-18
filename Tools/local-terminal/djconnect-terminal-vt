@@ -1,0 +1,27 @@
+#!/bin/sh
+set -eu
+
+active_tty=/sys/class/tty/tty0/active
+saved_tty=/run/djconnect-local-terminal.previous-vt
+
+case "$1" in
+    save)
+        umask 077
+        previous=$(cat "$active_tty")
+        case "$previous" in
+            tty8) exit 1 ;;
+            tty[1-9]|tty[1-9][0-9]) printf '%s\n' "$previous" > "$saved_tty" ;;
+            *) exit 1 ;;
+        esac
+        ;;
+    restore)
+        [ -f "$saved_tty" ] || exit 0
+        previous=$(cat "$saved_tty")
+        rm -f "$saved_tty"
+        [ "$(cat "$active_tty")" = tty8 ] || exit 0
+        case "$previous" in
+            tty[1-9]|tty[1-9][0-9]) /usr/bin/chvt "${previous#tty}" ;;
+        esac
+        ;;
+    *) exit 2 ;;
+esac

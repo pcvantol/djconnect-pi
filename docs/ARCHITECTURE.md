@@ -1,0 +1,467 @@
+# Architecture
+
+DJConnect Pi has four intentionally separate parts.
+
+## Touch Client
+
+`djconnect-pi-client` is the fullscreen Qt Quick/QML UI. It runs without root
+privileges and talks to Home Assistant through a PySide6 backend object. It does
+not host the local Client API.
+
+Responsibilities:
+
+- persist local client config
+- pair with Home Assistant
+- send periodic status
+- send playback commands
+- poll Ask DJ history/status as a read-only conversation feed
+- send text questions and structured HA-provided Ask DJ actions from the touch UI
+- execute HA initiated playback commands received through the local
+  command-event queue
+- render now-playing and connection state
+- keep Speelt nu focused on refresh, large unobstructed album art and
+  title/artist
+- render HA-provided output-device choices on Bediening and dispatch
+  `command:"set_output"`
+- render HA-provided album art asynchronously in Now Playing, Queue and
+  Playlists so image downloads do not block the QML UI thread
+- render the shared Pi Brand V2 navy/cyan/blue/purple colour system across touch screens, standard controls, portal and updater
+- handle touch gestures and animated control states
+- display DJ response text pushed by Home Assistant as a 10-second toast
+- show startup splash, blocking pairing and local demo mode
+- blank the rendered screen after the configured screen timeout, wake on tap
+  and optionally return to Speelt nu through the separate return-to-now timer
+- consume touch input on modal overlays so underlying settings controls cannot
+  receive taps while logs, about, pairing, version mismatch or confirmation
+  screens are visible
+
+The app split is:
+
+```text
+src/djconnect_pi/app.py       PySide6 backend, properties, slots, polling
+src/djconnect_pi/ha.py        Home Assistant outbound HTTP/websocket contract
+src/djconnect_pi/ha_websocket.py  WebSocket fast-path session/capability layer
+src/djconnect_pi/qml/*.qml    touch UI, gestures and animations
+```
+
+### Hardware-aware presentation
+
+Both deployment profiles are full apps and use the same navigation, feature
+screens, glass components, translations and server controllers. DJ Session is a
+shared destination on both the 4-inch and 10-inch clients; it is not gated by the
+hardware profile. `SessionScreen.qml` and `session_controller.py` provide the same
+Profile-confirmation, active-session and saved-session flow on both targets.
+`session_transport.py` binds each request/result to the current paired Profile;
+`session_projection.py` keeps live grants separate from saved history.
+
+The installed release profile only adapts canvas dimensions, typography, spacing,
+and the cost of ambient motion. Glass surfaces and touch feedback are shared. `pi-zero-2w-arm64` keeps the
+compact 720px touch layout for the 4-inch panel, using iPhone mini as the visual
+reference. The large portrait reference is iPad. `pi5-arm64` uses the physical
+portrait display canvas, larger type and touch targets, a wider content rhythm,
+and subtle low-cost ambient motion. The Pi 5 profile is deliberately native
+QML rather than a browser kiosk: touch wake, idle blanking, screenshot support
+and Home Assistant DJ-moment wakeups remain owned by the appliance layer.
+
+The standalone update UI follows the same profile. It is legible from wall
+distance, preserves remote-access information and confirmation controls, and
+never changes the shared updater protocol or release safety behavior.
+
+#### Pi 5 motion contract
+
+The wall profile treats motion as feedback, never decoration competing with
+music or room ambience. Splash content fades and settles into place; loading
+indicators breathe slowly; temporary toasts use one short spring-like entrance
+and exit; buttons compress slightly on touch; and update progress interpolates
+between reported values with a restrained travelling highlight. Ambient loops
+run only for the Pi 5 profile and pause while the screen is blanked. The Pi
+Zero profile keeps the same information hierarchy without the extra motion
+cost.
+
+#### Pi 5 glass presentation
+
+The Pi 5 profile uses a native liquid-glass-inspired presentation: translucent
+surfaces pick up the ambient blue/purple mood field, with a fine bright edge
+and a narrow specular highlight. Large, slowly moving colour fields create
+depth behind the interface instead of applying an expensive real-time blur.
+Pairing cards, the app banner, temporary feedback and the updater follow this
+same treatment. It is a DJConnect visual language, not Apple assets or an
+Apple runtime dependency.
+
+For the current 10-inch living-room target, a diagnostic screenshot must be
+`1200x1920` in portrait. `1920x1200` describes the same panel in landscape and
+is not the intended wall orientation. Validate the physical target after a UI
+change with the authenticated local screenshot endpoint, then confirm the
+client, local API and VNC services are active again.
+
+## Local Client API
+
+`djconnect-pi-api` is a separate daemon process installed as
+`djconnect-api.service`. It is the only owner of the local HTTP API port and the
+`_djconnect._tcp` mDNS advertisement. The HTTP API stays online after pairing,
+but the mDNS advertisement is only active while the Pi is unpaired.
+
+The same daemon serves the local Raspberry Pi web portal at `/`. Because the
+portal is embedded in the Python package and exposed by `djconnect-api.service`,
+normal install and updater flows install it and start it automatically on boot.
+The portal includes a Diagnostics section backed by `/api/portal/state` with
+Home Assistant API, local API, pairing and DJConnect systemd unit status.
+
+Responsibilities:
+
+- expose `GET /api/device/info`
+- expose `GET /api/device/pairing-info`
+- accept HA initiated pairing at `POST /api/device/pair`
+- reset pairing at `POST /api/device/forget`
+- expose `GET /api/debug/screenshot` for authenticated local diagnostics
+- authenticate protected requests with the stored bearer token
+- queue HA initiated playback commands for the UI process through a local
+  command-event file
+- request screenshots from the UI process through a local screenshot event file
+  and return the saved PNG path once QML `grabToImage` completes
+- advertise `device_id`, `client_type=raspberry_pi`, `version`,
+  `device_name`, `local_url`, pairing code aliases and pairing paths through
+  mDNS only while unpaired
+- reject oversized HTTP request bodies
+- reload the shared config before serving info/pairing-info or accepting local
+  pairing so reset-pairing code rotation is reflected immediately
+
+## Updater
+
+`djconnect-pi-updater` checks GitHub Releases for the configured distribution
+repo, default `djconnect-music-dj/djconnect-pi-releases`.
+It downloads a `.tar.gz` release asset and matching `.sha256`, verifies the
+checksum and installs the release under `/opt/djconnect/releases/<version>`.
+
+The active release is selected by atomically replacing:
+
+```text
+/opt/djconnect/current -> /opt/djconnect/releases/<version>
+```
+
+Once the updater detects a newer release, it stops the DJConnect client, local
+API, maintenance and watchdog services before download/install work. The
+dedicated update view also exclusively owns the X display: it waits for the
+touch client and VNC mirror to stop, then the normal client and VNC service are
+started again after the update. It leaves `djconnect-updater.service` running
+so the update can complete.
+Python dependency installation is split into resumable marked steps under the
+target release's `.install-state/` directory, so an interrupted Pi install can
+resume after venv creation, build tools, shiboken6, PySide6 Essentials, PySide6
+Addons, PySide6, requests, zeroconf or bundled wheel installation instead of
+starting the whole venv over.
+
+After install, the updater refreshes bundled systemd service and timer
+templates, reloads systemd, and restarts `djconnect-api.service` and
+`djconnect-client.service`.
+It also removes stale release directories after a successful install. The
+default retention is the active `/opt/djconnect/current` release plus one
+previous rollback release; leftover hidden `.tmp` unpack directories are always
+deleted.
+Python dependencies are installed from the bundled wheel using pip cache and
+temporary files under `/var/cache/djconnect-pip`, matching the manual installer
+so large wheels do not consume the default temporary filesystem.
+
+The normal release closeout is to run `./cleanup_old_releases.sh --keep 1
+--public --execute` after the source and public distribution releases have been
+published. That removes old private releases/tags, old public distribution
+releases/tags and completed tag workflow runs. The closeout also updates
+`CHAT_BOOTSTRAP.md` with the current release number, validation status, public
+asset status and next expected action. Release visual hygiene clears stale
+files from `screenshots/` and regenerates the representative 720x720 screen set
+after a successful install or UI validation.
+
+The source repo publishes release assets to the public distribution repo through
+`.github/workflows/publish-release.yml` on `vX.Y.Z` tags. The workflow resolves
+the destination by GitHub repository ID `1267500969` and requires its current
+organization identity. A short-lived GitHub App installation token provides
+Contents write access to the Pi distribution repository. The repository ID also
+scopes the publication access check.
+The public release also includes `djconnect-pi-latest.json`, a small stable
+release manifest downloaded through GitHub's public release asset URLs. The
+updater uses that manifest for the stable channel so normal wall-device updates
+do not depend on unauthenticated GitHub API release listing limits. The beta
+channel may still inspect GitHub releases to include prereleases.
+
+Release bundles include `docs/`, `systemd/`, `scripts/install.sh` and a
+prebuilt wheel under `wheels/`. They do not include the loose app source tree,
+so a prepared Raspberry Pi can install the app from the public release tarball
+without cloning the private source repository. Repo-only OS bootstrap helpers,
+including `scripts/bootstrap_raspberry_pi_os.sh`, are excluded from release
+tarballs.
+
+## Maintenance
+
+`djconnect-pi-maintenance` performs OS package maintenance. It can run:
+
+```sh
+apt-get update
+apt-get -y upgrade
+```
+
+It only reboots when `--reboot` is passed and `/var/run/reboot-required` exists.
+The systemd timer schedules this inside the configured maintenance window.
+
+`djconnect-nightly-reboot.timer` is a separate wall-device freshness timer. It
+starts `djconnect-nightly-reboot.service` at 04:30 every night, which performs a
+plain Raspberry Pi reboot with `/usr/bin/systemctl reboot -i`. This is separate
+from app updates and from conditional OS maintenance reboots.
+
+## Home Assistant Contract
+
+The Pi client is an app-like DJConnect client. It is the platform's Ambient
+Client: shared room and household experiences are the default, while personal
+profiles are entered only through explicit backend Profile Platform resolution.
+
+```json
+{
+  "device_id": "djconnect-raspberry-pi-XXXXXXXXXXXX",
+  "device_name": "DJConnect",
+  "client_type": "raspberry_pi",
+  "version": "4.0.0-rc.1",
+  "capabilities": {
+    "touch": true,
+    "voice": false,
+    "voice_supported": false,
+    "tts_supported": false,
+    "local_audio": false,
+    "local_audio_supported": false,
+    "local_dj_response_endpoint": true,
+    "ask_dj_supported": true,
+    "ask_dj_mode": "text",
+    "ask_dj_free_input_supported": true,
+    "ask_dj_actions_supported": true
+  }
+}
+```
+
+Runtime traffic uses:
+
+- `POST /api/djconnect/v1/pair`
+- `POST /api/djconnect/v1/status`
+- `POST /api/djconnect/v1/command`
+- `POST /api/djconnect/v1/websocket/session`
+- `GET /api/djconnect/v1/ask_dj/history?since_revision=<revision>`
+
+Pairing, status and command payloads all include the stable `device_id` and
+`client_type=raspberry_pi`. Command payloads also include the command name and
+any command-specific value fields.
+
+HTTP remains the canonical fallback. On Raspberry Pi the Home Assistant
+WebSocket fast path is enabled by default because the client is intended to use
+a local HA connection. The setting can be disabled in Settings or the web
+portal. When enabled, the client first requests a short-lived HA websocket
+session with `POST /api/djconnect/v1/websocket/session` using the paired
+DJConnect bearer token. The request includes `device_id`,
+`client_type:"raspberry_pi"` and all Pi-relevant requested `djconnect/*`
+commands; it never sends a Home Assistant long-lived access token. The returned
+HA websocket `access_token`, optional `expires_at` and optional `websocket_url`
+are cached only in memory and are never logged or exported.
+
+After HA websocket auth, the client sends `djconnect/capabilities`, stores the
+advertised commands/features/fallbacks in memory and uses only routes that HA
+advertises. Supported websocket routes include `djconnect/command`, Ask DJ
+message/history/history clear, Music DNA profile/settings/clear, Music
+Discovery feed/refresh/play/feedback, Track Insight and Vibecast. Music DNA
+export/import remain HTTP-only. Any websocket auth failure, timeout,
+disconnect, malformed response, decode error, missing route or missing
+capability falls back exactly once to the existing HTTP flow and does not clear
+pairing or device tokens. Only the existing HTTP authentication stale/not
+configured flows can trigger pairing recovery. Diagnostics expose
+`fast_path_enabled`, `fast_path_transport`, `websocket_connected`, advertised
+commands, last capability refresh and a redacted last error.
+
+Profile-aware requests include the canonical request context fields the Pi can
+reliably know: `device_id`, `client_type:"raspberry_pi"`, `request_source` and
+optional explicit `profile_id`/`private_session` when configured. The Pi does
+not run a local resolver, infer household members or derive personal identity
+from touch usage. It lets Home Assistant resolve the active DJConnect Profile
+from device mapping, room/area mapping or household fallback, then records only
+safe profile metadata returned by the backend: profile id, display name, type
+and privacy mode.
+
+When the resolved profile changes, the UI process clears every profile-scoped
+view cache before displaying new data:
+
+- Ask DJ history and revision cursors;
+- Music DNA summary and sections;
+- Music Discovery items, empty/error state and feedback state;
+- Track Insight analysis tied to the previous profile context.
+
+Playback controls, pairing state, local settings and diagnostics remain
+device-owned and are not cleared by a profile change.
+
+The owner-selected full Pi app adds a gated active-Session text composer on the
+existing Profile-authorized Ask DJ route. Text mode is advertised; voice/audio
+remain false. Exact references, unique client-message IDs and receipt owner/context
+checks precede fresh history readback. No raw media/action response is executed.
+The separate Ask DJ page sends text questions without a Session ID and reads
+confirmed replies from Profile history. Its touch buttons send structured
+action payloads supplied by Home Assistant. It does
+not expose local-only history clear, voice/PTT, local TTS or
+local audio playback. Chat clear is a confirmed server-side operation through
+`djconnect/ask_dj/history/clear` or
+`POST /api/djconnect/v1/ask_dj/history/clear`; the Pi keeps existing bubbles
+visible until Home Assistant confirms and then applies the returned revisions
+and messages. It only shows images, rows, buttons and sources returned on the
+current backend message. It never parses visible text, reuses previous artwork,
+stores Music DNA locally, reconstructs prompts or infers playback actions.
+Playback starts only when Home Assistant returns or executes an explicit
+action. Returned Play Now and speaker actions are posted back to
+`/api/djconnect/v1/command` with the backend action payload;
+plain output selection uses the returned `value` with `set_output`. DJ
+announcement output is a Pi-local mode setting, not a speaker entity setting:
+the Pi supports `text_only`, and supports `ha_speaker` only when HA
+capabilities report a configured announcement speaker. With `ha_speaker`, Home
+Assistant plays TTS server-side on its configured media_player and the Pi only
+renders text, delivery metadata, target name and warnings. Legacy/top-level
+`audio_url` fields are ignored for Pi-local playback. Track Insight is
+opened from Now Playing through `/api/djconnect/v1/track_insight`; the request
+includes Pi identity, language/locale, optional mood/Music DNA key and current
+track metadata when available. The Pi renders direct top-level
+`track`/`analysis` responses and wrapped `track_insight.track` /
+`track_insight.analysis` responses through the same view model. It shows
+summary/full text, genre/subgenre, visual and mood context, production,
+instrumentation, arrangement and listening cues, and renders 0..1 analysis
+metrics as percentages. The Track Insight visualizer is derived only from the
+same response: backend `visualisation`, `visualization` or `visualizer` bars and
+colors win, with a visual-only fallback from already-rendered fields when HA
+does not send visualizer data. It does not render BPM, tempo, key, model fields
+or placeholder analysis. `no_track_playing`, `rate_limited` and track changes
+clear previous analysis and visualizer state instead of reusing stale data. Ask
+DJ responses with `intent/action/type/open_screen:"track_insight"` render the
+same normalized `track_insight` object, including Music DNA Match from
+`track_insight.music_dna.match_percent`.
+
+Music DNA on Raspberry Pi is a server-authoritative settings/dashboard surface.
+The Pi uses authenticated `POST /api/djconnect/v1/music_dna/profile`,
+`/settings` and `/clear` calls, or websocket message types
+`djconnect/music_dna/profile`, `djconnect/music_dna/settings` and
+`djconnect/music_dna/clear` when Home Assistant advertises them. Music DNA
+export/import use `/api/djconnect/v1/music_dna/export` and `/import` over HTTP
+only. The Pi never
+calculates Music DNA locally and never stores profile data as a source of
+truth. Disabled profiles render the opt-in state; enabled profiles render
+`profile.summary` and only non-empty optional blocks, with `eligible:false`
+conditional blocks hidden.
+
+Music DNA rendering is profile-isolated. Household, room, guest, kids and party
+profiles show only that shared profile's Music DNA. Personal Music DNA is shown
+only when Home Assistant resolves the Pi to a personal DJConnect Profile or an
+explicit personal profile has been selected through configuration.
+
+Music Discovery (`Ontdek`) is also Home Assistant authoritative and is gated by
+Music DNA consent. Opening Ontdek first checks Music DNA profile state. If
+Music DNA is disabled, the Pi shows the consent/gating UI and does not request
+recommendations. Accepting consent posts `enabled:true` to
+`/api/djconnect/v1/music_dna/settings` and then loads the feed. The discovery feed
+comes from `GET /api/djconnect/v1/music_discovery`, refresh uses
+`POST /api/djconnect/v1/music_discovery/refresh`, and Play Now uses
+`POST /api/djconnect/v1/music_discovery/play`; negative feedback uses
+`POST /api/djconnect/v1/music_discovery/feedback` only when HA advertises
+support. The websocket fast path uses
+`djconnect/music_discovery/feed`, `djconnect/music_discovery/refresh` and
+`djconnect/music_discovery/play`/`feedback` only when advertised.
+Ontdek renders HA-provided sections as horizontal shelves in backend order.
+Tapping a recommendation opens its detail popover with the backend reason,
+quality factors and sources. Play Now and capability-gated feedback are explicit
+actions in the popover. The client uses opaque section and recommendation IDs
+and does not infer recommendations, reasons or scores locally. Play Now websocket/HTTP
+payloads include Pi identity, `section_id` and `discovery_item_id` so HA can
+record the interaction as a Music DNA signal.
+
+The canonical Home Assistant `SYNC_PROMPTS.md` is the source of truth for the
+installed Pi baseline. This owner-selected full-app draft extends that earlier
+readonly baseline with active-Session text under contextual dialogue1/history2;
+canonical consumer-document reconciliation remains a Core follow-up before
+release. The separate history/actions page retains server-side history and
+structured actions, with no local clear action, no
+voice/PTT and no local TTS generation. The authenticated Pi-local
+`/api/device/dj_response` endpoint is text-only: it renders an ambient DJ
+moment and temporarily wakes the display; it does not play audio.
+
+Media browsing commands use explicit bounded limits: `queue` sends
+`{"command":"queue","limit":100}` and `playlists` sends
+`{"command":"playlists","limit":100}`. Home Assistant must continue accepting
+older playlist requests without a limit by defaulting them internally to 50,
+and it should paginate Spotify internally with a Spotify-safe page size of 50
+while returning up to the client-requested playlist limit. Raspberry Pi and
+queue browsing both use a local maximum of 100 items. The touch client shares
+one dispatch gate for both lists. It allows one request per list at a time,
+so a pending queue load does not suppress a playlist load. Completion or a
+worker failure releases that list for a new request. Demo mode supplies local
+rows, while an unpaired client does not dispatch either request.
+
+Queue row playback sends `command:"play_context_at"` and nests the selected
+item fields under `value`. A playable queue item only needs a non-empty Spotify
+`uri`. When a queue context is known, the Pi includes `value.context_uri`; it
+adds `value.offset_uri` only for Spotify playlist, album and show contexts.
+When no context is known, the Pi sends only direct item fields such as `uri`,
+`title`, optional `artist` and optional `index`, so podcast episodes
+(`spotify:episode:*`) and direct tracks (`spotify:track:*`) remain startable.
+
+Command responses for `status`, `queue`, `devices` and `playlists` are treated
+as transport success first. A response with `success:true` and an empty
+`playback` object or `playback.has_playback:false` is valid and means no active
+Spotify playback is available; it must not be surfaced as a backend error.
+Playlist response parsing accepts `playlists`, `items`, `data.playlists`,
+`data.items`, `result.playlists` and `result.items`, up to 100 items, with
+`name`/`title`/`display_title`, `uri`/`id`/`value`/`playlist_uri`,
+`owner`/`owner_name`/`subtitle`/`description` and artwork aliases such as
+`image_url`, `entity_picture` and `thumbnail_url`.
+
+Shared spoken intent examples for website and documentation alignment are kept
+in `examples/voice_intents.json`. They describe the HA/ESP post-STT intent
+contract only; Raspberry Pi keeps `voice:false` and does not implement local
+voice capture. The `current_track` family asks Home Assistant for current
+Spotify playback state and returns a DJ response without starting playback.
+The `playback_control` family maps phrases such as `Stop muziek`, `Start
+muziek`, `Zet harder`, `Zet zachter`, `Volgende nummer` and `Vorig nummer` to
+HA-side backend commands. The Pi client does not need local Spotify
+credentials, local Spotify Web API calls or client-side playback backend logic
+for these examples.
+
+HA responses may include `ha_version` or `ha_major_minor`. The Pi enforces
+major/minor compatibility: client `4.0.z` accepts HA `>=4.0.0-rc.1` and `<4.1.0`.
+When HA reports an incompatible version, the touch UI shows a blocking
+version-mismatch screen and starts `djconnect-updater.service` once in the
+background to try downloading a compatible client release.
+
+The local Client API uses:
+
+- `GET /api/device/info`
+- `GET /api/device/pairing-info`
+- `POST /api/device/pair`
+- `POST /api/device/command`
+- `POST /api/device/dj_response`
+- `POST /api/device/forget`
+- `POST /api/device/restart`
+- `POST /api/device/shutdown`
+- `GET /api/debug/screenshot`
+- `GET /api/debug/screen?screen=<name>` for loopback-only diagnostics
+
+`POST /api/device/restart` and `POST /api/device/shutdown` are Raspberry
+Pi-specific endpoints used by Home Assistant power button entities. They use
+the same bearer-token device auth as the other local `/api/device/*` endpoints
+and also validate `X-DJConnect-Device-ID` when Home Assistant supplies it. The
+HTTP response is returned before the Pi actually restarts or powers off.
+
+The Postman collection in
+`docs/postman/DJConnect Pi Local Client API.postman_collection.json` covers the
+same local API plus diagnostic screenshot testing.
+
+`GET /api/debug/screenshot` requires `Authorization: Bearer <device_token>` once
+the client is paired. It is intended for local support over SSH/LAN and may
+expose the live touchscreen contents, so it should stay authenticated and local.
+
+The Pi advertises `_djconnect._tcp` on the local Client API port only while it
+is not paired. After pairing, the local API remains available for HA commands,
+debug screenshots and pairing reset, but discovery is stopped so HA does not
+keep presenting the device as a new pairing candidate. Home Assistant may send
+an authenticated text-only DJ moment to `POST /api/device/dj_response`; the
+native QML host displays it and temporarily wakes the screen. It never creates
+or plays local audio.
+
+Spotify credentials remain in Home Assistant. Raspberry Pi clients are
+local-only and store only the local Home Assistant URL supplied as
+`ha_local_url`; remote/Nabu Casa runtime URLs are ignored.

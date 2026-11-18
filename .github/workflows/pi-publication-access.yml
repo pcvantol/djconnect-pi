@@ -1,0 +1,50 @@
+name: Verify Pi publication access
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    if: github.repository_id == '1267248532' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5
+        with:
+          persist-credentials: false
+
+      - name: Resolve Pi distribution repository
+        id: distribution
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          repository="$(bash scripts/resolve_pi_release_repo.sh)"
+          printf 'repository=%s\n' "$repository" >> "$GITHUB_OUTPUT"
+
+      - name: Create organization Pi publication token
+        if: steps.distribution.outputs.repository == 'djconnect-music-dj/djconnect-pi-releases'
+        id: publisher
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.DJCONNECT_PI_PUBLISHER_CLIENT_ID }}
+          private-key: ${{ secrets.DJCONNECT_PI_PUBLISHER_PRIVATE_KEY }}
+          owner: djconnect-music-dj
+          repositories: djconnect-pi-releases
+          permission-contents: write
+
+      - name: Check organization installation scope without publishing
+        if: steps.distribution.outputs.repository == 'djconnect-music-dj/djconnect-pi-releases'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.publisher.outputs.token }}
+        run: |
+          test -n "$GH_TOKEN"
+          gh api installation/repositories | jq -e '
+            .total_count == 1 and (.repositories | length) == 1 and
+            .repositories[0].id == 1267500969 and .repositories[0].visibility == "public" and
+            .repositories[0].full_name == "djconnect-music-dj/djconnect-pi-releases"
+          '

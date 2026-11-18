@@ -1,0 +1,11 @@
+{
+  "core_protected_main": "8b221d07fe2215d9516d18fe92c832332c7a16ab",
+  "source_sha256": {
+    "custom_components/djconnect/session_history_projection.py": "773ace9a53a78b11711dc46a4faa24b5d4e4f5f55aa858cd1b56d18f532f1220",
+    "custom_components/djconnect/historical_projection_query.py": "5ece0136910e9fc9d01185aee7b8a0fea49bda213e2a033a38a817ad5ac0bf7a",
+    "custom_components/djconnect/persistence/history.py": "f395db12ed9c27a358adde11cd4b45e8407da20d4a4535cb967b74d295c71314",
+    "docs/product/SESSION_CONVERSATION_HISTORY_CONTRACT.md": "e61b63e8d7e7b0fa5cab704f0755ae7b222ae048c90d85a39bcbbf2e4dc1b4bf"
+  },
+  "rule": "Nonempty Session list requires explicit integer retention_days1..90. ENDED/INTERRUPTED deadline uses ended_at or interrupted_at or created_at plus policy days; OPENING/ACTIVE do not expire via this rule. Zoned timestamps required. Internal Pi field, not a new wire grant.",
+  "proof": "Synthetic consumer responses plus pinned released source; no new producer fixture/export or Core WIP adoption."
+}

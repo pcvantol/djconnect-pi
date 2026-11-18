@@ -1,0 +1,299 @@
+name: Publish Pi Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish, for example 3.1.2"
+        required: true
+        type: string
+      prerelease:
+        description: "Publish as GitHub prerelease"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  software-assurance-governance:
+    name: Software Assurance governance
+    permissions:
+      contents: read
+    uses: djconnect-music-dj/djconnect-shared-workflows/.github/workflows/software-assurance-governance-aabd.yml@2a1c6fd2841b08630aee01402850f56840b50f70
+    with:
+      execution_profile: release
+      owner: ${{ github.repository }}
+
+  publish:
+    needs: software-assurance-governance
+    permissions:
+      contents: read
+      statuses: read
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5
+        with:
+          fetch-depth: 0
+
+      - name: Set release metadata
+        id: meta
+        shell: bash
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            version="${INPUT_VERSION}"
+            prerelease="${INPUT_PRERELEASE}"
+          else
+            version="${GITHUB_REF_NAME#v}"
+            prerelease="false"
+          fi
+          if [[ ! "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$ ]]; then
+            echo "Invalid version: ${version}" >&2
+            exit 64
+          fi
+          if [[ "${version}" == *-* ]]; then
+            prerelease="true"
+          fi
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          echo "tag=v${version}" >> "${GITHUB_OUTPUT}"
+          echo "prerelease=${prerelease}" >> "${GITHUB_OUTPUT}"
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.14.10"
+
+      - name: Verify protected source and release versions
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          candidate_sha="$(git rev-parse HEAD)"
+          git merge-base --is-ancestor "${candidate_sha}" origin/main
+          status_file="${RUNNER_TEMP}/pi-release-source-status.json"
+          gh api "repos/${GITHUB_REPOSITORY}/commits/${candidate_sha}/status" > "${status_file}"
+          python Tools/validate_pi_release_candidate.py \
+            --version "${RELEASE_VERSION}" --candidate-sha "${candidate_sha}" \
+            --status-file "${status_file}"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+
+      - name: Install Qt runtime libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libegl1 \
+            libgl1 \
+            libxkbcommon-x11-0 \
+            libxcb-cursor0 \
+            libxcb-icccm4 \
+            libxcb-image0 \
+            libxcb-keysyms1 \
+            libxcb-randr0 \
+            libxcb-render-util0 \
+            libxcb-shape0 \
+            libxcb-xinerama0 \
+            libxcb-xinput0
+
+      - name: Upgrade Python packaging tools
+        run: python -m pip install --requirement requirements.lock
+
+      - name: Install test dependencies
+        run: python -m pip install --no-deps -e ".[dev]"
+
+      - name: Run tests
+        run: python -m pytest
+
+      - name: Run Postman collection
+        shell: bash
+        run: |
+          npm install --global newman
+          ready_file="$(mktemp)"
+          python tests/postman_mock_server.py --host 127.0.0.1 --port 18080 --token ci-token --ready-file "${ready_file}" &
+          server_pid="$!"
+          trap 'kill "${server_pid}"' EXIT
+          for attempt in {1..20}; do
+            if [[ -s "${ready_file}" ]]; then
+              break
+            fi
+            sleep 0.5
+          done
+          client_api_url="$(cat "${ready_file}")"
+          curl -fsS "${client_api_url}/api/device/info" >/dev/null
+          newman run "docs/postman/DJConnect Pi Local Client API.postman_collection.json" \
+            --env-var "client_api_url=${client_api_url}" \
+            --env-var "device_token=ci-token" \
+            --env-var "device_id=djconnect-raspberry-pi-ABCDEF123456" \
+            --env-var "ha_url=http://homeassistant.local:8123"
+
+      - name: Compile Python
+        run: python -m compileall src tests
+
+      - name: Resolve public release repository
+        id: distribution
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          repository="$(bash scripts/resolve_pi_release_repo.sh)"
+          printf 'repository=%s\n' "$repository" >> "$GITHUB_OUTPUT"
+
+      - name: Build release assets
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ steps.meta.outputs.version }}
+          RELEASE_TAG: ${{ steps.meta.outputs.tag }}
+          RELEASE_PRERELEASE: ${{ steps.meta.outputs.prerelease }}
+          RELEASE_REPOSITORY: ${{ steps.distribution.outputs.repository }}
+        run: |
+          version="${RELEASE_VERSION}"
+          tag="${RELEASE_TAG}"
+          prerelease="${RELEASE_PRERELEASE}"
+          dist="dist/djconnect-pi-${version}"
+          rm -rf "${dist}" "dist/djconnect-pi-${version}.tar.gz" "dist/djconnect-pi-${version}.sha256" "dist/djconnect-pi-${version}-release-manifest.json" "dist/djconnect-pi-pi5-arm64-${version}" "dist/djconnect-pi-pi-zero-2w-arm64-${version}" "dist/djconnect-pi-pi5-arm64-${version}.tar.gz" "dist/djconnect-pi-pi5-arm64-${version}.sha256" "dist/djconnect-pi-pi-zero-2w-arm64-${version}.tar.gz" "dist/djconnect-pi-pi-zero-2w-arm64-${version}.sha256"
+          mkdir -p "${dist}"
+          cp -R LICENSE README.md CHANGELOG.md docs examples systemd requirements.lock "${dist}/"
+          mkdir -p "${dist}/scripts"
+          cp scripts/install.sh scripts/provision_app_python.py "${dist}/scripts/"
+          mkdir -p "${dist}/Tools" "${dist}/wheels"
+          cp -R Tools/local-terminal "${dist}/Tools/"
+          python -m pip wheel --no-deps --wheel-dir "${dist}/wheels" .
+          printf '%s\n' "${version}" > "${dist}/VERSION"
+          env -u DJCONNECT_VERSION bash "${dist}/scripts/install.sh" --help | grep -F "DJCONNECT_VERSION=${version}" >/dev/null
+          git rev-parse HEAD > "${dist}/SOURCE_COMMIT"
+          tar -C dist -czf "dist/djconnect-pi-${version}.tar.gz" "djconnect-pi-${version}"
+          shasum -a 256 "dist/djconnect-pi-${version}.tar.gz" > "dist/djconnect-pi-${version}.sha256"
+          for profile in pi5-arm64 pi-zero-2w-arm64; do
+            profile_dist="dist/djconnect-pi-${profile}-${version}"
+            cp -R "${dist}" "${profile_dist}"
+            printf '%s\n' "${profile}" > "${profile_dist}/RELEASE_PROFILE"
+            tar -C dist -czf "dist/djconnect-pi-${profile}-${version}.tar.gz" "djconnect-pi-${profile}-${version}"
+            shasum -a 256 "dist/djconnect-pi-${profile}-${version}.tar.gz" > "dist/djconnect-pi-${profile}-${version}.sha256"
+          done
+          candidate_sha="$(git rev-parse HEAD)"
+          platform_version="$(cut -d. -f1,2 <<< "${version}")"
+          artifact_sha256="$(awk 'NR == 1 {print $1}' "dist/djconnect-pi-${version}.sha256")"
+          pi5_artifact_sha256="$(awk 'NR == 1 {print $1}' "dist/djconnect-pi-pi5-arm64-${version}.sha256")"
+          zero_artifact_sha256="$(awk 'NR == 1 {print $1}' "dist/djconnect-pi-pi-zero-2w-arm64-${version}.sha256")"
+          cat > "dist/djconnect-pi-${version}-release-manifest.json" <<EOF
+          {
+            "schema_version": 1,
+            "kind": "djconnect_pi_release_artifact",
+            "manifest_id": "pi-${tag}",
+            "candidate_sha": "${candidate_sha}",
+            "platform_version": "${platform_version}",
+            "version": "${version}",
+            "release_tag": "${tag}",
+            "artifact_id": "djconnect-pi-${version}.tar.gz",
+            "artifact_sha256": "${artifact_sha256}",
+            "checksum_sha256": "${artifact_sha256}",
+            "target": "rbpi-djconnect",
+            "artifacts": {
+              "pi5-arm64": {"artifact_id": "djconnect-pi-pi5-arm64-${version}.tar.gz", "artifact_sha256": "${pi5_artifact_sha256}"},
+              "pi-zero-2w-arm64": {"artifact_id": "djconnect-pi-pi-zero-2w-arm64-${version}.tar.gz", "artifact_sha256": "${zero_artifact_sha256}"}
+            }
+          }
+          EOF
+          cat > "dist/djconnect-pi-latest.json" <<EOF
+          {
+            "schema_version": 1,
+            "kind": "djconnect_pi_release_pointer",
+            "version": "${version}",
+            "tag_name": "${tag}",
+            "prerelease": ${prerelease},
+            "bundle": "https://github.com/${RELEASE_REPOSITORY}/releases/download/${tag}/djconnect-pi-${version}.tar.gz",
+            "checksum": "https://github.com/${RELEASE_REPOSITORY}/releases/download/${tag}/djconnect-pi-${version}.sha256",
+            "artifact_manifest": "https://github.com/${RELEASE_REPOSITORY}/releases/download/${tag}/djconnect-pi-${version}-release-manifest.json",
+            "artifacts": {
+              "pi5-arm64": {"bundle": "https://github.com/${RELEASE_REPOSITORY}/releases/download/${tag}/djconnect-pi-pi5-arm64-${version}.tar.gz", "checksum": "https://github.com/${RELEASE_REPOSITORY}/releases/download/${tag}/djconnect-pi-pi5-arm64-${version}.sha256"},
+              "pi-zero-2w-arm64": {"bundle": "https://github.com/${RELEASE_REPOSITORY}/releases/download/${tag}/djconnect-pi-pi-zero-2w-arm64-${version}.tar.gz", "checksum": "https://github.com/${RELEASE_REPOSITORY}/releases/download/${tag}/djconnect-pi-pi-zero-2w-arm64-${version}.sha256"}
+            }
+          }
+          EOF
+          VERSION="${version}" python - <<'PY'
+          import os
+          from pathlib import Path
+
+          version = os.environ["VERSION"]
+          text = Path("CHANGELOG.md").read_text(encoding="utf-8")
+          heading = f"## {version}"
+          start = text.find(heading)
+          if start < 0:
+              raise SystemExit(f"Missing changelog section for {version}")
+          next_start = text.find("\n## ", start + len(heading))
+          section = text[start: next_start if next_start >= 0 else len(text)].strip() + "\n"
+          Path(f"dist/djconnect-pi-{version}-release-notes.md").write_text(
+              section,
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Create organization Pi publication token
+        if: steps.distribution.outputs.repository == 'djconnect-music-dj/djconnect-pi-releases'
+        id: publisher
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.DJCONNECT_PI_PUBLISHER_CLIENT_ID }}
+          private-key: ${{ secrets.DJCONNECT_PI_PUBLISHER_PRIVATE_KEY }}
+          owner: djconnect-music-dj
+          repositories: djconnect-pi-releases
+          permission-contents: write
+
+      - name: Publish to public release repository
+        env:
+          ORGANIZATION_TOKEN: ${{ steps.publisher.outputs.token }}
+          RELEASE_VERSION: ${{ steps.meta.outputs.version }}
+          RELEASE_TAG: ${{ steps.meta.outputs.tag }}
+          RELEASE_PRERELEASE: ${{ steps.meta.outputs.prerelease }}
+          RELEASE_REPOSITORY: ${{ steps.distribution.outputs.repository }}
+        shell: bash
+        run: |
+          case "$RELEASE_REPOSITORY" in
+            djconnect-music-dj/djconnect-pi-releases) export GH_TOKEN="$ORGANIZATION_TOKEN" ;;
+            *) exit 1 ;;
+          esac
+          if [[ -z "$GH_TOKEN" ]]; then
+            echo "Missing publication credential for $RELEASE_REPOSITORY." >&2
+            exit 4
+          fi
+          version="${RELEASE_VERSION}"
+          tag="${RELEASE_TAG}"
+          prerelease="${RELEASE_PRERELEASE}"
+          args=(
+            release create "${tag}"
+            --repo "${RELEASE_REPOSITORY}"
+            --title "DJConnect Pi ${tag}"
+            --notes-file "dist/djconnect-pi-${version}-release-notes.md"
+          )
+          if [[ "${prerelease}" == "true" ]]; then
+            args+=(--prerelease)
+          fi
+          args+=(
+            "dist/djconnect-pi-${version}.tar.gz"
+            "dist/djconnect-pi-${version}.sha256"
+            "dist/djconnect-pi-pi5-arm64-${version}.tar.gz"
+            "dist/djconnect-pi-pi5-arm64-${version}.sha256"
+            "dist/djconnect-pi-pi-zero-2w-arm64-${version}.tar.gz"
+            "dist/djconnect-pi-pi-zero-2w-arm64-${version}.sha256"
+            "dist/djconnect-pi-${version}-release-manifest.json"
+            "dist/djconnect-pi-latest.json"
+          )
+          gh "${args[@]}"
