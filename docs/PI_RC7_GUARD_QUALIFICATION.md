@@ -38,7 +38,7 @@ checked after subprocess capture; no streaming-output memory bound is claimed.
 Ruff0.17.3 --no-cache and diff checks pass. No new full-suite/QML claim is made.
 
 The required persistent all-unit release-commit/final-state contract remains
-open in [the existing producer handoff](https://github.com/pcvantol/djconnect-pi/pull/136#issuecomment-6573838284).
+open in [the existing producer handoff](https://github.com/djconnect-music-dj/djconnect-pi/pull/136#issuecomment-6573838284).
 Original scheduler restoration, complete native/provenance/backup/installer/smoke
 wiring, protected matching-consumer Source/Final and fresh exact operative
 binding remain required. No V4 manifest is synthesized, rc.6 grant reused,
