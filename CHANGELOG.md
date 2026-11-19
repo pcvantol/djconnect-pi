@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 4.1.1
+
+- Skip internal evidence records when selecting beta app updates.
+
 ## 4.1.0
 
 - Align the Pi source and installer version for the 4.1.0 release.

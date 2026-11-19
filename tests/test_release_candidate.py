@@ -15,7 +15,7 @@ candidate = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(candidate)
 SHA = "a" * 40
 VERSION = candidate.literal_assignment(ROOT / "src/djconnect_pi/__init__.py", "__version__")
-STABLE_VERSION = "4.0.2"
+STABLE_VERSION = "4.1.0"
 MAJOR, MINOR, PATCH = VERSION.split("-", 1)[0].split(".")
 NEXT_PATCH = f"{MAJOR}.{MINOR}.{int(PATCH) + 1}"
 
@@ -105,13 +105,13 @@ def test_installer_uses_published_default_and_packaged_version(tmp_path: Path) -
         return subprocess.run(["bash", str(installer), "--help"], env=environment,
                               text=True, capture_output=True, check=False)
     result = help_for()
-    assert result.returncode == 0 and "DJCONNECT_VERSION=4.0.2" in result.stdout
-    (tmp_path / "VERSION").write_text("4.1.0\n")
-    result = help_for()
     assert result.returncode == 0 and "DJCONNECT_VERSION=4.1.0" in result.stdout
+    (tmp_path / "VERSION").write_text("4.1.1\n")
+    result = help_for()
+    assert result.returncode == 0 and "DJCONNECT_VERSION=4.1.1" in result.stdout
     result = help_for({**env, "DJCONNECT_VERSION": "4.0.2"})
     assert result.returncode == 0 and "DJCONNECT_VERSION=4.0.2" in result.stdout
-    (tmp_path / "VERSION").write_text("4.1.0/unsafe\n")
+    (tmp_path / "VERSION").write_text("4.1.1/unsafe\n")
     assert help_for().returncode == 64
     (tmp_path / "VERSION").unlink()
     (tmp_path / "VERSION").symlink_to("missing")
