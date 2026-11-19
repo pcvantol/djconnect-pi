@@ -114,9 +114,10 @@ def test_beta_release_fails_closed_when_only_evidence_exists() -> None:
         def json(self) -> list[dict[str, Any]]:
             return [{"tag_name": "internal-ha-" + "a" * 40, "draft": False, "prerelease": True}]
 
-    with patch("djconnect_pi.updater.requests.get", return_value=Response()):
-        with pytest.raises(RuntimeError, match="No suitable GitHub release"):
-            updater.github_latest_release("owner/repo", include_prerelease=True)
+    with patch("djconnect_pi.updater.requests.get", return_value=Response()), pytest.raises(
+        RuntimeError, match="No suitable GitHub release"
+    ):
+        updater.github_latest_release("owner/repo", include_prerelease=True)
 
 
 def test_beta_release_selects_highest_semver_not_publication_order() -> None:
@@ -161,6 +162,20 @@ def test_semver_prerelease_order_and_invalid_numeric_identifier() -> None:
     assert updater._semver_key("4.1.1-rc.01") is None
 
 
+def test_beta_release_rejects_non_list_api_response() -> None:
+    class Response:
+        def raise_for_status(self) -> None:
+            pass
+
+        def json(self) -> dict[str, str]:
+            return {"message": "unexpected response"}
+
+    with patch("djconnect_pi.updater.requests.get", return_value=Response()), pytest.raises(
+        TypeError, match="Invalid GitHub releases response"
+    ):
+        updater.github_latest_release("owner/repo", include_prerelease=True)
+
+
 def test_beta_release_fails_closed_on_incomplete_inventory() -> None:
     class Response:
         def raise_for_status(self) -> None:
@@ -169,9 +184,10 @@ def test_beta_release_fails_closed_on_incomplete_inventory() -> None:
         def json(self) -> list[dict[str, Any]]:
             return [{"tag_name": "v4.1.0", "prerelease": False}] * 100
 
-    with patch("djconnect_pi.updater.requests.get", return_value=Response()) as get:
-        with pytest.raises(RuntimeError, match="pagination limit"):
-            updater.github_latest_release("owner/repo", include_prerelease=True)
+    with patch("djconnect_pi.updater.requests.get", return_value=Response()) as get, pytest.raises(
+        RuntimeError, match="pagination limit"
+    ):
+        updater.github_latest_release("owner/repo", include_prerelease=True)
     assert get.call_count == 5
 
 
@@ -189,9 +205,10 @@ def test_automatic_update_refuses_unparseable_installed_version(tmp_path: Path) 
     (tmp_path / "current").mkdir()
     (tmp_path / "current" / "VERSION").write_text("invalid\n")
     cfg = updater.UpdaterConfig(repo="owner/repo", channel="beta", release_profile="pi5-arm64", install_root=tmp_path)
-    with patch("djconnect_pi.updater.github_latest_release", return_value=make_release()):
-        with pytest.raises(RuntimeError, match="safely compare"):
-            updater.run(cfg, dry_run=True)
+    with patch("djconnect_pi.updater.github_latest_release", return_value=make_release()), pytest.raises(
+        RuntimeError, match="safely compare"
+    ):
+        updater.run(cfg, dry_run=True)
 
 
 def test_include_prerelease_only_for_beta_channel() -> None:

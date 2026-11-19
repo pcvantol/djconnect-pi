@@ -114,7 +114,7 @@ def github_latest_release(repo: str, include_prerelease: bool) -> dict:
         response.raise_for_status()
         releases = response.json()
         if not isinstance(releases, list):
-            raise RuntimeError("Invalid GitHub releases response")
+            raise TypeError("Invalid GitHub releases response")
         for release in releases:
             if not isinstance(release, dict) or release.get("draft"):
                 continue
