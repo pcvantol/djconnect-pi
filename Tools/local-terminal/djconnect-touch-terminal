@@ -1,0 +1,101 @@
+#!/usr/bin/python3
+"""Standalone local terminal on the Pi user's Wayland seat."""
+
+import sys
+
+import gi
+
+gi.require_version("Gtk", "3.0")
+gi.require_version("Vte", "2.91")
+from gi.repository import GLib, Gtk, Pango, Vte
+
+NORMAL_ROWS = ("1234567890-=", "qwertyuiop[]", "asdfghjkl;'\\", "`zxcvbnm,./")
+SHIFT_ROWS = ("!@#$%^&*()_+", "QWERTYUIOP{}", 'ASDFGHJKL:"|', "~ZXCVBNM<>?")
+SPECIAL_KEYS = (
+    ("Esc", "\x1b"), ("Tab", "\t"), ("←", "\x1b[D"), ("↑", "\x1b[A"),
+    ("↓", "\x1b[B"), ("→", "\x1b[C"), ("⌫", "\x7f"), ("↵", "\r"),
+)
+
+
+def main():
+    window = Gtk.Window(title="DJConnect · pi")
+    window.connect("destroy", Gtk.main_quit)
+    terminal = Vte.Terminal()
+    terminal.set_scrollback_lines(2000)
+    terminal.set_font(Pango.FontDescription("Monospace 13"))
+    terminal.connect("child-exited", lambda *_: window.destroy())
+    terminal_scroll = Gtk.ScrolledWindow()
+    terminal_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+    terminal_scroll.add(terminal)
+
+    controls = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+    keyboard = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+    layout = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+    layout.set_border_width(4)
+    layout.pack_start(controls, False, False, 0)
+    layout.pack_start(terminal_scroll, True, True, 0)
+    layout.pack_start(keyboard, False, False, 0)
+    window.add(layout)
+
+    def button(row, label, clicked, *, expand=True):
+        key = Gtk.Button(label=label)
+        key.set_can_focus(False)
+        key.connect("clicked", clicked)
+        row.pack_start(key, expand, True, 0)
+        return key
+
+    button(controls, "⌨", lambda _: keyboard.set_visible(not keyboard.get_visible()), expand=False)
+    controls.pack_start(Gtk.Label(label="pi"), True, True, 0)
+    button(controls, "✕", lambda _: window.destroy(), expand=False)
+
+    modifier_row = Gtk.Box(spacing=4)
+    shift = Gtk.ToggleButton(label="⇧")
+    control = Gtk.ToggleButton(label="Ctrl")
+    for modifier in (shift, control):
+        modifier.set_can_focus(False)
+        modifier_row.pack_start(modifier, True, True, 0)
+
+    def send(value):
+        if control.get_active() and len(value) == 1 and "@" <= value.upper() <= "_":
+            value = chr(ord(value.upper()) & 31)
+        control.set_active(False)
+        terminal.feed_child(value.encode("utf-8"))
+        terminal.grab_focus()
+
+    button(modifier_row, "␣", lambda _: send(" "))
+    for label, value in SPECIAL_KEYS:
+        button(modifier_row, label, lambda _, value=value: send(value))
+
+    letters = []
+    for normal, upper in zip(NORMAL_ROWS, SHIFT_ROWS, strict=True):
+        row = Gtk.Box(spacing=4, homogeneous=True)
+        for value, shifted in zip(normal, upper, strict=True):
+            key = button(row, value, lambda key: send(key.get_label()))
+            letters.append((key, value, shifted))
+        keyboard.pack_start(row, False, False, 0)
+    keyboard.pack_start(modifier_row, False, False, 0)
+
+    def update_shift(_):
+        for key, normal, upper in letters:
+            key.set_label(upper if shift.get_active() else normal)
+
+    shift.connect("toggled", update_shift)
+
+    def spawned(widget, _pid, error, _data):
+        if widget is not None and error is not None:
+            print(error, file=sys.stderr)
+            window.destroy()
+
+    terminal.spawn_async(
+        Vte.PtyFlags.DEFAULT, GLib.get_home_dir(), ["/bin/bash", "--login"],
+        None, GLib.SpawnFlags.DEFAULT,
+        None, None,  # PyGObject expects a child setup callback and its data.
+        -1, None, spawned, None,
+    )
+    window.show_all()
+    terminal.grab_focus()
+    Gtk.main()
+
+
+if __name__ == "__main__":
+    main()

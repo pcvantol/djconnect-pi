@@ -1,0 +1,301 @@
+# Technical Design Decisions
+
+This document is reverse-engineered from the current codebase. It records the
+code-level design patterns, coding conventions and third-party dependency model
+used by DJConnect Pi. Keep it current for every release that changes code,
+packaging, runtime services or dependencies.
+
+## Scope
+
+DJConnect Pi is a Raspberry Pi OS Lite kiosk client with:
+
+- a PySide6/Python backend and Qt Quick/QML touch UI
+- a separate local HTTP Client API daemon with mDNS discovery
+- a separate GitHub release updater
+- a separate apt maintenance command
+- systemd services/timers for process supervision
+- shell scripts for release installation and repo-only OS bootstrap
+
+The source of truth for the reproducible Python runtime, test and build set is
+`requirements.lock`; `pyproject.toml` declares the matching exact direct
+package metadata for consumers that install the package.
+The source of truth for OS bootstrap packages is
+`scripts/bootstrap_raspberry_pi_os.sh`. The release installer intentionally does
+not install apt packages.
+
+## Python Design Patterns
+
+| Pattern | Where | Why |
+| --- | --- | --- |
+| Backend-for-frontend QObject | `src/djconnect_pi/app.py` | Exposes typed Qt properties, signals and slots to QML while keeping HTTP/config logic in Python. |
+| Signal/slot state propagation | `DJConnectBackend` signals and `_apply_*` methods | Keeps QML declarative: QML observes backend properties and Python emits updates after HA/API work. |
+| Worker-thread offload | `ThreadPoolExecutor` in `app.py` | Prevents HA command/status calls and media-list preparation from blocking the UI thread while using a single worker to limit RAM pressure on Pi Zero 2 W. |
+| In-flight request guard | `loadQueue`, `loadPlaylists` | Prevents repeated touch/navigation taps from flooding Home Assistant or stacking expensive work. |
+| Immediate list emission with bounded background artwork cache | `_load_queue_worker`, `_load_playlists_worker`, `_cache_media_artwork_async` | Shows Queue/Playlist text and play controls as soon as HA returns, while slower artwork downloads happen afterward on a worker for only the first six visible items. |
+| Backend health state | `backendAvailable`, `AuthenticationError`, `BackendUnavailable` | Keeps pairing state separate from live HA/backend reachability, letting the kiosk show red/green status and short toasts without losing pairing. |
+| Bounded log display | `_read_tail_text`, `_format_logs_for_display` | Prevents large persistent log files from freezing the UI when the user opens Logs on a Pi Zero 2 W. |
+| Event-file bridge | `client_api_daemon.py` + `app.py` local event polling | Keeps the API daemon separate from the UI process while still letting HA-triggered commands affect the live UI. |
+| Separate daemon boundary | `djconnect-pi-api`, `djconnect-pi-client`, `djconnect-pi-updater`, `djconnect-pi-maintenance` entrypoints | Avoids port ownership conflicts and keeps UI, API, updater and OS maintenance independently supervised by systemd. |
+| Dataclass config model | `src/djconnect_pi/config.py` | Provides a stable, serializable config shape with defaults and migration/backfill logic. |
+| Atomic config writes | `save_config` | Reduces risk of corrupting pairing/config data on power loss. |
+| Protocol facade | `HAClient` in `src/djconnect_pi/ha.py` | Centralizes Home Assistant URL construction, payload shape, version compatibility and response parsing. |
+| Parser normalization | `playback_from_status`, `parse_queue_items`, `parse_playlist_items` | Accepts HA contract aliases, treats `success:true` with empty playback as valid and exposes one UI-friendly model shape. |
+| Defensive protocol validation | `_compatible_ha_version`, local API auth, body size checks | Fails early on incompatible HA versions, oversized local requests or missing bearer tokens. |
+| Immutable-ish runtime constants | `CLIENT_TYPE`, `PROTOCOL_VERSION` | Keeps protocol identity explicit and testable. |
+| Resource-aware installer/updater | `scripts/install.sh`, `updater.py` | Pi Zero 2 W has limited RAM/IO; installs check disk/swap, use cache-local pip temp directories and mark dependency substeps so interrupted installs can resume. |
+| Test-as-contract | `tests/test_*` | Tests assert protocol payloads, systemd/service contracts, release bundle contents and QML structure. |
+| Shared examples as docs contract | `examples/voice_intents.json` | Keeps website/docs intent examples aligned with HA/ESP post-STT behavior without adding local Pi voice capture. |
+
+### Python Conventions
+
+| Convention | Evidence/source |
+| --- | --- |
+| Python 3.14 runtime baseline | `pyproject.toml` has `requires-python = ">=3.14.9,<3.15"`; modules use `from __future__ import annotations`, `list[...]`, `dict[...]` and typed signatures. |
+| Standard library first, third-party next, local imports last | Visible consistently in `src/djconnect_pi/*.py`. |
+| `pathlib.Path` for filesystem paths | Used across config, updater, installer tests and daemon code. |
+| `logging.getLogger(__name__)` per module | Used in app, HA client, API daemon, updater and system-info modules. |
+| No broad framework dependency injection container | Objects are composed explicitly from config/client classes. |
+| HTTP timeouts are mandatory on external requests | HA client and updater use `requests` with explicit timeouts. |
+| HA/UI performance paths log elapsed milliseconds | `ha.py` and `app.py` use `time.monotonic()` around HTTP calls and UI workers. |
+| User-facing strings go through translation keys | `src/djconnect_pi/i18n.py`; QML calls `djconnect.t(...)`; tests assert translation key parity, placeholder parity and QML key coverage for `en`, `nl`, `de`, `fr` and `es`. |
+| Sensitive runtime state is kept outside release directories | Config/logs live under `/opt/djconnect/config` and `/opt/djconnect/logs`; releases live under `/opt/djconnect/releases/<version>`. |
+| Console entrypoints are declared in package metadata | `pyproject.toml` `[project.scripts]`. |
+| Tests prefer focused contract assertions | `tests/test_installation_contract.py`, `tests/test_qml.py`, `tests/test_client_api.py`. |
+
+No formatter/linter configuration such as Black, Ruff, Flake8 or Mypy is
+currently present in the repo. Style is therefore convention-based and enforced
+mainly by tests plus `compileall`.
+
+## QML / Qt Quick Design Patterns
+
+| Pattern | Where | Why |
+| --- | --- | --- |
+| Declarative shell with Python backend | `src/djconnect_pi/qml/Main.qml` | QML owns rendering and touch interaction; Python owns state, IO and persistence. |
+| Local reusable components | `PurpleButton`, `NavButton`, `MenuIcon`, `IconButton`, `MediaListPanel`, `MediaPlayButton` in `Main.qml`; `GamesPanel.qml` | Keeps the kiosk UI visually consistent without a separate component package. |
+| Full-screen state panels | Now Playing, Ask DJ, Music Discovery, Music DNA, Queue, Playlists, Games, Settings, logs, about and pairing overlays | Prevents background screen tap-through and matches kiosk operation. |
+| Modal touch blockers | `ModalBlocker` | Consumes pointer/wheel events while overlays are visible. |
+| Fixed touch target dimensions | bottom nav, media rows, media play buttons, Bediening controls | Reduces layout shift on a 720x720 4-inch touch display. |
+| Display/control screen split | `nowPanel`, `controlPanel` in `Main.qml` | Keeps Speelt nu readable as a large album-art status screen while Bediening can dedicate the full page to larger touch playback controls. |
+| Shared app background component | `AppBackground` in `Main.qml` | Keeps Speelt nu, Ask DJ, Ontdek, Music DNA, Bediening, Queue, Playlists, Logs, Settings and About visually consistent and avoids one-off screen backgrounds. |
+| Explicit media-list row geometry | `MediaListPanel` delegates place artwork, text and play button with x/y/width expressions | Avoids `RowLayout` and cross-item anchor ordering differences on the Pi runtime that previously misplaced or hid album art, titles and play icons. |
+| Bounded async image rendering | `Image { asynchronous: true; sourceSize... }`, backend artwork cache | Lets QML decode/render artwork without blocking interaction while avoiding full-size artwork retention in memory. Now Playing uses backend-resolved local cache files and Qt image caching; media-list delegates keep extra QML image caching off while background cache preparation is bounded. |
+| Independent blanking and return timers | `recordActivity()`, `restartIdleTimer()`, `restartReturnToNowTimer()`, `idleTimer`, `returnToNowTimer` in `Main.qml` | Keeps screen blanking separate from automatic return to Speelt nu, so users can disable return-to-now while keeping tap-to-wake blanking behavior. |
+| Canvas-drawn touch icons | `MenuIcon`, Bediening playback controls and game canvas | Avoids external icon packs and platform-dependent Unicode glyphs while keeping navigation and controls scalable. Speelt nu does not draw a play/pause overlay over album art. |
+| Kiosk-first navigation | bottom menu bar, Meer overflow and no visible app close button | Device is intended to be wall-mounted and dedicated; primary navigation keeps Speelt nu, Wachtrij, Ask DJ, Track Insight, Ontdek and Meer reachable on the 720x720 display, while Music DNA and secondary screens live behind Meer. |
+
+### QML Conventions
+
+| Convention | Evidence/source |
+| --- | --- |
+| Imports are explicit Qt modules | `import QtQuick`, `QtQuick.Controls`, `QtQuick.Layouts`, `QtQuick.Window`. |
+| Root screen size is 720x720 | `Window { width: 720; height: 720 }`, matching HyperPixel square target. |
+| Colors are literal design tokens in QML | Existing code uses hardcoded DJConnect blue/purple values. No external theme file exists. |
+| Text is localized through backend | QML uses `djconnect.t("...")` for user-facing copy. |
+| Buttons use fixed radii and dimensions | Most button backgrounds use `radius: 8`; media play uses fixed 68x58. |
+| Avoid blocking Python calls from delegates | Queue/playlist rows must not call `cachedImageUrl()`; backend pre-caches artwork before updating the QML model. |
+| Opaque main screens | Logs, Over and Instellingen use fully opaque backgrounds | Prevents underlying Speelt nu controls/content from bleeding through kiosk screens. |
+
+## Shell / Systemd Design Patterns
+
+| Pattern | Where | Why |
+| --- | --- | --- |
+| Strict shell mode | `set -euo pipefail` in shell scripts | Fails fast on missing variables and command errors. |
+| Environment-overridable defaults | `DJCONNECT_*="${DJCONNECT_*:-...}"` | Allows release/install customization without editing scripts. |
+| Idempotent/resumable install markers | `/opt/djconnect/install-state/<version>/*.done` | Allows retry after freeze/reboot during dependency installation. |
+| Atomic release activation | `/opt/djconnect/current -> /opt/djconnect/releases/<version>` | Makes upgrades switch at symlink level after validation. |
+| Separate systemd units | `systemd/*.service`, `systemd/*.timer` | Keeps API, UI, updater, maintenance, nightly reboot and screen schedule isolated. |
+| Narrow sudoers rule | installer writes `djconnect-reboot` | Allows only reboot, poweroff and starting `djconnect-updater.service` from the runtime user. |
+| Workflow concurrency | `.github/workflows/publish-release.yml` | New publish runs cancel older in-progress runs on the same ref so stale release builds do not publish after a newer build. |
+| OS bootstrap excluded from release tarball | release script copies only app install material | Keeps Raspberry Pi OS preparation out of the app release cycle. |
+
+### Shell Conventions
+
+| Convention | Evidence/source |
+| --- | --- |
+| Bash scripts are executable and tested | `tests/test_installation_contract.py` asserts executable bit and shell contract. |
+| Installer does not run `apt-get install` | Tests assert OS bootstrap tasks are absent from `scripts/install.sh`. |
+| Bootstrap owns OS packages | `scripts/bootstrap_raspberry_pi_os.sh` contains apt package list. |
+| Scripts print clear step headings | `log()` helper emits `==>` sections. |
+| Resource output around heavy steps | `print_resources()` prints memory, swap, disk and inode state. |
+
+## HTTP / Protocol Design Decisions
+
+| Decision | Code source | Rationale |
+| --- | --- | --- |
+| Canonical Pi client type is `raspberry_pi` | `CLIENT_TYPE` in `config.py` | HA validates client family; this must not regress to command-only payloads. |
+| Device IDs use `djconnect-raspberry-pi-XXXXXXXXXXXX` | `config.py` | Stable app-like Pi identity, separate from ESP IDs. |
+| Local API is separate from UI | `client_api_daemon.py`, systemd units | Avoids port conflicts and keeps HTTP available if the UI restarts. |
+| mDNS type is `_djconnect._tcp` while unpaired | `client_api.py` | HA autodiscovery should help pair new clients, but already paired Pi clients should not keep appearing as pairing candidates. |
+| `GET /api/debug/screenshot` is authenticated after pairing except loopback | `client_api.py` | Screenshot may expose live screen content; LAN callers need the bearer token, while SSH diagnostics can use `127.0.0.1` without reading the token file. |
+| `GET /api/debug/screen` is loopback-only | `client_api.py`, `app.py`, `Main.qml` | Allows post-deploy screenshot automation without exposing screen-control routes on the LAN. |
+| Pi power endpoints are explicit and Pi-only | `POST /api/device/restart`, `POST /api/device/shutdown` in `client_api.py` | HA can expose Raspberry Pi restart/shutdown buttons without introducing ESP-only `/api/device/reboot` or OTA behavior. |
+| Text DJ responses are toast-only | `app.py`, `client_api_daemon.py` | Product decision: no local Pi audio/DJ response playback. |
+| HA version compatibility is major/minor bounded | `ha.py` | Client `3.2.z` accepts HA `>=3.2.0` and `<3.3.0`. |
+| Queue row playback uses `play_context_at` | `media_item_payload`, `MediaListPanel`, `web_portal.py` | Matches the Apple/HACS contract, starts rows from direct Spotify `uri` values and treats queue context as optional. |
+| Output-device selector uses status plus devices fallback | `app.py`, `ha.py` | Bediening must let users switch HA-provided playback devices even when the status response omits the device list. |
+| Output-device changes are optimistic but validated | `_set_output_worker` | The UI feels responsive, but if HA rejects or normalizes the selected output device the client rolls back and logs the rejection. |
+| Ask DJ and Track Insight stay server-side | `pollAskDjHistory`, `sendAskDjAction`, `clearAskDjHistory`, `openTrackInsight`, `HAClient.ask_dj_history`, `HAClient.ask_dj_history_clear`, `HAClient.track_insight`, `askDjPanel`, `trackInsightPanel` | The Pi renders Home Assistant Ask DJ history/status, sends only backend action payloads back through `/api/djconnect/v1/command` and exposes no free prompt input or local-only history clear; confirmed chat clear uses the HA history clear route and local bubbles are removed only after backend success. It does not parse visible text, reuse previous artwork, store Music DNA locally, reconstruct prompts, infer playback or create local TTS/audio bubbles. Track Insight uses `/api/djconnect/v1/track_insight` or Ask DJ responses with `intent/action/type/open_screen:"track_insight"`, renders normalized direct/wrapped `track` and `analysis` data plus visualizer data from the same response, clears stale data on track changes/no-track/rate-limit states, filters BPM/key/model fields and only exposes playback controls when explicit `playback_actions[]` are present. |
+| Music DNA and Ontdek stay server-side | `loadMusicDna`, `setMusicDnaEnabled`, `clearMusicDna`, `loadMusicDiscovery`, `refreshMusicDiscovery`, `playMusicDiscoveryItem`, `setMoodValue`, `HAClient.music_dna_*`, `HAClient.music_discovery_*` | Home Assistant is the source of truth for Music DNA and Music Discovery. The Pi renders profile/feed responses, gates Ontdek behind Music DNA consent, hides missing or ineligible blocks, preserves backend `sections[].items[]` order, treats section IDs as opaque values, shows backend reason text in a full-screen Waarom details view and sends Play Now selections back through `/api/djconnect/v1/music_discovery/play` with `section_id` and `discovery_item_id`; it never calculates recommendations, reconstructs items from recent listening history, invents reasons or stores Music DNA locally. The local mood selector only stores a 0..100 context value and forwards it to HA. |
+| Web portal shares the local API daemon | `client_api.py`, `web_portal.py` | Keeps browser diagnostics and controls on the same always-on Client adres used for pairing, avoiding another supervised process. |
+| Portal stays on the Client API port by default | `Config.local_api_port` | Binding to port 80 would require root or Linux capabilities; the safer default is the existing local API port with an optional future reverse proxy if needed. |
+| Portal diagnostics normalize component health | `client_api_daemon.py` | Converts systemd service/timer states to running/stopped/failed/unknown so the browser UI can show DJConnect component health consistently. |
+| HTTP 401 is an authentication state | `AuthenticationError` in `ha.py`, `_run` in `app.py` | Prevents raw HA JSON from being shown on the kiosk and surfaces backend health with a concise translated toast/status. |
+| Backend unavailable is not a UI crash state | `BackendUnavailable` in `ha.py`, `_run` in `app.py` | Spotify/HA backend downtime is surfaced as a short status/toast while the UI remains interactive. |
+
+## Dependency Inventory
+
+### Python Runtime Dependencies
+
+Versions below are the exact Python 3.14 pins in `requirements.lock`.
+Transitive dependencies are listed because the release installer installs the
+same canonical lock before the application wheel.
+
+| Package | Constraint / observed version | Used by | License model | Source URL |
+| --- | --- | --- | --- | --- |
+| Python | `>=3.14.9,<3.15`; Python 3.14 migration candidate | all Python entrypoints | Python Software Foundation License | https://www.python.org/ |
+| PySide6 | `6.12.0` | Qt Quick/QML UI bridge | LGPL-3.0-only/GPL-3.0-only/commercial Qt licensing | https://pypi.org/project/PySide6/ |
+| PySide6_Addons | `6.12.0` | PySide6 runtime | LGPL-3.0-only/GPL-3.0-only/commercial Qt licensing | https://pypi.org/project/PySide6-Addons/ |
+| PySide6_Essentials | `6.12.0` | PySide6 runtime | LGPL-3.0-only/GPL-3.0-only/commercial Qt licensing | https://pypi.org/project/PySide6-Essentials/ |
+| PySide6_Pdf | `6.12.0.140` | PySide6 PDF runtime dependency | LGPL-3.0-only/GPL-2.0-only/GPL-3.0-only | https://pypi.org/project/PySide6-Pdf/ |
+| PySide6_WebEngine | `6.12.0.140` | PySide6 WebEngine runtime dependency | LGPL-3.0-only/GPL-2.0-only/GPL-3.0-only | https://pypi.org/project/PySide6-WebEngine/ |
+| shiboken6 | `6.12.0` | PySide6 binding generator/runtime | LGPL-3.0-only/GPL-3.0-only/commercial Qt licensing | https://pypi.org/project/shiboken6/ |
+| requests | `2.34.2` | HA HTTP, updater GitHub HTTP, album-art cache | Apache-2.0 | https://pypi.org/project/requests/ |
+| certifi | `2026.10.23` | TLS CA bundle for requests | MPL-2.0 | https://pypi.org/project/certifi/ |
+| charset-normalizer | `3.5.2` | requests text decoding | MIT | https://pypi.org/project/charset-normalizer/ |
+| idna | `3.20` | requests IDNA support | BSD-3-Clause | https://pypi.org/project/idna/ |
+| urllib3 | `2.8.0` | requests HTTP transport | MIT | https://pypi.org/project/urllib3/ |
+| websocket-client | `1.9.2` | Optional Home Assistant native `/api/websocket` fast path | Apache-2.0 | https://pypi.org/project/websocket-client/ |
+| zeroconf | `0.154.0` | `_djconnect._tcp` mDNS advertisement | LGPL-2.1-or-later | https://pypi.org/project/zeroconf/ |
+| ifaddr | `0.2.0` | zeroconf network interface discovery | MIT | https://pypi.org/project/ifaddr/ |
+
+### Python Build/Test Dependencies
+
+| Package/tool | Constraint / version source | Used by | License model | Source URL |
+| --- | --- | --- | --- | --- |
+| setuptools | `84.2.1` in build isolation and the app lock | PEP 517 build backend | MIT | https://pypi.org/project/setuptools/ |
+| pip | `26.3` | wheel/install operations | MIT | https://pypi.org/project/pip/ |
+| pytest | `9.2.0` | test suite | MIT | https://pypi.org/project/pytest/ |
+| pluggy | `1.7.0` in the app lock | pytest plugin system | MIT | https://pypi.org/project/pluggy/ |
+| coverage | `7.17.2` | branch coverage | Apache-2.0 | https://pypi.org/project/coverage/ |
+| wheel | `0.48.0` | wheel tooling | MIT | https://pypi.org/project/wheel/ |
+
+### Python Standard Library Modules
+
+These are not third-party dependencies and follow the Python license:
+
+`argparse`, `concurrent.futures`, `dataclasses`, `hashlib`, `http`,
+`http.server`, `importlib.resources`, `json`, `locale`, `logging`,
+`logging.handlers`, `os`, `pathlib`, `platform`, `re`, `secrets`, `shutil`,
+`signal`, `socket`, `stat`, `subprocess`, `sys`, `tarfile`, `tempfile`,
+`threading`, `time`, `typing`, `unittest.mock`, `urllib.parse`, `uuid`.
+
+### QML / Qt Modules
+
+Qt module versions are supplied by the installed PySide6/Qt runtime. The 3.1.42
+Pi install observed PySide6 `6.11.1`.
+
+| Module | Version source | Used by | License model | Source URL |
+| --- | --- | --- | --- | --- |
+| Qt Quick | PySide6/Qt runtime | QML scene, animations, Canvas, Image, handlers | Qt LGPL/GPL/commercial | https://doc.qt.io/qt-6/qtquick-index.html |
+| Qt Quick Controls | PySide6/Qt runtime | Button, ComboBox, Slider, SpinBox, ScrollView | Qt LGPL/GPL/commercial | https://doc.qt.io/qt-6/qtquickcontrols-index.html |
+| Qt Quick Layouts | PySide6/Qt runtime | RowLayout, ColumnLayout sizing | Qt LGPL/GPL/commercial | https://doc.qt.io/qt-6/qtquicklayouts-index.html |
+| Qt Quick Window | PySide6/Qt runtime | Fullscreen/windowed application shell | Qt LGPL/GPL/commercial | https://doc.qt.io/qt-6/qml-qtquick-window-window.html |
+
+### OS / Apt Dependencies
+
+The bootstrap installs these packages from the Raspberry Pi OS/Debian
+repositories. Versions are intentionally not pinned in this repo; the installed
+version depends on the Raspberry Pi OS Lite 64-bit image and apt repository
+state. License metadata is maintained by Debian/Raspberry Pi packages in
+`/usr/share/doc/<package>/copyright` on the device.
+
+| Package | Version model | Used by | License/source reference |
+| --- | --- | --- | --- |
+| `ca-certificates` | OS repository managed | TLS trust store for curl/Python | https://packages.debian.org/trixie/ca-certificates |
+| `curl` | OS repository managed | release downloads, GitHub reachability checks | https://packages.debian.org/trixie/curl |
+| `git` | OS repository managed | repo checkout/bootstrap workflow | https://packages.debian.org/trixie/git |
+| `jq` | OS repository managed | shell JSON utility for operators | https://packages.debian.org/trixie/jq |
+| `libegl1` | OS repository managed | Qt/OpenGL runtime | https://packages.debian.org/trixie/libegl1 |
+| `libgl1` | OS repository managed | Qt/OpenGL runtime | https://packages.debian.org/trixie/libgl1 |
+| `libxkbcommon-x11-0` | OS repository managed | Qt X11 keyboard/input runtime | https://packages.debian.org/trixie/libxkbcommon-x11-0 |
+| `libxcb-cursor0` | OS repository managed | Qt xcb platform plugin runtime | https://packages.debian.org/trixie/libxcb-cursor0 |
+| `libxcb-icccm4` | OS repository managed | Qt xcb platform plugin runtime | https://packages.debian.org/trixie/libxcb-icccm4 |
+| `libxcb-image0` | OS repository managed | Qt xcb platform plugin runtime | https://packages.debian.org/trixie/libxcb-image0 |
+| `libxcb-keysyms1` | OS repository managed | Qt xcb platform plugin runtime | https://packages.debian.org/trixie/libxcb-keysyms1 |
+| `libxcb-randr0` | OS repository managed | Qt xcb platform plugin runtime | https://packages.debian.org/trixie/libxcb-randr0 |
+| `libxcb-render-util0` | OS repository managed | Qt xcb platform plugin runtime | https://packages.debian.org/trixie/libxcb-render-util0 |
+| `libxcb-shape0` | OS repository managed | Qt xcb platform plugin runtime | https://packages.debian.org/trixie/libxcb-shape0 |
+| `libxcb-xinerama0` | OS repository managed | Qt xcb platform plugin runtime | https://packages.debian.org/trixie/libxcb-xinerama0 |
+| `libxcb-xinput0` | OS repository managed | Qt xcb touch/input runtime | https://packages.debian.org/trixie/libxcb-xinput0 |
+| `locales` | OS repository managed | `en_GB.UTF-8`, `nl_NL.UTF-8`, `de_DE.UTF-8`, `fr_FR.UTF-8`, `es_ES.UTF-8` locale generation | https://packages.debian.org/trixie/locales |
+| `python3-pip` | OS repository managed | bootstrap/venv package tooling | https://packages.debian.org/trixie/python3-pip |
+| `python3-venv` | OS repository managed | release virtualenv creation | https://packages.debian.org/trixie/python3-venv |
+| `ssh` | OS repository managed | remote maintenance and deploy access | https://packages.debian.org/trixie/ssh |
+| `unzip` | OS repository managed | operator utility | https://packages.debian.org/trixie/unzip |
+| `x11vnc` | OS repository managed, optional bootstrap step | localhost-only SSH-tunneled VNC access to the X11 kiosk display | https://packages.debian.org/trixie/x11vnc |
+| `x11-xserver-utils` | OS repository managed | X11 utilities | https://packages.debian.org/trixie/x11-xserver-utils |
+| `xinit` | OS repository managed | systemd-started X11 kiosk session | https://packages.debian.org/trixie/xinit |
+| `xserver-xorg` | OS repository managed | X server for Qt kiosk UI | https://packages.debian.org/trixie/xserver-xorg |
+| `xserver-xorg-video-fbdev` | OS repository managed | framebuffer Xorg video driver fallback | https://packages.debian.org/trixie/xserver-xorg-video-fbdev |
+| `xserver-xorg-input-libinput` | OS repository managed | touch input driver | https://packages.debian.org/trixie/xserver-xorg-input-libinput |
+| `rpi-connect` | Raspberry Pi OS repository managed, optional | optional remote access bootstrap | https://www.raspberrypi.com/software/connect/ |
+| `raspi-config` | Raspberry Pi OS image tool, not installed by this repo | rootfs expansion, SSH, boot behavior, I2C/SPI toggles | https://github.com/RPi-Distro/raspi-config |
+| `systemd` | Raspberry Pi OS base system | service/timer supervision | https://systemd.io/ |
+
+### External Services / Distribution Dependencies
+
+| Service | Used by | Version model | Source URL |
+| --- | --- | --- | --- |
+| GitHub Releases | private source release and public Pi distribution release | SaaS API; not pinned | https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases |
+| GitHub Actions | publish tagged source releases to public release repo | SaaS runner; workflow-defined | https://docs.github.com/en/actions |
+| Home Assistant DJConnect integration | pairing, status and playback command contract | compatible `3.3.x` integration expected | https://www.home-assistant.io/ |
+| Raspberry Pi OS Lite 64-bit | target operating system | image/repository state controlled outside repo | https://www.raspberrypi.com/software/operating-systems/ |
+
+## Release Maintenance Rule
+
+For every future DJConnect Pi release:
+
+- update this document if code structure, patterns, service boundaries,
+  dependencies, dependency versions, OS package requirements, packaging or
+  release flow changes
+- refresh and review third-party Python package constraints, packaging tools
+  (`pip`, `setuptools`, `wheel`), GitHub Actions tool versions, Node/Newman
+  tooling and Raspberry Pi OS/bootstrap package lists before cutting the
+  release
+- update `README.md`, `CHANGELOG.md`, `HANDOFF.md`, `TESTS.md`, `TODO.md`,
+  `ISSUES.md`, `CHAT_BOOTSTRAP.md` and relevant `docs/` files
+- extend tests when a design decision becomes a regression risk
+- keep changelog entries per release; do not consolidate historical versions
+- clean stale files from `screenshots/`, then regenerate the representative
+  720x720 screen set after release deploy or UI validation so screenshots do
+  not mix old and new app versions
+
+
+## 4.0.0-rc.4 preparation review
+
+This candidate packages protected shared-settings/Brand V2 source from Pi main
+`2d6f8b69cfe6e76ac1dca4eb5c5ac0ccd5201f80`. The source review and exact-main
+qualification do not qualify a published or installed rc.4 artifact.
+
+The exact Python/runtime and packaging lock was reviewed again. Protected
+zeroconf0.151.5 and GitHub Actions updates are retained. PySide6/Qt remains6.11.2;
+the6.12.0 dependency proposal in PR106 stays a separate owning change. No automatic
+runtime, OS package or tool upgrade is introduced into this release preparation.
+The installer still performs no apt maintenance. Node/Newman publication tooling
+and OS bootstrap packages were inventoried without running publication or OS work.
+
+The live Pi5 ARM64 reference at the existing `djconnect-pi10` SSH alias reports
+`rbpi5-djconnect`, release4.0.0-rc.2/pi5-arm64, native UI/API active and browser kiosk
+inactive. Its existing Python3.13.5/Qt6.11.1 runtime is not the candidate lock.
+Qualification must use a separate environment and preserve the current release,
+services, config, pairing and display. A source/version match alone is insufficient.
+The current canonical operational manifest binds rc.1 to the Pi Zero target only;
+it does not authorize rc.4 or Pi5 deployment. A new exact artifact/target binding
+is required before any operational installation.
+
+The Qt6.12 dependency update now follows Peter's explicit Python3.14 migration decision. Its
+separate Pdf/WebEngine wheels are upstream PySide6 dependencies; this does not
+introduce a WebView into the Pi app or enable a new feature. Official PyPI
+ARM64 wheels for both the preceding6.11.2 and6.12.0 use manylinux_2_39. The rc.7 bootstrap guide now names the Trixie/glibc>=2.39 baseline; this
+does not authorize an OS upgrade on an existing device. Compatibility qualification uses isolated Debian13 ARM64 with glibc2.41;
+physical Pi installation and GPU acceptance remain separate.

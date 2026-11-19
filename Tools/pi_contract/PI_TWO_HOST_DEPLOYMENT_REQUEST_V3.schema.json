@@ -1,0 +1,74 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "action": {
+      "const": "deployment"
+    },
+    "candidate_sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}(?![\\s\\S])",
+      "minLength": 40,
+      "maxLength": 40
+    },
+    "execution_mode": {
+      "const": "execute"
+    },
+    "manifest_id": {
+      "type": "string",
+      "pattern": "^release-[A-Za-z0-9._-]+(?![\\s\\S])"
+    },
+    "artifact_id": {
+      "enum": [
+        "release-asset:pcvantol/djconnect-pi-releases:v4.0.0-rc.6:djconnect-pi-pi-zero-2w-arm64-4.0.0-rc.6.tar.gz",
+        "release-asset:pcvantol/djconnect-pi-releases:v4.0.0-rc.6:djconnect-pi-pi5-arm64-4.0.0-rc.6.tar.gz"
+      ]
+    },
+    "artifact_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+      "minLength": 64,
+      "maxLength": 64
+    },
+    "target": {
+      "const": "rbpi-djconnect"
+    },
+    "platform_version": {
+      "const": "4.0"
+    },
+    "release_profile": {
+      "const": "INTERNAL_RELEASE"
+    },
+    "deployment_instance": {
+      "enum": [
+        "wall-4inch",
+        "wall-10inch"
+      ]
+    },
+    "device_profile": {
+      "enum": [
+        "pi-zero-2w-arm64",
+        "pi5-arm64"
+      ]
+    },
+    "inventory_sha256": {
+      "const": "530220ee38f6ccbcc824a78331b9dd89f236a5fa6ede12ebf7899dac83ff50c0"
+    }
+  },
+  "required": [
+    "action",
+    "candidate_sha",
+    "execution_mode",
+    "manifest_id",
+    "artifact_id",
+    "artifact_sha256",
+    "target",
+    "platform_version",
+    "release_profile",
+    "deployment_instance",
+    "device_profile",
+    "inventory_sha256"
+  ],
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Bounded Pi rc.6 two-instance deployment request; manifest/inventory cross-join is mandatory"
+}

@@ -1,0 +1,3599 @@
+from __future__ import annotations
+
+import json
+import os
+import subprocess
+import sys
+import time
+from pathlib import Path
+from types import ModuleType
+from unittest.mock import Mock, patch
+
+import pytest
+from PySide6.QtCore import QCoreApplication
+from shiboken6 import delete, isValid
+
+from djconnect_pi.app import (
+    DJConnectBackend,
+    SaveCurrentTrackError,
+    _ask_dj_actions,
+    _ask_dj_display_time,
+    _format_duration,
+    _format_logs_for_display,
+    _read_tail_text,
+    _track_insight_analysis,
+    cached_image_url,
+    media_item_payload,
+    parse_ask_dj_messages,
+    parse_music_discovery_feed,
+    parse_music_dna_profile,
+    parse_playlist_items,
+    parse_queue_items,
+    prepare_media_artwork,
+)
+from djconnect_pi.config import Config, load_config, save_config
+from djconnect_pi.ha import (
+    AuthenticationError,
+    BackendUnavailable,
+    DJConnectError,
+    HAClient,
+    Playback,
+    ProfileContextError,
+    ProtocolVersionMismatch,
+    StaleBackendAction,
+    UnsupportedBackendCapability,
+)
+
+
+@pytest.fixture(autouse=True)
+def close_backend_fixtures(monkeypatch):
+    """Each test owns and closes its native timers and actual worker pools."""
+    created = []
+    original = DJConnectBackend.__init__
+    def tracked(backend, *args, **kwargs):
+        original(backend, *args, **kwargs)
+        created.append((backend, backend._executor, backend._session_executor, backend._question_executor))
+    monkeypatch.setattr(DJConnectBackend, "__init__", tracked)
+    yield
+    for backend, general, session, question in reversed(created):
+        if isValid(backend):
+            # Tests may replace submit-only executors; close their actual pools.
+            backend._executor, backend._session_executor, backend._question_executor = general, session, question
+            backend.shutdown()
+            for pool in (general, session, question):
+                pool.shutdown(wait=True, cancel_futures=True)
+            delete(backend)
+
+
+def ensure_app() -> QCoreApplication:
+    return QCoreApplication.instance() or QCoreApplication([])
+
+
+def test_backend_exposes_initial_config(tmp_path: Path) -> None:
+    ensure_app()
+    with patch("djconnect_pi.config.locale.getlocale", return_value=("nl_NL", "UTF-8")):
+        backend = DJConnectBackend(tmp_path / "config.json")
+
+    assert backend.deviceId.startswith("djconnect-raspberry-pi-")
+    assert backend.paired is False
+    assert backend.busy is False
+    assert backend.title == "Niets speelt af"
+    assert backend.connectionType == "Niet verbonden"
+
+
+def test_audio_device_observer_reports_input_and_output_independently(tmp_path):
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    changed = Mock()
+    backend.localAudioDevicesChanged.connect(changed)
+    assert not backend.localMicrophoneAvailable and not backend.localAudioOutputAvailable
+    devices = Mock()
+    devices.audioInputs.return_value = []
+    devices.audioOutputs.return_value = [object()]
+    # Supply the optional import without loading native multimedia libraries.
+    multimedia = ModuleType("PySide6.QtMultimedia")
+    multimedia.QMediaDevices = Mock(return_value=devices)
+    with patch.dict(sys.modules, {multimedia.__name__: multimedia}):
+        backend.observeLocalAudioDevices()
+    multimedia.QMediaDevices.assert_called_once_with(backend)
+    assert not backend.localMicrophoneAvailable and backend.localAudioOutputAvailable
+    devices.audioInputs.return_value = [object()]
+    devices.audioOutputs.return_value = []
+    devices.audioOutputsChanged.connect.call_args.args[0]()
+    assert backend.localMicrophoneAvailable and not backend.localAudioOutputAvailable
+    assert changed.call_count == 2
+
+
+def test_audio_device_observer_handles_missing_multimedia(tmp_path):
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    changed = Mock()
+    backend.localAudioDevicesChanged.connect(changed)
+
+    with patch.dict(sys.modules, {"PySide6.QtMultimedia": None}):
+        backend.observeLocalAudioDevices()
+
+    assert not backend.localMicrophoneAvailable
+    assert not backend.localAudioOutputAvailable
+    changed.assert_called_once_with()
+
+
+@pytest.mark.parametrize("patch_state,available", [
+    ({}, True),
+    ({"speaker_available": False}, False),
+    ({"voice_available": False}, False),
+    ({"speaker_available": "true"}, False),
+    ({"selection_required": True}, False),
+    ({"available": False}, False),
+    ({"values": {"announcement_output": "text_only"}}, False),
+    ({"values": {"announcement_output": "client_device"}}, False),
+    ({"values": {"announcement_output": "both"}}, True),
+])
+def test_session_voice_needs_confirmed_ha_speaker_route(tmp_path, patch_state, available):
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    assert not backend.sessionVoiceAvailable
+    backend._shared_settings_state = {
+        "available": True,
+        "voice_available": True,
+        "speaker_available": True,
+        "values": {"announcement_output": "ha_speaker"},
+        **patch_state,
+    }
+    assert backend.sessionVoiceAvailable is available
+
+
+def test_backend_persists_touch_mood_selector(tmp_path: Path) -> None:
+    ensure_app()
+    config_path = tmp_path / "config.json"
+    backend = DJConnectBackend(config_path)
+
+    backend.setMoodValue(65)
+
+    assert backend.moodValue == 65
+    assert backend.cfg.mood == 65
+    assert backend.client.cfg.mood == 65
+    assert load_config(config_path).mood == 65
+
+
+def test_backend_clamps_touch_mood_selector(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+
+    backend.setMoodValue(400)
+
+    assert backend.moodValue == 100
+
+
+def test_backend_connection_type_reports_websocket_fast_path(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token"
+    backend.client.diagnostics = Mock(return_value={"fastPathTransport": "websocket", "websocketConnected": True})  # type: ignore[method-assign]
+
+    assert backend.connectionType == "Local WebSocket fast path"
+
+
+def test_music_discovery_disabled_backend_reason_shows_empty_state(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token"
+    backend.client.music_discovery_feed = Mock(return_value={"success": True, "enabled": False, "reason": "music_dna_disabled"})  # type: ignore[method-assign]
+
+    backend._music_discovery_feed_worker()
+
+    backend.client.music_discovery_feed.assert_called_once()
+    assert backend.musicDiscoveryItems == []
+    assert backend.musicDiscoveryEmptyText == "music_dna_disabled"
+
+
+def test_music_discovery_accept_enables_music_dna_and_loads_feed(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token"
+    backend.client.music_dna_settings = Mock(return_value={"success": True, "enabled": True, "profile": {"summary": "Ready"}})  # type: ignore[method-assign]
+    backend.client.music_discovery_feed = Mock(return_value={"success": True, "sections": [{"id": "new_for_you", "items": [{"id": "t1", "kind": "track", "title": "Track"}]}]})  # type: ignore[method-assign]
+
+    backend._music_discovery_accept_worker()
+
+    backend.client.music_dna_settings.assert_called_once_with(enabled=True)
+    backend.client.music_discovery_feed.assert_called_once()
+    assert backend.musicDnaEnabled is True
+    assert backend.musicDiscoveryItems[0]["title"] == "Track"
+
+
+def test_music_discovery_reject_shows_gating_state(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+
+    backend.rejectMusicDiscoveryConsent()
+
+    assert backend.musicDiscoveryConsentRejected is True
+    assert backend.musicDiscoveryEmptyText
+
+
+def test_profile_switch_clears_profile_scoped_caches(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend._apply_ask_dj_data({"profile_id": "profile-household", "resolved_profile": {"id": "profile-household", "name": "Household", "type": "household", "privacy_mode": "shared"}, "history_revision": 4, "messages": [{"id": "h1", "role": "assistant", "text": "Shared"}]})
+    backend._apply_music_dna_data({"profile_id": "profile-household", "resolved_profile": {"id": "profile-household", "type": "household", "privacy_mode": "shared"}, "enabled": True, "profile": {"summary": "Shared DNA"}})
+    backend._apply_music_discovery_data({"profile_id": "profile-household", "resolved_profile": {"id": "profile-household", "type": "household", "privacy_mode": "shared"}, "sections": [{"id": "shared", "items": [{"id": "s1", "kind": "track", "title": "Shared track", "uri": "spotify:track:s1"}]}]})
+
+    backend._apply_ask_dj_data({"profile_id": "profile-guest", "resolved_profile": {"id": "profile-guest", "name": "Guest", "type": "guest", "privacy_mode": "guest-safe"}, "history_revision": 1, "messages": [{"id": "g1", "role": "assistant", "text": "Guest safe"}]})
+
+    assert backend.activeProfileId == "profile-guest"
+    assert backend.activeProfileType == "guest"
+    assert backend.askDjMessages[0]["text"] == "Guest safe"
+    assert all(message["text"] != "Shared" for message in backend.askDjMessages)
+    assert backend.musicDnaSummary == ""
+    assert backend.musicDiscoveryItems == []
+    assert backend._ask_dj_history_revision == 1
+
+
+def test_personal_profile_is_explicit_state_not_default(tmp_path: Path) -> None:
+    ensure_app()
+    config_path = tmp_path / "config.json"
+    backend = DJConnectBackend(config_path)
+
+    assert backend.personalProfileActive is False
+    backend._apply_music_dna_data({"profile_id": "profile-peter", "resolved_profile": {"id": "profile-peter", "name": "Peter", "type": "personal", "privacy_mode": "normal"}, "enabled": True, "profile": {"summary": "Personal DNA"}})
+
+    assert backend.personalProfileActive is True
+    assert backend.activeProfileName == "Peter"
+    assert backend.musicDnaSummary == "Personal DNA"
+    assert load_config(config_path).active_profile_id == "profile-peter"
+
+
+def test_music_discovery_play_ignores_items_without_backend_id(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token-1"
+    backend.client.music_discovery_play = Mock()  # type: ignore[method-assign]
+
+    backend.playMusicDiscoveryItem(json.dumps({"section_id": "daily"}))
+
+    backend.client.music_discovery_play.assert_not_called()
+
+
+@pytest.mark.parametrize("accepted", [True, False])
+def test_discovery_play_closes_only_on_acknowledged_playback(tmp_path: Path, accepted: bool) -> None:
+    ensure_app()
+    config_path = tmp_path / "config.json"
+    save_config(config_path, Config(paired=True, device_token="fixture", ha_url="http://fixture.invalid"))
+    backend = DJConnectBackend(config_path)
+    backend.client.music_discovery_play = Mock(return_value={"success": accepted})
+    backend.client.music_discovery_feed = Mock(side_effect=BackendUnavailable("fixture read error"))
+    backend._executor.submit = Mock()
+    completions = []
+    backend.musicDiscoveryPlayed.connect(lambda section, item: completions.append((section, item)))
+    payload = json.dumps({"section_id": "rediscover", "discovery_item_id": "recommendation"})
+
+    backend.playMusicDiscoveryItem(payload)
+    backend.playMusicDiscoveryItem(payload)
+    backend._executor.submit.assert_called_once()
+    backend._executor.submit.call_args.args[0]()
+
+    assert completions == ([("rediscover", "recommendation")] if accepted else [])
+    assert backend.musicDiscoveryPlayingId == ""
+    assert backend.client.music_discovery_feed.call_count == int(accepted)
+
+
+def test_log_display_uses_compact_touch_prefix() -> None:
+    text = _format_logs_for_display(
+        "2026-06-13 17:53:49,528 INFO djconnect_pi.app: Started\n"
+        "2026-06-13 17:53:50,100 WARNING djconnect_pi.ha: Slow\n"
+        "2026-06-13 17:53:51,200 DEBUG djconnect_pi.ha: Payload\n"
+        "2026-06-13 17:53:52,300 ERROR djconnect_pi.ha: Failed\n"
+    )
+
+    assert "17:53:49 INF djconnect_pi.app: Started" in text
+    assert "17:53:50 WRN djconnect_pi.ha: Slow" in text
+    assert "17:53:51 DBG djconnect_pi.ha: Payload" in text
+    assert "17:53:52 ERR djconnect_pi.ha: Failed" in text
+    assert text.splitlines()[0] == "17:53:52 ERR djconnect_pi.ha: Failed"
+    assert text.splitlines()[-1] == "17:53:49 INF djconnect_pi.app: Started"
+    assert "2026-06-13" not in text
+
+
+def test_log_tail_reader_caps_large_files(tmp_path: Path) -> None:
+    log_file = tmp_path / "client.log"
+    log_file.write_text("A" * 200 + "TAIL", encoding="utf-8")
+
+    assert _read_tail_text(log_file, 8) == "AAAATAIL"
+
+
+def test_duration_format_for_now_playing_progress() -> None:
+    assert _format_duration(0) == "0:00"
+    assert _format_duration(138) == "2:18"
+    assert _format_duration(210) == "3:30"
+
+
+def test_music_dna_parser_accepts_disabled_profile() -> None:
+    parsed = parse_music_dna_profile({"success": True, "enabled": False, "profile": {}})
+
+    assert parsed == {"enabled": False, "summary": "", "sections": []}
+
+
+def test_music_dna_parser_accepts_enabled_summary_only_profile() -> None:
+    parsed = parse_music_dna_profile({"success": True, "enabled": True, "profile": {"summary": "You lean toward warm synths."}})
+
+    assert parsed["enabled"] is True
+    assert parsed["summary"] == "You lean toward warm synths."
+    assert parsed["sections"] == []
+
+
+def test_music_dna_parser_renders_optional_blocks_and_hides_empty_cards() -> None:
+    parsed = parse_music_dna_profile(
+        {
+            "success": True,
+            "enabled": True,
+            "profile": {
+                "summary": "Eclectic.",
+                "favorite_genres": ["house", "indie"],
+                "recent_favorite_tracks": [{"title": "Strobe", "artist": "deadmau5"}],
+                "playtime": {"total_seconds": 3661, "formatted_total": "1h 1m", "top_artists": [{"name": "Robyn"}], "top_albums": ["Body Talk"]},
+                "listening_rhythm": {"sample_count": 3, "dayparts": [{"daypart": "avond", "percent": 100}]},
+                "mood_mix": {"sample_count": 4, "average": 45, "zones": [{"zone": "groove", "percent": 25}]},
+                "repeat_magnets": {"eligible": True, "items": [{"title": "Ever Again"}]},
+                "explicit_positives": {"eligible": True, "items": ["Saved favorites"]},
+                "taste_anchors": {"eligible": True, "items": ["Nordic pop"]},
+                "top_tracks_by_range": {"short_term": [{"title": "A", "artist": "B"}]},
+                "snapshot_history": [{"title": "July", "favorite_genres": ["house"]}],
+                "discovery_feedback": {"accepted": [{"title": "Accepted"}], "negative": [{"title": "Skipped"}]},
+                "privacy_dashboard": {"stores_raw_audio": False, "stores_oauth_tokens": False, "raw_counts": {"tracks": 12}, "bearer_token": "secret"},
+                "recommendation_signals": [],
+            },
+        }
+    )
+
+    cards = {card["key"].removeprefix("music_dna_card_"): card for card in parsed["sections"]}
+    assert set(cards) == {
+        "summary", "favorite_genres", "recent_favorites", "playtime", "repeat",
+        "positives", "anchors", "top_tracks", "feedback", "rhythm", "mood_mix",
+    }
+    assert cards["playtime"]["value"] == "1h 1m"
+    assert cards["rhythm"]["rows"][0]["labelKey"] == "music_dna_card_evening"
+    assert cards["mood_mix"]["rows"][0]["percent"] == 25
+    assert cards["top_tracks"]["groups"][0]["key"] == "music_dna_card_short_term"
+    assert cards["top_tracks"]["groups"][0]["rows"][0]["subtitle"] == "B"
+    assert "secret" not in repr(cards)
+
+
+def test_music_dna_parser_hides_ineligible_blocks() -> None:
+    parsed = parse_music_dna_profile(
+        {
+            "success": True,
+            "enabled": True,
+            "profile": {
+                "summary": "Minimal.",
+                "repeat_magnets": {"eligible": False, "reason": "not_enough_data", "items": ["Hidden"]},
+                "explicit_positives": {"eligible": False, "items": ["Hidden"]},
+                "taste_anchors": {"eligible": False, "items": ["Hidden"]},
+            },
+        }
+    )
+
+    assert parsed["sections"] == []
+
+
+def test_music_discovery_feed_renders_backend_sections_in_order_without_assumed_ids() -> None:
+    parsed = parse_music_discovery_feed(
+        {
+            "revision": 42,
+            "cache": {"hit": True},
+            "recent_tracks": [
+                {"id": "raw-recent", "kind": "track", "title": "Raw recent", "uri": "spotify:track:raw"}
+            ],
+            "sections": [
+                {
+                    "id": "new_for_you",
+                    "title": "Nieuw voor jou",
+                    "items": [
+                        {
+                            "id": "t1",
+                            "kind": "track",
+                            "title": "Track",
+                            "artist": "Artist",
+                            "uri": "spotify:track:1",
+                            "image_url": "https://example.test/t.jpg",
+                            "reason": "Because HA said so",
+                            "reason_sources": ["seed:artist", "music_dna"],
+                            "quality_score": 0.91,
+                            "quality_band": "high",
+                            "quality_factors": {"seed_fit": 0.9},
+                        },
+                        {"id": "a1", "kind": "album", "title": "Album", "subtitle": "Artist", "uri": "spotify:album:1", "image_url": "https://example.test/a.jpg"},
+                        {"id": "dup", "kind": "track", "title": "Duplicate", "uri": "spotify:track:1"},
+                    ],
+                },
+                {
+                    "id": "opaque-backend-section",
+                    "title": "Backend order",
+                    "items": [
+                        {"id": "ar1", "kind": "artist", "title": "Artist", "image_url": "https://example.test/ar.jpg", "based_on_count": 3},
+                        {"id": "p1", "kind": "playlist", "title": "Playlist", "context": "For tonight", "uri": "spotify:playlist:1", "image_url": "https://example.test/p.jpg"},
+                        {"id": "x1", "kind": "podcast", "title": "Hidden"},
+                    ],
+                },
+            ]
+        }
+    )
+
+    assert [item["title"] for item in parsed["items"]] == ["Track", "Album", "Duplicate", "Artist", "Playlist", "Hidden"]
+    assert [item["kind"] for item in parsed["items"]] == ["track", "album", "track", "artist", "playlist", "podcast"]
+    assert parsed["items"][0]["imageUrl"] == "https://example.test/t.jpg"
+    assert parsed["items"][0]["reason"] == "Because HA said so"
+    assert parsed["items"][0]["reasonSources"] == ["seed:artist", "music_dna"]
+    assert parsed["items"][0]["qualityScore"] == 0.91
+    assert parsed["items"][0]["qualityBand"] == "high"
+    assert parsed["items"][0]["qualityFactors"] == {"seed_fit": 0.9}
+    assert parsed["items"][0]["hasReason"] is True
+    assert parsed["items"][0]["sectionId"] == "new_for_you"
+    assert parsed["items"][0]["sectionTitle"] == "Nieuw voor jou"
+    assert parsed["items"][0]["playable"] is True
+    payload = json.loads(str(parsed["items"][0]["payload"]))
+    assert payload["section_id"] == "new_for_you"
+    assert payload["discovery_item_id"] == "t1"
+    assert set(payload) == {"section_id", "discovery_item_id"}
+    assert parsed["items"][1]["hasReason"] is False
+    assert parsed["items"][3]["sectionId"] == "opaque-backend-section"
+    assert parsed["items"][3]["playable"] is False
+
+
+def test_music_discovery_feed_ignores_top_level_items_and_recent_history() -> None:
+    parsed = parse_music_discovery_feed(
+        {
+            "items": [{"id": "legacy", "kind": "track", "title": "Legacy", "uri": "spotify:track:legacy"}],
+            "recommendations": [{"id": "rec", "kind": "track", "title": "Rec", "uri": "spotify:track:rec"}],
+            "recent_tracks": [{"id": "recent", "kind": "track", "title": "Recent", "uri": "spotify:track:recent"}],
+        }
+    )
+
+    assert parsed["items"] == []
+
+
+def test_music_discovery_disabled_reason_does_not_fabricate_recommendations(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+
+    backend._apply_music_discovery_data({"enabled": False, "reason": "music_dna_disabled", "sections": [{"items": [{"id": "fake", "kind": "track", "title": "Fake", "uri": "spotify:track:fake"}]}]})
+
+    assert backend.musicDiscoveryItems == []
+    assert backend.musicDiscoveryEmptyText == "music_dna_disabled"
+
+
+def test_cached_image_url_reuses_24_hour_cache(tmp_path: Path, monkeypatch) -> None:
+    cache_root = tmp_path / "state" / "client.log"
+    monkeypatch.setattr("djconnect_pi.app.DEFAULT_LOG_PATH", cache_root)
+    response = Mock()
+    response.content = b"image"
+    response.raise_for_status.return_value = None
+
+    with patch("djconnect_pi.app.requests.get", return_value=response) as get:
+        first = cached_image_url("https://example.test/art.jpg")
+        second = cached_image_url("https://example.test/art.jpg")
+
+    assert first == second
+    assert first.startswith("file://")
+    get.assert_called_once()
+
+
+def test_media_list_parsers_accept_ha_artwork_aliases() -> None:
+    queue = parse_queue_items(
+        {
+            "queue": {
+                "items": [
+                    {
+                        "track_name": "Track One",
+                        "artist_name": "Artist One",
+                        "track_uri": "spotify:track:1",
+                        "entity_picture": "https://example.test/track.jpg",
+                    }
+                ]
+            }
+        }
+    )
+    playlists = parse_playlist_items(
+        {
+            "playlists": [
+                {
+                    "name": "Friday Night",
+                    "uri": "spotify:playlist:1",
+                    "entity_picture": "https://example.test/playlist.jpg",
+                }
+            ]
+        }
+    )
+
+    assert queue[0]["title"] == "Track One"
+    assert queue[0]["subtitle"] == "Artist One"
+    assert queue[0]["imageUrl"] == "https://example.test/track.jpg"
+    assert playlists[0]["title"] == "Friday Night"
+    assert playlists[0]["imageUrl"] == "https://example.test/playlist.jpg"
+
+
+def test_media_list_parsers_accept_nested_spotify_images() -> None:
+    queue = parse_queue_items(
+        {
+            "queue": {
+                "items": [
+                    {
+                        "track_name": "Track One",
+                        "artist_name": "Artist One",
+                        "track_uri": "spotify:track:1",
+                        "album": {
+                            "images": [
+                                {"url": "https://example.test/small.jpg", "width": 64},
+                                {"url": "https://example.test/large.jpg", "width": 640},
+                            ]
+                        },
+                    }
+                ]
+            }
+        }
+    )
+    playlists = parse_playlist_items(
+        {
+            "playlists": [
+                {
+                    "name": "Friday Night",
+                    "uri": "spotify:playlist:1",
+                    "images": [{"url": "https://example.test/playlist-large.jpg", "width": 300}],
+                }
+            ]
+        }
+    )
+
+    assert queue[0]["imageUrl"] == "https://example.test/large.jpg"
+    assert playlists[0]["imageUrl"] == "https://example.test/playlist-large.jpg"
+
+
+def test_ask_dj_parser_accepts_history_rich_messages(monkeypatch) -> None:
+    monkeypatch.setattr("djconnect_pi.app.cached_image_url", lambda url: f"file:///cache/{url.rsplit('/', 1)[-1]}")
+    messages = parse_ask_dj_messages(
+        {
+            "messages": [
+                {"id": "u1", "role": "user", "text": "Welke albums?"},
+                {
+                    "id": "a1",
+                    "role": "assistant",
+                    "dj_text": "Radiohead heeft meerdere albums.",
+                    "images": [
+                        {"url": "http://ha/api/image/1", "thumbnail_url": "http://ha/api/thumb/1"},
+                        {"image_url": "http://ha/api/album/ten.jpg"},
+                    ],
+                    "links": [{"title": "Wikipedia", "url": "http://ha/link", "kind": "wikipedia"}],
+                    "sources": [{"name": "MusicBrainz", "url": "http://ha/source", "source": "musicbrainz"}],
+                    "playback_actions": [
+                        {
+                            "kind": "track",
+                            "title": "Play Now",
+                            "uri": "spotify:track:1",
+                            "subtitle": "Radiohead",
+                            "item": {"album": {"images": [{"url": "http://ha/api/track/art.jpg", "width": 640}]}},
+                        }
+                    ],
+                    "confirmation_actions": [{"kind": "confirmation", "action_style": "confirmation", "response_value": "yes"}],
+                    "audio_url": "https://ha.local/tts.mp3",
+                },
+                {"id": "s1", "kind": "status", "text": "Ask DJ denkt na"},
+            ]
+        }
+    )
+
+    assert messages[0]["role"] == "user"
+    assert messages[0]["text"] == "Welke albums?"
+    assert messages[1]["text"] == "Radiohead heeft meerdere albums."
+    assert messages[1]["images"] == [
+        {"url": "file:///cache/1", "title": ""},
+        {"url": "file:///cache/ten.jpg", "title": ""},
+    ]
+    assert len(messages[1]["links"]) == 2
+    assert [action["kind"] for action in messages[1]["actions"]] == ["track", "confirmation"]
+    assert messages[1]["actions"][0]["isMedia"] is True
+    assert messages[1]["actions"][0]["imageUrl"] == "file:///cache/art.jpg"
+    assert messages[1]["actions"][1]["isMedia"] is False
+    assert "spotify:track:1" in messages[1]["actions"][0]["payload"]
+    assert messages[1]["audioUrl"] == ""
+    assert messages[2]["role"] == "status"
+    assert messages[2]["text"] == "Ask DJ denkt na"
+
+
+def test_ask_dj_output_actions_render_as_rows_without_duplicate_bullets() -> None:
+    messages = parse_ask_dj_messages(
+        {
+            "messages": [
+                {
+                    "id": "speaker-list",
+                    "role": "assistant",
+                    "text": "Dit zijn de momenteel beschikbare speakers:\n- Tuin\n- Speelhoek + Keuken\n- iPhone",
+                    "playback_actions": [
+                        {"command": "set_output", "kind": "output", "title": "Tuin", "value": "Tuin"},
+                        {"command": "set_output", "kind": "output", "title": "Speelhoek + Keuken", "value": "Speelhoek + Keuken"},
+                        {"command": "set_output", "kind": "output", "title": "iPhone", "value": "iPhone"},
+                    ],
+                }
+            ]
+        }
+    )
+
+    assert messages[0]["text"] == "Dit zijn de momenteel beschikbare speakers:"
+    assert [action["title"] for action in messages[0]["actions"]] == ["Tuin", "Speelhoek + Keuken", "iPhone"]
+    assert all(action["isOutput"] is True for action in messages[0]["actions"])
+    assert all(action["isMedia"] is False for action in messages[0]["actions"])
+
+
+def test_ask_dj_control_status_has_no_art_or_audio_button() -> None:
+    messages = parse_ask_dj_messages(
+        {
+            "messages": [
+                {
+                    "id": "shuffle",
+                    "role": "assistant",
+                    "text": "Shuffle staat aan.",
+                    "images": [],
+                    "playback_actions": [
+                        {"kind": "control", "command": "set_shuffle", "title": "Shuffle uitzetten", "value": False, "image_url": "https://example.test/old.jpg"}
+                    ],
+                    "audio_url": None,
+                }
+            ]
+        }
+    )
+
+    assert messages[0]["text"] == "Shuffle staat aan."
+    assert messages[0]["images"] == []
+    assert messages[0]["audioUrl"] == ""
+    assert messages[0]["actions"][0]["title"] == "Shuffle uitzetten"
+    assert messages[0]["actions"][0]["isMedia"] is False
+    assert messages[0]["actions"][0]["imageUrl"] == ""
+
+
+def test_ask_dj_save_current_track_control_uses_button_label_without_art() -> None:
+    messages = parse_ask_dj_messages(
+        {
+            "messages": [
+                {
+                    "id": "favorite",
+                    "role": "assistant",
+                    "text": "Ik kan het huidige nummer opslaan.",
+                    "playback_actions": [
+                        {
+                            "kind": "control",
+                            "command": "save_current_track",
+                            "button_label": "Zet in favorieten",
+                            "image_url": "https://example.test/track.jpg",
+                        }
+                    ],
+                }
+            ]
+        }
+    )
+
+    assert messages[0]["actions"][0]["title"] == "Zet in favorieten"
+    assert messages[0]["actions"][0]["isMedia"] is False
+    assert messages[0]["actions"][0]["imageUrl"] == ""
+    assert "save_current_track" in messages[0]["actions"][0]["payload"]
+
+
+def test_ask_dj_action_defaults_preserve_confirmation_favorite_and_play_labels() -> None:
+    actions = _ask_dj_actions(
+        [
+            {"kind": "control", "command": "save_current_track"},
+            {"kind": "track", "action_style": "play_now"},
+        ],
+        [{"kind": "confirmation", "response_value": "yes"}],
+    )
+
+    assert [action["title"] for action in actions] == ["Add to favorites", "Play now", "Yes"]
+    assert [action["isMedia"] for action in actions] == [False, True, False]
+
+
+def test_track_insight_analysis_keeps_metadata_sections_and_limit() -> None:
+    analysis = _track_insight_analysis(
+        {
+            "track": {"genres": ["Electronic"]},
+            "analysis": {
+                "summary": "A summary",
+                "genre": "Synthwave",
+                "subgenre": "Electronic",
+                "production_notes": ["Warm pads"],
+                "sections": [{"id": "source", "title": "Source", "body": "Catalog metadata"}],
+            },
+            "mood_context": {"label": "Late night"},
+            "music_dna": {"summary": "Matches your profile"},
+        }
+    )
+
+    assert [section["id"] for section in analysis["sections"]] == ["summary", "genre", "production_notes", "source", "mood_context", "music_dna"]
+    assert analysis["sections"][1]["details"] == ["Electronic", "Electronic"]
+    assert analysis["sections"][-2]["metadataContext"] is True
+
+
+def test_ask_dj_music_dna_summary_is_text_only_with_music_dna_source() -> None:
+    messages = parse_ask_dj_messages(
+        {
+            "text": "Je houdt van Kebu en rustige ochtendmuziek.",
+            "intent": "personal_music_dna_summary",
+            "action": "music_dna_summary",
+            "sources": [{"source": "djconnect_music_dna"}],
+            "images": [],
+            "playback_actions": [],
+            "audio_url": None,
+        }
+    )
+
+    assert messages[0]["text"] == "Je houdt van Kebu en rustige ochtendmuziek."
+    assert messages[0]["images"] == []
+    assert messages[0]["actions"] == []
+    assert messages[0]["audioUrl"] == ""
+    assert messages[0]["links"] == [{"title": "djconnect_music_dna", "url": "", "kind": "djconnect_music_dna", "source": "djconnect_music_dna"}]
+
+
+def test_ask_dj_recently_played_items_render_as_compact_rows_without_actions(monkeypatch) -> None:
+    cache_mock = Mock(side_effect=lambda url: f"file:///cache/{url.rsplit('/', 1)[-1]}")
+    monkeypatch.setattr("djconnect_pi.app.cached_image_url", cache_mock)
+    messages = parse_ask_dj_messages(
+        {
+            "text": "Deze nummers heb je afgelopen uur afgespeeld.",
+            "intent": "recently_played_history",
+            "items": [
+                {
+                    "title": "Nightdrive",
+                    "artist": "Kebu",
+                    "played_at": "08:42",
+                    "image_url": "https://example.test/nightdrive.jpg",
+                }
+            ],
+            "playback_actions": [],
+        }
+    )
+
+    assert messages[0]["actions"] == []
+    assert messages[0]["images"] == []
+    assert messages[0]["items"] == [
+        {
+            "title": "Nightdrive",
+            "subtitle": "Kebu",
+            "value": "",
+            "time": "08:42",
+            "kind": "",
+            "source": "",
+            "confidence": "",
+            "imageUrl": "https://example.test/nightdrive.jpg",
+            "trackInsightMetric": False,
+            "musicDna": False,
+        }
+    ]
+    cache_mock.assert_not_called()
+
+
+def test_ask_dj_track_insight_renders_music_dna_without_playback_actions() -> None:
+    messages = parse_ask_dj_messages(
+        {
+            "success": True,
+            "text": "This expands your Music DNA.",
+            "intent": {"intent": "track_insight", "action": "track_insight"},
+            "action": "track_insight",
+            "type": "track_insight",
+            "open_screen": "track_insight",
+            "track_insight": {
+                "track": {"title": "Strobe", "artist": "deadmau5", "album": "For Lack of a Better Name"},
+                "analysis": {
+                    "summary": "A progressive electronic slow burn.",
+                    "genre": "Progressive house",
+                    "subgenre": "Melodic progressive",
+                    "vibe": "Long progressive build with a patient emotional payoff.",
+                    "why_it_fits": ["Melodic tension", "Late-night electronic focus"],
+                    "energy": 81,
+                    "danceability": 68,
+                    "bpm": 128,
+                    "key": "C minor",
+                },
+                "music_dna": {
+                    "match_percent": 92,
+                    "summary": "Matches your progressive electronic Music DNA.",
+                    "traits": ["progressive", "melodic", "patient build"],
+                },
+                "visual_profile": {"palette": ["blue", "violet"]},
+                "cache": {"hit": False},
+            },
+            "images": [],
+            "playback_actions": [],
+        }
+    )
+
+    assert messages[0]["trackInsight"] is True
+    assert messages[0]["text"] == "This expands your Music DNA."
+    assert messages[0]["images"] == []
+    assert messages[0]["actions"] == []
+    assert messages[0]["musicDnaMatch"] == "92%"
+    assert messages[0]["trackInsightData"]["track"]["title"] == "Strobe"
+    assert messages[0]["trackInsightData"]["visual_profile"] == {"palette": ["blue", "violet"]}
+    assert messages[0]["items"][0]["title"] == "Music DNA Match"
+    assert messages[0]["items"][0]["value"] == "92%"
+    item_titles = [item["title"] for item in messages[0]["items"]]
+    assert "BPM" not in item_titles
+    assert "Key" not in item_titles
+    assert "Energy" in item_titles
+    assert "Danceability" in item_titles
+    assert messages[0]["items"][1]["value"] == "81%"
+    assert messages[0]["items"][2]["value"] == "68%"
+    section_titles = [section["title"] for section in messages[0]["analysis"]["sections"]]
+    assert section_titles[:4] == ["Summary", "Genre", "Vibe", "Why it fits you"]
+    assert "This expands your Music DNA." in section_titles
+    serialized = json.dumps(messages[0], sort_keys=True)
+    assert "128" not in serialized
+    assert "C minor" not in serialized
+
+
+def test_track_insight_direct_and_wrapped_response_decode_same_contract() -> None:
+    direct = parse_ask_dj_messages(
+        {
+            "success": True,
+            "track": {"title": "Strobe", "artist": "deadmau5", "genres": ["progressive house"]},
+            "analysis": {"summary": "A long build.", "genre": "Progressive house", "subgenre": "Melodic", "confidence": 0.77},
+            "visual_profile": {"motion_style": "slow_pulse", "seed": "ignored"},
+            "mood_context": {"zone": "energy"},
+        }
+    )[0]
+    wrapped = parse_ask_dj_messages(
+        {
+            "success": True,
+            "track_insight": {
+                "track": {"title": "Strobe", "artist": "deadmau5", "genres": ["progressive house"]},
+                "analysis": {"summary": "A long build.", "genre": "Progressive house", "subgenre": "Melodic", "confidence": 0.77},
+                "visual_profile": {"motion_style": "slow_pulse", "seed": "ignored"},
+                "mood_context": {"zone": "energy"},
+            },
+        }
+    )[0]
+
+    for message in (direct, wrapped):
+        assert message["trackInsight"] is True
+        assert message["trackInsightData"]["track"]["title"] == "Strobe"
+        assert message["trackInsightData"]["visual_profile"]["motion_style"] == "slow_pulse"
+        assert message["items"][0]["title"] == "Confidence"
+        assert message["items"][0]["value"] == "77%"
+        titles = [section["title"] for section in message["analysis"]["sections"]]
+        assert "Summary" in titles
+        assert "Genre" in titles
+        assert "Visual profile" not in titles
+        assert "Mood context" in titles
+
+
+def test_track_insight_visualizer_decodes_backend_visualisation_payload(tmp_path: Path, monkeypatch) -> None:
+    ensure_app()
+    monkeypatch.setattr("djconnect_pi.app.cached_image_url", lambda url: f"file:///cache/{url.rsplit('/', 1)[-1]}")
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.client.track_insight = Mock()
+
+    backend._apply_track_insight_data(
+        {
+            "track": {"title": "Midnight City", "artist": "M83", "album": "Hurry Up", "artwork_url": "https://example.test/m83.jpg"},
+            "analysis": {"summary": "Bright synthwave.", "energy": 0.82, "mood": "dreamy", "genre": "Synthpop"},
+            "visualisation": {
+                "bars": [0.1, 0.4, 0.9, {"value": 0.6}],
+                "palette": ["#4DA3FF", "#7B61FF", "#D184FF"],
+            },
+        }
+    )
+
+    visualizer = backend.trackInsightVisualizer
+    assert backend.client.track_insight.call_count == 0
+    assert backend.trackInsightTitle == "Midnight City"
+    assert backend.trackInsightArtist == "M83"
+    assert backend.trackInsightImageUrl
+    assert visualizer["available"] is True
+    assert visualizer["source"] == "backend"
+    assert visualizer["colors"] == ["#4DA3FF", "#7B61FF", "#D184FF"]
+    assert len(visualizer["bars"]) == 4
+    assert visualizer["mood"] == "dreamy"
+    assert visualizer["genre"] == "Synthpop"
+
+
+def test_track_insight_visualizer_fallback_uses_existing_fields_without_extra_call(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.client.track_insight = Mock()
+
+    backend._apply_track_insight_data(
+        {
+            "track": {"title": "Strobe", "artist": "deadmau5"},
+            "analysis": {"summary": "A long build.", "energy": 0.75, "danceability": 0.64, "texture": "glossy"},
+        }
+    )
+
+    visualizer = backend.trackInsightVisualizer
+    assert backend.client.track_insight.call_count == 0
+    assert visualizer["available"] is True
+    assert visualizer["source"] == "fallback"
+    assert len(visualizer["bars"]) == 36
+    assert all(0.0 <= value <= 1.0 for value in visualizer["bars"])
+    assert visualizer["texture"] == "glossy"
+
+
+def test_track_insight_visualizer_replaces_old_state_for_new_response(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend._apply_track_insight_data(
+        {
+            "track": {"title": "Old", "artist": "Artist"},
+            "analysis": {"summary": "Old"},
+            "visualization": {"bars": [0.2, 0.4], "colors": ["#111111"]},
+        }
+    )
+    old_bars = list(backend.trackInsightVisualizer["bars"])
+
+    backend._apply_track_insight_data(
+        {
+            "track": {"title": "New", "artist": "Artist"},
+            "analysis": {"summary": "New"},
+            "visualizer": {"levels": [0.9, 0.3, 0.1], "gradient": {"start": "#222222", "end": "#333333"}},
+        }
+    )
+
+    assert backend.trackInsightTitle == "New"
+    assert backend.trackInsightVisualizer["bars"] != old_bars
+    assert backend.trackInsightVisualizer["colors"] == ["#222222", "#333333"]
+
+
+def test_ask_dj_track_insight_no_track_playing_is_empty_state() -> None:
+    messages = parse_ask_dj_messages({"intent": "track_insight", "track_insight": {"error": "no_track_playing"}})
+
+    assert messages[0]["trackInsight"] is True
+    assert messages[0]["text"] == "Er speelt nu geen track."
+    assert messages[0]["actions"] == []
+    assert messages[0]["items"] == []
+
+
+def test_track_insight_no_track_and_rate_limit_clear_previous_view(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend._apply_track_insight_data({"track": {"title": "Strobe", "artist": "deadmau5"}, "analysis": {"summary": "A long build."}})
+
+    assert backend.trackInsightTitle == "Strobe"
+
+    backend._apply_track_insight_data({"success": False, "error": "no_track_playing"})
+    assert backend.trackInsightTitle == ""
+    assert backend.trackInsightItems == []
+    assert backend.trackInsightError == backend.tr_key("track_insight_no_track")
+
+    backend._apply_track_insight_data({"track": {"title": "Track"}, "analysis": {"summary": "Fresh"}})
+    backend._apply_track_insight_data({"success": False, "error": "rate_limited"})
+    assert backend.trackInsightText == ""
+    assert backend.trackInsightError == backend.tr_key("track_insight_rate_limited")
+
+
+def test_track_insight_clears_when_current_track_changes(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend._apply_playback(Playback(title="Old Track", artist="Artist", image_url="https://example.test/old.jpg"))
+    backend._apply_track_insight_data({"track": {"title": "Old Track", "artist": "Artist"}, "analysis": {"summary": "Old analysis"}})
+
+    assert backend.trackInsightText
+
+    backend._apply_playback(Playback(title="New Track", artist="Artist", image_url="https://example.test/new.jpg"))
+
+    assert backend.trackInsightText == ""
+    assert backend.trackInsightSections == []
+    assert backend.trackInsightVisualizer == {}
+
+
+def test_ask_dj_track_insight_explicit_playback_actions_are_preserved() -> None:
+    messages = parse_ask_dj_messages(
+        {
+            "text": "Track Insight.",
+            "intent": "track_insight",
+            "track_insight": {"track": {"title": "Strobe"}},
+            "playback_actions": [{"kind": "track", "title": "Play Now", "uri": "spotify:track:1"}],
+            "confirmation_actions": [{"kind": "confirmation", "response_value": "yes"}],
+        }
+    )
+
+    assert [action["title"] for action in messages[0]["actions"]] == ["Play Now"]
+
+
+def test_ask_dj_track_insight_metadata_mode_does_not_reuse_old_artwork(monkeypatch) -> None:
+    monkeypatch.setattr("djconnect_pi.app.cached_image_url", lambda url: f"file:///cache/{url.rsplit('/', 1)[-1]}")
+    messages = parse_ask_dj_messages(
+        {
+            "messages": [
+                {
+                    "id": "old-media",
+                    "role": "assistant",
+                    "text": "Speel deze track.",
+                    "images": [{"url": "https://example.test/old.jpg"}],
+                    "playback_actions": [{"kind": "track", "title": "Play Now", "uri": "spotify:track:old", "image_url": "https://example.test/old.jpg"}],
+                },
+                {
+                    "id": "insight",
+                    "role": "assistant",
+                    "text": "Metadata-only Track Insight.",
+                    "intent": "track_insight",
+                    "track_insight": {
+                        "track": {"title": "Strobe"},
+                        "analysis": {"vibe": "Rustige opbouw."},
+                        "music_dna": {"match_percent": 81},
+                    },
+                    "images": [],
+                    "items": [],
+                    "playback_actions": [],
+                },
+            ]
+        }
+    )
+
+    assert messages[0]["images"] == [{"url": "file:///cache/old.jpg", "title": ""}]
+    assert messages[0]["actions"][0]["isMedia"] is True
+    assert messages[1]["trackInsight"] is True
+    assert messages[1]["images"] == []
+    assert messages[1]["actions"] == []
+
+def test_ask_dj_parser_prefers_canonical_response_messages() -> None:
+    messages = parse_ask_dj_messages(
+        {
+            "user_message": "heb je playlists van snowpatrol",
+            "assistant_message": "Legacy antwoord dat niet los moet renderen",
+            "messages": [
+                {
+                    "id": "u-server",
+                    "client_message_id": "client-1",
+                    "exchange_id": "exchange-1",
+                    "exchange_order": 0,
+                    "role": "user",
+                    "text": "heb je playlists van snowpatrol",
+                },
+                {
+                    "id": "a-server",
+                    "client_message_id": "client-1",
+                    "exchange_id": "exchange-1",
+                    "exchange_order": 1,
+                    "role": "assistant",
+                    "text": "Ik heb een paar Snow Patrol playlists gevonden.",
+                },
+            ],
+        }
+    )
+
+    assert [message["id"] for message in messages] == ["u-server", "a-server"]
+    assert [message["role"] for message in messages] == ["user", "assistant"]
+    assert [message["exchange_order"] for message in messages] == [0, 1]
+
+
+def test_ask_dj_parser_accepts_assistant_message_object_items() -> None:
+    messages = parse_ask_dj_messages(
+        {
+            "assistant_message": {
+                "text": "Dit zijn je recent afgespeelde tracks.",
+                "items": [
+                    {
+                        "title": "Song A",
+                        "artist": "Artist A",
+                        "type": "tracks",
+                        "played_at": "2026-07-05T08:00:00Z",
+                        "source": "spotify_recently_played",
+                    }
+                ],
+            },
+            "intent": {"intent": "recently_played_history", "item_type": "tracks"},
+            "images": [],
+            "playback_actions": [],
+        }
+    )
+
+    assert len(messages) == 1
+    assert messages[0]["text"] == "Dit zijn je recent afgespeelde tracks."
+    assert messages[0]["items"] == [
+        {
+            "title": "Song A",
+            "subtitle": "Artist A",
+            "value": "",
+            "time": "2026-07-05T08:00:00Z",
+            "kind": "tracks",
+            "source": "spotify_recently_played",
+            "confidence": "",
+            "imageUrl": "",
+            "trackInsightMetric": False,
+            "musicDna": False,
+        }
+    ]
+    assert messages[0]["actions"] == []
+
+
+def test_ask_dj_parser_keeps_legacy_user_before_assistant() -> None:
+    messages = parse_ask_dj_messages(
+        {
+            "client_message_id": "client-legacy",
+            "user_message": "heb je playlists van snowpatrol",
+            "assistant_message": "Ik heb een paar Snow Patrol playlists gevonden.",
+            "created_at": "2026-06-24T12:00:00Z",
+        }
+    )
+
+    assert [message["role"] for message in messages] == ["user", "assistant"]
+    assert [message["text"] for message in messages] == [
+        "heb je playlists van snowpatrol",
+        "Ik heb een paar Snow Patrol playlists gevonden.",
+    ]
+
+
+def test_ask_dj_display_time_uses_device_local_timezone(monkeypatch) -> None:
+    original_tz = os.environ.get("TZ")
+    monkeypatch.setenv("TZ", "Europe/Amsterdam")
+    if hasattr(time, "tzset"):
+        time.tzset()
+    try:
+        assert _ask_dj_display_time("2026-06-24T12:00:00Z") == "14:00"
+        assert _ask_dj_display_time("2026-01-24T12:00:00Z") == "13:00"
+    finally:
+        if original_tz is None:
+            monkeypatch.delenv("TZ", raising=False)
+        else:
+            monkeypatch.setenv("TZ", original_tz)
+        if hasattr(time, "tzset"):
+            time.tzset()
+
+
+def test_ask_dj_merge_orders_exchange_and_deduplicates_refreshes(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend._merge_ask_dj_messages(
+        [
+            {
+                "id": "",
+                "client_message_id": "client-1",
+                "role": "user",
+                "text": "heb je playlists van snowpatrol",
+                "created_at": "2026-06-24T12:00:00Z",
+                "pending": True,
+            }
+        ]
+    )
+    backend._apply_ask_dj_data(
+        {
+            "history_revision": 5,
+            "messages": [
+                {
+                    "id": "a-server",
+                    "client_message_id": "client-1",
+                    "exchange_id": "exchange-1",
+                    "exchange_order": 1,
+                    "role": "assistant",
+                    "text": "Ik heb een paar Snow Patrol playlists gevonden.",
+                    "created_at": "2026-06-24T12:00:01Z",
+                },
+                {
+                    "id": "u-server",
+                    "client_message_id": "client-1",
+                    "exchange_id": "exchange-1",
+                    "exchange_order": 0,
+                    "role": "user",
+                    "text": "heb je playlists van snowpatrol",
+                    "created_at": "2026-06-24T12:00:02Z",
+                },
+            ],
+        }
+    )
+    backend._apply_ask_dj_data(
+        {
+            "history_revision": 6,
+            "messages": [
+                {
+                    "id": "u-server",
+                    "client_message_id": "client-1",
+                    "exchange_id": "exchange-1",
+                    "exchange_order": 0,
+                    "role": "user",
+                    "text": "heb je playlists van snowpatrol",
+                },
+                {
+                    "id": "a-server",
+                    "client_message_id": "client-1",
+                    "exchange_id": "exchange-1",
+                    "exchange_order": 1,
+                    "role": "assistant",
+                    "text": "Ik heb een paar Snow Patrol playlists gevonden.",
+                },
+            ],
+        }
+    )
+
+    rendered = [(message["role"], message["text"], message["displayTime"]) for message in backend.askDjMessages]
+    assert rendered == [
+        ("assistant", "Ik heb een paar Snow Patrol playlists gevonden.", _ask_dj_display_time("2026-06-24T12:00:01Z")),
+        ("user", "heb je playlists van snowpatrol", _ask_dj_display_time("2026-06-24T12:00:02Z")),
+    ]
+
+
+def test_ask_dj_history_limit_is_applied_from_server(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+
+    backend._apply_ask_dj_data(
+        {
+            "history_revision": 1,
+            "history_limit": 2,
+            "messages": [
+                {"id": "m1", "role": "assistant", "text": "Een", "created_at": "2026-06-24T12:00:01Z"},
+                {"id": "m2", "role": "assistant", "text": "Twee", "created_at": "2026-06-24T12:00:02Z"},
+                {"id": "m3", "role": "assistant", "text": "Drie", "created_at": "2026-06-24T12:00:03Z"},
+            ],
+        }
+    )
+
+    assert [message["id"] for message in backend.askDjMessages] == ["m3", "m2"]
+    assert [message["displayTime"] for message in backend.askDjMessages] == [
+        _ask_dj_display_time("2026-06-24T12:00:03Z"),
+        _ask_dj_display_time("2026-06-24T12:00:02Z"),
+    ]
+
+
+def test_ask_dj_clear_and_trim_revisions_are_server_authoritative(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend._apply_ask_dj_data(
+        {
+            "history_revision": 10,
+            "messages": [
+                {"id": "m1", "role": "assistant", "text": "Een", "created_at": "2026-07-05T08:00:01Z"},
+                {"id": "m2", "role": "assistant", "text": "Twee", "created_at": "2026-07-05T08:00:02Z"},
+                {"id": "m3", "role": "assistant", "text": "Drie", "created_at": "2026-07-05T08:00:03Z"},
+            ],
+        }
+    )
+
+    backend._apply_ask_dj_data({"history_revision": 11, "history_trimmed_count": 1, "messages": []})
+    assert [message["id"] for message in backend.askDjMessages] == ["m3", "m2"]
+    assert backend._ask_dj_history_revision == 11
+
+    backend._apply_ask_dj_data({"clear_revision": 2, "history_revision": 12, "messages": []})
+    assert backend.askDjMessages == []
+    assert backend._ask_dj_clear_revision == 2
+    assert backend._ask_dj_history_revision == 12
+
+
+def test_ask_dj_clear_history_success_clears_local_messages_and_revisions(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend._ask_dj_messages = [
+        {
+            "id": "m1",
+            "role": "assistant",
+            "text": "Private answer",
+            "created_at": "2026-07-05T08:00:01Z",
+            "images": [{"url": "https://example.test/old.jpg"}],
+            "actions": [{"title": "Old action", "payload": "{}"}],
+        }
+    ]
+    backend._ask_dj_history_revision = 4
+    backend._ask_dj_clear_revision = 1
+    backend.client.ask_dj_history_clear = Mock(return_value={"success": True, "cleared": True, "history_revision": 9, "clear_revision": 3, "messages": []})
+
+    backend._clear_ask_dj_history_worker()
+
+    backend.client.ask_dj_history_clear.assert_called_once_with()
+    assert backend.askDjMessages == []
+    assert backend._ask_dj_history_revision == 9
+    assert backend._ask_dj_clear_revision == 3
+
+
+def test_ask_dj_clear_history_error_preserves_local_messages(tmp_path: Path, caplog) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    original_messages = [
+        {
+            "id": "m1",
+            "role": "assistant",
+            "text": "Private answer should stay local",
+            "created_at": "2026-07-05T08:00:01Z",
+            "images": [{"url": "https://example.test/old.jpg"}],
+            "actions": [{"title": "Old action", "payload": "{}"}],
+        }
+    ]
+    backend._ask_dj_messages = list(original_messages)
+    backend.client.ask_dj_history_clear = Mock(side_effect=DJConnectError("backend refused"))
+
+    with caplog.at_level("WARNING"), pytest.raises(BackendUnavailable):
+        backend._clear_ask_dj_history_worker()
+
+    assert backend.askDjMessages == original_messages
+    assert "Private answer should stay local" not in caplog.text
+    assert "Old action" not in caplog.text
+
+
+def test_ask_dj_poll_requires_pairing_and_token(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.client.ask_dj_history = Mock()
+
+    backend.pollAskDjHistory()
+
+    backend.client.ask_dj_history.assert_not_called()
+
+
+def test_ask_dj_poll_worker_uses_revision_and_applies_backoff(tmp_path: Path) -> None:
+    ensure_app()
+    config_path = tmp_path / "config.json"
+    backend = DJConnectBackend(config_path)
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token-1"
+    backend.client.cfg = backend.cfg
+    backend._ask_dj_history_revision = 7
+    backend.client.ask_dj_history = Mock(return_value={"history_revision": 8, "messages": [{"id": "a1", "role": "assistant", "text": "Hoi"}]})
+
+    backend._poll_ask_dj_history_worker()
+
+    backend.client.ask_dj_history.assert_called_once_with(7)
+    assert backend.askDjMessages[0]["text"] == "Hoi"
+    assert backend._ask_dj_history_revision == 8
+    assert backend._ask_dj_poll_error_count == 0
+
+    backend.client.ask_dj_history = Mock(side_effect=AuthenticationError("stale token"))
+    backend._poll_ask_dj_history_worker()
+
+    assert backend._ask_dj_poll_error_count == 1
+    assert backend._ask_dj_unavailable_until > 0
+
+
+def test_ask_dj_action_tap_sends_structured_payload_only(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token-1"
+    backend.client.cfg = backend.cfg
+    backend.client.ask_dj_action = Mock(return_value={"success": True, "messages": []})
+
+    backend._send_ask_dj_action_worker({"kind": "confirmation", "response_value": "yes"})
+
+    backend.client.ask_dj_action.assert_called_once_with({"kind": "confirmation", "response_value": "yes"})
+
+
+def test_ask_dj_action_accepts_music_assistant_payload_without_spotify_uri(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token-1"
+    backend.client.cfg = backend.cfg
+    action = {
+        "kind": "track",
+        "command": "ask_dj_play_recommendation",
+        "music_backend": "music_assistant",
+        "backend_revision": 4,
+        "value": {"item_id": "mass-track-1", "provider": "library", "player_id": "media_player.mass_woonkamer"},
+    }
+    backend.client.ask_dj_action = Mock(return_value={"success": True, "messages": []})
+
+    backend._send_ask_dj_action_worker(action)
+
+    expected = dict(action)
+    backend.client.ask_dj_action.assert_called_once_with(expected)
+
+
+def test_ask_dj_action_does_not_forward_retired_local_ha_speaker_output(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token-1"
+    backend.cfg.music_backend_capabilities = {
+        "dj_announcement": {
+            "speaker_configured": True,
+            "supported_outputs": ["text_only", "ha_speaker"],
+            "target": {"kind": "ha_media_player", "entity_id": "media_player.voice_preview", "name": "Voice Preview"},
+        }
+    }
+    backend.cfg.dj_announcement_output = "ha_speaker"
+    backend.client.cfg = backend.cfg
+    backend.client.ask_dj_action = Mock(return_value={"success": True, "messages": []})
+
+    backend._send_ask_dj_action_worker({"kind": "confirmation", "response_value": "yes"})
+
+    backend.client.ask_dj_action.assert_called_once_with(
+        {"kind": "confirmation", "response_value": "yes"}
+    )
+
+
+def test_ask_dj_response_audio_url_is_not_exposed_for_local_playback() -> None:
+    messages = parse_ask_dj_messages(
+        {
+            "messages": [
+                {
+                    "role": "assistant",
+                    "text": "Ik zet de volgende plaat klaar.",
+                    "audio_url": "https://example.test/dj.mp3",
+                    "audio_type": "audio/mpeg",
+                }
+            ]
+        }
+    )
+
+    assert messages[0]["text"] == "Ik zet de volgende plaat klaar."
+    assert messages[0]["audioUrl"] == ""
+
+
+def test_ask_dj_response_ha_speaker_delivery_renders_text_and_metadata() -> None:
+    messages = parse_ask_dj_messages(
+        {
+            "messages": [
+                {
+                    "role": "assistant",
+                    "text": "Even opletten: de drop komt eraan.",
+                    "announcement": {
+                        "output": "ha_speaker",
+                        "delivery": "ha_speaker",
+                        "audio_response_effective": "server_only",
+                        "audio_url": None,
+                        "target": {"kind": "ha_media_player", "entity_id": "media_player.voice_preview", "name": "Voice Preview"},
+                        "warnings": ["Speaker viel terug naar tekst."],
+                    },
+                }
+            ]
+        }
+    )
+
+    assert messages[0]["text"] == "Even opletten: de drop komt eraan."
+    assert messages[0]["announcementDelivery"] == "ha_speaker"
+    assert messages[0]["announcementTargetName"] == "Voice Preview"
+    assert messages[0]["announcementWarnings"] == ["Speaker viel terug naar tekst."]
+
+
+def test_ask_dj_action_surfaces_unsupported_capability(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.client.ask_dj_action = Mock(side_effect=UnsupportedBackendCapability("Top items unavailable"))
+
+    with pytest.raises(UnsupportedBackendCapability, match="Top items unavailable"):
+        backend._send_ask_dj_action_worker({"kind": "track", "command": "top_items"})
+
+
+def test_ask_dj_action_surfaces_stale_backend_action(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.client.ask_dj_action = Mock(side_effect=StaleBackendAction("Ask DJ opnieuw"))
+
+    with pytest.raises(StaleBackendAction, match="Ask DJ opnieuw"):
+        backend._send_ask_dj_action_worker({"kind": "track", "backend_revision": 3})
+
+
+def test_version_mismatch_does_not_clear_pairing_or_token(tmp_path: Path) -> None:
+    ensure_app()
+    config_path = tmp_path / "config.json"
+    cfg = Config(
+        device_id="djconnect-raspberry-pi-ABCDEF123456",
+        device_token="token-1",
+        paired=True,
+        ha_url="http://ha.local:8123",
+    )
+    save_config(config_path, cfg)
+    backend = DJConnectBackend(config_path)
+    backend.client.command = Mock(side_effect=ProtocolVersionMismatch("3.2.0", "3.1.112"))
+
+    with pytest.raises(ProtocolVersionMismatch), patch.object(backend, "_trigger_update_service"):
+        backend._refresh_worker()
+
+    saved = load_config(config_path)
+    assert saved.device_token == "token-1"
+    assert saved.paired is True
+
+
+def test_authentication_error_clears_pairing_and_ask_dj_cache(tmp_path: Path) -> None:
+    ensure_app()
+    config_path = tmp_path / "config.json"
+    cfg = Config(
+        device_id="djconnect-raspberry-pi-ABCDEF123456",
+        device_token="token-1",
+        paired=True,
+        ha_url="http://ha.local:8123",
+    )
+    save_config(config_path, cfg)
+    backend = DJConnectBackend(config_path)
+    backend._ask_dj_messages = [{"id": "m1", "role": "assistant", "text": "Cached"}]
+    backend._ask_dj_history_revision = 9
+    backend._ask_dj_clear_revision = 4
+
+    backend.client.command = Mock(side_effect=AuthenticationError("stale pairing"))
+    backend._run("status", lambda: backend.client.command("status"))
+    backend._executor.shutdown(wait=True)
+
+    saved = load_config(config_path)
+    assert saved.device_token == ""
+    assert saved.paired is False
+    assert backend.askDjMessages == []
+    assert backend._ask_dj_history_revision == 0
+    assert backend._ask_dj_clear_revision == 0
+
+
+def test_save_current_track_worker_raises_specific_error_on_success_false(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.client.command = Mock(return_value={"success": False, "error": "spotify_save_failed"})
+
+    with pytest.raises(SaveCurrentTrackError):
+        backend._save_current_track_worker()
+
+    backend.client.command.assert_called_once_with("save_current_track")
+
+
+def test_demo_mode_uses_example_output_devices(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+
+    backend.enterDemoMode()
+
+    assert backend.outputDevice == ""
+    assert backend.outputDevices == ["Keuken", "Woonkamer"]
+    assert "True" not in backend.outputDevices
+
+
+def test_queue_parser_preserves_optional_context_and_episode_uri() -> None:
+    queue = parse_queue_items(
+        {
+            "queue": {
+                "items": [
+                    {
+                        "title": "Podcast Episode",
+                        "artist": "Podcast",
+                        "uri": "spotify:episode:episode-1",
+                    },
+                    {
+                        "title": "Playlist Track",
+                        "uri": "spotify:track:track-1",
+                        "queue_context": "spotify:playlist:playlist-1",
+                        "index": 4,
+                    },
+                ]
+            }
+        }
+    )
+
+    assert queue[0]["uri"] == "spotify:episode:episode-1"
+    assert queue[0]["contextUri"] == ""
+    assert queue[1]["contextUri"] == "spotify:playlist:playlist-1"
+    assert queue[1]["index"] == 4
+
+
+def test_queue_parser_renders_artist_album_identity_and_artwork_aliases() -> None:
+    queue = parse_queue_items(
+        {
+            "queue": [
+                {
+                    "title": "Nothing Else Matters",
+                    "artist": "Scala & Kolacny Brothers",
+                    "artist_name": "Fallback Artist",
+                    "subtitle": "Fallback Subtitle",
+                    "album": "Scala On The Rocks",
+                    "album_name": "Fallback Album",
+                    "id": "spotify:track:nothing-else",
+                    "duration_ms": 388000,
+                    "album_image_url": "https://example.test/album.jpg",
+                    "image_url": "https://example.test/image.jpg",
+                    "thumbnail_url": "https://example.test/thumb.jpg",
+                }
+            ]
+        }
+    )
+
+    assert queue == [
+        {
+            "title": "Nothing Else Matters",
+            "subtitle": "Scala & Kolacny Brothers",
+            "artist": "Scala & Kolacny Brothers",
+            "album": "Scala On The Rocks",
+            "uri": "spotify:track:nothing-else",
+            "imageUrl": "https://example.test/album.jpg",
+            "tint": "#38bdf8",
+            "contextUri": "",
+            "index": None,
+        }
+    ]
+
+
+def test_queue_parser_accepts_nested_items_and_preserves_container_context() -> None:
+    queue = parse_queue_items(
+        {
+            "queue": {
+                "context": "ignored display context",
+                "contextUri": "spotify:playlist:context-1",
+                "items": [
+                    {
+                        "title": "Track One",
+                        "artist_name": "Artist One",
+                        "album_name": "Album One",
+                        "uri": "spotify:track:1",
+                        "image_url": "https://example.test/image.jpg",
+                    },
+                    {
+                        "title": "Track Two",
+                        "subtitle": "Artist Two",
+                        "uri": "spotify:track:2",
+                        "thumbnail_url": "https://example.test/thumb.jpg",
+                        "context_uri": "spotify:album:item-context",
+                    },
+                ],
+            }
+        }
+    )
+
+    assert [item["title"] for item in queue] == ["Track One", "Track Two"]
+    assert queue[0]["subtitle"] == "Artist One"
+    assert queue[0]["album"] == "Album One"
+    assert queue[0]["imageUrl"] == "https://example.test/image.jpg"
+    assert queue[0]["contextUri"] == "spotify:playlist:context-1"
+    assert queue[1]["subtitle"] == "Artist Two"
+    assert queue[1]["imageUrl"] == "https://example.test/thumb.jpg"
+    assert queue[1]["contextUri"] == "spotify:album:item-context"
+
+
+def test_queue_parser_ignores_top_level_items_without_queue_container() -> None:
+    assert parse_queue_items({"items": [{"title": "Recommendation", "artist": "Artist", "uri": "spotify:track:1"}]}) == []
+
+
+def test_media_item_payload_allows_queue_item_without_context() -> None:
+    payload = media_item_payload(
+        "play_context_at",
+        {"title": "Episode", "subtitle": "Podcast", "uri": "spotify:episode:episode-1"},
+    )
+
+    assert payload == {
+        "value": {
+            "uri": "spotify:episode:episode-1",
+            "title": "Episode",
+            "artist": "Podcast",
+        },
+        "play": True,
+    }
+
+
+def test_media_item_payload_accepts_qml_json_payload() -> None:
+    payload = media_item_payload(
+        "play_context_at",
+        json.dumps({"title": "Episode", "subtitle": "Podcast", "uri": "spotify:episode:episode-1"}),
+    )
+
+    assert payload["value"]["uri"] == "spotify:episode:episode-1"
+    assert "context_uri" not in payload["value"]
+
+
+def test_media_item_payload_preserves_context_offset_when_supported() -> None:
+    payload = media_item_payload(
+        "play_context_at",
+        {
+            "title": "Track",
+            "uri": "spotify:track:track-1",
+            "contextUri": "spotify:show:show-1",
+            "index": 2,
+        },
+    )
+
+    assert payload["value"]["uri"] == "spotify:track:track-1"
+    assert payload["value"]["context_uri"] == "spotify:show:show-1"
+    assert payload["value"]["offset_uri"] == "spotify:track:track-1"
+    assert payload["value"]["index"] == 2
+
+
+def test_media_item_payload_skips_queue_item_without_uri() -> None:
+    assert media_item_payload("play_context_at", {"title": "Missing URI"}) == {}
+
+
+@pytest.mark.parametrize(
+    ("payload", "expected_title"),
+    [
+        ({"playlists": [{"name": "Top Level", "uri": "spotify:playlist:1"}]}, "Top Level"),
+        ({"items": [{"title": "Items", "id": "spotify:playlist:2"}]}, "Items"),
+        ({"data": {"playlists": [{"display_title": "Data Playlists", "value": "spotify:playlist:3"}]}}, "Data Playlists"),
+        ({"data": {"items": [{"name": "Data Items", "playlist_uri": "spotify:playlist:4"}]}}, "Data Items"),
+        ({"result": {"playlists": [{"title": "Result Playlists", "uri": "spotify:playlist:5"}]}}, "Result Playlists"),
+        ({"result": {"items": [{"name": "Result Items", "id": "spotify:playlist:6"}]}}, "Result Items"),
+    ],
+)
+def test_playlist_parser_accepts_contract_container_shapes(payload: dict[str, object], expected_title: str) -> None:
+    playlists = parse_playlist_items(payload)
+
+    assert len(playlists) == 1
+    assert playlists[0]["title"] == expected_title
+
+
+def test_playlist_parser_accepts_aliases_and_ignores_unplayable_items() -> None:
+    playlists = parse_playlist_items(
+        {
+            "playlists": [
+                {
+                    "display_title": "Alias Playlist",
+                    "playlist_uri": "spotify:playlist:alias",
+                    "owner_name": "Peter",
+                    "imageUrl": "https://example.test/image-url.jpg",
+                },
+                {"name": "Missing URI"},
+                {"uri": "spotify:playlist:missing-title"},
+            ]
+        }
+    )
+
+    assert playlists == [
+        {
+            "title": "Alias Playlist",
+            "subtitle": "Peter",
+            "uri": "spotify:playlist:alias",
+            "imageUrl": "https://example.test/image-url.jpg",
+            "tint": "#8b5cf6",
+        }
+    ]
+
+
+def test_empty_playlists_response_decodes_empty_state() -> None:
+    assert parse_playlist_items({"playlists": []}) == []
+
+
+def test_playlist_parser_limits_to_100_items() -> None:
+    playlists = parse_playlist_items(
+        {
+            "data": {
+                "items": [
+                    {
+                        "name": f"Playlist {index}",
+                        "id": f"spotify:playlist:{index}",
+                        "owner": "Peter",
+                        "entity_picture": f"https://example.test/{index}.jpg",
+                    }
+                    for index in range(120)
+                ]
+            }
+        }
+    )
+
+    assert len(playlists) == 100
+    assert playlists[0] == {
+        "title": "Playlist 0",
+        "subtitle": "Peter",
+        "uri": "spotify:playlist:0",
+        "imageUrl": "https://example.test/0.jpg",
+        "tint": "#8b5cf6",
+    }
+    assert playlists[-1]["title"] == "Playlist 99"
+
+
+def test_queue_parser_limits_to_100_items_and_accepts_nullable_fields() -> None:
+    queue = parse_queue_items({"queue": [{"title": f"Track {index}"} for index in range(120)]})
+
+    assert len(queue) == 100
+    assert queue[0]["title"] == "Track 0"
+    assert queue[-1]["title"] == "Track 99"
+
+
+def test_queue_parser_treats_repeated_current_track_as_empty_queue() -> None:
+    queue = parse_queue_items(
+        {
+            "queue": [
+                {
+                    "title": "Mind Games",
+                    "artist": "HAEVN",
+                    "uri": "spotify:track:mind-games",
+                    "image_url": "https://example.test/mind-games.jpg",
+                }
+                for _ in range(5)
+            ]
+        }
+    )
+
+    assert queue == []
+
+
+def test_queue_parser_dedupes_repeated_items_but_keeps_real_queue() -> None:
+    queue = parse_queue_items(
+        {
+            "queue": [
+                {"title": "Track One", "artist": "Artist", "uri": "spotify:track:1"},
+                {"title": "Track Two", "artist": "Artist", "uri": "spotify:track:2"},
+                {"title": "Track One", "artist": "Artist", "uri": "spotify:track:1"},
+            ]
+        }
+    )
+
+    assert [item["title"] for item in queue] == ["Track One", "Track Two"]
+
+
+@pytest.mark.parametrize("kind", ["queue", "playlists"])
+def test_compact_media_list_publishes_artwork_sources_without_prefetch(tmp_path, kind):
+    ensure_app()
+    path = tmp_path / "config.json"
+    save_config(path, Config(release_profile="pi-zero-2w-arm64"))
+    backend = DJConnectBackend(path)
+    submit = backend._executor.submit = Mock()
+    backend.client.command = Mock(return_value={kind: [{"title": "Track", "uri": "fixture:track",
+                                                        "imageUrl": "https://fixture.invalid/art.jpg"}]})
+    ready = Mock()
+    backend._mediaListReady.connect(ready)
+
+    getattr(backend, f"_load_{kind}_worker")()
+
+    ready.assert_called_once()
+    published_kind, items = ready.call_args.args
+    assert published_kind == kind and items[0]["imageUrl"] == "https://fixture.invalid/art.jpg"
+    submit.assert_not_called()
+    assert not backend._media_artwork_cache_in_flight
+
+
+def test_prepare_media_artwork_caches_urls_before_qml_render(monkeypatch) -> None:
+    items = [{"title": "Track", "imageUrl": "https://example.test/art.jpg"}]
+
+    monkeypatch.setattr("djconnect_pi.app.cached_image_url", lambda url: f"file:///cache/{url.rsplit('/', 1)[-1]}")
+
+    assert prepare_media_artwork(items) is items
+    assert items[0]["imageUrl"] == "file:///cache/art.jpg"
+
+
+def test_backend_set_ha_url_persists_value(tmp_path: Path) -> None:
+    ensure_app()
+    config_path = tmp_path / "config.json"
+    backend = DJConnectBackend(config_path)
+
+    backend.setHaUrl(" http://homeassistant.local:8123 ")
+    reloaded = DJConnectBackend(config_path)
+
+    assert backend.haUrl == "http://homeassistant.local:8123"
+    assert reloaded.haUrl == "http://homeassistant.local:8123"
+
+
+def test_backend_persists_screen_timeout_and_update_channel(tmp_path: Path) -> None:
+    ensure_app()
+    config_path = tmp_path / "config.json"
+    backend = DJConnectBackend(config_path)
+
+    backend.setScreenTimeoutSeconds(120)
+    backend.setReturnToNowSeconds(0)
+    backend.setUpdateChannel("beta")
+    reloaded = DJConnectBackend(config_path)
+
+    assert backend.screenTimeoutSeconds == 120
+    assert backend.returnToNowSeconds == 0
+    assert backend.updateChannel == "beta"
+    assert reloaded.screenTimeoutSeconds == 120
+    assert reloaded.returnToNowSeconds == 0
+    assert reloaded.updateChannel == "beta"
+
+
+def test_backend_clamps_return_to_now_timeout(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+
+    backend.setReturnToNowSeconds(999)
+
+    assert backend.returnToNowSeconds == 60
+
+
+def test_backend_persists_screen_brightness(tmp_path: Path) -> None:
+    ensure_app()
+    config_path = tmp_path / "config.json"
+    backend = DJConnectBackend(config_path)
+
+    backend.setScreenBrightnessPercent(42)
+    reloaded = DJConnectBackend(config_path)
+
+    assert backend.screenBrightnessPercent == 42
+    assert reloaded.screenBrightnessPercent == 42
+
+
+def test_backend_clamps_screen_brightness(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+
+    backend.setScreenBrightnessPercent(0)
+    assert backend.screenBrightnessPercent == 10
+
+    backend.setScreenBrightnessPercent(150)
+    assert backend.screenBrightnessPercent == 100
+
+
+def test_backend_persists_language_and_translates(tmp_path: Path) -> None:
+    ensure_app()
+    config_path = tmp_path / "config.json"
+    with patch("djconnect_pi.config.locale.getlocale", return_value=("nl_NL", "UTF-8")):
+        backend = DJConnectBackend(config_path)
+
+    assert backend.t("setup") == "Instellingen"
+    assert backend.translationVersion == 0
+    backend.setLanguage("en")
+    reloaded = DJConnectBackend(config_path)
+
+    assert backend.language == "en"
+    assert backend.translationVersion == 1
+    assert backend.t("setup") == "Setup"
+    assert reloaded.language == "en"
+
+
+def test_backend_accepts_supported_language_and_rejects_unknown_language(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+
+    backend.setLanguage("de")
+    assert backend.language == "de"
+
+    backend.setLanguage("it")
+    assert backend.language == "en"
+
+
+def test_backend_quit_app_requests_qcoreapplication_quit(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    app = Mock()
+
+    with patch("djconnect_pi.app.QCoreApplication.instance", return_value=app):
+        backend.quitApp()
+
+    app.quit.assert_called_once_with()
+
+
+def test_backend_rejects_unknown_update_channel(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+
+    backend.setUpdateChannel("nightly")
+
+    assert backend.updateChannel == "stable"
+
+
+def test_backend_demo_mode_is_local_only(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    calls: list[tuple[str, dict[str, object]]] = []
+    backend.command = lambda command, **payload: calls.append((command, payload))  # type: ignore[method-assign]
+
+    assert backend.queueItems == []
+    assert backend.playlistItems == []
+
+    backend.enterDemoMode()
+    backend.togglePlay()
+    backend.next()
+    backend.setVolume(33)
+    backend.toggleShuffle()
+    backend.cycleRepeat()
+
+    assert backend.demoMode is True
+    assert backend.title == "Sweet Disposition"
+    backend.openTrackInsight()
+    assert backend.trackInsightTitle == "Sweet Disposition" and backend.trackInsightText
+    backend.playMediaItem("play_context_at", backend.queueItems[2]["uri"])
+    assert backend.title == backend.trackInsightTitle == "Electric Feel"
+    assert backend.trackInsightText
+    assert backend.askDjMessages and backend.musicDiscoveryItems
+    assert backend.musicDnaEnabled and backend.musicDnaSections
+    assert backend.volume == 33
+    assert [item["title"] for item in backend.queueItems] == ["Midnight City", "Sweet Disposition", "Electric Feel"]
+    assert [item["title"] for item in backend.playlistItems] == ["Friday Night", "Dinner Vibes", "DJConnect"]
+    backend.playMediaItem("start_playlist", backend.playlistItems[1]["uri"])
+    assert backend.title == "Sweet Disposition"
+    backend.playMusicDiscoveryItem(backend.musicDiscoveryItems[2]["payload"])
+    assert backend.title == "Electric Feel"
+    backend._tick_demo_playback()
+    assert backend.playback.position_seconds == 1
+    assert calls == []
+
+    backend.exitDemoMode()
+    assert backend.demoMode is False
+    assert not backend.askDjMessages and not backend.musicDiscoveryItems
+    assert not backend.musicDnaEnabled and not backend.trackInsightText
+
+
+def test_backend_wakes_screen_for_previous_next(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    wakes: list[bool] = []
+    calls: list[tuple[str, dict[str, object]]] = []
+    backend.wakeScreenRequested.connect(lambda: wakes.append(True))
+    backend.command = lambda command, **payload: calls.append((command, payload))  # type: ignore[method-assign]
+
+    backend.previous()
+    backend.next()
+
+    assert len(wakes) == 2
+    assert calls == [("previous", {}), ("next", {})]
+
+
+def test_backend_wake_display_resets_x11_dpms(tmp_path: Path, monkeypatch) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    commands: list[list[str]] = []
+    wake_time = 100.0
+
+    def fake_run(command, **kwargs):
+        commands.append(command)
+
+    monkeypatch.setattr(time, "monotonic", lambda: wake_time)
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    backend.wakeDisplay()
+    backend.wakeDisplay()
+
+    assert commands == [
+        ["xset", "s", "reset"],
+        ["xset", "dpms", "force", "on"],
+    ]
+
+
+def test_backend_favorite_state_requires_capability_and_track_uri(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token-1"
+    backend.cfg.music_backend_capabilities = {"supports_favorites": True}
+
+    assert backend.favoriteAvailable is False
+
+    backend._apply_playback(Playback(title="Track", artist="Artist", uri="backend:track:1", is_favorite=True))
+
+    assert backend.favoriteAvailable is True
+    assert backend.currentTrackFavorite is True
+
+    backend._apply_playback(Playback(title="Other", artist="Artist", uri="backend:track:2"))
+
+    assert backend.favoriteAvailable is True
+    assert backend.currentTrackFavorite is False
+
+
+def test_backend_save_current_track_uses_existing_command_route_and_busy_state(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token-1"
+    backend.cfg.music_backend_capabilities = {"supports_favorites": True}
+    backend.playback = Playback(title="Track", artist="Artist", uri="backend:track:1")
+    calls: list[tuple[str, dict[str, object]]] = []
+    backend._sync_config_from_disk = lambda: None  # type: ignore[method-assign]
+    backend._run = lambda label, worker, done=None: (worker(), done and done())  # type: ignore[method-assign]
+
+    def fake_command(command: str, **payload: object) -> dict[str, object]:
+        calls.append((command, payload))
+        assert backend.favoriteBusy is True
+        return {
+            "success": True,
+            "playback": {"title": "Track", "artist": "Artist", "uri": "backend:track:1", "is_liked": True},
+        }
+
+    backend.client.command = fake_command  # type: ignore[method-assign]
+
+    backend.saveCurrentTrack()
+
+    assert calls == [("save_current_track", {})]
+    assert backend.favoriteBusy is False
+    assert backend.currentTrackFavorite is True
+
+
+def test_backend_requests_temporary_wake_for_backend_track_change(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    wakes: list[tuple[int, bool]] = []
+    backend.temporaryWakeRequested.connect(lambda seconds, navigate: wakes.append((seconds, navigate)))
+
+    backend._apply_playback(Playback(title="New Track", artist="Artist", image_url="https://example.test/art.jpg"))
+
+    assert wakes == [(10, True)]
+
+
+def test_backend_track_change_signal_ignores_artwork_metadata_and_resume(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    changes = []
+    backend.playbackTrackChanged.connect(lambda: changes.append(backend.title))
+
+    backend._apply_playback(Playback(title="First", artist="Artist", is_playing=True))
+    backend._apply_playback(Playback(title="First", artist="Artist", uri="backend:track:1"))
+    backend._apply_playback(Playback(title="First remastered", artist="Artist", uri="backend:track:1",
+                                     image_url="https://example.test/art.jpg", is_playing=True))
+    backend._apply_playback(Playback(title="Second", artist="Artist", uri="backend:track:2", is_playing=True))
+
+    assert changes == ["First", "Second"]
+
+
+def test_backend_requests_temporary_wake_when_playback_resumes(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.playback = Playback(title="Same Track", artist="Artist", is_playing=False)
+    wakes: list[tuple[int, bool]] = []
+    backend.temporaryWakeRequested.connect(lambda seconds, navigate: wakes.append((seconds, navigate)))
+
+    backend._apply_playback(Playback(title="Same Track", artist="Artist", is_playing=True))
+    backend._apply_playback(Playback(title="Same Track", artist="Artist", is_playing=False))
+
+    assert wakes == [(10, True)]
+
+
+def test_backend_demo_mode_is_blocked_after_pairing(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token"
+
+    backend.enterDemoMode()
+
+    assert backend.demoMode is False
+    assert backend.title == backend.t("nothing_playing")
+
+
+def test_backend_pairing_exits_demo_mode(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    calls: list[tuple[str, object]] = []
+    backend._run = lambda label, worker: calls.append((label, worker))  # type: ignore[method-assign]
+
+    backend.enterDemoMode()
+    backend.pair("ABCDEF")
+
+    assert backend.demoMode is False
+    assert calls and calls[0][0] == backend.t("pairing")
+
+
+def test_backend_reset_pairing_exits_demo_and_clears_token(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token"
+
+    backend.resetPairing()
+    backend.enterDemoMode()
+    backend.resetPairing()
+
+    assert backend.demoMode is False
+    assert backend.paired is False
+    assert backend.cfg.device_token == ""
+    assert backend.statusText == backend.t("ready_to_pair")
+
+
+def test_backend_displays_local_dj_response_event_file(tmp_path: Path) -> None:
+    ensure_app()
+    config_path = tmp_path / "config.json"
+    backend = DJConnectBackend(config_path)
+    event_file = tmp_path / "dj-response.json"
+    backend.cfg.dj_response_file = str(event_file)
+    event_file.write_text(json.dumps({"text": "Hallo vanaf HA"}), encoding="utf-8")
+    wakes: list[tuple[int, bool]] = []
+    backend.temporaryWakeRequested.connect(lambda seconds, navigate: wakes.append((seconds, navigate)))
+
+    backend._poll_local_events()
+
+    assert backend.djResponseVisible is True
+    assert backend.djResponseText == "Hallo vanaf HA"
+    assert backend.toastVisible is False
+    assert wakes == [(20, False)]
+    assert not event_file.exists()
+
+
+def test_backend_executes_local_command_event_file(tmp_path: Path) -> None:
+    ensure_app()
+    config_path = tmp_path / "config.json"
+    backend = DJConnectBackend(config_path)
+    event_file = tmp_path / "command-event.json"
+    backend.cfg.command_event_file = str(event_file)
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token"
+    calls: list[tuple[str, dict[str, object]]] = []
+    backend.command = lambda command, **payload: calls.append((command, payload))  # type: ignore[method-assign]
+    event_file.write_text(
+        json.dumps({"events": [{"command": "next", "payload": {"command": "next", "client_type": "raspberry_pi"}}]}),
+        encoding="utf-8",
+    )
+
+    backend._poll_local_events()
+
+    assert calls == [("next", {})]
+    assert not event_file.exists()
+
+
+def test_backend_debug_screen_event_emits_qml_signal(tmp_path: Path) -> None:
+    ensure_app()
+    config_path = tmp_path / "config.json"
+    backend = DJConnectBackend(config_path)
+    event_file = tmp_path / "command-event.json"
+    backend.cfg.command_event_file = str(event_file)
+    screens: list[str] = []
+    calls: list[tuple[str, dict[str, object]]] = []
+    backend.debugScreenRequested.connect(lambda screen: screens.append(screen))
+    backend.command = lambda command, **payload: calls.append((command, payload))  # type: ignore[method-assign]
+    event_file.write_text(
+        json.dumps({"events": [{"command": "debug_show_screen", "payload": {"screen": "settings"}}]}),
+        encoding="utf-8",
+    )
+
+    backend._poll_local_events()
+
+    assert screens == ["settings"]
+    assert calls == []
+    assert not event_file.exists()
+
+
+def test_backend_wakes_screen_for_previous_next_command_events(tmp_path: Path) -> None:
+    ensure_app()
+    config_path = tmp_path / "config.json"
+    backend = DJConnectBackend(config_path)
+    event_file = tmp_path / "command-event.json"
+    backend.cfg.command_event_file = str(event_file)
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token"
+    wakes: list[bool] = []
+    backend.wakeScreenRequested.connect(lambda: wakes.append(True))
+    backend.command = lambda command, **payload: None  # type: ignore[method-assign]
+    event_file.write_text(
+        json.dumps({"events": [{"command": "previous", "payload": {}}, {"command": "next", "payload": {}}]}),
+        encoding="utf-8",
+    )
+
+    backend._poll_local_events()
+
+    assert len(wakes) == 2
+
+
+def test_backend_toast_can_be_shown_and_hidden(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+
+    backend.showToast("Opgeslagen")
+
+    assert backend.toastVisible is True
+    assert backend.toastText == "Opgeslagen"
+    assert backend.toastIcon == "music"
+
+    backend.showToastForContext("Wachtrij", "queue")
+
+    assert backend.toastVisible is True
+    assert backend.toastText == "Wachtrij"
+    assert backend.toastIcon == "queue"
+
+    backend.hideToast()
+
+    assert backend.toastVisible is False
+    assert backend.toastText == ""
+    assert backend.toastIcon == "music"
+
+
+def test_backend_toast_context_icons_match_screen_icons(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+
+    for context, icon in (
+        ("playback", "music"),
+        ("queue", "queue"),
+        ("askdj", "chat"),
+        ("trackinsight", "trackInsight"),
+        ("discover", "discover"),
+        ("musicdna", "heart"),
+        ("settings", "settings"),
+        ("logs", "logs"),
+    ):
+        backend.showToastForContext(context, context)
+        assert backend.toastIcon == icon
+
+
+def test_backend_auth_error_clears_pairing_and_shows_ready_to_pair(tmp_path: Path) -> None:
+    ensure_app()
+    config_path = tmp_path / "config.json"
+    cfg = Config(
+        device_id="djconnect-raspberry-pi-ABCDEF123456",
+        device_token="token-1",
+        paired=True,
+        ha_url="http://ha.local:8123",
+    )
+    save_config(config_path, cfg)
+    backend = DJConnectBackend(config_path)
+
+    class FakeExecutor:
+        def submit(self, worker):
+            worker()
+
+    backend._executor = FakeExecutor()  # type: ignore[assignment]
+    backend._run("refresh", lambda: (_ for _ in ()).throw(AuthenticationError("unauthorized")))
+
+    saved = load_config(config_path)
+    assert backend.backendAvailable is False
+    assert backend.paired is False
+    assert saved.paired is False
+    assert saved.device_token == ""
+    assert backend.statusText == backend.t("ready_to_pair")
+    assert backend.toastVisible is True
+    assert backend.toastText == backend.t("ready_to_pair")
+
+
+def test_backend_real_profile_denial_preserves_pairing_and_local_selection(tmp_path: Path) -> None:
+    ensure_app()
+    config_path = tmp_path / "config.json"
+    cfg = Config(device_id="djconnect-raspberry-pi-ABCDEF123456", device_token="paired-device",
+                 paired=True, ha_url="http://ha", websocket_fast_path_enabled=False,
+                 active_profile_id="profile-old", explicit_profile_id="profile-old")
+    save_config(config_path, cfg)
+    backend = DJConnectBackend(config_path)
+
+    class FakeExecutor:
+        def submit(self, worker):
+            worker()
+
+    response = Mock(status_code=403, content=b"{}", text="")
+    response.json.return_value = {"success": False, "error": "profile_device_mismatch"}
+    backend._executor = FakeExecutor()  # type: ignore[assignment]
+    with patch("djconnect_pi.ha.requests.post", return_value=response) as post:
+        backend._run("refresh", lambda: backend.client.command("status"))
+    saved = load_config(config_path)
+    assert post.call_count == 1
+    assert backend.backendAvailable is False
+    assert backend.paired is True and saved.paired is True
+    assert saved.device_token == "paired-device"
+    assert saved.active_profile_id == saved.explicit_profile_id == "profile-old"
+    assert backend.statusText != backend.t("ready_to_pair")
+
+
+def test_backend_auth_error_does_not_toast_while_waiting_for_pairing(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+
+    class FakeExecutor:
+        def submit(self, worker):
+            worker()
+
+    backend._executor = FakeExecutor()  # type: ignore[assignment]
+    backend._run("refresh", lambda: (_ for _ in ()).throw(AuthenticationError("unauthorized")))
+
+    assert backend.paired is False
+    assert backend.backendAvailable is False
+    assert backend.statusText == backend.t("ready_to_pair")
+    assert backend.toastVisible is False
+    assert backend.toastText == ""
+
+
+def test_backend_reboot_uses_passwordless_absolute_systemctl(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    calls: list[list[str]] = []
+
+    def fake_run(command: list[str], **_kwargs: object) -> None:
+        calls.append(command)
+        if command == ["sudo", "-n", "/usr/bin/systemctl", "reboot"]:
+            raise subprocess.CalledProcessError(1, command)
+
+    with patch("djconnect_pi.app.subprocess.run", side_effect=fake_run):
+        backend.rebootDevice()
+
+    assert calls == [
+        ["sudo", "-n", "/usr/bin/systemctl", "reboot"],
+        ["sudo", "-n", "/bin/systemctl", "reboot"],
+    ]
+
+
+def test_local_terminal_starts_only_the_opted_in_system_unit(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    unit = tmp_path / "djconnect-local-terminal.service"
+    with patch("djconnect_pi.app.LOCAL_TERMINAL_UNIT", unit), patch(
+        "djconnect_pi.app.subprocess.run"
+    ) as run, patch.object(backend, "_run", side_effect=lambda _, worker: worker()):
+        assert not backend.localTerminalAvailable
+        backend.openLocalTerminal()
+        run.assert_not_called()
+
+        unit.touch()
+        assert backend.localTerminalAvailable
+        backend.openLocalTerminal()
+        run.assert_called_once_with(
+            ["/usr/bin/sudo", "-n", "/usr/bin/systemctl", "start", unit.name],
+            check=True, timeout=10, capture_output=True, text=True,
+        )
+
+
+def test_backend_shutdown_uses_passwordless_absolute_systemctl(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    calls: list[list[str]] = []
+
+    def fake_run(command: list[str], **_kwargs: object) -> None:
+        calls.append(command)
+        if command == ["sudo", "-n", "/usr/bin/systemctl", "poweroff"]:
+            raise subprocess.CalledProcessError(1, command, stderr="denied")
+
+    with patch("djconnect_pi.app.subprocess.run", side_effect=fake_run):
+        backend.shutdownDevice()
+
+    assert calls == [
+        ["sudo", "-n", "/usr/bin/systemctl", "poweroff"],
+        ["sudo", "-n", "/bin/systemctl", "poweroff"],
+    ]
+
+
+def test_backend_check_for_updates_triggers_updater_service(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+
+    with patch("djconnect_pi.app.subprocess.run") as run:
+        backend.checkForUpdates()
+
+    run.assert_called_once_with(
+        ["sudo", "-n", "/usr/bin/systemctl", "start", "djconnect-updater.service"],
+        check=True,
+        timeout=8,
+        capture_output=True,
+        text=True,
+    )
+    assert backend.statusText == backend.t("update_check_started")
+
+
+def test_backend_version_mismatch_blocks_ui_and_triggers_update(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+
+    with patch("djconnect_pi.app.subprocess.Popen") as popen:
+        backend._apply_version_mismatch("3.1.2", "3.2.0")
+        backend._apply_version_mismatch("3.1.2", "3.2.0")
+
+    assert backend.versionMismatchVisible is True
+    assert "3.1.2" in backend.versionMismatchText
+    assert "3.2.0" in backend.versionMismatchText
+    popen.assert_called_once_with(["systemctl", "start", "djconnect-updater.service"])
+
+
+def test_backend_volume_clamps_and_dispatches_command(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    calls: list[tuple[str, dict[str, object]]] = []
+    backend.command = lambda command, **payload: calls.append((command, payload))  # type: ignore[method-assign]
+
+    backend.setVolume(125)
+
+    assert backend.volume == 60
+    assert calls == [("set_volume", {"value": 60})]
+
+
+def test_backend_output_device_dispatches_command(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    calls: list[str] = []
+    backend._run = lambda label, worker: calls.append(label)  # type: ignore[method-assign]
+
+    backend.setOutputDevice(" Slaapkamer ")
+
+    assert backend.outputDevice == "Slaapkamer"
+    assert calls == ["set_output"]
+
+
+def test_backend_cached_output_device_remains_selectable(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    calls: list[str] = []
+    backend._run = lambda label, worker: calls.append(label)  # type: ignore[method-assign]
+    backend.playback = Playback(
+        output_devices=("Woonkamer", "Slaapkamer"),
+        output_device_details=(
+            {"name": "Woonkamer", "value": "speaker-live"},
+            {"name": "Slaapkamer", "value": "speaker-cached", "cached": True},
+        ),
+    )
+
+    backend.setOutputDevice("Slaapkamer")
+
+    assert [item["name"] for item in backend.outputDeviceChoices] == ["Woonkamer", "Slaapkamer"]
+    assert backend.outputDeviceChoices[1]["cached"] is True
+    assert backend.outputDevice == "Slaapkamer"
+    assert calls == ["set_output"]
+
+
+def test_backend_manual_refresh_clears_pending_output_device(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+
+    backend._pending_output_device = "Slaapkamer"
+    backend._pending_output_until = 999999
+    backend.manualRefresh()
+
+    assert backend._pending_output_device == ""
+    assert backend._pending_output_until == 0
+    assert backend.toastText == backend.t("refreshing")
+
+
+def test_backend_ask_dj_refresh_shows_toast(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token"
+    calls: list[tuple[str, object, object]] = []
+
+    def fake_run(label: str, worker, done=None) -> None:
+        calls.append((label, worker, done))
+
+    backend._run = fake_run  # type: ignore[method-assign]
+    backend._sync_config_from_disk = lambda: None  # type: ignore[method-assign]
+
+    backend.refreshAskDjHistory()
+
+    assert backend.toastText == backend.t("refreshing")
+    assert calls
+    assert calls[0][0] == backend.t("ask_dj")
+
+
+def test_backend_music_dna_refresh_shows_toast(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token"
+    calls: list[tuple[str, object, object]] = []
+
+    def fake_run(label: str, worker, done=None) -> None:
+        calls.append((label, worker, done))
+
+    backend._run = fake_run  # type: ignore[method-assign]
+    backend._sync_config_from_disk = lambda: None  # type: ignore[method-assign]
+
+    backend.refreshMusicDna()
+
+    assert backend.toastText == backend.t("refreshing")
+    assert backend.toastIcon == "heart"
+    assert calls
+    assert calls[0][0] == backend.t("music_dna")
+
+
+def test_backend_track_insight_refresh_shows_toast(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token"
+    calls: list[tuple[str, object, object]] = []
+
+    def fake_run(label: str, worker, done=None) -> None:
+        calls.append((label, worker, done))
+
+    backend._run = fake_run  # type: ignore[method-assign]
+    backend._sync_config_from_disk = lambda: None  # type: ignore[method-assign]
+
+    backend.refreshTrackInsight()
+
+    assert backend.toastText == backend.t("refreshing")
+    assert backend.toastIcon == "trackInsight"
+    assert calls
+    assert calls[0][0] == backend.t("track_insight")
+
+
+def test_backend_track_insight_auto_open_requires_playing_track(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token"
+    calls: list[tuple[str, object, object]] = []
+
+    def fake_run(label: str, worker, done=None) -> None:
+        calls.append((label, worker, done))
+
+    backend._run = fake_run  # type: ignore[method-assign]
+    backend._sync_config_from_disk = lambda: None  # type: ignore[method-assign]
+
+    backend.playback.is_playing = False
+    backend.openTrackInsight()
+    assert calls == []
+
+    backend.playback.is_playing = True
+    backend.openTrackInsight()
+    assert calls
+    assert calls[0][0] == backend.t("track_insight")
+
+
+def test_track_insight_reuses_current_analysis_after_artwork_update(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "fixture"
+    backend._sync_config_from_disk = Mock()
+    backend._run = Mock()
+    backend._apply_playback(Playback(title="Track A", uri="fixture:a", is_playing=True))
+    backend._apply_track_insight_data(
+        {"track": {"title": "Track A"}, "analysis": {"summary": "Analysis A."}}
+    )
+    backend._apply_playback(
+        Playback(title="Track A", uri="fixture:a", is_playing=True, image_url="file:///fixture.jpg")
+    )
+    backend.openTrackInsight()
+    assert backend.trackInsightTitle == "Track A"
+    backend._run.assert_not_called()
+
+    backend.refreshTrackInsight()
+    assert backend._run.call_count == 1
+
+
+@pytest.mark.parametrize("change", ["none", "track", "track_return", "output", "same_output_name", "same_output_name_return", "output_renamed", "backend", "profile", "foreground_return"])
+def test_track_insight_applies_queued_answer_only_in_original_scope(tmp_path: Path, change: str) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "fixture"
+    backend.cfg.active_profile_id = "original"
+    backend._sync_config_from_disk = Mock()
+    backend._persist_backend_summary = Mock()
+    backend._run = Mock()
+
+    def observed_playback(output_id, name="room-a"):
+        return backend.client.playback_from_status({"playback": {
+            "title": "Track A", "uri": "fixture:a", "is_playing": True,
+            "device": {"id": output_id, "name": name},
+        }})
+
+    track_a = observed_playback("speaker-a")
+    backend._apply_playback(track_a)
+    backend.client.track_insight = Mock(return_value={
+        "track": {"title": "Track A"},
+        "analysis": {"summary": "Analysis A."},
+    })
+    backend.openTrackInsight()
+    worker = backend._run.call_args.args[1]
+    queued = []
+    backend._trackInsightReady.disconnect(backend._apply_track_insight_data)
+    backend._trackInsightReady.connect(queued.append)
+    worker()
+    assert len(queued) == 1
+
+    if change in {"track", "track_return"}:
+        backend._apply_playback(Playback(title="Track B", uri="fixture:b", output_device="room-a"))
+        if change == "track_return":
+            backend._apply_playback(track_a)
+    elif change == "output":
+        backend._apply_playback(observed_playback("speaker-b", "room-b"))
+    elif change in {"same_output_name", "same_output_name_return"}:
+        backend._apply_playback(observed_playback("speaker-b"))
+        if change == "same_output_name_return":
+            backend._apply_playback(track_a)
+    elif change == "output_renamed":
+        backend._apply_playback(observed_playback("speaker-a", "renamed"))
+    elif change == "backend":
+        backend.cfg.music_backend_revision += 1
+    elif change == "profile":
+        backend.cfg.active_profile_id = "other"
+    elif change == "foreground_return":
+        backend.djSession.refresh = Mock()
+        backend.setApplicationForeground(False)
+        backend.setApplicationForeground(True)
+    backend._apply_track_insight_data(queued[0])
+    assert backend.trackInsightTitle == ("Track A" if change in {"none", "output_renamed"} else "")
+
+
+def test_track_insight_profile_clear_also_removes_visualizer(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend._apply_track_insight_data({
+        "track": {"title": "Track A"},
+        "analysis": {"summary": "Analysis A."},
+        "visualisation": {"bars": [0.1, 0.4, 0.9]},
+    })
+    assert backend.trackInsightVisualizer["available"]
+    backend._clear_profile_scoped_caches(preserve_session=True)
+    assert backend.trackInsightTitle == ""
+    assert backend.trackInsightVisualizer == {}
+
+
+def test_track_insight_backgrounding_withdraws_cached_analysis(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "fixture"
+    backend.cfg.explicit_profile_id = backend.cfg.active_profile_id = "linked"
+    backend._sync_config_from_disk = Mock()
+    backend._run = Mock()
+    backend._apply_playback(Playback(title="Track A", uri="fixture:a", is_playing=True))
+    backend._apply_track_insight_data({
+        "track": {"title": "Track A"},
+        "analysis": {"summary": "Analysis A."},
+        "visualisation": {"bars": [0.1, 0.4, 0.9]},
+    })
+    assert backend.trackInsightVisualizer["available"]
+
+    backend.setApplicationForeground(False)
+
+    assert backend.trackInsightTitle == ""
+    assert backend.trackInsightVisualizer == {}
+    backend.openTrackInsight()
+    backend.refreshTrackInsight()
+    backend._run.assert_not_called()
+
+
+def test_backend_music_discovery_refresh_shows_toast(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token"
+    calls: list[tuple[str, object, object]] = []
+
+    def fake_run(label: str, worker, done=None) -> None:
+        calls.append((label, worker, done))
+
+    backend._run = fake_run  # type: ignore[method-assign]
+    backend._sync_config_from_disk = lambda: None  # type: ignore[method-assign]
+
+    backend.refreshMusicDiscovery()
+
+    assert backend.toastText == backend.t("refreshing")
+    assert backend.toastIcon == "discover"
+    assert calls
+    assert calls[0][0] == backend.t("music_discovery")
+
+
+def test_backend_sync_config_updates_live_settings(tmp_path: Path, monkeypatch) -> None:
+    ensure_app()
+    config_path = tmp_path / "config.json"
+    backend = DJConnectBackend(config_path)
+    updated = load_config(config_path)
+    updated.language = "nl" if backend.language == "en" else "en"
+    updated.log_level = "DEBUG"
+    updated.screen_brightness_percent = 42
+    updated.screen_timeout_seconds = 300
+    updated.update_channel = "beta"
+    save_config(config_path, updated)
+
+    logging_setup = Mock()
+    monkeypatch.setattr("djconnect_pi.app.setup_logging", logging_setup)
+    backend._sync_config_from_disk()
+
+    assert backend.language == updated.language
+    assert backend.translationVersion == 1
+    logging_setup.assert_called_once_with(updated.log_file, "DEBUG")
+    assert backend.logLevel == "DEBUG"
+    assert backend.screenBrightnessPercent == 42
+    assert backend.screenTimeoutSeconds == 300
+    assert backend.updateChannel == "beta"
+
+
+def test_switching_logging_off_clears_app_logs_and_hides_the_open_view(tmp_path, monkeypatch):
+    ensure_app()
+    config = tmp_path / "client.json"
+    log_file = tmp_path / "client.log"
+    save_config(config, Config(log_level="INFO", log_file=str(log_file)))
+    log_paths = [log_file, *(tmp_path / f"client.log.{i}" for i in range(1, 4))]
+    for path in log_paths:
+        path.write_text("previous diagnostics")
+    unrelated = tmp_path / "watchdog.log"
+    unrelated.write_text("watchdog")
+    backend = DJConnectBackend(config)
+    logging_setup = Mock(return_value=log_file)
+    monkeypatch.setattr("djconnect_pi.app.setup_logging", logging_setup)
+
+    backend.showLogs()
+    assert backend.logsVisible
+    backend.setLogLevel("OFF")
+
+    logging_setup.assert_called_once_with(str(log_file), "OFF")
+    assert load_config(config).log_level == "OFF"
+    assert not any(path.exists() for path in log_paths)
+    assert unrelated.read_text() == "watchdog"
+    assert not backend.logsVisible
+    backend.showLogs()
+    assert not backend.logsVisible
+
+
+def test_backend_output_device_can_be_cleared_locally(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.playback.output_device = "Slaapkamer"
+    calls: list[str] = []
+    backend._run = lambda label, worker: calls.append(label)  # type: ignore[method-assign]
+
+    backend.setOutputDevice("")
+
+    assert backend.outputDevice == ""
+    assert calls == []
+
+
+def test_backend_output_device_worker_rolls_back_rejected_device(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.playback.output_device = "Woonkamer"
+    backend.playback.output_devices = ("Woonkamer", "Keuken")
+
+    class FakeClient:
+        def command(self, command: str, **payload: object) -> dict[str, object]:
+            return {"playback": {"output_device": "Badkamer", "output_devices": ["Woonkamer", "Keuken"]}}
+
+        def playback_from_status(self, data: dict[str, object]) -> object:
+            return HAClient(backend.cfg).playback_from_status(data)
+
+    backend.client = FakeClient()  # type: ignore[assignment]
+
+    with pytest.raises(Exception, match="Output device not available"):
+        backend._set_output_worker("Badkamer", "Woonkamer")
+
+    assert backend.outputDevice == "Woonkamer"
+
+
+def test_backend_cached_output_device_failure_shows_friendly_message(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.playback.output_device = "Woonkamer"
+    backend.playback.output_devices = ("Woonkamer", "Slaapkamer")
+    backend.playback.output_device_details = (
+        {"name": "Woonkamer", "value": "speaker-live"},
+        {"name": "Slaapkamer", "value": "speaker-cached", "cached": True},
+    )
+
+    class FakeClient:
+        def command(self, command: str, **payload: object) -> dict[str, object]:
+            raise DJConnectError("Spotify output unavailable")
+
+    backend.client = FakeClient()  # type: ignore[assignment]
+    with pytest.raises(DJConnectError):
+        backend._set_output_worker("Slaapkamer", "Woonkamer")
+
+    assert backend.outputDevice == "Woonkamer"
+    assert backend.toastText == backend.tr_key("spotify_cached_output_unavailable")
+
+
+def test_backend_refresh_deduplicates_without_global_busy_or_unchanged_config_signals(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.ha_url = "http://fixture.invalid"
+    save_config(backend.config_path, backend.cfg)
+    original = backend.config_path.stat()
+    submit = backend._executor.submit = Mock()
+    signals = Mock()
+    backend.busyChanged.connect(signals.busy)
+    backend.settingsChanged.connect(signals.settings)
+    backend.controlVolumeChanged.connect(signals.volume)
+    backend.client.command = Mock(return_value={})
+    backend.client.status = Mock(return_value={})
+    backend.client.playback_from_status = Mock(return_value=Playback(
+        output_device="Fixture speaker", output_devices=("Fixture speaker",)))
+    backend.playback = backend.client.playback_from_status.return_value
+
+    backend.refresh()
+    backend.refresh()
+    submit.assert_called_once()
+    submit.call_args.args[0]()
+    assert backend.config_path.stat().st_ino == original.st_ino
+    assert not signals.mock_calls
+
+    def changed_summary(*args, **kwargs):
+        backend.cfg.music_backend_revision = 3
+        return {}
+
+    backend.client.status.side_effect = changed_summary
+    backend.refresh()
+    assert submit.call_count == 2
+    submit.call_args.args[0]()
+    assert load_config(backend.config_path).music_backend_revision == 3
+    signals.settings.assert_called_once()
+    signals.busy.assert_not_called()
+
+
+def test_backend_refresh_loads_output_devices_when_status_omits_them(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token"
+    parser = HAClient(backend.cfg)
+    calls: list[tuple[str, dict[str, object]]] = []
+    statuses: list[object] = []
+
+    class FakeClient:
+        def command(self, command: str, **payload: object) -> dict[str, object]:
+            calls.append((command, payload))
+            if command == "status":
+                return {"playback": {"title": "Song", "artist": "Artist"}}
+            if command == "devices":
+                return {"devices": [{"name": "Slaapkamer R + Slaapkamer L"}]}
+            return {}
+
+        def playback_from_status(self, data: dict[str, object]) -> object:
+            return parser.playback_from_status(data)
+
+        def status(self, playback: object, queue_items: list[dict[str, object]] | None = None) -> dict[str, object]:
+            statuses.append((playback, queue_items))
+            return {"success": True}
+
+    backend.client = FakeClient()  # type: ignore[assignment]
+    backend._refresh_worker()
+
+    assert [call[0] for call in calls] == ["status", "devices"]
+    assert statuses
+    assert statuses[0][0].output_devices == ("Slaapkamer R + Slaapkamer L",)
+    assert statuses[0][1] == []
+
+
+def test_backend_refresh_replaces_local_output_list_with_latest_ha_list(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token"
+    backend.playback.output_devices = ("Woonkamer", "Cached Old")
+    backend.playback.output_device_details = (
+        {"name": "Woonkamer", "value": "speaker-live"},
+        {"name": "Cached Old", "value": "speaker-old", "cached": True},
+    )
+    parser = HAClient(backend.cfg)
+
+    class FakeClient:
+        def command(self, command: str, **payload: object) -> dict[str, object]:
+            if command == "status":
+                return {
+                    "playback": {
+                        "title": "Song",
+                        "artist": "Artist",
+                        "output_device": "Woonkamer",
+                        "output_devices": [{"name": "Woonkamer", "is_active": True}],
+                    }
+                }
+            return {}
+
+        def playback_from_status(self, data: dict[str, object]) -> Playback:
+            return parser.playback_from_status(data)
+
+        def status(self, playback: object, queue_items: list[dict[str, object]] | None = None) -> dict[str, object]:
+            return {"success": True}
+
+    backend.client = FakeClient()  # type: ignore[assignment]
+    backend._refresh_worker()
+
+    assert backend.playback.output_devices == ("Woonkamer",)
+    assert backend.outputDeviceChoices == [{"name": "Woonkamer", "value": "Woonkamer", "is_active": True}]
+
+
+def test_backend_refresh_caches_now_playing_artwork_before_render(tmp_path: Path, monkeypatch) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token"
+    parser = HAClient(backend.cfg)
+    playback_updates: list[Playback] = []
+
+    class FakeClient:
+        def command(self, command: str, **payload: object) -> dict[str, object]:
+            if command == "status":
+                return {"playback": {"title": "Song", "artist": "Artist", "image_url": "https://example.test/art.jpg"}}
+            return {}
+
+        def playback_from_status(self, data: dict[str, object]) -> Playback:
+            return parser.playback_from_status(data)
+
+        def status(self, playback: object, queue_items: list[dict[str, object]] | None = None) -> dict[str, object]:
+            return {"success": True}
+
+    monkeypatch.setattr("djconnect_pi.app.cached_image_url", lambda url, **kwargs: "file:///cache/art.jpg")
+    backend._playbackReady.connect(lambda playback: playback_updates.append(playback))
+    backend.client = FakeClient()  # type: ignore[assignment]
+
+    backend._refresh_worker()
+
+    assert playback_updates[-1].image_url == "file:///cache/art.jpg"
+
+
+def test_backend_refresh_loads_active_output_device_when_status_omits_it(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token"
+    parser = HAClient(backend.cfg)
+    statuses: list[object] = []
+
+    class FakeClient:
+        def command(self, command: str, **payload: object) -> dict[str, object]:
+            if command == "status":
+                return {
+                    "playback": {
+                        "title": "Song",
+                        "artist": "Artist",
+                        "output_devices": [{"name": "Slaapkamer"}, {"name": "Tuin"}],
+                    }
+                }
+            if command == "devices":
+                return {"devices": [{"name": "Slaapkamer", "is_active": False}, {"name": "Tuin", "is_active": True}]}
+            return {}
+
+        def playback_from_status(self, data: dict[str, object]) -> object:
+            return parser.playback_from_status(data)
+
+        def status(self, playback: object, queue_items: list[dict[str, object]] | None = None) -> dict[str, object]:
+            statuses.append(playback)
+            return {"success": True}
+
+    backend.client = FakeClient()  # type: ignore[assignment]
+    backend._refresh_worker()
+
+    assert statuses
+    assert statuses[0].output_device == "Tuin"
+    assert statuses[0].output_devices == ("Slaapkamer", "Tuin")
+
+
+def test_backend_refresh_preserves_selected_output_device_when_status_omits_it(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token"
+    backend.playback.output_device = "Keuken"
+    parser = HAClient(backend.cfg)
+    statuses: list[object] = []
+
+    class FakeClient:
+        def command(self, command: str, **payload: object) -> dict[str, object]:
+            if command == "status":
+                return {"playback": {"title": "Song", "artist": "Artist"}}
+            if command == "devices":
+                return {"devices": [{"name": "Woonkamer"}, {"name": "Keuken"}]}
+            return {}
+
+        def playback_from_status(self, data: dict[str, object]) -> object:
+            return parser.playback_from_status(data)
+
+        def status(self, playback: object, queue_items: list[dict[str, object]] | None = None) -> dict[str, object]:
+            statuses.append(playback)
+            return {"success": True}
+
+    backend.client = FakeClient()  # type: ignore[assignment]
+    backend._refresh_worker()
+
+    assert statuses
+    assert statuses[0].output_device == "Keuken"
+    assert statuses[0].output_devices == ("Woonkamer", "Keuken")
+
+
+@pytest.mark.parametrize("screen, slot, items", [
+    ("queue", "loadQueue", "queueItems"),
+    ("playlists", "loadPlaylists", "playlistItems"),
+])
+def test_media_list_demo_and_unpaired_never_dispatch(tmp_path: Path, screen, slot, items) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend._executor.submit = Mock()
+    backend.client.command = Mock()
+    load = getattr(backend, slot)
+
+    load()
+    assert not getattr(backend, items)
+    assert screen not in backend._media_loads_in_flight
+    backend.enterDemoMode()
+    load()
+    assert getattr(backend, items)
+    backend._executor.submit.assert_not_called()
+    backend.client.command.assert_not_called()
+
+
+def test_media_list_requests_coalesce_per_list_and_release_after_failure(tmp_path: Path) -> None:
+    ensure_app()
+    path = tmp_path / "config.json"
+    save_config(path, Config(paired=True, device_token="test-token", ha_url="http://fixture.invalid"))
+    backend = DJConnectBackend(path)
+    backend._executor.submit = Mock()
+    backend.client.command = Mock(side_effect=DJConnectError("temporary fixture failure"))
+
+    backend.loadQueue()
+    backend.loadQueue()
+    backend.loadPlaylists()
+    backend.loadPlaylists()
+    assert backend._executor.submit.call_count == 2
+    assert backend._media_loads_in_flight == {"queue", "playlists"}
+
+    queue_job, playlist_job = [call.args[0] for call in backend._executor.submit.call_args_list]
+    queue_job()
+    backend.client.command.assert_called_once_with("queue", limit=100)
+    assert backend._media_loads_in_flight == {"playlists"}
+
+    backend.loadQueue()
+    backend.loadPlaylists()
+    assert backend._executor.submit.call_count == 3
+
+    playlist_job()
+    assert backend.client.command.call_args.args == ("playlists",)
+    assert backend._media_loads_in_flight == {"queue"}
+    backend._executor.submit.call_args.args[0]()
+    assert not backend._media_loads_in_flight
+
+
+def test_backend_queue_request_is_limited_to_100_items(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    calls: list[tuple[str, dict[str, object]]] = []
+
+    class FakeClient:
+        def command(self, command: str, **payload: object) -> dict[str, object]:
+            calls.append((command, payload))
+            return {"queue": {"items": []}}
+
+    backend.client = FakeClient()  # type: ignore[assignment]
+    backend._load_queue_worker()
+
+    assert calls == [("queue", {"limit": 100})]
+
+
+def test_backend_queue_item_worker_sends_direct_uri_without_required_context(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    parser = HAClient(backend.cfg)
+    calls: list[tuple[str, dict[str, object]]] = []
+    backend._refresh_worker = lambda: None  # type: ignore[method-assign]
+
+    class FakeClient:
+        def command(self, command: str, **payload: object) -> dict[str, object]:
+            calls.append((command, payload))
+            return {"playback": {"title": "Episode"}}
+
+        def playback_from_status(self, data: dict[str, object]) -> Playback:
+            return parser.playback_from_status(data)
+
+    backend.client = FakeClient()  # type: ignore[assignment]
+
+    backend._play_media_item_worker(
+        "play_context_at",
+        media_item_payload("play_context_at", {"title": "Episode", "uri": "spotify:episode:episode-1"}),
+    )
+
+    assert calls == [
+        (
+            "play_context_at",
+            {
+                "value": {
+                    "uri": "spotify:episode:episode-1",
+                    "title": "Episode",
+                },
+                "play": True,
+            },
+        )
+    ]
+
+
+def test_backend_queue_item_play_uses_play_context_at_command(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    parser = HAClient(backend.cfg)
+    calls: list[tuple[str, dict[str, object]]] = []
+    runs: list[str] = []
+    backend._refresh_worker = lambda: None  # type: ignore[method-assign]
+
+    def run_now(status: str, worker, **_: object) -> None:
+        runs.append(status)
+        worker()
+
+    class FakeClient:
+        def command(self, command: str, **payload: object) -> dict[str, object]:
+            calls.append((command, payload))
+            return {"playback": {"title": "Queued Track"}}
+
+        def playback_from_status(self, data: dict[str, object]) -> Playback:
+            return parser.playback_from_status(data)
+
+    backend._run = run_now  # type: ignore[method-assign]
+    backend.client = FakeClient()  # type: ignore[assignment]
+
+    backend.playMediaItem(
+        "play_context_at",
+        json.dumps({"title": "Queued Track", "uri": "spotify:track:track-1", "index": 2}),
+    )
+
+    assert runs == ["play_context_at"]
+    assert calls == [
+        (
+            "play_context_at",
+            {
+                "value": {
+                    "uri": "spotify:track:track-1",
+                    "title": "Queued Track",
+                    "index": 2,
+                },
+                "play": True,
+            },
+        )
+    ]
+
+
+def test_backend_media_item_play_does_not_navigate_to_now_playing(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    parser = HAClient(backend.cfg)
+    wakes: list[tuple[int, bool]] = []
+    backend.temporaryWakeRequested.connect(lambda seconds, navigate: wakes.append((seconds, navigate)))
+    backend._refresh_worker = lambda: None  # type: ignore[method-assign]
+
+    def run_now(status: str, worker, **_: object) -> None:
+        worker()
+
+    class FakeClient:
+        def command(self, command: str, **payload: object) -> dict[str, object]:
+            return {"playback": {"title": "Queued Track", "artist": "Artist", "playing": True}}
+
+        def playback_from_status(self, data: dict[str, object]) -> Playback:
+            return parser.playback_from_status(data)
+
+    backend._run = run_now  # type: ignore[method-assign]
+    backend.client = FakeClient()  # type: ignore[assignment]
+
+    backend.playMediaItem(
+        "play_context_at",
+        json.dumps({"title": "Queued Track", "uri": "spotify:track:track-1", "index": 2}),
+    )
+    QCoreApplication.processEvents()
+
+    assert wakes == [(10, False)]
+
+
+def test_backend_playlists_are_emitted_before_artwork_cache(tmp_path: Path, monkeypatch) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    calls: list[tuple[str, dict[str, object]]] = []
+    emitted: list[tuple[str, list[dict[str, object]]]] = []
+    submitted: list[object] = []
+    backend._mediaListReady.connect(lambda kind, items: emitted.append((kind, items)))
+    monkeypatch.setattr("djconnect_pi.app.prepare_media_artwork", lambda items: items)
+
+    class FakeExecutor:
+        def submit(self, worker):
+            submitted.append(worker)
+
+    class FakeClient:
+        def command(self, command: str, **payload: object) -> dict[str, object]:
+            calls.append((command, payload))
+            return {"playlists": [{"name": "Friday Night", "uri": "spotify:playlist:1", "image_url": "https://example.test/a.jpg"}]}
+
+    backend._executor = FakeExecutor()  # type: ignore[assignment]
+    backend.client = FakeClient()  # type: ignore[assignment]
+
+    backend._load_playlists_worker()
+
+    assert calls == [("playlists", {"limit": 100})]
+    assert emitted[0][0] == "playlists"
+    assert emitted[0][1][0]["title"] == "Friday Night"
+    assert emitted[0][1][0]["imageUrl"] == "https://example.test/a.jpg"
+    assert submitted
+
+
+def test_backend_artwork_cache_is_limited_and_deduplicated(tmp_path: Path, monkeypatch) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    submitted: list[object] = []
+    processed_lengths: list[int] = []
+
+    def fake_prepare(items: list[dict[str, object]]) -> list[dict[str, object]]:
+        processed_lengths.append(len(items))
+        return items
+
+    class FakeExecutor:
+        def submit(self, worker):
+            submitted.append(worker)
+
+    backend._executor = FakeExecutor()  # type: ignore[assignment]
+    monkeypatch.setattr("djconnect_pi.app.prepare_media_artwork", fake_prepare)
+    items = [{"title": f"Item {index}", "imageUrl": f"https://example.test/{index}.jpg"} for index in range(40)]
+
+    backend._cache_media_artwork_async("playlists", items)
+    backend._cache_media_artwork_async("playlists", items)
+
+    assert len(submitted) == 1
+    submitted[0]()
+    assert processed_lengths == [6]
+
+
+def test_backend_skips_duplicate_media_loads_while_in_flight(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "token"
+    calls: list[tuple[str, object, object]] = []
+
+    def fake_run(label: str, worker, done=None, *, interactive=True) -> None:
+        assert not interactive
+        calls.append((label, worker, done))
+
+    backend._run = fake_run  # type: ignore[method-assign]
+    backend._sync_config_from_disk = lambda: None  # type: ignore[method-assign]
+
+    backend.loadQueue()
+    backend.loadQueue()
+    backend.loadPlaylists()
+    backend.loadPlaylists()
+
+    assert len(calls) == 2
+    assert not backend.toastVisible
+    assert backend.queueLoading and backend.playlistsLoading
+    assert calls[0][0] == backend.t("queue")
+    assert calls[1][0] == backend.t("playlists")
+
+    assert calls[0][2] is not None
+    calls[0][2]()  # type: ignore[operator]
+    assert not backend.queueLoading and backend.playlistsLoading
+    backend.loadQueue()
+
+    assert len(calls) == 3
+
+
+def test_media_play_during_unrelated_busy_state_dispatches_once(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend._executor.submit = Mock()
+    backend._play_media_item_worker = Mock(side_effect=DJConnectError("fixture failure"))
+    item = json.dumps({"uri": "spotify:track:fixture"})
+
+    backend._set_busy(True)
+    backend.playMediaItem("play_context_at", item)
+    backend.playMediaItem("play_context_at", item)
+    assert backend.mediaPlaybackBusy
+    backend._executor.submit.assert_called_once()
+
+    backend._executor.submit.call_args.args[0]()
+    assert not backend.mediaPlaybackBusy
+    backend._play_media_item_worker.assert_called_once()
+
+
+def test_backend_shuffle_and_repeat_dispatch_commands(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    calls: list[tuple[str, dict[str, object]]] = []
+    backend.command = lambda command, **payload: calls.append((command, payload))  # type: ignore[method-assign]
+
+    backend.toggleShuffle()
+    backend.cycleRepeat()
+    backend.cycleRepeat()
+
+    assert calls == [
+        ("set_shuffle", {"value": True}),
+        ("set_repeat", {"value": "context"}),
+        ("set_repeat", {"value": "track"}),
+    ]
+
+
+def test_shared_settings_quick_controls_do_not_persist_or_optimistically_confirm(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "fixture-token"
+    backend._shared_settings.managed = True
+    backend._shared_settings_state = {"values": {"mood": "chill"}, "available": True}
+    before = backend.config_path.read_bytes()
+    backend._executor.submit = Mock()
+    backend._session_executor.submit = backend._executor.submit
+    backend._question_executor.submit = backend._executor.submit
+    backend.setMoodValue(95)
+    assert backend.moodValue == 0
+    assert backend.config_path.read_bytes() == before
+    assert backend.sharedSettingsBusy is True
+    assert backend.sharedSettings["values"]["mood"] == "chill"
+    backend.shutdown()
+
+
+def test_shared_settings_delayed_old_profile_result_is_discarded(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    old_context = backend._shared_settings.context()
+    old_epoch = backend._shared_settings_epoch
+    backend.cfg.active_profile_id = "replacement"
+    backend._invalidate_shared_settings_if_context_changed()
+    backend._apply_shared_settings({"epoch": old_epoch, "context": old_context,
+                                    "projection": {"values": {"mood": "party"}}})
+    assert backend.sharedSettings == {}
+    assert backend._settings_reconcile_timer.isActive()
+    assert backend._settings_reconcile_timer.interval() == 0
+    backend.shutdown()
+
+
+def test_shared_settings_denied_clears_visible_choices_but_preserves_pairing(tmp_path: Path) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "fixture-token"
+    backend._shared_settings_state = {"values": {"mood": "party"}}
+    backend._apply_shared_settings({"epoch": backend._shared_settings_epoch,
+                                    "context": backend._shared_settings.context(), "error": "denied"})
+    assert "values" not in backend.sharedSettings
+    assert backend.cfg.paired and backend.cfg.device_token == "fixture-token"
+    backend.shutdown()
+
+
+def test_rejected_discovery_feed_does_not_adopt_profile_or_display_machine_errors(tmp_path):
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.active_profile_id = "original-profile"
+    backend._music_discovery_items = [{"id": "old-result"}]
+    backend._apply_music_discovery_data({
+        "success": False, "error": "music_dna_context_changed", "message": "music_dna_context_changed",
+        "profile_id": "foreign-profile", "sections": [{"items": [{"title": "rejected content"}]}],
+    })
+    assert backend.cfg.active_profile_id == "original-profile"
+    assert backend.musicDiscoveryItems == []
+    assert backend.musicDiscoveryEmptyText == ""
+    assert backend.musicDiscoveryError == backend.tr_key("session_profile_missing")
+    assert "music_dna_context_changed" not in backend.musicDiscoveryError
+    backend.shutdown()
+
+
+def test_shutdown_late_settings_result_cannot_rearm_network_poll(tmp_path):
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    old_epoch, old_context = backend._shared_settings_epoch, backend._shared_settings.context()
+    backend.shutdown()
+    backend._apply_shared_settings({"epoch": old_epoch - 1, "context": old_context, "projection": {}})
+    assert not backend._settings_reconcile_timer.isActive()
+    assert not backend._shared_settings_timer.isActive()
+    backend._start_shared_settings = Mock()
+    backend.pollSharedSettings()
+    backend.saveSharedSettings({"mood": "party"})
+    backend._start_shared_settings.assert_not_called()
+
+
+@pytest.mark.parametrize("stage", ["mkdir", "exists", "stat"])
+def test_optional_album_cache_permission_failure_does_not_break_refresh(stage, tmp_path, monkeypatch):
+    monkeypatch.setattr("djconnect_pi.app.DEFAULT_LOG_PATH", tmp_path / "state" / "log" / "client.log")
+    with patch.object(Path, "exists", return_value=stage == "stat"), patch.object(Path, stage, side_effect=PermissionError("synthetic cache denied")), patch("djconnect_pi.app.requests.get") as get:
+        assert cached_image_url("https://fixture.invalid/art.jpg") == "https://fixture.invalid/art.jpg"
+    get.assert_not_called()
+
+
+@pytest.mark.parametrize("code", ["music_dna_context_changed", "profile_device_mismatch", "music_dna_unavailable"])
+def test_music_dna_failure_is_not_disabled_or_profile_authority(tmp_path, code):
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.active_profile_id = "original"
+    backend._music_dna_enabled = True
+    backend._music_dna_summary = "old-profile-summary"
+    backend._apply_music_dna_data({"success": False, "error": code, "profile_id": "foreign",
+                                  "enabled": True, "profile": {"summary": "rejected"}})
+    assert backend.cfg.active_profile_id == "original"
+    assert backend.musicDnaSummary == ""
+    assert backend.musicDnaSections == []
+    expected = "backend_unavailable" if code == "music_dna_unavailable" else "session_profile_missing"
+    assert backend.musicDnaError == backend.tr_key(expected)
+    assert code not in backend.musicDnaError
+    backend._apply_music_dna_data({"success": True, "enabled": False, "profile": {}})
+    assert backend.musicDnaError == "" and not backend.musicDnaEnabled
+
+
+@pytest.mark.parametrize("action", ["profile", "settings", "clear"])
+@pytest.mark.parametrize("error_type", [AuthenticationError, ProtocolVersionMismatch])
+def test_music_dna_workers_preserve_authentication_and_protocol_classification(tmp_path, action, error_type):
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    error = error_type("invalid auth") if error_type is AuthenticationError else error_type("4.0", "5.0")
+    setattr(backend.client, "music_dna_" + action, Mock(side_effect=error))
+    with pytest.raises(error_type):
+        getattr(backend, "_music_dna_" + action + "_worker")()
+
+
+@pytest.mark.parametrize("action", ["profile", "settings", "clear"])
+@pytest.mark.parametrize("profile_error", [True, False])
+def test_music_dna_worker_errors_show_retry_without_content_or_replay(tmp_path, action, profile_error):
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "original-token"
+    backend.cfg.active_profile_id = backend.cfg.explicit_profile_id = "original-profile"
+    error = ProfileContextError("music_dna_context_changed", "private detail") if profile_error else DJConnectError("private unavailable")
+    request = Mock(side_effect=error)
+    setattr(backend.client, "music_dna_" + action, request)
+    getattr(backend, "_music_dna_" + action + "_worker")()
+    assert request.call_count == 1
+    assert backend.musicDnaError == backend.tr_key("session_profile_missing" if profile_error else "backend_unavailable")
+    assert "private" not in backend.musicDnaError
+    assert backend.cfg.paired and backend.cfg.device_token == "original-token"
+    assert backend.cfg.active_profile_id == backend.cfg.explicit_profile_id == "original-profile"
+    assert not backend.musicDnaSummary and not backend.musicDnaSections
+
+
+@pytest.mark.parametrize("slot,signal", [
+    ("_apply_ask_dj_data", "askDjChanged"),
+    ("_apply_music_dna_data", "musicDnaChanged"),
+    ("_apply_music_discovery_data", "musicDiscoveryChanged"),
+    ("_apply_track_insight_data", "trackInsightChanged"),
+])
+def test_private_gui_result_cannot_cross_owner_permission_epoch(tmp_path, slot, signal):
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    result = backend._profile_read_result({"success": False, "error": "transient"}, backend._private_read_context())
+    changed = Mock()
+    getattr(backend, signal).connect(changed)
+    backend._session_controller._owner_epoch += 1
+    getattr(backend, slot)(result)
+    changed.assert_not_called()
+    assert not backend._profile_result_current(result)
+
+
+@pytest.mark.parametrize("field,value", [("device_token", "changed"), ("language", "de"), ("paired", True)])
+def test_private_gui_result_is_bound_to_original_device_context(tmp_path, field, value):
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    result = backend._profile_read_result({"success": True}, backend._private_read_context())
+    assert backend._profile_result_current(result)
+    setattr(backend.cfg, field, value)
+    assert not backend._profile_result_current(result)
+
+
+def test_owner_scope_notification_clears_private_views_without_invalidating_current_session(tmp_path):
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    controller = backend._session_controller
+    controller._session = {"session_id": "current"}
+    backend._music_dna_summary = "private"
+    backend._music_discovery_items = [{"title": "private"}]
+    backend._track_insight_text = "private"
+    with patch.object(controller, "invalidate") as invalidated:
+        backend._session_owner_changed()
+    invalidated.assert_not_called()
+    assert controller._session == {"session_id": "current"}
+    assert not backend._music_dna_summary and not backend._music_discovery_items and not backend._track_insight_text
+    assert backend._settings_reconcile_timer.isActive()
+
+
+def test_worker_drops_changed_owner_before_profile_metadata_adoption(tmp_path):
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    def delayed():
+        backend._session_controller._owner_epoch += 1
+        return {"success": True, "profile_id": "stale-private"}
+    backend.client.music_dna_profile = Mock(side_effect=delayed)
+    with patch.object(backend, "_apply_profile_context") as adopt:
+        backend._music_dna_profile_worker()
+    adopt.assert_not_called()
+    assert backend.cfg.active_profile_id != "stale-private"
+
+
+@pytest.mark.parametrize("transition", ["none", "speaker", "profile", "item", "foreground", "fresh_speaker"])
+def test_control_volume_rechecks_original_context_before_sending(tmp_path: Path, transition: str) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "fixture"
+    backend.cfg.ha_url = "http://fixture.invalid"
+    backend.cfg.active_profile_id = backend.cfg.explicit_profile_id = "fixture"
+    backend.cfg.music_backend = "spotify_direct"
+    backend.cfg.music_backend_revision = 3
+    backend.cfg.music_backend_capabilities = {"supports_volume": True}
+    backend._apply_playback(Playback(uri="fixture:a", volume=25, volume_output_id="speaker-a"))
+    backend._refresh_worker = Mock()
+    backend._run = Mock()
+    transport = backend.djSession.transport
+    status = {
+        "music_backend": "spotify_direct", "music_backend_revision": 3,
+        "backend_available": True, "music_backend_available": True,
+        "music_backend_capabilities": {"supports_volume": True},
+        "playback": {"uri": "fixture:a", "has_playback": True, "volume_percent": 25, "device": {
+            "id": "speaker-b" if transition == "fresh_speaker" else "speaker-a",
+            "active": True, "supports_volume": True, "is_restricted": False,
+        }},
+    }
+    transport.playback_status = Mock(return_value=status)
+    transport.playback_volume = Mock()
+    lease = backend.beginControlVolume()
+    assert lease > 0
+    backend.commitControlVolume(lease, 40)
+    backend.commitControlVolume(lease, 41)
+    backend._run.assert_called_once()
+    assert backend.volume == 25
+    if transition == "speaker":
+        backend._apply_playback(Playback(uri="fixture:a", volume=25, volume_output_id="speaker-b"))
+        backend._apply_playback(Playback(uri="fixture:a", volume=25, volume_output_id="speaker-a"))
+    elif transition == "profile":
+        backend.cfg.active_profile_id = "other"
+    elif transition == "item":
+        backend._apply_playback(Playback(uri="fixture:b", volume=25, volume_output_id="speaker-a"))
+    elif transition == "foreground":
+        backend.djSession.setForeground(False)
+    backend._run.call_args.args[1]()
+    if transition == "none":
+        transport.playback_volume.assert_called_once_with(transport.binding(), 40, "spotify_direct")
+    else:
+        transport.playback_volume.assert_not_called()
+
+
+@pytest.mark.parametrize("provider", ["spotify_direct", "music_assistant"])
+@pytest.mark.parametrize("observation", ["zero", "missing", "conflicting", "restricted", "no_capability"])
+def test_control_volume_requires_observed_volume_and_writable_output(tmp_path: Path, provider: str, observation: str) -> None:
+    ensure_app()
+    backend = DJConnectBackend(tmp_path / "config.json")
+    backend.cfg.paired = True
+    backend.cfg.device_token = "fixture"
+    backend.cfg.active_profile_id = backend.cfg.explicit_profile_id = "fixture"
+    backend.cfg.music_backend = provider
+    backend.cfg.music_backend_capabilities = {"supports_volume": True}
+    device = {"id": "speaker-id", "name": "Speaker", "supports_volume": True,
+              "active": True, "is_restricted": False, "entity_id": "speaker-id"}
+    playback = {"volume": 0, "uri": "fixture:item", "device": device}
+    status = {"music_backend": provider, "backend_available": True, "music_backend_available": True,
+              "music_backend_capabilities": {"supports_volume": True}, "playback": playback}
+    if observation == "missing":
+        playback.pop("volume")
+    elif observation == "conflicting":
+        playback["volume_percent"] = 30
+    elif observation == "restricted":
+        device.update(is_restricted=True, entity_id="other")
+    elif observation == "no_capability":
+        status["music_backend_capabilities"]["supports_volume"] = False
+
+    backend._apply_playback(backend.client.playback_from_status(status))
+
+    assert backend.controlVolumeAvailable is (observation == "zero")
+    if observation == "zero":
+        assert backend.volume == 0

@@ -1,0 +1,18 @@
+{
+  "protected_core": "8b221d07fe2215d9516d18fe92c832332c7a16ab",
+  "source_hashes": {
+    "custom_components/djconnect/historical_projection_query.py": "5ece0136910e9fc9d01185aee7b8a0fea49bda213e2a033a38a817ad5ac0bf7a",
+    "custom_components/djconnect/api_handlers.py": "0a377fba0b3781b92ebcd4dd2b27088add261e5231c7851a1236635232f28765",
+    "custom_components/djconnect/session_runtime.py": "61eeae0d89b9b74158aee947f1f9d6dfa398a0addc16ca42dc7143d8337d494e",
+    "docs/product/SESSION_FORECAST_V1.md": "fa959a90cd6636735d9885768641a5be3be08425622e4af050b1d4ce4ae4ed8a"
+  },
+  "archive_contract": "Existing owner session-list GET, canonical keyset/revision/retention scope; invalid history cursor maps to409. No before/anchor list endpoint invented.",
+  "forecast_contract": "Existing version1 text projection and public Runtime style/counters/locale/direction/playback. Immutable Forecast revision and original deadline.",
+  "coordination": "Apple PR162 review findings; Pi PR111 consumer-only fix. No producer contract change or new Core issue required. Apple imagery catalogue3cfa5512 remains unadopted by this text-only consumer.",
+  "boundaries": [
+    "Max5pages/100header bodies in current window",
+    "Max32 RAM-only cursor/reading descriptors; fresh reads on return",
+    "No new media/audio/action grant or replay",
+    "Source/fixture/Qt/package only, no installed/live/ARM/physical PASS"
+  ]
+}

@@ -1,0 +1,1 @@
+Actual public operational metadata captured after failed recovery39695635601. No config body, token, boot identity, endpoint or user content. Raw receipt remains byte-identical SHAce97876b008d4417ec08100066aa38abf87dd57ae8398ae5e64de97d442744ec; no kind/schema/helper/input fields are fabricated. Unit PID values are historical OS-shape fixtures, not current process acceptance.

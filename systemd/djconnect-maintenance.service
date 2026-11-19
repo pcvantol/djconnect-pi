@@ -1,0 +1,9 @@
+[Unit]
+Description=DJConnect Raspberry Pi OS maintenance
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/djconnect/current/bin/djconnect-pi-maintenance --maintenance-window 03:00-04:00 --reboot
+

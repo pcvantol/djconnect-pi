@@ -1,0 +1,12 @@
+{
+  "prior_protected_media_contract": "FORECAST_IMAGE_REFERENCE.json",
+  "new_wire_contract": false,
+  "consumer": "Pi-owned reading position during asynchronous Forecast image appearance/withdrawal",
+  "descriptor": "One RAM-only Session/Profile/Forecast-revision/section-id/finite-offset tuple, never body/image/grant cache. Existing admitted current section only; no restore on missing/revised scope, hide, context loss or real touch movement.",
+  "layout": "Pre-mutation signal captures existing visible section. After changed, bounded8x32ms polished-layout settling and clamped pixel verification. No automatic image follow when top/image rather than text is being read.",
+  "tests": "Three new notification-order tests plus actual QML same-section/pixel on image arrival and image-only expiry, real Qt drag already moving and queued restore cancellation. Fixture holds only one layout callback500ms for deterministic drag-before-callback, then resets32ms and invokes late callback to verify no jump. Production32ms timer unchanged.",
+  "fixture": "Original protected prose/pixels retained; extra long3000-char repeated section text explicitly synthetic within4096 wirebound, never a producer narration-quality claim.",
+  "limits": "No persistence, new source/media rights, body cache, deadline extension or latest native pixel claim. Existing expiry/no-store/foreground/owner/revision fences remain.",
+  "log_privacy": "Existing application file/stderr redactor now also blocks the managed Forecast capability route, including urllib3 DEBUG records with relative or absolute paths; ordinary request diagnostics remain. Two new real-file tests use synthetic IDs without token/bearer marker words and prove no capability path is stored.",
+  "qualification": "1077 local full tests, Ruff PASS,732 actual QML views, source/package/Qt-touch only; no ARM/installed/live HA/Profile/physical evidence."
+}

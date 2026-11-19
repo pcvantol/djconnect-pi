@@ -1,0 +1,234 @@
+from __future__ import annotations
+
+import json
+import locale
+import os
+import re
+import secrets
+import uuid
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
+from typing import Any
+
+from .i18n import normalize_language
+
+CLIENT_TYPE = "raspberry_pi"
+PROTOCOL_VERSION = "4.1.1"
+DEFAULT_CONFIG_PATH = Path.home() / ".config" / "djconnect-pi" / "config.json"
+DEFAULT_LOG_LEVEL = "OFF"
+DEFAULT_UPDATE_REPO = "djconnect-music-dj/djconnect-pi-releases"
+LOG_LEVELS = frozenset({"OFF", "DEBUG", "INFO", "WARNING", "ERROR"})
+DEFAULT_LOG_PATH = Path.home() / ".local" / "state" / "djconnect-pi" / "client.log"
+
+
+@dataclass
+class Config:
+    ha_url: str = ""
+    device_id: str = ""
+    device_name: str = "DJConnect"
+    device_token: str = ""
+    paired: bool = False
+    pairing_code: str = field(default_factory=lambda: generate_pairing_code())
+    version: str = PROTOCOL_VERSION
+    update_repo: str = DEFAULT_UPDATE_REPO
+    update_channel: str = "stable"
+    release_profile: str = ""
+    # None keeps the hardware-profile default until an explicit local choice.
+    glass_enabled: bool | None = None
+    local_url: str = ""
+    # The Pi local API intentionally listens on the LAN by default.
+    local_api_host: str = "0.0.0.0"  # nosec B104
+    local_api_port: int = 18080
+    screen_timeout_seconds: int = 120
+    session_refresh_seconds: int | None = None
+    return_to_now_seconds: int = 60
+    screen_brightness_percent: int = 100
+    language: str = field(default_factory=lambda: default_language_from_system())
+    log_file: str = str(DEFAULT_LOG_PATH)
+    music_backend: str = ""
+    music_backend_name: str = ""
+    music_backend_available: bool = True
+    music_backend_revision: int = 0
+    music_backend_capabilities: dict[str, Any] = field(default_factory=dict)
+    music_target_player: dict[str, str] = field(default_factory=dict)
+    music_backend_error: str = ""
+    music_dna_key: str = ""
+    active_profile_id: str = ""
+    active_profile_name: str = ""
+    active_profile_type: str = "household"
+    active_profile_privacy_mode: str = "shared"
+    explicit_profile_id: str = ""
+    private_session: bool = False
+    mood: int | None = None
+    dj_announcement_output: str = "text_only"
+    dj_announcement_output_user_set: bool = False
+    websocket_fast_path_enabled: bool = True
+    ha_websocket_token: str = ""
+    dj_response_file: str = str(DEFAULT_LOG_PATH.parent / "dj-response.json")
+    command_event_file: str = str(DEFAULT_LOG_PATH.parent / "command-event.json")
+    screenshot_event_file: str = str(DEFAULT_LOG_PATH.parent / "screenshot-request.json")
+    screenshot_file: str = str(DEFAULT_LOG_PATH.parent / "screenshot.png")
+    updater_status_file: str = str(DEFAULT_LOG_PATH.parent / "updater-status.json")
+    log_level: str = DEFAULT_LOG_LEVEL
+
+
+def stable_device_id() -> str:
+    raw = uuid.getnode().to_bytes(6, "big").hex().upper()
+    suffix = re.sub(r"[^A-Z0-9]", "", raw)[:12].ljust(12, "0")
+    return f"djconnect-raspberry-pi-{suffix}"
+
+
+def generate_pairing_code() -> str:
+    return f"{secrets.randbelow(1_000_000):06d}"
+
+
+def default_language_from_system() -> str:
+    candidates = [
+        locale.getlocale()[0],
+        os.environ.get("LC_ALL"),
+        os.environ.get("LC_MESSAGES"),
+        os.environ.get("LANG"),
+    ]
+    language = ""
+    for candidate in candidates:
+        if candidate:
+            language = candidate.lower()
+            break
+    return normalize_language(language)
+
+
+def load_config(path: Path) -> Config:
+    if not path.exists():
+        cfg = Config(device_id=stable_device_id())
+        save_config(path, cfg)
+        return cfg
+    data = json.loads(path.read_text(encoding="utf-8"))
+    defaults = asdict(Config())
+    cfg = Config(**{**defaults, **{key: value for key, value in data.items() if key in defaults}})
+    if "updater_status_file" not in data and path.name == "client.json":
+        cfg.updater_status_file = str(path.parent / "updater-status.json")
+    if not cfg.device_id:
+        cfg.device_id = stable_device_id()
+    if cfg.device_name in {"", "DJConnect Pi"}:
+        cfg.device_name = "DJConnect"
+    cfg.version = PROTOCOL_VERSION
+    if not re.fullmatch(r"\d{6}", str(cfg.pairing_code)):
+        cfg.pairing_code = generate_pairing_code()
+    cfg.screen_timeout_seconds = max(0, int(cfg.screen_timeout_seconds))
+    cfg.return_to_now_seconds = _normalize_return_to_now_seconds(cfg.return_to_now_seconds)
+    cfg.screen_brightness_percent = max(10, min(100, int(cfg.screen_brightness_percent)))
+    cfg.mood = _optional_mood(cfg.mood)
+    cfg.dj_announcement_output = normalize_dj_announcement_output(
+        cfg.dj_announcement_output,
+        cfg.music_backend_capabilities,
+    )
+    cfg.local_api_port = max(1, min(65535, int(cfg.local_api_port)))
+    cfg.language = normalize_language(cfg.language)
+    cfg.log_level = normalize_log_level(cfg.log_level)
+    cfg.active_profile_id = str(cfg.active_profile_id or "").strip()
+    cfg.active_profile_name = str(cfg.active_profile_name or "").strip()
+    cfg.active_profile_type = _normalize_profile_type(cfg.active_profile_type)
+    cfg.active_profile_privacy_mode = _normalize_profile_privacy_mode(cfg.active_profile_privacy_mode)
+    cfg.explicit_profile_id = str(cfg.explicit_profile_id or "").strip()
+    cfg.private_session = bool(cfg.private_session)
+    if cfg.update_repo == "pcvantol/djconnect-pi-releases":
+        cfg.update_repo = DEFAULT_UPDATE_REPO
+    if cfg.update_channel not in {"stable", "beta"}:
+        cfg.update_channel = "stable"
+    cfg.release_profile = str(cfg.release_profile or "").strip()
+    if type(cfg.glass_enabled) is not bool:
+        cfg.glass_enabled = None
+    cfg.dj_announcement_output_user_set = bool(cfg.dj_announcement_output_user_set)
+    return cfg
+
+
+def normalize_log_level(value: object) -> str:
+    level = str(value or "").strip().upper()
+    return level if level in LOG_LEVELS else DEFAULT_LOG_LEVEL
+
+
+def _optional_mood(value: object) -> int | None:
+    if value in (None, ""):
+        return None
+    try:
+        return max(0, min(100, int(value)))
+    except (TypeError, ValueError):
+        return None
+
+
+def _normalize_return_to_now_seconds(value: object) -> int:
+    try:
+        seconds = int(value)
+    except (TypeError, ValueError):
+        return 60
+    return seconds if seconds in {0, 30, 60, 120} else 60
+
+
+def _normalize_profile_type(value: object) -> str:
+    text = str(value or "").strip().lower()
+    return text if text in {"personal", "household", "room", "guest", "kids", "party"} else "household"
+
+
+def _normalize_profile_privacy_mode(value: object) -> str:
+    text = str(value or "").strip().lower()
+    return text if text in {"normal", "shared", "guest-safe", "private"} else "shared"
+def dj_announcement_speaker_configured(capabilities: dict[str, Any] | None) -> bool:
+    announcement = capabilities.get("dj_announcement") if isinstance(capabilities, dict) else None
+    if isinstance(announcement, dict):
+        if announcement.get("speaker_configured") is True:
+            return True
+        target = announcement.get("target") if isinstance(announcement.get("target"), dict) else {}
+        return bool(
+            announcement.get("speaker_entity_id")
+            or announcement.get("speaker_name")
+            or target.get("entity_id")
+            or target.get("name")
+        )
+    return False
+
+
+def normalize_dj_announcement_output(value: object, capabilities: dict[str, Any] | None = None) -> str:
+    output = str(value or "").strip()
+    announcement = capabilities.get("dj_announcement") if isinstance(capabilities, dict) else None
+    supported = announcement.get("supported_outputs") if isinstance(announcement, dict) else None
+    locked = announcement.get("locked_outputs") if isinstance(announcement, dict) else None
+    supported_outputs = {str(item).strip() for item in supported if str(item).strip()} if isinstance(supported, list) else set()
+    locked_outputs = {str(item).strip() for item in locked if str(item).strip()} if isinstance(locked, list) else set()
+    ha_speaker_supported = not supported_outputs or "ha_speaker" in supported_outputs
+    if output == "ha_speaker" and output not in locked_outputs and ha_speaker_supported and dj_announcement_speaker_configured(capabilities):
+        return "ha_speaker"
+    return "text_only"
+
+
+def save_config(path: Path, cfg: Config, *, skip_unchanged: bool = False) -> bool:
+    payload = (json.dumps(asdict(cfg), indent=2, sort_keys=True) + "\n").encode("utf-8")
+    if skip_unchanged:
+        try:
+            if path.stat().st_mode & 0o777 == 0o600 and path.read_bytes() == payload:
+                return False
+        except FileNotFoundError:
+            pass
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_name(f".{path.name}.tmp")
+    tmp_path.write_bytes(payload)
+    tmp_path.chmod(0o600)
+    tmp_path.replace(path)
+    path.chmod(0o600)
+    return True
+
+
+SESSION_REFRESH_CHOICES = (1, 5, 10, 15, 30, 60)
+
+
+def effective_session_refresh_seconds(cfg: Config) -> int:
+    value = getattr(cfg, "session_refresh_seconds", None)
+    if type(value) is int and value in SESSION_REFRESH_CHOICES:
+        return value
+    return 15 if getattr(cfg, "release_profile", "") == "pi-zero-2w-arm64" else 5
+
+
+def effective_glass_enabled(cfg: Config) -> bool:
+    """Local appearance preference, never a Profile or server permission."""
+    if type(cfg.glass_enabled) is bool:
+        return cfg.glass_enabled
+    return cfg.release_profile == "pi5-arm64"

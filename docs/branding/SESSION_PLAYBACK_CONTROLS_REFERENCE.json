@@ -1,0 +1,62 @@
+{
+  "scope": "Shared current-Session play/pause/previous/next and advertised current-track save, explicit user input under an explicit private personal/household Profile; legacy private_session excluded. Other authorized Profile modes remain an independent consumer audit, not a permanent Pi product ban.",
+  "sources": [
+    {
+      "repository": "djconnect",
+      "commit": "8b221d07fe2215d9516d18fe92c832332c7a16ab",
+      "path": "custom_components/djconnect/api_handlers.py",
+      "sha256": "0a377fba0b3781b92ebcd4dd2b27088add261e5231c7851a1236635232f28765"
+    },
+    {
+      "repository": "djconnect",
+      "commit": "8b221d07fe2215d9516d18fe92c832332c7a16ab",
+      "path": "custom_components/djconnect/http.py",
+      "sha256": "e20af966b2bd4e57bc6a6f6bb88a8ecbdb838a4e07c92a943a20bae7ebeb188c"
+    },
+    {
+      "repository": "djconnect",
+      "commit": "8b221d07fe2215d9516d18fe92c832332c7a16ab",
+      "path": "custom_components/djconnect/use_cases.py",
+      "sha256": "34c4585d9969368ceb2e155852eed780831bcd077ead050d5bdec59271b412c4"
+    },
+    {
+      "repository": "djconnect",
+      "commit": "8b221d07fe2215d9516d18fe92c832332c7a16ab",
+      "path": "custom_components/djconnect/session_runtime.py",
+      "sha256": "61eeae0d89b9b74158aee947f1f9d6dfa398a0addc16ca42dc7143d8337d494e"
+    },
+    {
+      "repository": "djconnect",
+      "commit": "8b221d07fe2215d9516d18fe92c832332c7a16ab",
+      "path": "custom_components/djconnect/spotify_backend.py",
+      "sha256": "2d23571c0ef5d1ef7724098a42ab030a2221bebb52c90154cfe4906e318dd5f6"
+    },
+    {
+      "repository": "djconnect-app",
+      "commit": "e106a467011b9ea84d301a81c4e07251314cc6dd",
+      "path": "Sources/DJConnectUI/NativeSessionMomentsView.swift",
+      "sha256": "26ec91fd9d0c3e7c749f2b97186ebbcc8a85dd2ad9dc1badd588dfeb249884be"
+    }
+  ],
+  "authority": "Existing paired command HTTP handler resolves authorized device and Profile, then calls the selected backend. No expected Session/item wire field, grant, audio path or contract added.",
+  "preflight": "Fresh isolated owner Session GET must match the original active Session and playback item/state/source; then status command read must match backend/revision/availability, strict favorite capability when needed, and the observed URI hash (SHA256 first24 hex from released RendererSafePlaybackProjection.from_observation) plus playing/paused state. Finally one explicit command POST. No caller URI or subject override.",
+  "transport": "New playback preflights/POST use configured HA, normal paired device/Bearer/explicit Profile, redirects disabled, fresh requests.Session with trust_env false, no ambient netrc/proxy credentials/cookie reuse. No WS fallback/retry. Other existing Session calls keep their established transport.",
+  "concurrency": "Dedicated max1 worker; original reference and binding checked before/after preflight and before write. Observed withdrawal, close/hide/foreground/Profile/End/Session/item/backend changes revoke queued intent. Started HTTP may complete. End stays independent; other command/input reads are gated during this intent.",
+  "display": "Ignore command playback data; only normal independent owner refresh updates Runtime. A still-current visible uncertain outcome blocks further clicks until explicit refresh; no automatic write replay. UI status is not an operation1 receipt or an exactly-once claim.",
+  "design": "Pinned Apple music artwork accessibility/gesture actions map to play/pause/next/previous; Pi provides an explicit More pop-out, not native artwork gesture geometry. Current-track save uses existing favorite capability and does not assert or toggle a favorite state. Pi-owned transport glyph paths reuse Main.qml geometry; not exact SF symbols.",
+  "reading": "The original half-viewport first-fold threshold is also asserted with new controls active in all five locales/both formats. Existing native/current reply/history/image reading paths remain separate.",
+  "known_race": "Existing producer commands are global Profile playback actions, with no atomic expected Session/item CAS. Preflight prevents observed stale dispatch but cannot prevent a server change after the last read or cancel a started command.",
+  "limits": [
+    "Volume/output selection, favorite state/removal and artwork tap/swipe gestures remain open",
+    "No general playback cover/image grant is inferred from Runtime metadata",
+    "No live HA/Profile/provider/model/ARM/installed/physical acceptance"
+  ],
+  "fixture": "Original native expressive bytes replayed at original expiry clock; backend status, playback updates, HTTP/socket effects synthetic and intercepted. Existing renderer URI/hash mechanism used only as equality fence, never as a new right.",
+  "url_admission": "Isolated playback paths reject embedded userinfo, non-HTTP(S), query/fragment, controls and invalid ports before request preparation. Offline requests probe demonstrates URL userinfo replaces Bearer despite trust_env false. Valid reverse proxy paths remain supported.",
+  "qualification": {
+    "controls_head": "a54aee5db32cb6cc5b57d344548f01fa95cbe6d9",
+    "qml_views": 1046,
+    "transport_followup_full_tests": 1334,
+    "extra_qml_views_after_transport_only_followup": 0
+  }
+}

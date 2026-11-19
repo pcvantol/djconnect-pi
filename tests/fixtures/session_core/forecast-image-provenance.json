@@ -1,0 +1,9 @@
+{
+  "core_protected_source": "8b221d07fe2215d9516d18fe92c832332c7a16ab",
+  "source_sha256": {
+    "examples/client_contracts/session_forecast_v1/transport-fixtures.json": "909c9bc4f882f5db84b0b92a4fef4102c3f8d123337cf0770160f590fba24cac",
+    "examples/client_contracts/session_artwork_v1/assets/artist.png": "c84cb44d143ac921adb1f2322753b86b3c0b2a50fd26b3e0f1ebca99b64ef950"
+  },
+  "transport": "Original expired20 owner-chain bytes unchanged; replay only original clock. Actual Core provider/CDN boundary fixtures, not live qualification.",
+  "pixels": "Original owned synthetic artist PNG from protected Session artwork fixtures, used solely as test bytes; no artist photo/license claim."
+}

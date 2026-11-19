@@ -1,0 +1,10 @@
+[Unit]
+Description=Run DJConnect Raspberry Pi health watchdog
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=1min
+Unit=djconnect-watchdog.service
+
+[Install]
+WantedBy=timers.target

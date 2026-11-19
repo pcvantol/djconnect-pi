@@ -1,0 +1,126 @@
+name: Pi synthetic consumer and preflight qualification
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Qualify synthetic consumer prepare and preflight on Pi relay
+    if: github.ref == 'refs/heads/main' && github.actor == 'pcvantol'
+    runs-on: [self-hosted, macOS, ARM64, internal-release, private-network-deployment]
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: synthetic-not-a-token
+    steps:
+      - id: own_path
+        name: Create job-owned isolated workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$RUNNER_OS" = macOS && test "$RUNNER_ARCH" = ARM64
+          workspace="$(cd "$GITHUB_WORKSPACE" && pwd -P)"
+          owned="$workspace/.pi-consumer-preflight-proof"
+          test ! -e "$owned" && test ! -L "$owned"
+          mkdir -m 700 "$owned"
+          printf '%s:%s:%s\n' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$(id -u)" > "$owned/.owner"
+          mkdir -m 700 "$owned/scratch"
+          printf 'PI_PROOF_ROOT=%s\n' "$owned" >> "$GITHUB_ENV"
+
+      - name: Checkout exact trusted consumer main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.sha }}
+          path: .pi-consumer-preflight-proof/consumer
+          persist-credentials: false
+
+      - name: Exercise actual prepare entrypoints with synthetic authority
+        shell: bash
+        working-directory: .pi-consumer-preflight-proof/consumer
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY_ID" = 1267248532
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test -z "$(git status --porcelain --untracked-files=no)"
+          test ! -e .canonical-core-preflight && test ! -L .canonical-core-preflight
+          env -i PATH="$PATH" GITHUB_SHA="$GITHUB_SHA" GITHUB_REPOSITORY_ID="$GITHUB_REPOSITORY_ID" \
+            /opt/homebrew/bin/python3.14 -IB Tools/qualification/pi_preflight_consumer_synthetic.py "$PI_PROOF_ROOT/scratch"
+          /opt/homebrew/bin/python3.14 -IB -c 'import hashlib,pathlib,sys; p=pathlib.Path(sys.argv[1]); files=sorted(p.rglob("prepared.json")); assert len(files)==5; (p/"before.json").write_text(__import__("json").dumps({str(f.relative_to(p)):hashlib.sha256(f.read_bytes()).hexdigest() for f in files},sort_keys=True))' "$PI_PROOF_ROOT/scratch"
+
+      - name: Require unused canonical preflight path
+        shell: bash
+        working-directory: .pi-consumer-preflight-proof/consumer
+        run: |
+          set -euo pipefail
+          test ! -e .canonical-core-preflight && test ! -L .canonical-core-preflight
+
+      - id: core
+        name: Resolve canonical Core by immutable repository ID
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        with:
+          script: |
+            const expectedId = 1258575431;
+            const response = await github.request('GET /repositories/{repository_id}', {repository_id: expectedId});
+            const repo = response.data;
+            if (repo.id !== expectedId || repo.private !== false || !['pcvantol/djconnect', 'djconnect-music-dj/djconnect'].includes(repo.full_name)) {
+              throw new Error('Canonical Core identity is not authorized');
+            }
+            core.setOutput('repository', repo.full_name);
+
+      - name: Checkout exact canonical preflight inside consumer
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: ${{ steps.core.outputs.repository }}
+          ref: 802619ac1ab3ec11eace7a8609167018193bb98e
+          path: .pi-consumer-preflight-proof/consumer/.canonical-core-preflight
+          persist-credentials: false
+
+      - name: Verify source, consumer and synthetic prepared data
+        shell: bash
+        working-directory: .pi-consumer-preflight-proof/consumer
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test -z "$(git status --porcelain --untracked-files=no)"
+          test "$(git -C .canonical-core-preflight rev-parse HEAD)" = 802619ac1ab3ec11eace7a8609167018193bb98e
+          printf '%s  %s\n' 8af709b8a6ddf29843562d4f1b09de0747204feb086eeebbb485d16f5423fd37 .canonical-core-preflight/.github/actions/deployment-readiness-preflight/action.yml | shasum -a 256 --check
+          if git config --local --name-only --get-regexp '^http\..*\.extraheader$'; then exit 1; fi
+          if git -C .canonical-core-preflight config --local --name-only --get-regexp '^http\..*\.extraheader$'; then exit 1; fi
+          /opt/homebrew/bin/python3.14 -IB -c 'import hashlib,json,pathlib,sys; p=pathlib.Path(sys.argv[1]); files=sorted(p.rglob("prepared.json")); assert len(files)==5; assert {str(f.relative_to(p)):hashlib.sha256(f.read_bytes()).hexdigest() for f in files}==json.loads((p/"before.json").read_text())' "$PI_PROOF_ROOT/scratch"
+
+      - id: preflight
+        name: Run canonical preflight with synthetic values
+        uses: ./.pi-consumer-preflight-proof/consumer/.canonical-core-preflight/.github/actions/deployment-readiness-preflight
+        with:
+          target: synthetic-test
+          manifest_id: release-synthetic
+          candidate_sha: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          artifact_id: synthetic-artifact
+          artifact_sha256: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+          expected_runner_os: macOS
+          expected_runner_arch: ARM64
+          required_configuration: GH_TOKEN
+          smoke_contract: synthetic-readback
+
+      - name: Verify prepared bytes survived preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GH_TOKEN" = synthetic-not-a-token
+          /opt/homebrew/bin/python3.14 -IB -c 'import hashlib,json,pathlib,sys; p=pathlib.Path(sys.argv[1]); files=sorted(p.rglob("prepared.json")); assert len(files)==5; assert {str(f.relative_to(p)):hashlib.sha256(f.read_bytes()).hexdigest() for f in files}==json.loads((p/"before.json").read_text())' "$PI_PROOF_ROOT/scratch"
+
+      - name: Remove only this job-owned proof directory
+        if: always() && steps.own_path.outcome == 'success'
+        shell: bash
+        run: |
+          set -euo pipefail
+          workspace="$(cd "$GITHUB_WORKSPACE" && pwd -P)"
+          owned="$workspace/.pi-consumer-preflight-proof"
+          test ! -L "$owned" && test -d "$owned" && test ! -L "$owned/.owner"
+          test "$(stat -f '%u' "$owned")" = "$(id -u)"
+          test "$(cat "$owned/.owner")" = "$GITHUB_RUN_ID:$GITHUB_RUN_ATTEMPT:$(id -u)"
+          test "$(cd "$owned" && pwd -P)" = "$workspace/.pi-consumer-preflight-proof"
+          rm -rf -- "$owned"

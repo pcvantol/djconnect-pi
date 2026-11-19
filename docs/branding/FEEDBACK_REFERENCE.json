@@ -1,0 +1,18 @@
+{
+  "apple_source_commit": "e106a467011b9ea84d301a81c4e07251314cc6dd",
+  "declarations": [
+    "MoreView",
+    "FeedbackPromptView",
+    "feedbackIssueURL",
+    "feedbackIssueBody"
+  ],
+  "source_sha256": {
+    "Sources/DJConnectUI/DJConnectRootView.swift": "0b767a46f250c3d737023dbb08da6804d86b2041abaa18690f752078baf9777e",
+    "Sources/DJConnectUI/DJConnectAppModel.swift": "e8c5f1d390bb7e495455f6ed91e6d3b39c7c2a2189efc02160c802327bb00c67"
+  },
+  "behavior": "More/Privacy/Feedback order, explicit confirmation and external GitHub draft only. Pi opens own verified issue-enabled repository; static localized title/template only, no diagnostic/device/Profile/Session/log context. Page with Back/selected More is a Pi adaptation of native sheet, not exact native geometry/glass/SF.",
+  "external_boundary": "No browser is opened on navigation. Only explicit button calls QDesktopServices.openUrl with fixed HTTPS GitHub issues/new and encoded static localized values. Return false shows five-language no-browser feedback. No automatic submit, user message, credential/HA/model request or feedback storage.",
+  "tests": "10 tests across5languages/true-false outcomes verify exact query fields and no toxic private config values. 150 actual QML views, including34Feedback captures, cover More/Back/tab/open/error in5languages/bothformats. Browser calls are intercepted; no live external browser or issue publication.1157 full local tests/Ruff PASS; previous96d852Session/image views remain separate, not rerun/added to this UI-only count.",
+  "wheel_sha256": "766c12f2126238dfa48b2a70c36a7c4a3338a0fe6687f62a3a53127205f94bd8",
+  "qualification": "Local source/synthetic desktop URL boundary/Qt/package only; no ARM/install/liveHA/Profile/physical/native exactness acceptance."
+}

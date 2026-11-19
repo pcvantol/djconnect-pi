@@ -1,0 +1,279 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 4
+    },
+    "kind": {
+      "const": "platform_release_recovery_operational_manifest"
+    },
+    "status": {
+      "const": "APPROVED_DEPLOYMENT_DISPATCH_PENDING"
+    },
+    "manifest_id": {
+      "type": "string",
+      "pattern": "^release-4[.]0[.]0-rc[.]6-pi-wall4-recovery-[A-Za-z0-9._-]+(?![\\s\\S])"
+    },
+    "candidate_sha": {
+      "const": "0dde0abe22a0859f170a7c1d3eab41f1ade44d37"
+    },
+    "platform_version": {
+      "const": "4.0"
+    },
+    "release_version": {
+      "const": "4.0.0-rc.6"
+    },
+    "release_profile": {
+      "const": "INTERNAL_RELEASE"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "inventory_id": {
+      "const": "pi-wall-devices-20261020-v1"
+    },
+    "inventory_sha256": {
+      "const": "530220ee38f6ccbcc824a78331b9dd89f236a5fa6ede12ebf7899dac83ff50c0"
+    },
+    "consumer": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "repository": {
+          "const": "pcvantol/djconnect-pi"
+        },
+        "source_sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}(?![\\s\\S])",
+          "minLength": 40,
+          "maxLength": 40
+        },
+        "smoke_contract_id": {
+          "const": "pi-rc6-wall4-recovery-readback-v1"
+        },
+        "recovery_contract_id": {
+          "const": "pi-rc6-wall4-recovery-v1"
+        }
+      },
+      "required": [
+        "repository",
+        "source_sha",
+        "smoke_contract_id",
+        "recovery_contract_id"
+      ]
+    },
+    "approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "state": {
+          "const": "APPROVED"
+        },
+        "approved_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "approved_statement": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "^[^\\u0000-\\u001f\\u007f]+(?![\\s\\S])"
+        },
+        "authority_record": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "^[^\\u0000-\\u001f\\u007f]+(?![\\s\\S])"
+        }
+      },
+      "required": [
+        "state",
+        "approved_at",
+        "approved_statement",
+        "authority_record"
+      ]
+    },
+    "repositories": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "repository": {
+            "const": "pcvantol/djconnect-pi"
+          },
+          "source_sha": {
+            "const": "0dde0abe22a0859f170a7c1d3eab41f1ade44d37"
+          },
+          "version": {
+            "const": "4.0.0-rc.6"
+          },
+          "artifact_run": {
+            "const": "39658681213"
+          }
+        },
+        "required": [
+          "repository",
+          "source_sha",
+          "version",
+          "artifact_run"
+        ]
+      }
+    },
+    "required_targets": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "target": {
+            "const": "rbpi-djconnect"
+          },
+          "deployment_instance": {
+            "const": "wall-4inch"
+          },
+          "device_profile": {
+            "const": "pi-zero-2w-arm64"
+          }
+        },
+        "required": [
+          "target",
+          "deployment_instance",
+          "device_profile"
+        ]
+      }
+    },
+    "artifact_bindings": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "owner": {
+            "const": "pcvantol/djconnect-pi-releases"
+          },
+          "target": {
+            "const": "rbpi-djconnect"
+          },
+          "deployment_instance": {
+            "const": "wall-4inch"
+          },
+          "device_profile": {
+            "const": "pi-zero-2w-arm64"
+          },
+          "artifact_id": {
+            "const": "release-asset:pcvantol/djconnect-pi-releases:v4.0.0-rc.6:djconnect-pi-pi-zero-2w-arm64-4.0.0-rc.6.tar.gz"
+          },
+          "artifact_sha256": {
+            "const": "d67869ffca53c4936059bdbbdbdf6be63b36eafac269fa2f3f9b090922cd0d64"
+          },
+          "artifact_url": {
+            "const": "https://github.com/pcvantol/djconnect-pi-releases/releases/download/v4.0.0-rc.6/djconnect-pi-pi-zero-2w-arm64-4.0.0-rc.6.tar.gz"
+          }
+        },
+        "required": [
+          "owner",
+          "target",
+          "deployment_instance",
+          "device_profile",
+          "artifact_id",
+          "artifact_sha256",
+          "artifact_url"
+        ]
+      }
+    },
+    "constraints": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512,
+        "pattern": "^[^\\u0000-\\u001f\\u007f]+(?![\\s\\S])"
+      },
+      "minItems": 1,
+      "maxItems": 32
+    },
+    "recovery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation",
+        "contract_id",
+        "workflow_path",
+        "smoke_workflow_path",
+        "manifest_path",
+        "original_deployment_run",
+        "original_candidate_sha",
+        "original_core_sha",
+        "original_manifest_sha256",
+        "root_helper_sha256",
+        "aggregate_disposition"
+      ],
+      "properties": {
+        "operation": {
+          "const": "recover"
+        },
+        "contract_id": {
+          "const": "pi-rc6-wall4-recovery-v1"
+        },
+        "workflow_path": {
+          "const": ".github/workflows/recover-rc6-wall4.yml"
+        },
+        "smoke_workflow_path": {
+          "const": ".github/workflows/smoke-rc6-wall4-recovery.yml"
+        },
+        "manifest_path": {
+          "const": "docs/release/PLATFORM_4_0_RC6_PI_WALL4_RECOVERY_MANIFEST.json"
+        },
+        "original_deployment_run": {
+          "const": "39669504016"
+        },
+        "original_candidate_sha": {
+          "const": "0dde0abe22a0859f170a7c1d3eab41f1ade44d37"
+        },
+        "original_core_sha": {
+          "const": "0b9b4b9845ac7764c9380e0ca88cafd05e10b1fe"
+        },
+        "original_manifest_sha256": {
+          "const": "8740b4c3d751354061b9aeaf45689a4dbe525240f7047a2b923008d7e6495393"
+        },
+        "root_helper_sha256": {
+          "const": "11ce41115c7aa5ac34e568f3ea9008915f342bc3272850b56c61eed19a760ab9"
+        },
+        "aggregate_disposition": {
+          "const": "SINGLE_INSTANCE_RECOVERY_ONLY"
+        }
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "kind",
+    "status",
+    "manifest_id",
+    "candidate_sha",
+    "platform_version",
+    "release_version",
+    "release_profile",
+    "generated_at",
+    "inventory_id",
+    "inventory_sha256",
+    "consumer",
+    "approval",
+    "repositories",
+    "required_targets",
+    "artifact_bindings",
+    "constraints",
+    "recovery"
+  ],
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Closed Pi rc.6 wall-4inch recovery manifest; structural validity does not confer authority"
+}
