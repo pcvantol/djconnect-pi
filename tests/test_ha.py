@@ -1276,6 +1276,10 @@ def test_ha_version_compatibility_uses_major_minor_range() -> None:
     assert _compatible_ha_version("3.2.2", "3.2.99") is True
     assert _compatible_ha_version("3.2.2", "3.1.99") is False
     assert _compatible_ha_version("3.2.2", "3.3.0") is False
+    assert _compatible_ha_version("4.1.0", "4.1.0") is True
+    assert _compatible_ha_version("4.1.0", "4.1.9") is True
+    assert _compatible_ha_version("4.1.0", "4.0.2") is False
+    assert _compatible_ha_version("4.0.2", "4.1.0") is False
 
 
 def test_ha_version_mismatch_raises_protocol_error() -> None:
