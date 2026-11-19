@@ -269,7 +269,8 @@ authorized Universal Receiver session/Broadcast smoke scenario.
   - `start_playlist` for playlist rows
   - `ask_dj_action` for HA-provided structured Ask DJ action buttons
 - Version compatibility:
-  - client `4.0.z` works with DJConnect HA `>=4.0.0-rc.1` and `<4.1.0`
+  - client `4.0.z` works with DJConnect HA `4.0.z`
+  - client `4.1.z` works with DJConnect HA `4.1.z`; a `4.0.z` client and `4.1.z` HA integration are incompatible
   - HA responses may include `ha_version` or `ha_major_minor`
   - incompatible HA versions show a blocking screen and trigger
     `djconnect-updater.service` without clearing the pairing token
