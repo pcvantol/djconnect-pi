@@ -81,15 +81,29 @@ def include_prerelease(channel: str) -> bool:
 
 
 def github_latest_release(repo: str, include_prerelease: bool) -> dict:
-    response = requests.get(f"https://api.github.com/repos/{repo}/releases", timeout=20)
-    response.raise_for_status()
-    releases = response.json()
-    for release in releases:
-        if release.get("draft"):
-            continue
-        if release.get("prerelease") and not include_prerelease:
-            continue
-        return release
+    # Evidence releases share this repository but are not installable versions.
+    # Bound pagination so many evidence records cannot hide an actual release.
+    for page in range(1, 6):
+        response = requests.get(
+            f"https://api.github.com/repos/{repo}/releases",
+            params={"per_page": 100, "page": page},
+            timeout=20,
+        )
+        response.raise_for_status()
+        releases = response.json()
+        if not isinstance(releases, list):
+            raise RuntimeError("Invalid GitHub releases response")
+        for release in releases:
+            if not isinstance(release, dict) or release.get("draft"):
+                continue
+            if release.get("prerelease") and not include_prerelease:
+                continue
+            tag = release.get("tag_name")
+            if not isinstance(tag, str) or not tag.startswith("v") or not SEMVER_VERSION_RE.fullmatch(tag[1:]):
+                continue
+            return release
+        if len(releases) < 100:
+            break
     raise RuntimeError("No suitable GitHub release found")
 
 

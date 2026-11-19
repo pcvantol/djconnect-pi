@@ -72,6 +72,53 @@ def test_resolve_release_profile_rejects_unknown_profile() -> None:
         updater.resolve_release_profile("wrong-profile")
 
 
+def test_beta_release_skips_internal_evidence_and_finds_real_release() -> None:
+    evidence = {"tag_name": "internal-ha-" + "a" * 40, "draft": False, "prerelease": True}
+    candidate = {**make_release(), "tag_name": "v4.1.1-rc.1", "prerelease": True}
+
+    class Response:
+        def raise_for_status(self) -> None:
+            pass
+
+        def json(self) -> list[dict[str, Any]]:
+            return [evidence, candidate]
+
+    with patch("djconnect_pi.updater.requests.get", return_value=Response()):
+        assert updater.github_latest_release("owner/repo", include_prerelease=True) == candidate
+
+
+def test_beta_release_scans_past_a_full_page_of_internal_evidence() -> None:
+    class Response:
+        def __init__(self, releases: list[dict[str, Any]]) -> None:
+            self.releases = releases
+
+        def raise_for_status(self) -> None:
+            pass
+
+        def json(self) -> list[dict[str, Any]]:
+            return self.releases
+
+    evidence = {"tag_name": "internal-ha-" + "a" * 40, "draft": False, "prerelease": True}
+    candidate = make_release()
+    with patch("djconnect_pi.updater.requests.get", side_effect=[Response([evidence] * 100), Response([candidate])]) as get:
+        assert updater.github_latest_release("owner/repo", include_prerelease=True) == candidate
+    assert get.call_count == 2
+    assert get.call_args_list[1].kwargs["params"] == {"per_page": 100, "page": 2}
+
+
+def test_beta_release_fails_closed_when_only_evidence_exists() -> None:
+    class Response:
+        def raise_for_status(self) -> None:
+            pass
+
+        def json(self) -> list[dict[str, Any]]:
+            return [{"tag_name": "internal-ha-" + "a" * 40, "draft": False, "prerelease": True}]
+
+    with patch("djconnect_pi.updater.requests.get", return_value=Response()):
+        with pytest.raises(RuntimeError, match="No suitable GitHub release"):
+            updater.github_latest_release("owner/repo", include_prerelease=True)
+
+
 def test_include_prerelease_only_for_beta_channel() -> None:
     assert updater.include_prerelease("stable") is False
     assert updater.include_prerelease("beta") is True
