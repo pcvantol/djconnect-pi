@@ -1,0 +1,17 @@
+[Unit]
+Description=DJConnect Raspberry Pi local Client API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=djconnect
+Group=djconnect
+WorkingDirectory=/opt/djconnect
+Environment=HOME=/home/djconnect
+ExecStart=/opt/djconnect/current/bin/djconnect-pi-api --config /opt/djconnect/config/client.json --log-file /opt/djconnect/logs/client-api.log
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

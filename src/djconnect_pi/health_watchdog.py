@@ -1,0 +1,120 @@
+from __future__ import annotations
+
+import argparse
+import json
+import logging
+import subprocess
+from pathlib import Path
+
+import requests
+
+from .config import DEFAULT_CONFIG_PATH, DEFAULT_LOG_LEVEL, load_config
+from .logging_config import setup_logging
+
+_LOGGER = logging.getLogger(__name__)
+DEFAULT_STATE_FILE = Path("/opt/djconnect/config/watchdog-state.json")
+
+
+def api_healthy(local_url: str, timeout: float) -> bool:
+    if not local_url:
+        return False
+    response = requests.get(f"{local_url.rstrip('/')}/api/device/info", timeout=timeout)
+    if response.status_code != 200:
+        _LOGGER.warning("Watchdog API health returned HTTP %s", response.status_code)
+        return False
+    data = response.json()
+    return bool(data.get("success") and data.get("client_type") == "raspberry_pi")
+
+
+def systemd_active(service_name: str) -> bool:
+    result = subprocess.run(
+        ["systemctl", "is-active", "--quiet", service_name],
+        check=False,
+        timeout=5,
+    )
+    return result.returncode == 0
+
+
+def load_failures(path: Path) -> int:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return 0
+    return max(0, int(data.get("failures") or 0)) if isinstance(data, dict) else 0
+
+
+def save_failures(path: Path, failures: int) -> None:
+    payload = (json.dumps({"failures": max(0, failures)}, sort_keys=True) + "\n").encode("utf-8")
+    if failures == 0:
+        try:
+            if path.read_bytes() == payload:
+                return
+        except FileNotFoundError:
+            pass
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f".{path.name}.tmp")
+    tmp.write_bytes(payload)
+    tmp.replace(path)
+
+
+def run_check(
+    *,
+    local_url: str,
+    state_file: Path,
+    threshold: int,
+    timeout: float,
+    reboot: bool,
+) -> str:
+    checks = {
+        "api": False,
+        "api_service": systemd_active("djconnect-api.service"),
+        "client_service": systemd_active("djconnect-client.service"),
+    }
+    try:
+        checks["api"] = api_healthy(local_url, timeout)
+    except Exception as exc:  # noqa: BLE001 - the watchdog records every API probe failure as unhealthy
+        _LOGGER.warning("Watchdog API health failed: %s", exc)
+
+    healthy = all(checks.values())
+    if healthy:
+        save_failures(state_file, 0)
+        return "healthy"
+
+    failures = load_failures(state_file) + 1
+    save_failures(state_file, failures)
+    _LOGGER.warning("DJConnect watchdog failure %s/%s: %s", failures, threshold, checks)
+    if failures < threshold:
+        return f"unhealthy {failures}/{threshold}"
+
+    _LOGGER.error("DJConnect watchdog threshold reached; reboot=%s", reboot)
+    if reboot:
+        subprocess.run(["/usr/bin/systemctl", "reboot"], check=True, timeout=10)
+    return "reboot requested"
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG_PATH)
+    parser.add_argument("--state-file", type=Path, default=DEFAULT_STATE_FILE)
+    parser.add_argument("--threshold", type=int, default=5)
+    parser.add_argument("--timeout", type=float, default=4.0)
+    parser.add_argument("--no-reboot", action="store_true")
+    parser.add_argument("--log-file", default="")
+    args = parser.parse_args()
+
+    cfg = load_config(args.config)
+    level = "WARNING" if cfg.log_level == DEFAULT_LOG_LEVEL and args.log_file else cfg.log_level
+    setup_logging(args.log_file or cfg.log_file, level)
+    result = run_check(
+        local_url=cfg.local_url,
+        state_file=args.state_file,
+        threshold=max(1, args.threshold),
+        timeout=max(0.5, args.timeout),
+        reboot=not args.no_reboot,
+    )
+    print(result)
+    raise SystemExit(0)
+
+
+if __name__ == "__main__":
+    main()

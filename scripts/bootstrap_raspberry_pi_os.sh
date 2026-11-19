@@ -1,0 +1,530 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+DJCONNECT_BOOTSTRAP_VERSION="${DJCONNECT_BOOTSTRAP_VERSION:-4.0.2}"
+DJCONNECT_TIMEZONE="${DJCONNECT_TIMEZONE:-Europe/Amsterdam}"
+DJCONNECT_INSTALL_HYPERPIXEL="${DJCONNECT_INSTALL_HYPERPIXEL:-1}"
+DJCONNECT_HYPERPIXEL_MODEL="${DJCONNECT_HYPERPIXEL_MODEL:-square}"
+DJCONNECT_HYPERPIXEL_ROTATE="${DJCONNECT_HYPERPIXEL_ROTATE:-}"
+DJCONNECT_ENABLE_RPI_CONNECT="${DJCONNECT_ENABLE_RPI_CONNECT:-1}"
+DJCONNECT_ENABLE_VNC="${DJCONNECT_ENABLE_VNC:-1}"
+DJCONNECT_VNC_PORT="${DJCONNECT_VNC_PORT:-5901}"
+DJCONNECT_VNC_LOCALHOST_ONLY="${DJCONNECT_VNC_LOCALHOST_ONLY:-1}"
+DJCONNECT_FULL_UPGRADE="${DJCONNECT_FULL_UPGRADE:-1}"
+DJCONNECT_RUNTIME_USER="${DJCONNECT_RUNTIME_USER:-djconnect}"
+DJCONNECT_INSTALL_USER="${DJCONNECT_INSTALL_USER:-pi}"
+DJCONNECT_ENABLE_NIGHTLY_REBOOT="${DJCONNECT_ENABLE_NIGHTLY_REBOOT:-1}"
+DJCONNECT_SWAPFILE="${DJCONNECT_SWAPFILE:-/swapfile}"
+DJCONNECT_SWAP_MB="${DJCONNECT_SWAP_MB:-1024}"
+DJCONNECT_FSCK_MAX_MOUNTS="${DJCONNECT_FSCK_MAX_MOUNTS:-30}"
+DJCONNECT_FSCK_INTERVAL="${DJCONNECT_FSCK_INTERVAL:-1m}"
+DJCONNECT_DEVICE_PROFILE="${DJCONNECT_DEVICE_PROFILE:-auto}"
+
+usage() {
+  cat <<EOF
+Usage:
+  sudo ./scripts/bootstrap_raspberry_pi_os.sh
+
+Version:
+  DJConnect Pi OS bootstrap helper ${DJCONNECT_BOOTSTRAP_VERSION}
+
+Environment:
+  DJCONNECT_TIMEZONE=Europe/Amsterdam
+  DJCONNECT_INSTALL_HYPERPIXEL=1
+  DJCONNECT_HYPERPIXEL_MODEL=square
+  DJCONNECT_HYPERPIXEL_ROTATE=
+  DJCONNECT_ENABLE_RPI_CONNECT=1
+  DJCONNECT_ENABLE_VNC=1
+  DJCONNECT_VNC_PORT=5901
+  DJCONNECT_VNC_LOCALHOST_ONLY=1
+  DJCONNECT_FULL_UPGRADE=1
+  DJCONNECT_RUNTIME_USER=djconnect
+  DJCONNECT_INSTALL_USER=pi
+  DJCONNECT_ENABLE_NIGHTLY_REBOOT=1
+  DJCONNECT_SWAPFILE=/swapfile
+  DJCONNECT_SWAP_MB=1024
+  DJCONNECT_FSCK_MAX_MOUNTS=30
+  DJCONNECT_FSCK_INTERVAL=1m
+  DJCONNECT_DEVICE_PROFILE=auto  # auto, pi5-arm64 or pi-zero-2w-arm64
+
+This prepares a Raspberry Pi OS Lite 64-bit image for a DJConnect Pi appliance
+(Pi 5 wall display or Pi Zero 2 W compact display):
+- validates the Raspberry Pi OS 64-bit baseline
+- expands the root filesystem to fill the SD card
+- configures automatic filesystem repair checks for boot after unsafe power loss
+- configures a persistent 1GB swapfile
+- configures boot to console
+- sets timezone to Europe/Amsterdam by default
+- enables automatic NTP time synchronization
+- configures UTF-8 locales
+- enables SSH
+- runs apt update and optional apt full-upgrade
+- installs OS packages including minimal X11/kiosk, Qt runtime and Python
+- grants the install user narrow passwordless sudo for DJConnect install.sh
+- enables a nightly reboot timer for wall-device freshness
+- attempts to install and enable Raspberry Pi Connect
+- installs a localhost-only x11vnc service for secure SSH-tunneled screen sharing
+- configures the modern HyperPixel 4 KMS DPI overlay
+- detects and persists the canonical device profile for the installer/updater
+
+This is a repo-only bootstrap helper. It is intentionally not included in
+DJConnect Pi release tarballs and is not part of the app release cycle.
+EOF
+}
+
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+  usage
+  exit 0
+fi
+
+if [[ "$(id -u)" -ne 0 ]]; then
+  echo "Run as root: sudo $0" >&2
+  exit 1
+fi
+
+log() {
+  printf '\n==> %s\n' "$*"
+}
+
+check_os_baseline() {
+  log "Checking Raspberry Pi OS 64-bit baseline"
+  if [[ "$(getconf LONG_BIT)" != "64" ]]; then
+    echo "This bootstrap is intended for Raspberry Pi OS Lite 64-bit or another Raspberry Pi OS 64-bit image." >&2
+    exit 1
+  fi
+
+  if [[ ! -f /etc/rpi-issue ]] || ! grep -qi "Raspberry Pi" /etc/rpi-issue; then
+    echo "Warning: /etc/rpi-issue does not look like Raspberry Pi OS; continuing anyway." >&2
+  fi
+}
+
+detect_device_profile() {
+  local model=""
+  if [[ -r /proc/device-tree/model ]]; then
+    model="$(tr -d '\000' </proc/device-tree/model)"
+  fi
+  case "$DJCONNECT_DEVICE_PROFILE" in
+    pi5-arm64|pi-zero-2w-arm64)
+      printf '%s\n' "$DJCONNECT_DEVICE_PROFILE"
+      ;;
+    auto)
+      case "$model" in
+        *"Raspberry Pi 5"*) printf '%s\n' "pi5-arm64" ;;
+        *"Raspberry Pi Zero 2"*) printf '%s\n' "pi-zero-2w-arm64" ;;
+        *)
+          echo "Unsupported DJConnect Pi hardware model: ${model:-unknown}. Set DJCONNECT_DEVICE_PROFILE explicitly." >&2
+          return 1
+          ;;
+      esac
+      ;;
+    *)
+      echo "DJCONNECT_DEVICE_PROFILE must be auto, pi5-arm64 or pi-zero-2w-arm64." >&2
+      return 1
+      ;;
+  esac
+}
+
+configure_device_profile() {
+  local profile
+  profile="$(detect_device_profile)"
+  log "Configuring DJConnect device profile ${profile}"
+  install -d -m 0755 /etc/djconnect-pi
+  printf '%s\n' "$profile" >/etc/djconnect-pi/device-profile
+}
+
+configure_timezone() {
+  log "Configuring timezone ${DJCONNECT_TIMEZONE}"
+  timedatectl set-timezone "$DJCONNECT_TIMEZONE"
+}
+
+configure_time_sync() {
+  log "Configuring automatic time synchronization"
+  timedatectl set-ntp true || true
+
+  if systemctl list-unit-files systemd-timesyncd.service --no-legend 2>/dev/null | grep -q '^systemd-timesyncd\.service'; then
+    systemctl enable --now systemd-timesyncd.service || true
+  else
+    echo "systemd-timesyncd.service not found; relying on the OS default time synchronization service." >&2
+  fi
+
+  timedatectl status || true
+}
+
+expand_rootfs() {
+  log "Expanding root filesystem"
+  if command -v raspi-config >/dev/null 2>&1; then
+    raspi-config nonint do_expand_rootfs || true
+  else
+    echo "raspi-config not found; skipping automatic root filesystem resize." >&2
+  fi
+}
+
+configure_filesystem_checks() {
+  log "Configuring automatic filesystem health checks"
+  local cmdline="/boot/firmware/cmdline.txt"
+  local root_source
+  local root_fstype
+
+  if [[ ! -f "$cmdline" ]]; then
+    cmdline="/boot/cmdline.txt"
+  fi
+  if [[ -f "$cmdline" ]]; then
+    cp -a "$cmdline" "${cmdline}.djconnect.bak"
+    sed -i \
+      -e 's/[[:space:]]fsck.mode=skip//g' \
+      -e 's/[[:space:]]fsck.repair=[^[:space:]]*//g' \
+      "$cmdline"
+    if ! grep -Eq '(^|[[:space:]])fsck.repair=yes($|[[:space:]])' "$cmdline"; then
+      sed -i 's/$/ fsck.repair=yes/' "$cmdline"
+    fi
+  else
+    echo "Could not find boot cmdline; skipping kernel fsck repair flag." >&2
+  fi
+
+  if findmnt -no SOURCE,FSTYPE / >/dev/null 2>&1; then
+    root_source="$(findmnt -no SOURCE /)"
+    root_fstype="$(findmnt -no FSTYPE /)"
+    if [[ "$root_fstype" =~ ^ext[234]$ ]] && command -v tune2fs >/dev/null 2>&1; then
+      tune2fs -c "$DJCONNECT_FSCK_MAX_MOUNTS" -i "$DJCONNECT_FSCK_INTERVAL" "$root_source" >/dev/null || true
+    fi
+  fi
+
+  if [[ -f /etc/fstab ]] && findmnt -no SOURCE / >/dev/null 2>&1; then
+    root_source="$(findmnt -no SOURCE /)"
+    awk -v root_source="$root_source" '
+      BEGIN { changed = 0 }
+      /^[[:space:]]*#/ || NF < 6 { print; next }
+      $2 == "/" {
+        $6 = 1
+        changed = 1
+      }
+      { print }
+      END { if (changed == 0) exit 0 }
+    ' /etc/fstab > /etc/fstab.djconnect
+    if ! cmp -s /etc/fstab /etc/fstab.djconnect; then
+      cp -a /etc/fstab /etc/fstab.djconnect.bak
+      mv /etc/fstab.djconnect /etc/fstab
+    else
+      rm -f /etc/fstab.djconnect
+    fi
+  fi
+}
+
+configure_swapfile() {
+  log "Configuring ${DJCONNECT_SWAP_MB}MB swapfile at ${DJCONNECT_SWAPFILE}"
+  local current_size_mb=0
+  local desired_bytes
+  desired_bytes=$((DJCONNECT_SWAP_MB * 1024 * 1024))
+
+  if [[ -f "$DJCONNECT_SWAPFILE" ]]; then
+    current_size_mb="$(du -m "$DJCONNECT_SWAPFILE" | awk '{print $1}')"
+  fi
+
+  if swapon --show=NAME --noheadings | grep -Fxq "$DJCONNECT_SWAPFILE"; then
+    if [[ "$current_size_mb" -ge "$DJCONNECT_SWAP_MB" ]]; then
+      echo "Swapfile already active."
+    else
+      swapoff "$DJCONNECT_SWAPFILE"
+    fi
+  fi
+
+  if [[ ! -f "$DJCONNECT_SWAPFILE" || "$current_size_mb" -lt "$DJCONNECT_SWAP_MB" ]]; then
+    rm -f "$DJCONNECT_SWAPFILE"
+    if command -v fallocate >/dev/null 2>&1; then
+      fallocate -l "$desired_bytes" "$DJCONNECT_SWAPFILE"
+    else
+      dd if=/dev/zero of="$DJCONNECT_SWAPFILE" bs=1M count="$DJCONNECT_SWAP_MB" status=progress
+    fi
+    chmod 600 "$DJCONNECT_SWAPFILE"
+    mkswap "$DJCONNECT_SWAPFILE"
+  fi
+
+  if ! grep -Eq "^[^#[:space:]]+[[:space:]]+none[[:space:]]+swap[[:space:]]" /etc/fstab; then
+    printf '%s none swap sw 0 0\n' "$DJCONNECT_SWAPFILE" >> /etc/fstab
+  elif ! grep -Eq "^${DJCONNECT_SWAPFILE//\//\\/}[[:space:]]+none[[:space:]]+swap[[:space:]]" /etc/fstab; then
+    printf '%s none swap sw 0 0\n' "$DJCONNECT_SWAPFILE" >> /etc/fstab
+  fi
+
+  swapon "$DJCONNECT_SWAPFILE" 2>/dev/null || true
+  swapon --show
+}
+
+configure_locale() {
+  log "Configuring UTF-8 locale"
+  if [[ -f /etc/locale.gen ]]; then
+    sed -i \
+      -e 's/^# *en_GB.UTF-8 UTF-8/en_GB.UTF-8 UTF-8/' \
+      -e 's/^# *nl_NL.UTF-8 UTF-8/nl_NL.UTF-8 UTF-8/' \
+      -e 's/^# *de_DE.UTF-8 UTF-8/de_DE.UTF-8 UTF-8/' \
+      -e 's/^# *fr_FR.UTF-8 UTF-8/fr_FR.UTF-8 UTF-8/' \
+      -e 's/^# *es_ES.UTF-8 UTF-8/es_ES.UTF-8 UTF-8/' \
+      /etc/locale.gen
+    locale-gen en_GB.UTF-8 nl_NL.UTF-8 de_DE.UTF-8 fr_FR.UTF-8 es_ES.UTF-8
+  fi
+
+  update-locale LANG=en_GB.UTF-8 LC_CTYPE=en_GB.UTF-8
+}
+
+configure_console_boot() {
+  log "Configuring boot to console"
+  if command -v raspi-config >/dev/null 2>&1; then
+    raspi-config nonint do_boot_behaviour B1 || true
+  fi
+  systemctl set-default multi-user.target
+}
+
+enable_ssh() {
+  log "Enabling SSH"
+  if command -v raspi-config >/dev/null 2>&1; then
+    raspi-config nonint do_ssh 0 || true
+  fi
+  systemctl enable --now ssh || systemctl enable --now ssh.service
+}
+
+repair_package_state() {
+  if ! dpkg --audit | grep -q .; then
+    return
+  fi
+
+  log "Repairing interrupted apt/dpkg state"
+  DEBIAN_FRONTEND=noninteractive apt-get -f install -y
+}
+
+install_base_packages() {
+  log "Updating apt metadata"
+  apt-get update
+  repair_package_state
+
+  if [[ "$DJCONNECT_FULL_UPGRADE" == "1" ]]; then
+    log "Running apt full-upgrade"
+    DEBIAN_FRONTEND=noninteractive apt-get -y full-upgrade
+    repair_package_state
+  fi
+
+  log "Installing Raspberry Pi OS bootstrap packages"
+  DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    ca-certificates \
+    curl \
+    git \
+    jq \
+    libegl1 \
+    libgl1 \
+    libxkbcommon-x11-0 \
+    libxcb-cursor0 \
+    libxcb-icccm4 \
+    libxcb-image0 \
+    libxcb-keysyms1 \
+    libxcb-randr0 \
+    libxcb-render-util0 \
+    libxcb-shape0 \
+    libxcb-xinerama0 \
+    libxcb-xinput0 \
+    locales \
+    python3-pip \
+    python3-venv \
+    ssh \
+    unzip \
+    x11-xserver-utils \
+    xinit \
+    xserver-xorg \
+    xserver-xorg-video-fbdev \
+    xserver-xorg-input-libinput
+}
+
+install_vnc() {
+  if [[ "$DJCONNECT_ENABLE_VNC" != "1" ]]; then
+    log "Skipping x11vnc remote screen service"
+    return
+  fi
+
+  log "Configuring x11vnc remote screen service"
+  apt-get install -y x11vnc || {
+    echo "x11vnc package was not available on this image; continuing." >&2
+    return 0
+  }
+
+  local localhost_arg=""
+  if [[ "$DJCONNECT_VNC_LOCALHOST_ONLY" == "1" ]]; then
+    localhost_arg="-localhost"
+  fi
+
+  cat > /etc/systemd/system/djconnect-vnc.service <<EOF
+[Unit]
+Description=DJConnect Raspberry Pi VNC screen sharing
+After=djconnect-client.service
+Wants=djconnect-client.service
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=5
+ExecStart=/usr/bin/x11vnc -display :0 -auth /dev/null -forever -shared -noxdamage -repeat -rfbport ${DJCONNECT_VNC_PORT} ${localhost_arg}
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+  systemctl daemon-reload
+  systemctl enable --now djconnect-vnc.service || true
+
+  if [[ "$DJCONNECT_VNC_LOCALHOST_ONLY" == "1" ]]; then
+    echo "x11vnc is bound to localhost on port ${DJCONNECT_VNC_PORT}. Use: ssh -L ${DJCONNECT_VNC_PORT}:127.0.0.1:${DJCONNECT_VNC_PORT} ${DJCONNECT_INSTALL_USER}@<pi-host>"
+  else
+    echo "x11vnc is listening on port ${DJCONNECT_VNC_PORT}. Use only on a trusted network or add VNC authentication."
+  fi
+}
+
+install_rpi_connect() {
+  if [[ "$DJCONNECT_ENABLE_RPI_CONNECT" != "1" ]]; then
+    log "Skipping Raspberry Pi Connect"
+    return
+  fi
+
+  log "Installing/enabling Raspberry Pi Connect"
+  apt-get install -y rpi-connect || {
+    echo "rpi-connect package was not available on this image; continuing." >&2
+    return 0
+  }
+
+  if systemctl list-unit-files rpi-connect.service --no-legend 2>/dev/null | grep -q '^rpi-connect\.service'; then
+    systemctl enable --now rpi-connect.service || true
+  elif systemctl list-unit-files rpi-connect-wayvnc.service --no-legend 2>/dev/null | grep -q '^rpi-connect-wayvnc\.service'; then
+    systemctl enable --now rpi-connect-wayvnc.service || true
+  else
+    echo "rpi-connect installed, but no system service was found; continuing." >&2
+  fi
+
+  if command -v rpi-connect >/dev/null 2>&1; then
+    echo "Run 'rpi-connect signin' on the Pi to link it to your Raspberry Pi account."
+  fi
+}
+
+install_hyperpixel() {
+  if [[ "$DJCONNECT_INSTALL_HYPERPIXEL" != "1" ]]; then
+    log "Skipping HyperPixel configuration"
+    return
+  fi
+
+  log "Configuring HyperPixel 4 KMS DPI overlay"
+  local boot_config="/boot/firmware/config.txt"
+  local overlay
+  local overlay_line
+
+  if [[ ! -f "$boot_config" ]]; then
+    boot_config="/boot/config.txt"
+  fi
+  if [[ ! -f "$boot_config" ]]; then
+    echo "Could not find Raspberry Pi boot config at /boot/firmware/config.txt or /boot/config.txt." >&2
+    return 1
+  fi
+
+  case "$DJCONNECT_HYPERPIXEL_MODEL" in
+    square|sq)
+      overlay="vc4-kms-dpi-hyperpixel4sq"
+      ;;
+    rectangular|rect)
+      overlay="vc4-kms-dpi-hyperpixel4"
+      ;;
+    *)
+      echo "DJCONNECT_HYPERPIXEL_MODEL must be square or rectangular." >&2
+      return 1
+      ;;
+  esac
+
+  overlay_line="dtoverlay=${overlay}"
+  if [[ -n "$DJCONNECT_HYPERPIXEL_ROTATE" ]]; then
+    case "$DJCONNECT_HYPERPIXEL_ROTATE" in
+      0)
+        ;;
+      90|180|270)
+        overlay_line="${overlay_line},rotate=${DJCONNECT_HYPERPIXEL_ROTATE}"
+        ;;
+      *)
+        echo "DJCONNECT_HYPERPIXEL_ROTATE must be empty, 0, 90, 180 or 270." >&2
+        return 1
+        ;;
+    esac
+  fi
+
+  if command -v raspi-config >/dev/null 2>&1; then
+    raspi-config nonint do_i2c 1 || true
+    raspi-config nonint do_spi 1 || true
+  fi
+
+  systemctl disable --now hyperpixel4-init.service >/dev/null 2>&1 || true
+
+  sed -i.bak \
+    -e '/^dtoverlay=vc4-kms-dpi-hyperpixel4/d' \
+    -e '/^dtoverlay=hyperpixel4/d' \
+    -e '/^dtoverlay=hyperpixel4sq/d' \
+    "$boot_config"
+
+  printf '\n# DJConnect Pi HyperPixel 4 display\n%s\n' "$overlay_line" >> "$boot_config"
+  echo "Configured ${overlay_line} in ${boot_config}."
+  echo "Reboot is required before HyperPixel display output appears."
+}
+
+configure_installer_sudoers() {
+  log "Configuring DJConnect installer sudoers for ${DJCONNECT_INSTALL_USER}"
+  local sudoers_dir="/etc/sudoers.d"
+  local sudoers_file="${sudoers_dir}/djconnect-installer"
+
+  if ! id "$DJCONNECT_INSTALL_USER" >/dev/null 2>&1; then
+    echo "Install user ${DJCONNECT_INSTALL_USER} does not exist; skipping installer sudoers." >&2
+    return
+  fi
+  if [[ ! -d "$sudoers_dir" ]]; then
+    echo "Warning: ${sudoers_dir} does not exist; skipping installer sudoers." >&2
+    return
+  fi
+
+  cat >"$sudoers_file" <<EOF
+${DJCONNECT_INSTALL_USER} ALL=(root) NOPASSWD: /home/${DJCONNECT_INSTALL_USER}/djconnect-install/djconnect-pi-*/scripts/install.sh, /home/${DJCONNECT_INSTALL_USER}/djconnect-pi/scripts/install.sh
+EOF
+  chmod 0440 "$sudoers_file"
+  if command -v visudo >/dev/null 2>&1; then
+    visudo -cf "$sudoers_file" >/dev/null
+  fi
+}
+
+configure_nightly_reboot() {
+  if [[ "$DJCONNECT_ENABLE_NIGHTLY_REBOOT" != "1" ]]; then
+    log "Skipping DJConnect nightly reboot timer"
+    return
+  fi
+
+  log "Configuring DJConnect nightly reboot timer"
+  local source_dir
+  source_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  install -m 0644 "${source_dir}/systemd/djconnect-nightly-reboot.service" /etc/systemd/system/
+  install -m 0644 "${source_dir}/systemd/djconnect-nightly-reboot.timer" /etc/systemd/system/
+  systemctl daemon-reload
+  systemctl enable --now djconnect-nightly-reboot.timer
+}
+
+main() {
+  log "DJConnect Pi OS bootstrap ${DJCONNECT_BOOTSTRAP_VERSION}"
+  check_os_baseline
+  configure_device_profile
+  expand_rootfs
+  configure_filesystem_checks
+  configure_swapfile
+  configure_timezone
+  configure_time_sync
+  configure_console_boot
+  enable_ssh
+  install_base_packages
+  configure_locale
+  configure_installer_sudoers
+  configure_nightly_reboot
+  install_rpi_connect
+  install_vnc
+  install_hyperpixel
+
+  log "Raspberry Pi OS bootstrap complete"
+  echo "Wi-Fi provisioning is intentionally not handled here; configure it with Raspberry Pi Imager."
+  echo "Run 'sudo ./scripts/install.sh' from a DJConnect Pi release bundle to install the app."
+  echo "Reboot is recommended after OS, HyperPixel and full-upgrade changes."
+}
+
+main "$@"

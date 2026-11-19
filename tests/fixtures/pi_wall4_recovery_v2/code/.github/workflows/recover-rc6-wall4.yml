@@ -1,0 +1,129 @@
+name: Recover Qualified rc6 Wall4
+
+run-name: "Pi recovery / ${{ inputs.deployment_instance }} / ${{ inputs.manifest_id }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        required: true
+        type: choice
+        options: ["deployment"]
+      execution_mode:
+        required: true
+        type: choice
+        options: ["execute"]
+      candidate_sha: {required: true, type: string}
+      manifest_id: {required: true, type: string}
+      artifact_id: {required: true, type: string}
+      artifact_sha256: {required: true, type: string}
+      target:
+        required: true
+        type: choice
+        options: ["rbpi-djconnect"]
+      platform_version:
+        required: true
+        type: choice
+        options: ["4.0"]
+      release_profile:
+        required: true
+        type: choice
+        options: ["INTERNAL_RELEASE"]
+      deployment_instance:
+        required: true
+        type: choice
+        options: ["wall-4inch"]
+      device_profile:
+        required: true
+        type: choice
+        options: ["pi-zero-2w-arm64"]
+      inventory_sha256: {required: true, type: string}
+
+permissions:
+  contents: read
+  actions: read
+  statuses: write
+
+concurrency:
+  group: pi-rc5-mutation-${{ inputs.deployment_instance }}
+  cancel-in-progress: false
+
+jobs:
+  software-assurance-governance:
+    permissions:
+      contents: read
+    uses: pcvantol/djconnect/.github/workflows/software-assurance-governance.yml@dd02d6470f061e6e755e6fb47ae5331c34f89875
+    with:
+      execution_profile: release
+      owner: pcvantol/djconnect-pi
+
+  instance:
+    needs: software-assurance-governance
+    # Qualified deployment relay, never a source-build job. Closed existing SSH configuration.
+    runs-on: [self-hosted, macOS, ARM64, internal-release, private-network-deployment]
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PI_INPUTS_JSON: ${{ toJSON(inputs) }}
+      PI_RC6_WALL4_RECOVERY_V2_CORE_SHA: ${{ vars.PI_RC6_WALL4_RECOVERY_V2_CORE_SHA }}
+      PI_RC6_WALL4_RECOVERY_V2_MANIFEST_SHA256: ${{ vars.PI_RC6_WALL4_RECOVERY_V2_MANIFEST_SHA256 }}
+    steps:
+      - name: Checkout exact consumer
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: Set up isolated deployment tooling
+        run: |
+          /opt/homebrew/bin/python3.14 -I -c 'import sys; assert sys.version_info[:2] == (3, 14)'
+          pi_tools_venv="$(mktemp -d "$RUNNER_TEMP/pi-instance-tools.XXXXXXXX")"
+          /opt/homebrew/bin/python3.14 -I -m venv "$pi_tools_venv"
+          "$pi_tools_venv/bin/python" -I -c 'import sys; assert sys.prefix != sys.base_prefix'
+          printf '%s\n' "$pi_tools_venv/bin" >> "$GITHUB_PATH"
+      - name: Install exact deployment-tool dependencies
+        run: |
+          python -m pip --isolated install --no-cache-dir --disable-pip-version-check --no-input --only-binary=:all: --requirement Tools/pi_deployment_requirements.lock
+      - name: Require approved operational manifest source
+        run: |
+          python -m Tools.pi_wall4_recovery_release --operation recover --prepare
+      - name: Canonical deployment readiness preflight
+        uses: pcvantol/djconnect/.github/actions/deployment-readiness-preflight@802619ac1ab3ec11eace7a8609167018193bb98e
+        with:
+          target: ${{ inputs.target }}
+          manifest_id: ${{ inputs.manifest_id }}
+          candidate_sha: ${{ inputs.candidate_sha }}
+          artifact_id: ${{ inputs.artifact_id }}
+          artifact_sha256: ${{ inputs.artifact_sha256 }}
+          expected_runner_os: macOS
+          expected_runner_arch: ARM64
+          required_configuration: PI_INSTANCE_ENDPOINT_REF,PI_INSTANCE_SSH_CONFIG,GH_TOKEN,PI_RC6_WALL4_RECOVERY_V2_CORE_SHA,PI_RC6_WALL4_RECOVERY_V2_MANIFEST_SHA256
+          smoke_contract: pi-rc6-wall4-recovery-readback-v2
+      - name: Record successful canonical preflight
+        run: |
+          echo "PI_CANONICAL_PREFLIGHT_PASSED=true" >> "$GITHUB_ENV"
+      - name: Recover exact approved interrupted installation
+        run: |
+          python -m Tools.pi_wall4_recovery_release --operation recover
+      - name: Preserve redacted instance evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: pi-wall4-recovery-evidence
+          path: ${{ runner.temp }}/pi-qualified-wall4-recovery-${{ github.run_id }}-1/pi-recover-evidence.json
+          if-no-files-found: warn
+      - name: Publish scoped instance decision
+        if: always()
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          INSTANCE: ${{ inputs.deployment_instance }}
+          PHASE_RESULT: ${{ job.status }}
+        with:
+          script: |
+            const sha = process.env.CANDIDATE_SHA; const instance = process.env.INSTANCE;
+            if (!/^[0-9a-f]{40}$/.test(sha) || !["wall-4inch", "wall-10inch"].includes(instance)) return;
+            const success = process.env.PHASE_RESULT === "success";
+            await github.rest.repos.createCommitStatus({owner: context.repo.owner, repo: context.repo.repo, sha,
+              context: "Deployment / Recover approved release / " + instance,
+              state: success ? "success" : "failure",
+              description: success ? "RECOVERED_PENDING_SMOKE" : "RECOVERY_NOT_COMPLETED",
+              target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`});

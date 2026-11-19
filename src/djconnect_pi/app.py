@@ -1,0 +1,4840 @@
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import logging
+import os
+import re
+import subprocess
+import sys
+import time
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
+from copy import deepcopy
+from datetime import datetime
+from importlib.resources import files
+from pathlib import Path
+from urllib.parse import urlencode, urlparse, urlsplit
+from uuid import uuid4
+
+import requests
+from PySide6.QtCore import (
+    Property,
+    QBuffer,
+    QByteArray,
+    QCoreApplication,
+    QIODevice,
+    QObject,
+    QSaveFile,
+    Qt,
+    QTimer,
+    QUrl,
+    Signal,
+    Slot,
+)
+from PySide6.QtGui import QDesktopServices, QGuiApplication, QIcon, QImage, QPixmapCache
+from PySide6.QtQml import QQmlApplicationEngine
+from PySide6.QtQuick import QQuickWindow
+from PySide6.QtQuickControls2 import QQuickStyle
+
+from .artwork_palette import displayed_artwork_tint
+from .brand_theme import apply_palette
+from .config import (
+    CLIENT_TYPE,
+    DEFAULT_CONFIG_PATH,
+    DEFAULT_LOG_LEVEL,
+    DEFAULT_LOG_PATH,
+    SESSION_REFRESH_CHOICES,
+    Config,
+    effective_glass_enabled,
+    effective_session_refresh_seconds,
+    load_config,
+    normalize_dj_announcement_output,
+    normalize_log_level,
+    save_config,
+)
+from .ha import (
+    DJCONNECT_API_PREFIX,
+    PROFILE_ERROR_CODES,
+    AuthenticationError,
+    BackendUnavailable,
+    DJConnectError,
+    HAClient,
+    Playback,
+    ProfileContextError,
+    ProtocolVersionMismatch,
+    StaleBackendAction,
+    UnsupportedBackendCapability,
+)
+from .i18n import LANGUAGES, normalize_language, translate
+from .logging_config import clear_log_files, setup_logging
+from .navigation_gesture import EdgeBackGesture
+from .session_controller import SessionController
+from .session_playback_control import output_id
+from .session_projection import volume_observation
+from .session_transport import SessionError, session_profile_id
+from .shared_settings import SettingsError
+from .system_info import log_raspberry_pi_system_info
+
+_LOGGER = logging.getLogger(__name__)
+LOCAL_TERMINAL_UNIT = Path("/etc/systemd/system/djconnect-local-terminal.service")
+LOG_LINE_RE = re.compile(
+    r"^\d{4}-\d{2}-\d{2}\s+(?P<time>\d{2}:\d{2}:\d{2})(?:[,.]\d+)?\s+(?P<level>[A-Z]+)\s+(?P<rest>.*)$"
+)
+LOG_LEVEL_SHORT = {"DEBUG": "DBG", "INFO": "INF", "WARNING": "WRN", "ERROR": "ERR", "CRITICAL": "ERR"}
+LOG_DISPLAY_MAX_BYTES = 80_000
+GAME_SOUND_SAMPLE_RATE = 16_000
+DISPLAY_WAKE_DEBOUNCE_SECONDS = 0.8
+MEDIA_ARTWORK_CACHE_LIMIT = 6
+QT_PIXMAP_CACHE_LIMIT_KB = 4096
+UI_WORKER_COUNT = 1
+TOAST_ICON_FALLBACK = "music"
+TOAST_CONTEXT_ICONS = {
+    "playback": "music",
+    "now": "music",
+    "queue": "queue",
+    "playlists": "playlists",
+    "settings": "settings",
+    "connectivity": "info",
+    "home_assistant": "info",
+    "updates": "logs",
+    "diagnostics": "logs",
+    "logs": "logs",
+    "askdj": "chat",
+    "trackinsight": "trackInsight",
+    "discover": "discover",
+    "musicdna": "heart",
+    "games": "gamepad",
+}
+
+
+class SaveCurrentTrackError(DJConnectError):
+    pass
+
+
+class _ProfileReadResult(dict):
+    """GUI delivery ticket; never a JSON field, grant or persisted cache."""
+    def __init__(self, data, context):
+        super().__init__(data)
+        self.owner_context = context
+
+
+class _TrackInsightResult(dict):
+    """Track Insight delivery scope captured before dispatch, outside the wire payload."""
+
+    def __init__(self, data, scope):
+        super().__init__(data)
+        self.scope = scope
+
+
+class DJConnectBackend(QObject):
+    statusTextChanged = Signal()
+    backendAvailableChanged = Signal()
+    titleChanged = Signal()
+    artistChanged = Signal()
+    imageUrlChanged = Signal()
+    playbackTrackChanged = Signal()
+    playingChanged = Signal()
+    favoriteChanged = Signal()
+    favoriteBusyChanged = Signal()
+    volumeChanged = Signal()
+    controlVolumeChanged = Signal()
+    _controlVolumeFinished = Signal()
+    shuffleChanged = Signal()
+    repeatChanged = Signal()
+    outputDeviceChanged = Signal()
+    progressChanged = Signal()
+    pairedChanged = Signal()
+    busyChanged = Signal()
+    settingsChanged = Signal()
+    localApiUrlChanged = Signal()
+    pairingCodeChanged = Signal()
+    pairingSuccessChanged = Signal()
+    djResponseChanged = Signal()
+    toastChanged = Signal()
+    versionMismatchChanged = Signal()
+    logsChanged = Signal()
+    mediaListsChanged = Signal()
+    mediaActivityChanged = Signal()
+    _mediaListFinished = Signal(str)
+    _mediaPlaybackFinished = Signal()
+    askDjChanged = Signal()
+    musicDnaChanged = Signal()
+    musicDiscoveryChanged = Signal()
+    musicDiscoveryItemsChanged = Signal()
+    musicDiscoveryPlayed = Signal(str, str)
+    trackInsightChanged = Signal()
+    demoModeChanged = Signal()
+    glassChanged = Signal()
+    screenTimeoutChanged = Signal()
+    returnToNowChanged = Signal()
+    screenBrightnessChanged = Signal()
+    updateChannelChanged = Signal()
+    logFileChanged = Signal()
+    logLevelChanged = Signal()
+    languageChanged = Signal()
+    translationsChanged = Signal()
+    moodChanged = Signal()
+    sharedSettingsChanged = Signal()
+    _sharedSettingsReady = Signal(object)
+    profileChanged = Signal()
+    djAnnouncementChanged = Signal()
+    localAudioDevicesChanged = Signal()
+    wakeScreenRequested = Signal()
+    temporaryWakeRequested = Signal(int, bool)
+    screenshotRequested = Signal()
+    debugScreenRequested = Signal(str)
+
+    _playbackReady = Signal(object)
+    _statusReady = Signal(str)
+    _pairingReady = Signal(bool, str)
+    _busyReady = Signal(bool)
+    _versionMismatchReady = Signal(str, str)
+    _mediaListReady = Signal(str, object)
+    _outputDeviceRejected = Signal(str, str)
+    _backendAvailableReady = Signal(bool)
+    _toastReady = Signal(str, int, str)
+    _askDjReady = Signal(object)
+    _musicDnaReady = Signal(object)
+    _musicDiscoveryReady = Signal(object)
+    _trackInsightReady = Signal(object)
+
+    def __init__(self, config_path: Path) -> None:
+        super().__init__()
+        self.config_path = config_path
+        self._shutting_down = False
+        self._refresh_pending = False
+        self._audio_devices = None
+        self._edge_back_gesture = EdgeBackGesture(self)
+        self.cfg: Config = load_config(config_path)
+        self.client = HAClient(self.cfg)
+        self._shared_settings_state = {}
+        self._shared_settings_epoch = 0
+        self._shared_settings_inflight = False
+        self._shared_settings = self.client.shared_settings
+        self._shared_owner_context = self._shared_settings.context()
+        self.playback = Playback()
+        self._dj_response_text = ""
+        self._dj_response_visible = False
+        self._toast_text = ""
+        self._toast_icon = TOAST_ICON_FALLBACK
+        self._toast_visible = False
+        self._translation_version = 0
+        self._version_mismatch_visible = False
+        self._version_mismatch_text = ""
+        self._pairing_success_visible = False
+        self._update_service_triggered = False
+        self._favorite_busy = False
+        self._toast_timer = QTimer(self)
+        self._toast_timer.setInterval(2000)
+        self._toast_timer.setSingleShot(True)
+        self._toast_timer.timeout.connect(self.hideToast)
+        self._logs_text = ""
+        self._logs_visible = False
+        self._demo_mode = False
+        self._demo_progress = QTimer(self)
+        self._demo_progress.setInterval(1000)
+        self._demo_progress.timeout.connect(self._tick_demo_playback)
+        self._queue_items: list[dict[str, object]] = []
+        self._playlist_items: list[dict[str, object]] = []
+        self._ask_dj_messages: list[dict[str, object]] = []
+        self._ask_dj_history_revision = 0
+        self._ask_dj_clear_revision = 0
+        self._ask_dj_busy = False
+        self._music_dna_enabled = False
+        self._music_dna_summary = ""
+        self._music_dna_error = ""
+        self._music_dna_sections: list[dict[str, object]] = []
+        self._music_dna_busy = False
+        self._music_discovery_items: list[dict[str, object]] = []
+        self._music_discovery_empty_text = ""
+        self._music_discovery_error = ""
+        self._music_discovery_busy = False
+        self._music_discovery_playing_id = ""
+        self._music_discovery_feedback_supported = False
+        self._music_discovery_consent_rejected = False
+        self._track_insight_title = ""
+        self._track_insight_artist = ""
+        self._track_insight_album = ""
+        self._track_insight_image_url = ""
+        self._track_insight_text = ""
+        self._track_insight_error = ""
+        self._track_insight_items: list[dict[str, object]] = []
+        self._track_insight_sections: list[dict[str, object]] = []
+        self._track_insight_visualizer: dict[str, object] = {}
+        self._application_foreground = True
+        self._track_insight_revision = 0
+        self._track_insight_result_scope = None
+        self._ask_dj_unavailable_until = 0.0
+        self._ask_dj_poll_error_count = 0
+        self._ask_dj_poll_in_flight = False
+        self._suppress_next_playback_navigation = False
+        self._media_loads_in_flight: set[str] = set()
+        self._media_playback_busy = False
+        self._media_artwork_cache_in_flight: set[str] = set()
+        self._pending_output_device = ""
+        self._pending_output_until = 0.0
+        self._last_display_wake_at = 0.0
+        self._game_sound_objects: list[tuple[object, QBuffer]] = []
+        self._status_text = self.tr_key("paired" if self.cfg.paired else "not_paired")
+        self._backend_available = True
+        self._busy = False
+        self._executor = ThreadPoolExecutor(max_workers=UI_WORKER_COUNT, thread_name_prefix="djconnect")
+        # Bounded independent lanes: slow text generation cannot occupy Session control.
+        self._session_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="djconnect-session")
+        self._question_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="djconnect-question")
+        self._session_controller = SessionController(self, view_active=False)
+        self._shared_settings.owner_context = self._session_controller.scope_context
+        self._shared_owner_context = self._shared_settings.context()
+        self._session_controller.ownerScopeChanged.connect(self._session_owner_changed)
+        self._control_volume_serial = 0
+        self._control_volume_intent = None
+        self._control_volume_pending = False
+        self._controlVolumeFinished.connect(self._finish_control_volume)
+        self.settingsChanged.connect(self.controlVolumeChanged.emit)
+        self.profileChanged.connect(self.cancelControlVolume)
+        self.demoModeChanged.connect(self.cancelControlVolume)
+        self._poll_timer = QTimer(self)
+        self._poll_timer.setInterval(5000)
+        self._poll_timer.timeout.connect(self.refresh)
+        self._poll_timer.start()
+        self._event_timer = QTimer(self)
+        self._event_timer.setInterval(1000)
+        self._event_timer.timeout.connect(self._poll_local_events)
+        self._event_timer.start()
+        self._playbackReady.connect(self._apply_playback)
+        self._statusReady.connect(self._set_status_text)
+        self._pairingReady.connect(self._apply_pairing)
+        self._busyReady.connect(self._set_busy)
+        self._versionMismatchReady.connect(self._apply_version_mismatch)
+        self._mediaListReady.connect(self._apply_media_list)
+        self._mediaListFinished.connect(self._finish_media_list_load)
+        self._mediaPlaybackFinished.connect(self._finish_media_playback)
+        self._outputDeviceRejected.connect(self._apply_output_device_rejection)
+        self._backendAvailableReady.connect(self._set_backend_available)
+        self._toastReady.connect(self._show_toast)
+        self._askDjReady.connect(self._apply_ask_dj_data)
+        self._musicDnaReady.connect(self._apply_music_dna_data)
+        self._musicDiscoveryReady.connect(self._apply_music_discovery_data)
+        self._trackInsightReady.connect(self._apply_track_insight_data)
+        self._sharedSettingsReady.connect(self._apply_shared_settings)
+        self._shared_settings_timer = QTimer(self)
+        self._shared_settings_timer.setInterval(15000)
+        self._shared_settings_timer.timeout.connect(self.pollSharedSettings)
+        self._shared_settings_timer.start()
+        # Owned timers cannot outlive this backend or continue after shutdown.
+        self._startup_settings_timer = QTimer(self)
+        self._startup_settings_timer.setSingleShot(True)
+        self._startup_settings_timer.setInterval(350)
+        self._startup_settings_timer.timeout.connect(self.pollSharedSettings)
+        self._startup_settings_timer.start()
+        self._startup_refresh_timer = QTimer(self)
+        self._startup_refresh_timer.setSingleShot(True)
+        self._startup_refresh_timer.setInterval(250)
+        self._startup_refresh_timer.timeout.connect(self.refresh)
+        self._startup_refresh_timer.start()
+        self._settings_reconcile_timer = QTimer(self)
+        self._settings_reconcile_timer.setSingleShot(True)
+        self._settings_reconcile_timer.setInterval(0)
+        self._settings_reconcile_timer.timeout.connect(self.pollSharedSettings)
+        _LOGGER.info("DJConnect Pi client backend started for %s", self.cfg.device_id)
+
+    @Property("QVariantMap", notify=sharedSettingsChanged)
+    def sharedSettings(self) -> dict:
+        return deepcopy(self._shared_settings_state)
+
+    @Property(bool, notify=sharedSettingsChanged)
+    def sharedSettingsManaged(self) -> bool:
+        return self.cfg.paired or self._shared_settings.managed
+
+    @Property(QObject, constant=True)
+    def edgeBackGesture(self):
+        return self._edge_back_gesture
+
+    @Property(QObject, constant=True)
+    def djSession(self):
+        return self._session_controller
+
+    @Property(bool, notify=sharedSettingsChanged)
+    def sharedSettingsBusy(self) -> bool:
+        return self._shared_settings_inflight
+
+    def _invalidate_shared_settings_if_context_changed(self) -> None:
+        context = self._shared_settings.context()
+        if context != self._shared_owner_context:
+            self._shared_owner_context = context
+            self._shared_settings_epoch += 1
+            self._shared_settings_state = {}
+            self.sharedSettingsChanged.emit()
+
+    @Slot()
+    def pollSharedSettings(self) -> None:
+        if self._shutting_down:
+            return
+        self._invalidate_shared_settings_if_context_changed()
+        if self._demo_mode or not self.paired or self._shared_settings_inflight:
+            return
+        self._start_shared_settings()
+
+    @Slot("QVariantMap")
+    def saveSharedSettings(self, patch: dict) -> None:
+        if self._shutting_down:
+            return
+        if self._demo_mode or not self.paired or self._shared_settings_inflight:
+            return
+        self._start_shared_settings(deepcopy(patch))
+
+    def _start_shared_settings(self, patch: dict | None = None) -> None:
+        self._shared_settings_inflight = True
+        self.sharedSettingsChanged.emit()
+        epoch = self._shared_settings_epoch
+        context = self._shared_settings.context()
+
+        def worker() -> None:
+            result = {"epoch": epoch, "context": context}
+            try:
+                owner = self._shared_settings
+                if patch is None:
+                    result["projection"] = owner.read()
+                else:
+                    token = patch.pop("_edit_token", self._shared_settings_state.get("edit_token", ""))
+                    result["projection"] = owner.update(patch, token)
+            except SettingsError as exc:
+                result["error"] = exc.category
+            except Exception:  # noqa: BLE001 - never expose unexpected private transport content
+                result["error"] = "invalid"
+            self._sharedSettingsReady.emit(result)
+
+        self._executor.submit(worker)
+
+    @Slot(object)
+    def _apply_shared_settings(self, result: dict) -> None:
+        if self._shutting_down:
+            return
+        self._shared_settings_inflight = False
+        if result["epoch"] != self._shared_settings_epoch or tuple(result["context"]) != self._shared_settings.context():
+            self.sharedSettingsChanged.emit()
+            self._settings_reconcile_timer.start()
+            return
+        if "projection" in result:
+            self._shared_settings_state = {**result["projection"], "available": True, "error": ""}
+        else:
+            error = result.get("error", "invalid")
+            if error in {"denied", "unsupported"}:
+                self._shared_settings_state = {}
+            self._shared_settings_state = {**self._shared_settings_state, "available": False, "error": error}
+        self.sharedSettingsChanged.emit()
+        self.moodChanged.emit()
+
+    @Property(str, notify=profileChanged)
+    def activeProfileId(self) -> str:
+        return self.cfg.active_profile_id
+
+    @Property(str, notify=profileChanged)
+    def activeProfileName(self) -> str:
+        return self.cfg.active_profile_name or self.tr_key("household_profile")
+
+    @Property(str, notify=profileChanged)
+    def activeProfileType(self) -> str:
+        return self.cfg.active_profile_type
+
+    @Property(bool, notify=profileChanged)
+    def personalProfileActive(self) -> bool:
+        return self.cfg.active_profile_type == "personal"
+
+    @Property(str, notify=statusTextChanged)
+    def statusText(self) -> str:
+        return self._status_text
+
+    @Property(bool, notify=backendAvailableChanged)
+    def backendAvailable(self) -> bool:
+        return self._backend_available
+
+    @Property(str, notify=titleChanged)
+    def title(self) -> str:
+        return self.playback.title or self.tr_key("nothing_playing")
+
+    @Property(bool, notify=titleChanged)
+    def hasTrackTitle(self) -> bool:
+        return bool(self.playback.title)
+
+    @Property(str, notify=artistChanged)
+    def artist(self) -> str:
+        return self.playback.artist
+
+    @Property(str, notify=imageUrlChanged)
+    def imageUrl(self) -> str:
+        return self.playback.image_url
+
+    @Property("QVariantList", notify=mediaListsChanged)
+    def queueItems(self) -> list[dict[str, object]]:
+        return self._queue_items
+
+    @Property("QVariantList", notify=mediaListsChanged)
+    def playlistItems(self) -> list[dict[str, object]]:
+        return self._playlist_items
+
+    @Property(bool, notify=mediaActivityChanged)
+    def queueLoading(self) -> bool:
+        return "queue" in self._media_loads_in_flight
+
+    @Property(bool, notify=mediaActivityChanged)
+    def playlistsLoading(self) -> bool:
+        return "playlists" in self._media_loads_in_flight
+
+    @Property(bool, notify=mediaActivityChanged)
+    def mediaPlaybackBusy(self) -> bool:
+        return self._media_playback_busy
+
+    @Property("QVariantList", notify=askDjChanged)
+    def askDjMessages(self) -> list[dict[str, object]]:
+        return self._ask_dj_messages
+
+    @Property(bool, notify=askDjChanged)
+    def askDjBusy(self) -> bool:
+        return self._ask_dj_busy
+
+    @Property(bool, notify=musicDnaChanged)
+    def musicDnaEnabled(self) -> bool:
+        return self._music_dna_enabled
+
+    @Property(bool, notify=musicDnaChanged)
+    def musicDnaBusy(self) -> bool:
+        return self._music_dna_busy
+
+    @Property(str, notify=musicDnaChanged)
+    def musicDnaError(self) -> str:
+        return self._music_dna_error
+
+    @Property(str, notify=musicDnaChanged)
+    def musicDnaSummary(self) -> str:
+        return self._music_dna_summary
+
+    @Property("QVariantList", notify=musicDnaChanged)
+    def musicDnaSections(self) -> list[dict[str, object]]:
+        return self._music_dna_sections
+
+    @Property("QVariantList", notify=musicDiscoveryItemsChanged)
+    def musicDiscoveryItems(self) -> list[dict[str, object]]:
+        return self._music_discovery_items
+
+    @Property(bool, notify=musicDiscoveryChanged)
+    def musicDiscoveryBusy(self) -> bool:
+        return self._music_discovery_busy
+
+    @Property(str, notify=musicDiscoveryChanged)
+    def musicDiscoveryEmptyText(self) -> str:
+        return self._music_discovery_empty_text
+
+    @Property(str, notify=musicDiscoveryChanged)
+    def musicDiscoveryError(self) -> str:
+        return self._music_discovery_error
+
+    @Property(str, notify=musicDiscoveryChanged)
+    def musicDiscoveryPlayingId(self) -> str:
+        return self._music_discovery_playing_id
+
+    @Property(bool, notify=musicDiscoveryChanged)
+    def musicDiscoveryFeedbackSupported(self) -> bool:
+        return self._music_discovery_feedback_supported
+
+    @Property(bool, notify=musicDiscoveryChanged)
+    def musicDiscoveryConsentRejected(self) -> bool:
+        return self._music_discovery_consent_rejected
+
+    @Property(str, notify=trackInsightChanged)
+    def trackInsightTitle(self) -> str:
+        return self._track_insight_title
+
+    @Property(str, notify=trackInsightChanged)
+    def trackInsightArtist(self) -> str:
+        return self._track_insight_artist
+
+    @Property(str, notify=trackInsightChanged)
+    def trackInsightAlbum(self) -> str:
+        return self._track_insight_album
+
+    @Property(str, notify=trackInsightChanged)
+    def trackInsightImageUrl(self) -> str:
+        return self._track_insight_image_url
+
+    @Property(str, notify=trackInsightChanged)
+    def trackInsightText(self) -> str:
+        return self._track_insight_text
+
+    @Property(str, notify=trackInsightChanged)
+    def trackInsightError(self) -> str:
+        return self._track_insight_error
+
+    @Property("QVariantList", notify=trackInsightChanged)
+    def trackInsightItems(self) -> list[dict[str, object]]:
+        return self._track_insight_items
+
+    @Property("QVariantList", notify=trackInsightChanged)
+    def trackInsightSections(self) -> list[dict[str, object]]:
+        return self._track_insight_sections
+
+    @Property("QVariantMap", notify=trackInsightChanged)
+    def trackInsightVisualizer(self) -> dict[str, object]:
+        return self._track_insight_visualizer
+
+    @Property(bool, notify=playingChanged)
+    def playing(self) -> bool:
+        return self.playback.is_playing
+
+    @Property(bool, notify=favoriteChanged)
+    def currentTrackFavorite(self) -> bool:
+        return self.playback.is_favorite
+
+    @Property(bool, notify=favoriteChanged)
+    def favoriteAvailable(self) -> bool:
+        capabilities = self.cfg.music_backend_capabilities or {}
+        return bool(self.paired and capabilities.get("supports_favorites") and self.playback.uri)
+
+    @Property(bool, notify=favoriteBusyChanged)
+    def favoriteBusy(self) -> bool:
+        return self._favorite_busy
+
+    @Property(int, notify=volumeChanged)
+    def volume(self) -> int:
+        return self.playback.volume
+
+    @Property(bool, notify=shuffleChanged)
+    def shuffle(self) -> bool:
+        return self.playback.shuffle
+
+    @Property(str, notify=repeatChanged)
+    def repeat(self) -> str:
+        return self.playback.repeat
+
+    @Property(int, notify=progressChanged)
+    def positionSeconds(self) -> int:
+        return self.playback.position_seconds
+
+    @Property(int, notify=progressChanged)
+    def durationSeconds(self) -> int:
+        return self.playback.duration_seconds
+
+    @Property(float, notify=progressChanged)
+    def trackProgress(self) -> float:
+        if self.playback.duration_seconds <= 0:
+            return 0.0
+        return max(0.0, min(1.0, self.playback.position_seconds / self.playback.duration_seconds))
+
+    @Property(str, notify=progressChanged)
+    def progressLabel(self) -> str:
+        return f"{_format_duration(self.playback.position_seconds)}/{_format_duration(self.playback.duration_seconds)}"
+
+    @Property(str, notify=outputDeviceChanged)
+    def outputDevice(self) -> str:
+        return self.playback.output_device
+
+    @Property("QVariantList", notify=outputDeviceChanged)
+    def outputDevices(self) -> list[str]:
+        return list(self.playback.output_devices)
+
+    @Property("QVariantList", notify=outputDeviceChanged)
+    def outputDeviceChoices(self) -> list[dict[str, object]]:
+        if self.playback.output_device_details:
+            return [dict(item) for item in self.playback.output_device_details]
+        return [{"name": name, "value": name} for name in self.playback.output_devices]
+
+    @Property(bool, notify=pairedChanged)
+    def paired(self) -> bool:
+        return bool(self.cfg.paired and self.cfg.device_token)
+
+    @Property(bool, notify=pairingSuccessChanged)
+    def pairingSuccessVisible(self) -> bool:
+        return self._pairing_success_visible
+
+    @Property(bool, notify=demoModeChanged)
+    def demoMode(self) -> bool:
+        return self._demo_mode
+
+    @Property(bool, notify=busyChanged)
+    def busy(self) -> bool:
+        return self._busy
+
+    @Property(str, notify=settingsChanged)
+    def haUrl(self) -> str:
+        return self.cfg.ha_url
+
+    @Property(str, notify=localApiUrlChanged)
+    def localApiUrl(self) -> str:
+        return self.cfg.local_url
+
+    @Property(str, notify=localApiUrlChanged)
+    def webPortalUrl(self) -> str:
+        return self.cfg.local_url
+
+    @Property(str, notify=settingsChanged)
+    def deviceId(self) -> str:
+        return self.cfg.device_id
+
+    @Property(str, notify=pairingCodeChanged)
+    def pairingCode(self) -> str:
+        return self.cfg.pairing_code
+
+    @Property(str, constant=True)
+    def version(self) -> str:
+        return self.cfg.version
+
+    @Property(str, constant=True)
+    def protocolVersion(self) -> str:
+        return self.cfg.version
+
+    @Property(str, constant=True)
+    def clientType(self) -> str:
+        return CLIENT_TYPE
+
+    @Property(str, constant=True)
+    def transportMode(self) -> str:
+        return self.tr_key("local_only")
+
+    @Property(str, notify=settingsChanged)
+    def connectionType(self) -> str:
+        if not self.paired:
+            return self.tr_key("not_connected_value")
+        diagnostics = self.client.diagnostics()
+        if diagnostics.get("websocketConnected") is True or diagnostics.get("fastPathTransport") == "websocket":
+            return self.tr_key("local_websocket_fast_path")
+        return self.tr_key("local_http_fallback")
+
+    @Property(str, notify=settingsChanged)
+    def musicBackendName(self) -> str:
+        return self.cfg.music_backend_name or self.cfg.music_backend
+
+    @Property(str, notify=settingsChanged)
+    def musicBackendId(self) -> str:
+        return self.cfg.music_backend
+
+    @Property(str, notify=settingsChanged)
+    def musicTargetPlayerName(self) -> str:
+        target = self.cfg.music_target_player or {}
+        return str(target.get("name") or target.get("id") or "")
+
+    @Property(str, notify=settingsChanged)
+    def musicTargetPlayerId(self) -> str:
+        target = self.cfg.music_target_player or {}
+        return str(target.get("id") or "")
+
+    @Property(str, notify=settingsChanged)
+    def musicBackendCapabilitiesLabel(self) -> str:
+        capabilities = self.cfg.music_backend_capabilities or {}
+        return ", ".join(key.replace("supports_", "") for key, value in sorted(capabilities.items()) if value)
+
+    @Property(str, notify=settingsChanged)
+    def musicBackendError(self) -> str:
+        return self.cfg.music_backend_error
+
+    def observeLocalAudioDevices(self) -> None:
+        """Enumerate OS devices without opening an input or output stream."""
+        try:
+            from PySide6.QtMultimedia import QMediaDevices
+
+            self._audio_devices = QMediaDevices(self)
+            self._audio_devices.audioInputsChanged.connect(self.localAudioDevicesChanged.emit)
+            self._audio_devices.audioOutputsChanged.connect(self.localAudioDevicesChanged.emit)
+        except (ImportError, OSError, RuntimeError):
+            self._audio_devices = None
+        self.localAudioDevicesChanged.emit()
+
+    @Property(bool, notify=localAudioDevicesChanged)
+    def localMicrophoneAvailable(self) -> bool:
+        return self._audio_devices is not None and bool(self._audio_devices.audioInputs())
+
+    @Property(bool, notify=localAudioDevicesChanged)
+    def localAudioOutputAvailable(self) -> bool:
+        return self._audio_devices is not None and bool(self._audio_devices.audioOutputs())
+
+    @Property(bool, notify=sharedSettingsChanged)
+    def sessionVoiceAvailable(self) -> bool:
+        state = self._shared_settings_state
+        return (state.get("available") is True and state.get("selection_required") is not True
+                and state.get("voice_available") is True and state.get("speaker_available") is True
+                and (state.get("values") or {}).get("announcement_output") in ("ha_speaker", "both"))
+
+    @Property(str, notify=djAnnouncementChanged)
+    def djAnnouncementOutput(self) -> str:
+        return normalize_dj_announcement_output(self.cfg.dj_announcement_output, self.cfg.music_backend_capabilities)
+
+    @Property(bool, notify=djAnnouncementChanged)
+    def djAnnouncementSpeakerAvailable(self) -> bool:
+        return normalize_dj_announcement_output("ha_speaker", self.cfg.music_backend_capabilities) == "ha_speaker"
+
+    @Property(str, notify=djAnnouncementChanged)
+    def djAnnouncementSpeakerName(self) -> str:
+        announcement = self.cfg.music_backend_capabilities.get("dj_announcement") if isinstance(self.cfg.music_backend_capabilities, dict) else None
+        if not isinstance(announcement, dict):
+            return ""
+        target = announcement.get("target") if isinstance(announcement.get("target"), dict) else {}
+        return str(announcement.get("speaker_name") or target.get("name") or announcement.get("speaker_entity_id") or target.get("entity_id") or "")
+
+    @Slot(QImage, result=str)
+    def sampleArtworkTint(self, pixels: QImage) -> str:
+        return "" if self._shutting_down else displayed_artwork_tint(pixels)
+
+    @Property(int, notify=moodChanged)
+    def moodValue(self) -> int:
+        if self.sharedSettingsManaged:
+            if self._shared_settings_state.get("selection_required"):
+                return -1
+            return {"chill": 0, "groove": 35, "energy": 70, "party": 100}.get(
+                self._shared_settings_state.get("values", {}).get("mood"), -1)
+        if self.cfg.mood is None:
+            return -1
+        return max(0, min(100, int(self.cfg.mood)))
+
+    @Property(str, notify=settingsChanged)
+    def screenshotFile(self) -> str:
+        return self.cfg.screenshot_file
+
+    @Property(int, notify=settingsChanged)
+    def sessionRefreshSeconds(self) -> int:
+        return effective_session_refresh_seconds(self.cfg)
+
+    @Property(int, notify=screenTimeoutChanged)
+    def screenTimeoutSeconds(self) -> int:
+        return self.cfg.screen_timeout_seconds
+
+    @Property(int, notify=returnToNowChanged)
+    def returnToNowSeconds(self) -> int:
+        return self.cfg.return_to_now_seconds
+
+    @Property(int, notify=screenBrightnessChanged)
+    def screenBrightnessPercent(self) -> int:
+        return self.cfg.screen_brightness_percent
+
+    @Property(str, notify=settingsChanged)
+    def releaseProfile(self) -> str:
+        return self.cfg.release_profile
+
+    @Property(bool, notify=glassChanged)
+    def glassEnabled(self) -> bool:
+        return effective_glass_enabled(self.cfg)
+
+    @Slot(bool, result=bool)
+    def setGlassEnabled(self, enabled: bool) -> bool:
+        if type(enabled) is not bool:
+            return False
+        if self.cfg.glass_enabled is enabled:
+            return True
+        previous = self.cfg.glass_enabled
+        self.cfg.glass_enabled = enabled
+        try:
+            save_config(self.config_path, self.cfg)
+        except OSError:
+            self.cfg.glass_enabled = previous
+            self.glassChanged.emit()
+            self.showToastForContext(self.tr_key("save_failed"), "settings")
+            return False
+        self.glassChanged.emit()
+        return True
+
+    @Property(str, notify=updateChannelChanged)
+    def updateChannel(self) -> str:
+        return self.cfg.update_channel
+
+    @Property(str, notify=logFileChanged)
+    def logFile(self) -> str:
+        return self.cfg.log_file
+
+    @Property(str, notify=logLevelChanged)
+    def logLevel(self) -> str:
+        return self.cfg.log_level
+
+    @Property(bool, notify=settingsChanged)
+    def websocketFastPathEnabled(self) -> bool:
+        return bool(self.cfg.websocket_fast_path_enabled)
+
+    @Property(str, notify=languageChanged)
+    def language(self) -> str:
+        return self.cfg.language
+
+    @Property(str, notify=translationsChanged)
+    def languageName(self) -> str:
+        return LANGUAGES.get(self.cfg.language, LANGUAGES["nl"])
+
+    @Property(int, notify=translationsChanged)
+    def translationVersion(self) -> int:
+        return self._translation_version
+
+    @Property(str, notify=djResponseChanged)
+    def djResponseText(self) -> str:
+        return self._dj_response_text
+
+    @Property(bool, notify=djResponseChanged)
+    def djResponseVisible(self) -> bool:
+        return self._dj_response_visible
+
+    @Property(str, notify=toastChanged)
+    def toastText(self) -> str:
+        return self._toast_text
+
+    @Property(str, notify=toastChanged)
+    def toastIcon(self) -> str:
+        return self._toast_icon
+
+    @Property(bool, notify=toastChanged)
+    def toastVisible(self) -> bool:
+        return self._toast_visible
+
+    @Property(bool, notify=versionMismatchChanged)
+    def versionMismatchVisible(self) -> bool:
+        return self._version_mismatch_visible
+
+    @Property(str, notify=versionMismatchChanged)
+    def versionMismatchText(self) -> str:
+        return self._version_mismatch_text
+
+    @Property(str, notify=logsChanged)
+    def logsText(self) -> str:
+        return self._logs_text
+
+    @Property(bool, notify=logsChanged)
+    def logsVisible(self) -> bool:
+        return self._logs_visible
+
+    @Slot(result=bool)
+    def openFeedbackIssue(self) -> bool:
+        # User click opens a draft only; no private app state or automatic submit.
+        query = urlencode({"title": translate(self.cfg.language, "feedback_issue_title"),
+                           "body": translate(self.cfg.language, "feedback_issue_template")})
+        return QDesktopServices.openUrl(QUrl("https://github.com/djconnect-music-dj/djconnect-pi/issues/new?" + query))
+
+    @Slot(str, result=str)
+    def t(self, key: str) -> str:
+        return self.tr_key(key)
+
+    def tr_key(self, key: str, **values: object) -> str:
+        return translate(self.cfg.language, key, **values)
+
+    @Slot(str)
+    def setHaUrl(self, value: str) -> None:
+        self.cfg.ha_url = value.strip()
+        self._invalidate_shared_settings_if_context_changed()
+        save_config(self.config_path, self.cfg)
+        self.settingsChanged.emit()
+        _LOGGER.info("User saved Home Assistant URL setting")
+        self.showToastForContext(self.tr_key("ha_url_saved"), "connectivity")
+        self._set_status_text(self.tr_key("ha_url_saved"))
+
+    @Slot(int)
+    def setSessionRefreshSeconds(self, seconds: int) -> None:
+        if seconds not in SESSION_REFRESH_CHOICES or self.cfg.session_refresh_seconds == seconds:
+            return
+        self.cfg.session_refresh_seconds = seconds
+        save_config(self.config_path, self.cfg)
+        self.settingsChanged.emit()
+
+    @Slot(int)
+    def setScreenTimeoutSeconds(self, value: int) -> None:
+        value = max(0, int(value))
+        if self.cfg.screen_timeout_seconds == value:
+            return
+        self.cfg.screen_timeout_seconds = value
+        save_config(self.config_path, self.cfg)
+        self.screenTimeoutChanged.emit()
+        self.settingsChanged.emit()
+        _LOGGER.info("User set screen timeout to %s seconds", value)
+        self.showToastForContext(self.tr_key("screen_timeout_saved"), "settings")
+        self._set_status_text(self.tr_key("screen_timeout_saved"))
+
+    @Slot(int)
+    def setReturnToNowSeconds(self, value: int) -> None:
+        try:
+            seconds = int(value)
+        except (TypeError, ValueError):
+            seconds = 60
+        if seconds not in {0, 30, 60, 120}:
+            seconds = 60
+        if self.cfg.return_to_now_seconds == seconds:
+            return
+        self.cfg.return_to_now_seconds = seconds
+        save_config(self.config_path, self.cfg)
+        self.returnToNowChanged.emit()
+        self.settingsChanged.emit()
+        _LOGGER.info("User set return-to-now timeout to %s seconds", seconds)
+        self.showToastForContext(self.tr_key("return_to_now_saved"), "settings")
+        self._set_status_text(self.tr_key("return_to_now_saved"))
+
+    @Slot(int)
+    def setScreenBrightnessPercent(self, value: int) -> None:
+        value = max(10, min(100, int(value)))
+        if self.cfg.screen_brightness_percent == value:
+            return
+        self.cfg.screen_brightness_percent = value
+        save_config(self.config_path, self.cfg)
+        self.screenBrightnessChanged.emit()
+        self.settingsChanged.emit()
+        _LOGGER.info("User set app brightness to %s%%", value)
+        self.showToastForContext(self.tr_key("brightness_saved"), "settings")
+        self._set_status_text(self.tr_key("brightness_saved"))
+
+    @Slot(str)
+    def setLanguage(self, value: str) -> None:
+        language = normalize_language(value)
+        if self.cfg.language == language:
+            return
+        self.cfg.language = language
+        save_config(self.config_path, self.cfg)
+        self._translation_version += 1
+        self.languageChanged.emit()
+        self.translationsChanged.emit()
+        self.settingsChanged.emit()
+        self.titleChanged.emit()
+        _LOGGER.info("User changed language to %s", language)
+        self.showToastForContext(self.tr_key("language_saved"), "settings")
+        self._set_status_text(self.tr_key("language_saved"))
+
+    @Slot(str)
+    def setUpdateChannel(self, value: str) -> None:
+        channel = value.strip().lower()
+        if channel not in {"stable", "beta"}:
+            channel = "stable"
+        if self.cfg.update_channel == channel:
+            return
+        self.cfg.update_channel = channel
+        save_config(self.config_path, self.cfg)
+        self.updateChannelChanged.emit()
+        self.settingsChanged.emit()
+        _LOGGER.info("User changed update channel to %s", channel)
+        self.showToastForContext(self.tr_key("update_channel", channel=channel), "updates")
+        self._set_status_text(self.tr_key("update_channel", channel=channel))
+
+    @Slot(str)
+    def setLogLevel(self, value: str) -> None:
+        level = normalize_log_level(value)
+        if self.cfg.log_level == level:
+            return
+        self.cfg.log_level = level
+        save_config(self.config_path, self.cfg)
+        applied = self._apply_log_level()
+        self.logLevelChanged.emit()
+        self.settingsChanged.emit()
+        if applied:
+            _LOGGER.info("User changed log level to %s", level)
+            label = self.tr_key("off") if level == DEFAULT_LOG_LEVEL else level
+            self.showToastForContext(self.tr_key("log_level_saved", level=label), "diagnostics")
+
+    def _apply_log_level(self) -> bool:
+        disabled = self.cfg.log_level == DEFAULT_LOG_LEVEL
+        if disabled:
+            self._logs_text = ""
+            self.hideLogs()
+        try:
+            path = setup_logging(self.cfg.log_file, self.cfg.log_level)
+            if disabled:
+                clear_log_files(path)
+        except OSError as exc:
+            self.showToastForContext(self.tr_key("logs_failed", error=exc), "diagnostics")
+            return False
+        return True
+
+    @Slot(bool)
+    def setWebSocketFastPathEnabled(self, enabled: bool) -> None:
+        value = bool(enabled)
+        if self.cfg.websocket_fast_path_enabled == value:
+            return
+        self.cfg.websocket_fast_path_enabled = value
+        save_config(self.config_path, self.cfg)
+        self.client.cfg = self.cfg
+        self.client.fast_path.update_config(self.cfg)
+        self.settingsChanged.emit()
+        _LOGGER.info("User changed WebSocket fast path setting to %s", value)
+        self.showToastForContext(self.tr_key("settings_saved"), "connectivity")
+
+    @Slot(int)
+    def setMoodValue(self, value: int) -> None:
+        if self.sharedSettingsManaged:
+            mood = "chill" if value < 25 else "groove" if value < 60 else "energy" if value < 85 else "party"
+            self.saveSharedSettings({"mood": mood})
+            return
+        mood = max(0, min(100, int(value)))
+        if self.cfg.mood == mood:
+            return
+        self.cfg.mood = mood
+        save_config(self.config_path, self.cfg)
+        self.client.cfg = self.cfg
+        self.moodChanged.emit()
+        _LOGGER.info("User changed mood selector to %s", mood)
+        self.showToastForContext(self.tr_key("mood_saved"), "musicdna")
+
+    @Slot(str)
+    def setDjAnnouncementOutput(self, value: str) -> None:
+        if self.sharedSettingsManaged:
+            self.saveSharedSettings({"announcement_output": value})
+            return
+        output = normalize_dj_announcement_output(value, self.cfg.music_backend_capabilities)
+        if self.cfg.dj_announcement_output == output:
+            return
+        self.cfg.dj_announcement_output = output
+        self.cfg.dj_announcement_output_user_set = True
+        save_config(self.config_path, self.cfg)
+        self.client.cfg = self.cfg
+        self.djAnnouncementChanged.emit()
+        self.settingsChanged.emit()
+        _LOGGER.info("User changed DJ announcement output to %s", output)
+        self.showToastForContext(self.tr_key("dj_announcement_output_saved"), "askdj")
+
+    @Slot(str)
+    def pair(self, pair_code: str) -> None:
+        if self._demo_mode:
+            self.exitDemoMode()
+        code = pair_code.strip()
+        if not code:
+            self._set_status_text(self.tr_key("enter_pairing_code"))
+            self.showToastForContext(self.tr_key("enter_pairing_code"), "connectivity")
+            return
+        _LOGGER.info("User started pairing from touch UI")
+        self.showToastForContext(self.tr_key("pairing"), "connectivity")
+        self._run(self.tr_key("pairing"), lambda: self._pair_worker(code))
+
+    @Slot()
+    def refresh(self) -> None:
+        if self._shutting_down:
+            return
+        if self._demo_mode:
+            return
+        if self._busy or self._refresh_pending:
+            _LOGGER.debug("Refresh skipped because another task is active")
+            return
+        if not self.paired:
+            latest = load_config(self.config_path)
+            if latest.paired and latest.device_token:
+                self.cfg = latest
+                self.client.cfg = self.cfg
+                self._pairing_success_visible = True
+                self.pairedChanged.emit()
+                self.settingsChanged.emit()
+                self.pairingSuccessChanged.emit()
+                self._set_status_text(self.tr_key("paired"))
+                self._run(self.tr_key("refreshing"), self._refresh_worker)
+                return
+        if not self.paired and not self.cfg.ha_url:
+            self._set_status_text(self.tr_key("ready_to_pair"))
+            return
+        self._refresh_pending = True
+        self._run(self.tr_key("refreshing"), self._refresh_worker, done=self._finish_refresh, interactive=False)
+
+    def _finish_refresh(self) -> None:
+        self._refresh_pending = False
+
+    def _sync_config_from_disk(self) -> None:
+        latest = load_config(self.config_path)
+        if (
+            latest.device_token == self.cfg.device_token
+            and latest.paired == self.cfg.paired
+            and latest.ha_url == self.cfg.ha_url
+            and latest.language == self.cfg.language
+            and latest.log_level == self.cfg.log_level
+            and latest.screen_brightness_percent == self.cfg.screen_brightness_percent
+            and latest.session_refresh_seconds == self.cfg.session_refresh_seconds
+            and latest.screen_timeout_seconds == self.cfg.screen_timeout_seconds
+            and latest.return_to_now_seconds == self.cfg.return_to_now_seconds
+            and latest.update_channel == self.cfg.update_channel
+            and latest.glass_enabled is self.cfg.glass_enabled
+            and latest.active_profile_id == self.cfg.active_profile_id
+            and latest.active_profile_type == self.cfg.active_profile_type
+            and latest.active_profile_privacy_mode == self.cfg.active_profile_privacy_mode
+            and latest.explicit_profile_id == self.cfg.explicit_profile_id
+            and latest.private_session == self.cfg.private_session
+            and latest.dj_announcement_output == self.cfg.dj_announcement_output
+        ):
+            return
+        language_changed = latest.language != self.cfg.language
+        glass_changed = effective_glass_enabled(latest) != self.glassEnabled
+        log_level_changed = latest.log_level != self.cfg.log_level
+        self.cfg = latest
+        self.client.cfg = self.cfg
+        if log_level_changed:
+            self._apply_log_level()
+        self._invalidate_shared_settings_if_context_changed()
+        self.pairedChanged.emit()
+        self.settingsChanged.emit()
+        self.logLevelChanged.emit()
+        self.screenBrightnessChanged.emit()
+        self.screenTimeoutChanged.emit()
+        self.returnToNowChanged.emit()
+        self.updateChannelChanged.emit()
+        self.profileChanged.emit()
+        self.djAnnouncementChanged.emit()
+        if glass_changed:
+            self.glassChanged.emit()
+        if language_changed:
+            self._translation_version += 1
+            self.languageChanged.emit()
+            self.translationsChanged.emit()
+
+    @Slot()
+    def startAfterPairing(self) -> None:
+        self._pairing_success_visible = False
+        self.pairingSuccessChanged.emit()
+        self.refresh()
+
+    @Slot()
+    def togglePlay(self) -> None:
+        if self._demo_mode:
+            self.playback.is_playing = not self.playback.is_playing
+            self.playingChanged.emit()
+            self.djSession.demo_playback_changed()
+            _LOGGER.info("User toggled demo playback to playing=%s", self.playback.is_playing)
+            self.showToastForContext(self.tr_key("pause") if self.playback.is_playing else self.tr_key("play"), "playback")
+            return
+        _LOGGER.info("User requested playback toggle")
+        self.showToastForContext(self.tr_key("pause") if self.playback.is_playing else self.tr_key("play"), "playback")
+        self.command("pause" if self.playback.is_playing else "play")
+
+    @Slot()
+    def wakeDisplay(self) -> None:
+        now = time.monotonic()
+        if now - self._last_display_wake_at < DISPLAY_WAKE_DEBOUNCE_SECONDS:
+            return
+        self._last_display_wake_at = now
+        for command in (
+            ["xset", "s", "reset"],
+            ["xset", "dpms", "force", "on"],
+        ):
+            try:
+                subprocess.run(command, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except OSError as exc:
+                _LOGGER.debug("Could not run display wake command %s: %s", command, exc)
+
+    @Slot(QObject, result=bool)
+    def saveWindowScreenshot(self, window: QObject) -> bool:
+        # ApplicationWindow.contentItem is a native Qt item without a QML
+        # engine in Qt 6.11. Capture the actual window, including its overlays.
+        if not isinstance(window, QQuickWindow):
+            return False
+        try:
+            if not window.isVisible():
+                return False
+            image = window.grabWindow()
+            if image.isNull():
+                return False
+            target = QSaveFile(self.cfg.screenshot_file)
+            if not target.open(QIODevice.OpenModeFlag.WriteOnly):
+                return False
+            if not image.save(target, "PNG"):
+                target.cancelWriting()
+            return target.commit()
+        except RuntimeError as exc:
+            _LOGGER.warning("Could not capture debug screenshot: %s", exc)
+            return False
+
+    @Slot()
+    def previous(self) -> None:
+        self.wakeScreenRequested.emit()
+        if self._demo_mode:
+            self._move_demo_track(-1)
+            _LOGGER.info("User selected previous demo track")
+            self.showToastForContext(self.tr_key("previous"), "playback")
+            return
+        _LOGGER.info("User requested previous track")
+        self.showToastForContext(self.tr_key("previous"), "playback")
+        self.command("previous")
+
+    @Slot()
+    def next(self) -> None:
+        self.wakeScreenRequested.emit()
+        if self._demo_mode:
+            self._move_demo_track(1)
+            _LOGGER.info("User selected next demo track")
+            self.showToastForContext(self.tr_key("next"), "playback")
+            return
+        _LOGGER.info("User requested next track")
+        self.showToastForContext(self.tr_key("next"), "playback")
+        self.command("next")
+
+    @Slot()
+    def saveCurrentTrack(self) -> None:
+        self._sync_config_from_disk()
+        if self._demo_mode or not self.favoriteAvailable or self._favorite_busy:
+            return
+        _LOGGER.info("User requested saving the current track")
+        self._set_favorite_busy(True)
+        self._run("save_current_track", self._save_current_track_worker, done=lambda: self._set_favorite_busy(False))
+
+    def setApplicationForeground(self, foreground: bool) -> None:
+        if foreground != self._application_foreground:
+            self._application_foreground = foreground
+            if not foreground:
+                self._track_insight_revision += 1
+                self._clear_track_insight()
+        self._session_controller.setForeground(foreground)
+        if foreground:
+            self.controlVolumeChanged.emit()
+        else:
+            self.cancelControlVolume()
+
+    @Slot()
+    def openTrackInsight(self) -> None:
+        if not self._demo_mode and not self.playback.is_playing:
+            return
+        self._request_track_insight(show_toast=False)
+
+    @Slot()
+    def refreshTrackInsight(self) -> None:
+        self._request_track_insight(show_toast=True)
+
+    def _request_track_insight(self, *, show_toast: bool) -> None:
+        if self._demo_mode:
+            self._show_demo_track_insight()
+            return
+        self._sync_config_from_disk()
+        if self._demo_mode or not self.paired or self._ask_dj_busy or not self._application_foreground:
+            return
+        _LOGGER.info("User requested Track Insight for current track")
+        scope = self._track_insight_scope()
+        if self._track_insight_result_scope == scope and not show_toast:
+            return
+        if self._track_insight_result_scope is not None and self._track_insight_result_scope != scope:
+            self._clear_track_insight()
+        playback = deepcopy(self.playback)
+        if show_toast:
+            self.showToastForContext(self.tr_key("refreshing"), "trackinsight")
+        self._set_ask_dj_busy(True)
+        self._run(self.tr_key("track_insight"), lambda: self._track_insight_worker(playback, scope),
+                  done=lambda: self._set_ask_dj_busy(False))
+
+    def _control_volume_context(self, playback: Playback) -> tuple | None:
+        if self._demo_mode:
+            return ("demo",)
+        if (not self.paired or not session_profile_id(self.cfg)
+                or (self._pending_output_device and time.monotonic() < self._pending_output_until)
+                or self.cfg.music_backend not in {"spotify_direct", "music_assistant"}
+                or self.cfg.music_backend_capabilities.get("supports_volume") is not True
+                or not playback.uri or not output_id(playback.volume_output_id)):
+            return None
+        return (
+            self._private_read_context(), self.cfg.music_backend, self.cfg.music_backend_revision,
+            self.cfg.music_target_player.get("id", ""), playback.uri, playback.volume_output_id,
+        )
+
+    @Property(bool, notify=controlVolumeChanged)
+    def controlVolumeAvailable(self) -> bool:
+        return (self._session_controller._foreground and not self._control_volume_pending
+                and self._control_volume_context(self.playback) is not None)
+
+    @Slot(result=int)
+    def beginControlVolume(self) -> int:
+        context = self._control_volume_context(self.playback)
+        if not self.controlVolumeAvailable or context is None:
+            return 0
+        self._control_volume_serial += 1
+        self._control_volume_intent = (self._control_volume_serial, context)
+        return self._control_volume_serial
+
+    @Slot()
+    def cancelControlVolume(self) -> None:
+        self._control_volume_serial += 1
+        self._control_volume_intent = None
+        self.controlVolumeChanged.emit()
+
+    @Slot(int, int)
+    def commitControlVolume(self, lease: int, value: int) -> None:
+        intent = self._control_volume_intent
+        if intent is None or lease != intent[0]:
+            return
+        self._control_volume_intent = None
+        context = intent[1]
+        value = max(0, min(60, value))
+        if (not self.controlVolumeAvailable or context != self._control_volume_context(self.playback)
+                or value == self.playback.volume):
+            return
+        if self._demo_mode:
+            self.setVolume(value)
+            return
+        transport = self._session_controller.transport
+        try:
+            binding = transport.binding()
+        except SessionError:
+            return
+        self._control_volume_pending = True
+        self.controlVolumeChanged.emit()
+
+        def current() -> bool:
+            return (self._session_controller._foreground and lease == self._control_volume_serial
+                    and context == self._control_volume_context(self.playback))
+
+        def worker() -> None:
+            if not current():
+                return
+            _, backend, revision, player, uri, output = context
+            try:
+                status = transport.playback_status(binding)
+                observed = status.get("playback")
+                target = status.get("music_target_player")
+                if (not current() or status.get("music_backend") != backend
+                        or type(status.get("music_backend_revision")) is not int
+                        or status["music_backend_revision"] != revision
+                        or status.get("backend_available") is not True
+                        or status.get("music_backend_available") is not True
+                        or not isinstance(observed, dict) or observed.get("has_playback") is not True
+                        or observed.get("uri") != uri
+                        or (target.get("id", "") if isinstance(target, dict) else "") != player
+                        or volume_observation(status, backend)["output_id"] != output):
+                    return
+                if current():
+                    transport.playback_volume(binding, value, backend)
+            except SessionError:
+                return  # Never repeat a volume command with an uncertain outcome.
+            if current():
+                self._refresh_worker()
+
+        self._run(self.tr_key("vol"), worker, done=self._controlVolumeFinished.emit)
+
+    @Slot()
+    def _finish_control_volume(self) -> None:
+        self._control_volume_pending = False
+        self.controlVolumeChanged.emit()
+
+    @Slot(int)
+    def setVolume(self, value: int) -> None:
+        value = max(0, min(60, int(value)))
+        if value == self.playback.volume:
+            return
+        self.playback.volume = value
+        self.volumeChanged.emit()
+        _LOGGER.info("User set volume to %s", value)
+        self.showToastForContext(f"{self.tr_key('vol')} {value}", "playback")
+        if self._demo_mode:
+            return
+        self.command("set_volume", value=value)
+
+    @Slot(int)
+    def adjustVolume(self, delta: int) -> None:
+        self.setVolume(self.playback.volume + int(delta))
+
+    @Slot()
+    def toggleShuffle(self) -> None:
+        self.playback.shuffle = not self.playback.shuffle
+        self.shuffleChanged.emit()
+        _LOGGER.info("User toggled shuffle to %s", self.playback.shuffle)
+        self.showToastForContext(self.tr_key("shuffle"), "playback")
+        if self._demo_mode:
+            return
+        self.command("set_shuffle", value=self.playback.shuffle)
+
+    @Slot()
+    def cycleRepeat(self) -> None:
+        next_value = {"off": "context", "context": "track", "track": "off"}.get(self.playback.repeat, "off")
+        self.playback.repeat = next_value
+        self.repeatChanged.emit()
+        _LOGGER.info("User changed repeat mode to %s", next_value)
+        self.showToastForContext(self.tr_key("repeat"), "playback")
+        if self._demo_mode:
+            return
+        self.command("set_repeat", value=next_value)
+
+    @Slot(str)
+    def setOutputDevice(self, value: str) -> None:
+        value = value.strip()
+        if not value:
+            self.playback.output_device = ""
+            self.outputDeviceChanged.emit()
+            _LOGGER.info("User cleared output device selection from touch UI")
+            self.showToastForContext(self.tr_key("none"), "playback")
+            return
+        previous = self.playback.output_device
+        self.playback.output_device = value
+        self._pending_output_device = value
+        self._pending_output_until = time.monotonic() + 20
+        self.cancelControlVolume()
+        self.outputDeviceChanged.emit()
+        _LOGGER.info("User selected output device: %s", value)
+        self.showToastForContext(value, "playback")
+        if self._demo_mode:
+            return
+        self._run("set_output", lambda: self._set_output_worker(value, previous))
+
+    @Slot()
+    def enterDemoMode(self) -> None:
+        if self.paired or self._demo_mode:
+            return
+        self._demo_mode = True
+        self._queue_items = demo_queue_items()
+        self._playlist_items = demo_playlist_items()
+        self.playback.output_device = ""
+        self.playback.output_devices = ("Keuken", "Woonkamer")
+        self.demoModeChanged.emit()
+        self.mediaListsChanged.emit()
+        self.outputDeviceChanged.emit()
+        self._apply_demo_track(self._queue_items[0])
+        self._demo_progress.start()
+        self._seed_demo_content()
+        _LOGGER.info("User entered local demo mode")
+        self.showToastForContext(self.tr_key("demo_active"), "playback")
+        self._set_status_text(self.tr_key("demo_active"))
+
+    @Slot()
+    def exitDemoMode(self) -> None:
+        if not self._demo_mode:
+            return
+        self._demo_mode = False
+        self._demo_progress.stop()
+        self._clear_profile_scoped_caches(preserve_session=True)
+        self._queue_items = []
+        self._playlist_items = []
+        self.demoModeChanged.emit()
+        self.mediaListsChanged.emit()
+        self.playback = Playback()
+        self.titleChanged.emit()
+        self.artistChanged.emit()
+        self.imageUrlChanged.emit()
+        self.playingChanged.emit()
+        self.volumeChanged.emit()
+        self.shuffleChanged.emit()
+        self.repeatChanged.emit()
+        self.progressChanged.emit()
+        self.outputDeviceChanged.emit()
+        _LOGGER.info("User exited local demo mode")
+        self.showToastForContext(self.tr_key("exit_demo"), "connectivity")
+        self._set_status_text(self.tr_key("ready_to_pair"))
+
+    @Slot()
+    def quitApp(self) -> None:
+        _LOGGER.info("Quit requested from touch UI")
+        app = QCoreApplication.instance()
+        if app is not None:
+            app.quit()
+
+    @Slot()
+    def clearDjResponse(self) -> None:
+        if not self._dj_response_visible and not self._dj_response_text:
+            return
+        self._dj_response_text = ""
+        self._dj_response_visible = False
+        self.djResponseChanged.emit()
+
+    @Slot()
+    def manualRefresh(self) -> None:
+        _LOGGER.info("User requested manual refresh")
+        self.showToastForContext(self.tr_key("refreshing"), "playback")
+        self._pending_output_device = ""
+        self._pending_output_until = 0.0
+        self.refresh()
+
+    @Slot()
+    def loadAskDjHistory(self) -> None:
+        self._load_ask_dj_history(show_toast=False, action="opened")
+
+    @Slot()
+    def refreshAskDjHistory(self) -> None:
+        self._load_ask_dj_history(show_toast=True, action="refreshed")
+
+    @Slot()
+    def clearAskDjHistory(self) -> None:
+        if self._demo_mode:
+            self._clear_ask_dj_cache()
+            return
+        self._sync_config_from_disk()
+        if self._demo_mode or not self.paired or self._ask_dj_busy:
+            return
+        _LOGGER.info("User requested Ask DJ chat history clear")
+        self._set_ask_dj_busy(True)
+        self._run(self.tr_key("ask_dj_clear_chat"), self._clear_ask_dj_history_worker, done=lambda: self._set_ask_dj_busy(False))
+
+    def _load_ask_dj_history(self, *, show_toast: bool, action: str) -> None:
+        self._sync_config_from_disk()
+        if self._demo_mode or not self.paired or self._ask_dj_busy:
+            return
+        _LOGGER.info("User %s Ask DJ history", action)
+        if show_toast:
+            self.showToastForContext(self.tr_key("refreshing"), "askdj")
+        self._set_ask_dj_busy(True)
+        self._run(self.tr_key("ask_dj"), self._load_ask_dj_history_worker, done=lambda: self._set_ask_dj_busy(False))
+
+    @Slot(str, result=bool)
+    def sendAskDjQuestion(self, text: str) -> bool:
+        text = text.strip()
+        if not text or len(text) > 4000 or self._ask_dj_busy or not self._application_foreground or self._shutting_down:
+            return False
+        message_id = uuid4().hex
+        if self._demo_mode:
+            self._merge_ask_dj_messages(parse_ask_dj_messages({"messages": [
+                {"id": message_id, "role": "user", "text": text},
+                {"id": message_id + "-demo", "role": "assistant", "text": self.tr_key("demo_dj_answer")},
+            ]}))
+            return True
+        self._sync_config_from_disk()
+        if not self.paired or self.cfg.private_session:
+            return False
+        transport = self._session_controller.transport
+        try:
+            binding = transport.binding()
+        except SessionError:
+            return False
+        ticket = self._private_read_context()
+
+        def current():
+            return (not self._shutting_down and self._application_foreground and not self._demo_mode
+                    and ticket == self._private_read_context() and binding == transport.binding())
+
+        def send():
+            try:
+                if not current():
+                    return
+                owner = transport.private_scope_owner(binding)
+                if not current():
+                    return
+                if not owner:
+                    self._toastReady.emit(self.tr_key("session_profile_missing"), 5000, "askdj")
+                    return
+                transport.standalone_question(binding, text, message_id, owner)
+                if not current():
+                    return
+                history = transport.standalone_history(binding, owner)
+                if current():
+                    self._askDjReady.emit(self._profile_read_result(history, ticket))
+            except SessionError:
+                if ticket == self._private_read_context() and self._application_foreground:
+                    self._toastReady.emit(self.tr_key("session_uncertain"), 5000, "askdj")
+
+        def execute():
+            try:
+                send()
+            finally:
+                self._set_ask_dj_busy(False)
+
+        self._set_ask_dj_busy(True)
+        self._question_executor.submit(execute)
+        return True
+
+    @Slot(str)
+    def sendAskDjAction(self, action_payload: str) -> None:
+        self._sync_config_from_disk()
+        if self._demo_mode or not self.paired or self._ask_dj_busy:
+            return
+        try:
+            action = json.loads(action_payload)
+        except json.JSONDecodeError:
+            _LOGGER.warning("Ignoring malformed Ask DJ action payload")
+            return
+        if not isinstance(action, dict):
+            _LOGGER.warning("Ignoring non-object Ask DJ action payload")
+            return
+        _LOGGER.info("User triggered Ask DJ structured action kind=%s", action.get("kind") or action.get("action_style") or action.get("type") or "")
+        self._set_ask_dj_busy(True)
+        self._run(self.tr_key("ask_dj"), lambda: self._send_ask_dj_action_worker(action), done=lambda: self._set_ask_dj_busy(False))
+
+    @Slot()
+    def loadMusicDna(self) -> None:
+        self._music_dna_request("profile", show_toast=False)
+
+    @Slot()
+    def refreshMusicDna(self) -> None:
+        self._music_dna_request("profile", show_toast=True)
+
+    @Slot(bool)
+    def setMusicDnaEnabled(self, enabled: bool) -> None:
+        self._music_dna_request("settings", enabled=bool(enabled))
+
+    @Slot()
+    def clearMusicDna(self) -> None:
+        self._music_dna_request("clear")
+
+    def _music_dna_request(self, action: str, show_toast: bool = False, **payload: object) -> None:
+        if self._demo_mode:
+            if action == "settings":
+                self._set_demo_music_dna(bool(payload["enabled"]))
+            elif action == "clear":
+                self._set_demo_music_dna(False)
+            return
+        self._sync_config_from_disk()
+        if self._demo_mode or not self.paired or self._music_dna_busy:
+            return
+        self._set_music_dna_busy(True)
+        if show_toast:
+            self.showToastForContext(self.tr_key("refreshing"), "musicdna")
+        if action == "settings":
+            def worker() -> None:
+                self._music_dna_settings_worker(**payload)
+        elif action == "clear":
+            worker = self._music_dna_clear_worker
+        else:
+            worker = self._music_dna_profile_worker
+        _LOGGER.info("User requested Music DNA %s", action)
+        self._run(self.tr_key("music_dna"), worker, done=lambda: self._set_music_dna_busy(False))
+
+    @Slot()
+    def loadMusicDiscovery(self) -> None:
+        self._music_discovery_request("feed")
+
+    @Slot()
+    def refreshMusicDiscovery(self) -> None:
+        self._music_discovery_request("refresh")
+
+    @Slot()
+    def acceptMusicDiscoveryConsent(self) -> None:
+        self._music_discovery_consent_rejected = False
+        self._music_discovery_request("accept")
+
+    @Slot()
+    def rejectMusicDiscoveryConsent(self) -> None:
+        self._music_discovery_consent_rejected = True
+        self._music_discovery_error = ""
+        self._music_discovery_empty_text = self.tr_key("music_discovery_requires_music_dna")
+        self.musicDiscoveryChanged.emit()
+
+    @Slot(str)
+    def playMusicDiscoveryItem(self, payload: str) -> None:
+        if not self._demo_mode:
+            self._sync_config_from_disk()
+        if (not self._demo_mode and not self.paired) or self._music_discovery_busy or self._music_discovery_playing_id:
+            return
+        try:
+            item = json.loads(payload)
+        except json.JSONDecodeError:
+            _LOGGER.warning("Ignoring malformed Music Discovery play payload")
+            return
+        if not isinstance(item, dict):
+            return
+        if not str(item.get("discovery_item_id") or item.get("id") or "").strip():
+            _LOGGER.info("Ignoring Music Discovery item without backend id")
+            return
+        item_id = str(item.get("discovery_item_id") or item.get("id") or "").strip()
+        if self._demo_mode:
+            self._play_demo_uri(item_id)
+            self.musicDiscoveryPlayed.emit(str(item.get("section_id") or ""), item_id)
+            return
+        self._music_discovery_playing_id = item_id
+        self.musicDiscoveryChanged.emit()
+        self._run(self.tr_key("music_discovery"), lambda: self._music_discovery_play_worker(item), done=lambda: self._clear_music_discovery_playing())
+
+    @Slot(str, str)
+    def sendMusicDiscoveryFeedback(self, payload: str, feedback: str) -> None:
+        self._sync_config_from_disk()
+        if self._demo_mode or not self.paired or self._music_discovery_busy or not self._music_discovery_feedback_supported:
+            return
+        feedback_value = str(feedback or "").strip()
+        if feedback_value not in {"not_for_me", "less_like_this", "hide_artist"}:
+            return
+        try:
+            item = json.loads(payload)
+        except json.JSONDecodeError:
+            _LOGGER.warning("Ignoring malformed Music Discovery feedback payload")
+            return
+        if not isinstance(item, dict):
+            return
+        self._set_music_discovery_busy(True)
+        self._run(
+            self.tr_key("music_discovery"),
+            lambda: self._music_discovery_feedback_worker(item, feedback_value),
+            done=lambda: self._set_music_discovery_busy(False),
+        )
+
+    def _music_discovery_request(self, action: str) -> None:
+        if self._demo_mode:
+            if action == "accept":
+                self._set_demo_music_dna(True)
+            return
+        self._sync_config_from_disk()
+        if self._demo_mode or not self.paired or self._music_discovery_busy:
+            return
+        self._set_music_discovery_busy(True)
+        if action == "refresh":
+            self.showToastForContext(self.tr_key("refreshing"), "discover")
+        if action == "accept":
+            worker = self._music_discovery_accept_worker
+        elif action == "refresh":
+            worker = self._music_discovery_refresh_worker
+        else:
+            worker = self._music_discovery_feed_worker
+        _LOGGER.info("User requested Music Discovery %s", action)
+        self._run(self.tr_key("music_discovery"), worker, done=lambda: self._set_music_discovery_busy(False))
+
+    @Slot()
+    def resetPairing(self) -> None:
+        _LOGGER.info("User requested pairing reset from touch UI")
+        self._forget_pairing()
+        self.showToastForContext(self.tr_key("ready_to_pair"), "connectivity")
+        self._set_status_text(self.tr_key("ready_to_pair"))
+
+    @Property(bool, constant=True)
+    def localTerminalAvailable(self) -> bool:
+        return LOCAL_TERMINAL_UNIT.is_file()
+
+    @Slot()
+    def openLocalTerminal(self) -> None:
+        if not self.localTerminalAvailable:
+            return
+
+        def start() -> None:
+            try:
+                subprocess.run(
+                    ["/usr/bin/sudo", "-n", "/usr/bin/systemctl", "start", LOCAL_TERMINAL_UNIT.name],
+                    check=True, timeout=10, capture_output=True, text=True,
+                )
+            except (OSError, subprocess.SubprocessError) as exc:
+                _LOGGER.warning("Could not start local terminal: %s", exc)
+                self._toastReady.emit(self.tr_key("local_terminal_failed"), 5000, "diagnostics")
+
+        self._run(self.tr_key("local_terminal"), start)
+
+    @Slot()
+    def rebootDevice(self) -> None:
+        _LOGGER.info("User requested device reboot from touch UI")
+        self._run_power_command(
+            action="reboot",
+            status_key="rebooting",
+            failure_key="reboot_failed",
+            commands=(
+                ["sudo", "-n", "/usr/bin/systemctl", "reboot"],
+                ["sudo", "-n", "/bin/systemctl", "reboot"],
+                ["sudo", "-n", "systemctl", "reboot"],
+                ["/usr/bin/systemctl", "reboot"],
+                ["/bin/systemctl", "reboot"],
+            ),
+        )
+
+    @Slot()
+    def shutdownDevice(self) -> None:
+        _LOGGER.info("User requested device shutdown from touch UI")
+        self._run_power_command(
+            action="shutdown",
+            status_key="shutting_down",
+            failure_key="shutdown_failed",
+            commands=(
+                ["sudo", "-n", "/usr/bin/systemctl", "poweroff"],
+                ["sudo", "-n", "/bin/systemctl", "poweroff"],
+                ["sudo", "-n", "systemctl", "poweroff"],
+                ["/usr/bin/systemctl", "poweroff"],
+                ["/bin/systemctl", "poweroff"],
+            ),
+        )
+
+    @Slot()
+    def checkForUpdates(self) -> None:
+        _LOGGER.info("User requested update check from touch UI")
+        self._set_status_text(self.tr_key("checking_updates"))
+        self.showToastForContext(self.tr_key("checking_updates"), "updates")
+        commands = (
+            ["sudo", "-n", "/usr/bin/systemctl", "start", "djconnect-updater.service"],
+            ["sudo", "-n", "/bin/systemctl", "start", "djconnect-updater.service"],
+        )
+        last_error = "unknown error"
+        for command in commands:
+            try:
+                _LOGGER.info("Starting update check command: %s", " ".join(command))
+                subprocess.run(command, check=True, timeout=8, capture_output=True, text=True)
+                self._set_status_text(self.tr_key("update_check_started"))
+                self.showToastForContext(self.tr_key("update_check_started"), "updates")
+                return
+            except subprocess.CalledProcessError as exc:
+                detail = (exc.stderr or exc.stdout or str(exc)).strip()
+                last_error = detail or str(exc)
+                _LOGGER.warning("Update check command failed: %s: %s", " ".join(command), last_error)
+            except Exception as exc:  # noqa: BLE001 - native command boundary must surface every local failure to the UI
+                last_error = str(exc)
+                _LOGGER.warning("Update check command failed: %s: %s", " ".join(command), exc)
+        message = self.tr_key("update_check_failed", error=last_error)
+        self._set_status_text(message)
+        self._show_toast(message, 5000, "updates")
+
+    def _run_power_command(self, *, action: str, status_key: str, failure_key: str, commands: tuple[list[str], ...]) -> None:
+        self._set_status_text(self.tr_key(status_key))
+        self.showToastForContext(self.tr_key(status_key), "updates")
+        last_error: str = "unknown error"
+        for command in commands:
+            try:
+                _LOGGER.info("Starting %s command: %s", action, " ".join(command))
+                subprocess.run(command, check=True, timeout=5, capture_output=True, text=True)
+                return
+            except subprocess.CalledProcessError as exc:
+                detail = (exc.stderr or exc.stdout or str(exc)).strip()
+                last_error = detail or str(exc)
+                _LOGGER.warning("%s command failed: %s: %s", action.capitalize(), " ".join(command), last_error)
+            except Exception as exc:  # noqa: BLE001 - native command boundary must surface every local failure to the UI
+                last_error = str(exc)
+                _LOGGER.warning("%s command failed: %s: %s", action.capitalize(), " ".join(command), exc)
+        message = self.tr_key(failure_key, error=last_error)
+        self._set_status_text(message)
+        self._show_toast(message, 5000, "updates")
+
+    @Slot(str, str)
+    def playMediaItem(self, command: str, item: str) -> None:
+        if self._media_playback_busy:
+            return
+        command = command.strip()
+        payload = media_item_payload(command, item)
+        if not command or not payload:
+            return
+        if command not in {"play_context_at", "start_playlist"}:
+            _LOGGER.warning("Ignoring unsupported media item command from touch UI: %s", command)
+            return
+        if self._demo_mode:
+            uri = payload["uri"] if command == "start_playlist" else payload["value"]["uri"]
+            self._play_demo_uri(uri)
+            return
+        _LOGGER.info("User requested %s from touch UI", command)
+        self.showToastForContext(self.tr_key("play"), "playback")
+        self._media_playback_busy = True
+        self.mediaActivityChanged.emit()
+        self._run(command, lambda: self._play_media_item_worker(command, payload), done=self._mediaPlaybackFinished.emit)
+
+    @Slot()
+    def _finish_media_playback(self) -> None:
+        self._media_playback_busy = False
+        self.mediaActivityChanged.emit()
+
+    @Slot()
+    def showLogs(self) -> None:
+        if self.cfg.log_level == DEFAULT_LOG_LEVEL:
+            return
+        _LOGGER.info("User opened logs view")
+        self.showToastForContext(self.tr_key("logs"), "diagnostics")
+        path = Path(self.cfg.log_file)
+        try:
+            if path.exists():
+                data = _read_tail_text(path, LOG_DISPLAY_MAX_BYTES)
+                self._logs_text = _format_logs_for_display(data)
+            else:
+                self._logs_text = self.tr_key("logs_missing")
+        except Exception as exc:  # noqa: BLE001 - log rendering must remain available when local diagnostics are unreadable
+            self._logs_text = self.tr_key("logs_failed", error=exc)
+        self._logs_visible = True
+        self.logsChanged.emit()
+
+    @Slot()
+    def copyLogs(self) -> None:
+        _LOGGER.info("User copied logs from touch UI")
+        QGuiApplication.clipboard().setText(self._logs_text)
+        self.showToastForContext(self.tr_key("logs_copied"), "diagnostics")
+
+    @Slot()
+    def clearLogs(self) -> None:
+        _LOGGER.info("User cleared logs from touch UI")
+        path = Path(self.cfg.log_file)
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("", encoding="utf-8")
+            self._logs_text = self.tr_key("logs_cleared")
+            self.showToastForContext(self.tr_key("logs_cleared"), "diagnostics")
+        except Exception as exc:  # noqa: BLE001 - log clearing must report all local filesystem failures to the UI
+            self._logs_text = self.tr_key("logs_failed", error=exc)
+        self.logsChanged.emit()
+
+    @Slot()
+    def hideLogs(self) -> None:
+        self._logs_visible = False
+        self._logs_text = ""
+        self.logsChanged.emit()
+
+    @Slot(str)
+    def showToast(self, text: str) -> None:
+        self._show_toast(text, 2000)
+
+    @Slot(str, str)
+    def showToastForContext(self, text: str, context: str) -> None:
+        self._show_toast(text, 2000, context)
+
+    @Slot(str)
+    def playGameSound(self, kind: str) -> None:
+        if not self.localAudioOutputAvailable:
+            return
+        try:
+            from PySide6.QtMultimedia import QAudioFormat, QAudioSink, QMediaDevices
+        except Exception as exc:  # noqa: BLE001 - optional multimedia support must never prevent the renderer from starting
+            _LOGGER.debug("Game sound unavailable: %s", exc)
+            return
+        tones = {
+            "start": (220, 90),
+            "move": (180, 45),
+            "fire": (760, 65),
+            "pellet": (520, 45),
+            "power": (300, 110),
+            "ghost": (880, 90),
+            "death": (90, 140),
+            "hit": (430, 55),
+            "wall": (260, 45),
+            "explode": (120, 120),
+            "crash": (70, 140),
+            "gameover": (100, 120),
+        }
+        frequency, duration_ms = tones.get(kind.strip(), (240, 55))
+        try:
+            device = QMediaDevices.defaultAudioOutput()
+            if device.isNull():
+                return
+            audio_format = QAudioFormat()
+            audio_format.setSampleRate(GAME_SOUND_SAMPLE_RATE)
+            audio_format.setChannelCount(1)
+            audio_format.setSampleFormat(QAudioFormat.Int16)
+            if not device.isFormatSupported(audio_format):
+                audio_format = device.preferredFormat()
+            data = _square_wave_pcm(frequency, duration_ms, audio_format.sampleRate())
+            if not data:
+                return
+            buffer = QBuffer(self)
+            buffer.setData(QByteArray(data))
+            buffer.open(QIODevice.ReadOnly)
+            sink = QAudioSink(device, audio_format, self)
+            sink.setVolume(0.04)
+            sink.start(buffer)
+            self._game_sound_objects.append((sink, buffer))
+            QTimer.singleShot(duration_ms + 250, lambda: self._cleanup_game_sound(sink, buffer))
+        except Exception as exc:  # noqa: BLE001 - optional game audio must not affect the renderer lifecycle
+            _LOGGER.debug("Game sound skipped: %s", exc)
+
+    def _cleanup_game_sound(self, sink: object, buffer: QBuffer) -> None:
+        try:
+            if hasattr(sink, "stop"):
+                sink.stop()
+            buffer.close()
+        finally:
+            self._game_sound_objects = [(s, b) for s, b in self._game_sound_objects if s is not sink and b is not buffer]
+
+    def _show_toast(self, text: str, duration_ms: int = 2000, context: str = "") -> None:
+        text = text.strip()
+        if not text:
+            return
+        self._toast_text = text
+        self._toast_icon = _toast_icon_for_context(context)
+        self._toast_visible = True
+        self.toastChanged.emit()
+        self._toast_timer.setInterval(duration_ms)
+        self._toast_timer.start()
+
+    @Slot()
+    def hideToast(self) -> None:
+        if not self._toast_visible and not self._toast_text:
+            return
+        self._toast_visible = False
+        self._toast_text = ""
+        self._toast_icon = TOAST_ICON_FALLBACK
+        self.toastChanged.emit()
+
+    def command(self, command: str, **payload: object) -> None:
+        if self._demo_mode:
+            return
+        self._run(command, lambda: self._command_worker(command, **payload))
+
+    @Slot(str)
+    def playUri(self, uri: str) -> None:
+        uri = uri.strip()
+        if not uri:
+            return
+        if self._demo_mode:
+            self._play_demo_uri(uri)
+            return
+        _LOGGER.info("User requested play_uri from touch UI")
+        self.showToastForContext(self.tr_key("play"), "playback")
+        self.command("play_uri", uri=uri)
+
+    @Slot()
+    def loadQueue(self) -> None:
+        if not self._demo_mode:
+            self._start_media_list_load("queue", self._load_queue_worker)
+
+    @Slot()
+    def loadPlaylists(self) -> None:
+        if self._demo_mode:
+            self._playlist_items = demo_playlist_items()
+            self.mediaListsChanged.emit()
+            return
+        self._start_media_list_load("playlists", self._load_playlists_worker)
+
+    def _start_media_list_load(self, kind: str, worker: Callable[[], None]) -> None:
+        self._sync_config_from_disk()
+        if not self.paired or kind in self._media_loads_in_flight:
+            return
+        self._media_loads_in_flight.add(kind)
+        self.mediaActivityChanged.emit()
+        _LOGGER.info("User requested %s from touch UI", kind)
+        self._run(self.tr_key(kind), worker, done=lambda: self._mediaListFinished.emit(kind), interactive=False)
+
+    @Slot(str)
+    def _finish_media_list_load(self, kind: str) -> None:
+        self._media_loads_in_flight.discard(kind)
+        self.mediaActivityChanged.emit()
+
+    @Slot(str, result=str)
+    def cachedImageUrl(self, url: str) -> str:
+        return cached_image_url(url)
+
+    def _pair_worker(self, code: str) -> None:
+        _LOGGER.info("Pairing DJConnect Pi client")
+        self.client.pair(code)
+        save_config(self.config_path, self.cfg)
+        self._pairingReady.emit(True, self.tr_key("paired"))
+
+    def _refresh_worker(self) -> None:
+        started = time.monotonic()
+        _LOGGER.debug("Refreshing playback status")
+        data = self.client.command("status") if self.paired else self.client.status()
+        self._persist_backend_summary()
+        playback = self.client.playback_from_status(data)
+        if self._pending_output_device and time.monotonic() < self._pending_output_until:
+            if not playback.output_devices or self._pending_output_device in playback.output_devices:
+                playback.output_device = self._pending_output_device
+        elif self._pending_output_device:
+            self._pending_output_device = ""
+            self._pending_output_until = 0.0
+        if self.playback.output_device and not playback.output_device:
+            playback.output_device = self.playback.output_device
+        if self.paired and (not playback.output_devices or not playback.output_device):
+            try:
+                devices_data = self.client.command("devices")
+                self._persist_backend_summary()
+                devices_playback = self.client.playback_from_status(devices_data)
+                if devices_playback.output_devices:
+                    playback.output_devices = devices_playback.output_devices
+                    playback.output_device_details = devices_playback.output_device_details
+                    _LOGGER.debug("Loaded %s output devices from Home Assistant devices command", len(playback.output_devices))
+                if devices_playback.output_device and not playback.output_device:
+                    playback.output_device = devices_playback.output_device
+                    _LOGGER.debug("Loaded active output device from Home Assistant devices command: %s", playback.output_device)
+            except DJConnectError as exc:
+                _LOGGER.warning("Output devices refresh failed: %s", exc)
+        if self.paired:
+            self.client.status(playback, queue_items=self._queue_items)
+            self._persist_backend_summary()
+        if playback.image_url:
+            playback.image_url = cached_image_url(playback.image_url, timeout_seconds=3)
+        self._playbackReady.emit(playback)
+        _LOGGER.info("Refresh completed in %.0fms", _elapsed_ms(started))
+
+    def _command_worker(self, command: str, **payload: object) -> None:
+        started = time.monotonic()
+        _LOGGER.info("Sending playback command: %s", command)
+        data = self.client.command(command, **payload)
+        self._persist_backend_summary()
+        self._playbackReady.emit(self.client.playback_from_status(data))
+        _LOGGER.info("Playback command %s completed in %.0fms", command, _elapsed_ms(started))
+
+    def _save_current_track_worker(self) -> None:
+        started = time.monotonic()
+        try:
+            data = self.client.command("save_current_track")
+            self._persist_backend_summary()
+        except (AuthenticationError, ProtocolVersionMismatch, BackendUnavailable):
+            raise
+        except DJConnectError as exc:
+            raise SaveCurrentTrackError(str(exc)) from exc
+        if data.get("success") is False:
+            error = str(data.get("error") or data.get("message") or "save_current_track_failed")
+            raise SaveCurrentTrackError(error)
+        self._toastReady.emit(self.tr_key("favorite_saved"), 2200, "playback")
+        if _contains_playback_payload(data):
+            self._playbackReady.emit(self.client.playback_from_status(data))
+        _LOGGER.info("Save current track completed in %.0fms", _elapsed_ms(started))
+
+    def _play_media_item_worker(self, command: str, payload: dict[str, object]) -> None:
+        started = time.monotonic()
+        _LOGGER.info("Sending media item command: %s", command)
+        data = self.client.command(command, **payload)
+        self._persist_backend_summary()
+        self._suppress_next_playback_navigation = command == "play_context_at"
+        self._playbackReady.emit(self.client.playback_from_status(data))
+        if command == "start_playlist":
+            self._load_queue_worker()
+        else:
+            self._refresh_worker()
+        _LOGGER.info("Media item command %s completed in %.0fms", command, _elapsed_ms(started))
+
+    def _set_output_worker(self, value: str, previous: str) -> None:
+        started = time.monotonic()
+        try:
+            data = self.client.command("set_output", value=value)
+            self._persist_backend_summary()
+            playback = self.client.playback_from_status(data)
+            if playback.output_devices and value not in playback.output_devices:
+                raise DJConnectError(f"Output device not available: {value}")
+            if playback.output_devices and value in playback.output_devices:
+                playback.output_device = value
+            elif playback.output_device and playback.output_device != value:
+                raise DJConnectError(f"Output device not accepted: {value}")
+            if not playback.output_device:
+                playback.output_device = value
+            if not playback.output_devices:
+                playback.output_devices = self.playback.output_devices or ((value,) if value else ())
+                playback.output_device_details = self.playback.output_device_details or (({"name": value, "value": value},) if value else ())
+            self._pending_output_device = value
+            self._pending_output_until = time.monotonic() + 20
+            self._playbackReady.emit(playback)
+            _LOGGER.info("Output device %s validated in %.0fms", value, _elapsed_ms(started))
+        except Exception:
+            self._outputDeviceRejected.emit(previous, value)
+            if self._is_cached_output_device(value):
+                self._toastReady.emit(self.tr_key("spotify_cached_output_unavailable"), 7000, "playback")
+            raise
+
+    def _load_queue_worker(self) -> None:
+        started = time.monotonic()
+        _LOGGER.info("Loading queue from Home Assistant")
+        data = self.client.command("queue", limit=100)
+        self._persist_backend_summary()
+        items = parse_queue_items(data)
+        _LOGGER.info("Loaded %s queue items from Home Assistant", len(items))
+        self._mediaListReady.emit("queue", items)
+        _LOGGER.info("Queue list displayed in %.0fms", _elapsed_ms(started))
+        self._cache_media_artwork_async("queue", items)
+
+    def _load_playlists_worker(self) -> None:
+        started = time.monotonic()
+        _LOGGER.info("Loading playlists from Home Assistant")
+        data = self.client.command("playlists", limit=100)
+        self._persist_backend_summary()
+        items = parse_playlist_items(data)
+        _LOGGER.info("Loaded %s playlists from Home Assistant", len(items))
+        self._mediaListReady.emit("playlists", items)
+        _LOGGER.info("Playlist list displayed in %.0fms", _elapsed_ms(started))
+        self._cache_media_artwork_async("playlists", items)
+
+    def _load_ask_dj_history_worker(self) -> None:
+        ticket = self._private_read_context()
+        try:
+            data = self.client.ask_dj_history(self._ask_dj_history_revision)
+            if ticket != self._private_read_context():
+                return
+            self._apply_profile_context(data)
+            ticket = self._private_read_context()
+            self._persist_backend_summary()
+        except (DJConnectError, requests.RequestException) as exc:
+            raise BackendUnavailable("Ask DJ unavailable") from exc
+        self._askDjReady.emit(self._profile_read_result(data, ticket))
+
+    def _send_ask_dj_action_worker(self, action: dict[str, object]) -> None:
+        ticket = self._private_read_context()
+        action = dict(action)
+        if not self.sharedSettingsManaged:
+            action["dj_announcement_output"] = normalize_dj_announcement_output(
+                self.cfg.dj_announcement_output,
+                self.cfg.music_backend_capabilities,
+            )
+        try:
+            data = self.client.ask_dj_action(action)
+            if ticket != self._private_read_context():
+                return
+            self._apply_profile_context(data)
+            ticket = self._private_read_context()
+        except (AuthenticationError, ProtocolVersionMismatch):
+            raise
+        except (UnsupportedBackendCapability, StaleBackendAction):
+            raise
+        except (DJConnectError, requests.RequestException) as exc:
+            raise BackendUnavailable("Ask DJ unavailable") from exc
+        self._persist_backend_summary()
+        self._askDjReady.emit(self._profile_read_result(data, ticket))
+
+    def _clear_ask_dj_history_worker(self) -> None:
+        ticket = self._private_read_context()
+        try:
+            data = self.client.ask_dj_history_clear()
+        except (AuthenticationError, ProtocolVersionMismatch):
+            raise
+        except (DJConnectError, requests.RequestException) as exc:
+            raise BackendUnavailable("Ask DJ clear unavailable") from exc
+        self._persist_backend_summary()
+        self._askDjReady.emit(self._profile_read_result(data, ticket))
+        self._toastReady.emit(self.tr_key("ask_dj_cleared"), 2500, "askdj")
+
+    def _track_insight_worker(self, playback: Playback, scope: tuple) -> None:
+        if not self._application_foreground or scope != self._track_insight_scope():
+            return
+        try:
+            data = self.client.track_insight(playback)
+            if scope != self._track_insight_scope():
+                return
+            self._apply_profile_context(data)
+            self._persist_backend_summary()
+        except (AuthenticationError, ProtocolVersionMismatch):
+            raise
+        except (DJConnectError, requests.RequestException) as exc:
+            _LOGGER.warning("Track Insight unavailable; showing retry state: %s", exc.__class__.__name__)
+            data = {"success": False, "error": "transient"}
+        self._trackInsightReady.emit(_TrackInsightResult(data, scope))
+
+    def _music_dna_profile_worker(self) -> None:
+        ticket = self._private_read_context()
+        try:
+            data = self.client.music_dna_profile()
+            if ticket != self._private_read_context():
+                return
+            self._apply_profile_context(data)
+            ticket = self._private_read_context()
+            self._persist_backend_summary()
+        except (AuthenticationError, ProtocolVersionMismatch):
+            raise
+        except ProfileContextError as exc:
+            self._musicDnaReady.emit(self._profile_read_result({"success": False, "error": exc.code}, ticket))
+            return
+        except (DJConnectError, requests.RequestException):
+            self._musicDnaReady.emit(self._profile_read_result({"success": False, "error": "music_dna_unavailable"}, ticket))
+            return
+        self._musicDnaReady.emit(self._profile_read_result(data, ticket))
+
+    def _music_dna_settings_worker(self, **settings: object) -> None:
+        ticket = self._private_read_context()
+        try:
+            data = self.client.music_dna_settings(**settings)
+            if ticket != self._private_read_context():
+                return
+            self._apply_profile_context(data)
+            ticket = self._private_read_context()
+            self._persist_backend_summary()
+        except (AuthenticationError, ProtocolVersionMismatch):
+            raise
+        except ProfileContextError as exc:
+            self._musicDnaReady.emit(self._profile_read_result({"success": False, "error": exc.code}, ticket))
+            return
+        except (DJConnectError, requests.RequestException):
+            self._musicDnaReady.emit(self._profile_read_result({"success": False, "error": "music_dna_unavailable"}, ticket))
+            return
+        self._musicDnaReady.emit(self._profile_read_result(data, ticket))
+
+    def _music_dna_clear_worker(self) -> None:
+        ticket = self._private_read_context()
+        try:
+            data = self.client.music_dna_clear()
+            if ticket != self._private_read_context():
+                return
+            self._apply_profile_context(data)
+            ticket = self._private_read_context()
+            self._persist_backend_summary()
+        except (AuthenticationError, ProtocolVersionMismatch):
+            raise
+        except ProfileContextError as exc:
+            self._musicDnaReady.emit(self._profile_read_result({"success": False, "error": exc.code}, ticket))
+            return
+        except (DJConnectError, requests.RequestException):
+            self._musicDnaReady.emit(self._profile_read_result({"success": False, "error": "music_dna_unavailable"}, ticket))
+            return
+        self._musicDnaReady.emit(self._profile_read_result(data, ticket))
+
+    def _music_discovery_feed_worker(self) -> None:
+        ticket = self._private_read_context()
+        try:
+            data = self.client.music_discovery_feed()
+            if ticket != self._private_read_context():
+                return
+            self._apply_profile_context(data)
+            ticket = self._private_read_context()
+            data["_feedback_supported"] = self._supports_music_discovery_feedback()
+            self._persist_backend_summary()
+        except (DJConnectError, requests.RequestException) as exc:
+            raise BackendUnavailable("Music Discovery unavailable") from exc
+        self._musicDiscoveryReady.emit(self._profile_read_result(data, ticket))
+
+    def _music_discovery_accept_worker(self) -> None:
+        ticket = self._private_read_context()
+        try:
+            profile = self.client.music_dna_settings(enabled=True)
+            if ticket != self._private_read_context():
+                return
+            self._apply_profile_context(profile)
+            ticket = self._private_read_context()
+            self._persist_backend_summary()
+            self._musicDnaReady.emit(self._profile_read_result(profile, ticket))
+            data = self.client.music_discovery_feed()
+            if ticket != self._private_read_context():
+                return
+            self._apply_profile_context(data)
+            ticket = self._private_read_context()
+            data["_feedback_supported"] = self._supports_music_discovery_feedback()
+            self._persist_backend_summary()
+        except (DJConnectError, requests.RequestException) as exc:
+            raise BackendUnavailable("Music Discovery unavailable") from exc
+        self._musicDiscoveryReady.emit(self._profile_read_result(data, ticket))
+
+    def _music_discovery_refresh_worker(self) -> None:
+        ticket = self._private_read_context()
+        try:
+            data = self.client.music_discovery_refresh()
+            if ticket != self._private_read_context():
+                return
+            self._apply_profile_context(data)
+            ticket = self._private_read_context()
+            data["_feedback_supported"] = self._supports_music_discovery_feedback()
+            self._persist_backend_summary()
+        except (DJConnectError, requests.RequestException) as exc:
+            raise BackendUnavailable("Music Discovery unavailable") from exc
+        self._musicDiscoveryReady.emit(self._profile_read_result(data, ticket))
+
+    def _music_discovery_play_worker(self, item: dict[str, object]) -> None:
+        ticket = self._private_read_context()
+        try:
+            data = self.client.music_discovery_play(item)
+            if data.get("success") is False:
+                raise DJConnectError("Music Discovery playback rejected")
+            if ticket != self._private_read_context():
+                return
+            self._apply_profile_context(data)
+            ticket = self._private_read_context()
+            self._persist_backend_summary()
+            self.musicDiscoveryPlayed.emit(
+                str(item.get("section_id") or ""), str(item.get("discovery_item_id") or item.get("id") or "").strip(),
+            )
+            feed = self.client.music_discovery_feed()
+            if ticket != self._private_read_context():
+                return
+            self._apply_profile_context(feed)
+            ticket = self._private_read_context()
+            feed["_feedback_supported"] = self._supports_music_discovery_feedback()
+            self._persist_backend_summary()
+        except (DJConnectError, requests.RequestException) as exc:
+            raise BackendUnavailable("Music Discovery unavailable") from exc
+        if _contains_playback_payload(data):
+            self._playbackReady.emit(self.client.playback_from_status(data))
+        self._musicDiscoveryReady.emit(self._profile_read_result(feed, ticket))
+        self._toastReady.emit(self.tr_key("play"), 1800, "playback")
+
+    def _music_discovery_feedback_worker(self, item: dict[str, object], feedback: str) -> None:
+        ticket = self._private_read_context()
+        try:
+            self.client.music_discovery_feedback(item, feedback)
+            self._persist_backend_summary()
+            feed = self.client.music_discovery_feed()
+            if ticket != self._private_read_context():
+                return
+            self._apply_profile_context(feed)
+            ticket = self._private_read_context()
+            feed["_feedback_supported"] = self._supports_music_discovery_feedback()
+            self._persist_backend_summary()
+        except (DJConnectError, requests.RequestException) as exc:
+            raise BackendUnavailable("Music Discovery unavailable") from exc
+        self._musicDiscoveryReady.emit(self._profile_read_result(feed, ticket))
+
+    def _supports_music_discovery_feedback(self) -> bool:
+        try:
+            return self.client.music_discovery_feedback_supported()
+        except (DJConnectError, requests.RequestException):
+            return False
+
+    @Slot()
+    def pollAskDjHistory(self) -> None:
+        self._sync_config_from_disk()
+        if self._demo_mode or not self.paired or not self.cfg.device_token:
+            return
+        now = time.monotonic()
+        if self._ask_dj_busy or self._ask_dj_poll_in_flight or now < self._ask_dj_unavailable_until:
+            return
+        self._ask_dj_poll_in_flight = True
+        self._executor.submit(self._poll_ask_dj_history_worker)
+
+    def _poll_ask_dj_history_worker(self) -> None:
+        ticket = self._private_read_context()
+        try:
+            data = self.client.ask_dj_history(self._ask_dj_history_revision)
+            if ticket != self._private_read_context():
+                self._ask_dj_poll_in_flight = False
+                return
+            self._apply_profile_context(data)
+            ticket = self._private_read_context()
+            self._persist_backend_summary()
+        except (AuthenticationError, ProtocolVersionMismatch, BackendUnavailable, DJConnectError, requests.RequestException) as exc:
+            self._ask_dj_poll_error_count = min(self._ask_dj_poll_error_count + 1, 6)
+            delay = min(300, 10 * (2 ** (self._ask_dj_poll_error_count - 1)))
+            self._ask_dj_unavailable_until = time.monotonic() + delay
+            _LOGGER.warning("Ask DJ read-only poll unavailable; retrying later: %s", exc.__class__.__name__)
+            self._ask_dj_poll_in_flight = False
+            return
+        self._ask_dj_poll_error_count = 0
+        self._ask_dj_unavailable_until = 0.0
+        self._askDjReady.emit(self._profile_read_result(data, ticket))
+        self._ask_dj_poll_in_flight = False
+
+    def _cache_media_artwork_async(self, kind: str, items: list[dict[str, object]]) -> None:
+        # The compact ListView already loads nearby covers. A second pass would
+        # compete with touch commands on the shared playback worker.
+        if not items or self.cfg.release_profile == "pi-zero-2w-arm64":
+            return
+        if kind in self._media_artwork_cache_in_flight:
+            _LOGGER.debug("%s artwork cache skipped because a cache worker is already active", kind)
+            return
+        self._media_artwork_cache_in_flight.add(kind)
+        cache_items = [dict(item) for item in items[:MEDIA_ARTWORK_CACHE_LIMIT]]
+
+        def worker() -> None:
+            try:
+                started = time.monotonic()
+                cached = prepare_media_artwork(cache_items)
+                _LOGGER.info("Cached %s artwork for %s items in %.0fms", kind, len(cached), _elapsed_ms(started))
+                merged = [dict(item) for item in items]
+                for index, cached_item in enumerate(cached):
+                    if index < len(merged):
+                        merged[index] = cached_item
+                self._mediaListReady.emit(kind, merged)
+            finally:
+                self._media_artwork_cache_in_flight.discard(kind)
+
+        self._executor.submit(worker)
+
+    def _show_dj_response(self, payload: dict[str, object]) -> dict[str, object]:
+        text = str(payload.get("dj_text") or payload.get("text") or payload.get("message") or "").strip()
+        if not text:
+            return {"success": False, "error": "missing_text"}
+        self._dj_response_text = text
+        self._dj_response_visible = True
+        self.djResponseChanged.emit()
+        self.temporaryWakeRequested.emit(20, False)
+        return {
+            "success": True,
+            "displayed": True,
+            "audio_played": False,
+            "text": text,
+        }
+
+    def _forget_pairing(self) -> None:
+        if self._demo_mode:
+            self.exitDemoMode()
+        self._shared_settings_epoch += 1
+        self._shared_settings_state = {}
+        self.sharedSettingsChanged.emit()
+        self.cfg.device_token = ""
+        self.cfg.paired = False
+        self.cfg.active_profile_id = ""
+        self.cfg.active_profile_name = ""
+        self.cfg.active_profile_type = "household"
+        self.cfg.active_profile_privacy_mode = "shared"
+        self.cfg.explicit_profile_id = ""
+        self.cfg.music_dna_key = ""
+        self._queue_items = []
+        self._playlist_items = []
+        self._clear_ask_dj_cache()
+        self._clear_profile_scoped_caches()
+        from .config import generate_pairing_code
+
+        self.cfg.pairing_code = generate_pairing_code()
+        save_config(self.config_path, self.cfg)
+        self.pairedChanged.emit()
+        self.pairingCodeChanged.emit()
+        self.settingsChanged.emit()
+        self.mediaListsChanged.emit()
+        self.profileChanged.emit()
+
+    def _play_demo_uri(self, uri: str) -> None:
+        tracks = demo_queue_items()
+        for index, playlist in enumerate(demo_playlist_items()):
+            if playlist["uri"] == uri:
+                self._queue_items = tracks[index:] + tracks[:index]
+                self.mediaListsChanged.emit()
+                self._apply_demo_track(self._queue_items[0])
+                return
+        track = next((item for item in tracks if item["uri"] == uri), None)
+        if track:
+            self._apply_demo_track(track)
+
+    def _move_demo_track(self, step: int) -> None:
+        if not self._queue_items:
+            return
+        index = next((i for i, track in enumerate(self._queue_items) if track["uri"] == self.playback.uri), 0)
+        self._apply_demo_track(self._queue_items[(index + step) % len(self._queue_items)])
+
+    def _tick_demo_playback(self) -> None:
+        if not self._demo_mode or not self.playback.is_playing:
+            return
+        if self.playback.position_seconds + 1 >= self.playback.duration_seconds:
+            self._move_demo_track(1)
+            return
+        self.playback.position_seconds += 1
+        self.progressChanged.emit()
+        self.djSession.demo_playback_changed()
+
+    def _apply_demo_track(self, track: dict[str, object]) -> None:
+        refresh_insight = bool(self._track_insight_title)
+        previous_uri = self.playback.uri
+        self.playback.title = str(track["title"])
+        self.playback.artist = str(track["subtitle"])
+        self.playback.uri = str(track["uri"])
+        self.playback.position_seconds = 0
+        self.playback.duration_seconds = int(track["duration"])
+        self.playback.image_url = ""
+        self.playback.is_playing = True
+        self._clear_track_insight()
+        if refresh_insight:
+            self._show_demo_track_insight()
+        self.titleChanged.emit()
+        self.artistChanged.emit()
+        self.imageUrlChanged.emit()
+        self.playingChanged.emit()
+        self.progressChanged.emit()
+        self.djSession.demo_playback_changed()
+        if previous_uri != self.playback.uri:
+            self.playbackTrackChanged.emit()
+
+    def _show_demo_track_insight(self) -> None:
+        track = next((item for item in demo_queue_items() if item["uri"] == self.playback.uri), None)
+        if not track:
+            return
+        self._track_insight_title = self.playback.title
+        self._track_insight_artist = self.playback.artist
+        self._track_insight_text = self.tr_key(str(track["insight_key"]))
+        self._track_insight_error = ""
+        self.trackInsightChanged.emit()
+
+    def _seed_demo_content(self) -> None:
+        self._ask_dj_messages = parse_ask_dj_messages({"messages": [
+            {"id": "demo-ask", "role": "user", "text": self.tr_key("demo_dj_question")},
+            {"id": "demo-reply", "role": "assistant", "text": self.tr_key("demo_dj_answer")},
+        ]})
+        self.askDjChanged.emit()
+        self._set_demo_music_dna(True)
+
+    def _set_demo_music_dna(self, enabled: bool) -> None:
+        self._music_dna_enabled = enabled
+        self._music_discovery_consent_rejected = False
+        self._music_dna_summary = self.tr_key("demo_dna_summary") if enabled else ""
+        tracks = demo_queue_items()
+        self._music_dna_sections = _music_dna_cards({
+            "recent_tracks": [{"title": track["title"], "artist": track["subtitle"]} for track in tracks],
+        }, "") if enabled else []
+        self._set_music_discovery_items(parse_music_discovery_feed({"sections": [{
+            "id": "demo", "title": self.tr_key("demo_mode"), "items": [
+                {"id": track["uri"], "uri": track["uri"], "title": track["title"],
+                 "subtitle": track["subtitle"], "reason": self.tr_key(str(track["insight_key"]))}
+                for track in tracks],
+        }]})["items"] if enabled else [])
+        self.musicDnaChanged.emit()
+        self.musicDiscoveryChanged.emit()
+
+    def _run(self, label: str, worker, done=None, *, interactive=True) -> None:
+        if interactive:
+            self._set_busy(True)
+            self._set_status_text(label)
+
+        def execute() -> None:
+            try:
+                worker()
+            except ProtocolVersionMismatch as exc:
+                self._backendAvailableReady.emit(False)
+                _LOGGER.warning("%s blocked by version mismatch: %s", label, exc)
+                self._versionMismatchReady.emit(exc.client_version, exc.ha_version)
+                self._statusReady.emit(str(exc))
+            except AuthenticationError as exc:
+                self._backendAvailableReady.emit(False)
+                message = self.tr_key("ha_auth_failed")
+                _LOGGER.warning("%s authentication failed: %s", label, exc)
+                if not self.paired:
+                    _LOGGER.info("Suppressing authentication toast while DJConnect is waiting for pairing")
+                    self._statusReady.emit(self.tr_key("ready_to_pair"))
+                    return
+                _LOGGER.info("Clearing local pairing after Home Assistant rejected the device token")
+                self._forget_pairing()
+                message = self.tr_key("ready_to_pair")
+                self._statusReady.emit(message)
+                self._toastReady.emit(message, 5000, "connectivity")
+            except BackendUnavailable as exc:
+                self._backendAvailableReady.emit(False)
+                _LOGGER.warning("%s backend unavailable: %s", label, exc)
+                message = self.tr_key("backend_unavailable")
+                if not self.paired:
+                    _LOGGER.info("Suppressing backend-unavailable toast while DJConnect is waiting for pairing")
+                    self._statusReady.emit(self.tr_key("ready_to_pair"))
+                    return
+                self._statusReady.emit(message)
+                self._toastReady.emit(message, 5000, "connectivity")
+            except UnsupportedBackendCapability as exc:
+                self._backendAvailableReady.emit(True)
+                message = str(exc)
+                _LOGGER.warning("%s unsupported backend capability: %s", label, message)
+                self._statusReady.emit(message)
+                self._toastReady.emit(message, 5000, "connectivity")
+            except StaleBackendAction as exc:
+                self._backendAvailableReady.emit(True)
+                message = str(exc)
+                _LOGGER.warning("%s stale backend action: %s", label, message)
+                self._statusReady.emit(message)
+                self._toastReady.emit(message, 5000, "connectivity")
+            except SaveCurrentTrackError as exc:
+                _LOGGER.warning("%s failed: %s", label, exc)
+                message = self.tr_key("favorite_save_failed")
+                self._statusReady.emit(message)
+                self._toastReady.emit(message, 3500, "connectivity")
+            except DJConnectError as exc:
+                self._backendAvailableReady.emit(False)
+                _LOGGER.warning("%s failed: %s", label, exc)
+                self._statusReady.emit(str(exc))
+            except Exception as exc:
+                self._backendAvailableReady.emit(False)
+                _LOGGER.exception("%s failed unexpectedly", label)
+                self._statusReady.emit(self.tr_key("offline", error=exc))
+            finally:
+                if done is not None:
+                    done()
+                if interactive:
+                    self._busyReady.emit(False)
+
+        self._executor.submit(execute)
+
+    @Slot(object)
+    def _apply_playback(self, playback: Playback) -> None:
+        if self._demo_mode:
+            return
+        self._set_backend_available(True)
+        if self._version_mismatch_visible:
+            self._version_mismatch_visible = False
+            self._version_mismatch_text = ""
+            self.versionMismatchChanged.emit()
+        old = self.playback
+        old_volume_context = self._control_volume_context(old)
+        self.playback = playback
+        if old_volume_context != self._control_volume_context(playback):
+            self.cancelControlVolume()
+        track_changed = old.title != playback.title or old.artist != playback.artist or old.image_url != playback.image_url or old.uri != playback.uri
+        if (self._track_insight_subject(old) != self._track_insight_subject(playback)
+                or self._track_insight_output(old) != self._track_insight_output(playback)):
+            self._track_insight_revision += 1
+            self._clear_track_insight()
+        elif self._track_insight_result_scope is not None and self._track_insight_result_scope != self._track_insight_scope():
+            self._clear_track_insight()
+        resumed_playback = not old.is_playing and playback.is_playing
+        if old.title != playback.title:
+            self.titleChanged.emit()
+        if old.artist != playback.artist:
+            self.artistChanged.emit()
+        if old.image_url != playback.image_url:
+            self.imageUrlChanged.emit()
+        if old.is_playing != playback.is_playing:
+            self.playingChanged.emit()
+        if old.is_favorite != playback.is_favorite or old.uri != playback.uri:
+            self.favoriteChanged.emit()
+        if old.volume != playback.volume:
+            self.volumeChanged.emit()
+        if old.shuffle != playback.shuffle:
+            self.shuffleChanged.emit()
+        if old.repeat != playback.repeat:
+            self.repeatChanged.emit()
+        if (
+            old.output_device != playback.output_device
+            or old.output_devices != playback.output_devices
+            or old.output_device_details != playback.output_device_details
+        ):
+            self.outputDeviceChanged.emit()
+        if old.position_seconds != playback.position_seconds or old.duration_seconds != playback.duration_seconds:
+            self.progressChanged.emit()
+        suppress_navigation = self._suppress_next_playback_navigation
+        self._suppress_next_playback_navigation = False
+        if (track_changed and (playback.title or playback.artist or playback.image_url)) or resumed_playback:
+            navigate_now = not suppress_navigation
+            self.temporaryWakeRequested.emit(10, navigate_now)
+        if self._playback_track_changed(old, playback):
+            self.playbackTrackChanged.emit()
+        self._set_status_text(self.tr_key("connected" if self.paired else "ready_to_pair"))
+
+    @Slot(str, object)
+    def _apply_media_list(self, kind: str, items: object) -> None:
+        if self._demo_mode:
+            return
+        if not isinstance(items, list):
+            return
+        if kind == "queue":
+            self._queue_items = items
+        elif kind == "playlists":
+            self._playlist_items = items
+        else:
+            return
+        self.mediaListsChanged.emit()
+
+    @Slot(object)
+    def _apply_ask_dj_data(self, data: object) -> None:
+        if self._demo_mode:
+            return
+        if not self._profile_result_current(data):
+            return
+        if not isinstance(data, dict):
+            return
+        self._apply_profile_context(data)
+        clear_revision = _int_value(data.get("clear_revision"), self._ask_dj_clear_revision)
+        messages_value = data.get("messages")
+        clear_ack = (
+            data.get("cleared") is True
+            or (
+                data.get("success") is True
+                and "clear_revision" in data
+                and isinstance(messages_value, list)
+                and not messages_value
+            )
+        )
+        if clear_revision > self._ask_dj_clear_revision or clear_ack:
+            self._clear_ask_dj_cache(reset_revisions=False)
+            self._ask_dj_clear_revision = max(self._ask_dj_clear_revision, clear_revision)
+            self._ask_dj_history_revision = max(self._ask_dj_history_revision, _int_value(data.get("history_revision"), self._ask_dj_history_revision))
+            self._set_backend_available(True)
+            if clear_ack:
+                return
+        trimmed_before = str(data.get("history_trimmed_before") or "").strip()
+        if trimmed_before:
+            self._ask_dj_messages = [m for m in self._ask_dj_messages if str(m.get("created_at") or m.get("server_time") or "") >= trimmed_before]
+        trimmed_count = _int_value(data.get("history_trimmed_count"), 0)
+        if trimmed_count > 0:
+            self._ask_dj_messages = _sort_ask_dj_messages_newest_first(_sort_ask_dj_messages(self._ask_dj_messages)[trimmed_count:])
+        messages = parse_ask_dj_messages(data)
+        if messages:
+            self._merge_ask_dj_messages(messages, limit=_int_value(data.get("history_limit"), 100))
+        else:
+            self.askDjChanged.emit()
+        self._ask_dj_history_revision = max(self._ask_dj_history_revision, _int_value(data.get("history_revision"), self._ask_dj_history_revision))
+        self._set_backend_available(True)
+
+    def _merge_ask_dj_messages(self, messages: list[dict[str, object]], limit: int = 100) -> None:
+        merged = list(self._ask_dj_messages)
+        next_arrival_index = max((_int_value(message.get("_arrival_index"), index) for index, message in enumerate(merged)), default=-1) + 1
+        index_by_key: dict[str, int] = {}
+        for index, message in enumerate(merged):
+            for key in _ask_dj_message_keys(message):
+                index_by_key[key] = index
+        for message in messages:
+            match_index = next((index_by_key[key] for key in _ask_dj_message_keys(message) if key in index_by_key), None)
+            if match_index is not None:
+                if not message.get("created_at"):
+                    message["created_at"] = merged[match_index].get("created_at", "")
+                if not message.get("displayTime"):
+                    message["displayTime"] = merged[match_index].get("displayTime", "")
+                merged[match_index] = {**merged[match_index], **message, "pending": False}
+                for key in _ask_dj_message_keys(merged[match_index]):
+                    index_by_key[key] = match_index
+            else:
+                message = {**message, "_arrival_index": next_arrival_index}
+                next_arrival_index += 1
+                merged.append(message)
+                for key in _ask_dj_message_keys(message):
+                    index_by_key[key] = len(merged) - 1
+        latest_messages = _sort_ask_dj_messages(merged)[-max(1, limit):]
+        self._ask_dj_messages = _sort_ask_dj_messages_newest_first(latest_messages)
+        self.askDjChanged.emit()
+
+    def _clear_ask_dj_cache(self, *, reset_revisions: bool = True) -> None:
+        self._ask_dj_messages = []
+        self._ask_dj_poll_error_count = 0
+        self._ask_dj_poll_in_flight = False
+        self._ask_dj_unavailable_until = 0.0
+        if reset_revisions:
+            self._ask_dj_history_revision = 0
+            self._ask_dj_clear_revision = 0
+        self.askDjChanged.emit()
+
+    def _apply_profile_context(self, data: dict[str, object]) -> None:
+        before = self._profile_cache_key()
+        self.client.apply_profile_context(data)
+        after = self._profile_cache_key()
+        if after != before:
+            _LOGGER.info(
+                "Resolved DJConnect Profile changed type=%s privacy=%s id_present=%s",
+                self.cfg.active_profile_type,
+                self.cfg.active_profile_privacy_mode,
+                bool(self.cfg.active_profile_id),
+            )
+            self._clear_profile_scoped_caches()
+            save_config(self.config_path, self.cfg)
+            self.profileChanged.emit()
+            self.settingsChanged.emit()
+
+    def _private_read_context(self):
+        c = self.cfg
+        return (c.ha_url, c.device_id, c.device_token, c.paired, c.active_profile_id,
+                c.explicit_profile_id, c.private_session, c.active_profile_type,
+                c.active_profile_privacy_mode, c.language,
+                getattr(getattr(self, "_session_controller", None), "_owner_epoch", 0))
+
+    def _profile_read_result(self, data, context):
+        return _ProfileReadResult(data, context) if isinstance(data, dict) else data
+
+    def _profile_result_current(self, data):
+        return (not self._shutting_down and (not isinstance(data, _ProfileReadResult)
+                or data.owner_context == self._private_read_context()))
+
+    @Slot()
+    def _session_owner_changed(self):
+        if self._shutting_down:
+            return
+        self._clear_profile_scoped_caches(preserve_session=True)
+        self._invalidate_shared_settings_if_context_changed()
+        timer = getattr(self, "_settings_reconcile_timer", None)
+        if timer is not None:
+            timer.start()
+
+    def _profile_cache_key(self) -> tuple[str, str, str]:
+        return (self.cfg.active_profile_id, self.cfg.active_profile_type, self.cfg.active_profile_privacy_mode)
+
+    def _clear_profile_scoped_caches(self, *, preserve_session=False) -> None:
+        if not preserve_session and hasattr(self, "_session_controller"):
+            self._session_controller.invalidate()
+        self._shared_settings_epoch += 1
+        self._shared_settings_state = {}
+        self.sharedSettingsChanged.emit()
+        self._clear_ask_dj_cache()
+        self._music_dna_enabled = False
+        self._music_dna_summary = ""
+        self._music_dna_error = ""
+        self._music_dna_sections = []
+        self._set_music_discovery_items([])
+        self._music_discovery_empty_text = ""
+        self._music_discovery_error = ""
+        self._music_discovery_playing_id = ""
+        self._music_discovery_feedback_supported = False
+        self._music_discovery_consent_rejected = False
+        self._track_insight_revision += 1
+        self._clear_track_insight()
+        self.musicDnaChanged.emit()
+        self.musicDiscoveryChanged.emit()
+
+    def _set_ask_dj_busy(self, value: bool) -> None:
+        if self._ask_dj_busy == value:
+            return
+        self._ask_dj_busy = value
+        self.askDjChanged.emit()
+
+    def _set_music_dna_busy(self, value: bool) -> None:
+        if self._music_dna_busy == value:
+            return
+        self._music_dna_busy = value
+        self.musicDnaChanged.emit()
+
+    def _set_music_discovery_busy(self, value: bool) -> None:
+        if self._music_discovery_busy == value:
+            return
+        self._music_discovery_busy = value
+        self.musicDiscoveryChanged.emit()
+
+    def _set_favorite_busy(self, value: bool) -> None:
+        if self._favorite_busy == value:
+            return
+        self._favorite_busy = value
+        self.favoriteBusyChanged.emit()
+
+    def _set_music_discovery_items(self, items: list[dict[str, object]]) -> None:
+        if items != self._music_discovery_items:
+            self._music_discovery_items = items
+            self.musicDiscoveryItemsChanged.emit()
+
+    def _clear_music_discovery_playing(self) -> None:
+        self._music_discovery_playing_id = ""
+        self.musicDiscoveryChanged.emit()
+
+    @Slot(object)
+    def _apply_music_dna_data(self, data: object) -> None:
+        if self._demo_mode:
+            return
+        if not self._profile_result_current(data):
+            return
+        if not isinstance(data, dict):
+            return
+        if data.get("success") is False:
+            code = data.get("error")
+            key = "session_profile_missing" if isinstance(code, str) and code in PROFILE_ERROR_CODES | {"music_dna_context_changed"} else "backend_unavailable"
+            self._music_dna_error = self.tr_key(key)
+            self._music_dna_summary = ""
+            self._music_dna_sections = []
+            self.musicDnaChanged.emit()
+            return
+        self._music_dna_error = ""
+        self._apply_profile_context(data)
+        parsed = parse_music_dna_profile(data, ha_url=self.cfg.ha_url)
+        self._music_dna_enabled = bool(parsed["enabled"])
+        self._music_dna_summary = str(parsed["summary"])
+        self._music_dna_sections = list(parsed["sections"])
+        self._set_backend_available(True)
+        self.musicDnaChanged.emit()
+
+    @Slot(object)
+    def _apply_music_discovery_data(self, data: object) -> None:
+        if self._demo_mode:
+            return
+        if not self._profile_result_current(data):
+            return
+        if not isinstance(data, dict):
+            return
+        error = str(data.get("error") or "")
+        if data.get("success") is False and error != "music_dna_disabled":
+            # Rejected feeds are not content or Profile authority. Never render
+            # their machine error/message as user-facing recommendation text.
+            self._set_music_discovery_items([])
+            self._music_discovery_feedback_supported = False
+            self._music_discovery_empty_text = ""
+            key = "session_profile_missing" if error in PROFILE_ERROR_CODES | {"music_dna_context_changed"} else "backend_unavailable"
+            self._music_discovery_error = self.tr_key(key)
+            self.musicDiscoveryChanged.emit()
+            return
+        self._apply_profile_context(data)
+        self._music_discovery_consent_rejected = False
+        if data.get("enabled") is False or str(data.get("error") or "") == "music_dna_disabled":
+            self._set_music_discovery_items([])
+            self._music_discovery_feedback_supported = False
+            self._music_discovery_error = ""
+            self._music_discovery_empty_text = str(data.get("reason") or data.get("empty_text") or data.get("message") or self.tr_key("music_discovery_requires_music_dna"))
+            self.musicDiscoveryChanged.emit()
+            return
+        parsed = parse_music_discovery_feed(data, ha_url=self.cfg.ha_url)
+        self._set_music_discovery_items(parsed["items"])
+        self._music_discovery_empty_text = parsed["empty_text"]
+        self._music_discovery_feedback_supported = bool(data.get("_feedback_supported") or data.get("feedback_supported") or data.get("supports_feedback"))
+        self._music_discovery_error = ""
+        self._set_backend_available(True)
+        self.musicDiscoveryChanged.emit()
+
+    @Slot(object)
+    def _apply_track_insight_data(self, data: object) -> None:
+        if self._demo_mode:
+            return
+        if not self._application_foreground or not self._profile_result_current(data):
+            return
+        scope = self._track_insight_scope()
+        if isinstance(data, _TrackInsightResult) and data.scope != scope:
+            return
+        if not isinstance(data, dict):
+            return
+        error = str(data.get("error") or "").strip()
+        if error == "no_track_playing":
+            self._clear_track_insight(error=self.tr_key("track_insight_no_track"))
+            return
+        if error == "rate_limited":
+            self._clear_track_insight(error=self.tr_key("track_insight_rate_limited"))
+            return
+        if error:
+            self._clear_track_insight(error=self.tr_key("track_insight_retry"))
+            return
+        messages = parse_ask_dj_messages(data)
+        message = next((item for item in messages if item.get("trackInsight")), None)
+        if not isinstance(message, dict):
+            self._clear_track_insight(error=self.tr_key("track_insight_empty"))
+            return
+        track = message.get("trackInsightData")
+        track_data = track.get("track") if isinstance(track, dict) and isinstance(track.get("track"), dict) else {}
+        analysis = message.get("analysis") if isinstance(message.get("analysis"), dict) else {}
+        image_url = _image_url_from(track_data) if isinstance(track_data, dict) else ""
+        self._track_insight_title = str(track_data.get("title") or self.playback.title or "").strip() if isinstance(track_data, dict) else self.playback.title
+        self._track_insight_artist = str(track_data.get("artist") or self.playback.artist or "").strip() if isinstance(track_data, dict) else self.playback.artist
+        self._track_insight_album = str(track_data.get("album") or "").strip() if isinstance(track_data, dict) else ""
+        self._track_insight_image_url = cached_image_url(image_url) if image_url else self.playback.image_url
+        self._track_insight_text = str(message.get("text") or "").strip()
+        self._track_insight_error = ""
+        self._track_insight_items = list(message.get("items")) if isinstance(message.get("items"), list) else []
+        self._track_insight_sections = list(analysis.get("sections")) if isinstance(analysis.get("sections"), list) else []
+        self._track_insight_visualizer = _track_insight_visualizer(track, self._track_insight_items, self._track_insight_sections) if isinstance(track, dict) else {}
+        self._track_insight_result_scope = scope
+        self._set_backend_available(True)
+        self.trackInsightChanged.emit()
+
+    @staticmethod
+    def _playback_track_changed(previous: Playback, current: Playback) -> bool:
+        if not current.title.strip() or (not previous.title.strip() and not current.is_playing):
+            return False
+        if previous.uri.strip() and current.uri.strip():
+            return previous.uri.strip() != current.uri.strip()
+        # A late URI or new artwork does not identify a different track.
+        return (previous.title.strip().casefold(), previous.artist.strip().casefold()) != (
+            current.title.strip().casefold(), current.artist.strip().casefold(),
+        )
+
+    @staticmethod
+    def _track_insight_subject(playback: Playback) -> tuple[str, ...]:
+        if playback.uri.strip():
+            return ("uri", playback.uri.strip())
+        return ("metadata", *(value.strip().casefold() for value in (playback.title, playback.artist, playback.album)))
+
+    @staticmethod
+    def _track_insight_output(playback: Playback) -> tuple[str, str]:
+        if playback.output_device_id:
+            return ("id", playback.output_device_id)
+        return ("label", playback.output_device)
+
+    def _track_insight_scope(self) -> tuple:
+        return (
+            self._private_read_context(),
+            self._track_insight_revision,
+            self._track_insight_subject(self.playback),
+            self.cfg.music_backend,
+            self.cfg.music_backend_revision,
+            self.cfg.music_target_player.get("id", ""),
+            self._track_insight_output(self.playback),
+        )
+
+    def _clear_track_insight(self, *, error: str = "") -> None:
+        changed = any(
+            (
+                self._track_insight_title,
+                self._track_insight_artist,
+                self._track_insight_album,
+                self._track_insight_image_url,
+                self._track_insight_text,
+                self._track_insight_error,
+                self._track_insight_items,
+                self._track_insight_sections,
+                self._track_insight_visualizer,
+                self._track_insight_result_scope,
+            )
+        )
+        self._track_insight_title = ""
+        self._track_insight_artist = ""
+        self._track_insight_album = ""
+        self._track_insight_image_url = ""
+        self._track_insight_text = ""
+        self._track_insight_error = error
+        self._track_insight_items = []
+        self._track_insight_sections = []
+        self._track_insight_visualizer = {}
+        self._track_insight_result_scope = None
+        if changed or error:
+            self.trackInsightChanged.emit()
+
+    @Slot(str, str)
+    def _apply_output_device_rejection(self, previous: str, attempted: str) -> None:
+        self.playback.output_device = previous
+        self.outputDeviceChanged.emit()
+        _LOGGER.warning("Output device selection rejected: %s", attempted)
+
+    def _is_cached_output_device(self, value: str) -> bool:
+        normalized = value.strip().casefold()
+        if not normalized:
+            return False
+        for item in self.playback.output_device_details:
+            names = {
+                str(item.get("name") or "").strip().casefold(),
+                str(item.get("value") or "").strip().casefold(),
+            }
+            if normalized in names and item.get("cached") is True:
+                return True
+        return False
+
+    @Slot(bool, str)
+    def _apply_pairing(self, paired: bool, message: str) -> None:
+        if paired:
+            self._set_backend_available(True)
+        if self._version_mismatch_visible:
+            self._version_mismatch_visible = False
+            self._version_mismatch_text = ""
+            self.versionMismatchChanged.emit()
+        if paired:
+            self._pairing_success_visible = True
+            self.pairedChanged.emit()
+            self.settingsChanged.emit()
+            self.pairingSuccessChanged.emit()
+        self._set_status_text(message)
+
+    @Slot(str)
+    def _set_status_text(self, value: str) -> None:
+        if self._status_text == value:
+            return
+        self._status_text = value
+        self.statusTextChanged.emit()
+
+    def _set_backend_available(self, value: bool) -> None:
+        if self._backend_available == value:
+            return
+        self._backend_available = value
+        self.backendAvailableChanged.emit()
+
+    def _persist_backend_summary(self) -> None:
+        self._invalidate_shared_settings_if_context_changed()
+        try:
+            if save_config(self.config_path, self.cfg, skip_unchanged=True):
+                self.settingsChanged.emit()
+                self.favoriteChanged.emit()
+                self.djAnnouncementChanged.emit()
+        except Exception as exc:  # noqa: BLE001 - config persistence failures are reported without interrupting renderer state
+            _LOGGER.warning("Could not persist music backend summary: %s", exc)
+
+    def _set_busy(self, value: bool) -> None:
+        if self._busy == value:
+            return
+        self._busy = value
+        self.busyChanged.emit()
+
+    @Slot(str, str)
+    def _apply_version_mismatch(self, client_version: str, ha_version: str) -> None:
+        self._version_mismatch_text = self.tr_key(
+            "version_mismatch_message",
+            client=client_version,
+            ha=ha_version,
+            required=f"{client_version.rsplit('.', 1)[0]}.x",
+        )
+        self._version_mismatch_visible = True
+        self.versionMismatchChanged.emit()
+        self.showToastForContext(self.tr_key("version_mismatch_title"), "updates")
+        self._trigger_update_service()
+
+    def _trigger_update_service(self) -> None:
+        if self._update_service_triggered:
+            return
+        self._update_service_triggered = True
+        try:
+            _LOGGER.info("Triggering djconnect-updater.service after version mismatch")
+            subprocess.Popen(["systemctl", "start", "djconnect-updater.service"])
+        except Exception as exc:  # noqa: BLE001 - updater launch is best-effort after a version mismatch
+            _LOGGER.warning("Could not trigger updater service after version mismatch: %s", exc)
+
+    @Slot()
+    def shutdown(self) -> None:
+        self._shutting_down = True
+        self._edge_back_gesture.cancel()
+        _LOGGER.info("Stopping DJConnect Pi client backend")
+        self._poll_timer.stop()
+        self._event_timer.stop()
+        self._shared_settings_timer.stop()
+        self._startup_settings_timer.stop()
+        self._startup_refresh_timer.stop()
+        self._settings_reconcile_timer.stop()
+        self._session_controller.setForeground(False)
+        self._session_controller.shutdownImages()
+        self._session_executor.shutdown(wait=False, cancel_futures=True)
+        self._question_executor.shutdown(wait=False, cancel_futures=True)
+        self._executor.shutdown(wait=False, cancel_futures=True)
+
+    @Slot()
+    def _poll_local_events(self) -> None:
+        self._poll_dj_response_event()
+        self._poll_command_event()
+        self._poll_screenshot_event()
+
+    def _poll_dj_response_event(self) -> None:
+        path = Path(self.cfg.dj_response_file)
+        if not path.exists():
+            return
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            path.unlink(missing_ok=True)
+        except (OSError, json.JSONDecodeError) as exc:
+            _LOGGER.warning("Failed to read local DJ response event file: %s", exc)
+            return
+        if isinstance(data, dict):
+            _LOGGER.info("Displaying DJ response from local API daemon event")
+            self._show_dj_response(data)
+
+    def _poll_command_event(self) -> None:
+        path = Path(self.cfg.command_event_file)
+        if not path.exists():
+            return
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            path.unlink(missing_ok=True)
+        except (OSError, json.JSONDecodeError) as exc:
+            _LOGGER.warning("Failed to read local command event file: %s", exc)
+            return
+        raw_events = data.get("events") if isinstance(data.get("events"), list) else [data]
+        self._sync_config_from_disk()
+        for event in raw_events:
+            if not isinstance(event, dict):
+                continue
+            command = str(event.get("command") or "").strip()
+            payload = event.get("payload") if isinstance(event.get("payload"), dict) else {}
+            if not command:
+                continue
+            if command == "debug_show_screen":
+                screen = str(payload.get("screen") or "").strip()
+                if screen:
+                    _LOGGER.info("Executing local debug screen request: %s", screen)
+                    self.debugScreenRequested.emit(screen)
+                continue
+            if command == "settings":
+                _LOGGER.info("Executing local web portal settings update")
+                self._sync_config_from_disk()
+                self.languageChanged.emit()
+                self.logLevelChanged.emit()
+                self.screenBrightnessChanged.emit()
+                self.screenTimeoutChanged.emit()
+                self.settingsChanged.emit()
+                self.translationsChanged.emit()
+                continue
+            if command == "forget_pairing":
+                _LOGGER.info("Executing local web portal pairing reset")
+                self.resetPairing()
+                continue
+            if command == "reboot":
+                _LOGGER.info("Executing local web portal reboot request")
+                self.rebootDevice()
+                continue
+            if command == "shutdown":
+                _LOGGER.info("Executing local web portal shutdown request")
+                self.shutdownDevice()
+                continue
+            if command == "check_updates":
+                _LOGGER.info("Executing local web portal update check request")
+                self.checkForUpdates()
+                continue
+            if command in {"play_context_at", "start_playlist"}:
+                item_payload = media_item_payload(command, payload)
+                if not item_payload:
+                    _LOGGER.info("Ignoring local media item request without usable URI: %s", command)
+                    continue
+                _LOGGER.info("Executing local web portal media item request: %s", command)
+                self.playMediaItem(command, item_payload)
+                continue
+            _LOGGER.info("Executing Client API command event from Home Assistant: %s", command)
+            if command in {"previous", "next"}:
+                self.wakeScreenRequested.emit()
+            self.command(command, **{k: v for k, v in payload.items() if k not in {"command", "device_id", "client_type", "version", "firmware", "local_url", "capabilities"}})
+
+    def _poll_screenshot_event(self) -> None:
+        path = Path(self.cfg.screenshot_event_file)
+        if not path.exists():
+            return
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            path.unlink(missing_ok=True)
+        except (OSError, json.JSONDecodeError) as exc:
+            _LOGGER.warning("Failed to read local screenshot event file: %s", exc)
+            return
+        target = Path(str(data.get("target") or self.cfg.screenshot_file)) if isinstance(data, dict) else Path(self.cfg.screenshot_file)
+        try:
+            target.parent.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            _LOGGER.warning("Failed to prepare screenshot directory: %s", exc)
+            return
+        _LOGGER.info("Capturing debug screenshot to %s", target)
+        self.cfg.screenshot_file = str(target)
+        self.wakeScreenRequested.emit()
+        self.screenshotRequested.emit()
+
+
+
+def configure_graphics(cfg: Config, environment: dict[str, str]) -> None:
+    """Request RHI/OpenGL on Pi5 only; never rewrite an explicit override."""
+    if cfg.release_profile == "pi5-arm64":
+        environment.setdefault("QT_QUICK_BACKEND", "rhi")
+        environment.setdefault("QSG_RHI_BACKEND", "opengl")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG_PATH)
+    parser.add_argument("--ha-url", default="")
+    parser.add_argument("--windowed", action="store_true")
+    parser.add_argument("--exit-after-ms", type=int, default=0)
+    parser.add_argument("--log-file", default="")
+    parser.add_argument("--log-level", default="")
+    args = parser.parse_args()
+
+    cfg = load_config(args.config)
+    if args.ha_url:
+        cfg.ha_url = args.ha_url
+        save_config(args.config, cfg)
+    if args.log_file:
+        cfg.log_file = args.log_file
+        save_config(args.config, cfg)
+    if args.log_level:
+        cfg.log_level = args.log_level.upper()
+        save_config(args.config, cfg)
+
+    setup_logging(cfg.log_file, cfg.log_level)
+    _LOGGER.info("Starting DJConnect Pi client")
+    if _LOGGER.isEnabledFor(logging.INFO):
+        log_raspberry_pi_system_info()
+
+    # Select the Pi5 GPU path once at startup so its local toggle can switch
+    # material without restarting. Explicit operator backend settings win.
+    configure_graphics(cfg, os.environ)
+    QQuickStyle.setStyle("Basic")
+    app = QGuiApplication(sys.argv)
+    apply_palette(app)
+    app_icon = QIcon()
+    for size in (16, 20, 24, 32, 40, 64, 128):
+        app_icon.addFile(str(files("djconnect_pi.qml").joinpath(f"brand-mark-{size}.png")))
+    app_icon.addFile(str(files("djconnect_pi.qml").joinpath("app-icon.png")))
+    app.setWindowIcon(app_icon)
+    QPixmapCache.setCacheLimit(QT_PIXMAP_CACHE_LIMIT_KB)
+    engine = QQmlApplicationEngine()
+    backend = DJConnectBackend(args.config)
+    backend.observeLocalAudioDevices()
+    backend.setApplicationForeground(app.applicationState() == Qt.ApplicationState.ApplicationActive)
+    app.applicationStateChanged.connect(lambda state: backend.setApplicationForeground(state == Qt.ApplicationState.ApplicationActive))
+    engine.rootContext().setContextProperty("djconnect", backend)
+    engine.rootContext().setContextProperty("startWindowed", args.windowed)
+    qml_path = files("djconnect_pi.qml").joinpath("Main.qml")
+    engine.load(str(qml_path))
+    if not engine.rootObjects():
+        raise SystemExit(1)
+    app.aboutToQuit.connect(lambda: [obj.deleteLater() for obj in engine.rootObjects()])
+    app.aboutToQuit.connect(backend.shutdown)
+    if args.exit_after_ms > 0:
+        QTimer.singleShot(args.exit_after_ms, app.quit)
+    raise SystemExit(app.exec())
+
+
+def _format_logs_for_display(data: str, max_chars: int = 12000) -> str:
+    lines = data.splitlines()[-220:]
+    formatted: list[str] = []
+    for line in reversed(lines):
+        match = LOG_LINE_RE.match(line)
+        if not match:
+            formatted.append(line)
+            continue
+        level = LOG_LEVEL_SHORT.get(match.group("level"), match.group("level")[:3])
+        formatted.append(f"{match.group('time')} {level} {match.group('rest')}")
+    result = "\n".join(formatted)
+    return result[-max_chars:] if len(result) > max_chars else result
+
+
+def _read_tail_text(path: Path, max_bytes: int) -> str:
+    size = path.stat().st_size
+    with path.open("rb") as handle:
+        if size > max_bytes:
+            handle.seek(-max_bytes, 2)
+        data = handle.read()
+    return data.decode("utf-8", errors="replace")
+
+
+def _elapsed_ms(started: float) -> float:
+    return (time.monotonic() - started) * 1000
+
+
+def _square_wave_pcm(frequency: int, duration_ms: int, sample_rate: int) -> bytes:
+    if sample_rate <= 0:
+        return b""
+    sample_count = max(1, int(sample_rate * duration_ms / 1000))
+    period = max(1, int(sample_rate / max(1, frequency)))
+    amplitude = 1400
+    data = bytearray()
+    for index in range(sample_count):
+        envelope = 1.0 - (index / sample_count)
+        value = int((amplitude if (index % period) < period / 2 else -amplitude) * envelope)
+        data.extend(value.to_bytes(2, "little", signed=True))
+    return bytes(data)
+
+
+def _format_duration(seconds: int) -> str:
+    seconds = max(0, int(seconds))
+    return f"{seconds // 60}:{seconds % 60:02d}"
+
+
+def cached_image_url(url: str, ttl_seconds: int = 24 * 60 * 60, timeout_seconds: float = 8) -> str:
+    url = str(url or "").strip()
+    if not url:
+        return ""
+    parsed = urlparse(url)
+    if parsed.scheme not in {"http", "https"}:
+        return url
+
+    try:
+        cache_dir = DEFAULT_LOG_PATH.parent.parent / "cache" / "album-art"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        suffix = Path(parsed.path).suffix.lower()
+        if suffix not in {".jpg", ".jpeg", ".png", ".webp"}:
+            suffix = ".img"
+        target = cache_dir / f"{hashlib.sha256(url.encode('utf-8')).hexdigest()}{suffix}"
+        if target.exists() and time.time() - target.stat().st_mtime < ttl_seconds:
+            return target.as_uri()
+        response = requests.get(url, timeout=timeout_seconds)
+        response.raise_for_status()
+        target.write_bytes(response.content)
+        return target.as_uri()
+    except Exception as exc:  # noqa: BLE001 - remote artwork is an optional cache enhancement
+        _LOGGER.debug("Album art cache fallback for %s: %s", url, exc)
+        return url
+
+
+def prepare_media_artwork(items: list[dict[str, object]]) -> list[dict[str, object]]:
+    for item in items:
+        image_url = _image_url_from(item)
+        if image_url:
+            item["imageUrl"] = cached_image_url(image_url)
+    return items
+
+
+def demo_queue_items() -> list[dict[str, object]]:
+    return [
+        {
+            "title": "Midnight City",
+            "subtitle": "M83",
+            "uri": "demo:track:0",
+            "duration": 244,
+            "insight_key": "demo_insight_0",
+            "imageUrl": "",
+            "tint": "#d946ef",
+        },
+        {
+            "title": "Sweet Disposition",
+            "subtitle": "The Temper Trap",
+            "uri": "demo:track:1",
+            "duration": 232,
+            "insight_key": "demo_insight_1",
+            "imageUrl": "",
+            "tint": "#a78bfa",
+        },
+        {
+            "title": "Electric Feel",
+            "subtitle": "MGMT",
+            "uri": "demo:track:2",
+            "duration": 228,
+            "insight_key": "demo_insight_2",
+            "imageUrl": "",
+            "tint": "#38bdf8",
+        },
+    ]
+
+
+def demo_playlist_items() -> list[dict[str, object]]:
+    return [
+        {"title": "Friday Night", "subtitle": "", "uri": "demo:playlist:night", "imageUrl": "", "tint": "#d946ef"},
+        {"title": "Dinner Vibes", "subtitle": "", "uri": "demo:playlist:dinner", "imageUrl": "", "tint": "#64748b"},
+        {"title": "DJConnect", "subtitle": "", "uri": "demo:playlist:djconnect", "imageUrl": "", "tint": "#8b5cf6"},
+    ]
+
+
+def parse_queue_items(data: dict[str, object]) -> list[dict[str, object]]:
+    raw_queue = _first_present(data, ("queue",))
+    context_uri = str(_first_present(data, ("context_uri", "contextUri")) or "")
+    if isinstance(raw_queue, dict):
+        raw_items = raw_queue.get("items")
+        context_uri = str(raw_queue.get("context_uri") or raw_queue.get("contextUri") or raw_queue.get("queue_context") or raw_queue.get("queueContext") or context_uri)
+    elif isinstance(raw_queue, list):
+        raw_items = raw_queue
+    else:
+        raw_items = None
+    if not isinstance(raw_items, list):
+        return []
+    return _dedupe_queue_items([parsed for item in raw_items[:100] if isinstance(item, dict) and (parsed := _queue_item(item, context_uri))])
+
+
+def parse_playlist_items(data: dict[str, object]) -> list[dict[str, object]]:
+    raw_items = _first_present(data, ("playlists", "items"))
+    if not isinstance(raw_items, list):
+        return []
+    return [parsed for item in raw_items[:100] if isinstance(item, dict) and (parsed := _media_item(item, playlist=True))]
+
+
+def _dedupe_queue_items(items: list[dict[str, object]]) -> list[dict[str, object]]:
+    seen: set[tuple[str, str, str, str]] = set()
+    deduped: list[dict[str, object]] = []
+    for item in items:
+        key = (
+            str(item.get("uri") or "").strip().casefold(),
+            str(item.get("title") or "").strip().casefold(),
+            str(item.get("subtitle") or "").strip().casefold(),
+            str(item.get("imageUrl") or "").strip(),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(item)
+    if len(items) > 1 and len(deduped) == 1:
+        return []
+    return deduped
+
+
+def _media_item(item: dict[str, object], playlist: bool = False) -> dict[str, object] | None:
+    title = str(item.get("name") or item.get("title") or item.get("display_title") or item.get("track_name") or "")
+    subtitle = str(item.get("artist") or item.get("artist_name") or item.get("artists") or item.get("subtitle") or item.get("album") or "")
+    uri = str(item.get("uri") or item.get("id") or item.get("value") or item.get("playlist_uri") or item.get("track_uri") or "")
+    context_uri = str(item.get("context_uri") or item.get("contextUri") or item.get("queue_context") or item.get("queueContext") or "")
+    index = item.get("index")
+    image_url = _image_url_from(item)
+    if playlist:
+        subtitle = str(item.get("owner") or item.get("owner_name") or item.get("description") or subtitle)
+        if not title or not uri:
+            return None
+    result: dict[str, object] = {
+        "title": title,
+        "subtitle": subtitle,
+        "uri": uri,
+        "imageUrl": image_url,
+        "tint": "#8b5cf6" if playlist else "#38bdf8",
+    }
+    if not playlist:
+        result["contextUri"] = context_uri
+        result["index"] = index if isinstance(index, int) else None
+    return result
+
+
+def _queue_item(item: dict[str, object], queue_context_uri: str = "") -> dict[str, object] | None:
+    title = str(item.get("title") or item.get("name") or item.get("display_title") or item.get("track_name") or "")
+    artist = str(item.get("artist") or item.get("artist_name") or item.get("subtitle") or "")
+    album = str(item.get("album") or item.get("album_name") or "")
+    uri = str(item.get("uri") or item.get("id") or item.get("track_uri") or "")
+    context_uri = str(item.get("context_uri") or item.get("contextUri") or item.get("queue_context") or item.get("queueContext") or queue_context_uri)
+    index = item.get("index")
+    image_url = _queue_image_url_from(item)
+    return {
+        "title": title,
+        "subtitle": artist,
+        "artist": artist,
+        "album": album,
+        "uri": uri,
+        "imageUrl": image_url,
+        "tint": "#38bdf8",
+        "contextUri": context_uri,
+        "index": index if isinstance(index, int) else None,
+    }
+
+
+def media_item_payload(command: str, item: object) -> dict[str, object]:
+    if isinstance(item, str):
+        text = item.strip()
+        if text.startswith("{"):
+            try:
+                parsed = json.loads(text)
+            except json.JSONDecodeError:
+                return {}
+            if not isinstance(parsed, dict):
+                return {}
+            item_data = parsed
+            uri = str(item_data.get("uri") or item_data.get("value") or "").strip()
+        else:
+            uri = text
+            item_data = {"uri": uri}
+    elif isinstance(item, dict):
+        item_data = item
+        uri = str(item_data.get("uri") or item_data.get("value") or "").strip()
+    else:
+        return {}
+    if not uri:
+        return {}
+    if command == "start_playlist":
+        return {"value": uri, "uri": uri, "context_uri": uri}
+
+    value: dict[str, object] = {"uri": uri}
+    title = str(item_data.get("title") or "").strip()
+    artist = str(item_data.get("artist") or item_data.get("subtitle") or "").strip()
+    context_uri = str(
+        item_data.get("context_uri")
+        or item_data.get("contextUri")
+        or item_data.get("queue_context")
+        or item_data.get("queueContext")
+        or ""
+    ).strip()
+    index = item_data.get("index")
+    if title:
+        value["title"] = title
+    if artist:
+        value["artist"] = artist
+    if isinstance(index, int):
+        value["index"] = index
+    if context_uri:
+        value["context_uri"] = context_uri
+        if _context_supports_offset(context_uri):
+            value["offset_uri"] = uri
+    return {"value": value, "play": True}
+
+
+def parse_ask_dj_messages(data: dict[str, object]) -> list[dict[str, object]]:
+    raw_messages = _first_present(data, ("messages", "history"))
+    parsed: list[dict[str, object]] = []
+    if isinstance(raw_messages, list):
+        for index, item in enumerate(raw_messages):
+            if isinstance(item, dict):
+                message = _ask_dj_message(item)
+                if message:
+                    message["_source_index"] = index
+                    parsed.append(message)
+        if parsed:
+            return parsed
+    parsed.extend(_ask_dj_legacy_response_messages(data))
+    return parsed
+
+
+def _contains_playback_payload(data: dict[str, object]) -> bool:
+    playback = data.get("playback")
+    if isinstance(playback, dict) and bool(playback):
+        return True
+    return any(
+        data.get(key) not in (None, "")
+        for key in (
+            "title",
+            "track",
+            "track_name",
+            "last_track",
+            "artist",
+            "artists",
+            "image_url",
+            "album_image_url",
+            "is_playing",
+            "playing",
+            "duration",
+            "duration_seconds",
+            "duration_ms",
+        )
+    )
+
+
+def _ask_dj_message(item: dict[str, object]) -> dict[str, object] | None:
+    assistant_payload, text, user_text = _ask_dj_message_content(item)
+    role = str(item.get("role") or item.get("sender") or "").strip().lower()
+    kind = str(item.get("message_kind") or item.get("kind") or "").strip().lower()
+    recent_history = _is_recently_played_history(item)
+    track_insight = _is_track_insight(item)
+    if not text and track_insight:
+        text = _track_insight_text(item)
+    if _ask_dj_message_is_empty(item, text, user_text, track_insight):
+        return None
+    role, text = _ask_dj_message_role_and_text(role, kind, text, user_text)
+    actions = _ask_dj_message_actions(item, track_insight)
+    text = _ask_dj_display_text(text, actions)
+    track_insight_data = _track_insight_data(item) if track_insight else {}
+    announcement = _ask_dj_announcement(item)
+    message = _ask_dj_message_metadata(item)
+    message.update(
+        {
+        "role": role,
+        "messageKind": kind or role,
+        "origin": str(item.get("origin") or ""),
+        "text": text,
+        "created_at": str(item.get("created_at") or item.get("timestamp") or item.get("server_time") or ""),
+        "images": _ask_dj_images(item.get("images")),
+        "items": _ask_dj_message_items(item, assistant_payload, track_insight_data, track_insight, recent_history),
+        "links": _ask_dj_links(item.get("links"), item.get("sources")),
+        "actions": actions,
+        "announcementDelivery": str(announcement.get("delivery") or ""),
+        "announcementOutput": str(announcement.get("output") or ""),
+        "announcementTargetName": str(announcement.get("target_name") or ""),
+        "announcementWarnings": announcement.get("warnings") or [],
+        "audioUrl": "",
+        "audioType": str(item.get("audio_type") or item.get("audioType") or ""),
+        "trackInsight": track_insight,
+        "trackInsightData": track_insight_data,
+        "musicDnaMatch": _track_insight_music_dna_match(track_insight_data) if track_insight else "",
+        "analysis": _track_insight_analysis(track_insight_data) if track_insight else {},
+        }
+    )
+    message["displayTime"] = _ask_dj_display_time(message["created_at"])
+    return message
+
+
+def _ask_dj_message_metadata(item: dict[str, object]) -> dict[str, object]:
+    return {
+        "id": str(item.get("id") or item.get("message_id") or item.get("server_id") or ""),
+        "client_message_id": str(item.get("client_message_id") or ""),
+        "exchange_id": str(item.get("exchange_id") or ""),
+        "exchange_order": _optional_int(item.get("exchange_order")),
+        "history_revision": _optional_int(item.get("history_revision") or item.get("revision")),
+        "server_order": _optional_int(item.get("server_order") or item.get("order") or item.get("sequence")),
+    }
+
+
+def _ask_dj_message_content(item: dict[str, object]) -> tuple[dict[str, object], str, str]:
+    assistant_message = item.get("assistant_message")
+    assistant_payload = assistant_message if isinstance(assistant_message, dict) else {}
+    assistant_text = _first_present(assistant_payload, ("text", "dj_text", "message"))
+    text = str(
+        _first_present(item, ("text", "dj_text", "message"))
+        or assistant_text
+        or (assistant_message if isinstance(assistant_message, str) else "")
+        or item.get("content")
+        or ""
+    ).strip()
+    return assistant_payload, text, str(item.get("user_message") or "").strip()
+
+
+def _ask_dj_message_is_empty(item: dict[str, object], text: str, user_text: str, track_insight: bool) -> bool:
+    if text or user_text or track_insight:
+        return False
+    return not any(isinstance(item.get(key), list) and item.get(key) for key in ("images", "items", "links", "sources", "playback_actions", "confirmation_actions"))
+
+
+def _ask_dj_message_role_and_text(role: str, kind: str, text: str, user_text: str) -> tuple[str, str]:
+    if role not in {"user", "assistant", "system", "status"}:
+        role = "user" if user_text and not text else "status" if kind == "status" else "system" if kind == "system" else "assistant"
+    if user_text and not text:
+        text = user_text
+    return ("system" if kind == "system" else role), text
+
+
+def _ask_dj_message_actions(item: dict[str, object], track_insight: bool) -> list[dict[str, object]]:
+    playback_actions = item.get("playback_actions")
+    if track_insight:
+        return _ask_dj_actions(playback_actions, None) if isinstance(playback_actions, list) else []
+    return _ask_dj_actions(playback_actions, item.get("confirmation_actions"))
+
+
+def _ask_dj_message_items(
+    item: dict[str, object],
+    assistant_payload: dict[str, object],
+    track_insight_data: dict[str, object],
+    track_insight: bool,
+    recent_history: bool,
+) -> list[dict[str, object]]:
+    if track_insight:
+        return _track_insight_items(track_insight_data)
+    items = _first_present(item, ("items",))
+    if recent_history:
+        return _ask_dj_recently_played_items(items, assistant_payload.get("items"))
+    return _ask_dj_items(items, assistant_payload.get("items"))
+
+
+def _ask_dj_announcement(item: dict[str, object]) -> dict[str, object]:
+    raw = item.get("announcement")
+    if not isinstance(raw, dict):
+        return {}
+    target = raw.get("target") if isinstance(raw.get("target"), dict) else {}
+    warnings = [str(value).strip() for value in raw.get("warnings", []) if str(value).strip()] if isinstance(raw.get("warnings"), list) else []
+    return {
+        "output": str(raw.get("output") or ""),
+        "delivery": str(raw.get("delivery") or ""),
+        "target_name": str(target.get("name") or target.get("entity_id") or raw.get("speaker_name") or ""),
+        "warnings": warnings,
+    }
+
+
+def _is_recently_played_history(item: dict[str, object]) -> bool:
+    intent = item.get("intent")
+    if isinstance(intent, dict):
+        return str(intent.get("intent") or "").strip() == "recently_played_history"
+    return str(intent or item.get("action") or "").strip() == "recently_played_history"
+
+
+def _is_track_insight(item: dict[str, object]) -> bool:
+    intent = item.get("intent")
+    intent_name = ""
+    intent_action = ""
+    if isinstance(intent, dict):
+        intent_name = str(intent.get("intent") or "").strip()
+        intent_action = str(intent.get("action") or "").strip()
+    elif isinstance(intent, str):
+        intent_name = intent.strip()
+    action = str(item.get("action") or intent_action or "").strip()
+    response_type = str(item.get("type") or "").strip()
+    open_screen = str(item.get("open_screen") or "").strip()
+    return (
+        intent_name == "track_insight"
+        or action == "track_insight"
+        or response_type == "track_insight"
+        or open_screen == "track_insight"
+        or isinstance(item.get("track_insight"), dict)
+        or (isinstance(item.get("track"), dict) and isinstance(item.get("analysis"), dict))
+    )
+
+
+def _track_insight_payload(item: dict[str, object]) -> dict[str, object]:
+    payload = item.get("track_insight")
+    return payload if isinstance(payload, dict) else item
+
+
+def _track_insight_text(item: dict[str, object]) -> str:
+    payload = _track_insight_payload(item)
+    error = str(payload.get("error") or item.get("error") or "").strip()
+    if error == "no_track_playing":
+        return "Er speelt nu geen track."
+    if error == "rate_limited":
+        return "Track Insight is even beperkt. Probeer het zo opnieuw."
+    track = payload.get("track")
+    if isinstance(track, dict):
+        title = str(track.get("title") or track.get("name") or "").strip()
+        artist = str(track.get("artist") or track.get("artists") or "").strip()
+        if title and artist:
+            return f"Track Insight: {artist} - {title}"
+        if title:
+            return f"Track Insight: {title}"
+    return "Track Insight"
+
+
+def _track_insight_data(item: dict[str, object]) -> dict[str, object]:
+    payload = _track_insight_payload(item)
+    analysis = payload.get("analysis") if isinstance(payload.get("analysis"), dict) else {}
+    visualizer = _first_dict(
+        payload.get("visualisation"),
+        payload.get("visualization"),
+        payload.get("visualizer"),
+        analysis.get("visualisation"),
+        analysis.get("visualization"),
+        analysis.get("visualizer"),
+    )
+    return {
+        "track": payload.get("track") if isinstance(payload.get("track"), dict) else {},
+        "analysis": _track_insight_allowed_analysis(analysis),
+        "music_dna": payload.get("music_dna") if isinstance(payload.get("music_dna"), dict) else {},
+        "visual_profile": payload.get("visual_profile") if isinstance(payload.get("visual_profile"), dict) else {},
+        "visualizer": visualizer,
+        "colors": _first_present(payload, ("colors", "palette", "gradient")),
+        "mood_context": payload.get("mood_context") if isinstance(payload.get("mood_context"), dict) else {},
+        "language": str(payload.get("language") or item.get("language") or "").strip(),
+        "cache": payload.get("cache") if isinstance(payload.get("cache"), dict) else {},
+        "error": str(payload.get("error") or item.get("error") or "").strip(),
+    }
+
+
+def _track_insight_allowed_analysis(analysis: dict[str, object]) -> dict[str, object]:
+    allowed = {
+        "summary",
+        "full_text",
+        "fullText",
+        "genre",
+        "subgenre",
+        "mood",
+        "vibe",
+        "texture",
+        "emotional_tone",
+        "energy",
+        "danceability",
+        "intensity",
+        "confidence",
+        "production_notes",
+        "instrumentation",
+        "arrangement_notes",
+        "listening_cues",
+        "similar_tracks",
+        "why_it_fits",
+        "whyItFits",
+        "reasons",
+        "sections",
+    }
+    return {key: value for key, value in analysis.items() if key in allowed}
+
+
+def _track_insight_music_dna_match(data: dict[str, object]) -> str:
+    music_dna = data.get("music_dna")
+    if not isinstance(music_dna, dict):
+        return ""
+    raw = music_dna.get("match_percent")
+    if isinstance(raw, (int, float)):
+        return f"{max(0, min(100, int(raw)))}%"
+    return str(raw or "").strip()
+
+
+def _track_insight_visualizer(data: dict[str, object], items: list[dict[str, object]], sections: list[dict[str, object]]) -> dict[str, object]:
+    analysis = data.get("analysis") if isinstance(data.get("analysis"), dict) else {}
+    track = data.get("track") if isinstance(data.get("track"), dict) else {}
+    visualizer = data.get("visualizer") if isinstance(data.get("visualizer"), dict) else {}
+    colors = _track_visualizer_colors(visualizer, data)
+    bars = _track_visualizer_bars(visualizer)
+    source = "backend" if bars else "fallback"
+    if not bars:
+        bars = _track_visualizer_fallback_bars(data, items, sections)
+    if not bars:
+        return {}
+    return {
+        "available": True,
+        "source": source,
+        "bars": bars[:48],
+        "colors": colors[:4],
+        "title": str(track.get("title") or "").strip(),
+        "artist": str(track.get("artist") or "").strip(),
+        "mood": str(analysis.get("mood") or analysis.get("vibe") or "").strip(),
+        "genre": str(analysis.get("genre") or analysis.get("subgenre") or "").strip(),
+        "texture": str(analysis.get("texture") or "").strip(),
+    }
+
+
+def _track_visualizer_bars(visualizer: dict[str, object]) -> list[float]:
+    value = _first_present(visualizer, ("bars", "levels", "waveform", "spectrum", "values"))
+    if isinstance(value, dict):
+        value = value.get("values") or value.get("bars") or value.get("levels")
+    if not isinstance(value, list):
+        return []
+    bars: list[float] = []
+    for item in value:
+        raw = item
+        if isinstance(item, dict):
+            raw = _first_present(item, ("value", "height", "level", "amplitude"))
+        number = _visualizer_number(raw)
+        if number is not None:
+            bars.append(number)
+    return _normalize_visualizer_bars(bars)
+
+
+def _track_visualizer_fallback_bars(data: dict[str, object], items: list[dict[str, object]], sections: list[dict[str, object]]) -> list[float]:
+    analysis = data.get("analysis") if isinstance(data.get("analysis"), dict) else {}
+    metrics: list[float] = []
+    for key in ("energy", "danceability", "intensity", "confidence"):
+        number = _visualizer_number(analysis.get(key))
+        if number is not None:
+            metrics.append(number)
+    for item in items:
+        if isinstance(item, dict):
+            number = _visualizer_number(item.get("value"))
+            if number is not None:
+                metrics.append(number)
+    if not metrics:
+        seed_text = " ".join(
+            str(value)
+            for value in (
+                analysis.get("mood"),
+                analysis.get("vibe"),
+                analysis.get("genre"),
+                analysis.get("texture"),
+                *(section.get("title", "") for section in sections if isinstance(section, dict)),
+            )
+            if value
+        )
+        if seed_text:
+            metrics = [((ord(char) % 13) + 5) / 18 for char in seed_text[:16]]
+    if not metrics:
+        metrics = [0.45, 0.58, 0.52, 0.66]
+    bars: list[float] = []
+    for index in range(36):
+        base = metrics[index % len(metrics)]
+        wave = 0.5 + 0.5 * abs(((index % 12) - 6) / 6)
+        bars.append(max(0.18, min(1.0, base * 0.72 + wave * 0.28)))
+    return bars
+
+
+def _track_visualizer_colors(visualizer: dict[str, object], data: dict[str, object]) -> list[str]:
+    visual_profile = data.get("visual_profile") if isinstance(data.get("visual_profile"), dict) else {}
+    colors: list[str] = []
+    for source in (
+        visualizer.get("colors"),
+        visualizer.get("palette"),
+        visualizer.get("gradient"),
+        data.get("colors"),
+        visual_profile.get("palette"),
+        visual_profile.get("colors"),
+    ):
+        colors.extend(_color_list(source))
+    deduped: list[str] = []
+    for color in colors:
+        if color not in deduped:
+            deduped.append(color)
+    return deduped
+
+
+def _color_list(value: object) -> list[str]:
+    if isinstance(value, dict):
+        result: list[str] = []
+        for key in ("start", "mid", "middle", "end", "primary", "secondary", "accent"):
+            color = _safe_hex_color(value.get(key))
+            if color:
+                result.append(color)
+        return result
+    if isinstance(value, list):
+        return [color for color in (_safe_hex_color(item) for item in value) if color]
+    color = _safe_hex_color(value)
+    return [color] if color else []
+
+
+def _safe_hex_color(value: object) -> str:
+    text = str(value or "").strip()
+    return text if re.fullmatch(r"#[0-9a-fA-F]{6}", text) else ""
+
+
+def _visualizer_number(value: object) -> float | None:
+    if isinstance(value, (int, float)):
+        number = float(value)
+    else:
+        match = re.search(r"-?\d+(?:\.\d+)?", str(value or ""))
+        if not match:
+            return None
+        number = float(match.group(0))
+    if number > 1:
+        number = number / 100.0
+    return max(0.0, min(1.0, number))
+
+
+def _normalize_visualizer_bars(values: list[float]) -> list[float]:
+    if not values:
+        return []
+    peak = max(values)
+    if peak > 0:
+        values = [value / peak for value in values]
+    return [max(0.08, min(1.0, value)) for value in values]
+
+
+def _track_insight_analysis(data: dict[str, object]) -> dict[str, object]:
+    analysis = data.get("analysis")
+    music_dna = data.get("music_dna")
+    sections: list[dict[str, object]] = []
+    if isinstance(analysis, dict):
+        sections.extend(_track_insight_analysis_sections(analysis, data.get("track")))
+    sections.extend(_track_insight_context_sections(data.get("mood_context"), music_dna))
+    return {
+        "sections": sections[:12],
+        "timeline": [],
+        "djTips": [],
+        "limitations": [],
+        "providers": [],
+        "metadata": {},
+    }
+
+
+def _track_insight_analysis_sections(analysis: dict[str, object], track: object) -> list[dict[str, object]]:
+    sections = _track_insight_primary_sections(analysis, track)
+    for key, title in (
+        ("production_notes", "Production"),
+        ("instrumentation", "Instrumentation"),
+        ("arrangement_notes", "Arrangement"),
+        ("listening_cues", "Listening cues"),
+        ("similar_tracks", "Similar tracks"),
+    ):
+        section = _track_insight_detail_section(analysis, key, title)
+        if section:
+            sections.append(section)
+    why = _string_list(analysis.get("why_it_fits") or analysis.get("whyItFits") or analysis.get("reasons"))
+    if why:
+        sections.append(_track_insight_section("why_it_fits", "music_dna", "Why it fits you", details=why))
+    return [*sections, *_ask_dj_analysis_sections(analysis.get("sections"))]
+
+
+def _track_insight_primary_sections(analysis: dict[str, object], track: object) -> list[dict[str, object]]:
+    summary = str(analysis.get("summary") or analysis.get("full_text") or analysis.get("fullText") or "").strip()
+    genre = str(analysis.get("genre") or "").strip()
+    subgenre = str(analysis.get("subgenre") or "").strip()
+    track_genres = _string_list(track.get("genres")) if isinstance(track, dict) else []
+    genre_details = [value for value in [subgenre, *track_genres] if value and value != genre]
+    vibe = str(analysis.get("vibe") or analysis.get("mood") or analysis.get("texture") or analysis.get("emotional_tone") or "").strip()
+    sections: list[dict[str, object]] = []
+    if summary:
+        sections.append(_track_insight_section("summary", "summary", "Summary", body=summary))
+    if genre or genre_details:
+        sections.append(_track_insight_section("genre", "genre", "Genre", body=genre, details=genre_details))
+    if vibe:
+        sections.append(_track_insight_section("vibe", "vibe", "Vibe", body=vibe))
+    return sections
+
+
+def _track_insight_detail_section(analysis: dict[str, object], key: str, title: str) -> dict[str, object] | None:
+    details = _string_list(analysis.get(key))
+    body = str(analysis.get(key) or "").strip() if not details else ""
+    if not body and not details:
+        return None
+    return _track_insight_section(key, key, title, body=body, details=details)
+
+
+def _track_insight_context_sections(mood_context: object, music_dna: object) -> list[dict[str, object]]:
+    sections: list[dict[str, object]] = []
+    if isinstance(mood_context, dict):
+        zone = str(mood_context.get("zone") or mood_context.get("mood_zone") or mood_context.get("label") or "").strip()
+        if zone:
+            sections.append(_track_insight_section("mood_context", "mood_context", "Mood context", body=zone, metadata_context=True))
+    if isinstance(music_dna, dict):
+        summary = str(music_dna.get("summary") or "").strip()
+        if summary:
+            sections.append(_track_insight_section("music_dna", "music_dna", "This expands your Music DNA.", body=summary))
+    return sections
+
+
+def _track_insight_section(
+    section_id: str,
+    kind: str,
+    title: str,
+    *,
+    body: str = "",
+    details: list[str] | None = None,
+    metadata_context: bool = False,
+) -> dict[str, object]:
+    return {
+        "id": section_id,
+        "kind": kind,
+        "title": title,
+        "body": body,
+        "source": "",
+        "confidence": "",
+        "details": details or [],
+        "metadataContext": metadata_context,
+    }
+
+
+def _ask_dj_legacy_response_messages(data: dict[str, object]) -> list[dict[str, object]]:
+    user_text = str(data.get("user_message") or "").strip()
+    assistant_message = data.get("assistant_message")
+    assistant_payload = assistant_message if isinstance(assistant_message, dict) else {}
+    assistant_text = str(
+        assistant_payload.get("text")
+        or assistant_payload.get("dj_text")
+        or assistant_payload.get("message")
+        or (assistant_message if isinstance(assistant_message, str) else "")
+        or data.get("dj_text")
+        or data.get("text")
+        or data.get("message")
+        or data.get("content")
+        or ""
+    ).strip()
+    messages: list[dict[str, object]] = []
+    if user_text:
+        user = _ask_dj_message({**data, "role": "user", "text": user_text, "assistant_message": "", "message": "", "content": ""})
+        if user:
+            user["exchange_order"] = user.get("exchange_order") if user.get("exchange_order") is not None else 0
+            user["_source_index"] = 0
+            messages.append(user)
+    if assistant_text:
+        assistant = _ask_dj_message({**data, "role": "assistant", "text": assistant_text, "user_message": ""})
+        if assistant:
+            assistant["exchange_order"] = assistant.get("exchange_order") if assistant.get("exchange_order") is not None else 1
+            assistant["_source_index"] = 1
+            messages.append(assistant)
+    if messages:
+        return messages
+    response_message = _ask_dj_message(data)
+    if response_message:
+        response_message["_source_index"] = 0
+        return [response_message]
+    return []
+
+
+def _ask_dj_images(value: object) -> list[dict[str, object]]:
+    if not isinstance(value, list):
+        return []
+    images: list[dict[str, object]] = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        url = _image_url_from(item)
+        if url:
+            images.append({"url": cached_image_url(url), "title": str(item.get("title") or item.get("alt") or "")})
+    return images[:6]
+
+
+def _ask_dj_links(*values: object) -> list[dict[str, object]]:
+    links: list[dict[str, object]] = []
+    for value in values:
+        if not isinstance(value, list):
+            continue
+        for item in value:
+            if isinstance(item, str):
+                links.append({"title": item, "url": item, "kind": "link"})
+            elif isinstance(item, dict):
+                url = str(item.get("url") or item.get("href") or "").strip()
+                source = str(item.get("source") or "").strip()
+                title = str(item.get("title") or item.get("label") or item.get("name") or source or item.get("kind") or url).strip()
+                if url or title:
+                    links.append({"title": title, "url": url, "kind": str(item.get("kind") or source or "source"), "source": source})
+    return links[:8]
+
+
+def _ask_dj_items(*values: object) -> list[dict[str, object]]:
+    items: list[dict[str, object]] = []
+    for value in values:
+        if not isinstance(value, list):
+            continue
+        for item in value:
+            if not isinstance(item, dict):
+                continue
+            title = str(item.get("title") or item.get("name") or item.get("track") or item.get("album") or item.get("artist") or "").strip()
+            item_kind = str(item.get("kind") or item.get("type") or "").strip()
+            subtitle = str(item.get("subtitle") or item.get("artist") or item.get("album") or item.get("description") or "").strip()
+            when = str(item.get("played_at") or item.get("time") or item.get("timestamp") or item.get("created_at") or "").strip()
+            image_url = _image_url_from(item)
+            if title or subtitle or image_url:
+                items.append(
+                    {
+                        "title": title,
+                        "subtitle": subtitle,
+                        "value": "",
+                        "time": when,
+                        "kind": item_kind,
+                        "source": str(item.get("source") or "").strip(),
+                        "confidence": "",
+                        "imageUrl": cached_image_url(image_url) if image_url else "",
+                        "trackInsightMetric": False,
+                        "musicDna": False,
+                    }
+                )
+    return items[:20]
+
+
+def _ask_dj_recently_played_items(*values: object) -> list[dict[str, object]]:
+    items: list[dict[str, object]] = []
+    for value in values:
+        if not isinstance(value, list):
+            continue
+        for item in value:
+            if not isinstance(item, dict):
+                continue
+            title = str(item.get("title") or "").strip()
+            subtitle = str(item.get("subtitle") or item.get("artist") or "").strip()
+            if not title and not subtitle:
+                continue
+            items.append(
+                {
+                    "title": title,
+                    "subtitle": subtitle,
+                    "value": str(item.get("value") or ""),
+                    "time": str(item.get("played_at") or item.get("time") or item.get("timestamp") or "").strip(),
+                    "kind": str(item.get("kind") or item.get("type") or "").strip(),
+                    "source": str(item.get("source") or "").strip(),
+                    "confidence": str(item.get("confidence") or ""),
+                    "imageUrl": str(item.get("image_url") or item.get("imageUrl") or ""),
+                    "trackInsightMetric": False,
+                    "musicDna": False,
+                }
+            )
+    return items[:20]
+
+
+def _track_insight_items(data: dict[str, object]) -> list[dict[str, object]]:
+    items: list[dict[str, object]] = []
+    music_dna = data.get("music_dna")
+    analysis = data.get("analysis")
+    match_percent = _track_insight_music_dna_match(data)
+    if match_percent:
+        items.append(
+            {
+                "title": "Music DNA Match",
+                "subtitle": "",
+                "value": match_percent,
+                "time": "",
+                "kind": "music_dna_match",
+                "source": "",
+                "confidence": "",
+                "imageUrl": "",
+                "trackInsightMetric": True,
+                "musicDna": True,
+            }
+        )
+    if isinstance(analysis, dict):
+        for key, title in (("energy", "Energy"), ("danceability", "Danceability"), ("intensity", "Intensity"), ("confidence", "Confidence")):
+            raw = analysis.get(key)
+            if raw not in (None, ""):
+                value = _metric_percent(raw)
+                items.append(
+                    {
+                        "title": title,
+                        "subtitle": "",
+                        "value": value,
+                        "time": "",
+                        "kind": "track_insight_metric",
+                        "source": "",
+                        "confidence": "",
+                        "imageUrl": "",
+                        "trackInsightMetric": True,
+                        "musicDna": False,
+                    }
+                )
+    if isinstance(music_dna, dict):
+        traits = _string_list(music_dna.get("traits") or music_dna.get("signals"))
+        for trait in traits[:4]:
+            items.append(
+                {
+                    "title": trait,
+                    "subtitle": "",
+                    "value": "",
+                    "time": "",
+                    "kind": "music_dna_trait",
+                    "source": "",
+                    "confidence": "",
+                    "imageUrl": "",
+                    "trackInsightMetric": False,
+                    "musicDna": True,
+                }
+            )
+    return items[:20]
+
+
+def _ask_dj_analysis_sections(value: object) -> list[dict[str, object]]:
+    if not isinstance(value, list):
+        return []
+    sections: list[dict[str, object]] = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        section_id = str(item.get("id") or item.get("section_id") or item.get("kind") or item.get("title") or "").strip()
+        title = str(item.get("title") or item.get("label") or section_id.replace("_", " ").title()).strip()
+        if section_id == "metadata_context" and not (item.get("title") or item.get("label")):
+            title = "Context"
+        body = str(item.get("body") or item.get("text") or item.get("description") or item.get("value") or "").strip()
+        source = str(item.get("source") or item.get("provider") or "").strip()
+        confidence = str(item.get("confidence") or "").strip()
+        details = _string_list(item.get("details") or item.get("items") or item.get("bullets"))
+        if title or body or details:
+            sections.append(
+                {
+                    "id": section_id,
+                    "kind": str(item.get("kind") or "").strip(),
+                    "title": title,
+                    "body": body,
+                    "source": source,
+                    "confidence": confidence,
+                    "details": details,
+                    "metadataContext": section_id == "metadata_context" or source == "metabrainz_metadata",
+                }
+            )
+    return sections[:12]
+
+
+def _string_list(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    result: list[str] = []
+    for item in value:
+        text = str(item.get("text") if isinstance(item, dict) else item).strip()
+        if text:
+            result.append(text)
+    return result[:8]
+
+
+def _metric_percent(value: object) -> str:
+    if isinstance(value, (int, float)):
+        numeric = float(value)
+        if 0.0 <= numeric <= 1.0:
+            return f"{round(numeric * 100)}%"
+        if 1.0 < numeric <= 100.0:
+            return f"{round(numeric)}%"
+    return str(value).strip()
+
+
+def _ask_dj_actions(playback_actions: object, confirmation_actions: object) -> list[dict[str, object]]:
+    actions: list[dict[str, object]] = []
+    for value in (playback_actions, confirmation_actions):
+        if not isinstance(value, list):
+            continue
+        for item in value:
+            if not isinstance(item, dict):
+                continue
+            actions.append(_ask_dj_action(item))
+    return actions[:8]
+
+
+def _ask_dj_action(item: dict[str, object]) -> dict[str, object]:
+    kind = str(item.get("kind") or "").strip()
+    action_style = str(item.get("action_style") or "")
+    is_confirmation = kind == "confirmation" or action_style == "confirmation"
+    is_output = _is_output_action(item)
+    is_recommendation = kind in {"track", "album", "artist", "playlist", "track_mix"} or action_style == "play_now"
+    image_url = _image_url_from(item)
+    return {
+        "title": _ask_dj_action_title(item, kind, is_confirmation),
+        "subtitle": str(item.get("subtitle") or item.get("artist") or item.get("description") or "").strip(),
+        "kind": kind,
+        "isOutput": is_output,
+        "isMedia": is_recommendation and not is_output and not is_confirmation,
+        "imageUrl": cached_image_url(image_url) if image_url and is_recommendation else "",
+        "payload": json.dumps(item, ensure_ascii=True),
+    }
+
+
+def _ask_dj_action_title(item: dict[str, object], kind: str, is_confirmation: bool) -> str:
+    title = str(item.get("button_label") or item.get("label") or item.get("title") or item.get("name") or "").strip()
+    if title:
+        return title
+    if is_confirmation:
+        return translate("en", "yes" if str(item.get("response_value") or "").lower() == "yes" else "no")
+    if kind == "control" and str(item.get("command") or "").strip() == "save_current_track":
+        return translate("en", "favorite_action")
+    return translate("en", "play_now")
+
+
+def _image_url_from(item: dict[str, object]) -> str:
+    for key in (
+        "image_url",
+        "imageUrl",
+        "album_image_url",
+        "albumImageUrl",
+        "album_art_url",
+        "albumArtUrl",
+        "art_url",
+        "artUrl",
+        "artwork_url",
+        "artworkUrl",
+        "media_image_url",
+        "mediaImageUrl",
+        "entity_picture",
+        "thumbnail_url",
+        "thumbnailUrl",
+        "thumbnail",
+        "cover_url",
+        "coverUrl",
+        "cover",
+        "image",
+        "picture",
+        "images",
+        "artworks",
+        "thumbnails",
+        "url",
+    ):
+        value = item.get(key)
+        url = _image_url_value(value)
+        if url:
+            return url
+    for key in ("album", "track", "playlist", "show", "episode", "item", "metadata"):
+        nested = item.get(key)
+        if isinstance(nested, dict):
+            url = _image_url_from(nested)
+            if url:
+                return url
+    return ""
+
+
+def _queue_image_url_from(item: dict[str, object]) -> str:
+    for key in ("album_image_url", "image_url", "thumbnail_url", "imageUrl", "thumbnailUrl"):
+        value = item.get(key)
+        if value:
+            return str(value)
+    return _image_url_from(item)
+
+
+def _image_url_value(value: object) -> str:
+    if isinstance(value, str):
+        text = value.strip()
+        if text.startswith(("http://", "https://", "file://")):
+            return text
+        return ""
+    if isinstance(value, dict):
+        return _image_url_from(value)
+    if isinstance(value, list):
+        candidates: list[dict[str, object]] = [item for item in value if isinstance(item, dict)]
+        if candidates:
+            candidates.sort(key=lambda item: int(item.get("width") or item.get("height") or 0), reverse=True)
+            for candidate in candidates:
+                url = _image_url_from(candidate)
+                if url:
+                    return url
+        for item in value:
+            url = _image_url_value(item)
+            if url:
+                return url
+    return ""
+
+
+def _is_output_action(item: dict[str, object]) -> bool:
+    values = {
+        str(item.get("kind") or "").strip().lower(),
+        str(item.get("type") or "").strip().lower(),
+        str(item.get("command") or "").strip().lower(),
+        str(item.get("action") or "").strip().lower(),
+    }
+    return bool(values & {"speaker", "speakers", "output", "outputs", "output_device", "set_output", "select_output"})
+
+
+def _ask_dj_display_text(text: str, actions: list[dict[str, object]]) -> str:
+    output_titles = {
+        _normalized_action_title(str(action.get("title") or ""))
+        for action in actions
+        if action.get("isOutput")
+    }
+    if not text or not output_titles:
+        return text
+    lines: list[str] = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith(("- ", "* ", "• ")):
+            title = _normalized_action_title(stripped[2:])
+            if title in output_titles:
+                continue
+        lines.append(line)
+    return "\n".join(lines).strip()
+
+
+def _normalized_action_title(value: str) -> str:
+    return " ".join(value.strip().casefold().split())
+
+
+def _ask_dj_message_keys(message: dict[str, object]) -> list[str]:
+    keys: list[str] = []
+    message_id = str(message.get("id") or "").strip()
+    if message_id:
+        keys.append(f"id:{message_id}")
+    client_message_id = str(message.get("client_message_id") or "").strip()
+    role = str(message.get("role") or "").strip()
+    if client_message_id and role:
+        keys.append(f"client_message_id:{client_message_id}:role:{role}")
+    return keys
+
+
+def _ask_dj_exchange_order(message: dict[str, object]) -> int:
+    value = message.get("exchange_order")
+    if isinstance(value, int):
+        return value
+    role = str(message.get("role") or "").strip().lower()
+    if role == "user":
+        return 0
+    if role == "assistant":
+        return 1
+    return 2
+
+
+def _ask_dj_order_value(message: dict[str, object]) -> tuple[int, object]:
+    for priority, key in enumerate(("history_revision", "server_order", "created_at", "_arrival_index", "_source_index")):
+        value = message.get(key)
+        if value is None or value == "":
+            continue
+        return priority, value
+    return 99, ""
+
+
+def _sort_ask_dj_messages(messages: list[dict[str, object]]) -> list[dict[str, object]]:
+    exchange_anchor: dict[str, tuple[int, object]] = {}
+    for message in messages:
+        exchange_id = str(message.get("exchange_id") or "").strip()
+        if not exchange_id:
+            continue
+        order_value = _ask_dj_order_value(message)
+        if exchange_id not in exchange_anchor or order_value < exchange_anchor[exchange_id]:
+            exchange_anchor[exchange_id] = order_value
+
+    def sort_key(message: dict[str, object]) -> tuple[object, ...]:
+        exchange_id = str(message.get("exchange_id") or "").strip()
+        order_value = exchange_anchor.get(exchange_id, _ask_dj_order_value(message))
+        client_message_id = str(message.get("client_message_id") or "").strip()
+        return (
+            order_value,
+            exchange_id or client_message_id,
+            _ask_dj_exchange_order(message),
+            _ask_dj_order_value(message),
+        )
+
+    return sorted(messages, key=sort_key)
+
+
+def _sort_ask_dj_messages_newest_first(messages: list[dict[str, object]]) -> list[dict[str, object]]:
+    return list(reversed(_sort_ask_dj_messages(messages)))
+
+
+def _ask_dj_display_time(value: object) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    try:
+        parsed = datetime.fromisoformat(raw)
+    except ValueError:
+        match = re.search(r"\b(\d{2}:\d{2})(?::\d{2})?\b", raw)
+        return match.group(1) if match else ""
+    return parsed.astimezone().strftime("%H:%M")
+
+
+def _int_value(value: object, default: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _optional_int(value: object) -> int | None:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _context_supports_offset(context_uri: str) -> bool:
+    return context_uri.startswith(("spotify:playlist:", "spotify:album:", "spotify:show:"))
+
+
+def _toast_icon_for_context(context: str) -> str:
+    return TOAST_CONTEXT_ICONS.get(context.strip().lower(), TOAST_ICON_FALLBACK)
+
+
+def _first_present(data: dict[str, object], keys: tuple[str, ...]) -> object:
+    for key in keys:
+        value = data.get(key)
+        if value is not None:
+            return value
+    for container_key in ("data", "result"):
+        container = data.get(container_key)
+        if isinstance(container, dict):
+            value = _first_present(container, keys)
+            if value is not None:
+                return value
+    return None
+
+
+def _first_dict(*values: object) -> dict[str, object]:
+    for value in values:
+        if isinstance(value, dict):
+            return value
+    return {}
+
+
+def parse_music_dna_profile(data: dict[str, object], *, ha_url: str = "") -> dict[str, object]:
+    profile = data.get("profile")
+    if not isinstance(profile, dict):
+        profile = {}
+    enabled = bool(data.get("enabled"))
+    summary = str(profile.get("summary") or data.get("summary") or "").strip() if enabled else ""
+    return {"enabled": enabled, "summary": summary,
+            "sections": _music_dna_cards(profile, ha_url) if enabled else []}
+
+
+def _music_dna_cards(profile: dict[str, object], ha_url: str) -> list[dict[str, object]]:
+    cards = []
+
+    def block(key):
+        value = profile.get(key)
+        return value if isinstance(value, dict) and value.get("eligible") is not False else {}
+
+    def rows(items, *, artwork=False, limit=5):
+        result = []
+        for item in items[:limit] if isinstance(items, list) else []:
+            if isinstance(item, str) and item.strip():
+                result.append({"title": item.strip()})
+                continue
+            if not isinstance(item, dict):
+                continue
+            title = next((item[key].strip() for key in ("title", "name", "track_name")
+                          if isinstance(item.get(key), str) and item[key].strip()), "")
+            if not title:
+                continue
+            subtitle = " · ".join(value for value in (item.get("artist") or item.get("artist_name"),
+                                                       item.get("album") or item.get("album_name"))
+                                  if isinstance(value, str) and value.strip())
+            count = item.get("play_count", item.get("count"))
+            row = {"title": title, "subtitle": subtitle, "value": item.get("formatted") or "",
+                   "count": count if type(count) is int and count >= 0 else None}
+            if artwork and item.get("image_subject_uri") == item.get("uri") and item.get("image_subject_uri"):
+                row.update(_discovery_artwork(item, ha_url))
+            result.append(row)
+        return result
+
+    def card(key, icon, *, entries=None, groups=None, value="", metric=None, average=None, count=None):
+        if entries or groups or value or metric is not None or average is not None:
+            cards.append({"key": "music_dna_card_" + key, "icon": icon, "rows": entries or [],
+                          "groups": groups or [], "value": value, "metric": metric,
+                          "average": average, "count": count})
+
+    def grouped(title, entries, *, shelf=False):
+        return [{"key": "music_dna_card_" + title, "rows": entries, "shelf": shelf}] if entries else []
+
+    def percentages(items, field, labels):
+        return [{"labelKey": labels.get(str(item[field]).lower(), ""), "title": str(item[field]),
+                 "percent": item["percent"]}
+                for item in items[:7] if isinstance(item, dict) and isinstance(item.get(field), str)
+                and type(item.get("percent")) in (int, float) and 0 <= item["percent"] <= 100] if isinstance(items, list) else []
+
+    zones = {zone: "mood_" + zone for zone in ("chill", "groove", "energy", "party")}
+    dayparts = {value: "music_dna_card_" + key for key, value in
+                (("morning", "ochtend"), ("afternoon", "middag"), ("evening", "avond"), ("night", "nacht"))}
+    dayparts.update({key.removeprefix("music_dna_card_"): key for key in tuple(dayparts.values())})
+    weekdays = {day: "music_dna_card_" + day for day in
+                ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")}
+    weekdays.update({nl: weekdays[en] for nl, en in zip(
+        ("maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag", "zondag"),
+        tuple(weekdays), strict=True)})
+
+    playtime = block("playtime")
+    duration = playtime.get("formatted_total")
+    if not isinstance(duration, str) or not duration:
+        seconds = playtime.get("total_seconds")
+        duration = f"{seconds // 3600}h {seconds // 60 % 60}m" if type(seconds) is int and seconds > 0 else ""
+    genres = ", ".join(entry["title"] for entry in rows(profile.get("favorite_genres"), limit=10))
+    tracks = profile.get("recent_tracks")
+    artists = profile.get("favorite_artists")
+    mood = block("mood")
+    summary = [{"labelKey": "music_dna_card_" + key, "title": str(value)}
+               for key, value in (("playtime", duration),
+                                  ("recent_tracks", len(tracks) if isinstance(tracks, list) else None),
+                                  ("artists", len(artists) if isinstance(artists, list) else None),
+                                  ("favorite_genres", genres)) if value is not None and value != ""]
+    zone = mood.get("zone") or mood.get("average_zone")
+    if isinstance(zone, str) and zone.lower() in zones:
+        summary.append({"labelKey": "music_dna_card_energy", "valueKey": zones[zone.lower()]})
+    card("summary", "waveform", entries=summary)
+    card("favorite_genres", "music", value=genres)
+    card("favorite_artists", "session_persona", groups=grouped("", rows(artists, artwork=True, limit=12), shelf=True))
+    energy = block("energy_profile")
+    percent = energy.get("energy_percent")
+    energy_zone = energy.get("zone")
+    if type(percent) in (int, float) and 0 <= percent <= 100:
+        card("energy", "waveform", metric=percent, count=energy.get("sample_count"),
+             entries=[{"valueKey": zones[energy_zone.lower()]}]
+             if isinstance(energy_zone, str) and energy_zone.lower() in zones else [])
+    rhythm = block("listening_rhythm")
+    card("rhythm", "history", entries=percentages(rhythm.get("dayparts"), "daypart", dayparts),
+         groups=grouped("weekdays", percentages(rhythm.get("weekdays"), "weekday", weekdays)))
+    mix = block("mood_mix")
+    average = mix.get("average")
+    card("mood_mix", "mood_chill", entries=percentages(mix.get("zones"), "zone", zones),
+         average=average if type(average) in (int, float) and 0 <= average <= 100 else None)
+    card("playtime", "history", value=duration,
+         groups=grouped("artists_by_time", rows(playtime.get("top_artists"), limit=3))
+         + grouped("albums_by_time", rows(playtime.get("top_albums"), limit=3)))
+    card("repeat", "repeat", entries=rows(block("repeat_magnets").get("items")))
+    positives = block("explicit_positives")
+    card("positives", "heart", groups=grouped("recent_favorites", rows(positives.get("favorite_tracks")))
+         + grouped("accepted", rows(positives.get("accepted_recommendations"))),
+         entries=rows(positives.get("items")))
+    card("anchors", "sparkles", entries=rows(block("taste_anchors").get("items")))
+    card("recent_tracks", "history", entries=rows(tracks, artwork=True, limit=3))
+    card("recent_favorites", "heart", entries=rows(profile.get("recent_favorite_tracks"), artwork=True, limit=3))
+    for key, icon, shelf in (("top_tracks", "music", False), ("top_artists", "session_persona", True)):
+        ranges = block(key + "_by_range")
+        terms = ("long_term", "medium_term", "short_term") if shelf else ("short_term", "medium_term", "long_term")
+        groups = [group for term in terms
+                  for group in grouped(term, rows(ranges.get(term), artwork=True, limit=12 if shelf else 3), shelf=shelf)]
+        card(key, icon, groups=groups)
+    feedback = block("discovery_feedback")
+    card("feedback", "sparkles", groups=grouped("accepted", rows(feedback.get("accepted_items") or feedback.get("accepted")))
+         + grouped("feedback_hidden", rows(feedback.get("blocked_artists")) + rows(feedback.get("blocked_items"))))
+    return cards
+
+
+def parse_music_discovery_feed(data: dict[str, object], *, ha_url: str = "") -> dict[str, object]:
+    items: list[dict[str, object]] = []
+    sections_source = data.get("sections")
+    if isinstance(sections_source, list):
+        for section_index, section in enumerate(sections_source):
+            if not isinstance(section, dict):
+                continue
+            section_id = str(section.get("id") or section.get("section_id") or f"section-{section_index + 1}").strip()
+            section_title = str(section.get("title") or section.get("name") or "").strip()
+            raw_items = section.get("items")
+            if not isinstance(raw_items, list):
+                continue
+            for raw in raw_items:
+                if not isinstance(raw, dict):
+                    continue
+                item = _music_discovery_item(raw, section_id=section_id, section_title=section_title, ha_url=ha_url)
+                if not item:
+                    continue
+                items.append(item)
+    empty_text = str(data.get("empty_text") or data.get("empty_message") or data.get("message") or "").strip()
+    return {"items": items, "empty_text": empty_text}
+
+
+def _discovery_artwork(raw: dict[str, object], ha_url: str) -> dict[str, object]:
+    empty = {"imageUrl": "", "imageExpiresAt": 0, "imageSourceUrl": ""}
+    source = raw.get("image_url")
+    if not isinstance(source, str) or not source or any(c.isspace() or ord(c) < 32 for c in source):
+        return empty
+    try:
+        url = urlsplit(source)
+        proxy_prefix = f"{DJCONNECT_API_PREFIX}/image_proxy/"
+        legacy_proxy_prefix = f"{DJCONNECT_API_PREFIX.removesuffix('/v1')}/image_proxy/"
+        if url.scheme:
+            if url.scheme not in {"http", "https"} or not url.hostname or url.username or url.password:
+                return empty
+            if url.path.startswith((proxy_prefix + "disc-", legacy_proxy_prefix + "disc-")):
+                # Scoped grants are issued as relative paths on the configured HA.
+                return empty
+            return {**empty, "imageUrl": source}
+        if not source.startswith(proxy_prefix) or not re.fullmatch(
+            r"disc-[A-Za-z0-9_-]{32}|(?!disc-)[A-Za-z0-9_-]{1,128}", source[len(proxy_prefix):]
+        ):
+            return empty
+        if ha_url:
+            origin = urlsplit(ha_url)
+            if (origin.scheme not in {"http", "https"} or not origin.hostname or origin.username
+                    or origin.password or origin.query or origin.fragment or origin.path not in {"", "/"}):
+                return empty
+            source = f"{origin.scheme}://{origin.netloc}{source}"
+    except ValueError:
+        return empty
+    if not url.path.rsplit("/", 1)[-1].startswith("disc-"):
+        return {**empty, "imageUrl": source}
+
+    if not ha_url:
+        return empty
+    expires = raw.get("image_expires_at")
+    now = time.time()
+    attribution = raw.get("image_attribution")
+    if (type(expires) not in (int, float) or not now < expires <= now + 900
+            or not isinstance(attribution, dict)
+            or attribution.get("provider") != "spotify"):
+        return empty
+    media = attribution.get("media_uri")
+    if not isinstance(media, str) or not re.fullmatch(r"spotify:(?:track|album|artist):[A-Za-z0-9]{22}", media):
+        return empty
+    spotify_url = "https://open.spotify.com/" + media.removeprefix("spotify:").replace(":", "/")
+    if attribution.get("source_url") != spotify_url:
+        return empty
+    return {"imageUrl": source, "imageExpiresAt": expires * 1000, "imageSourceUrl": spotify_url}
+
+
+def _music_discovery_item(raw: dict[str, object], *, section_id: str, section_title: str, ha_url: str) -> dict[str, object] | None:
+    kind = str(raw.get("kind") or "").strip().lower()
+    title = str(raw.get("title") or "").strip()
+    if not title:
+        return None
+    subtitle = str(raw.get("subtitle") or "").strip()
+    item_id = str(raw.get("id") or "").strip()
+    discovery_item_id = str(raw.get("discovery_item_id") or raw.get("id") or "").strip()
+    uri = str(raw.get("uri") or "").strip()
+    reason = str(raw.get("reason") or "").strip()
+    reason_sources = _string_list(raw.get("reason_sources"))
+    quality_score = raw.get("quality_score")
+    quality_band = str(raw.get("quality_band") or "").strip()
+    quality_factors = raw.get("quality_factors") if isinstance(raw.get("quality_factors"), (dict, list)) else {}
+    playable = bool(uri)
+    payload = {
+        "section_id": section_id,
+        "discovery_item_id": discovery_item_id,
+    }
+    return {
+        "id": item_id,
+        "sectionId": section_id,
+        "sectionTitle": section_title,
+        "discoveryItemId": discovery_item_id,
+        "title": title,
+        "subtitle": subtitle,
+        "kind": kind,
+        "kindLabel": kind.title(),
+        **_discovery_artwork(raw, ha_url),
+        "qualityScore": quality_score,
+        "qualityBand": quality_band,
+        "qualityFactors": quality_factors,
+        "reason": reason,
+        "reasonSources": reason_sources,
+        "hasReason": bool(reason),
+        "playable": playable,
+        "payload": json.dumps(payload, ensure_ascii=True),
+    }
+
+
+if __name__ == "__main__":
+    main()

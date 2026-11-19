@@ -1,0 +1,105 @@
+# Pi 4.0.0-rc.5 deployment preparation
+
+Peter requested screenshots of the actual deployed shared app on both the 4-inch Pi and Pi10 after a completed slice. This preparation creates a distinct version for the shared Apple-experience candidate; it does not overwrite rc.3 or rc.4, activate a device, publish a release or qualify full parity.
+
+Runtime/installer/bootstrap version is `4.0.0-rc.5`; wheel metadata uses `4.0.0rc5`. Dependencies remain locked. README/bootstrap download examples match the rc.5 candidate and are explicitly gated on its separate publication.
+
+## Fresh device preflight, 20 October 2026
+
+- 4-inch: SSH alias `djconnect-wall-4inch`, actual `rbpi-djconnect`, Raspberry Pi Zero 2 W, aarch64, current `/opt/djconnect/releases/4.0.0-rc.3-pi-zero-2w-arm64`; native app active, browser kiosk inactive. Python3.13.5/PySide6 and Qt6.11.2; paired flag true. No token or Profile identifier was retrieved. About12GiB free; approximately140MiB available memory and1.2GiB free swap. General privileged Python and display reads require a password, but fresh `sudo -n -l` confirms the existing narrowly allowlisted installer paths are NOPASSWD. This is not an installation-access blocker for the normal allowed installer; no sudo rule/password change is needed or authorized.
+- Pi10: SSH alias `djconnect-pi10`, actual `rbpi5-djconnect`, Raspberry Pi5, aarch64, current `/opt/djconnect/releases/4.0.0-rc.4-pi5-arm64`, installed source `16b385ed5d8f79acaa3847d194f442c2cb85671c`; native app active, browser kiosk inactive. Python3.13.5/PySide6 and Qt6.11.2; paired flag false, no explicit/active Profile. X11 reports1200x1920 with existing inverted DSI2 orientation. About102GiB free. No pairing/configuration/display change was made.
+
+The predecessor6078e706 has25successful applicable CI checks/4conditional skips. An in-memory compile of all29 candidate Python modules passed on each ARM runtime; this does not import/install the candidate or render its QML. Exact results are external evidence under `pi-deployment-screenshot-preflight`. No new full-suite or installed proof follows from these checks.
+
+## Delivery gates and capture plan
+
+1. Qualify and independently review the exact rc.5 source; obtain exact-candidate authorization and protected source/main/Finalization readbacks required by normal delivery. A draft PR or green CI alone is insufficient.
+2. Build the same shared wheel into both target profiles, bind immutable artifact SHA256/source/requirements, and qualify ARM/QML separately. Publish only a new explicitly approved version; never substitute `latest` or overwrite rc.4.
+3. Bind installation authority to both actual hosts and exact published artifact hashes. The existing deploy workflow permits only `rbpi-djconnect` and the old operational manifest is not a Pi5 approval. Do not broaden its enum or forge a Core manifest here. Resolve the actual target authority and the actual 4-inch installer-access prerequisite before activation.
+4. Preserve current release directories, pairing/config and Profile selection. Activate one target at a time with native UI/API health and exact installed version/source readback. Stop on failure; retain a known rollback target. Do not auto-pair Pi10 or silently select a Profile to manufacture an active Session screenshot.
+5. Use each installed local loopback `/api/debug/screenshot` scenegraph route over SSH. Capture actual Session/More/controls where genuinely available; label unpaired/unavailable states honestly. Save PNG hashes, dimensions, host/profile identity, timestamp and installed-source/package receipts. Review screenshots before displaying them to Peter; no credentials or pairing codes in published captures. No fixture data injected into the installed app.
+6. Report installed screenshot evidence separately from live HA/Profile, physical touch, audible output, complete Apple parity and hardware performance acceptance.
+
+This preparation does not adopt the new Core Brand2.0.1 assets; the protected handoff is recorded as available for a separate bounded owning-source adoption. No Core/Apple source, release-repository source, operational manifest or other-lane evidence was mutated.
+
+## Review correction and direct deployment instruction
+
+The existing Apple chat independently reviewed exact9f555826 and found one P2 in the shared Session transport: HTTP401/403 was classified only after JSON parsing. Empty/malformed/non-object denial could therefore remain uncertain/invalid and retain the old client Session. The corrected transport checks the current binding first, then treats401/403 as denied before decoding any response body. It neither logs/imports private denial data nor clears device pairing. Superseded binding remains context_changed;503/timeout uncertainty and single-attempt/no-replay semantics remain.
+
+The corrected production bytes pass1376fulltests, including42new denial/binding/serverfailure/controller cases, and128targetedtransport/playbacktests. The actual shared QML playback harness now has100views across5locales/bothformats, including real HTTP-boundary malformed denial causing Session/concept/pop-out withdrawal with pairing preserved. QML source remains unchanged. Earlier150broad views on9f remain separate; no extra full broad run is claimed here.
+
+After being told the review fix, final candidate/artifacts and two-host route were still needed, Peter directly replied in this chat: “ja akkoord om die te deployen”. This records authorization to pursue deployment of the final qualified rc.5 on both named Pi targets and capture their installed screens. It is not a fabricated approval for still-unpublished artifact hashes, a different target, pairing/reset, or a bypass of the required exact operational binding.
+
+Core independently confirmed there is currently no released rc.5 two-host operational binding or matching qualified consumer. The later historical RC2 manifest also binds only its old candidate/rc.2/rbpi-djconnect and explicitly reserves Pi5 for separate targeted deployment/smoke. Both current Pi deployment/smoke workflows still hardcode the RC1 manifest, a single canonical rbpi-djconnect target, a generic artifact regex and one SSH-host binding. Changing an alias/enum/secret is not a qualified two-host route. The exact protected input/smoke/runtime policies, new reviewed operational binding and matching allowlisted physical host/profile consumer must precede dispatch. No Core or workflow source has been changed by this correction.
+
+Additional isolated local package-function checks cover both profiles with existing/new synthetic configs. Exact packaged activate_release/write_initial_config preserve all existing identity/token/Profile/unknown fields except the intentional release_profile value, retain the previous release, and permit an explicit local symlink rollback. Ownership commands were mocked; no root, target activation or automatic rollback is proved. The installer stops UI before downloads/dependency checks and activates before config/unit refresh, so approved deployment must cover explicit failure restoration. Evidence remains outside source in pi-deployment-screenshot-preflight.
+
+
+## Publication guard and package provenance correction
+
+The publication job now depends on the existing Software Assurance governance
+job. Before building, it requires the checked-out commit to be in protected main
+lineage and to carry the exact successful qualified Post-Merge Release Evidence
+status. The requested public version must match the wheel, runtime, protocol and
+both installer defaults. Missing, duplicate or prefix-only changelog headings
+are rejected before building. An actual isolated run of the original package
+step exposed the missing rc.5 changelog section; this section is now present.
+Every generic/profile bundle includes SOURCE_COMMIT before hashing, bound to the
+same commit as its release manifest. Existing immutable-release behavior remains.
+
+These are Pi-owned publication corrections, not a new operational contract or
+permission to deploy. The 65 packaged runtime sources remain byte-identical to
+5922e0ca. Previous local archive hashes are not final published artifact hashes;
+new source-marker/release-note bytes require fresh publication readbacks.
+
+Qualification includes 60 targeted cases (21 new publication tests and 39
+existing installation-contract cases), six offline executions of the actual
+source-gate Bash step, and the actual bundle-building step for generic/Zero2W/Pi5
+with the already qualified wheel substituted for pip wheel. The latter uses a
+synthetic local Git identity: it checks marker/manifest/version/profile/wheel and
+archive hashes, not a real publication or new operational candidate. Diagnostics
+from the missing-changelog run remain preserved. No QML or physical acceptance
+is added by this publication change. Evidence: publication-guards-final under
+pi-deployment-screenshot-preflight; earlier WIP evidence remains separate.
+
+The current actual-root host verification is MATCH after Core's separately
+human-approved retention work. Pi made no changes to other-lane evidence. This
+host readiness is separate from source review, protected publication and the
+still-required two-host operational binding.
+
+
+## Streaming JSON review correction
+
+A second independent runtime P2 found that Session HTTP responses were buffered
+and decoded before any body-size check. Ordinary and isolated routes now request
+streamed responses, reject excessive/invalid declared lengths, and count actual
+decoded bytes, including gzip expansion, before JSON parsing. A streaming lexical
+shape guard limits nesting64 and structural tokens100000 before allocation by the
+JSON parser. Responses always close; isolated sessions remain open until body
+consumption/closure. A fresh JSON tree replaces the redundant deep copy.
+
+The resource ceilings are Pi-local:2MiB control,8MiB active/start/broadcast/question,
+32MiB history/search. No applicable general producer HTTP-byte cap was found;
+DialogueFrame/socket/display limits are different scopes and are not reused.
+Fifty32768-character bodies with worst-case ASCII-escaped Unicode fit the history
+budget; the synthetic transport-shape test preserves every character. This does
+not prove arbitrary producer metadata fits, nor grant display rights. Unsupported
+large/deep responses fail explicitly without fact/attribution truncation.
+
+Current-binding checks precede denial and are repeated during streaming and after
+decode.401/403 never reads bodies; redirects/5xx retain existing classification.
+GET malformed/oversize is invalid, POST is uncertain; neither automatically
+replays. Valid previous scope and original source expiry remain under controller
+policy, never renewed by a rejected body.42new regressions cover exact/over/declared
+boundaries, malformed lengths, gzip expansion, Session changes, timeout/closure,
+escaped punctuation, structural bombs and maximum history text shape.
+
+Local final results:1439fulltests,201targeted and130actualQMLviews on both formats
+in five locales, zero errors/binding loops. Actual Next buttons exercise declared
+and streamed oversize, blocked repeat clicks/explicit refresh, valid exact-boundary
+acknowledgement with the existing independent owner read, and malformed denial.
+Both oversize layouts are visually checked. No production QML or strings change;
+ARM/package/exact independent closure and all delivery gates remain separate.
+Initial diagnostics retain the fixture's incorrect19MiB lower-bound arithmetic
+(the exact text bytes are19660800) and its mistaken expectation of no owner read
+on success; no production threshold, pixel tolerance or workflow guard was relaxed.

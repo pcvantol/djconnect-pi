@@ -1,0 +1,135 @@
+{
+  "success": true,
+  "snapshot": {
+    "contract_version": 3,
+    "defaults": {
+      "persona": "home_dj",
+      "voice": {
+        "kind": "provider_default"
+      },
+      "gender": "default",
+      "mood": "groove",
+      "presence": "balanced",
+      "announcement_output": "client_device"
+    },
+    "defaults_revision": 0,
+    "updated_at": "",
+    "activated": false,
+    "output_choice_confirmed": false,
+    "accepted_contract_version": null,
+    "session": {
+      "session_id": "session-319e19fe2e6149a9bd00ce03b132da4e",
+      "generation": "e379bda57f874de68eee957faaa59d2c",
+      "settings": null,
+      "revision": 0,
+      "defaults_revision": 0,
+      "updated_at": "2026-10-16T19:16:18.841202+00:00",
+      "selection_required": true,
+      "selection_basis": "legacy_mood_unknown"
+    }
+  },
+  "contract_version": 3,
+  "binding": "ff4e9e0f3c0f90538f5f1e328587187e81343b775d8be39313d0b65f6c50ff6b",
+  "scope": "profile_and_active_session",
+  "migration": {
+    "version": 1,
+    "state": "choice_required",
+    "requires_review": true,
+    "complete_selection_fields": [
+      "announcement_output",
+      "gender",
+      "mood",
+      "persona",
+      "presence",
+      "voice"
+    ],
+    "candidates": [],
+    "conflicting_entry_tones": false,
+    "automatic_persona_mapping": false,
+    "selection_basis": "legacy_mood_unknown"
+  },
+  "announcement_output": {
+    "selected": "client_device",
+    "speaker_available": false,
+    "speaker_reason": "announcement_speaker_not_configured",
+    "outputs": [
+      {
+        "value": "both",
+        "available": false
+      },
+      {
+        "value": "client_device",
+        "available": true
+      },
+      {
+        "value": "ha_speaker",
+        "available": false
+      },
+      {
+        "value": "text_only",
+        "available": true
+      }
+    ],
+    "voice_applicability": "applicable",
+    "autoplay_scope": "device_local_default_off"
+  },
+  "allowed_values": {
+    "persona": [
+      "club_dj",
+      "festival_dj",
+      "home_dj",
+      "radio_dj"
+    ],
+    "mood": [
+      "chill",
+      "energy",
+      "groove",
+      "party"
+    ],
+    "presence": [
+      "music_only",
+      "occasional",
+      "balanced",
+      "talkative",
+      "presenter"
+    ],
+    "announcement_output": [
+      "both",
+      "client_device",
+      "ha_speaker",
+      "text_only"
+    ],
+    "voice": {
+      "kinds": [
+        "provider_default",
+        "provider_voice"
+      ],
+      "provider_id": "tts.own_piper_fixture",
+      "voices": [
+        {
+          "voice_id": "fixture-en",
+          "name": "Fixture inventory voice",
+          "gender": null
+        }
+      ]
+    },
+    "gender": [
+      "default"
+    ]
+  },
+  "writable_fields": [
+    "announcement_output",
+    "gender",
+    "mood",
+    "persona",
+    "presence",
+    "voice"
+  ],
+  "voice_revision": "cca59f8ddb452992cabf7f3d",
+  "voice_availability": {
+    "available": true,
+    "reason": null
+  },
+  "as_of": "2026-10-16T19:16:18.861621+00:00",
+  "cache_policy": "private,no-store"
+}

@@ -1,0 +1,38 @@
+name: Semgrep
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  software-assurance-governance:
+    name: Software Assurance governance
+    permissions:
+      contents: read
+    uses: djconnect-music-dj/djconnect-shared-workflows/.github/workflows/software-assurance-governance-aabd.yml@4025a68add8ba98f1f2e0307d7f3998e45c0d9ef
+    with:
+      execution_profile: balanced
+      owner: ${{ github.repository }}
+
+  semgrep:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.14.10"
+
+      - name: Install Semgrep
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install semgrep
+
+      - name: Run Semgrep
+        run: semgrep scan --config auto

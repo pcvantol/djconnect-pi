@@ -1,0 +1,321 @@
+{
+  "info": {
+    "_postman_id": "8c8a6d7a-9a79-4a9b-b49d-djconnectpi",
+    "name": "DJConnect Pi Local Client API",
+    "description": "Local HTTP API exposed by the DJConnect Raspberry Pi client for Home Assistant pairing, discovery diagnostics and backend interaction tests.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "client_api_url",
+      "value": "http://192.168.1.115:18080"
+    },
+    {
+      "key": "device_token",
+      "value": ""
+    },
+    {
+      "key": "device_id",
+      "value": "djconnect-raspberry-pi-ABCDEF123456"
+    },
+    {
+      "key": "pair_code",
+      "value": "123456"
+    },
+    {
+      "key": "ha_url",
+      "value": "http://homeassistant.local:8123"
+    }
+  ],
+  "item": [
+    {
+      "name": "Device Info",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{client_api_url}}/api/device/info",
+          "host": [
+            "{{client_api_url}}"
+          ],
+          "path": [
+            "api",
+            "device",
+            "info"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Pairing Info",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{client_api_url}}/api/device/pairing-info",
+          "host": [
+            "{{client_api_url}}"
+          ],
+          "path": [
+            "api",
+            "device",
+            "pairing-info"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Pair Device",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"device_token\": \"{{device_token}}\",\n  \"ha_local_url\": \"{{ha_url}}\",\n  \"pair_code\": \"{{pair_code}}\"\n}"
+        },
+        "url": {
+          "raw": "{{client_api_url}}/api/device/pair",
+          "host": [
+            "{{client_api_url}}"
+          ],
+          "path": [
+            "api",
+            "device",
+            "pair"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Command: Toggle Play",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{device_token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"command\": \"toggle_play\"\n}"
+        },
+        "url": {
+          "raw": "{{client_api_url}}/api/device/command",
+          "host": [
+            "{{client_api_url}}"
+          ],
+          "path": [
+            "api",
+            "device",
+            "command"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Command: Set Volume",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{device_token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"command\": \"set_volume\",\n  \"value\": 35\n}"
+        },
+        "url": {
+          "raw": "{{client_api_url}}/api/device/command",
+          "host": [
+            "{{client_api_url}}"
+          ],
+          "path": [
+            "api",
+            "device",
+            "command"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Ambient DJ Response",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{device_token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"text\": \"A new DJ moment is ready.\"\n}"
+        },
+        "url": {
+          "raw": "{{client_api_url}}/api/device/dj_response",
+          "host": [
+            "{{client_api_url}}"
+          ],
+          "path": [
+            "api",
+            "device",
+            "dj_response"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Debug Screenshot",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{device_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{client_api_url}}/api/debug/screenshot",
+          "host": [
+            "{{client_api_url}}"
+          ],
+          "path": [
+            "api",
+            "debug",
+            "screenshot"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Restart Raspberry Pi",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{device_token}}"
+          },
+          {
+            "key": "X-DJConnect-Device-ID",
+            "value": "{{device_id}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "url": {
+          "raw": "{{client_api_url}}/api/device/restart",
+          "host": [
+            "{{client_api_url}}"
+          ],
+          "path": [
+            "api",
+            "device",
+            "restart"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Shutdown Raspberry Pi",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{device_token}}"
+          },
+          {
+            "key": "X-DJConnect-Device-ID",
+            "value": "{{device_id}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "url": {
+          "raw": "{{client_api_url}}/api/device/shutdown",
+          "host": [
+            "{{client_api_url}}"
+          ],
+          "path": [
+            "api",
+            "device",
+            "shutdown"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Forget Pairing",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{device_token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "url": {
+          "raw": "{{client_api_url}}/api/device/forget",
+          "host": [
+            "{{client_api_url}}"
+          ],
+          "path": [
+            "api",
+            "device",
+            "forget"
+          ]
+        }
+      }
+    }
+  ],
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test(\"status is 2xx\", function () {",
+          "  pm.expect(pm.response.code).to.be.within(200, 299);",
+          "});",
+          "pm.test(\"response is successful JSON\", function () {",
+          "  const data = pm.response.json();",
+          "  pm.expect(data.success).to.eql(true);",
+          "});"
+        ]
+      }
+    }
+  ]
+}

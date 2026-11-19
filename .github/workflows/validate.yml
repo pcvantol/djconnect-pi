@@ -1,0 +1,149 @@
+name: Validate
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  software-assurance-governance:
+    name: Software Assurance governance
+    permissions:
+      contents: read
+    uses: djconnect-music-dj/djconnect-shared-workflows/.github/workflows/software-assurance-governance-aabd.yml@4025a68add8ba98f1f2e0307d7f3998e45c0d9ef
+    with:
+      execution_profile: balanced
+      owner: ${{ github.repository }}
+
+  python:
+    uses: djconnect-music-dj/djconnect-shared-workflows/.github/workflows/djconnect-python-5f12.yml@4025a68add8ba98f1f2e0307d7f3998e45c0d9ef
+    with:
+      python-version: "3.14.10"
+      source-path: src
+      test-path: tests
+      test-command: >-
+        sudo apt-get update &&
+        sudo apt-get install -y
+        libegl1
+        libgl1
+        libxkbcommon-x11-0
+        libxcb-cursor0
+        libxcb-icccm4
+        libxcb-image0
+        libxcb-keysyms1
+        libxcb-randr0
+        libxcb-render-util0
+        libxcb-shape0
+        libxcb-xinerama0
+        libxcb-xinput0 &&
+        python -m pip install --requirement requirements.lock &&
+        python -m pip install --no-deps -e ".[dev]" &&
+        python -m pytest
+      ruff-continue-on-error: true
+      bandit-continue-on-error: true
+
+  ha-contract-fixture:
+    name: HA contract fixture
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+
+      - name: Run HA HTTP contract fixture
+        run: node Tools/http_e2e_contract.js
+
+      - name: Run HA WebSocket contract fixture
+        run: node Tools/websocket_e2e_contract.js
+
+      - name: Validate HA contract fixture redaction
+        run: node Tools/validate_ha_contract_fixture_security.js
+
+  post-merge-coverage:
+    name: Post-merge coverage evidence
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
+        with:
+          python-version: "3.14.10"
+      - name: Generate exact-SHA coverage report
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libgl1 libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 libxcb-xinput0
+          python -m pip install --requirement requirements.lock
+          python -m pip install --no-deps -e ".[dev]"
+          coverage run -m pytest
+          coverage xml -o coverage.xml
+          printf '%s\n' "$GITHUB_SHA" > coverage-main-sha.txt
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: pi-cobertura-coverage
+          path: |
+            coverage.xml
+            coverage-main-sha.txt
+          if-no-files-found: error
+
+  cleanup-workflow-runs:
+    name: Cleanup workflow runs
+    needs:
+      - python
+      - ha-contract-fixture
+      - post-merge-coverage
+    # Preserve workflow runs as migration and release evidence.
+    if: ${{ false }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      CURRENT_RUN_ID: ${{ github.run_id }}
+      KEEP_RUNS: "2"
+    steps:
+      - name: Delete old completed workflow runs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          protected_run_ids=()
+          pr_head_sha="$(gh api -H 'Accept: application/vnd.github+json' "repos/${GH_REPO}/commits/${GITHUB_SHA}/pulls" --jq '[.[] | select(.merged_at and .base.ref == "main" and .merge_commit_sha == env.GITHUB_SHA)] | if length == 1 then .[0].head.sha else empty end' || true)"
+          if [[ -n "${pr_head_sha}" ]]; then
+            mapfile -t protected_run_ids < <(gh api "repos/${GH_REPO}/actions/runs?head_sha=${pr_head_sha}&per_page=100" --paginate --jq '.workflow_runs[] | .id')
+          fi
+          # Retain publication, qualification and deployment workflow history.
+          # This maintenance job owns only pull-request Validate runs.
+          mapfile -t run_ids < <(
+            gh api --paginate "repos/${GH_REPO}/actions/workflows/validate.yml/runs?event=pull_request&status=completed&per_page=100" \
+              --jq '.workflow_runs[] | .id'
+          )
+
+          deleted_runs=0
+          for index in "${!run_ids[@]}"; do
+            run_id="${run_ids[$index]}"
+            if [[ "${run_id}" == "${CURRENT_RUN_ID}" || " ${protected_run_ids[*]} " == *" ${run_id} "* ]]; then
+              continue
+            fi
+
+            if ((index < KEEP_RUNS)); then
+              continue
+            fi
+
+            if gh api --method DELETE "repos/${GH_REPO}/actions/runs/${run_id}" >/dev/null; then
+              deleted_runs=$((deleted_runs + 1))
+            else
+              echo "Run ${run_id} was already unavailable; continuing." >&2
+            fi
+          done
+          echo "Deleted ${deleted_runs} old completed pull-request Validate run(s)."

@@ -1,0 +1,8 @@
+{
+  "producer_repo": "pcvantol/djconnect",
+  "protected_merge": "e8cc70ddffb4112b09babdda4d45140b98926ae5",
+  "source_path": "examples/client_contracts/profile_session_settings_v3/connected-ha-transport.json",
+  "full_source_fixture_sha256": "79b6d9334791c85cde40fb5c8852421ca504da8bb02a1db834fc9c268b12a1d8",
+  "producer_source_pin": "b58644bcc843d191aa95c87ec2e14cc9c099454b",
+  "qualification": "Exact selected real isolated HA responses from delivered producer fixture; local Pi tests remain source/fixture evidence, not installed HA or physical acceptance."
+}
