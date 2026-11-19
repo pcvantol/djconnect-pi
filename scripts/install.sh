@@ -9,7 +9,7 @@ if [[ -z "${DJCONNECT_VERSION:-}" && ( -e "${SCRIPT_DIRECTORY}/../VERSION" || -L
   [[ "$DJCONNECT_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$ ]] || { echo "Invalid release VERSION value" >&2; exit 64; }
 fi
 # A source checkout without a packaged VERSION uses the latest published stable release.
-DJCONNECT_VERSION="${DJCONNECT_VERSION:-4.0.2}"
+DJCONNECT_VERSION="${DJCONNECT_VERSION:-4.1.0}"
 DJCONNECT_REPO="${DJCONNECT_REPO:-djconnect-music-dj/djconnect-pi-releases}"
 DJCONNECT_HA_URL="${DJCONNECT_HA_URL:-http://homeassistant.local:8123}"
 DJCONNECT_RUNTIME_USER="${DJCONNECT_RUNTIME_USER:-djconnect}"

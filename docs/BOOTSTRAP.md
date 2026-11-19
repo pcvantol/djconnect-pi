@@ -1,7 +1,7 @@
 # Bootstrap a DJConnect Raspberry Pi appliance
 
-The download examples below use the published stable release 4.0.2. The
-source tree also supports release qualification for 4.1.0.
+The download examples below use the published stable release 4.1.0. The
+source tree also supports release qualification for 4.1.1.
 
 Use this guide for both supported native DJConnect appliances: the 10-inch Pi
 5 wall display and the 4-inch Pi Zero 2 W HyperPixel display. Both use the
@@ -204,9 +204,9 @@ completed:
 ```sh
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
-curl -fsSL https://github.com/djconnect-music-dj/djconnect-pi-releases/releases/download/v4.0.2/djconnect-pi-4.0.2.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/djconnect-music-dj/djconnect-pi-releases/releases/download/v4.1.0/djconnect-pi-4.1.0.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-4.0.2
+cd djconnect-pi-4.1.0
 sudo ./scripts/install.sh
 ```
 
@@ -234,9 +234,9 @@ development checkout:
 mkdir -p ~/djconnect-install
 cd ~/djconnect-install
 rm -rf djconnect-pi-* djconnect-pi.tar.gz
-curl -fsSL https://github.com/djconnect-music-dj/djconnect-pi-releases/releases/download/v4.0.2/djconnect-pi-4.0.2.tar.gz -o djconnect-pi.tar.gz
+curl -fsSL https://github.com/djconnect-music-dj/djconnect-pi-releases/releases/download/v4.1.0/djconnect-pi-4.1.0.tar.gz -o djconnect-pi.tar.gz
 tar -xzf djconnect-pi.tar.gz
-cd djconnect-pi-4.0.2
+cd djconnect-pi-4.1.0
 sudo ./scripts/install.sh
 ```
 

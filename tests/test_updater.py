@@ -72,6 +72,145 @@ def test_resolve_release_profile_rejects_unknown_profile() -> None:
         updater.resolve_release_profile("wrong-profile")
 
 
+def test_beta_release_skips_internal_evidence_and_finds_real_release() -> None:
+    evidence = {"tag_name": "internal-ha-" + "a" * 40, "draft": False, "prerelease": True}
+    candidate = {**make_release(), "tag_name": "v4.1.1-rc.1", "prerelease": True}
+
+    class Response:
+        def raise_for_status(self) -> None:
+            pass
+
+        def json(self) -> list[dict[str, Any]]:
+            return [evidence, candidate]
+
+    with patch("djconnect_pi.updater.requests.get", return_value=Response()):
+        assert updater.github_latest_release("owner/repo", include_prerelease=True) == candidate
+
+
+def test_beta_release_scans_past_a_full_page_of_internal_evidence() -> None:
+    class Response:
+        def __init__(self, releases: list[dict[str, Any]]) -> None:
+            self.releases = releases
+
+        def raise_for_status(self) -> None:
+            pass
+
+        def json(self) -> list[dict[str, Any]]:
+            return self.releases
+
+    evidence = {"tag_name": "internal-ha-" + "a" * 40, "draft": False, "prerelease": True}
+    candidate = make_release()
+    with patch("djconnect_pi.updater.requests.get", side_effect=[Response([evidence] * 100), Response([candidate])]) as get:
+        assert updater.github_latest_release("owner/repo", include_prerelease=True) == candidate
+    assert get.call_count == 2
+    assert get.call_args_list[1].kwargs["params"] == {"per_page": 100, "page": 2}
+
+
+def test_beta_release_fails_closed_when_only_evidence_exists() -> None:
+    class Response:
+        def raise_for_status(self) -> None:
+            pass
+
+        def json(self) -> list[dict[str, Any]]:
+            return [{"tag_name": "internal-ha-" + "a" * 40, "draft": False, "prerelease": True}]
+
+    with patch("djconnect_pi.updater.requests.get", return_value=Response()), pytest.raises(
+        RuntimeError, match="No suitable GitHub release"
+    ):
+        updater.github_latest_release("owner/repo", include_prerelease=True)
+
+
+def test_beta_release_selects_highest_semver_not_publication_order() -> None:
+    class Response:
+        def raise_for_status(self) -> None:
+            pass
+
+        def json(self) -> list[dict[str, Any]]:
+            return [
+                {"tag_name": "v4.0.9", "prerelease": False},
+                {"tag_name": "v4.1.1-rc.10", "prerelease": True},
+                {"tag_name": "v4.1.1-rc.2", "prerelease": True},
+                {"tag_name": "v4.1.1", "prerelease": False},
+                {"tag_name": "internal-ha-" + "a" * 40, "prerelease": True},
+            ]
+
+    with patch("djconnect_pi.updater.requests.get", return_value=Response()):
+        assert updater.github_latest_release("owner/repo", include_prerelease=True)["tag_name"] == "v4.1.1"
+
+
+def test_beta_release_compares_versions_across_pages() -> None:
+    class Response:
+        def __init__(self, releases: list[dict[str, Any]]) -> None:
+            self.releases = releases
+
+        def raise_for_status(self) -> None:
+            pass
+
+        def json(self) -> list[dict[str, Any]]:
+            return self.releases
+
+    evidence = {"tag_name": "internal-ha-" + "a" * 40, "prerelease": True}
+    newer = {"tag_name": "v4.1.3", "prerelease": False}
+    older = {"tag_name": "v4.1.1", "prerelease": False}
+    with patch("djconnect_pi.updater.requests.get", side_effect=[Response([newer] + [evidence] * 99), Response([older])]):
+        assert updater.github_latest_release("owner/repo", include_prerelease=True) == newer
+
+
+def test_semver_prerelease_order_and_invalid_numeric_identifier() -> None:
+    assert updater._semver_key("4.1.1-rc.10") > updater._semver_key("4.1.1-rc.2")
+    assert updater._semver_key("4.1.1") > updater._semver_key("4.1.1-rc.10")
+    assert updater._semver_key("4.1.1-rc.01") is None
+
+
+def test_beta_release_rejects_non_list_api_response() -> None:
+    class Response:
+        def raise_for_status(self) -> None:
+            pass
+
+        def json(self) -> dict[str, str]:
+            return {"message": "unexpected response"}
+
+    with patch("djconnect_pi.updater.requests.get", return_value=Response()), pytest.raises(
+        TypeError, match="Invalid GitHub releases response"
+    ):
+        updater.github_latest_release("owner/repo", include_prerelease=True)
+
+
+def test_beta_release_fails_closed_on_incomplete_inventory() -> None:
+    class Response:
+        def raise_for_status(self) -> None:
+            pass
+
+        def json(self) -> list[dict[str, Any]]:
+            return [{"tag_name": "v4.1.0", "prerelease": False}] * 100
+
+    with patch("djconnect_pi.updater.requests.get", return_value=Response()) as get, pytest.raises(
+        RuntimeError, match="pagination limit"
+    ):
+        updater.github_latest_release("owner/repo", include_prerelease=True)
+    assert get.call_count == 5
+
+
+def test_automatic_update_refuses_downgrade_but_explicit_version_allows_it(tmp_path: Path) -> None:
+    (tmp_path / "current").mkdir()
+    (tmp_path / "current" / "VERSION").write_text("4.1.1\n")
+    cfg = updater.UpdaterConfig(repo="owner/repo", channel="beta", release_profile="pi5-arm64", install_root=tmp_path)
+    with patch("djconnect_pi.updater.github_latest_release", return_value=make_release()):
+        assert updater.run(cfg, dry_run=True) == "Already on newer version 4.1.1"
+    with patch("djconnect_pi.updater.public_release", return_value=make_release()):
+        assert json.loads(updater.run(cfg, dry_run=True, release_version="0.2.0"))["version"] == "0.2.0"
+
+
+def test_automatic_update_refuses_unparseable_installed_version(tmp_path: Path) -> None:
+    (tmp_path / "current").mkdir()
+    (tmp_path / "current" / "VERSION").write_text("invalid\n")
+    cfg = updater.UpdaterConfig(repo="owner/repo", channel="beta", release_profile="pi5-arm64", install_root=tmp_path)
+    with patch("djconnect_pi.updater.github_latest_release", return_value=make_release()), pytest.raises(
+        RuntimeError, match="safely compare"
+    ):
+        updater.run(cfg, dry_run=True)
+
+
 def test_include_prerelease_only_for_beta_channel() -> None:
     assert updater.include_prerelease("stable") is False
     assert updater.include_prerelease("beta") is True

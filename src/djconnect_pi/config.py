@@ -13,7 +13,7 @@ from typing import Any
 from .i18n import normalize_language
 
 CLIENT_TYPE = "raspberry_pi"
-PROTOCOL_VERSION = "4.1.0"
+PROTOCOL_VERSION = "4.1.1"
 DEFAULT_CONFIG_PATH = Path.home() / ".config" / "djconnect-pi" / "config.json"
 DEFAULT_LOG_LEVEL = "OFF"
 DEFAULT_UPDATE_REPO = "djconnect-music-dj/djconnect-pi-releases"

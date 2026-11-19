@@ -80,17 +80,57 @@ def include_prerelease(channel: str) -> bool:
     return channel == "beta"
 
 
+def _semver_key(version: str) -> tuple | None:
+    match = re.fullmatch(
+        r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?",
+        version,
+    )
+    if match is None:
+        return None
+    prerelease = match.group(4)
+    identifiers: list[tuple[int, int | str]] = []
+    if prerelease is not None:
+        for item in prerelease.split("."):
+            if item.isdigit():
+                if len(item) > 1 and item.startswith("0"):
+                    return None
+                identifiers.append((0, int(item)))
+            else:
+                identifiers.append((1, item))
+    return (int(match.group(1)), int(match.group(2)), int(match.group(3)),
+            1 if prerelease is None else 0, tuple(identifiers))
+
+
 def github_latest_release(repo: str, include_prerelease: bool) -> dict:
-    response = requests.get(f"https://api.github.com/repos/{repo}/releases", timeout=20)
-    response.raise_for_status()
-    releases = response.json()
-    for release in releases:
-        if release.get("draft"):
-            continue
-        if release.get("prerelease") and not include_prerelease:
-            continue
-        return release
-    raise RuntimeError("No suitable GitHub release found")
+    # Evidence releases share this repository but are not installable versions.
+    # Read the complete bounded inventory before comparing semantic versions.
+    eligible: list[tuple[tuple, dict]] = []
+    for page in range(1, 6):
+        response = requests.get(
+            f"https://api.github.com/repos/{repo}/releases",
+            params={"per_page": 100, "page": page},
+            timeout=20,
+        )
+        response.raise_for_status()
+        releases = response.json()
+        if not isinstance(releases, list):
+            raise TypeError("Invalid GitHub releases response")
+        for release in releases:
+            if not isinstance(release, dict) or release.get("draft"):
+                continue
+            if release.get("prerelease") and not include_prerelease:
+                continue
+            tag = release.get("tag_name")
+            if not isinstance(tag, str) or not tag.startswith("v"):
+                continue
+            key = _semver_key(tag[1:])
+            if key is not None:
+                eligible.append((key, release))
+        if len(releases) < 100:
+            if eligible:
+                return max(eligible, key=lambda item: item[0])[1]
+            raise RuntimeError("No suitable GitHub release found")
+    raise RuntimeError("GitHub release inventory exceeds the safe pagination limit")
 
 
 def public_release_manifest(repo: str, url: str) -> dict:
@@ -493,6 +533,13 @@ def run(cfg: UpdaterConfig, dry_run: bool = False, release_version: str = "") ->
     installed_version = current_version(cfg.install_root)
     if version == installed_version:
         return f"Already on {version}"
+    if not release_version:
+        candidate_key = _semver_key(version)
+        installed_key = _semver_key(installed_version)
+        if candidate_key is None or installed_key is None:
+            raise RuntimeError("Cannot safely compare release versions")
+        if candidate_key < installed_key:
+            return f"Already on newer version {installed_version}"
 
     bundle_url = profile_asset_url(release, version, profile, ".tar.gz")
     checksum_url = profile_asset_url(release, version, profile, ".sha256")
